@@ -1,0 +1,17 @@
+depend2:
+	-rm -rf depsdir edit_deps_lock ; \
+	$(CC) $(CFLAGS) -x c -M $(CFILES) | \
+	sed -e 's/\(.*\)\.pcc\?\.o:/\1.o:/' \
+	-e 's/:[[:space:]]\{1,\}[^[:space:]]\{1,\}/: /' >deps1 	& \
+	$(CC) $(CFLAGS) -x c -M $(PCFILES) |  \
+	sed -e 's/\(.*\)\.pcc\?\.o:/\1.o:/' \
+	-e 's/:[[:space:]]\{1,\}[^[:space:]]\{1,\}/: /' >deps2 	& \
+	$(CC) $(CFLAGS) -x c++ $(CPPFLAGS) -M $(CCFILES) | \
+	sed -e 's/\(.*\)\.pcc\?\.o:/\1.o:/'  \
+	-e 's/:[[:space:]]\{1,\}[^[:space:]]\{1,\}/: /' >deps3 	& \
+	$(CC) $(CFLAGS) -x c++ $(CPPFLAGS) -M $(PCCFILES) | \
+	sed -e 's/\(.*\)\.pcc\?\.o:/\1.o:/'  \
+	-e 's/:[[:space:]]\{1,\}[^[:space:]]\{1,\}/: /' >deps4 	& \
+	wait 
+	-cat deps1 deps2 deps3 deps4 >deps
+

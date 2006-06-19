@@ -1,0 +1,1 @@
+MODULES=astra_main.o locale.o

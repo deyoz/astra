@@ -1,0 +1,9 @@
+#!/bin/sh 
+    
+	if [ ! -s oracle.mk -o ! -r oracle.mk ] ; then 
+        rm -f oracle.mk ; 
+        SERVERLIB_PATH=`grep SERVERLIB_PATH= commonvars1.mk|sed 's/.*=//'`
+	   ln -sf $SERVERLIB_PATH/oracle.mk oracle.mk ; 
+	fi
+
+
