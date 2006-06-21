@@ -48,9 +48,9 @@ let v:this_session=expand("<sfile>:p")
 silent only
 cd ~/NewAstra/Astra2007
 set shortmess=aoO
-badd +0 /tmp/cvsBJTFbm
-args /tmp/cvsBJTFbm
-edit /tmp/cvsBJTFbm
+badd +0 /tmp/cvsGLNIl6
+args /tmp/cvsGLNIl6
+edit /tmp/cvsGLNIl6
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -136,12 +136,12 @@ setlocal nowinfixheight
 setlocal wrap
 setlocal wrapmargin=0
 silent! normal! zE
-let s:l = 1 - ((0 * winheight(0) + 18) / 36)
+let s:l = 1 - ((0 * winheight(0) + 21) / 43)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
 1
-normal! 08l
+normal! 0
 set winheight=1 winwidth=20 shortmess=filnxtToO
 let s:sx = expand("<sfile>:p:r")."x.vim"
 if file_readable(s:sx)

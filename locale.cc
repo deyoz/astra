@@ -1,6 +1,8 @@
 #define NICKNAME "KONST"
 #define NICKTRACE KONST_TRACE
 #include "test.h"
+#include "jxtlib.h"
+#include "astra_callbacks.h"
 
 int init_locale(void)
 {
@@ -72,5 +74,7 @@ int init_locale(void)
   if(getenv("SIRENA_INSTANCE"))
     single_run(getenv("SIRENA_INSTANCE"));
 #endif /* 0 */
+  
+  jxtlib::JXTLib::Instance()->SetCallbacks(new AstraCallbacks()); 
   return 0;
 }

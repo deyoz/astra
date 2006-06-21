@@ -1,1 +1,1 @@
-MODULES=astra_main.o locale.o
+MODULES=astra_main.o locale.o cache.o astra_callbacks.o

@@ -171,7 +171,7 @@ set log1(SOCKET_SHM) $SOCKDIR/logger-socket-shm
 if { ! [ info exists LOGGERMETHOD ] } {
     set LOGGERMETHOD LOGGER_SYSTEM_WRITE
 }
-set log1(FILE)	sirena.log
+set log1(FILE)	astra.log
 if { ! [  info exists log1(LEVEL) ] } {
 	set log1(LEVEL)	19
 }
