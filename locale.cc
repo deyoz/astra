@@ -3,6 +3,8 @@
 #include "test.h"
 #include "jxtlib.h"
 #include "astra_callbacks.h"
+#include "ocilocal.h"
+#include "oralib.h"
 
 int init_locale(void)
 {
@@ -76,5 +78,6 @@ int init_locale(void)
 #endif /* 0 */
   
   jxtlib::JXTLib::Instance()->SetCallbacks(new AstraCallbacks()); 
+  OraSession.Initialize(LD);
   return 0;
 }

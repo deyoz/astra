@@ -1,5 +1,5 @@
 #define NICKNAME "VLAD"
-#define NICKTRACE VLAD_TRACE
+//#define NICKTRACE VLAD_TRACE
 #include "test.h"
 
 #include "daemon.h"
@@ -95,7 +95,7 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
     }
 #endif /* 0 */
     AstraJxtCallbacks *ajc=new AstraJxtCallbacks();
-    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
+    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();    
     return 0;
 }
 
