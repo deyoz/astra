@@ -288,16 +288,16 @@ endif
 LOCALLIBS=\$(XP_TESTINGLIBSSYS) \$(MPATROL_LIBS) \$(CPPLIBS) \$(LDCRYPT)
 EOF
 
-[ -f sirena.cfg ] ||  echo "cp  sirena.cf sirena.cfg ;  chmod +w sirena.cfg"
-[ -f sirena.cfg ] ||  cp  sirena.cf sirena.cfg &&  chmod +w sirena.cfg
+#[ -f sirena.cfg ] ||  echo "cp  sirena.cf sirena.cfg ;  chmod +w sirena.cfg"
+#[ -f sirena.cfg ] ||  cp  sirena.cf sirena.cfg &&  chmod +w sirena.cfg
 #[ -f local_def.h ] ||  echo "cp  local_def_example.h local_def.h ;  chmod +w local_def.h"
 #[ -f local_def.h ] ||  cp local_def_example.h local_def.h &&  chmod +w local_def.h
-[ -f local_def.h ] ||  echo "NO local_def.h. Don't forget to copy it"
-[ -f local_def.h ] ||  echo "from old version or local_def_example.h"
-[ -f testing_def.h ] ||  echo "echo > testing_def.h" 
-[ -f testing_def.h ] ||  echo > testing_def.h 
-[ -d airimp ] && touch airimp/deps
-[ -d tests ] && touch tests/deps
+#[ -f local_def.h ] ||  echo "NO local_def.h. Don't forget to copy it"
+#[ -f local_def.h ] ||  echo "from old version or local_def_example.h"
+#[ -f testing_def.h ] ||  echo "echo > testing_def.h" 
+#[ -f testing_def.h ] ||  echo > testing_def.h 
+#[ -d airimp ] && touch airimp/deps
+#[ -d tests ] && touch tests/deps
 if [ "$TCL_MON_PATH" = "" ] ; then
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     echo "ERROR: checkout and compile tclmon module"
