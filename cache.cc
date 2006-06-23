@@ -6,8 +6,8 @@
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
-#define TAG_REFRESH_DATA        "REFRESH_DATA"
-#define TAG_REFRESH_INTERFACE   "REFRESH_INTERFACE"
+#define TAG_REFRESH_DATA        "DATA_VER"
+#define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
 #define TAG_CODE                "CODE"
 
 using namespace std;
@@ -19,23 +19,23 @@ const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""}
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/
 void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
 {
-	tst();
-    vparams.clear();
-    if ( paramNode == NULL ) // отсутствует тег параметров
-      return;
-    xmlNodePtr curNode = paramNode->children;
-    while(curNode) {
-    	string name = upperc( (char*)curNode->name );
-    	string value = NodeAsString(curNode);
-        vparams[ name ].Value = value;
-        ProgTrace( TRACE5, "param name=%s, value=%s", name.c_str(), value.c_str() );
-        xmlNodePtr propNode  = GetNode( "@type", curNode );
-        if ( propNode )
-          vparams[ name ].DataType = (TCacheConvertType)NodeAsInteger( propNode );
-        else  
-          vparams[ name ].DataType = ctString;
-        curNode = curNode->next;
-    }
+  tst();
+  vparams.clear();
+  if ( paramNode == NULL ) // отсутствует тег параметров
+    return;
+  xmlNodePtr curNode = paramNode->children;
+  while(curNode) {
+    string name = upperc( (char*)curNode->name );
+    string value = NodeAsString(curNode);
+    vparams[ name ].Value = value;
+    ProgTrace( TRACE5, "param name=%s, value=%s", name.c_str(), value.c_str() );
+    xmlNodePtr propNode  = GetNode( "@type", curNode );
+    if ( propNode )
+      vparams[ name ].DataType = (TCacheConvertType)NodeAsInteger( propNode );
+    else  
+      vparams[ name ].DataType = ctString;
+    curNode = curNode->next;
+  }
 }
 
 TCacheTable::TCacheTable(xmlNodePtr cacheNode)
@@ -437,9 +437,11 @@ void TCacheTable::XMLData(const xmlNodePtr dataNode)
 
 void TCacheTable::parse_updates(xmlNodePtr rowsNode)
 {
+    tst();
     table.clear();
     if(rowsNode == NULL)
         throw Exception("wrong message format");
+    tst();
     xmlNodePtr rowNode = rowsNode->children;
     while(rowNode) {
     	TRow row;
@@ -458,13 +460,19 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
             row.status = usUnmodified;
         for (int i=0; i<(int)FFields.size(); i++) { /* пробег по полям */
           string strnode = "col[@index ='"+IntToString(i)+"']";
-          if(row.status == usModified)  {
-            row.old_cols.push_back( NodeAsString((char*)string(strnode + "/old").c_str(), rowNode) );
-            row.cols.push_back( NodeAsString((char*)string(strnode + "/new").c_str(), rowNode) );
-          } 
-          else
-            row.cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
-          ProgTrace( TRACE5, "row.cols[%i]=%s", row.cols.size()-1, row.cols[row.cols.size()-1].c_str() );
+          switch(row.status) {
+            case usModified:
+              row.old_cols.push_back( NodeAsString((char*)string(strnode + "/old").c_str(), rowNode) );
+              row.cols.push_back( NodeAsString((char*)string(strnode + "/new").c_str(), rowNode) );
+              break;
+            case usDeleted:
+              row.old_cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );            
+              break;
+            case usInserted:
+              row.cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
+              break;             
+            default:;
+          }
         }
         table.push_back(row);
         rowNode = rowNode->next;
@@ -473,7 +481,7 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
 
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
-    parse_updates(GetNode("query/cache_apply/rows", reqNode));
+    parse_updates(GetNode("rows", reqNode));
 
     int NewTid = -1;
     for(int i = 0; i < 3; i++) {
@@ -534,11 +542,11 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                   }
                   else {
               	    switch(E.Code) {
-              	      case 1: throw Exception("Нарушена уникальность данных1");
+              	      case 1: throw Exception("Нарушена уникальность данных");
               	      case 1400:
-                      case 1407: throw Exception("Не указано значение в одном из обязательных для заполнения полей2");
-                      case 2291: throw Exception("Значение одного из полей ссылается на несуществующие данные3");
-                      case 2292: throw Exception("Невозможно изменить/удалить значение, на которое ссылаются другие данные4");
+                      case 1407: throw Exception("Не указано значение в одном из обязательных для заполнения полей");
+                      case 2291: throw Exception("Значение одного из полей ссылается на несуществующие данные");
+                      case 2292: throw Exception("Невозможно изменить/удалить значение, на которое ссылаются другие данные");
                       default:
                           // !!! запись в лог
                           throw;
@@ -553,14 +561,9 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
 void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
 {
-/*	for ( int i=0; i<row.cols.size(); i++) {
-	  ProgTrace( TRACE5, "row.cols[%d]=%s", i, row.cols[ i ].c_str() );
-	  ProgTrace( TRACE5, "row.old_cols[%d]=%s", i, row.old_cols[ i ].c_str() );
-	}*/
     string value;
     int Idx=0;
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-    	ProgTrace( TRACE5, "FieldName = %s, Idx=%d, VarIdx[0]=%d, VarIdx[1]=%d", iv->Name.c_str(), Idx, iv->VarIdx[0], iv->VarIdx[1] );
         for(int i = 0; i < 2; i++) {
             if(iv->VarIdx[i] >= 0) { // есть индекс переменной
               if(i == 0)
@@ -568,7 +571,8 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
               else 
                   value = row.old_cols[ Idx ];
               Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
-              ProgTrace( TRACE5, "SetVariable value=%s, ind=%d", (char *)value.c_str(), Idx );
+              ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d", 
+                         (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
             }
         }
     }
@@ -619,6 +623,19 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
     // может понадобиться для логирования !!!
 }
 
+int TCacheTable::getIfaceVer() {
+  string stid = Params[ TAG_REFRESH_INTERFACE ].Value;	
+  int res;
+  TrimString( stid );
+  if ( stid.empty() || StrToInt( stid.c_str(), res ) == EOF )
+    res = -1;  
+  return res;
+}
+
+bool TCacheTable::changeIfaceVer() {
+  return ( getIfaceVer() != newitid);
+}
+/*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {  	
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
@@ -637,8 +654,11 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE2, "CacheInterface::SaveCache");	
-  TCacheTable cache( reqNode);
-  cache.ApplyUpdates(reqNode);  
+  TCacheTable cache( reqNode );
+  if ( cache.changeIfaceVer() )
+    throw UserException( "Версия интерфейса изменилась. Обновите данные." );  
+  tst();
+  cache.ApplyUpdates( reqNode );  
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

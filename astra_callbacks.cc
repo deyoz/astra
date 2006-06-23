@@ -1,10 +1,9 @@
 #include "astra_callbacks.h"
 #include "cache.h"
-#include "etick.h"
 
 #define NICKNAME "VLAD"
 #include "test.h"
-
+#include "setup.h"
 #include "jxtlib.h"
 #include "oralib.h"
 #include "ocilocal.h"
@@ -15,7 +14,6 @@ void AstraCallbacks::InitInterfaces()
 {
   ProgTrace(TRACE3, "AstraCallbacks::InitInterfaces");
   new CacheInterface();  
-  new ETSearchInterface();
 };	
 
 void AstraCallbacks::HandleException(std::exception *e)
@@ -50,8 +48,8 @@ void AstraCallbacks::HandleException(std::exception *e)
 	{
 		ProgTrace(TRACE5,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
 		return;
-	/*	ctxt->resDoc = createExceptionDoc(orae->what(),ctxt->GetQueryHandle());
-		addXmlBM(*ctxt);*/
+//		ctxt->resDoc = createExceptionDoc(orae->what(),ctxt->GetQueryHandle());
+		addXmlBM(*ctxt);
 	};
 	EXCEPTIONS::Exception *exp = dynamic_cast<EXCEPTIONS::Exception*>(e);
 	if (exp)
@@ -59,21 +57,21 @@ void AstraCallbacks::HandleException(std::exception *e)
 		ProgTrace(TRACE5,"Exception: %s",exp->what());
 		return;
 	};
-/*	EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
+	EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
 	if (ue)
 	{
-		ctxt->resDoc = createExceptionDoc(ue->what(),ctxt->GetQueryHandle());
+//		ctxt->resDoc = createExceptionDoc(ue->what(),ctxt->GetQueryHandle());
 		addXmlBM(*ctxt);
-	}*/
-	/*OciCpp::ociexception *oe = dynamic_cast<OciCpp::ociexception*>(e);
+	}
+	OciCpp::ociexception *oe = dynamic_cast<OciCpp::ociexception*>(e);
 	if (oe)
 	{
 		ProgTrace(TRACE1, "ociexception: '%s'", oe->what());
-		ctxt->resDoc = createExceptionDoc(getTextByNum(FATAL_ERR),
+/*		ctxt->resDoc = createExceptionDoc(getTextByNum(FATAL_ERR),
 					ctxt->GetQueryHandle(),
-					"Ошибка обращения к базе данных");
-	}*/
-	/*Ticketing::TickExceptions::tick_soft_except *te 
+					"Ошибка обращения к базе данных");*/
+	}
+/*	Ticketing::TickExceptions::tick_soft_except *te 
 		= dynamic_cast<Ticketing::TickExceptions::tick_soft_except*>(e);
 	if (te)
 	{

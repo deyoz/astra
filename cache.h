@@ -109,10 +109,12 @@ class TCacheTable {
         void DeclareVariables(const std::vector<std::string> &vars);
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
+        int getIfaceVer();
     public:
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
+        bool changeIfaceVer();
         TCacheTable(xmlNodePtr cacheNode);
         ~TCacheTable();
 };
