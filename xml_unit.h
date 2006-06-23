@@ -4,19 +4,14 @@
 #include <vector>
 #include <string>
 #include <libxml/parser.h>
+#include "setup.h"
 #include "basic.h"
 #include "exceptions.h"
 
 class EXMLError: public EXCEPTIONS::Exception
 {
   public:
-	EXMLError(const char *format, ...): EXCEPTIONS::Exception("") {
-    	va_list ap;
-    	va_start(ap, format);
-    	vsnprintf(Message, sizeof(Message), format, ap);
-        Message[sizeof(Message)-1]=0;
-    	va_end(ap);
-    };
+    EXMLError(const std::string &msg):Exception(msg) {};	
 };
 
 xmlNodePtr GetNode(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);

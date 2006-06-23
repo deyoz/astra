@@ -105,7 +105,7 @@ xmlNodePtr NodeAsNode(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   return node;
 };
 
@@ -128,7 +128,7 @@ bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");  
   return strcmp(NodeContent(node),"")==0;
 };
 
@@ -151,7 +151,7 @@ char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");  
   return NodeContent(node);
 };
 
@@ -178,9 +178,9 @@ int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");  
   if ( StrToInt( NodeContent(node), Value ) == EOF )
-    throw EXMLError("Cannot convert node '%s' to an Integer",expr);
+    throw EXMLError(string("Cannot convert node '") + expr + "' to an Integer");
   return Value;
 };
 
@@ -207,9 +207,9 @@ double NodeAsFloat(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   if ( StrToFloat( NodeContent(node), Value ) == EOF )
-    throw EXMLError("Cannot convert node '%s' to an Float",expr);
+    throw EXMLError(string("Cannot convert node '") + expr + "' to an Float");
   return Value;
 };
 
@@ -236,9 +236,9 @@ TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cu
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError("Node '%s' does not exists",expr);
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   if ( StrToDateTime( NodeContent(node), format, Value ) == EOF )
-    throw EXMLError("Cannot convert node '%s' to an DateTime",expr);
+    throw EXMLError(string("Cannot convert node '") + expr + "' to an DateTime");
   return Value;
 };
 

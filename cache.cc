@@ -1,7 +1,7 @@
-//#include <iterator>
 #include "cache.h"
 #include "basic.h"
 #define NICKNAME "DJEK"
+#include "setup.h"
 #include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
@@ -524,7 +524,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                 }
                 catch( EOracleError E ) {
                   if (E.Code>=20000) {
-                    string str = E.Message;
+                    string str = E.what();
                     if (str.substr( 0, 3 ) == "ORA") {
                       size_t s = str.find( ": " );
               	      if ( s != string::npos )
@@ -541,7 +541,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                       case 2292: throw Exception("Невозможно изменить/удалить значение, на которое ссылаются другие данные4");
                       default:
                           // !!! запись в лог
-                          throw Exception(E.Message);
+                          throw;
                     }
                   } /* end else */
                 } /* end try */
@@ -623,7 +623,6 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {  	
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
-  throw std::exception();         
   TCacheTable cache( reqNode );
   tst();
   cache.refresh();
