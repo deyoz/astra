@@ -27,6 +27,14 @@ if [ "$TCL_MON_PATH" = "" ] ; then
         fi
     done
 fi
+if [ "$SHARED_PATH" = "" ] ; then
+    for d in  $LIBROOT/shared ../shared ../../shared ; do
+        if [ -d $d ] ; then
+	    SHARED_PATH=`(cd $d;pwd)`
+            break;
+        fi
+    done
+fi
 if [ "$SERVERLIB_PATH" = "" ] ; then
     for d in  $LIBROOT/serverlib ../serverlib ../../serverlib ; do
         if [ -d $d ] ; then
@@ -104,6 +112,7 @@ JXTLIB_PATH=${JXTLIB_PATH:-${HOME}/jxtlib}
 LIBXML2=${LIBXML2:-/usr}
 LIBXSLT=${LIBXSLT:-/usr}
 EDILIB_PATH=${EDILIB_PATH}
+SHARED_PATH=${SHARED_PATH}
 EOF
 [ -f deps ] || echo >deps
 SRCHOME=`pwd`
@@ -176,6 +185,7 @@ CXX=$LOCALCXX
 BOOST=${BOOST:-boost_not_found}
 TCL_MON_PATH=${TCL_MON_PATH:-tclmon_not_found}
 EDILIB_PATH=${EDILIB_PATH}
+SHARED_PATH=${SHARED_PATH}
 LIBXML2=${LIBXML2:-/usr}
 LIBXSLT=${LIBXSLT:-/usr}
 SRCHOME=${SRCHOME}
