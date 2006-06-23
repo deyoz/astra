@@ -1,5 +1,6 @@
 #include "astra_callbacks.h"
 #include "cache.h"
+#include "etick.h"
 
 #define NICKNAME "VLAD"
 #include "test.h"
@@ -14,6 +15,7 @@ void AstraCallbacks::InitInterfaces()
 {
   ProgTrace(TRACE3, "AstraCallbacks::InitInterfaces");
   new CacheInterface();  
+  new ETSearchInterface();
 };	
 
 void AstraCallbacks::HandleException(std::exception *e)

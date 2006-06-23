@@ -623,7 +623,7 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {  	
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
-  throw Exception("ku-ku");         
+  throw std::exception();         
   TCacheTable cache( reqNode );
   tst();
   cache.refresh();

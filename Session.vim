@@ -48,9 +48,9 @@ let v:this_session=expand("<sfile>:p")
 silent only
 cd ~/NewAstra/Astra2007
 set shortmess=aoO
-badd +0 /tmp/cvsGLNIl6
-args /tmp/cvsGLNIl6
-edit /tmp/cvsGLNIl6
+badd +0 cache.cc
+args cache.cc
+edit cache.cc
 set splitbelow splitright
 set nosplitbelow
 set nosplitright
@@ -78,8 +78,8 @@ setlocal nodiff
 setlocal equalprg=
 setlocal errorformat=
 setlocal expandtab
-if &filetype != 'cvs'
-setlocal filetype=cvs
+if &filetype != ''
+setlocal filetype=
 endif
 setlocal foldcolumn=0
 setlocal foldenable
@@ -125,8 +125,8 @@ setlocal nosmartindent
 setlocal softtabstop=0
 setlocal suffixesadd=
 setlocal swapfile
-if &syntax != 'cvs'
-setlocal syntax=cvs
+if &syntax != ''
+setlocal syntax=
 endif
 setlocal tabstop=4
 setlocal tags=
