@@ -538,15 +538,15 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
               	      if ( s != string::npos )
               	        str = str.substr( s + 2, str.size() - i );
               	    }
-              	    throw Exception( str.c_str() );
+              	    throw UserException( str.c_str() );
                   }
                   else {
               	    switch(E.Code) {
-              	      case 1: throw Exception("Нарушена уникальность данных");
+              	      case 1: throw UserException("Нарушена уникальность данных");
               	      case 1400:
-                      case 1407: throw Exception("Не указано значение в одном из обязательных для заполнения полей");
-                      case 2291: throw Exception("Значение одного из полей ссылается на несуществующие данные");
-                      case 2292: throw Exception("Невозможно изменить/удалить значение, на которое ссылаются другие данные");
+                      case 1407: throw UserException("Не указано значение в одном из обязательных для заполнения полей");
+                      case 2291: throw UserException("Значение одного из полей ссылается на несуществующие данные");
+                      case 2292: throw UserException("Невозможно изменить/удалить значение, на которое ссылаются другие данные");
                       default:
                           // !!! запись в лог
                           throw;
@@ -658,7 +658,8 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( cache.changeIfaceVer() )
     throw UserException( "Версия интерфейса изменилась. Обновите данные." );  
   tst();
-  cache.ApplyUpdates( reqNode );  
+  cache.ApplyUpdates( reqNode );
+  NewTextChild( resNode, "message", "Изменения успешно сохранены" );
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
