@@ -620,7 +620,7 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
                 iv->VarIdx[i] = -1;
         }
     }
-    // может понадобиться для логирования !!! 
+    // может понадобиться для логирования !!!
 }
 
 int TCacheTable::getIfaceVer() {
