@@ -26,7 +26,7 @@ tag:
 depend: depend2 
 
 clean: 
-	-./delc	
+	#-./delc	
 	echo > deps
 	-killall edit_deps2
 	-rm -rf depsdir edit_deps_lock

@@ -7,8 +7,9 @@
 #include "oralib.h"
 #include "astra_utils.h"
 
-#include "JxtInterface.h"		
+#include "JxtInterface.h"
 
+using namespace ASTRA;
 class CacheInterface : public JxtInterface
 {
 public:
@@ -17,13 +18,13 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<CacheInterface>::CreateHandler(&CacheInterface::LoadCache);
      AddEvent("cache",evHandle);
-     evHandle=JxtHandler<CacheInterface>::CreateHandler(&CacheInterface::SaveCache); 	
+     evHandle=JxtHandler<CacheInterface>::CreateHandler(&CacheInterface::SaveCache);
      AddEvent("cache_apply",evHandle);
-  };	
-  
+  };
+
   void LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 
@@ -36,30 +37,30 @@ enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 
 
 struct TCacheField2 {
-    std::string Name; 
-    std::string Title; 
-    int Width; 
-    TCacheFieldCharCase CharCase; 
-    TAlignment Align; 
-    TCacheFieldType DataType; 
-    int DataSize; 
-    int Scale; 
-    bool Nullable; 
-    bool Ident; 
-    bool ReadOnly; 
-    std::string ReferCode; 
-    std::string ReferName; 
-    int ReferLevel; 
+    std::string Name;
+    std::string Title;
+    int Width;
+    TCacheFieldCharCase CharCase;
+    TAlignment Align;
+    TCacheFieldType DataType;
+    int DataSize;
+    int Scale;
+    bool Nullable;
+    bool Ident;
+    bool ReadOnly;
+    std::string ReferCode;
+    std::string ReferName;
+    int ReferLevel;
     int VarIdx[2];
     TCacheField2()
     {
-        Width = 0; 
-        DataSize = 0; 
-        Scale = 0; 
-        Nullable = true; 
-        Ident = false; 
-        ReadOnly = true; 
-        ReferLevel = 0; 
+        Width = 0;
+        DataSize = 0;
+        Scale = 0;
+        Nullable = true;
+        Ident = false;
+        ReadOnly = true;
+        ReferLevel = 0;
         VarIdx[0] = -1;
         VarIdx[1] = -1;
     }
@@ -112,7 +113,7 @@ class TCacheTable {
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
-        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus, 
+        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                         const std::vector<std::string> &vars );
     public:
         void refresh();
