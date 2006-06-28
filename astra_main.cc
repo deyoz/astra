@@ -5,18 +5,10 @@
 #include "daemon.h"
 #include "jxtlib_astra.h"
 #include "astra_main.h"
+#include "tlg/tlg.h"
+#include "timer.h"
 
 using namespace ServerFramework;
-
-int xml_terminal_main(const char *body, int blen, const char *head, int hlen,
-                      char **res, int len)
-{
-  char ans[]="hello";
-  int anslen=strlen(ans);
-  *res=(char *)malloc(hlen + anslen);
-  memcpy(*res+hlen,ans,anslen);
-  return anslen+hlen;
-}
 
 class AstraApplication : public ApplicationCallbacks
 {
@@ -24,13 +16,17 @@ class AstraApplication : public ApplicationCallbacks
     AstraApplication()
     {
       Obrzapnik::getInstance()
-      ->setApplicationCallbacks(this);
+              ->add("tlg_snd", main_snd_tcl)
+              ->add("tlg_srv", main_srv_tcl)
+              ->add("typeb_handler", main_typeb_handler_tcl)
+              ->add("edi_handler", main_edi_handler_tcl)
+              ->add("timer",main_timer_tcl)
+              ->setApplicationCallbacks(this);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
     {
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
-//      return xml_terminal_main(body,blen,head,hlen,res,len);
     }
 /*
     virtual void connect_db()
@@ -95,7 +91,7 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
     }
 #endif /* 0 */
     AstraJxtCallbacks *ajc=new AstraJxtCallbacks();
-    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();    
+    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
     return 0;
 }
 
