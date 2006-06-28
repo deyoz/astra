@@ -5,6 +5,7 @@
 #include <map>
 #include <libxml/tree.h>
 #include "oralib.h"
+#include "astra_utils.h"
 
 #include "JxtInterface.h"		
 
@@ -32,7 +33,6 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
                       ftUnknown, NumFieldType};
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
-
 
 
 struct TCacheField2 {
@@ -75,6 +75,7 @@ typedef std::map<std::string, TParam> TParams;
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
+    std::vector<std::string> new_cols;
     TCacheUpdateStatus status;
     TParams params;
     int index;
@@ -92,6 +93,7 @@ class TCacheTable {
         std::string InsertSQL;
         std::string UpdateSQL;
         std::string DeleteSQL;
+        TEventType EventType;
         bool Logging;
         bool Forbidden, ReadOnly;
         std::vector<TCacheField2> FFields;
@@ -110,6 +112,8 @@ class TCacheTable {
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
+        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus, 
+                        const std::vector<std::string> &vars );
     public:
         void refresh();
         void buildAnswer(xmlNodePtr resNode);

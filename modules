@@ -1,2 +1,2 @@
-MODULES=xml_unit.o astra_main.o locale.o cache.o etick.o astra_callbacks.o \
+MODULES=astra_utils.o xml_unit.o astra_main.o locale.o cache.o etick.o astra_callbacks.o \
         $(SHARED_PATH)/oralib.o $(SHARED_PATH)/basic.o $(SHARED_PATH)/stl_utils.o

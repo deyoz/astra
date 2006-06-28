@@ -6,6 +6,7 @@
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
+#include "astra_utils.h"
 #define TAG_REFRESH_DATA        "DATA_VER"
 #define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
 #define TAG_CODE                "CODE"
@@ -51,7 +52,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
     ReadOnly = true;
     tid = -1;
     itid = -1;
-
+    
     Qry->Clear();
     Qry->SQLText =
         "select "
@@ -79,6 +80,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
     UpdateSQL = Qry->FieldAsString("update_sql");
     DeleteSQL = Qry->FieldAsString("delete_sql");
     Logging = Qry->FieldAsInteger("logging") != 0;
+    EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
     newitid = Qry->FieldAsInteger("tid");
     initFields();
 };
@@ -147,7 +149,6 @@ void TCacheTable::initFields()
     if(Qry->Eof)
         throw Exception((string)"Fields of table '"+code+"' not found");
 
-    vector<int> FFieldsId;
     while(!Qry->Eof) {
         TCacheField2 FField;
 
@@ -230,8 +231,6 @@ void TCacheTable::initFields()
 
         FField.Nullable = Qry->FieldAsInteger("nullable") != 0;
         FField.Ident = Qry->FieldAsInteger("pr_ident") != 0;
-
-        if(FField.Ident) FFieldsId.push_back(FFields.size());
 
         FField.ReadOnly = Qry->FieldAsInteger("read_only") != 0;
         FField.ReferCode = Qry->FieldAsString("refer_code");
@@ -328,21 +327,24 @@ bool TCacheTable::refreshData()
         throw Exception( "Field '" + code +".PR_DEL' not found");
     //читаем кэш
     tst();
-    while(!Qry->Eof) {
-        if(tidIdx >= 0 && Qry->FieldAsInteger(tidIdx) > tid) tid = Qry->FieldAsInteger(tidIdx);
-        TRow row;
-        int j=0;
-        for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++) {
-            if(Qry->FieldIsNULL(vecFieldIdx[ j ] )) row.cols.push_back( "" );
-            else row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
-        }
-        if(delIdx >= 0 &&  Qry->FieldAsInteger(delIdx) != 0)
-            row.status = usDeleted;
-        else
-            row.status = usUnmodified;
-        table.push_back(row);
+    while( !Qry->Eof ) {
+      if(tidIdx >= 0 && Qry->FieldAsInteger(tidIdx) > tid) 
+        tid = Qry->FieldAsInteger(tidIdx);
+      TRow row;
+      int j=0;
+      for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++) {
+        if(Qry->FieldIsNULL(vecFieldIdx[ j ] )) 
+          row.cols.push_back( "" );
+        else 
+          row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+      }
+      if(delIdx >= 0 &&  Qry->FieldAsInteger(delIdx) != 0)
+        row.status = usDeleted;
+      else
+        row.status = usUnmodified;
+      table.push_back(row);
 
-        Qry->Next();
+      Qry->Next();
     }
     tst();
     return !table.empty();
@@ -426,7 +428,7 @@ void TCacheTable::XMLData(const xmlNodePtr dataNode)
     int index = 0;
     for(TTable::iterator it = table.begin(); it != table.end(); it++) {
         xmlNodePtr rowNode = NewTextChild(tabNode, "row");
-        SetProp(rowNode, "pr_del", (it->status ==usDeleted));
+        SetProp(rowNode, "pr_del", (it->status == usDeleted));
         SetProp(rowNode, "index", index++);
         int colidx = 0;
         for(vector<string>::iterator ir = it->cols.begin(); ir != it->cols.end(); ir++,colidx++) {
@@ -479,6 +481,76 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
     }
 }
 
+void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus, 
+                             const std::vector<std::string> &vars )
+{
+  string str1, str2;
+  if ( UpdateStatus == usModified || UpdateStatus == usInserted ) {
+    int Idx=0;
+    for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
+      if ( iv->VarIdx[0] < 0 )
+       continue;
+      if ( !str1.empty() )
+        str1 += ", ";
+        if ( iv->Title.empty() )
+          str1 += iv->Name;
+        else
+          str1 += iv->Title;          
+        str1 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";  
+    }
+  }
+  for (int l=0; l<2; l++ ) {
+    int Idx=0;  	
+    str2 = "";
+    for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
+      ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d", 
+                 l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
+      if ( !l && !iv->Ident ||  /* new variable value !!!iv->VarIdx[i] */
+           UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0 ||
+           UpdateStatus != usInserted && iv->VarIdx[ 1 ] < 0 )
+        continue;
+      if ( !str2.empty() )
+        str2 += ", ";
+      if ( !iv->Title.empty() )
+        str2 += iv->Title;
+      else
+        str2 += iv->Name;
+      if ( UpdateStatus == usInserted )
+        str2 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";
+      else
+        str2 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 1 ] ] ) ) + "'";
+      ProgTrace( TRACE5, "str2=|%s|", str2.c_str() );
+    }
+    if ( !str2.empty() )
+      break;    
+  } 
+  switch( UpdateStatus ) {
+    case usInserted:
+           str1 = "Ввод строки в таблице '" + title + "': " + str1 +
+                  ". Идентификатор: " + str2;
+           break;
+    case usModified:
+           str1 = "Изменение строки в таблице '" + title + "': " + str1 +
+                  ". Идентификатор: " + str2;
+           break;
+    case usDeleted:
+           str1 = "Удаление строки в таблице '" + title + "'"+
+                  ". Идентификатор: " + str2;
+           break;
+    default:;
+  }
+  
+  TLogMsg msg;
+  msg.msg = str1;
+  msg.ev_type = EventType;
+  msg.id1 = 0;
+  msg.id2 = 0;
+  msg.id3 = 0;  
+  ProgTrace( TRACE5, "msg to log %s", msg.msg.c_str() );
+  /*!!!MsgToLog( msg ); */
+	
+}
+
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 {
     parse_updates(GetNode("rows", reqNode));
@@ -529,6 +601,8 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
                 // после вызова на клиенте OnSetVariable            
                 try {
                   Qry->Execute();
+                  if ( Logging )
+                    OnLogging( *iv, status, vars );
                 }
                 catch( EOracleError E ) {
                   if (E.Code>=20000) {
@@ -658,7 +732,14 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if ( cache.changeIfaceVer() )
     throw UserException( "Версия интерфейса изменилась. Обновите данные." );  
   tst();
-  cache.ApplyUpdates( reqNode );
+  cache.ApplyUpdates( reqNode );  
+  cache.refresh();
+  tst();
+  SetProp(resNode, "handle", "1");
+  xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
+  SetProp(ifaceNode, "id", "cache");
+  SetProp(ifaceNode, "ver", "1");
+  cache.buildAnswer(resNode);  	    
   NewTextChild( resNode, "message", "Изменения успешно сохранены" );
 };
 
