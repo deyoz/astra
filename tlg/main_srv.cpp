@@ -50,9 +50,6 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
-//      OpenLogFile(Tcl_GetString(Tcl_GetVar2Ex(interp,"DEFLOGGER",0,TCL_GLOBAL_ONLY)));
-      setLoggingGroup("log1",LOGGER_SYSTEM_SHM,0);
-
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
@@ -67,8 +64,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
         throw Exception("Unknown or wrong SRV_PORT");
 #endif
-      OraSession.LogOn((char *)Tcl_GetVar(interp,"CONNECT_STRING",TCL_GLOBAL_ONLY));
-      if (init_edifact(interp,false)<0) throw Exception("'init_edifact' error");
+//      if (init_edifact(interp,false)<0) throw Exception("'init_edifact' error");
 
 #ifdef __WIN32__
       if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==INVALID_SOCKET)

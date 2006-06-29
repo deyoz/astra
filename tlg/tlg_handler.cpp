@@ -36,15 +36,11 @@ int main_tlg_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
-      setLoggingGroup("log1",LOGGER_SYSTEM_SHM,0);
-      
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
               
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
-
-      OraSession.LogOn(Tcl_GetVar(interp,"CONNECT_STRING",TCL_GLOBAL_ONLY));      
+      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);     
 
       time_t scan_time=0;
       for(;;)

@@ -3,22 +3,13 @@
 #ifdef __WIN32__
  #include <dos.h>
  #define sleep(x) _sleep(x)
-#else
- #include <unistd.h>
- extern "C"
- {
- #include <logwriter.h>
- #include <lwriter.h>
- }
 #endif
-#include <errno.h>
-#include <signal.h>
 #include <fstream>
 #include "timer.h"
 #include "oralib.h"
 #include "exceptions.h"
-#define STDLOG NICKNAME,__FILE__,__LINE__
-#define NICKNAME "TIMER"
+#define NICKNAME "VLAD"
+#include "test.h"
 
 const int sleepsec = 30;
 
@@ -32,9 +23,9 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   TDateTime now;
   int PrevMin=-1;
-  OpenLogFile_lw( Tcl_GetString( Tcl_GetVar2Ex( interp, "DEFLOGGER", 0, TCL_GLOBAL_ONLY ) ) );
   for( ;; )
   {
+    ProgTrace(TRACE5,"astra_timer - ok");	
     try
     {
       now=Now();
@@ -44,33 +35,23 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       {
         PrevMin=Min;
         if (Min%2==0)
-        {
-          if (!OraSession.isConnect())
-            OraSession.LogOn( (char *)Tcl_GetVar( interp, "CONNECT_STRING", TCL_GLOBAL_ONLY ) );
+        {         	         
           astra_timer();
+          ProgTrace(TRACE5,"astra_timer - ok");
         };
         if (Min%15==0)
-        {
-          if (!OraSession.isConnect())
-            OraSession.LogOn( (char *)Tcl_GetVar( interp, "CONNECT_STRING", TCL_GLOBAL_ONLY ) );
+        {         
           sync_mvd(now);
         };
       };
     }
     catch( Exception E ) {
-      ProgError_lw( STDLOG, "Exception: %s", E.Message );
+      ProgError( STDLOG, "Exception: %s", E.Message );
     }
     catch( ... ) {
-      ProgError_lw( STDLOG, "Unknown error" );
-    };
-    void (*old_handler)(int) = signal( SIGCHLD, SIG_IGN );
-    try
-    {
-      if (OraSession.isConnect()) OraSession.LogOff( );
-    }
-    catch(...) { };
-    sleep( sleepsec );
-    signal( SIGCHLD, old_handler );
+      ProgError( STDLOG, "Unknown error" );
+    };    
+    sleep( sleepsec );    
   };
 }
 #endif

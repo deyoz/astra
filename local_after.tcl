@@ -1,7 +1,7 @@
 set_local UNDER_GDB 1
 set_local MINIMUM 1
 set_local LOG_ERR_TO_CONSOLE 1
-set_local GROUPS_TO_RUN [list astra_init3]
+set_local GROUPS_TO_RUN [list astra_init3 astra_init_other]
 set_local OBRZAP_NUM_3 1
 set_local REOPENLOGS 1
 set_local grp3(APORT) 8008
@@ -13,3 +13,8 @@ set_local LOG_LEVEL 20
 
 set_local KRV_PORT 7777
 set_local AIRXMLRUN 0
+
+set OWN_CANON_NAME MOWDC
+set ERR_CANON_NAME EMLDC
+set SND_PORT 8996
+set SRV_PORT 8997

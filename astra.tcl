@@ -22,7 +22,7 @@ if { ! [  info exists env(ASTRA_INSTANCE) ] } {
 set MINIMUM 0
 set SYSLOG_TO_LOGFILE 1
 set LOG_ERR_TO_CONSOLE 0
-set GROUPS_TO_RUN [list astra_init1 astra_init2 astra_init3]
+set GROUPS_TO_RUN [list astra_init1 astra_init2 astra_init3 astra_init_other]
 set OUR_PRIVATE_KEY "NO KEY DEFINED"
 set ONE_LOGGER 0
 proc set_local { varname value} {
@@ -281,6 +281,10 @@ proc astra_init {} {
         astra_init3;
     }
 #   other processes    
+    if { [lsearch -exact $::GROUPS_TO_RUN astra_init_other ] != -1 } {
+        astra_init_other;
+    }
+
 #    start_other_daemons standard archive airimp;
 
 
@@ -321,6 +325,15 @@ proc astra_init3 {} {
         start_obr [list obrzap grp3 [ expr $i + 30 ]  ] 
     }
     start_obr [list leva grp3]
+}
+
+proc astra_init_other {} {
+     sirena_sleep 1000
+#     start_obr [ list tlg_snd ]
+#    start_obr [ list tlg_srv ]
+#     start_obr [ list typeb_handler ] 
+#     start_obr [ list edi_handler ]
+     start_obr [ list timer ]     
 }
 
 proc start_obr1 { a } {

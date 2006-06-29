@@ -11,11 +11,11 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "edifact/obr_tlg_queue.h"
+//#include "edifact/obr_tlg_queue.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
-using namespace tlg_process;
+//using namespace tlg_process;
 
 #define NICKNAME "VLAD"
 #include "test.h"
@@ -27,7 +27,7 @@ using namespace tlg_process;
 static const char* OWN_CANON_NAME=NULL;
 static const char* ERR_CANON_NAME=NULL;
 
-bool obr_tlg_queue::has_removed;
+//bool obr_tlg_queue::has_removed;
 
 static void handle_tlg(void);
 
@@ -40,17 +40,14 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   try
   {
     try
-    {
-      setLoggingGroup("log1",LOGGER_SYSTEM_SHM,0);
-
+    {      
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
 
       ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
-
-      OraSession.LogOn((char *)Tcl_GetVar(interp,"CONNECT_STRING",TCL_GLOBAL_ONLY));
-      if (init_edifact(interp,true)<0) throw Exception("'init_edifact' error");
+      
+//      if (init_edifact(interp,true)<0) throw Exception("'init_edifact' error");
 
       time_t scan_time=0;
 
@@ -108,12 +105,12 @@ void handle_tlg(void)
 
   count=0;
   TlgQry.Execute();
-  obr_tlg_queue tlg_obr(1); // Класс - обработчик телеграмм
+//  obr_tlg_queue tlg_obr(1); // Класс - обработчик телеграмм
   try
   {
     for(;!TlgQry.Eof&&count<SCAN_COUNT;TlgQry.Next(),OraSession.Rollback())
     {
-	try{
+/*	try{
 	    tlg_obr.init();                   //инициализация
 	    tlg_obr.next_from_queue();        //следущий на обработку
 	    tlg_obr.classify();               //что за телеграмма?
@@ -140,7 +137,7 @@ void handle_tlg(void)
 	    }
 	    ProgTrace(TRACE5,"Before SLEEP(1):%d", tlg_obr.get_obr_num());
 	    tcl_mode_sleep(-1,-1,0,1,0);
-	}
+	}*/
     };
   }
   catch(...)
