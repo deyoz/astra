@@ -747,3 +747,47 @@ void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 {
 };
 
+// TParams1
+
+void TParams1::getParams(xmlNodePtr paramNode)
+{
+    this->clear();
+    if ( paramNode == NULL ) // отсутствует тег параметров
+        return;
+    xmlNodePtr curNode = paramNode->children;
+    while(curNode) {
+        string name = upperc( (char*)curNode->name );
+        string value = NodeAsString(curNode);
+        (*this)[ name ].Value = value;
+        ProgTrace( TRACE5, "param name=%s, value=%s", name.c_str(), value.c_str() );
+        xmlNodePtr propNode  = GetNode( "@type", curNode );
+        if ( propNode )
+            (*this)[ name ].DataType = (TCacheConvertType)NodeAsInteger( propNode );
+        else  
+            (*this)[ name ].DataType = ctString;
+        curNode = curNode->next;
+    }
+}
+
+void TParams1::setSQL(TQuery *Qry)
+{
+    vector<string> vars;
+    FindVariables(Qry->SQLText.SQLText(), false, vars);
+    for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
+    {
+        otFieldType vtype;
+        switch( (*this)[ *v ].DataType ) {
+            case ctInteger: vtype = otInteger;
+                            break;
+            case ctDouble: vtype = otFloat;
+                           break;
+            case ctDateTime: vtype = otDate;
+                             break;
+            default: vtype = otString;
+        }
+        Qry->DeclareVariable( *v, vtype );
+        Qry->SetVariable( *v, (*this)[ *v ].Value );
+        ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
+                (*this)[ *v ].Value.c_str(), vtype );
+    }
+}

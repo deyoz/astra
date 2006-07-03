@@ -73,6 +73,14 @@ typedef struct {
 
 typedef std::map<std::string, TParam> TParams;
 
+class TParams1 : public  std::map<std::string, TParam>
+{
+    private:
+    public:
+        void getParams(xmlNodePtr paramNode);
+        void setSQL(TQuery *Qry);
+};
+
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
