@@ -9,6 +9,82 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
+void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    Qry->SQLText =
+        "SELECT "
+        "    pax_id, "
+        "    pax.grp_id, "
+        "    point_id, "
+        "    pr_brd, "
+        "    reg_no, "
+        "    surname, "
+        "    name, "
+        "    pers_type, "
+        "    seat_no, "
+        "    seats, "
+        "    doc_check, "
+        "    pax.tid, "
+        "    LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no_str, "
+        "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
+        "    NVL(ckin.get_rkAmount(pax_grp.grp_id,NULL,rownum),0) AS rk_amount, "
+        "    NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
+        "    /*  NVL(ckin.get_excess(pax_grp.grp_id,NULL),0) AS excess,*/ NVL(pax_grp.excess,0) AS excess, "
+        "    NVL(value_bag.count,0) AS value_bag_count, "
+        "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
+        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment  "
+        "FROM "
+        "    pax_grp, "
+        "    pax, "
+        "    ( "
+        "     SELECT "
+        "        grp_id, "
+        "        COUNT(*) AS count "
+        "     FROM "
+        "        value_bag "
+        "     GROUP BY "
+        "        grp_id "
+        "    ) value_bag "
+        "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.grp_id=value_bag.grp_id(+)  "
+        "    AND point_id= :point_id AND pr_brd= :pr_brd "
+        "--доп. условие     "
+        "ORDER BY reg_no ";
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(Qry);
+    Qry->Execute();
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr listNode = NewTextChild(dataNode, "brd_list");
+    while(!Qry->Eof) {
+        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
+        NewTextChild(paxNode, "pax_id",            Qry->FieldAsString("pax_id"));
+        NewTextChild(paxNode, "grp_id",            Qry->FieldAsString("grp_id"));
+        NewTextChild(paxNode, "point_id",          Qry->FieldAsString("point_id"));
+        NewTextChild(paxNode, "pr_brd",            Qry->FieldAsString("pr_brd"));
+        NewTextChild(paxNode, "reg_no",            Qry->FieldAsString("reg_no"));
+        NewTextChild(paxNode, "surname",           Qry->FieldAsString("surname"));
+        NewTextChild(paxNode, "name",              Qry->FieldAsString("name"));
+        NewTextChild(paxNode, "pers_type",         Qry->FieldAsString("pers_type"));
+        NewTextChild(paxNode, "seat_no",           Qry->FieldAsString("seat_no"));
+        NewTextChild(paxNode, "seats",             Qry->FieldAsString("seats"));
+        NewTextChild(paxNode, "doc_check",         Qry->FieldAsString("doc_check"));
+        NewTextChild(paxNode, "tid",               Qry->FieldAsString("tid"));
+        NewTextChild(paxNode, "seat_no_str",       Qry->FieldAsString("seat_no_str"));
+        NewTextChild(paxNode, "remarks",           Qry->FieldAsString("remarks"));
+        NewTextChild(paxNode, "rk_amount",         Qry->FieldAsString("rk_amount"));
+        NewTextChild(paxNode, "rk_weight",         Qry->FieldAsString("rk_weight"));
+        NewTextChild(paxNode, "excess",            Qry->FieldAsString("excess"));
+        NewTextChild(paxNode, "value_bag_count",   Qry->FieldAsString("value_bag_count"));
+        NewTextChild(paxNode, "tags",              Qry->FieldAsString("tags"));
+        NewTextChild(paxNode, "pr_payment",        Qry->FieldAsString("pr_payment"));
+        Qry->Next();
+    }
+    OraSession.DeleteQuery(*Qry);
+}
+
 void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();
