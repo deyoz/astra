@@ -12,9 +12,12 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Trips);
      AddEvent("trips",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Trip);
+     AddEvent("trip",evHandle);
   };	
   
   void Trips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
 };
 

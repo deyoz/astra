@@ -283,7 +283,8 @@ bool TCacheTable::refreshData()
             Qry->SetVariable("tid", tid); // !!!
         }
     }
-        
+
+    ProgTrace(TRACE5, "vars.size(): %d", vars.size());
 
     if(find(vars.begin(), vars.end(), "USER_ID") != vars.end()) {
         Qry->DeclareVariable("user_id", otInteger);
