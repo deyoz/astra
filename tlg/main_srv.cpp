@@ -7,22 +7,24 @@
  #include <arpa/inet.h>
  #include <unistd.h>
  #include <errno.h>
- #include <tcl.h>
- #include "lwriter.h"
+ #include <tcl.h> 
 #endif
-#include "logger.h"
+#include <string>
 #include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
+#include "stl_utils.h"
 #include "tlg_parser.h"
 #include "edilib/edi_user_func.h"
 
+#define NICKNAME "VLAD"
+#include "test.h"
+#include <daemon.h>
+
 using namespace BASIC;
 using namespace EXCEPTIONS;
-
-#define NICKNAME "VLAD"
-
+using namespace std;
 
 #define WAIT_INTERVAL           10      //seconds
 #define TLG_SCAN_INTERVAL       30      //seconds
@@ -50,6 +52,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
+      OpenLogFile("logairimp");	
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
@@ -64,6 +67,8 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
         throw Exception("Unknown or wrong SRV_PORT");
 #endif
+      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+        ->connect_db();
 //      if (init_edifact(interp,false)<0) throw Exception("'init_edifact' error");
 
 #ifdef __WIN32__
@@ -100,7 +105,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
           throw Exception("'select' error %d",WSAGetLastError());
 #else
         if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
-          throw Exception("'select' error %d: %s",errno,strerror(errno));
+          throw Exception("'select' error %d: %s",errno,strerror(errno)); 
 #endif
         if (res!=0&&FD_ISSET(sockfd,&rfds)) process_tlg();
 
@@ -114,14 +119,14 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     catch(EOracleError E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.Message);
+      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
 #endif
       throw;
     }
     catch(Exception E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.Message);
+      ProgError(STDLOG,"Exception: %s",E.what());
 #endif
       throw;
     };
@@ -431,8 +436,8 @@ void process_tlg(void)
   catch(Exception E)
   {
 #ifndef __WIN32__
-    ProgError(STDLOG,"Exception: %s",E.Message);
-    SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s",E.Message);
+    ProgError(STDLOG,"Exception: %s",E.what());
+    SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s",E.what());
 #endif
   };
   OraSession.Commit();
@@ -691,9 +696,9 @@ void scan_tlg(void)
         {
 #ifndef __WIN32__
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                       E.Message,TlgQry.FieldAsInteger("id"));
+                       E.what(),TlgQry.FieldAsInteger("id"));
           SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s (tlgs.id=%d)",
-                  E.Message,TlgQry.FieldAsInteger("id"));
+                  E.what(),TlgQry.FieldAsInteger("id"));
 #endif
           UpdQry.Execute();
           if (UpdQry.RowsProcessed()>0)

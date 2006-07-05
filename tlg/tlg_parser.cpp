@@ -301,7 +301,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.Message);
+    throw ETlgError("Line %d: %s",line,E.what());
   };
   next.p=line_p;
   next.line=line;
@@ -400,7 +400,7 @@ void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.Message);
+    throw ETlgError("Line %d: %s",line,E.what());
   };
   return;
 };
@@ -543,7 +543,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.Message);
+    throw ETlgError("Line %d: %s",line,E.what());
   };
   next.p=line_p;
   next.line=line;
@@ -582,7 +582,7 @@ void ParseDCSEnding(TTlgPartInfo ending, TEndingInfo& info)
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.Message);
+    throw ETlgError("Line %d: %s",line,E.what());
   };
   return;
 };
@@ -622,7 +622,7 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
   catch(ETlgError E)
   {
     //вывести ошибку+номер строки
-    throw ETlgError("Line %d: %s",line,E.Message);
+    throw ETlgError("Line %d: %s",line,E.what());
   };
   return;
 };
@@ -1174,7 +1174,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
   }
   catch (ETlgError E)
   {
-    throw ETlgError("%s, line %d: %s",GetPnlAdlElementName(e),line,E.Message);
+    throw ETlgError("%s, line %d: %s",GetPnlAdlElementName(e),line,E.what());
   };
   return;
 };
@@ -2591,7 +2591,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
                 };
                 try
                 {
@@ -2600,7 +2600,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
                 };
                 try
                 {
@@ -2609,7 +2609,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
                 };
                 try
                 {
@@ -2617,7 +2617,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
                 };*/
               };
             };

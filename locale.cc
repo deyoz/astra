@@ -8,8 +8,8 @@
 
 int init_locale(void)
 {
+#if 0	
   ProgTrace(TRACE1,"init_locale");
-#if 0
   char  c_in[4],stracs[2],strtz[2],our_name[10];
   if(get_param("CENTER_CITY", c_in,sizeof(c_in)-1)<0)
   {
@@ -78,6 +78,5 @@ int init_locale(void)
 #endif /* 0 */
   
   jxtlib::JXTLib::Instance()->SetCallbacks(new AstraCallbacks()); 
-  OraSession.Initialize(LD);
   return 0;
 }

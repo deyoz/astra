@@ -2,15 +2,16 @@
 #include <stdio.h>
 #ifdef __WIN32__
  #include <dos.h>
- #define sleep(x) _sleep(x)
+ #define sleep(x) _sleep(x)  
 #endif
+#include <signal.h>
 #include <fstream>
 #include "timer.h"
 #include "oralib.h"
 #include "exceptions.h"
 #define NICKNAME "VLAD"
 #include "test.h"
-
+#include <daemon.h>
 const int sleepsec = 30;
 
 using namespace BASIC;
@@ -23,9 +24,11 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   TDateTime now;
   int PrevMin=-1;
+  OpenLogFile("log1");
+  ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+      ->connect_db();
   for( ;; )
   {
-    ProgTrace(TRACE5,"astra_timer - ok");	
     try
     {
       now=Now();
@@ -35,23 +38,22 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       {
         PrevMin=Min;
         if (Min%2==0)
-        {         	         
+        {
           astra_timer();
-          ProgTrace(TRACE5,"astra_timer - ok");
         };
         if (Min%15==0)
-        {         
+        {
           sync_mvd(now);
         };
       };
     }
     catch( Exception E ) {
-      ProgError( STDLOG, "Exception: %s", E.Message );
+      ProgError( STDLOG, "Exception: %s", E.what() );
     }
     catch( ... ) {
       ProgError( STDLOG, "Unknown error" );
-    };    
-    sleep( sleepsec );    
+    };
+    sleep( sleepsec );
   };
 }
 #endif
@@ -63,7 +65,7 @@ void astra_timer(void)
   {
     Qry.SQLText=
       "BEGIN\
-         timer.astratimer;\
+         timer.exec;\
        END;";
     Qry.Execute();
     Qry.Close();
@@ -103,7 +105,7 @@ void sync_mvd(TDateTime now)
   sprintf(file_name,"%s%02d%02d.%s",
           Qry.FieldAsString("dir"),Hour,Min,Qry.FieldAsString("airp_lat"));
   f.open( file_name , ios_base::out ); //открыть и залочить на чтение и запись !!!
-  if (!f.is_open()) throw Exception("Can't open file '%s'",file_name);
+  if (!f.is_open()) throw Exception((string)"Can't open file '"+file_name+"'");
   try
   {
     Qry.Clear();

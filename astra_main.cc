@@ -1,8 +1,9 @@
 #define NICKNAME "VLAD"
-//#define NICKTRACE VLAD_TRACE
-#include "test.h"
+#include <test.h>
 
-#include "daemon.h"
+#include <daemon.h>
+#include <ocilocal.h>
+#include "oralib.h"  
 #include "jxtlib_astra.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
@@ -28,12 +29,13 @@ class AstraApplication : public ApplicationCallbacks
     {
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
-/*
+
     virtual void connect_db()
     {
-        return connect_oracle();
+    	ApplicationCallbacks::connect_db();
+    	OraSession.Initialize(LD);    	
     }
-    virtual void disconnect_db()
+/*    virtual void disconnect_db()
     {
         return disconnect_oracle();
     }

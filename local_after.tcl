@@ -5,8 +5,8 @@ set_local GROUPS_TO_RUN [list astra_init3 astra_init_other]
 set_local OBRZAP_NUM_3 1
 set_local REOPENLOGS 1
 set_local grp3(APORT) 8008
-set_local monitor1(TCP_PORT) 17700
-set_local monitor2(TCP_PORT) 17703
+set_local monitor1(TCP_PORT) 17701
+set_local monitor2(TCP_PORT) 17704
 
 set_local CONNECT_STRING astra/astra
 set_local LOG_LEVEL 20
