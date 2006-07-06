@@ -7,7 +7,7 @@
  #include <arpa/inet.h>
  #include <unistd.h>
  #include <errno.h>
- #include <tcl.h> 
+ #include <tcl.h>
 #endif
 #include <string>
 #include "astra_utils.h"
@@ -52,7 +52,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
-      OpenLogFile("logairimp");	
+      OpenLogFile("logairimp");
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
@@ -105,7 +105,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
           throw Exception("'select' error %d",WSAGetLastError());
 #else
         if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
-          throw Exception("'select' error %d: %s",errno,strerror(errno)); 
+          throw Exception("'select' error %d: %s",errno,strerror(errno));
 #endif
         if (res!=0&&FD_ISSET(sockfd,&rfds)) process_tlg();
 
@@ -187,10 +187,10 @@ void process_tlg(void)
                         tlg_in.Sender,tlg_in.num,tlg_in.type);
       if (len<=tlg_header_len)
         throw Exception("Telegram too small (sender=%s, num=%d, type=%d)",
-                        tlg_in.Sender,tlg_in.num,tlg_in.type);      
+                        tlg_in.Sender,tlg_in.num,tlg_in.type);
     }
     else
-    {      
+    {
       if (len>(int)sizeof(tlg_in)-1)
       //if (len>tlg_header_len)
         throw Exception("Telegram too long (sender=%s, num=%d, type=%d)",
@@ -228,11 +228,11 @@ void process_tlg(void)
     {
       case TLG_IN:
       case TLG_OUT:
-        //проверяем на host-to-host        
+        //проверяем на host-to-host
         if (len-tlg_header_len>(int)sizeof(h2hinf.data)-1)
           throw Exception("Telegram too long. Can't check H2H header (sender=%s, num=%d, type=%d)",
                           tlg_in.Sender,tlg_in.num,tlg_in.type);
-        if (h2h_in(tlg_in.body, &h2hinf) >= 0) is_h2h = true;        
+        if (h2h_in(tlg_in.body, &h2hinf) >= 0) is_h2h = true;
 
         if (is_h2h)
         {
@@ -243,8 +243,8 @@ void process_tlg(void)
         {
           tlg_body=tlg_in.body;
           tlg_len=len-tlg_header_len;
-        };        
-        is_edi=IsEdifactText(tlg_body,tlg_len);        
+        };
+        is_edi=IsEdifactText(tlg_body,tlg_len);
         if (tlg_in.TTL==1) return; //по-хорошему надо бы if (is_edi) SendEdiTlgCONTRL
 
         //сначала ищем id телеграммы, если таковая уже была
@@ -315,7 +315,7 @@ void process_tlg(void)
               TlgInsQry.CreateVariable("err",otString,h2hinf.err);
               TlgInsQry.Execute();
             };
-          };          
+          };
         };
         break;
       case TLG_ACK:
@@ -324,6 +324,7 @@ void process_tlg(void)
       case TLG_CFG_ERR:
         //эта часть будет работать при условии генерации уникальных tlg_num для типа OUT!
         {
+          ProgTrace(TRACE5,"TLG_ACK recieved");
           TQuery TlgUpdQry(&OraSession);
           if (tlg_in.type==TLG_ACK||
               tlg_in.type==TLG_F_NEG)
@@ -349,6 +350,7 @@ void process_tlg(void)
             case TLG_ACK:
               TlgUpdQry.SetVariable("curr_status","PUT");
               TlgUpdQry.SetVariable("new_status","SEND");
+              ProgTrace(TRACE5,"PUT->SEND");
               break;
             case TLG_CFG_ERR:
               TlgUpdQry.SetVariable("curr_status","PUT");
@@ -395,8 +397,8 @@ void process_tlg(void)
       case TLG_OUT:
         tlg_out.type=htons(TLG_F_ACK);
         tlg_len=len-tlg_header_len;
-        if (tlg_len>9) tlg_len=9;        
-        memcpy(tlg_out.body,tlg_in.body,tlg_len);        
+        if (tlg_len>9) tlg_len=9;
+        memcpy(tlg_out.body,tlg_in.body,tlg_len);
         break;
       case TLG_F_ACK:
       case TLG_F_NEG:

@@ -48,7 +48,7 @@ typedef struct H2H_MSG
 	char qri6;
 } H2H_MSG;
 
-int init_edifact(Tcl_Interp *interp, bool full_init);
+int init_edifact();
 
 int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);

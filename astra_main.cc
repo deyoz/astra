@@ -3,7 +3,7 @@
 
 #include <daemon.h>
 #include <ocilocal.h>
-#include "oralib.h"  
+#include "oralib.h"
 #include "jxtlib_astra.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
@@ -33,7 +33,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual void connect_db()
     {
     	ApplicationCallbacks::connect_db();
-    	OraSession.Initialize(LD);    	
+    	OraSession.Initialize(LD);
     }
 /*    virtual void disconnect_db()
     {
@@ -76,6 +76,7 @@ void AstraApplication::levC_app_init()
     puts("Error retrieving site information");
     term3(SIGINT);
   }
+  init_edifact();
 }
 
 int AstraApplication::tcl_init(Tcl_Interp *interp)

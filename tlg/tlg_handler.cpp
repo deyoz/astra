@@ -21,8 +21,8 @@ using namespace EXCEPTIONS;
 #define TLG_SCAN_INTERVAL	30   	//seconds
 #define SCAN_COUNT              10      //кол-во разбираемых телеграмм за одно сканирование
 
-static char* OWN_CANON_NAME=NULL;
-static char* ERR_CANON_NAME=NULL;
+static const char* OWN_CANON_NAME=NULL;
+static const char* ERR_CANON_NAME=NULL;
 
 static void handle_tlg(void);
 

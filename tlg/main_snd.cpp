@@ -7,22 +7,23 @@
  #include <arpa/inet.h>
  #include <unistd.h>
  #include <errno.h>
- #include <tcl.h> 
+ #include <tcl.h>
  #include "lwriter.h"
 #endif
 #include "logger.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
+#include <daemon.h>
+#define NICKNAME "VLAD"
+#include "test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define NICKNAME "VLAD"
-
 //#define ACK_WAIT_TIME         15*60   //seconds
-#define WAIT_INTERVAL           10       //seconds
-#define TLG_SCAN_INTERVAL       30      //seconds
+#define WAIT_INTERVAL           1       //seconds
+#define TLG_SCAN_INTERVAL       1      //seconds
 #define SCAN_COUNT              30       //кол-во посылаемых телеграмм за одно сканирование
 
 static char* OWN_CANON_NAME=NULL;
@@ -45,6 +46,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
+      OpenLogFile("logairimp");
       if ((OWN_CANON_NAME=(char *)Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
@@ -56,7 +58,9 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       const char *port_tcl=Tcl_GetVar(interp,"SND_PORT",TCL_GLOBAL_ONLY);
       if (port_tcl==NULL||StrToInt(port_tcl,SND_PORT)==EOF)
         throw Exception("Unknown or wrong SND_PORT");
-#endif      
+#endif
+      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+        ->connect_db();
 
 #ifdef __WIN32__
       if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==INVALID_SOCKET)
@@ -101,22 +105,24 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 #endif
         if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
         {
+            tst();
           scan_tlg();
           scan_time=time(NULL);
+          tst();
         };
       }; // end of loop
     }
     catch(EOracleError E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.Message);
+      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
 #endif
       throw;
     }
     catch(Exception E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.Message);
+      ProgError(STDLOG,"Exception: %s",E.what());
 #endif
       throw;
     };
@@ -138,7 +144,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 void scan_tlg(int tlg_id)
 {
-  static TQuery TlgQry(&OraSession);  
+  static TQuery TlgQry(&OraSession);
   /*
   static TQuery UpdAllQry(&OraSession);
   if (UpdAllQry.SQLText.IsEmpty())
@@ -149,7 +155,7 @@ void scan_tlg(int tlg_id)
        WHERE type IN ('OUTA','OUTB') AND status='PUT' AND SYSDATE-time> :ack_wait_time /86400";
     UpdAllQry.DeclareVariable("ack_wait_time",otInteger);
     UpdAllQry.SetVariable("ack_wait_time",ACK_WAIT_TIME);
-  };*/  
+  };*/
 
   static TQuery UpdQry(&OraSession);
   if (UpdQry.SQLText.IsEmpty())
@@ -158,10 +164,10 @@ void scan_tlg(int tlg_id)
     UpdQry.SQLText=
       "DELETE FROM tlg_queue\
        WHERE id= :id AND status='PUT'";
-    UpdQry.DeclareVariable("id",otInteger);      
+    UpdQry.DeclareVariable("id",otInteger);
   };
-  
-  TQuery Qry(&OraSession); 
+
+  TQuery Qry(&OraSession);
 
   //поставим все телеграммы, которые так и не дошли до шлюза в ошибочную очередь
 //  UpdAllQry.Execute();
@@ -169,7 +175,7 @@ void scan_tlg(int tlg_id)
   struct sockaddr_in to_addr;
   memset(&to_addr,0,sizeof(to_addr));
   AIRSRV_MSG tlg_out;
-  int len,count,ttl;    
+  int len,count,ttl;
   H2H_MSG h2hinf;
 
   TlgQry.Clear();
@@ -181,7 +187,8 @@ void scan_tlg(int tlg_id)
        WHERE tlg_queue.id=tlgs.id AND\
              tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
              tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'\
-       ORDER BY DECODE(ttl,NULL,1,0),tlg_queue.time+NVL(ttl,0)/86400";
+       ORDER BY tlg_queue.time,tlg_queue.id";
+    tst();
   }
   else
   {
@@ -190,7 +197,7 @@ void scan_tlg(int tlg_id)
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.id=:id AND\
              tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
-             tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'";            
+             tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
   };
   TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME);
@@ -199,7 +206,8 @@ void scan_tlg(int tlg_id)
   TlgQry.Execute();
   while (!TlgQry.Eof&&count<SCAN_COUNT)
   {
-    UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));    
+      tst();
+    UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));
     try
     {
       if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
@@ -215,7 +223,7 @@ void scan_tlg(int tlg_id)
       to_addr.sin_port=htons(TlgQry.FieldAsInteger("ip_port"));
 
       tlg_out.num=htonl(TlgQry.FieldAsInteger("tlg_num"));
-      tlg_out.type=htons(TLG_OUT);      
+      tlg_out.type=htons(TLG_OUT);
       tlg_out.Sender[5]=0;
       tlg_out.Receiver[5]=0;
       strncpy(tlg_out.Sender,OWN_CANON_NAME,5);
@@ -224,7 +232,7 @@ void scan_tlg(int tlg_id)
       len=TlgQry.GetSizeLongField("tlg_text");
       if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
       TlgQry.FieldAsLong("tlg_text",tlg_out.body);
-      //проверим TTL       
+      //проверим TTL
       ttl=0;
       if (!TlgQry.FieldIsNULL("ttl")&&
           (ttl=TlgQry.FieldAsInteger("ttl")-(int)((Now()-TlgQry.FieldAsDateTime("time"))*86400))<=0)
@@ -237,7 +245,7 @@ void scan_tlg(int tlg_id)
           Qry.CreateVariable("error",otString,"TTL");
           Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
           Qry.Execute();
-        };                  
+        };
       }
       else
       {
@@ -246,9 +254,9 @@ void scan_tlg(int tlg_id)
         Qry.SQLText=
           "SELECT type,qri5,qri6,sender,receiver,tpr,err FROM h2h_tlgs WHERE id=:id";
         Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-        Qry.Execute();  
+        Qry.Execute();
         if (!Qry.Eof)
-        {          
+        {
           if (len>(int)sizeof(h2hinf.data)-1) throw Exception("Telegram too long. Can't create H2H header");
           strncpy(h2hinf.data,tlg_out.body,len);
           h2hinf.data[len]=0;
@@ -264,8 +272,9 @@ void scan_tlg(int tlg_id)
           if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
           strncpy(tlg_out.body,h2hinf.data,len);
         };
-                 
-        tlg_out.TTL=ttl;        
+
+        tlg_out.TTL=ttl;
+        tst();
 #ifdef __WIN32__
         if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==SOCKET_ERROR)
@@ -275,7 +284,8 @@ void scan_tlg(int tlg_id)
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
 #endif
-      };      
+        tst();
+      };
     }
     catch(Exception E)
     {
@@ -287,10 +297,10 @@ void scan_tlg(int tlg_id)
         Qry.CreateVariable("error",otString,"SEND");
         Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
         Qry.Execute();
-      };       
+      };
 #ifndef __WIN32__
       ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                          E.Message,TlgQry.FieldAsInteger("id"));
+                          E.what(),TlgQry.FieldAsInteger("id"));
 #endif
     };
     count++;

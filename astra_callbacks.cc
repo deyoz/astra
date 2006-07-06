@@ -1,6 +1,7 @@
 #include "astra_callbacks.h"
 #include "cache.h"
 #include "brd.h"
+#include "etick.h"
 
 #define NICKNAME "VLAD"
 #include "test.h"
@@ -15,9 +16,10 @@ using namespace jxtlib;
 void AstraCallbacks::InitInterfaces()
 {
   ProgTrace(TRACE3, "AstraCallbacks::InitInterfaces");
-  new CacheInterface();  
-  new BrdInterface();  
-};	
+  new CacheInterface();
+  new BrdInterface();
+  new ETSearchInterface();
+};
 
 void AstraCallbacks::HandleException(std::exception *e)
 {
@@ -25,7 +27,7 @@ void AstraCallbacks::HandleException(std::exception *e)
 
 	XMLRequestCtxt *ctxt = getXmlCtxt();
 	xmlNodePtr resNode = ctxt->resDoc->children->children;
-	
+
 	EOracleError *orae = dynamic_cast<EOracleError*>(e);
 	if (orae)
 	{
@@ -38,7 +40,7 @@ void AstraCallbacks::HandleException(std::exception *e)
 	if (ue)
 	{
                 ProgTrace( TRACE5, "UserException: %s", ue->what() );
-		NewTextChild( resNode, "userexception", ue->what() );                
+		NewTextChild( resNode, "userexception", ue->what() );
 		//addXmlBM(*ctxt);
                 return;
 	}
@@ -46,7 +48,7 @@ void AstraCallbacks::HandleException(std::exception *e)
 	if (exp)
 	{
 		ProgTrace(TRACE5,"Exception: %s",exp->what());
-		NewTextChild( resNode, "exception", exp->what() );		
+		NewTextChild( resNode, "exception", exp->what() );
 		return;
 	};
 }

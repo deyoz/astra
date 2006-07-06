@@ -3,15 +3,16 @@
 #define NICKNAME "VLAD"
 #include "test.h"
 #include "xml_unit.h"
+#include "tlg/edi_tlg.h"
 
 using namespace std;
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE5,"SearchETByTickNo!");	
   string tick_no=NodeAsString("TickNoEdit",reqNode);
-  ProgTrace(TRACE5,"tick_no=%s",tick_no.c_str());
-  	
+
+  TickDispByNum tickDisp(tick_no);
+  SendEdiTlgTKCREQ_Disp( tickDisp );
 };
 
 void ETSearchInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

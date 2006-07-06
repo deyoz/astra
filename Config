@@ -35,6 +35,15 @@ if [ "$SHARED_PATH" = "" ] ; then
         fi
     done
 fi
+if [ "$ETICKLIB_PATH" = "" ] ; then
+    for d in  $LIBROOT/eticklib ../eticklib ../../eticklib; do
+        if [ -d $d ] ; then
+	    ETICKLIB_PATH=`(cd $d;pwd)`
+            break;
+        fi
+    done
+fi
+
 if [ "$SERVERLIB_PATH" = "" ] ; then
     for d in  $LIBROOT/serverlib ../serverlib ../../serverlib ; do
         if [ -d $d ] ; then
@@ -113,6 +122,7 @@ LIBXML2=${LIBXML2:-/usr}
 LIBXSLT=${LIBXSLT:-/usr}
 EDILIB_PATH=${EDILIB_PATH}
 SHARED_PATH=${SHARED_PATH}
+ETICKLIB_PATH=${ETICKLIB_PATH}
 EOF
 [ -f deps ] || echo >deps
 SRCHOME=`pwd`
@@ -186,6 +196,7 @@ BOOST=${BOOST:-boost_not_found}
 TCL_MON_PATH=${TCL_MON_PATH:-tclmon_not_found}
 EDILIB_PATH=${EDILIB_PATH}
 SHARED_PATH=${SHARED_PATH}
+ETICKLIB_PATH=${ETICKLIB_PATH}
 LIBXML2=${LIBXML2:-/usr}
 LIBXSLT=${LIBXSLT:-/usr}
 SRCHOME=${SRCHOME}
@@ -285,7 +296,7 @@ CPPLIBS=$STLPORTLIB -lstdc++
 ifdef XP_TESTING
 XP_TESTINGLIBSSYS=-lcheck
 endif
-LOCALLIBS=\$(XP_TESTINGLIBSSYS) \$(MPATROL_LIBS) \$(CPPLIBS) \$(LDCRYPT)
+LOCALLIBS=\$(XP_TESTINGLIBSSYS) \$(MPATROL_LIBS) \$(CPPLIBS) \$(LDCRYPT) \$(ETICKLIB_PATH)/lib/libetick.a
 EOF
 
 #[ -f sirena.cfg ] ||  echo "cp  sirena.cf sirena.cfg ;  chmod +w sirena.cfg"

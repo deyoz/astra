@@ -5,7 +5,8 @@
 #include <stdarg.h>
 #include "basic.h"
 #include "oralib.h"
-
+#define NICKNAME "VLAD"
+#include "test.h"
 #include <string.h>
 
 using namespace std;
@@ -116,6 +117,52 @@ char *DecodeSeatNo( char *Value )
   return CharReplace( Value, "€‚ƒ„…†‡ˆŠ‹", "ABCDEFGHIJK" );
 };
 
+
+void SendTlgType(const char* receiver,
+                 const char* sender,
+                 bool isEdi,
+                 int ttl,
+                 const std::string &text)
+{
+    try
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl) "
+                "VALUES"
+                "(tlgs_id.nextval,:sender,tlgs_id.nextval,:receiver,"
+                ":type,'PUT',SYSDATE,:ttl)";
+        Qry.CreateVariable("sender",otString,sender);
+        Qry.CreateVariable("receiver",otString,receiver);
+        Qry.CreateVariable("type",otString,isEdi?"OUTA":"OUTB");
+        if (isEdi&&ttl>0)
+          Qry.CreateVariable("ttl",otInteger,ttl);
+        else
+          Qry.CreateVariable("ttl",otInteger,FNull);
+        Qry.Execute();
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlgs(id,sender,tlg_num,receiver,type,status,time,tlg_text,error) "
+                "VALUES"
+                "(tlgs_id.currval,:sender,tlgs_id.currval,:receiver,"
+                ":type,'PUT',SYSDATE,:text,NULL)";
+        Qry.DeclareVariable("text",otLong);
+        Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
+        Qry.DeleteVariable("ttl");
+        Qry.Execute();
+        Qry.Close();
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, e.what());
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "SendTlgType: Unknown error while trying to send tlg");
+        throw;
+    };
+}
 void SendTlg(const char* receiver, const char* sender, const char *format, ...)
 {
   char Message[500];

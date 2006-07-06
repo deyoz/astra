@@ -17,6 +17,11 @@ BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 char *EncodeSeatNo( char *Value, bool pr_latseat );
 char *DecodeSeatNo( char *Value );
+void SendTlgType(const char* receiver,
+                 const char* sender,
+                 bool isEdi,
+                 int ttl,
+                 const std::string &text);
 void SendTlg(const char* receiver, const char* sender, const char *format, ...);
 
 struct TLogMsg {

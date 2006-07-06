@@ -8,7 +8,7 @@ set_local grp3(APORT) 8008
 set_local monitor1(TCP_PORT) 17701
 set_local monitor2(TCP_PORT) 17704
 
-set_local CONNECT_STRING astra/astra
+set_local CONNECT_STRING astra/astra@seal
 set_local LOG_LEVEL 20
 
 set_local KRV_PORT 7777
