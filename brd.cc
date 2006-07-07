@@ -9,10 +9,63 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
-void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    Qry->SQLText = "SELECT trip_id,tid__seq.nextval AS tid FROM trips WHERE trip_id=:trip_id FOR UPDATE";
+    Qry->DeclareVariable("trip_id", otInteger);
+    Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
+    Qry->Execute();
+    if(Qry->Eof) throw UserException("Рейс не найден. Обновите данные");
+    int new_tid = Qry->FieldAsInteger("tid");
+    Qry->SQLText =
+        "UPDATE pax SET pr_brd=decode(pr_brd, 0, 1, NULL, 1, 0), tid=tid__seq.currval "
+        "WHERE pax_id= :pax_id AND tid=:tid ";
+    Qry->DeclareVariable("pax_id", otInteger);
+    Qry->DeclareVariable("tid", otInteger);
+    Qry->SetVariable("pax_id", NodeAsInteger("pax_id", reqNode));
+    Qry->SetVariable("tid", NodeAsInteger("tid", reqNode));
+    Qry->Execute();
+    OraSession.DeleteQuery(*Qry);
+}
+
+void BrdInterface::CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
+        "SELECT seat_no FROM bp_print, "
+        "  (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
+        "WHERE pax_id=:pax_id AND bp_print.time_print=a.time_print ";
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(Qry);
+    Qry->Execute();
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    while(!Qry->Eof) {
+        if(NodeAsString("seat_no", reqNode) != Qry->FieldAsString("seat_no"))
+            break;
+        Qry->Next();
+    }
+    if(!Qry->Eof)
+        NewTextChild(dataNode, "failed");
+    OraSession.DeleteQuery(*Qry);
+}
+
+void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgTrace(TRACE5, "Query: %s", reqNode->name);
+    TQuery *Qry = OraSession.CreateQuery();
+
+    string condition;
+    if(strcmp((char *)reqNode->name, "brd_list") == 0)
+        condition = " AND point_id= :point_id AND pr_brd= :pr_brd ";
+    else if(strcmp((char *)reqNode->name, "search_reg") == 0)
+        condition = " AND point_id= :point_id AND reg_no= :reg_no AND pr_brd IS NOT NULL ";
+    else if(strcmp((char *)reqNode->name, "search_bar") == 0)
+        condition = " AND pax_id= :pax_id AND pr_brd IS NOT NULL ";
+    else throw Exception("BrdInterface::BrdList: Unknown command tag %s", reqNode->name);
+
+    string sqlText = (string)
         "SELECT "
         "    pax_id, "
         "    pax.grp_id, "
@@ -48,10 +101,10 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "    ) value_bag "
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.grp_id=value_bag.grp_id(+)  "
-        "    AND point_id= :point_id AND pr_brd= :pr_brd "
-        "--доп. условие     "
+        "    pax_grp.grp_id=value_bag.grp_id(+)  " +
+        condition +
         "ORDER BY reg_no ";
+    Qry->SQLText = sqlText;
     TParams1 SQLParams;
     SQLParams.getParams(GetNode("sqlparams", reqNode));
     SQLParams.setSQL(Qry);
@@ -135,6 +188,8 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
         NewTextChild(fltNode, "remark", Qry->FieldAsString("remark"));
     }
     Qry->Clear();
+    int trip_id = NodeAsInteger("sqlparams/trip_id", reqNode);
+    JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", trip_id);
     Qry->SQLText =
         "SELECT "
         "    COUNT(*) AS reg, "
@@ -147,7 +202,8 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
         "    point_id=:trip_id AND "
         "    pr_brd IS NOT NULL ";
     Qry->DeclareVariable("trip_id", otInteger);
-    Qry->SetVariable("trip_id", NodeAsInteger("sqlparams/trip_id", reqNode));
+
+    Qry->SetVariable("trip_id", trip_id);
     Qry->Execute();
     if(!Qry->Eof) {
         xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
@@ -160,6 +216,8 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
 void BrdInterface::Trips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
+
+    JxtContext::getJxtContHandler()->currContext()->write("STATION", NodeAsString("sqlparams/station", reqNode));
 
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =

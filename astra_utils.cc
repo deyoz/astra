@@ -1,6 +1,7 @@
 #include "setup.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "JxtInterface.h"
 
 #include <stdarg.h>
 #include "basic.h"
@@ -12,6 +13,7 @@
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
+using namespace JxtContext;
 
 TEventType DecodeEventType( const string ev_type )
 {
@@ -195,4 +197,53 @@ void SendTlg(const char* receiver, const char* sender, const char *format, ...)
   catch(...) {};
 };
 
+void MsgToLog(std::string msg, TEventType ev_type,
+        int id1, int id2, int id3)
+{
+    TLogMsg msgh;
+    msgh.msg = msg;
+    msgh.ev_type = ev_type;
+    msgh.id1 = id1;
+    msgh.id2 = id2;
+    msgh.id3 = id3;
+    MsgToLog(msgh);
+}
 
+void MsgToLog(TLogMsg &msg)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    Qry->SQLText =
+        "INSERT INTO astra.events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
+        "VALUES(:type,SYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+    Qry->DeclareVariable("type", otString);
+    Qry->DeclareVariable("msg", otString);
+    Qry->DeclareVariable("screen", otString);
+    Qry->DeclareVariable("ev_user", otString);
+    Qry->DeclareVariable("station", otString);
+    Qry->DeclareVariable("id1", otInteger);
+    Qry->DeclareVariable("id2", otInteger);
+    Qry->DeclareVariable("id3", otInteger);
+
+    JxtCont *context = getJxtContHandler()->currContext();
+
+    Qry->SetVariable("type", EncodeEventType(msg.ev_type));
+    Qry->SetVariable("msg", msg.msg);
+    Qry->SetVariable("screen", context->read("SCREEN"));
+    Qry->SetVariable("ev_user", FNull);
+    Qry->SetVariable("station", context->read("STATION"));
+    if(msg.id1)
+        Qry->SetVariable("id1", msg.id1);
+    else
+        Qry->SetVariable("id1", FNull);
+    if(msg.id2)
+        Qry->SetVariable("id2", msg.id2);
+    else
+        Qry->SetVariable("id2", FNull);
+    if(msg.id3)
+        Qry->SetVariable("id3", msg.id3);
+    else
+        Qry->SetVariable("id3", FNull);
+    Qry->Execute();
+
+    OraSession.DeleteQuery(*Qry);
+}

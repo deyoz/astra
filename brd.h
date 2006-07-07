@@ -16,8 +16,16 @@ public:
      AddEvent("trip",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::BrdList);
      AddEvent("brd_list",evHandle);
+     AddEvent("search_reg",evHandle);
+     AddEvent("search_bar",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::CheckSeat);
+     AddEvent("check_seat",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::PaxUpd);
+     AddEvent("brd_paxupd",evHandle);
   };	
   
+  void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Trips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

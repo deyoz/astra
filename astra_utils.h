@@ -36,6 +36,12 @@ struct TLogMsg {
   }
 };
 
+void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
+        int id1 = 0, 
+        int id2 = 0, 
+        int id3 = 0);
+void MsgToLog(TLogMsg &msg);
+
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
