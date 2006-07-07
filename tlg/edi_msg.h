@@ -8,6 +8,7 @@
 
 #define REGERR(x) static const Ticketing::ErrMsg_t x
 
+typedef Ticketing::TickExceptions::tick_exception edi_exception;
 typedef Ticketing::TickExceptions::tick_fatal_except edi_fatal_except;
 typedef Ticketing::TickExceptions::tick_soft_except edi_soft_except;
 struct EdiErr{

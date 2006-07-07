@@ -8,13 +8,12 @@
  #include <unistd.h>
  #include <errno.h>
  #include <tcl.h>
- #include "lwriter.h"
 #endif
-#include "logger.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include <daemon.h>
+#include "daemon.h"
+
 #define NICKNAME "VLAD"
 #include "test.h"
 
@@ -105,10 +104,8 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 #endif
         if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
         {
-            tst();
           scan_tlg();
           scan_time=time(NULL);
-          tst();
         };
       }; // end of loop
     }
@@ -188,7 +185,6 @@ void scan_tlg(int tlg_id)
              tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
              tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";
-    tst();
   }
   else
   {
@@ -206,7 +202,6 @@ void scan_tlg(int tlg_id)
   TlgQry.Execute();
   while (!TlgQry.Eof&&count<SCAN_COUNT)
   {
-      tst();
     UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));
     try
     {
@@ -274,7 +269,6 @@ void scan_tlg(int tlg_id)
         };
 
         tlg_out.TTL=ttl;
-        tst();
 #ifdef __WIN32__
         if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==SOCKET_ERROR)
@@ -284,7 +278,6 @@ void scan_tlg(int tlg_id)
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
 #endif
-        tst();
       };
     }
     catch(Exception E)

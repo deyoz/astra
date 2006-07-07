@@ -330,9 +330,9 @@ proc astra_init3 {} {
 proc astra_init_other {} {
      sirena_sleep 1000
      start_obr [ list tlg_snd ]
-    start_obr [ list tlg_srv ]
+     start_obr [ list tlg_srv ]
 #     start_obr [ list typeb_handler ] 
-#     start_obr [ list edi_handler ]
+     start_obr [ list edi_handler ]
 #     start_obr [ list timer ]     
 }
 

@@ -47,18 +47,78 @@ public:
     virtual std::string unbAddr() const { return "ETICK"; }
 };
 
+class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
+{
+    edi_mes_head *Head;
+    //H2host H2H;
+    bool isH2H;
+    std::string rcvr;
+    std::string sndr;
+    public:
+        AstraEdiSessRD():
+        isH2H(false)
+        {
+        }
+
+        virtual edilib::EdiSess::H2host *h2h()
+        {
+            return 0;
+        }
+        virtual std::string sndrH2hAddr() const { return ""; }
+        virtual std::string rcvrH2hAddr() const { return ""; }
+        virtual std::string H2hTpr() const { return ""; }
+
+        virtual std::string baseOurrefName() const
+        {
+            return "ASTRA";
+        }
+
+        void setMesHead(edi_mes_head &head)
+        {
+            Head = &head;
+        }
+        virtual edi_mes_head *edih()
+        {
+            return Head;
+        }
+};
+
 class edi_udata
 {
-    AstraEdiSessWR *SessData;
+    edilib::EdiSess::EdiSessData *SessData;
+public:
+    edi_udata(edilib::EdiSess::EdiSessData *sd)
+    :SessData(sd)
+    {
+    }
+    edilib::EdiSess::EdiSessData *sessData() {return SessData; }
+    ~edi_udata(){ delete SessData; }
+};
+
+class edi_udata_wr : public edi_udata
+{
     std::string MsgId;
 public:
-    edi_udata(AstraEdiSessWR *sd, const std::string &msg_id)
-    : SessData(sd), MsgId(msg_id){}
+    edi_udata_wr(AstraEdiSessWR *sd, const std::string &msg_id)
+    : edi_udata(sd), MsgId(msg_id){}
 
-    AstraEdiSessWR *sessData() { return SessData; }
+    AstraEdiSessWR *sessDataWr()
+    {
+        return &dynamic_cast<AstraEdiSessWR &>(*sessData());
+    }
     const std::string &msgId() const { return MsgId; }
+};
 
-    ~edi_udata(){ delete SessData; }
+class edi_udata_rd : public edi_udata
+{
+public:
+    edi_udata_rd(AstraEdiSessRD *sd)
+    : edi_udata(sd){}
+
+    AstraEdiSessRD *sessDataRd()
+    {
+        return &dynamic_cast<AstraEdiSessRD &>(*sessData());
+    }
 };
 
 //======================================
@@ -102,7 +162,7 @@ public:
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp);
 
 typedef void (* message_func_t)
-        (edi_mes_head *pHead, edi_udata &udata, edi_common_data &data);
+        (edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 struct message_funcs_type{
     const char *msg_code;
     message_func_t parse;
@@ -142,5 +202,8 @@ public:
     }
     static const message_funcs_type &GetEdiFunc(edi_msg_types_t mes_type, const std::string &msg_code);
 };
+
+// Обработка EDIFACT
+void proc_edifact(const std::string &tlg);
 
 #endif /*_EDI_TLG_H_*/

@@ -16,11 +16,11 @@
 #include "tlg.h"
 #include "stl_utils.h"
 #include "tlg_parser.h"
+#include "daemon.h"
 #include "edilib/edi_user_func.h"
 
 #define NICKNAME "VLAD"
 #include "test.h"
-#include <daemon.h>
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -69,7 +69,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 #endif
       ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
-//      if (init_edifact(interp,false)<0) throw Exception("'init_edifact' error");
+      if (init_edifact()<0) throw Exception("'init_edifact' error");
 
 #ifdef __WIN32__
       if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==INVALID_SOCKET)
@@ -199,6 +199,7 @@ void process_tlg(void)
         throw Exception("Telegram too small (sender=%s, num=%d, type=%d)",
                         tlg_in.Sender,tlg_in.num,tlg_in.type);
     };
+    ProgTrace(TRACE5,"%s->%s:%s",tlg_in.Sender,tlg_in.Receiver,tlg_in.body);
     if (strcmp(tlg_in.Receiver,OWN_CANON_NAME)!=0)
       throw Exception("Unknown telegram receiver %s",tlg_in.Receiver);
 
@@ -293,7 +294,6 @@ void process_tlg(void)
               TlgInsQry.CreateVariable("ttl",otInteger,FNull);
             TlgInsQry.DeleteVariable("tlg_text");
             TlgInsQry.Execute();
-
             if (is_h2h)
             {
               //h2h_tlgs

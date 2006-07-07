@@ -6,6 +6,7 @@
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "astra_utils.h"
+#include "etick/lang.h"
 
 //#include "etick/exceptions.h"
 
@@ -15,6 +16,7 @@
 
 using namespace edilib;
 using namespace edilib::EdiSess;
+using namespace Ticketing;
 
 
 static edi_loaded_char_sets edi_chrset[]=
@@ -147,7 +149,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        SendTlgType("MOWRT", "MOWDC", true, 99, tlg);
+        SendTlgType("MOWRT", "MOWRA", true, 99, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -166,9 +168,9 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
     return ret;
 }
 
-void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data);
-void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data);
-void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data);
+void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 
 message_funcs_type message_TKCREQ[] =
 {
@@ -181,6 +183,7 @@ message_funcs_type message_TKCREQ[] =
 message_funcs_str message_funcs[] =
 {
     {TKTREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
+    {TKTRES, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
 };
 
 int init_edifact()
@@ -215,6 +218,24 @@ int init_edifact()
     return 0;
 }
 
+// Обработка EDIFACT
+void proc_edifact(const std::string &tlg)
+{
+    edi_udata_rd udata(new AstraEdiSessRD());
+    int err=0, ret;
+
+    edi_mes_head edih;
+    memset(&edih,0, sizeof(edih));
+    udata.sessDataRd()->setMesHead(edih);
+
+    ProgTrace(TRACE2, "Edifact Handle");
+    ret = FullObrEdiMessage(tlg.c_str(),&edih,&udata,&err);
+
+    if(ret){
+        throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
+    }
+}
+
 EdiMesFuncs::messages_map_t *EdiMesFuncs::messages_map;
 const message_funcs_type &EdiMesFuncs::GetEdiFunc(
         edi_msg_types_t mes_type, const std::string &msg_code)
@@ -246,7 +267,7 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 {
     int err=0;
-    edi_udata ud(new AstraEdiSessWR(), "131");
+    edi_udata_wr ud(new AstraEdiSessWR(), "131");
 
     tst();
     int ret = SendEdiMessage(TKTREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
@@ -256,10 +277,10 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
     }
 }
 
-void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data)
+void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
     EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
-    TickDisp &TickD = dynamic_cast<TickDisp &>(data);
+    TickDisp &TickD = dynamic_cast<TickDisp &>(*data);
 
     switch(TickD.dispType())
     {
@@ -277,16 +298,33 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
     }
 }
 
-void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data)
+void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
+    TST();
+    // Запись телеграммы в спец таблицу, для связи с obrzap'ом
+    // вызов переспроса
 }
-void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data &data)
+void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
+    TST();
 }
 
 
 int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 {
+    ProgTrace(TRACE4, "ProcEDIREQ: tlg_in is %s", pHead->msg_type_str->code);
+
+    edi_udata *ud = (edi_udata *)udata;
+    const message_funcs_type &mes_funcs=
+            EdiMesFuncs::GetEdiFunc(pHead->msg_type,
+                                    edilib::GetDBFName(GetEdiMesStruct(),
+                                    edilib::DataElement(1225),
+                                    EdiErr::EDI_PROC_ERR,
+                                    edilib::CompElement("C302"),
+                                    edilib::SegmElement("MSG")));
+
+    mes_funcs.parse(pHead, *ud, 0);
+    mes_funcs.proc(pHead, *ud, 0);
     return 0;
 }
 
@@ -295,7 +333,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 
     try{
         EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
-        edi_udata *ed=(edi_udata *) udata;
+        edi_udata_wr *ed=(edi_udata_wr *) udata;
         // Заполняет стр-ры: edi_mes_head && EdiSession
         // Из первой создастся стр-ра edifact сообщения
         // Из второй запись в БД
@@ -303,7 +341,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
 
-        SetEdiSessMesAttrOnly(ed->sessData());
+        SetEdiSessMesAttrOnly(ed->sessDataWr());
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {
@@ -314,7 +352,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         SetEdiFullSegment(pMes, "MSG",0, ":"+ed->msgId());
         SetEdiFullSegment(pMes, "ORG",0, "NW+52519950+++A++PJ");
 
-        mes_funcs.collect_req(pHead, *ed, *static_cast<TickDisp *>(data));
+        mes_funcs.collect_req(pHead, *ed, static_cast<TickDisp *>(data));
     }
     catch(std::exception &e)
     {
