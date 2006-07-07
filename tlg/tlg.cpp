@@ -180,7 +180,7 @@ message_funcs_type message_TKCREQ[] =
 
 message_funcs_str message_funcs[] =
 {
-    {TKCREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
+    {TKTREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
 };
 
 int init_edifact()
@@ -249,7 +249,7 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
     edi_udata ud(new AstraEdiSessWR(), "131");
 
     tst();
-    int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
+    int ret = SendEdiMessage(TKTREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
     if(!ret){
     } else {
         //throw
