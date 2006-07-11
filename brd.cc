@@ -12,20 +12,102 @@ using namespace std;
 void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText = "SELECT trip_id,tid__seq.nextval AS tid FROM trips WHERE trip_id=:trip_id FOR UPDATE";
-    Qry->DeclareVariable("trip_id", otInteger);
-    Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
-    Qry->Execute();
-    if(Qry->Eof) throw UserException("Рейс не найден. Обновите данные");
-    int new_tid = Qry->FieldAsInteger("tid");
     Qry->SQLText =
-        "UPDATE pax SET pr_brd=decode(pr_brd, 0, 1, NULL, 1, 0), tid=tid__seq.currval "
-        "WHERE pax_id= :pax_id AND tid=:tid ";
+        "begin "
+        "   begin "
+        "       SELECT "
+        "           tid__seq.nextval into :new_tid "
+        "       FROM "
+        "           trips "
+        "       WHERE "
+        "           trip_id=:trip_id "
+        "       FOR UPDATE; "
+        "   exception "
+        "       when no_data_found then "
+        "           raise_application_error(-20000, 'trip not found'); "
+        "   end; "
+        "   select "
+        "       p.name, "
+        "       p.surname, "
+        "       p.reg_no, "
+        "       p.grp_id, "
+        "       pg.point_id "
+        "   into "
+        "       :name, "
+        "       :surname, "
+        "       :regno, "
+        "       :grp_id, "
+        "       :point_id "
+        "   from "
+        "       pax p, "
+        "       pax_grp pg "
+        "   where "
+        "       p.pax_id = :pax_id and "
+        "       pg.grp_id=p.grp_id; "
+        "   :pr_brd := -1; "
+        "   UPDATE pax SET "
+        "       pr_brd=decode(pr_brd, 0, 1, NULL, 1, 0), "
+        "       tid=tid__seq.currval "
+        "   WHERE "
+        "       pax_id= :pax_id AND "
+        "       tid=:tid "
+        "   returning "
+        "       pr_brd into :pr_brd; "
+        "   if SQL%ROWCOUNT > 0 then "
+        "       mvd.sync_pax(:pax_id, :term); "
+        "   end if; "
+        "end;";
+
+    Qry->DeclareVariable("term", otString);
+    Qry->DeclareVariable("new_tid", otInteger);
+    Qry->DeclareVariable("trip_id", otInteger);
     Qry->DeclareVariable("pax_id", otInteger);
     Qry->DeclareVariable("tid", otInteger);
+    Qry->DeclareVariable("pr_brd", otInteger);
+    Qry->DeclareVariable("name", otString);
+    Qry->DeclareVariable("surname", otString);
+    Qry->DeclareVariable("point_id", otInteger);
+    Qry->DeclareVariable("regno", otInteger);
+    Qry->DeclareVariable("grp_id", otInteger);
+
+    Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
+    Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
     Qry->SetVariable("pax_id", NodeAsInteger("pax_id", reqNode));
     Qry->SetVariable("tid", NodeAsInteger("tid", reqNode));
-    Qry->Execute();
+
+    try {
+        Qry->Execute();
+    } catch(EOracleError E) {
+        switch(E.Code) {
+            case 20000:
+                throw UserException("Рейс не найден. Обновите данные");
+            default:
+                throw;
+        }
+    }
+
+    int pr_brd = Qry->GetVariableAsInteger("pr_brd");
+    if(pr_brd >= 0) {
+        /*
+        throw UserException((string)
+                Qry->GetVariableAsString("point_id") + " " +
+                Qry->GetVariableAsString("regno") + " " +
+                Qry->GetVariableAsString("pr_brd") + " " +
+                Qry->GetVariableAsString("grp_id")
+                );
+                */
+        string msg = (string)
+                "Пассажир " + Qry->GetVariableAsString("surname") + " " +
+                Qry->GetVariableAsString("name") +
+                (pr_brd ? " прошел посадку" : " высажен");
+        MsgToLog(msg, evtPax,
+                Qry->GetVariableAsInteger("point_id"),
+                Qry->GetVariableAsInteger("regno"),
+                Qry->GetVariableAsInteger("grp_id"));
+        xmlNodePtr dataNode = NewTextChild(resNode, "data");
+        NewTextChild(dataNode, "pr_brd", pr_brd);
+        NewTextChild(dataNode, "new_tid", Qry->GetVariableAsInteger("new_tid"));
+    }
     OraSession.DeleteQuery(*Qry);
 }
 
