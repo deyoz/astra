@@ -9,50 +9,53 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
-void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+int get_new_tid()
 {
     TQuery *Qry = OraSession.CreateQuery();
     try {
         Qry->SQLText =
+            "select "
+            "    tid__seq.nextval tid "
+            "from "
+            "    trips "
+            "where "
+            "    trip_id=:trip_id "
+            "for update";
+        Qry->DeclareVariable("trip_id", otInteger);
+        Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
+        Qry->Execute();
+        if(Qry->Eof) throw UserException("Рейс не найден. Обновите данные");
+        int result = Qry->FieldAsInteger("tid");
+        OraSession.DeleteQuery(*Qry);
+        return result;
+    } catch(...) {
+        OraSession.DeleteQuery(*Qry);
+        throw;
+    }
+}
+
+void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    try {
+        get_new_tid();
+        Qry->SQLText =
             "declare "
-//            "   tid tid__seq%type; "
             "   cursor cur is "
             "       select pax_id from pax_grp,pax where pax_grp.grp_id=pax.grp_id and point_id=:trip_id and pr_brd=1; "
             "   currow       cur%rowtype; "
             "begin "
-            "   begin "
-            "       select "
-            "           tid__seq.nextval into :tid "
-            "       from "
-            "           trips "
-            "       where "
-            "           trip_id=:trip_id "
-            "       for update; "
-            "   exception "
-            "       when no_data_found then "
-            "           raise_application_error(-20000, 'trip not found'); "
-            "   end; "
             "   for currow in cur loop "
             "       update pax set pr_brd=0,tid=tid__seq.currval where pax_id=currow.pax_id and pr_brd=1; "
             "       mvd.sync_pax(currow.pax_id,:term); "
             "   end loop; "
             "end; ";
-        Qry->DeclareVariable("tid", otInteger);
         Qry->DeclareVariable("trip_id", otInteger);
         Qry->DeclareVariable("term", otString);
         int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
         Qry->SetVariable("trip_id", trip_id);
         Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-        try {
-            Qry->Execute();
-        } catch(EOracleError E) {
-            switch(E.Code) {
-                case 20000:
-                    throw UserException("Рейс не найден. Обновите данные");
-                default:
-                    throw;
-            }
-        }
+        Qry->Execute();
         MsgToLog("Все пассажиры высажены", evtPax, trip_id);
         OraSession.DeleteQuery(*Qry);
     } catch(...) {
@@ -64,20 +67,9 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();
+    int new_tid = get_new_tid();
     Qry->SQLText =
         "begin "
-        "   begin "
-        "       SELECT "
-        "           tid__seq.nextval into :new_tid "
-        "       FROM "
-        "           trips "
-        "       WHERE "
-        "           trip_id=:trip_id "
-        "       FOR UPDATE; "
-        "   exception "
-        "       when no_data_found then "
-        "           raise_application_error(-20000, 'trip not found'); "
-        "   end; "
         "   select "
         "       p.name, "
         "       p.surname, "
@@ -111,8 +103,6 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
         "end;";
 
     Qry->DeclareVariable("term", otString);
-    Qry->DeclareVariable("new_tid", otInteger);
-    Qry->DeclareVariable("trip_id", otInteger);
     Qry->DeclareVariable("pax_id", otInteger);
     Qry->DeclareVariable("tid", otInteger);
     Qry->DeclareVariable("pr_brd", otInteger);
@@ -123,20 +113,10 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
     Qry->DeclareVariable("grp_id", otInteger);
 
     Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-    Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
     Qry->SetVariable("pax_id", NodeAsInteger("pax_id", reqNode));
     Qry->SetVariable("tid", NodeAsInteger("tid", reqNode));
 
-    try {
-        Qry->Execute();
-    } catch(EOracleError E) {
-        switch(E.Code) {
-            case 20000:
-                throw UserException("Рейс не найден. Обновите данные");
-            default:
-                throw;
-        }
-    }
+    Qry->Execute();
 
     int pr_brd = Qry->GetVariableAsInteger("pr_brd");
     if(pr_brd >= 0) {
@@ -159,7 +139,7 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
     }
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "pr_brd", pr_brd);
-    NewTextChild(dataNode, "new_tid", Qry->GetVariableAsInteger("new_tid"));
+    NewTextChild(dataNode, "new_tid", new_tid);
     OraSession.DeleteQuery(*Qry);
 }
 
