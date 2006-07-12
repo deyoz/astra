@@ -88,17 +88,16 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
         "   where "
         "       p.pax_id = :pax_id and "
         "       pg.grp_id=p.grp_id; "
-        "   :pr_brd := -1; "
         "   UPDATE pax SET "
-        "       pr_brd=decode(pr_brd, 0, 1, NULL, 1, 0), "
+        "       pr_brd=:pr_brd, "
         "       tid=tid__seq.currval "
         "   WHERE "
         "       pax_id= :pax_id AND "
-        "       tid=:tid "
-        "   returning "
-        "       pr_brd into :pr_brd; "
+        "       tid=:tid; "
         "   if SQL%ROWCOUNT > 0 then "
         "       mvd.sync_pax(:pax_id, :term); "
+        "   else "
+        "       :pr_brd := -1; "
         "   end if; "
         "end;";
 
@@ -115,6 +114,7 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
     Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
     Qry->SetVariable("pax_id", NodeAsInteger("pax_id", reqNode));
     Qry->SetVariable("tid", NodeAsInteger("tid", reqNode));
+    Qry->SetVariable("pr_brd", NodeAsInteger("pr_brd", reqNode));
 
     Qry->Execute();
 
@@ -156,7 +156,7 @@ void BrdInterface::CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     Qry->Execute();
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     while(!Qry->Eof) {
-        if(NodeAsString("seat_no", reqNode) != Qry->FieldAsString("seat_no"))
+        if(strcmp(NodeAsString("seat_no", reqNode), Qry->FieldAsString("seat_no")) != 0)
             break;
         Qry->Next();
     }
