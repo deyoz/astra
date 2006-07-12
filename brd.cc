@@ -9,6 +9,58 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
+void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    try {
+        Qry->SQLText =
+            "declare "
+//            "   tid tid__seq%type; "
+            "   cursor cur is "
+            "       select pax_id from pax_grp,pax where pax_grp.grp_id=pax.grp_id and point_id=:trip_id and pr_brd=1; "
+            "   currow       cur%rowtype; "
+            "begin "
+            "   begin "
+            "       select "
+            "           tid__seq.nextval into :tid "
+            "       from "
+            "           trips "
+            "       where "
+            "           trip_id=:trip_id "
+            "       for update; "
+            "   exception "
+            "       when no_data_found then "
+            "           raise_application_error(-20000, 'trip not found'); "
+            "   end; "
+            "   for currow in cur loop "
+            "       update pax set pr_brd=0,tid=tid__seq.currval where pax_id=currow.pax_id and pr_brd=1; "
+            "       mvd.sync_pax(currow.pax_id,:term); "
+            "   end loop; "
+            "end; ";
+        Qry->DeclareVariable("tid", otInteger);
+        Qry->DeclareVariable("trip_id", otInteger);
+        Qry->DeclareVariable("term", otString);
+        int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+        Qry->SetVariable("trip_id", trip_id);
+        Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
+        try {
+            Qry->Execute();
+        } catch(EOracleError E) {
+            switch(E.Code) {
+                case 20000:
+                    throw UserException("Рейс не найден. Обновите данные");
+                default:
+                    throw;
+            }
+        }
+        MsgToLog("Все пассажиры высажены", evtPax, trip_id);
+        OraSession.DeleteQuery(*Qry);
+    } catch(...) {
+        OraSession.DeleteQuery(*Qry);
+        throw;
+    }
+}
+
 void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();

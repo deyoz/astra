@@ -22,8 +22,11 @@ public:
      AddEvent("check_seat",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::PaxUpd);
      AddEvent("brd_paxupd",evHandle);
+     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Deplane);
+     AddEvent("brd_deplane",evHandle);
   };	
   
+  void Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
