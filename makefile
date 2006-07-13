@@ -29,7 +29,7 @@ clean:
 	echo > deps
 	-killall edit_deps2
 	-rm -rf depsdir edit_deps_lock
-	-rm -f *.o *.h1  *.lis  *.d astra
+	-rm -f *.o tlg/*.o *.h1  *.lis  *.d astra
 
 
 #
