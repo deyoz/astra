@@ -3,14 +3,16 @@
 #include "edilib/edi_session.h"
 #include "edilib/edi_session_cb.h"
 #include "astra_ticket.h"
+#include "monitor_ctl.h"
 
 class AstraEdiSessWR : public edilib::EdiSess::EdiSessWrData
 {
     edilib::EdiSess::EdiSession EdiSess;
     edi_mes_head EdiHead;
+    std::string Pult;
 public:
-    AstraEdiSessWR()
-    : EdiSess(edilib::EdiSess::CreateEdiSess())
+    AstraEdiSessWR(const std::string &pult)
+    : EdiSess(edilib::EdiSess::CreateEdiSess()), Pult(pult)
     {
         memset(&EdiHead, 0, sizeof(EdiHead));
     }
@@ -35,7 +37,7 @@ public:
     // Внешняя ссылка на сессию
     // virtual int externalIda() const { return 0; }
     // Пульт
-    virtual std::string pult() const { return "ASTRA1"; };
+    virtual std::string pult() const { return Pult; };
 
     // Аттрибуты сообщения
 /*    virtual std::string syntax() const { return "IATA"; }
@@ -86,13 +88,15 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
 class edi_udata
 {
     edilib::EdiSess::EdiSessData *SessData;
+    ServerFramework::EdiHelpManager EdiHelpMng;
 public:
     edi_udata(edilib::EdiSess::EdiSessData *sd)
-    :SessData(sd)
+    :SessData(sd),EdiHelpMng(ServerFramework::EdiHelpManager(15))
     {
     }
     edilib::EdiSess::EdiSessData *sessData() {return SessData; }
-    ~edi_udata(){ delete SessData; }
+    ServerFramework::EdiHelpManager *ediHelp() { return &EdiHelpMng; }
+    virtual ~edi_udata(){ delete SessData; }
 };
 
 class edi_udata_wr : public edi_udata
@@ -111,22 +115,29 @@ public:
 
 class edi_udata_rd : public edi_udata
 {
+    const std::string &TlgText;
 public:
-    edi_udata_rd(AstraEdiSessRD *sd)
-    : edi_udata(sd){}
+    edi_udata_rd(AstraEdiSessRD *sd, const std::string &tlg)
+    : edi_udata(sd), TlgText(tlg){}
 
     AstraEdiSessRD *sessDataRd()
     {
         return &dynamic_cast<AstraEdiSessRD &>(*sessData());
     }
+
+    const std::string tlgText() const { return TlgText; }
 };
 
 //======================================
 class edi_common_data
 {
-    OrigOfRequest Org;
+    Ticketing::OrigOfRequest Org;
 public:
-    const OrigOfRequest &org() const { return Org; }
+    edi_common_data(const Ticketing::OrigOfRequest &org)
+        :Org(org)
+    {
+    }
+    const Ticketing::OrigOfRequest &org() const { return Org; }
     virtual ~edi_common_data(){}
 };
 
@@ -138,8 +149,8 @@ class TickDisp : public edi_common_data
 {
     TickDispType_t DispType;
 public:
-    TickDisp(TickDispType_t dt)
-    :DispType(dt)
+    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt)
+    :edi_common_data(org), DispType(dt)
     {
     }
     TickDispType_t dispType() { return DispType; }
@@ -149,8 +160,8 @@ class TickDispByNum : public TickDisp
 {
     std::string TickNum;
 public:
-    TickDispByNum(const std::string &ticknum)
-    :   TickDisp(TickDispByTickNo),
+    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum)
+    :   TickDisp(org, TickDispByTickNo),
         TickNum(ticknum)
     {
     }

@@ -39,13 +39,13 @@ int main_tlg_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
-              
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);     
+
+      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
 
       time_t scan_time=0;
       for(;;)
       {
-      	sleep(WAIT_INTERVAL);      
+      	sleep(WAIT_INTERVAL);
         if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
         {
           handle_tlg();
@@ -56,14 +56,14 @@ int main_tlg_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     catch(EOracleError E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.Message);
+      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
 #endif
       throw;
     }
     catch(Exception E)
     {
 #ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.Message);      
+      ProgError(STDLOG,"Exception: %s",E.what());
 #endif
       throw;
     };
@@ -165,13 +165,13 @@ void handle_tlg(void)
       catch(EXCEPTIONS::Exception E)
       {
 #ifndef __WIN32__
-        ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.Message);
-        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.Message);
+        ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
+        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
 #else
         char bufh[50];
         sprintf(bufh,"Telegram (id: %d)",tlg_id);
         Form1->PrintMsg(bufh);
-        Form1->PrintMsg(E.Message);
+        Form1->PrintMsg(E.what());
         Form1->PrintMsg("");
 #endif
         TlgInUpdQry.Execute();
@@ -387,13 +387,13 @@ void handle_tlg(void)
       {
       	OraSession.Rollback();
 #ifndef __WIN32__
-        ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.Message);
-        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.Message);
+        ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
 #else
         char bufh[50];
         sprintf(bufh,"Telegram (id: %d)",tlg_id);
         Form1->PrintMsg(bufh);
-        Form1->PrintMsg(E.Message);
+        Form1->PrintMsg(E.what());
         Form1->PrintMsg("");
 #endif
         TlgInUpdQry.Execute();

@@ -8,6 +8,11 @@
 #include "astra_utils.h"
 #include "etick/lang.h"
 
+// Для ReadSysContext
+#include "cont_tools.h"
+#include "jxtlib.h"
+#include "posthooks.h"
+
 //#include "etick/exceptions.h"
 
 #define NICKNAME "VLAD"
@@ -17,7 +22,7 @@
 using namespace edilib;
 using namespace edilib::EdiSess;
 using namespace Ticketing;
-
+using namespace jxtlib;
 
 static edi_loaded_char_sets edi_chrset[]=
 {
@@ -28,7 +33,7 @@ static edi_loaded_char_sets edi_chrset[]=
 
 struct lsTKCREQ {
 };
-void lsTKTREC_destruct(void *data)
+void lsTKCREC_destruct(void *data)
 {
 
 }
@@ -54,32 +59,24 @@ int FuncAfterEdiParseErr(int parse_ret, void *udata, int *err)
 
 int FuncBeforeEdiProc(edi_mes_head *pHead, void *udata, int *err)
 {
-#if 0
     edi_udata * data = ((edi_udata *)udata);
     int ret=0;
     try{
-        data->sessData()->setMesHead(*pHead);
-
-        UpdateEdiSession(data->sessData());
+        UpdateEdiSession(&dynamic_cast<EdiSessRdData &>(*data->sessData()));
         ProgTrace(TRACE1,"Check edifact session - Ok");
         /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
-        Utils::BeforeSoftError();
     }
-    catch(edilib::Exception &e)
+    catch(edilib::EdiExcept &e)
     {
         WriteLog(STDLOG, e.what());
-        SendEdiTlgErrCONTRL(get_tlg_context()->rot_num, 0, *err);
         ret-=100;
         ProgTrace(TRACE2,"Read EDIFACT message / update EDIFACT session - failed");
     }
     return ret;
-#endif
-    return 0;
 }
 
 int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
 {
-#if 0
     int ret=0;
     edi_udata * data = ((edi_udata *)udata);
     if(pHead->msg_type_req == RESPONSE){
@@ -87,18 +84,16 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
         try{
             CommitEdiSession(data->sessData()->ediSession());
         }
-        catch (tick_exception &x){
+        catch (edilib::Exception &x){
             *err=ret=-110;
-            Utils::AfterSoftError();
-            SendEdiTlgErrCONTRL(get_tlg_context()->rot_num, 0, *err);
+//             Utils::AfterSoftError();
+//             SendEdiTlgErrCONTRL(get_tlg_context()->rot_num, 0, *err);
         }
         catch(...){
             ProgError(STDLOG, "Unknown exception!");
         }
     }
     return ret;
-#endif
-    return 0;
 }
 
 int FuncAfterEdiProcErr(edi_mes_head *pHead, int ret, void *udata, int *err)
@@ -182,8 +177,8 @@ message_funcs_type message_TKCREQ[] =
 
 message_funcs_str message_funcs[] =
 {
-    {TKTREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
-    {TKTRES, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
+    {TKCREQ, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
+    {TKCRES, "Ticketing", message_TKCREQ, sizeof(message_TKCREQ)/sizeof(message_TKCREQ[0])},
 };
 
 int init_edifact()
@@ -221,7 +216,7 @@ int init_edifact()
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg)
 {
-    edi_udata_rd udata(new AstraEdiSessRD());
+    edi_udata_rd udata(new AstraEdiSessRD(), tlg);
     int err=0, ret;
 
     edi_mes_head edih;
@@ -267,14 +262,41 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 {
     int err=0;
-    edi_udata_wr ud(new AstraEdiSessWR(), "131");
+    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), "131");
 
     tst();
-    int ret = SendEdiMessage(TKTREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
+    int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
     if(!ret){
     } else {
         //throw
     }
+}
+
+string prepareKickText()
+{
+    const char *iface = (const char *)readSysContextNVL("CUR_IFACE", "");
+    const char *handle= (const char *)readSysContextNVL("HANDLE","");
+    const char *oper  = (const char *)readSysContextNVL("OPR",   "");
+    string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
+            "<term>"
+            "<query handle=\"");
+    text = text + handle + "\" id=\"" +iface+ "\" ver=\"0\" opr=\""+ oper +"\">"
+            "<kick></kick>"
+            "</query>"
+            "</term>";
+    return text;
+}
+
+void saveTlgSource(const string &pult, const string &tlg)
+{
+    JXTLib::Instance()->GetCallbacks()->
+            initJxtContext(pult);
+
+    if(writeSysContext("TlgSource", tlg.c_str()))
+    {
+        throw Exception("");
+    }
+    registerHookBefore(SaveContextsHook);
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -292,21 +314,27 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
             SetEdiPointToSegGrW(pMes, 1);
             SetEdiFullSegment(pMes, "TKT",0, TickDisp.tickNum());
         }
-            break;
+        break;
         default:
             throw EdiExcept("Unsupported dispType");
     }
+    udata.ediHelp()->
+            configForPerespros(prepareKickText().c_str(),
+                               TickD.org().pult().c_str());
 }
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
-    TST();
-    // Запись телеграммы в спец таблицу, для связи с obrzap'ом
-    // вызов переспроса
 }
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
-    TST();
+    int confirm_notify_levb(const char *pult);
+    // Запись телеграммы в контекст, для связи с obrzap'ом
+    // вызов переспроса
+    confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
+
+    edi_udata_rd &udata_rd = dynamic_cast<edi_udata_rd &>(udata);
+    saveTlgSource(udata.sessData()->ediSession()->pult, udata_rd.tlgText());
 }
 
 
@@ -349,10 +377,11 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         }
         tst();
 
+        TickDisp *td = static_cast<TickDisp *>(data);
         SetEdiFullSegment(pMes, "MSG",0, ":"+ed->msgId());
-        SetEdiFullSegment(pMes, "ORG",0, "NW+52519950+++A++PJ");
+        SetEdiFullSegment(pMes, "ORG",0, "NW+52519950+++A++PJ++"+td->org().pult());
 
-        mes_funcs.collect_req(pHead, *ed, static_cast<TickDisp *>(data));
+        mes_funcs.collect_req(pHead, *ed, td);
     }
     catch(std::exception &e)
     {
