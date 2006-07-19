@@ -1,1 +1,1 @@
-LC_ALL=C ./astra.tcl
+LC_ALL=C ./astra.tcl $@
