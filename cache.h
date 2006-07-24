@@ -96,7 +96,7 @@ class TCacheTable {
     private:
         TQuery *Qry;
         TParams Params, SQLParams;
-        std::string title;
+        std::string Title;
         std::string SelectSQL;
         std::string RefreshSQL;
         std::string InsertSQL;
@@ -106,8 +106,9 @@ class TCacheTable {
         bool Logging;
         bool Forbidden, ReadOnly;
         std::vector<TCacheField2> FFields;
-        int tid, itid;
-        int newitid; // текущее значение tid интерфейса
+        int clientVerData;
+        int curVerIface; 
+        int clientVerIface;
         TTable table;
 
         bool pr_irefresh, pr_drefresh;
@@ -123,6 +124,7 @@ class TCacheTable {
         int getIfaceVer();
         void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                         const std::vector<std::string> &vars );
+        void Clear();
     public:
         void refresh();
         void buildAnswer(xmlNodePtr resNode);

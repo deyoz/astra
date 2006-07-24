@@ -267,6 +267,12 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content)
   return NewTextChild(parent, name, IntToString(content).c_str());
 };
 
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content)
+{
+  return NewTextChild(parent, name, FloatToString(content).c_str());
+};
+
+
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *content)
 {
   xmlNodePtr node;

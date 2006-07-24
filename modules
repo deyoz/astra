@@ -1,4 +1,4 @@
-MODULES=astra_utils.o astra_consts.o xml_unit.o astra_main.o locale.o cache.o etick.o astra_callbacks.o \
+MODULES=astra_utils.o astra_consts.o xml_unit.o astra_main.o locale.o adm.o pay.o cache.o etick.o astra_callbacks.o \
 	timer.o brd.o astra_tick_read_edi.o astra_tick_view_xml.o\
 	tlg/edi_handler.o tlg/main_snd.o tlg/main_srv.o tlg/tlg_handler.o \
 	tlg/tlg_parser.o tlg/typeb_handler.o tlg/tlg.o tlg/edi_msg.o \

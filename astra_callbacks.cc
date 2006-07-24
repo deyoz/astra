@@ -1,11 +1,13 @@
-#include "astra_callbacks.h"
-#include "cache.h"
+#include "setup.h"
+#include "astra_callbacks.h"  
+#include "adm.h"
+#include "cache.h" 
+#include "pay.h"
 #include "brd.h"
-#include "etick.h"
-
+#include "etick.h" 
 #define NICKNAME "VLAD"
 #include "test.h"
-#include "setup.h"
+
 #include "jxtlib.h"
 #include "oralib.h"
 #include "ocilocal.h"
@@ -16,7 +18,9 @@ using namespace jxtlib;
 void AstraCallbacks::InitInterfaces()
 {
   ProgTrace(TRACE3, "AstraCallbacks::InitInterfaces");
-  new CacheInterface();
+  new AdmInterface();
+  new PayInterface();
+  new CacheInterface();  
   new BrdInterface();
   new ETSearchInterface();
 };
@@ -53,3 +57,9 @@ void AstraCallbacks::HandleException(std::exception *e)
 	};
 }
 
+
+
+
+
+
+ 
