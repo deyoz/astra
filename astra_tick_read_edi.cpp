@@ -13,6 +13,8 @@ namespace TickReader{
 
     using namespace std;
     using namespace edilib;
+    using namespace boost::gregorian;
+    using namespace boost::posix_time;
 
     struct CoupCounter{
         CoupCounter(){}
