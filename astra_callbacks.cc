@@ -4,6 +4,7 @@
 #include "cache.h" 
 #include "pay.h"
 #include "brd.h"
+#include "season.h"
 #include "etick.h" 
 #define NICKNAME "VLAD"
 #include "test.h"
@@ -22,6 +23,7 @@ void AstraCallbacks::InitInterfaces()
   new PayInterface();
   new CacheInterface();  
   new BrdInterface();
+  new SeasonInterface();
   new ETSearchInterface();
 };
 
