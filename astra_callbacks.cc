@@ -6,6 +6,8 @@
 #include "brd.h"
 #include "season.h"
 #include "etick.h" 
+#include "images.h" 
+#include "seats.h" 
 #define NICKNAME "VLAD"
 #include "test.h"
 
@@ -25,6 +27,8 @@ void AstraCallbacks::InitInterfaces()
   new BrdInterface();
   new SeasonInterface();
   new ETSearchInterface();
+  new ImagesInterface();      
+  new SeatsInterface();      
 };
 
 void AstraCallbacks::HandleException(std::exception *e)
@@ -37,8 +41,9 @@ void AstraCallbacks::HandleException(std::exception *e)
 	EOracleError *orae = dynamic_cast<EOracleError*>(e);
 	if (orae)
 	{
-		ProgTrace(TRACE5,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
-		NewTextChild( resNode, "exception", orae->what() );
+		ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
+		xmlNodePtr node = NewTextChild( resNode, "command" );
+		NewTextChild( node, "error", "Ошибка обработки запроса. Обратитесь к разработчикам" );
 //		addXmlBM(*ctxt);
                 return;
 	};
@@ -46,22 +51,17 @@ void AstraCallbacks::HandleException(std::exception *e)
 	if (ue)
 	{
                 ProgTrace( TRACE5, "UserException: %s", ue->what() );
-		NewTextChild( resNode, "userexception", ue->what() );
+                xmlNodePtr node = NewTextChild( resNode, "command" );
+                NewTextChild( node, "usererror", ue->what() );
 		//addXmlBM(*ctxt);
                 return;
 	}
-	EXCEPTIONS::Exception *exp = dynamic_cast<EXCEPTIONS::Exception*>(e);
+	std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
 	if (exp)
-	{
-		ProgTrace(TRACE5,"Exception: %s",exp->what());
-		NewTextChild( resNode, "exception", exp->what() );
+	{		
+		ProgError(STDLOG,"logic_error: %s",exp->what());
+                xmlNodePtr node = NewTextChild( resNode, "command" );		
+		NewTextChild( node, "error", "Ошибка обработки запроса. Обратитесь к разработчикам" );
 		return;
 	};
 }
-
-
-
-
-
-
- 
