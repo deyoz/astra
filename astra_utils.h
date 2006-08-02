@@ -4,6 +4,8 @@
 #include <string>
 #include "astra_consts.h"
 #include "basic.h"
+#include "basic.h"
+#include <libxml/parser.h>
 
 ASTRA::TClass DecodeClass(char* s);
 char* EncodeClass(ASTRA::TClass cl);
@@ -23,6 +25,8 @@ void SendTlgType(const char* receiver,
                  int ttl,
                  const std::string &text);
 void SendTlg(const char* receiver, const char* sender, const char *format, ...);
+
+void showMessage( xmlNodePtr resNode, const std::string &message );
 
 struct TLogMsg {
   std::string msg;

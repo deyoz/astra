@@ -9,6 +9,7 @@
 #define NICKNAME "VLAD"
 #include "test.h"
 #include <string.h>
+#include "xml_unit.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -247,3 +248,10 @@ void MsgToLog(TLogMsg &msg)
 
     OraSession.DeleteQuery(*Qry);
 }
+
+void showMessage( xmlNodePtr resNode, const std::string &message )
+{
+  xmlNodePtr node = NewTextChild( resNode, "command" );
+  NewTextChild( node, "message", message );
+}
+
