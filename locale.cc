@@ -77,6 +77,6 @@ int init_locale(void)
     single_run(getenv("SIRENA_INSTANCE"));
 #endif /* 0 */
   
-  jxtlib::JXTLib::Instance()->SetCallbacks(new AstraCallbacks()); 
+  //jxtlib::JXTLib::Instance()->SetCallbacks(new AstraCallbacks()); 
   return 0;
 }

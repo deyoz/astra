@@ -18,9 +18,9 @@
 
 using namespace jxtlib;
 
-void AstraCallbacks::InitInterfaces()
+void AstraJxtCallbacks::InitInterfaces()
 {
-  ProgTrace(TRACE3, "AstraCallbacks::InitInterfaces");
+  ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
   new AdmInterface();
   new PayInterface();
   new CacheInterface();  
@@ -31,9 +31,21 @@ void AstraCallbacks::InitInterfaces()
   new SeatsInterface();      
 };
 
-void AstraCallbacks::HandleException(std::exception *e)
+void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
+                          int hlen, char **res, int len)
+{  
+    XMLRequestCtxt *xmlRC = getXmlCtxt();
+    //xmlNodePtr node = xmlRC.reqDoc->children->children;
+    std::string screen = NodeAsString("/term/query/@screen", xmlRC->reqDoc);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr );
+}
+   
+
+
+void AstraJxtCallbacks::HandleException(std::exception *e)
 {
-	ProgTrace(TRACE3, "AstraCallbacks::HandleException");
+	ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
 
 	XMLRequestCtxt *ctxt = getXmlCtxt();
 	xmlNodePtr resNode = ctxt->resDoc->children->children;

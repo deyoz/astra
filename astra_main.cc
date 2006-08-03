@@ -4,7 +4,8 @@
 #include <daemon.h>
 #include <ocilocal.h>
 #include "oralib.h"
-#include "jxtlib_astra.h"
+#include "jxtlib.h"
+#include "astra_callbacks.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
@@ -94,9 +95,10 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
     }
 #endif /* 0 */
     AstraJxtCallbacks *ajc=new AstraJxtCallbacks();
-    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
+//    AstraLocaleCallbacks *alc=new AstraLocaleCallbacks();
     return 0;
 }
+
 
 int main(int argc,char **argv)
 {
