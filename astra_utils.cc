@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include "basic.h"
 #include "oralib.h"
+#include "exceptions.h"
 #define NICKNAME "VLAD"
 #include "test.h"
 #include <string.h>
@@ -15,6 +16,171 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace JxtContext;
+
+TReqInfo::TReqInfo()
+{
+  screen_id = 0;
+  user_id = 0;
+  access_code = 0;
+};
+
+TReqInfo *TReqInfo::Instance()
+{
+  static TReqInfo *instance_ = 0;
+  if ( !instance_ )
+    instance_ = new TReqInfo();
+  return instance_;
+};
+
+void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr )
+{
+  access.clearFlags();
+  TQuery &Qry = *OraSession.CreateQuery();
+  try {
+    Qry.SQLText = "SELECT user_id, login, descr, pr_denial FROM astra.users2 "\
+                  " WHERE desk = UPPER(:pult) ";
+    Qry.DeclareVariable( "pult", otString );
+    Qry.SetVariable( "pult", vpult );
+    Qry.Execute();
+    
+    if ( Qry.RowCount() == 0 )
+      throw EXCEPTIONS::UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+    if ( !vopr.empty() )
+      if ( vopr != Qry.FieldAsString( "login" ) )
+        throw EXCEPTIONS::UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+        
+      if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+        throw EXCEPTIONS::UserException( "Пользователю отказано в доступе" );
+    user_id = Qry.FieldAsInteger( "user_id" );
+    desk = vpult;        
+    descr = Qry.FieldAsString( "descr" );    
+  
+    Qry.Clear();
+    Qry.SQLText = "SELECT id FROM screen WHERE exe = UPPER(:screen)";
+    Qry.DeclareVariable( "screen", otString );
+    Qry.SetVariable( "screen", vscreen );
+    Qry.Execute();
+    if ( Qry.RowCount() == 0 )    
+      throw EXCEPTIONS::Exception( (string)"Unknown screen " + vscreen );  
+    screen_id = Qry.FieldAsInteger( "id" );
+    
+    screen = vscreen;
+  
+    Qry.Clear();
+    Qry.SQLText = "SELECT 1 AS priority,access_code FROM astra.user_perms "\
+                  " WHERE user_perms.screen_id=:screen_id AND user_perms.user_id=:user_id "\
+                  " UNION "\
+                  "SELECT 2,MAX(access_code) FROM astra.user_roles,astra.role_perms "\
+                  " WHERE user_roles.role_id=role_perms.role_id AND "\
+                  "       role_perms.screen_id=:screen_id AND "\
+                  "       user_roles.user_id=:user_id "\
+                  "ORDER BY priority";
+                
+    Qry.DeclareVariable( "user_id",otInteger );
+    Qry.DeclareVariable( "screen_id", otString );
+    Qry.SetVariable( "user_id", user_id );
+    Qry.SetVariable( "screen_id", screen_id );
+    Qry.Execute();
+    if ( Qry.RowCount() > 0 )
+      access_code = Qry.FieldAsInteger( "access_code" );
+    else
+      access_code = 0;
+  }
+  catch( ... ) {
+    OraSession.DeleteQuery( Qry );
+    throw;
+  };
+  OraSession.DeleteQuery( Qry );
+  setAccessPair();
+}
+
+void TReqInfo::setAccessPair()
+{
+  access.clearFlags();
+  switch( access_code ) {
+    case 0: break;
+    case 1:
+    case 2:
+    case 3:
+    case 4: access.setFlag( amRead );
+            break;
+    case 5:
+    case 6: access.setFlag( amRead );
+            access.setFlag( amPartialWrite );
+            break;
+    default:access.setFlag( amRead );
+            access.setFlag( amPartialWrite );
+            access.setFlag( amWrite );
+  }
+}
+
+
+void TReqInfo::check_access( TAccessMode mode )
+{
+  if ( !access.isFlag( mode ) )
+    throw EXCEPTIONS::UserException( "Недостаточно прав. Доступ к информации невозможен" );
+}
+
+bool TReqInfo::getAccessMode( TAccessMode mode )
+{
+  return access.isFlag( mode );
+}
+
+void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
+{
+    TLogMsg msgh;
+    msgh.msg = msg;
+    msgh.ev_type = ev_type;
+    msgh.id1 = id1;
+    msgh.id2 = id2;
+    msgh.id3 = id3;
+    MsgToLog(msgh);
+}
+
+void TReqInfo::MsgToLog(TLogMsg &msg)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    Qry->SQLText =
+        "INSERT INTO astra.events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
+        "VALUES(:type,SYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+    Qry->DeclareVariable("type", otString);
+    Qry->DeclareVariable("msg", otString);
+    Qry->DeclareVariable("screen", otString);
+    Qry->DeclareVariable("ev_user", otString);
+    Qry->DeclareVariable("station", otString);
+    Qry->DeclareVariable("id1", otInteger);
+    Qry->DeclareVariable("id2", otInteger);
+    Qry->DeclareVariable("id3", otInteger);
+
+    Qry->SetVariable("type", EncodeEventType(msg.ev_type));
+    Qry->SetVariable("msg", msg.msg);
+    Qry->SetVariable("screen", screen);
+    Qry->SetVariable("ev_user", FNull);
+    Qry->SetVariable("station", desk);
+    if(msg.id1)
+        Qry->SetVariable("id1", msg.id1);
+    else
+        Qry->SetVariable("id1", FNull);
+    if(msg.id2)
+        Qry->SetVariable("id2", msg.id2);
+    else
+        Qry->SetVariable("id2", FNull);
+    if(msg.id3)
+        Qry->SetVariable("id3", msg.id3);
+    else
+        Qry->SetVariable("id3", FNull);
+    try {
+      Qry->Execute();
+    }
+    catch( ... ) {
+      OraSession.DeleteQuery(*Qry);
+      throw;
+    }
+    OraSession.DeleteQuery(*Qry);
+}
+
+
+/***************************************************************************************/
 
 TEventType DecodeEventType( const string ev_type )
 {
@@ -197,57 +363,6 @@ void SendTlg(const char* receiver, const char* sender, const char *format, ...)
   }
   catch(...) {};
 };
-
-void MsgToLog(std::string msg, TEventType ev_type,
-        int id1, int id2, int id3)
-{
-    TLogMsg msgh;
-    msgh.msg = msg;
-    msgh.ev_type = ev_type;
-    msgh.id1 = id1;
-    msgh.id2 = id2;
-    msgh.id3 = id3;
-    MsgToLog(msgh);
-}
-
-void MsgToLog(TLogMsg &msg)
-{
-    TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText =
-        "INSERT INTO astra.events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "VALUES(:type,SYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
-    Qry->DeclareVariable("type", otString);
-    Qry->DeclareVariable("msg", otString);
-    Qry->DeclareVariable("screen", otString);
-    Qry->DeclareVariable("ev_user", otString);
-    Qry->DeclareVariable("station", otString);
-    Qry->DeclareVariable("id1", otInteger);
-    Qry->DeclareVariable("id2", otInteger);
-    Qry->DeclareVariable("id3", otInteger);
-
-    JxtCont *context = getJxtContHandler()->currContext();
-
-    Qry->SetVariable("type", EncodeEventType(msg.ev_type));
-    Qry->SetVariable("msg", msg.msg);
-    Qry->SetVariable("screen", context->read("SCREEN"));
-    Qry->SetVariable("ev_user", FNull);
-    Qry->SetVariable("station", context->read("STATION"));
-    if(msg.id1)
-        Qry->SetVariable("id1", msg.id1);
-    else
-        Qry->SetVariable("id1", FNull);
-    if(msg.id2)
-        Qry->SetVariable("id2", msg.id2);
-    else
-        Qry->SetVariable("id2", FNull);
-    if(msg.id3)
-        Qry->SetVariable("id3", msg.id3);
-    else
-        Qry->SetVariable("id3", FNull);
-    Qry->Execute();
-
-    OraSession.DeleteQuery(*Qry);
-}
 
 void showMessage( xmlNodePtr resNode, const std::string &message )
 {

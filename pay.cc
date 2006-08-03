@@ -15,9 +15,11 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
+using namespace ASTRA;
 
 void PayInterface::LoadBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo::Instance()->check_access( amRead );
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::LoadBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -127,6 +129,7 @@ void PayInterface::LoadBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void PayInterface::LoadPaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo::Instance()->check_access( amRead );	
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::LoadPaindBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -170,6 +173,7 @@ void PayInterface::LoadPaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void PayInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo::Instance()->check_access( amWrite );	
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::SaveBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -296,6 +300,7 @@ void PayInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void PayInterface::SavePaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo::Instance()->check_access( amWrite );  
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::SavePaidBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -333,6 +338,58 @@ void PayInterface::SavePaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   OraSession.DeleteQuery( *Qry );		    
 }    
+
+void PayInterface::CopyBasicPayTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo::Instance()->check_access( amWrite );  
+  TQuery *Qry = OraSession.CreateQuery();
+  string name = NodeAsString( "name", reqNode );
+  string airline = NodeAsString( "airline", reqNode );  
+  ProgTrace( TRACE5, "CopyBasicPayTable, name=%s, airline=%s", name.c_str(), airline.c_str() );  
+  try {
+    string sqltext = "BEGIN";
+    if ( name == "AIRLINE_BAG_NORMS" ) 
+      sqltext += "  kassa.copy_basic_bag_norm(:airline);";
+    if ( name == "AIRLINE_BAG_RATES" )
+      sqltext += "  kassa.copy_basic_bag_rate(:airline);";
+    if ( name == "AIRLINE_VALUE_BAG_TAXES" )
+      sqltext += "  kassa.copy_basic_value_bag_tax(:airline);";
+    if ( name == "AIRLINE_EXCHANGE_RATES" )
+      sqltext += "  kassa.copy_basic_exchange_rate(:airline);";
+    sqltext += "END;";
+    Qry->DeclareVariable( "airline", otString );
+    Qry->SetVariable( "airline", airline );
+    Qry->Execute();    
+    if ( name == "AIRLINE_BAG_NORMS" )
+      TReqInfo::Instance()->MsgToLog( string( "Багажные нормы авиакомпании " ) + airline +
+                                      " установлены на основе базовых норм", evtPeriod );
+    if ( name == "AIRLINE_BAG_RATES" )
+      TReqInfo::Instance()->MsgToLog( string( "Багажные тарифы авиакомпании " ) + airline +
+                                      " установлены на основе базовых тарифов", evtPeriod );
+    
+    if ( name == "AIRLINE_VALUE_BAG_TAXES" )
+      TReqInfo::Instance()->MsgToLog( string( "Сборы за ценнось багажа для авиакомпании " ) + airline +
+                                      " установлены на основе базовых сборов", evtPeriod );
+    if ( name == "AIRLINE_EXCHANGE_RATES" ) 
+      TReqInfo::Instance()->MsgToLog( string( "Курсы перевода валют авиакомпании " ) + airline +
+                                      " установлены на основе базовых курсов", evtPeriod );
+    string msg;
+    if ( name == "AIRLINE_BAG_NORMS" )
+      msg = "Багажные нормы авиакомпании установлены на основе базовых норм";
+    if ( name == "AIRLINE_BAG_RATES" )
+      msg = "Багажные тарифы авиакомпании установлены на основе базовых тарифов";
+    if ( name == "AIRLINE_VALUE_BAG_TAXES" )
+      msg = "Сборы за ценнось багажа для авиакомпании установлены на основе базовых сборов";
+    if ( name == "AIRLINE_EXCHANGE_RATES" )
+      msg = "Курсы перевода валют авиакомпании установлены на основе базовых курсов";
+    showMessage( resNode, msg );     
+  }
+  catch( ... ) {
+    OraSession.DeleteQuery( *Qry );  	
+    throw;
+  }
+  OraSession.DeleteQuery( *Qry );  
+}
 
 void PayInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

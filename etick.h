@@ -14,10 +14,17 @@ public:
      AddEvent("TickPanel",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::
              CreateHandler(&ETSearchInterface::KickHandler));
+     //!!! не здесь!!!
+     evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::ChangeETStatus);
+     AddEvent("B_Check_in",evHandle);             
   };
 
   void SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  
+  //!!!
+  void ChangeETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

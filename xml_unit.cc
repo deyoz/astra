@@ -5,6 +5,10 @@
 #include "xml_unit.h"
 #include "basic.h"
 #include "stl_utils.h"
+#define NICKNAME "DJEK" //!!!
+#include "setup.h" //!!!
+#include "test.h" //!!!
+
 
 using namespace std;
 using namespace BASIC;
@@ -237,6 +241,7 @@ TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cu
   node=find_node(expr,data,cur);
   if (node==NULL)
     throw EXMLError(string("Node '") + expr + "' does not exists");
+ProgTrace( TRACE5, "expr=%s, format=%s, nodecont=%s", expr, format, NodeContent(node) );    
   if ( StrToDateTime( NodeContent(node), format, Value ) == EOF )
     throw EXMLError(string("Cannot convert node '") + expr + "' to an DateTime");
   return Value;
@@ -249,6 +254,11 @@ TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur)
   else
     return NodeAsDateTime(expr,cur->doc,format,cur);
 };
+
+TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur)
+{
+  return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );
+}
 
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {

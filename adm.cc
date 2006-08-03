@@ -13,13 +13,13 @@
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
+using namespace ASTRA;
 
 void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE2, "AdmInterface::LoadAdm" );
-/*    if sys.user.mode='' then
-      ShowErrorMsg('Недостаточно прав. Доступ к информации невозможен');*/
-
+  TReqInfo *ri = TReqInfo::Instance();
+  ri->check_access( amRead );
 
   TQuery *Qry = OraSession.CreateQuery();
   try {
@@ -44,7 +44,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                    "      cache_tables.code=perms.cache(+) "\
                    " ORDER BY num,title,cache,access_code DESC ";
     Qry->DeclareVariable( "user_id", otInteger );
-    Qry->SetVariable( "user_id", 1 ); //!!!
+    Qry->SetVariable( "user_id", ri->user_id );
     Qry->Execute();
 
     SetProp(resNode, "handle", "1");
@@ -53,7 +53,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SetProp(ifaceNode, "ver", "1");
     xmlNodePtr node = NewTextChild( resNode, "properties" );
     node = NewTextChild( node, "PasswdBtn", "" );
-    SetProp( node, "enabled", 1/*sys.user.mode=='w' !!!*/ );
+    SetProp( node, "enabled", ri->getAccessMode( amWrite ) );
     node = NewTextChild( resNode, "data" );
     if ( Qry->RowCount() ) {
       node = NewTextChild( node, "CacheTables" );
@@ -97,6 +97,7 @@ void AdmInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo::Instance()->check_access( amWrite );
   TQuery *Qry = OraSession.CreateQuery();
   int user_id = NodeAsInteger( "user_id", reqNode );
   ProgTrace( TRACE5, "Сброс пароля пользователя(user_id=%d)", user_id );
@@ -107,18 +108,16 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry->Execute();
     if ( Qry->RowsProcessed() == 0 ) 
       throw Exception( "Невозможно сбросить пароль" );
-    //!!!sys.MsgToLog( 'Сброшен пароль пользователя '+FieldAsString['descr',i], evtAccess );      
     SetProp( resNode, "handle", "1" );
-/*    xmlNodePtr node = NewTextChild( resNode, "interface" );
-    SetProp( node, "id", "adm" );
-    SetProp( node, "ver", "1" );*/
     Qry->Clear();
     Qry->SQLText = "SELECT descr FROM users2 WHERE user_id=:user_id";
     Qry->DeclareVariable( "user_id", otInteger );
     Qry->SetVariable( "user_id", user_id ); 
     Qry->Execute();    
-    NewTextChild( resNode, "message", string( "Пользователю " ) + Qry->FieldAsString( "descr" ) +
-                           " назначен пароль по умолчанию 'ПАРОЛЬ' " );
+    TReqInfo::Instance()->MsgToLog( string( "Сброшен пароль пользователя " ) + 
+                                    Qry->FieldAsString( "descr" ), evtAccess );          
+    showMessage( resNode, string( "Пользователю " ) + Qry->FieldAsString( "descr" ) +
+                          " назначен пароль по умолчанию 'ПАРОЛЬ'" );
   }
   catch( ... ) {
     OraSession.DeleteQuery( *Qry );  	
@@ -127,49 +126,4 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   OraSession.DeleteQuery( *Qry );
 }
 
-void AdmInterface::CopyBasicPayTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  TQuery *Qry = OraSession.CreateQuery();
-  string name = NodeAsString( "name", reqNode );
-  string airline = NodeAsString( "airline", reqNode );  
-  ProgTrace( TRACE5, "CopyBasicPayTable, name=%s, airline=%s", name.c_str(), airline.c_str() );  
-  try {
-    string sqltext = "BEGIN";
-    if ( name == "AIRLINE_BAG_NORMS" ) 
-      sqltext += "  kassa.copy_basic_bag_norm(:airline);";
-    if ( name == "AIRLINE_BAG_RATES" )
-      sqltext += "  kassa.copy_basic_bag_rate(:airline);";
-    if ( name == "AIRLINE_VALUE_BAG_TAXES" )
-      sqltext += "  kassa.copy_basic_value_bag_tax(:airline);";
-    if ( name == "AIRLINE_EXCHANGE_RATES" )
-      sqltext += "  kassa.copy_basic_exchange_rate(:airline);";
-    sqltext += "END;";
-    Qry->DeclareVariable( "airline", otString );
-    Qry->SetVariable( "airline", airline );
-    Qry->Execute();    
-/*!!!      if Name='AIRLINE_BAG_NORMS' then
-        sys.MsgToLog('Багажные нормы авиакомпании '+airline+' установлены на основе базовых норм',evtPeriod);
-      if Name='AIRLINE_BAG_RATES' then
-        sys.MsgToLog('Багажные тарифы авиакомпании '+airline+' установлены на основе базовых тарифов',evtPeriod);
-      if Name='AIRLINE_VALUE_BAG_TAXES' then
-        sys.MsgToLog('Сборы за ценнось багажа для авиакомпании '+airline+' установлены на основе базовых сборов',evtPeriod);
-      if Name='AIRLINE_EXCHANGE_RATES' then
-        sys.MsgToLog('Курсы перевода валют авиакомпании '+airline+' установлены на основе базовых курсов',evtPeriod);*/
-    string msg;
-    if ( name == "AIRLINE_BAG_NORMS" )
-      msg = "Багажные нормы авиакомпании установлены на основе базовых норм";
-    if ( name == "AIRLINE_BAG_RATES" )
-      msg = "Багажные тарифы авиакомпании установлены на основе базовых тарифов";
-    if ( name == "AIRLINE_VALUE_BAG_TAXES" )
-      msg = "Сборы за ценнось багажа для авиакомпании установлены на основе базовых сборов";
-    if ( name == "AIRLINE_EXCHANGE_RATES" )
-      msg = "Курсы перевода валют авиакомпании установлены на основе базовых курсов";
-    NewTextChild( resNode, "message", msg );     
-  }
-  catch( ... ) {
-    OraSession.DeleteQuery( *Qry );  	
-    throw;
-  }
-  OraSession.DeleteQuery( *Qry );  
-}
 

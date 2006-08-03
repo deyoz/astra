@@ -5,6 +5,7 @@
 #include "test.h"
 #include "oralib.h"
 #include "cache.h"
+#include "astra_utils.h"
 
 using namespace EXCEPTIONS;
 using namespace std;
@@ -56,7 +57,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry->SetVariable("trip_id", trip_id);
         Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
         Qry->Execute();
-        MsgToLog("Все пассажиры высажены", evtPax, trip_id);
+        TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, trip_id);
         OraSession.DeleteQuery(*Qry);
     } catch(...) {
         OraSession.DeleteQuery(*Qry);
@@ -132,10 +133,10 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
                 "Пассажир " + Qry->GetVariableAsString("surname") + " " +
                 Qry->GetVariableAsString("name") +
                 (pr_brd ? " прошел посадку" : " высажен");
-        MsgToLog(msg, evtPax,
-                Qry->GetVariableAsInteger("point_id"),
-                Qry->GetVariableAsInteger("regno"),
-                Qry->GetVariableAsInteger("grp_id"));
+        TReqInfo::Instance()->MsgToLog(msg, evtPax,
+                                       Qry->GetVariableAsInteger("point_id"),
+                                       Qry->GetVariableAsInteger("regno"),
+                                       Qry->GetVariableAsInteger("grp_id"));
     }
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "pr_brd", pr_brd);

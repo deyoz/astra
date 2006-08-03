@@ -20,11 +20,11 @@ public:
      evHandle=JxtHandler<PayInterface>::CreateHandler(&PayInterface::SavePaidBag);
      AddEvent("SavePaidBag",evHandle);               
   };
-
   void LoadBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadPaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
   void SavePaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void CopyBasicPayTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

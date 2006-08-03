@@ -92,3 +92,14 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
         throw EXCEPTIONS::Exception("Просмотр списка ЭБ не поддерживается");
     }
 }
+
+//!!!
+void ETSearchInterface::ChangeETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  string tick_no=NodeAsString("tick_num",reqNode);
+  int coupon_num=NodeAsInteger("coupon_num",reqNode);
+  string coupon_status=NodeAsString("coupon_status",reqNode);
+  ProgTrace( TRACE5, "tick_no=%s, coupon_num=%d, coupon_status=%s", tick_no.c_str(), coupon_num, coupon_status.c_str() );
+  
+}
+
