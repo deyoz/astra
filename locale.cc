@@ -2,7 +2,6 @@
 #define NICKTRACE KONST_TRACE
 #include "test.h"
 #include "jxtlib.h"
-#include "astra_callbacks.h"
 #include "ocilocal.h"
 #include "oralib.h"
 
