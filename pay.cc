@@ -19,7 +19,7 @@ using namespace ASTRA;
 
 void PayInterface::LoadBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amRead );
+  TReqInfo::Instance()->user.check_access( amRead );
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::LoadBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -129,7 +129,7 @@ void PayInterface::LoadBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void PayInterface::LoadPaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amRead );	
+  TReqInfo::Instance()->user.check_access( amRead );	
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::LoadPaindBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -173,7 +173,7 @@ void PayInterface::LoadPaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void PayInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amWrite );	
+  TReqInfo::Instance()->user.check_access( amWrite );	
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::SaveBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -300,7 +300,7 @@ void PayInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void PayInterface::SavePaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amWrite );  
+  TReqInfo::Instance()->user.check_access( amWrite );  
   int grp_id = NodeAsInteger( "grp_id", reqNode );
   ProgTrace(TRACE2, "PayInterface::SavePaidBag, grp_id=%d", grp_id );
   TQuery *Qry = OraSession.CreateQuery();
@@ -341,7 +341,7 @@ void PayInterface::SavePaidBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void PayInterface::CopyBasicPayTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amWrite );  
+  TReqInfo::Instance()->user.check_access( amWrite );  
   TQuery *Qry = OraSession.CreateQuery();
   string name = NodeAsString( "name", reqNode );
   string airline = NodeAsString( "airline", reqNode );  

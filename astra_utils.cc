@@ -15,13 +15,14 @@
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
+using namespace EXCEPTIONS;
 using namespace JxtContext;
 
 TReqInfo::TReqInfo()
 {
   screen_id = 0;
-  user_id = 0;
-  access_code = 0;
+  user.user_id = 0;
+  user.access_code = 0;
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -34,9 +35,29 @@ TReqInfo *TReqInfo::Instance()
 
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr )
 {
-  access.clearFlags();
+  user.access.clearFlags();
   TQuery &Qry = *OraSession.CreateQuery();
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   try {
+    Qry.SQLText = "SELECT pr_denial, city, airp FROM desks, sale_points "\
+                  " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
+    Qry.DeclareVariable( "pult", otString );
+    Qry.SetVariable( "pult", vpult );
+    Qry.Execute();
+    if ( Qry.RowCount() == 0 )
+      throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );         	
+    if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+      throw UserException( "Пульт отключен" );         	
+    desk.city = Qry.FieldAsString( "city" );
+    desk.airp = Qry.FieldAsString( "airp" );
+    Qry.Clear();
+    Qry.SQLText = "SELECT SYSDATE+tz/24 as time FROM cities WHERE cod=:city";
+    Qry.DeclareVariable( "city", otString );
+    Qry.SetVariable( "city", desk.city );
+    Qry.Execute();
+    desk.time = Qry.FieldAsDateTime( "time" );
+    
+    Qry.Clear();
     Qry.SQLText = "SELECT user_id, login, descr, pr_denial FROM astra.users2 "\
                   " WHERE desk = UPPER(:pult) ";
     Qry.DeclareVariable( "pult", otString );
@@ -44,16 +65,17 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.Execute();
     
     if ( Qry.RowCount() == 0 )
-      throw EXCEPTIONS::UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+      throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
     if ( !vopr.empty() )
       if ( vopr != Qry.FieldAsString( "login" ) )
-        throw EXCEPTIONS::UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+        throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
         
       if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-        throw EXCEPTIONS::UserException( "Пользователю отказано в доступе" );
-    user_id = Qry.FieldAsInteger( "user_id" );
-    desk = vpult;        
-    descr = Qry.FieldAsString( "descr" );    
+        throw UserException( "Пользователю отказано в доступе" );
+    user.user_id = Qry.FieldAsInteger( "user_id" );
+    desk.code = vpult;        
+    user.descr = Qry.FieldAsString( "descr" );    
+    user.login = Qry.FieldAsString( "login" );    
   
     Qry.Clear();
     Qry.SQLText = "SELECT id FROM screen WHERE exe = UPPER(:screen)";
@@ -61,7 +83,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SetVariable( "screen", vscreen );
     Qry.Execute();
     if ( Qry.RowCount() == 0 )    
-      throw EXCEPTIONS::Exception( (string)"Unknown screen " + vscreen );  
+      throw Exception( (string)"Unknown screen " + vscreen );  
     screen_id = Qry.FieldAsInteger( "id" );
     
     screen = vscreen;
@@ -78,23 +100,23 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
                 
     Qry.DeclareVariable( "user_id",otInteger );
     Qry.DeclareVariable( "screen_id", otString );
-    Qry.SetVariable( "user_id", user_id );
+    Qry.SetVariable( "user_id", user.user_id );
     Qry.SetVariable( "screen_id", screen_id );
     Qry.Execute();
     if ( Qry.RowCount() > 0 )
-      access_code = Qry.FieldAsInteger( "access_code" );
+      user.access_code = Qry.FieldAsInteger( "access_code" );
     else
-      access_code = 0;
+      user.access_code = 0;
   }
   catch( ... ) {
     OraSession.DeleteQuery( Qry );
     throw;
   };
   OraSession.DeleteQuery( Qry );
-  setAccessPair();
+  user.setAccessPair();
 }
 
-void TReqInfo::setAccessPair()
+void TUser::setAccessPair()
 {
   access.clearFlags();
   switch( access_code ) {
@@ -115,13 +137,13 @@ void TReqInfo::setAccessPair()
 }
 
 
-void TReqInfo::check_access( TAccessMode mode )
+void TUser::check_access( TAccessMode mode )
 {
   if ( !access.isFlag( mode ) )
-    throw EXCEPTIONS::UserException( "Недостаточно прав. Доступ к информации невозможен" );
+    throw UserException( "Недостаточно прав. Доступ к информации невозможен" );
 }
 
-bool TReqInfo::getAccessMode( TAccessMode mode )
+bool TUser::getAccessMode( TAccessMode mode )
 {
   return access.isFlag( mode );
 }
@@ -155,8 +177,8 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     Qry->SetVariable("type", EncodeEventType(msg.ev_type));
     Qry->SetVariable("msg", msg.msg);
     Qry->SetVariable("screen", screen);
-    Qry->SetVariable("ev_user", FNull);
-    Qry->SetVariable("station", desk);
+    Qry->SetVariable("ev_user", user.descr);
+    Qry->SetVariable("station", desk.code);
     if(msg.id1)
         Qry->SetVariable("id1", msg.id1);
     else
@@ -370,3 +392,16 @@ void showMessage( xmlNodePtr resNode, const std::string &message )
   NewTextChild( node, "message", message );
 }
 
+/***************************************************************************************/
+void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    ProgError( STDLOG, "!!! Ошибка клиента: msg=%s, id1=%d, id2=%d, id3=%d", 
+               NodeAsString( "msg", reqNode ), NodeAsInteger( "id1", reqNode ), 
+               NodeAsInteger( "id2", reqNode ),
+               NodeAsInteger( "id3", reqNode ) ) ;
+}
+
+void SysReqInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+};
+/***************************************************************************************/

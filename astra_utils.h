@@ -4,11 +4,14 @@
 #include <string>
 #include "astra_consts.h"
 #include "basic.h"
-#include "basic.h"
 #include "oralib.h"
 #include <map>
 #include "jxt_xml_cont.h"
 #include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <string>
+#include "JxtInterface.h"
+
 
 struct TLogMsg {
   std::string msg;
@@ -43,24 +46,37 @@ class BitSet
   }
 };
 
+class TUser {
+  public:
+    int user_id;  	
+    std::string login;
+    std::string descr;
+    int access_code;    	
+    BitSet<TAccessMode> access;
+    void setAccessPair( );      
+    void check_access( TAccessMode mode );
+    bool getAccessMode( TAccessMode mode );  
+};
+
+struct TDesk {  
+  std::string code;
+  std::string city;
+  std::string airp;
+  BASIC::TDateTime time;
+};
+
 class TReqInfo
 {
   private:
     std::string screen;
     int screen_id;
-    std::string desk;
-    std::string descr;
-    int access_code;    
-    BitSet<TAccessMode> access;
-    void setAccessPair( );    
   public:
-    int user_id;  
     TReqInfo();
     virtual ~TReqInfo() {} 
+    TUser user;    
+    TDesk desk;        
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr );
-    void check_access( TAccessMode mode );
-    bool getAccessMode( TAccessMode mode );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
@@ -103,5 +119,22 @@ void MsgToLog(TLogMsg &msg);
 
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
+
+class SysReqInterface : public JxtInterface
+{
+public:
+  SysReqInterface() : JxtInterface("","SysRequest")
+  {
+     Handler *evHandle;
+     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::ErrorToLog);
+     AddEvent("ClientError",evHandle);
+     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
+     AddEvent("GetBasicInfo",evHandle);
+  };
+
+  void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
 
 #endif /*_ASTRA_UTILS_H_*/

@@ -108,7 +108,7 @@ bool TCacheTable::refreshInterface()
       "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
   Qry->DeclareVariable("user_id",otInteger);
   Qry->DeclareVariable("cache",otString);
-  Qry->SetVariable( "user_id", TReqInfo::Instance()->user_id );
+  Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
   Qry->SetVariable( "cache", code );
   tst();
   Qry->Execute();
@@ -290,7 +290,7 @@ bool TCacheTable::refreshData()
     f = find( vars.begin(), vars.end(), "USER_ID" );
     if ( f != vars.end() ) {
       Qry->DeclareVariable("user_id", otInteger);
-      Qry->SetVariable( "user_id", TReqInfo::Instance()->user_id ); 
+      Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id ); 
       vars.erase( f );
     }
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
@@ -700,7 +700,7 @@ bool TCacheTable::changeIfaceVer() {
 /*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {  	
-  TReqInfo::Instance()->check_access( amRead );	
+  TReqInfo::Instance()->user.check_access( amRead );	
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
   TCacheTable cache( reqNode );
@@ -716,7 +716,7 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amWrite );	
+  TReqInfo::Instance()->user.check_access( amWrite );	
   ProgTrace(TRACE2, "CacheInterface::SaveCache");	
   TCacheTable cache( reqNode );
   if ( cache.changeIfaceVer() )

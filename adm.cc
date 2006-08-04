@@ -19,7 +19,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
   ProgTrace(TRACE2, "AdmInterface::LoadAdm" );
   TReqInfo *ri = TReqInfo::Instance();
-  ri->check_access( amRead );
+  ri->user.check_access( amRead );
 
   TQuery *Qry = OraSession.CreateQuery();
   try {
@@ -44,7 +44,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                    "      cache_tables.code=perms.cache(+) "\
                    " ORDER BY num,title,cache,access_code DESC ";
     Qry->DeclareVariable( "user_id", otInteger );
-    Qry->SetVariable( "user_id", ri->user_id );
+    Qry->SetVariable( "user_id", ri->user.user_id );
     Qry->Execute();
 
     SetProp(resNode, "handle", "1");
@@ -53,7 +53,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SetProp(ifaceNode, "ver", "1");
     xmlNodePtr node = NewTextChild( resNode, "properties" );
     node = NewTextChild( node, "PasswdBtn", "" );
-    SetProp( node, "enabled", ri->getAccessMode( amWrite ) );
+    SetProp( node, "enabled", ri->user.getAccessMode( amWrite ) );
     node = NewTextChild( resNode, "data" );
     if ( Qry->RowCount() ) {
       node = NewTextChild( node, "CacheTables" );
@@ -97,7 +97,7 @@ void AdmInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->check_access( amWrite );
+  TReqInfo::Instance()->user.check_access( amWrite );
   TQuery *Qry = OraSession.CreateQuery();
   int user_id = NodeAsInteger( "user_id", reqNode );
   ProgTrace( TRACE5, "Сброс пароля пользователя(user_id=%d)", user_id );
