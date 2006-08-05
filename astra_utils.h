@@ -56,6 +56,11 @@ class TUser {
     void setAccessPair( );      
     void check_access( TAccessMode mode );
     bool getAccessMode( TAccessMode mode );  
+    TUser()
+    {
+      user_id=-1;
+      access_code=0;	
+    };
 };
 
 struct TDesk {  
@@ -76,7 +81,8 @@ class TReqInfo
     TUser user;    
     TDesk desk;        
     static TReqInfo *Instance();
-    void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr );
+    void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr, 
+                     bool checkBasicInfo );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
@@ -130,10 +136,13 @@ public:
      AddEvent("ClientError",evHandle);
      evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
      AddEvent("GetBasicInfo",evHandle);
+     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::CheckBasicInfo);
+     AddEvent("CheckBasicInfo",evHandle);
   };
 
   void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
+  void CheckBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

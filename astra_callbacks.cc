@@ -41,14 +41,19 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     std::string screen = NodeAsString("/term/query/@screen", xmlRC->reqDoc);
     TReqInfo *reqInfo = TReqInfo::Instance();    
-    reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr );    
+    reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, 
+                         GetNode( "/term/query/CheckBasicInfo", xmlRC->reqDoc ) != NULL );    
     if ( xmlRC->opr.empty() ) 
     { /* оператор пришел пустой - отправляем инфу по оператору */
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
       resNode = NewTextChild(resNode,"basic_info");
-      xmlNodePtr node = NewTextChild(resNode,"user");
-      NewTextChild(node, "access_code",reqInfo->user.access_code);
-      NewTextChild(node, "login",reqInfo->user.login);
+      xmlNodePtr node;
+      if (!reqInfo->user.login.empty())
+      {
+        node = NewTextChild(resNode,"user");
+        NewTextChild(node, "access_code",reqInfo->user.access_code);
+        NewTextChild(node, "login",reqInfo->user.login);
+      };  
       node = NewTextChild(resNode,"desk");
       NewTextChild(node,"airp",reqInfo->desk.airp);
       NewTextChild(node,"city",reqInfo->desk.city);

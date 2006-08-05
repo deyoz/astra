@@ -21,8 +21,6 @@ using namespace JxtContext;
 TReqInfo::TReqInfo()
 {
   screen_id = 0;
-  user.user_id = 0;
-  user.access_code = 0;
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -33,12 +31,25 @@ TReqInfo *TReqInfo::Instance()
   return instance_;
 };
 
-void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr )
+void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, 
+                           const std::string &vopr, bool checkBasicInfo )
 {
   user.access.clearFlags();
   TQuery &Qry = *OraSession.CreateQuery();
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
+  screen = vscreen;	
+  desk.code = vpult;        
   try {
+    Qry.Clear();
+    Qry.SQLText = "SELECT id FROM screen WHERE exe = UPPER(:screen)";
+    Qry.DeclareVariable( "screen", otString );
+    Qry.SetVariable( "screen", vscreen );
+    Qry.Execute();
+    if ( Qry.RowCount() == 0 )    
+      throw Exception( (string)"Unknown screen " + vscreen );  
+    screen_id = Qry.FieldAsInteger( "id" );
+        
+    Qry.Clear();
     Qry.SQLText = "SELECT pr_denial, city, airp FROM desks, sale_points "\
                   " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
     Qry.DeclareVariable( "pult", otString );
@@ -54,7 +65,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SQLText = "SELECT SYSDATE+tz/24 as time FROM cities WHERE cod=:city";
     Qry.DeclareVariable( "city", otString );
     Qry.SetVariable( "city", desk.city );
-    Qry.Execute();
+    Qry.Execute();    
     desk.time = Qry.FieldAsDateTime( "time" );
     
     Qry.Clear();
@@ -65,7 +76,12 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.Execute();
     
     if ( Qry.RowCount() == 0 )
-      throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+    {      
+      if (checkBasicInfo)
+       	return;
+      else 	
+        throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+    };  
     if ( !vopr.empty() )
       if ( vopr != Qry.FieldAsString( "login" ) )
         throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
@@ -73,21 +89,9 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
       if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
         throw UserException( "Пользователю отказано в доступе" );
     user.user_id = Qry.FieldAsInteger( "user_id" );
-    desk.code = vpult;        
     user.descr = Qry.FieldAsString( "descr" );    
     user.login = Qry.FieldAsString( "login" );    
-  
-    Qry.Clear();
-    Qry.SQLText = "SELECT id FROM screen WHERE exe = UPPER(:screen)";
-    Qry.DeclareVariable( "screen", otString );
-    Qry.SetVariable( "screen", vscreen );
-    Qry.Execute();
-    if ( Qry.RowCount() == 0 )    
-      throw Exception( (string)"Unknown screen " + vscreen );  
-    screen_id = Qry.FieldAsInteger( "id" );
     
-    screen = vscreen;
-  
     Qry.Clear();
     Qry.SQLText = "SELECT 1 AS priority,access_code FROM astra.user_perms "\
                   " WHERE user_perms.screen_id=:screen_id AND user_perms.user_id=:user_id "\
