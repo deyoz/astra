@@ -56,11 +56,6 @@ class TUser {
     void setAccessPair( );      
     void check_access( TAccessMode mode );
     bool getAccessMode( TAccessMode mode );  
-    TUser()
-    {
-      user_id=-1;
-      access_code=0;	
-    };
 };
 
 struct TDesk {  
@@ -76,6 +71,7 @@ class TReqInfo
     std::string screen;
     int screen_id;
   public:
+    void Clear();
     TReqInfo();
     virtual ~TReqInfo() {} 
     TUser user;    
@@ -142,7 +138,7 @@ public:
 
   void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
-  void CheckBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
+  void CheckBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

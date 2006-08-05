@@ -31,10 +31,23 @@ TReqInfo *TReqInfo::Instance()
   return instance_;
 };
 
+void TReqInfo::Clear()
+{
+    desk.code.clear();
+    desk.city.clear();
+    desk.airp.clear();
+    desk.time = 0;
+    user.login.clear();
+    user.descr.clear();
+    user.access_code = 0;    	
+    user.access.clearFlags();
+    user.user_id=-1;
+};
+
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, 
                            const std::string &vopr, bool checkBasicInfo )
 {
-  user.access.clearFlags();
+  Clear();
   TQuery &Qry = *OraSession.CreateQuery();
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   screen = vscreen;	
@@ -409,3 +422,55 @@ void SysReqInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
 };
 /***************************************************************************************/
+
+void SysReqInterface::CheckBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    tst();
+    TReqInfo *reqinfo = TReqInfo::Instance();
+    if(reqinfo->user.user_id<0)
+        return;
+
+    TQuery *Qry = OraSession.CreateQuery();
+    try {
+        Qry->SQLText =
+            "SELECT 1 AS priority,MAX(access_code) AS access_code, "
+            "       screen.id,screen.name,screen.exe "
+            "FROM user_perms,screen "
+            "WHERE user_perms.screen_id=screen.id AND "
+            "      user_perms.user_id=:user_id "
+            "GROUP BY screen.id,screen.name,screen.exe "
+            "UNION "
+            "SELECT 2,MAX(access_code), "
+            "       screen.id,screen.name,screen.exe "
+            "FROM user_roles,role_perms,screen "
+            "WHERE user_roles.role_id=role_perms.role_id AND "
+            "      role_perms.screen_id=screen.id AND "
+            "      user_roles.user_id=:user_id "
+            "GROUP BY screen.id,screen.name,screen.exe "
+            "ORDER BY id,priority ";
+        Qry->DeclareVariable("user_id", otInteger);
+        Qry->SetVariable("user_id", reqinfo->user.user_id);
+        Qry->Execute();
+        xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
+        int screen_id = -1;
+        bool modules_exists = false;
+        while(!Qry->Eof) {
+            if(screen_id != Qry->FieldAsInteger("id")) {
+                if(Qry->FieldAsInteger("access_code") > 0) {
+                    modules_exists = true;
+                    xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
+                    NewTextChild(moduleNode, "id", Qry->FieldAsInteger("id"));
+                    NewTextChild(moduleNode, "name", Qry->FieldAsString("name"));
+                    NewTextChild(moduleNode, "exe", Qry->FieldAsString("exe"));
+                }
+                screen_id = Qry->FieldAsInteger("id");
+            }
+            Qry->Next();
+        }
+        if(!modules_exists) throw UserException("Пользователю закрыт доступ ко всем модулям");
+    } catch(...) {
+        OraSession.DeleteQuery(*Qry);
+        throw;
+    }
+    OraSession.DeleteQuery(*Qry);
+}
