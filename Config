@@ -234,7 +234,7 @@ EOF
 cat >astra_oracle.mk <<EOF
 include oracle.mk
 
-ORA_CFLAGS=${OP_CFLAGS} -I/home/oracle/app/oracle/product/9.0.1/rdbms/public
+ORA_CFLAGS=${OP_CFLAGS} -I${ORACLE_HOME}/rdbms/public
 EOF
 $LOCALCC -o /tmp/testgccv$$ /tmp/test$$.c
 if /tmp/testgccv$$ ; then 
