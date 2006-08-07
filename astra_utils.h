@@ -132,14 +132,11 @@ public:
      AddEvent("ClientError",evHandle);
      evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::GetBasicInfo);
      AddEvent("GetBasicInfo",evHandle);
-     evHandle=JxtHandler<SysReqInterface>::CreateHandler(&SysReqInterface::CheckBasicInfo);
-     AddEvent("CheckBasicInfo",evHandle);
   };
 
   void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
-  void CheckBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};  
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };
 
 #endif /*_ASTRA_UTILS_H_*/

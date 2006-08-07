@@ -91,39 +91,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 };
 
 
-void AdmInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-};
 
-void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  TReqInfo::Instance()->user.check_access( amWrite );
-  TQuery *Qry = OraSession.CreateQuery();
-  int user_id = NodeAsInteger( "user_id", reqNode );
-  ProgTrace( TRACE5, "Сброс пароля пользователя(user_id=%d)", user_id );
-  try {
-    Qry->SQLText = "UPDATE users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
-    Qry->DeclareVariable( "user_id", otInteger );
-    Qry->SetVariable( "user_id", user_id ); 
-    Qry->Execute();
-    if ( Qry->RowsProcessed() == 0 ) 
-      throw Exception( "Невозможно сбросить пароль" );
-    SetProp( resNode, "handle", "1" );
-    Qry->Clear();
-    Qry->SQLText = "SELECT descr FROM users2 WHERE user_id=:user_id";
-    Qry->DeclareVariable( "user_id", otInteger );
-    Qry->SetVariable( "user_id", user_id ); 
-    Qry->Execute();    
-    TReqInfo::Instance()->MsgToLog( string( "Сброшен пароль пользователя " ) + 
-                                    Qry->FieldAsString( "descr" ), evtAccess );          
-    showMessage( resNode, string( "Пользователю " ) + Qry->FieldAsString( "descr" ) +
-                          " назначен пароль по умолчанию 'ПАРОЛЬ'" );
-  }
-  catch( ... ) {
-    OraSession.DeleteQuery( *Qry );  	
-    throw;
-  }
-  OraSession.DeleteQuery( *Qry );
-}
+
 
 

@@ -1,5 +1,6 @@
 #include "setup.h"
 #include "astra_callbacks.h"  
+#include "maindcs.h"		
 #include "adm.h"
 #include "cache.h" 
 #include "pay.h"
@@ -24,6 +25,8 @@ using namespace BASIC;
 void AstraJxtCallbacks::InitInterfaces()
 {
   ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
+  new SysReqInterface();     
+  new MainDCSInterface(); 
   new AdmInterface();
   new PayInterface();
   new CacheInterface();  
@@ -31,8 +34,7 @@ void AstraJxtCallbacks::InitInterfaces()
   new SeasonInterface();
   new ETSearchInterface();
   new ImagesInterface();      
-  new SeatsInterface();      
-  new SysReqInterface();      
+  new SeatsInterface();        
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
@@ -41,8 +43,9 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     std::string screen = NodeAsString("/term/query/@screen", xmlRC->reqDoc);
     TReqInfo *reqInfo = TReqInfo::Instance();    
+    ProgTrace(TRACE3,"Before reqInfo->Initialize");
     reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, 
-                         GetNode( "/term/query/CheckBasicInfo", xmlRC->reqDoc ) != NULL );    
+                         GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) != NULL );    
     if ( xmlRC->opr.empty() ) 
     { /* оператор пришел пустой - отправляем инфу по оператору */
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
