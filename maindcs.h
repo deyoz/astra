@@ -19,11 +19,14 @@ public:
      AddEvent("UserLogoff",evHandle);
      evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::SetDefaultPasswd);
      AddEvent("PasswdBtn",evHandle);     
+     evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::ChangePasswd);
+     AddEvent("ChangePasswd",evHandle);     
   };
 
   void CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
-  void UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+  void UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };

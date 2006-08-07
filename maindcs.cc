@@ -12,13 +12,9 @@ using namespace ASTRA;
 using namespace EXCEPTIONS;
 using namespace std;
 
-void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetModuleList(xmlNodePtr resNode)
 {
-    tst();
     TReqInfo *reqinfo = TReqInfo::Instance();
-    if(reqinfo->user.user_id<0)
-        return;
-
     TQuery *Qry = OraSession.CreateQuery();
     try {
         Qry->SQLText =
@@ -62,6 +58,92 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         throw;
     }
     OraSession.DeleteQuery(*Qry);
+}
+
+void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo *reqinfo = TReqInfo::Instance();
+    if(reqinfo->user.user_id<0)
+        return;
+    GetModuleList(resNode);
+}
+
+void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery *Qry = OraSession.CreateQuery();
+    try {
+        Qry->SQLText = "update astra.users2 set desk = null where user_id = :user_id";
+        Qry->DeclareVariable("user_id", otInteger);
+        ProgTrace(TRACE5, "%d", TReqInfo::Instance()->user.user_id);
+        Qry->SetVariable("user_id", TReqInfo::Instance()->user.user_id);
+        Qry->Execute();
+        showMessage(resNode, "Сеанс работы в системе завершен");
+    } catch(...) {
+        OraSession.DeleteQuery(*Qry);
+        throw;
+    }
+    OraSession.DeleteQuery(*Qry);
+}
+
+void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo *reqinfo = TReqInfo::Instance();
+    TQuery *Qry = OraSession.CreateQuery();
+    try {
+        Qry->SQLText =
+            "begin "
+            "   begin "
+            "       SELECT user_id,pr_denial,desk into :user_id, :pr_denial, :desk FROM astra.users2 "
+            "       WHERE UPPER(login)= :userr AND UPPER(passwd)= :passwd for update; "
+            "   exception "
+            "       when no_data_found then "
+            "           raise_application_error(-20000, 'wrong logon'); "
+            "   end; "
+            "   update astra.users2 set desk = :new_desk where user_id = :user_id; "
+            "end; ";
+        Qry->DeclareVariable("userr",otString);
+        Qry->DeclareVariable("passwd",otString);
+        Qry->DeclareVariable("user_id",otInteger);
+        Qry->DeclareVariable("pr_denial",otInteger);
+        Qry->DeclareVariable("desk",otString);
+        Qry->DeclareVariable("new_desk",otString);
+        Qry->SetVariable("userr", NodeAsString("userr", reqNode));
+        Qry->SetVariable("passwd", NodeAsString("passwd", reqNode));
+        Qry->SetVariable("new_desk", reqinfo->desk.code);
+        try {
+            Qry->Execute();
+        } catch(EOracleError E) {
+            tst();
+            switch( E.Code ) {
+              case 20000: throw UserException("Неверно указан пользователь или пароль");
+              default: throw;
+            }
+        }
+        if(Qry->GetVariableAsInteger("pr_denial") != 0)
+            throw UserException("Пользователь отключен");
+        if(!Qry->VariableIsNULL("desk") && (reqinfo->desk.code != Qry->GetVariableAsString("desk")))
+            showMessage(resNode, "Замена терминала");
+        reqinfo->user.user_id = Qry->GetVariableAsInteger("user_id");
+        GetModuleList(resNode);
+        showMessage(resNode, "Добро пожаловать в систему");
+    } catch(...) {
+        OraSession.DeleteQuery(*Qry);
+        throw;
+    }
+    OraSession.DeleteQuery(*Qry);
+}
+
+void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "update users2 set passwd = :passwd where user_id = :user_id";
+    Qry.CreateVariable("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
+    Qry.Execute();
+    if(Qry.RowsProcessed() == 0)
+        throw Exception("user not found (user_id=%d)",TReqInfo::Instance()->user.user_id);
+    TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
+    showMessage(resNode, "Пароль изменен");
 }
 
 void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
