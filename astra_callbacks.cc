@@ -45,7 +45,8 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     TReqInfo *reqInfo = TReqInfo::Instance();    
     ProgTrace(TRACE3,"Before reqInfo->Initialize");
     reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, 
-                         GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) != NULL );    
+                         GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) != NULL ||
+                         GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) != NULL );    
     if ( xmlRC->opr.empty() ) 
     { /* оператор пришел пустой - отправляем инфу по оператору */
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
