@@ -382,7 +382,7 @@ void PayInterface::CopyBasicPayTable(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       msg = "Сборы за ценнось багажа для авиакомпании установлены на основе базовых сборов";
     if ( name == "AIRLINE_EXCHANGE_RATES" )
       msg = "Курсы перевода валют авиакомпании установлены на основе базовых курсов";
-    showMessage( resNode, msg );     
+    showMessage( msg );     
   }
   catch( ... ) {
     OraSession.DeleteQuery( *Qry );  	

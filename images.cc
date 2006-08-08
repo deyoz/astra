@@ -121,7 +121,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     throw;    
   }
   OraSession.DeleteQuery( *Qry );    
-  showMessage( resNode, "Данные успешно сохранены" ); 
+  showMessage( "Данные успешно сохранены" ); 
 };
 
 void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

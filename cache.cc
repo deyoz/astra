@@ -729,7 +729,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);  	 
-  showMessage( resNode, "Изменения успешно сохранены" );
+  showMessage( "Изменения успешно сохранены" );
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
