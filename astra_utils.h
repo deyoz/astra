@@ -111,7 +111,8 @@ void SendTlgType(const char* receiver,
                  const std::string &text);
 void SendTlg(const char* receiver, const char* sender, const char *format, ...);
 
-void showMessage( xmlNodePtr resNode, const std::string &message );
+void showErrorMessage( const std::string &message );
+void showMessage( const std::string &message );
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
         int id1 = 0, 
