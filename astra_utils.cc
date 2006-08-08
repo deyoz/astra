@@ -18,9 +18,44 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace JxtContext;
 
+TDesk::TDesk()
+{
+  time = 0;	
+};
+
+void TDesk::clear()
+{
+  code.clear();
+  city.clear();
+  airp.clear();
+  time = 0;
+};
+
+TUser::TUser()
+{
+  access_code = 0;
+  user_id = -1;	
+};
+
+void TUser::clear()
+{
+  login.clear();
+  descr.clear();
+  access_code = 0;    	
+  access.clearFlags();
+  user_id=-1;
+};	
+
 TReqInfo::TReqInfo()
 {
   screen_id = 0;
+};
+
+void TReqInfo::clear()
+{
+  screen_id = 0;
+  desk.clear();
+  user.clear();  
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -31,23 +66,10 @@ TReqInfo *TReqInfo::Instance()
   return instance_;
 };
 
-void TReqInfo::Clear()
-{
-    desk.code.clear();
-    desk.city.clear();
-    desk.airp.clear();
-    desk.time = 0;
-    user.login.clear();
-    user.descr.clear();
-    user.access_code = 0;    	
-    user.access.clearFlags();
-    user.user_id=-1;
-};
-
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, 
                            const std::string &vopr, bool checkBasicInfo )
 {
-  Clear();
+  clear();
   TQuery &Qry = *OraSession.CreateQuery();
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   screen = vscreen;	
@@ -408,14 +430,41 @@ void showErrorMessage(const std::string &message )
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "errormessage", message );
-}
+};
 
 void showMessage(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
-}
+};
+
+void showBasicInfo(void)
+{
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  TReqInfo *reqInfo = TReqInfo::Instance();	
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  xmlNodePtr node = GetNode("basic_info", resNode);
+  if (node!=NULL) 
+  {
+    xmlUnlinkNode(node);
+    xmlFreeNode(node);	
+  };
+  resNode = NewTextChild(resNode,"basic_info");  
+  if (!reqInfo->user.login.empty())
+  {
+    node = NewTextChild(resNode,"user");
+    NewTextChild(node, "access_code",reqInfo->user.access_code);
+    NewTextChild(node, "login",reqInfo->user.login);
+  };    
+  if (!reqInfo->desk.code.empty())
+  {
+    node = NewTextChild(resNode,"desk");
+    NewTextChild(node,"airp",reqInfo->desk.airp);
+    NewTextChild(node,"city",reqInfo->desk.city);
+    NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) ); 
+  };  
+};
 
 /***************************************************************************************/
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

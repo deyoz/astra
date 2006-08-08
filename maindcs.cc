@@ -51,22 +51,27 @@ void GetModuleList(xmlNodePtr resNode)
         }
         Qry.Next();
     }
-    if(!modules_exists) showErrorMessage("Пользователю закрыт доступ ко всем модулям");
-    
+    if(!modules_exists) showErrorMessage("Пользователю закрыт доступ ко всем модулям");        
 }
 
 void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqinfo = TReqInfo::Instance();
     if(reqinfo->user.login.empty())
+    {
+    	reqinfo->desk.clear();
+    	showBasicInfo();  
         return;    
+    };    
     GetModuleList(resNode);    
+    
 }
 
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TReqInfo *reqinfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);                    
+    Qry.Clear();
     Qry.SQLText = 
       "SELECT user_id, login, descr, pr_denial, desk FROM users2 "
       "WHERE login= UPPER(:userr) AND passwd= UPPER(:passwd) FOR UPDATE ";
@@ -75,85 +80,47 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.Execute();
     if ( Qry.RowCount() == 0 )
       throw UserException("Неверно указан пользователь или пароль");
-    
-    	  
-      
-    
- /*   SELECT user_id, login, descr, pr_denial FROM astra.users2 "\
-                  " WHERE desk = UPPER(:pult) ";
-    Qry.DeclareVariable( "pult", otString );
-    Qry.SetVariable( "pult", vpult );
-    Qry.Execute();
-    
-    if ( Qry.RowCount() == 0 )
+    if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+      throw UserException( "Пользователю отказано в доступе" );
+    reqInfo->user.user_id = Qry.FieldAsInteger("user_id");
+    reqInfo->user.login = Qry.FieldAsString("login");
+    reqInfo->user.descr = Qry.FieldAsString("descr");      
+    if(Qry.FieldIsNULL("desk"))
     {      
-      if (checkBasicInfo)
-       	return;
-      else 	
-        throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
-    };  
-    if ( !vopr.empty() )
-      if ( vopr != Qry.FieldAsString( "login" ) )
-        throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
-        
-      if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-        throw UserException( "Пользователю отказано в доступе" );
-    user.user_id = Qry.FieldAsInteger( "user_id" );
-    user.descr = Qry.FieldAsString( "descr" );    
-    user.login = Qry.FieldAsString( "login" );    */
-    
-        "begin "
-        "   begin "
-        "       SELECT user_id,pr_denial,desk into :user_id, :pr_denial, :desk FROM astra.users2 "
-        "       WHERE UPPER(login)= :userr AND UPPER(passwd)= :passwd for update; "
-        "   exception "
-        "       when no_data_found then "
-        "           raise_application_error(-20000, 'wrong logon'); "
-        "   end; "
-        "   update astra.users2 set desk = :new_desk where user_id = :user_id; "
-        "end; ";
-    Qry.DeclareVariable("userr",otString);
-    Qry.DeclareVariable("passwd",otString);
-    Qry.DeclareVariable("user_id",otInteger);
-    Qry.DeclareVariable("pr_denial",otInteger);
-    Qry.DeclareVariable("desk",otString);
-    Qry.DeclareVariable("new_desk",otString);
-    Qry.SetVariable("userr", NodeAsString("userr", reqNode));
-    Qry.SetVariable("passwd", NodeAsString("passwd", reqNode));
-    Qry.SetVariable("new_desk", reqinfo->desk.code);
-    try {
-        Qry.Execute();
-    } catch(EOracleError E) {
-        tst();
-        switch( E.Code ) {
-          case 20000: throw UserException("Неверно указан пользователь или пароль");
-          default: throw;
-        }
-    }
-    if(Qry.GetVariableAsInteger("pr_denial") != 0)
-        throw UserException("Пользователь отключен");
-    if(!Qry.VariableIsNULL("desk") && (reqinfo->desk.code != Qry.GetVariableAsString("desk")))
-        showMessage("Замена терминала");
-    reqinfo->user.user_id = Qry.GetVariableAsInteger("user_id");
-    GetModuleList(resNode);
-    showMessage("Добро пожаловать в систему");    
+      showMessage( reqInfo->user.descr + ", добро пожаловать в систему");         
+    }  
+    else    
+     if (reqInfo->desk.code != Qry.FieldAsString("desk"))
+       showMessage("Замена терминала");
+    Qry.Clear();
+    Qry.SQLText = "BEGIN "
+                  "  UPDATE users2 SET desk = NULL WHERE desk = :desk; " 
+                  "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
+                  "END;";
+    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+    Qry.Execute();        
+    GetModuleList(resNode);        
+    showBasicInfo();  
 }
 
 void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();	
     TQuery Qry(&OraSession);            
-    Qry.SQLText = "update astra.users2 set desk = null where user_id = :user_id";
-    Qry.DeclareVariable("user_id", otInteger);
-    ProgTrace(TRACE5, "%d", TReqInfo::Instance()->user.user_id);
-    Qry.SetVariable("user_id", TReqInfo::Instance()->user.user_id);
+    Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
+    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
-    showMessage("Сеанс работы в системе завершен");    
+    showMessage("Сеанс работы в системе завершен");
+    reqInfo->user.clear();
+    reqInfo->desk.clear();
+    showBasicInfo();  
 }
 
 void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = "update users2 set passwd = :passwd where user_id = :user_id";
+    Qry.SQLText = "UPDATE users2 SET passwd = :passwd WHERE user_id = :user_id";
     Qry.CreateVariable("user_id", otInteger, TReqInfo::Instance()->user.user_id);
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
     Qry.Execute();

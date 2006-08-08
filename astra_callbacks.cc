@@ -49,19 +49,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
                          GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) != NULL );    
     if ( xmlRC->opr.empty() ) 
     { /* оператор пришел пустой - отправляем инфу по оператору */
-      xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-      resNode = NewTextChild(resNode,"basic_info");
-      xmlNodePtr node;
-      if (!reqInfo->user.login.empty())
-      {
-        node = NewTextChild(resNode,"user");
-        NewTextChild(node, "access_code",reqInfo->user.access_code);
-        NewTextChild(node, "login",reqInfo->user.login);
-      };  
-      node = NewTextChild(resNode,"desk");
-      NewTextChild(node,"airp",reqInfo->desk.airp);
-      NewTextChild(node,"city",reqInfo->desk.city);
-      NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+      showBasicInfo();
     }
 }
    

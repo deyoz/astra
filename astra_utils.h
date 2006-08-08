@@ -53,16 +53,21 @@ class TUser {
     std::string descr;
     int access_code;    	
     BitSet<TAccessMode> access;
+    TUser();
     void setAccessPair( );      
     void check_access( TAccessMode mode );
     bool getAccessMode( TAccessMode mode );  
+    void clear();
 };
 
-struct TDesk {  
-  std::string code;
-  std::string city;
-  std::string airp;
-  BASIC::TDateTime time;
+class TDesk { 
+  public:	 
+    std::string code;
+    std::string city;
+    std::string airp;
+    BASIC::TDateTime time;
+    TDesk();
+    void clear();
 };
 
 class TReqInfo
@@ -71,7 +76,7 @@ class TReqInfo
     std::string screen;
     int screen_id;
   public:
-    void Clear();
+    void clear();
     TReqInfo();
     virtual ~TReqInfo() {} 
     TUser user;    
@@ -113,6 +118,7 @@ void SendTlg(const char* receiver, const char* sender, const char *format, ...);
 
 void showErrorMessage( const std::string &message );
 void showMessage( const std::string &message );
+void showBasicInfo(void);
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
         int id1 = 0, 
