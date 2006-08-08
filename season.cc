@@ -185,114 +185,114 @@ void TRangeList::Read()
 {
     TQuery *Qry = OraSession.CreateQuery();
     try {
-                Qry->SQLText =
-                    "SELECT a.trip_id,a.move_id,a.num as num,b.first_day,b.last_day,b.days,b.pr_cancel as cancel, "
-                    "b.tlg,b.reference,r.num as rnum,r.cod,airps.city,r.pr_cancel,r.land+r.delta_in as land, "
-                    "r.company,r.trip,r.bc,r.takeoff+r.delta_out as takeoff,r.litera,r.triptype,r.f,r.c,r.y,r.unitrip, "
-                    "r.suffix  "
-                    "FROM routes r, sched_days b, airps, "
-                    "(SELECT trip_id,move_id as move_id,MIN(num) as num  "
-                    "FROM sched_days GROUP BY trip_id, move_id) a  "
-                    "WHERE a.trip_id=b.trip_id AND r.move_id=b.move_id AND  "
-                    "a.move_id=b.move_id AND r.cod=airps.cod AND a.num=b.num  "
-                    "UNION  "
-                    "SELECT a.trip_id,a.move_id,a.num,a.first_day,a.last_day,a.days,a.pr_cancel, "
-                    "a.tlg,a.reference,0,NULL,NULL,0,TO_DATE(NULL),NULL,0,NULL,TO_DATE(NULL), "
-                    "NULL,' ',0,0,0,NULL,NULL  "
-                    "FROM sched_days a, "
-                    "(SELECT trip_id,move_id,MIN(num) as num FROM sched_days  "
-                    "GROUP BY trip_id,move_id) b  "
-                    "WHERE a.trip_id=b.trip_id AND a.move_id=b.move_id AND a.num!=b.num  "
-                    "ORDER BY trip_id, move_id,num";
-                Qry->Execute();
-        
-                if(!Qry->Eof) {
-                    int idx_trip_id     = Qry->FieldIndex("trip_id");
-                    int idx_move_id     = Qry->FieldIndex("move_id");
-                    int idx_num         = Qry->FieldIndex("num");
-                    int idx_first_day   = Qry->FieldIndex("first_day");
-                    int idx_last_day    = Qry->FieldIndex("last_day");
-                    int idx_days        = Qry->FieldIndex("days");
-                    int idx_cancel      = Qry->FieldIndex("cancel");
-                    int idx_tlg         = Qry->FieldIndex("tlg");
-                    int idx_reference   = Qry->FieldIndex("reference");
-                    int idx_rnum        = Qry->FieldIndex("rnum");
-                    int idx_cod         = Qry->FieldIndex("cod");
-                    int idx_city        = Qry->FieldIndex("city");
-                    int idx_pr_cancel   = Qry->FieldIndex("pr_cancel");
-                    int idx_land        = Qry->FieldIndex("land");
-                    int idx_company     = Qry->FieldIndex("company");
-                    int idx_trip        = Qry->FieldIndex("trip");
-                    int idx_bc          = Qry->FieldIndex("bc");
-                    int idx_takeoff     = Qry->FieldIndex("takeoff");
-                    int idx_litera      = Qry->FieldIndex("litera");
-                    int idx_triptype    = Qry->FieldIndex("triptype");
-                    int idx_f           = Qry->FieldIndex("f");
-                    int idx_c           = Qry->FieldIndex("c");
-                    int idx_y           = Qry->FieldIndex("y");
-                    int idx_unitrip     = Qry->FieldIndex("unitrip");
-                    int idx_suffix      = Qry->FieldIndex("suffix");
-        
-                    while(!Qry->Eof) {
-                        int Trip_id = Qry->FieldAsInteger(idx_trip_id);
-                        TSubRangeList SubRangeList;
-                        SubRangeList.Trip_id = Trip_id;
-                        while(!Qry->Eof && Trip_id == Qry->FieldAsInteger(idx_trip_id)) {
-                            int Move_id = Qry->FieldAsInteger(idx_move_id);
-                            TSubRange SubRange(Move_id);
-                            SubRange.FFirst = Qry->FieldAsDateTime(idx_first_day);
-                            SubRange.FLast = Qry->FieldAsDateTime(idx_last_day);
-                            SubRange.FDays = Qry->FieldAsString(idx_days);
-                            SubRange.FTlg = Qry->FieldAsString(idx_tlg);
-                            SubRange.FReference = Qry->FieldAsString(idx_reference);
-                            SubRange.Cancel = Qry->FieldAsInteger(idx_cancel) > 0;
-                            if(Qry->FieldIsNULL(idx_cod)) {
-                                //!!! SubRange.DestList
-                                Qry->Next();
-                            } else {
-                                while(
-                                        !Qry->Eof &&
-                                        Trip_id == Qry->FieldAsInteger(idx_trip_id) &&
-                                        Move_id == Qry->FieldAsInteger(idx_move_id) &&
-                                        !Qry->FieldIsNULL(idx_cod)
-                                     ) {
-                                    TDests Dest;
-                                    Dest.SetCod(Qry->FieldAsString( idx_cod ));
-                                    Dest.FCity = Qry->FieldAsString( idx_city );
-                                    Dest.SetBC(Qry->FieldAsString( idx_bc ));
-                                    if(Qry->FieldIsNULL( idx_land ))
-                                        Dest.FLand = NoExists;
-                                    else
-                                        Dest.FLand = Qry->FieldAsDateTime(idx_land);
-                                    if(Qry->FieldIsNULL(idx_takeoff))
-                                        Dest.FTakeoff = NoExists;
-                                    else
-                                        Dest.FTakeoff = Qry->FieldAsDateTime(idx_takeoff);
-                                    Dest.SetTripType(Qry->FieldAsString( idx_triptype ));
-                                    Dest.SetF(Qry->FieldAsInteger(idx_f ));
-                                    Dest.SetC(Qry->FieldAsInteger(idx_c ));
-                                    Dest.SetY(Qry->FieldAsInteger(idx_y ));
-                                    Dest.FCompany = Qry->FieldAsString(idx_company);
-                                    if(Qry->FieldIsNULL(idx_trip))
-                                        Dest.FTrip = NoExists;
-                                    else
-                                        Dest.FTrip = Qry->FieldAsInteger(idx_trip);
-                                    Dest.FUnitrip = Qry->FieldAsString(idx_unitrip);
-                                    Dest.Pr_Cancel = Qry->FieldAsInteger(idx_pr_cancel);
-                                    Dest.Litera = Qry->FieldAsString( idx_litera );
-                                    Dest.FSuffix = Qry->FieldAsString(idx_suffix);
-                                    //                            Subrange.DestList.push_back( Dest );
-                                    Qry->Next();
-                                }
-                            }
-                        }
-                    }
-    } catch(...) {
+        Qry->SQLText =
+            "SELECT a.trip_id,a.move_id,a.num as num,b.first_day,b.last_day,b.days,b.pr_cancel as cancel, "
+            "b.tlg,b.reference,r.num as rnum,r.cod,airps.city,r.pr_cancel,r.land+r.delta_in as land, "
+            "r.company,r.trip,r.bc,r.takeoff+r.delta_out as takeoff,r.litera,r.triptype,r.f,r.c,r.y,r.unitrip, "
+            "r.suffix  "
+            "FROM routes r, sched_days b, airps, "
+            "(SELECT trip_id,move_id as move_id,MIN(num) as num  "
+            "FROM sched_days GROUP BY trip_id, move_id) a  "
+            "WHERE a.trip_id=b.trip_id AND r.move_id=b.move_id AND  "
+            "a.move_id=b.move_id AND r.cod=airps.cod AND a.num=b.num  "
+            "UNION  "
+            "SELECT a.trip_id,a.move_id,a.num,a.first_day,a.last_day,a.days,a.pr_cancel, "
+            "a.tlg,a.reference,0,NULL,NULL,0,TO_DATE(NULL),NULL,0,NULL,TO_DATE(NULL), "
+            "NULL,' ',0,0,0,NULL,NULL  "
+            "FROM sched_days a, "
+            "(SELECT trip_id,move_id,MIN(num) as num FROM sched_days  "
+            "GROUP BY trip_id,move_id) b  "
+            "WHERE a.trip_id=b.trip_id AND a.move_id=b.move_id AND a.num!=b.num  "
+            "ORDER BY trip_id, move_id,num";
+        Qry->Execute();
+
+        if(!Qry->Eof) {
+            int idx_trip_id     = Qry->FieldIndex("trip_id");
+            int idx_move_id     = Qry->FieldIndex("move_id");
+            int idx_num         = Qry->FieldIndex("num");
+            int idx_first_day   = Qry->FieldIndex("first_day");
+            int idx_last_day    = Qry->FieldIndex("last_day");
+            int idx_days        = Qry->FieldIndex("days");
+            int idx_cancel      = Qry->FieldIndex("cancel");
+            int idx_tlg         = Qry->FieldIndex("tlg");
+            int idx_reference   = Qry->FieldIndex("reference");
+            int idx_rnum        = Qry->FieldIndex("rnum");
+            int idx_cod         = Qry->FieldIndex("cod");
+            int idx_city        = Qry->FieldIndex("city");
+            int idx_pr_cancel   = Qry->FieldIndex("pr_cancel");
+            int idx_land        = Qry->FieldIndex("land");
+            int idx_company     = Qry->FieldIndex("company");
+            int idx_trip        = Qry->FieldIndex("trip");
+            int idx_bc          = Qry->FieldIndex("bc");
+            int idx_takeoff     = Qry->FieldIndex("takeoff");
+            int idx_litera      = Qry->FieldIndex("litera");
+            int idx_triptype    = Qry->FieldIndex("triptype");
+            int idx_f           = Qry->FieldIndex("f");
+            int idx_c           = Qry->FieldIndex("c");
+            int idx_y           = Qry->FieldIndex("y");
+            int idx_unitrip     = Qry->FieldIndex("unitrip");
+            int idx_suffix      = Qry->FieldIndex("suffix");
+
+            while(!Qry->Eof) {
+                int Trip_id = Qry->FieldAsInteger(idx_trip_id);
+                TSubRangeList SubRangeList;
+                SubRangeList.Trip_id = Trip_id;
+                //                        while(!Qry->Eof && Trip_id == Qry->FieldAsInteger(idx_trip_id)) {
+                //                            int Move_id = Qry->FieldAsInteger(idx_move_id);
+                //                            TSubRange SubRange(Move_id);
+                //                            SubRange.FFirst = Qry->FieldAsDateTime(idx_first_day);
+                //                            SubRange.FLast = Qry->FieldAsDateTime(idx_last_day);
+                //                            SubRange.FDays = Qry->FieldAsString(idx_days);
+                //                            SubRange.FTlg = Qry->FieldAsString(idx_tlg);
+                //                            SubRange.FReference = Qry->FieldAsString(idx_reference);
+                //                            SubRange.Cancel = Qry->FieldAsInteger(idx_cancel) > 0;
+                //                            if(Qry->FieldIsNULL(idx_cod)) {
+                //                                //!!! SubRange.DestList
+                //                                Qry->Next();
+                //                            } else {
+                //                                while(
+                //                                        !Qry->Eof &&
+                //                                        Trip_id == Qry->FieldAsInteger(idx_trip_id) &&
+                //                                        Move_id == Qry->FieldAsInteger(idx_move_id) &&
+                //                                        !Qry->FieldIsNULL(idx_cod)
+                //                                     ) {
+                //                                    TDests Dest;
+                //                                    Dest.SetCod(Qry->FieldAsString( idx_cod ));
+                //                                    Dest.FCity = Qry->FieldAsString( idx_city );
+                //                                    Dest.SetBC(Qry->FieldAsString( idx_bc ));
+                //                                    if(Qry->FieldIsNULL( idx_land ))
+                //                                        Dest.FLand = NoExists;
+                //                                    else
+                //                                        Dest.FLand = Qry->FieldAsDateTime(idx_land);
+                //                                    if(Qry->FieldIsNULL(idx_takeoff))
+                //                                        Dest.FTakeoff = NoExists;
+                //                                    else
+                //                                        Dest.FTakeoff = Qry->FieldAsDateTime(idx_takeoff);
+                //                                    Dest.SetTripType(Qry->FieldAsString( idx_triptype ));
+                //                                    Dest.SetF(Qry->FieldAsInteger(idx_f ));
+                //                                    Dest.SetC(Qry->FieldAsInteger(idx_c ));
+                //                                    Dest.SetY(Qry->FieldAsInteger(idx_y ));
+                //                                    Dest.FCompany = Qry->FieldAsString(idx_company);
+                //                                    if(Qry->FieldIsNULL(idx_trip))
+                //                                        Dest.FTrip = NoExists;
+                //                                    else
+                //                                        Dest.FTrip = Qry->FieldAsInteger(idx_trip);
+                //                                    Dest.FUnitrip = Qry->FieldAsString(idx_unitrip);
+                //                                    Dest.Pr_Cancel = Qry->FieldAsInteger(idx_pr_cancel);
+                //                                    Dest.Litera = Qry->FieldAsString( idx_litera );
+                //                                    Dest.FSuffix = Qry->FieldAsString(idx_suffix);
+                //                                    //                            Subrange.DestList.push_back( Dest );
+                //                                    Qry->Next();
+                //                                }
+                //                            }
+            }
+            }
+        } catch(...) {
+            OraSession.DeleteQuery(*Qry);
+            throw;
+        }
         OraSession.DeleteQuery(*Qry);
-        throw;
     }
-    OraSession.DeleteQuery(*Qry);
-}
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
