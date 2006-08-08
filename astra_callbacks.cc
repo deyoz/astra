@@ -73,12 +73,25 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 
 	XMLRequestCtxt *ctxt = getXmlCtxt();
 	xmlNodePtr resNode = ctxt->resDoc->children->children;
+	xmlNodePtr node = resNode->children;
+	xmlNodePtr node2;
+	while(node!=NULL)	
+	{	  
+	  if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0) 
+	  {	    
+	    node2=node;	
+	    node=node->next; 
+	    xmlUnlinkNode(node2);
+	    xmlFreeNode(node2);
+	  }
+	  else node=node->next; 	  
+	};				
 
 	EOracleError *orae = dynamic_cast<EOracleError*>(e);
 	if (orae)
-	{
-		ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
-		xmlNodePtr node = ReplaceTextChild( resNode, "command" );
+	{		
+		ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);		
+		node = ReplaceTextChild( resNode, "command" );
 	        ReplaceTextChild( node, "progerror", "Ошибка обработки запроса. Обратитесь к разработчикам" );
 //		addXmlBM(*ctxt);
                 return;
@@ -87,7 +100,7 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	if (ue)
 	{
                 ProgTrace( TRACE5, "UserException: %s", ue->what() );
-                xmlNodePtr node = ReplaceTextChild( resNode, "command" );
+                node = ReplaceTextChild( resNode, "command" );
                 ReplaceTextChild( node, "error", ue->what() );
 		//addXmlBM(*ctxt);
                 return;
@@ -96,8 +109,8 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	if (exp)
 	{		
 		ProgError(STDLOG,"logic_error: %s",exp->what());
-                xmlNodePtr node = ReplaceTextChild( resNode, "command" );		
+                node = ReplaceTextChild( resNode, "command" );		
 		ReplaceTextChild( node, "progerror", "Ошибка обработки запроса. Обратитесь к разработчикам" );
 		return;
-	};
+	};		
 }
