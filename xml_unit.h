@@ -32,6 +32,7 @@ int NodeAsInteger(char* expr, xmlNodePtr cur);
 double NodeAsFloat(xmlNodePtr node);
 double NodeAsFloat(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 double NodeAsFloat(char* expr, xmlNodePtr cur);
+BASIC::TDateTime NodeAsDateTime(xmlNodePtr node);
 BASIC::TDateTime NodeAsDateTime(xmlNodePtr node, char* format);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cur=NULL);
 BASIC::TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur);

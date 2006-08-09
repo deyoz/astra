@@ -225,6 +225,11 @@ double NodeAsFloat(char* expr, xmlNodePtr cur)
     return NodeAsFloat(expr,cur->doc,cur);
 };
 
+TDateTime NodeAsDateTime(xmlNodePtr node)
+{
+    return NodeAsDateTime(node, (char*)ServerFormatDateTimeAsString);
+}
+
 TDateTime NodeAsDateTime(xmlNodePtr node, char* format)
 {
   TDateTime Value;
