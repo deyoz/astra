@@ -73,7 +73,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TQuery Qry(&OraSession);                    
     Qry.Clear();
     Qry.SQLText = 
-      "SELECT user_id, login, descr, pr_denial, desk FROM users2 "
+      "SELECT user_id, login, passwd, descr, pr_denial, desk FROM users2 "
       "WHERE login= UPPER(:userr) AND passwd= UPPER(:passwd) FOR UPDATE ";
     Qry.CreateVariable("userr", otString, NodeAsString("userr", reqNode));
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));      
@@ -92,6 +92,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     else    
      if (reqInfo->desk.code != Qry.FieldAsString("desk"))
        showMessage("Замена терминала");
+    if (Qry.FieldAsString("passwd")==(string)"ПАРОЛЬ" )
+      showErrorMessage("Пользователю необходимо изменить пароль");
     Qry.Clear();
     Qry.SQLText = "BEGIN "
                   "  UPDATE users2 SET desk = NULL WHERE desk = :desk; " 

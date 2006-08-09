@@ -67,7 +67,7 @@ TReqInfo *TReqInfo::Instance()
 };
 
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, 
-                           const std::string &vopr, bool checkBasicInfo )
+                           const std::string &vopr, bool checkUserLogon )
 {
   clear();
   TQuery &Qry = *OraSession.CreateQuery();
@@ -112,7 +112,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     
     if ( Qry.RowCount() == 0 )
     {      
-      if (checkBasicInfo)
+      if (!checkUserLogon)
        	return;
       else 	
         throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
@@ -468,11 +468,12 @@ void showBasicInfo(void)
 
 /***************************************************************************************/
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    ProgError( STDLOG, "!!! Ошибка клиента: msg=%s, id1=%d, id2=%d, id3=%d", 
-               NodeAsString( "msg", reqNode ), NodeAsInteger( "id1", reqNode ), 
-               NodeAsInteger( "id2", reqNode ),
-               NodeAsInteger( "id3", reqNode ) ) ;
+{   
+    ProgError( STDLOG, "Модуль: %s. Пульт: %s. Оператор: %s. Время: %s. Ошибка: %s.",
+               NodeAsString("/term/query/@screen", ctxt->reqDoc),
+               ctxt->pult.c_str(), ctxt->opr.c_str(),
+               DateTimeToStr(Now(),"dd.mm.yyyy hh:nn:ss").c_str(),
+               NodeAsString( "msg", reqNode ) ) ;
 }
 
 

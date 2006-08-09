@@ -83,7 +83,7 @@ class TReqInfo
     TDesk desk;        
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr, 
-                     bool checkBasicInfo );
+                     bool checkUserLogon );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
