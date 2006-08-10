@@ -6,6 +6,7 @@
 #endif*/
 
 #include <limits.h>
+#include <string>
 
 namespace ASTRA
 {
@@ -27,6 +28,8 @@ extern const int TQueueS[6];
 extern const char* TStatusS[3];
 
 const int NoExists = INT_MIN;
+const std::string NoDays = ".......";
+const std::string AllDays = "1234567";
 
 };
 

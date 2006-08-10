@@ -3,6 +3,7 @@
 
 #include <libxml/tree.h>
 #include "JxtInterface.h"		
+#include "basic.h"		
 
 class SeasonInterface : public JxtInterface
 {
