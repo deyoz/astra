@@ -136,7 +136,7 @@ bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return strcmp(NodeContent(node),"")==0;
 };
 
-bool NodeIsNull(char* expr, xmlNodePtr cur)
+bool NodeIsNULL(char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeIsNULL(expr,NULL,cur);
@@ -373,3 +373,20 @@ string GetXMLDocText( xmlDocPtr doc)
   };
   return res;
 };
+
+void NodeSetContent(xmlNodePtr cur, const int content)
+{
+    NodeSetContent(cur, IntToString(content));
+}
+
+void NodeSetContent(xmlNodePtr cur, const char* content)
+{
+    if (cur==NULL) throw EXMLError("Node not defined (NULL)");
+    if (content!=NULL&&*content==0) content=NULL;
+    xmlNodeSetContent(cur,BAD_CAST content);
+}
+
+void NodeSetContent(xmlNodePtr cur, const string content)
+{
+    NodeSetContent(cur,content.c_str());
+}

@@ -37,7 +37,9 @@ BASIC::TDateTime NodeAsDateTime(xmlNodePtr node, char* format);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cur=NULL);
 BASIC::TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur);
-
+void NodeSetContent(xmlNodePtr cur, const char* content);
+void NodeSetContent(xmlNodePtr cur, const std::string content);
+void NodeSetContent(xmlNodePtr cur, const int content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content = NULL);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string content);
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content);
