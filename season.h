@@ -3,7 +3,6 @@
 
 #include <libxml/tree.h>
 #include "JxtInterface.h"		
-#include "basic.h"		
 
 class SeasonInterface : public JxtInterface
 {
@@ -13,9 +12,12 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Read);
      AddEvent("season_read",evHandle);
+     evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Write);
+     AddEvent("write",evHandle);
   };	
   
   void Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
 };
 

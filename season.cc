@@ -6,455 +6,190 @@
 #include "oralib.h"
 #include "cache.h"
 #include "misc.h"
-#include "stl_utils.h"
 
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
-using namespace BASIC;
-using namespace ASTRA;
 
-class TDests {
-    private:
-        string FBC;  // тип ВС
-        int FF; // кол-во мест в классе П
-        int FC; // кол-во мест в классе Б
-        int FY; // кол-во мест в классе Э
-    public:
-        string FTripType; // тип рейса
-        string FCod; // код п.п.
-        string FLitera;
-        string FSuffix;
-        string Litera;
-        string FUnitrip; // объединенный рейс
-        void SetCod(string value);
-        string GetCod();
-
-        void SetBC(string value);
-        string GetBC();
-
-        void SetTripType(string val);
-        string GetTripType();
-
-        int GetF();
-        void SetF(int val);
-        int GetC();
-        void SetC(int val);
-        int GetY();
-        void SetY(int val);
-
-        string FCity;
-        string FCompany; // компания
-        int FTrip; // номер рейса
-        bool Modify;
-        TDateTime FTakeoff; // Время вылета
-        TDateTime FLand;  // Время посадки
-        int Pr_Cancel; // Признак отмены плеча
-        TDests();
-        int delta_out();
-};
-
-int TDests::delta_out()
+int GetNextMove_id()
 {
-    int result;
-    if(FTakeoff == NoExists)
-        result = 0;
-    else
-        result = (int)FTakeoff;
-    return result;
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
+    Qry.Execute();
+    return Qry.FieldAsInteger(0);
 }
 
-int TDests::GetF()
+int GetNextTrip_id()
 {
-    return FF;
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = "SELECT routes_trip_id.nextval AS trip_id FROM dual";
+    Qry.Execute();
+    return Qry.FieldAsInteger(0);
 }
 
-void TDests::SetF(int val)
+void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    FF = val;    
-}
 
-int TDests::GetC()
-{
-    return FC;
-}
-
-void TDests::SetC(int val)
-{
-    FC = val;    
-}
-
-int TDests::GetY()
-{
-    return FY;
-}
-
-void TDests::SetY(int val)
-{
-    FY = val;    
-}
-
-void TDests::SetTripType(string val)
-{
-    FTripType = val;
-}
-
-string TDests::GetTripType()
-{
-    return FTripType;
-}
-
-string TDests::GetBC()
-{
-    return FBC;
-}
-
-void TDests::SetBC(string Value)
-{
-    FBC = Value;
-}
-
-void TDests::SetCod(string Value)
-{
-    FCod = Value;
-}
-
-string TDests::GetCod()
-{
-    return FCod;
-}
-
-TDests::TDests()
-{
-    FTrip = NoExists;
-    FLand = NoExists;
-    FTakeoff = NoExists;
-    FF = 0;
-    FC = 0;
-    FY = -1;
-    FTripType = 'п';
-    Pr_Cancel = 0;
-}
-
-class TDestList: public vector<TDests> {
-    private:
-        bool Pr_Cancel;
-    public:
-        int CountLock;
-        TDestList(): Pr_Cancel(false), CountLock(0) {};
-};
-
-class TSubRange {
-    private:
-        bool FNewMove_id;
-        TDestList FDestList;
-        string FDays; // дни выполнения
-    public:
-        TDateTime FFirst; // первый день выполнения
-        string GetFirst();
-
-        string GetFDays() { return FDays; };
-        void SetFDays(string val) { FDays = val; };
-        string GetDays();
-        void SetDays();
-
-        TDestList *GetDestList() { return &FDestList; };
-        void SetDestList(TDestList *value) { FDestList = *value; FDestList.CountLock++; };
-
-        bool Visible;
-        bool Filtered;
-        bool InWork;
-        int Local_id;
-        int Move_id;
-        bool Modify;
-        TDateTime FLast; // последний день выполнения
-        string FTlg; // текст телеграммы
-        string FReference; // полное описание телеграммы
-        bool Cancel;
-        TSubRange(int FMove_id, bool FNew);
-};
-
-string TSubRange::GetFirst()
-{
-    string result;
-    if(FFirst != NoExists)
-        result = DateTimeToStr(FFirst, "DD.MM");
-    return result;
-}
-
-string GetPointDays(string Days)
-{
-    string result;
-    if(!(TrimString(Days).empty() || Days == AllDays)) {
-        result = NoDays;
-        for(int i = 0; i < 7; i++)
-            if(Days.find(AllDays[i]) != string::npos)
-                result[i] = AllDays[i];
-        if(result == AllDays) result = "";
-    }
-    return result;
-}
-
-string TSubRange::GetDays()
-{
-    return GetPointDays(FDays);
-}
-
-TSubRange::TSubRange(int FMove_id, bool FNew = false)
-{
-    Filtered = true;
-    Cancel = false;
-    FNewMove_id = FNew;
-    if(FNew) {
-        Local_id = FMove_id;
-        Move_id = NoExists;
+    TQuery Qry(&OraSession);        
+    int trip_id = 0;
+    if(NodeIsNULL("trip_id", reqNode)) {
+        trip_id = GetNextTrip_id();
     } else {
-        Local_id = FMove_id;
-        Move_id = FMove_id;
+        Qry.SQLText =
+            "BEGIN "
+            "DELETE routes WHERE move_id IN (SELECT move_id FROM sched_days WHERE trip_id=:trip_id );"
+            "DELETE sched_days WHERE trip_id=:trip_id; END; ";
+        Qry.DeclareVariable("TRIP_ID", otInteger);
+        trip_id = NodeAsInteger("trip_id", reqNode);
+        Qry.SetVariable("TRIP_ID", trip_id);
+        Qry.Execute();
     }
-    InWork = true;
-    FFirst = NoExists;
-    FLast = NoExists;
-    FDays = "1234567";
-    Visible = true;
-}
 
-class TSubRangeList;
 
-class TViewTrip {
-    public:
-        TSubRangeList *SubRangeList;
-};
+    xmlNodePtr curNode = NodeAsNode("SubRangeList/SubRange", reqNode);
 
-typedef vector<TViewTrip> TViewTrips;
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    NewTextChild(dataNode, "trip_id", trip_id);
+    xmlNodePtr NewMovesNode = NewTextChild(dataNode, "NewMoves");
+    while(curNode) {
+        Qry.Clear();
+        Qry.SQLText =
+            "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_cancel,tlg,reference) "
+            "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_cancel,:tlg,:reference) ";
+        Qry.DeclareVariable( "TRIP_ID", otInteger );
+        Qry.DeclareVariable( "MOVE_ID", otInteger );
+        Qry.DeclareVariable( "NUM", otInteger );
+        Qry.DeclareVariable( "FIRST_DAY", otDate );
+        Qry.DeclareVariable( "LAST_DAY", otDate );
+        Qry.DeclareVariable( "DAYS", otString );
+        Qry.DeclareVariable( "PR_CANCEL", otInteger );
+        Qry.DeclareVariable( "TLG", otString );
+        Qry.DeclareVariable( "REFERENCE", otString );
 
-class TSubRangeList: public vector<TSubRange> {
-    public:
-        int Trip_id;
-        TSubRangeList(): Trip_id(NoExists) {};
-        void FilterRanges(TViewTrips &ViewTrips);
-};
+        int FNewMove_id = NodeAsInteger("FNewMove_id", curNode);
+        int move_id = NodeAsInteger("Move_id", curNode);
+        int I = NodeAsInteger("NUM", curNode);
+        TDateTime FFirst = NodeAsDateTime("FFirst", curNode);
+        TDateTime FLast = NodeAsDateTime("FLast", curNode);
+        string FDays = NodeAsString("FDays", curNode);
+        int Cancel = NodeAsInteger("Cancel", curNode);
+        string Tlg = NodeAsString("Tlg", curNode);
+        string FReference = NodeAsString("FReference", curNode);
 
-class TRange {
-    public:
-    bool Summer;
-    BASIC::TDateTime First, Last;
-    std::string Days;
-    void Init(xmlNodePtr rangeNode);
-};
 
-void TRange::Init(xmlNodePtr rangeNode)
-{
-    xmlNodePtr dateNode = NodeAsNode("First", rangeNode);
-    if(NodeIsNULL(dateNode))
-        First = NoExists;
-    else
-        First = NodeAsDateTime(dateNode);
-    dateNode = NodeAsNode("Last", rangeNode);
-    if(NodeIsNULL(dateNode))
-        Last = NoExists;
-    else
-        Last = NodeAsDateTime(dateNode);
-    Summer = NodeAsInteger("Summer", rangeNode) == 1;
-    Days = NodeAsInteger("Days", rangeNode);
-}
 
-class TFilter {
-    public:
-        std::string Caption;
-        int ItemIndex;
-        TRange Range;
-        BASIC::TDateTime FirstTime, LastTime;
-        std::string Company, Dest, Airp, TripType;
-        void Init(xmlNodePtr node);
-};
+        if(FNewMove_id) {
+            move_id = GetNextMove_id();
+            xmlNodePtr NewMoveNode = NewTextChild(NewMovesNode, "NewMove");
+            NewTextChild(NewMoveNode, "move_id", move_id);
+            NewTextChild(NewMoveNode, "num", I);
+        }
+        Qry.SetVariable( "TRIP_ID", trip_id);
+        Qry.SetVariable( "MOVE_ID", move_id);
+        Qry.SetVariable( "NUM", I );
+        Qry.SetVariable( "FIRST_DAY", FFirst );
+        Qry.SetVariable( "LAST_DAY", FLast );
+        Qry.SetVariable( "DAYS", FDays );
+        Qry.SetVariable( "PR_CANCEL", Cancel);
+        Qry.SetVariable( "TLG", Tlg );
+        Qry.SetVariable( "REFERENCE", FReference );
+        Qry.Execute();
 
-class TSeason: public vector<TRange> {
-    public:
-        void Init(xmlNodePtr seasonNode);
-};
+        xmlNodePtr curDestNode = GetNode("DestList/Dest", curNode);
+        if(curDestNode) {
+            Qry.Clear();
+            Qry.SQLText = 
+                "INSERT INTO routes(move_id,num,cod,pr_cancel,land,company,trip,bc,takeoff,litera, "
+                "triptype,f,c,y,unitrip,delta_in,delta_out,suffix) VALUES(:move_id,:num,:cod,:pr_cancel,:land, "
+                ":company,:trip,:bc,:takeoff,:litera,:triptype,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix) ";
+            Qry.DeclareVariable( "MOVE_ID", otInteger );
+            Qry.DeclareVariable( "NUM", otInteger );
+            Qry.DeclareVariable( "COD", otString );
+            Qry.DeclareVariable( "PR_CANCEL", otInteger );
+            Qry.DeclareVariable( "LAND", otDate );
+            Qry.DeclareVariable( "COMPANY", otString );
+            Qry.DeclareVariable( "TRIP", otInteger );
+            Qry.DeclareVariable( "BC", otString );
+            Qry.DeclareVariable( "TAKEOFF", otDate );
+            Qry.DeclareVariable( "LITERA", otString );
+            Qry.DeclareVariable( "TRIPTYPE", otString );
+            Qry.DeclareVariable( "F", otInteger );
+            Qry.DeclareVariable( "C", otInteger );
+            Qry.DeclareVariable( "Y", otInteger );
+            Qry.DeclareVariable( "UNITRIP", otString );
+            Qry.DeclareVariable( "DELTA_IN", otInteger );
+            Qry.DeclareVariable( "DELTA_OUT", otInteger );
+            Qry.DeclareVariable( "SUFFIX", otString );
 
-void TSeason::Init(xmlNodePtr seasonNode)
-{
-    clear();
-    xmlNodePtr rangeNode = seasonNode->children;
-    while(rangeNode) {
-        TRange Range;
-        tst();
-        Range.Init(rangeNode);
-        tst();
-        this->push_back(Range);
-        rangeNode = rangeNode->next;
-    }
-}
-
-void TFilter::Init(xmlNodePtr node)
-{
-    xmlNodePtr curNode = NodeAsNode("Filter", node);
-    Caption = NodeAsString("Caption", curNode);
-    ItemIndex = NodeAsInteger("ItemIndex", curNode);
-    Company = NodeAsString("Company", curNode);
-    Dest = NodeAsString("Dest", curNode);
-    Airp = NodeAsString("Airp", curNode);
-    TripType = NodeAsString("TripType", curNode);
-    xmlNodePtr dateNode = NodeAsNode("FirstTime", curNode);
-    if(NodeIsNULL(dateNode))
-        FirstTime = NoExists;
-    else
-        FirstTime = NodeAsDateTime(dateNode);
-    dateNode = NodeAsNode("LastTime", curNode);
-    if(NodeIsNULL(dateNode))
-        LastTime = NoExists;
-    else
-        LastTime = NodeAsDateTime(dateNode);
-
-    curNode = NodeAsNode("Range", curNode);
-    Range.Init(curNode);
-}
-
-TSeason Season;
-TFilter Filter;
-
-class TRangeList: public vector<TSubRangeList> {
-    public:
-        TViewTrips ViewTrips;
-        void Read();
-        void CreateViewer(TSubRangeList *ASubRangeList);
-};
-
-string GetCommonDay(string a, string b)
-{
-    string result = NoDays;
-    for(int i = 0; i < 7; i++) {
-        if(a[i] == b[i])
-            result[i] = a[i];
-        else
-            result[i] = '.';
-    }
-    return result;
-}
-
-bool ARange_In_BRange(TRange &ARange, TRange &BRange)
-{
-    bool result;
-    if(ARange.First >= BRange.First && ARange.First <= BRange.Last)
-        result = true;
-    else
-        if(ARange.Last >= BRange.First && ARange.Last <= BRange.Last)
-            result = true;
-        else
-            if(BRange.First >= ARange.First && BRange.Last <= ARange.Last)
-                result = true;
-            else
-                result = false;
-    return result && GetCommonDay(ARange.Days, BRange.Days) != NoDays;
-}
-
-string GetWOPointDays(string Days)
-{
-//    return Days.erase(remove(Days.begin(), Days.end(), '.'), Days.end());
-    return "";
-}
-
-string GetNextDays(TSubRange &S)
-{
-    string result;
-    TDestList &DestList = *S.GetDestList();
-    TDestList::iterator iv;
-    for(iv = DestList.begin(); iv != DestList.end(); iv++)
-        if(iv->FCod == TReqInfo::Instance()->desk.airp) break;
-    if(iv != DestList.end() && iv->delta_out() > 0) {
-        result = " (";
-        string FDays = S.GetFDays();
-        for(string::iterator iv = FDays.begin(); iv != FDays.end(); iv++)
-            if(*iv != '.') {
-                int Day = StrToInt(*iv);
-            }
-    }
-}
-
-void PutNextExec(string &Str, TSubRange &S)
-{
-    if(S.GetDays().size())
-        Str += "; " + GetWOPointDays(S.GetDays()) + GetNextDays(S) + " ";
-    else
-        Str += " ";
-//    if(S.FFirst != S.FLast)
-//        Str += S.First + "-" + S.Last;
-//    else
-//        Str += S.First;
-//    if(S.Tlg.size()) Str += " " + S.Tlg;
-}
-
-void TSubRangeList::FilterRanges(TViewTrips &ViewTrips)
-{
-    string Exec, NoExec;
-    for(TSubRangeList::iterator iv = this->begin(); iv != this->end(); iv++) {
-        TSubRange &SubRange = *iv;
-        SubRange.Filtered = false;
-        bool DataKey = false;
-        TRange ARange;
-        ARange.Days = SubRange.GetFDays();
-        bool CompKey = Filter.Company.empty();
-        bool DestKey = Filter.Dest.empty();
-        bool AirpKey = Filter.Airp.empty();
-        bool TripTypeKey = Filter.TripType.empty();
-        bool TimeKey = Filter.FirstTime == NoExists;
-        TDestList &DestList = *SubRange.GetDestList();
-        for(TDestList::iterator jv = DestList.begin(); jv != DestList.end(); jv++) {
-            TDests &Dest = *jv;
-            DestKey = DestKey || Dest.FCity == Filter.Dest;
-            AirpKey = AirpKey || Dest.FCod == Filter.Airp;
-            CompKey = CompKey || Dest.FCompany == Filter.Company;
-            TripTypeKey = TripTypeKey || Dest.FTripType == Filter.TripType;
-            if(Dest.FCod == TReqInfo::Instance()->desk.airp) {
-                TimeKey =
-                    TimeKey ||
-                    Dest.FLand >= Filter.FirstTime && Dest.FLand <= Filter.LastTime ||
-                    Dest.FTakeoff >= Filter.FirstTime && Dest.FTakeoff <= Filter.LastTime;
-                if(Dest.FLand > NoExists) {
-                    ARange.First = SubRange.FFirst + Dest.FLand;
-                    ARange.Last = SubRange.FLast + Dest.FLand;
-                    if(!DataKey)
-                        DataKey = ARange_In_BRange(ARange, Filter.Range);
-                }
-            }
-            SubRange.Filtered = DataKey && DestKey && AirpKey && CompKey && TripTypeKey && TimeKey;
-            if(SubRange.Filtered) {
-                if(SubRange.Cancel)
-                    PutNextExec(NoExec, SubRange);
+            while(curDestNode) {
+                int J = NodeAsInteger("NUM", curDestNode);
+                string FCod = NodeAsString("FCod", curDestNode);
+                int Pr_Cancel = NodeAsInteger("Pr_Cancel", curDestNode);
+                TDateTime FLand;
+                if(NodeIsNULL("FLand", curDestNode))
+                    FLand = NoExists;
                 else
-                    PutNextExec(Exec, SubRange);
-                break;
+                    FLand = NodeAsDateTime("FLand", curDestNode);
+                string FCompany = NodeAsString("FCompany", curDestNode);
+                TDateTime FTrip;
+                if(NodeIsNULL("FTrip", curDestNode))
+                    FTrip = NoExists;
+                else
+                    FTrip = NodeAsInteger("FTrip", curDestNode);
+                string FBc = NodeAsString("FBc", curDestNode);
+                TDateTime FTakeoff;
+                if(NodeIsNULL("FTakeoff", curDestNode))
+                    FTakeoff = NoExists;
+                else
+                    FTakeoff = NodeAsDateTime("FTakeoff", curDestNode);
+                string FTriptype = NodeAsString("FTriptype", curDestNode);
+                int FF = NodeAsInteger("FF", curDestNode);
+                int FC = NodeAsInteger("FC", curDestNode);
+                int FY = NodeAsInteger("FY", curDestNode);
+                string Litera = NodeAsString("Litera", curDestNode);
+                string FUnitrip = NodeAsString("FUnitrip", curDestNode);
+                int delta_in = NodeAsInteger("delta_in", curDestNode);
+                int delta_out = NodeAsInteger("delta_out", curDestNode);
+                string FSuffix = NodeAsString("FSuffix", curDestNode);
+
+                Qry.SetVariable( "MOVE_ID", move_id );
+                Qry.SetVariable( "NUM", J );
+                Qry.SetVariable( "COD", FCod );
+                Qry.SetVariable( "PR_CANCEL", Pr_Cancel );
+                if(FLand == NoExists)
+                    Qry.SetVariable("LAND", FNull);
+                else Qry.SetVariable("LAND", FLand);
+                Qry.SetVariable( "COMPANY", FCompany );
+                if(FTrip == NoExists)
+                    Qry.SetVariable( "TRIP", FNull );
+                else Qry.SetVariable("TRIP", FTrip);
+                Qry.SetVariable( "BC", FBc );
+                if(FTakeoff == NoExists)
+                    Qry.SetVariable( "TAKEOFF", FNull );
+                else Qry.SetVariable( "TAKEOFF", FTakeoff);
+                Qry.SetVariable( "TRIPTYPE", FTriptype );
+                Qry.SetVariable( "F", FF );
+                Qry.SetVariable( "C", FC );
+                Qry.SetVariable( "Y", FY );
+                Qry.SetVariable( "LITERA", Litera );
+                Qry.SetVariable( "UNITRIP", FUnitrip );
+                Qry.SetVariable( "DELTA_IN", delta_in );
+                Qry.SetVariable( "DELTA_OUT", delta_out );
+                Qry.SetVariable( "SUFFIX", FSuffix );
+
+                Qry.Execute();
+                curDestNode = curDestNode->next;
             }
         }
+
+        curNode = curNode->next;
     }
+    TReqInfo::Instance()->MsgToLog("╨Ш╨╖╨╝╨╡╨╜╨╡╨╜╨╕╨╡ ╤Е╨░╤А╨░╨║╤В╨╡╤А╨╕╤Б╤В╨╕╨║ ╤А╨╡╨╣╤Б╨░ ", evtSeason, trip_id);
 }
 
-void TRangeList::CreateViewer(TSubRangeList *ASubRangeList = NULL)
+void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    {
-        TViewTrips::iterator iv = ViewTrips.begin();
-        while(1) {
-            if( 
-                    ASubRangeList == NULL ||
-                    (ASubRangeList != NULL && iv->SubRangeList->Trip_id == ASubRangeList->Trip_id)
-              )
-                iv = ViewTrips.erase(iv);
-            else
-                iv++;
-            if(iv == ViewTrips.end()) break;
-        }
-    }
-    if(ASubRangeList != NULL)
-        ; //ASubRangeList->FilterRanges(ViewTrips)
-    else {
-        for(TRangeList::iterator iv = this->begin(); iv != this->end(); iv++)
-            iv->FilterRanges(ViewTrips);
-    }
-}
-
-void TRangeList::Read()
-{
+    TPerfTimer tm;
     TQuery *Qry = OraSession.CreateQuery();
     try {
         Qry->SQLText =
@@ -477,8 +212,13 @@ void TRangeList::Read()
             "WHERE a.trip_id=b.trip_id AND a.move_id=b.move_id AND a.num!=b.num  "
             "ORDER BY trip_id, move_id,num";
         Qry->Execute();
+        ProgTrace(TRACE5, "Executing qry %ld", tm.Print());
 
         if(!Qry->Eof) {
+            xmlNodePtr dataNode = NewTextChild(resNode, "data");
+            xmlNodePtr rangeListNode = NewTextChild(dataNode, "rangeList");
+
+            tm.Init();
             int idx_trip_id     = Qry->FieldIndex("trip_id");
             int idx_move_id     = Qry->FieldIndex("move_id");
             int idx_num         = Qry->FieldIndex("num");
@@ -504,84 +244,48 @@ void TRangeList::Read()
             int idx_y           = Qry->FieldIndex("y");
             int idx_unitrip     = Qry->FieldIndex("unitrip");
             int idx_suffix      = Qry->FieldIndex("suffix");
+            ProgTrace(TRACE5, "Building idx %ld", tm.Print());
 
+            tm.Init();
             while(!Qry->Eof) {
-                int Trip_id = Qry->FieldAsInteger(idx_trip_id);
-                TSubRangeList SubRangeList;
-                SubRangeList.Trip_id = Trip_id;
-                while(!Qry->Eof && Trip_id == Qry->FieldAsInteger(idx_trip_id)) {
-                    int Move_id = Qry->FieldAsInteger(idx_move_id);
-                    TSubRange SubRange(Move_id);
-                    SubRange.FFirst = Qry->FieldAsDateTime(idx_first_day);
-                    SubRange.FLast = Qry->FieldAsDateTime(idx_last_day);
-                    SubRange.SetFDays(Qry->FieldAsString(idx_days));
-                    SubRange.FTlg = Qry->FieldAsString(idx_tlg);
-                    SubRange.FReference = Qry->FieldAsString(idx_reference);
-                    SubRange.Cancel = Qry->FieldAsInteger(idx_cancel) > 0;
-                    if(Qry->FieldIsNULL(idx_cod)) {
-                        SubRange.SetDestList(SubRangeList.back().GetDestList());
-                        Qry->Next();
-                    } else {
-                        while(
-                                !Qry->Eof &&
-                                Trip_id == Qry->FieldAsInteger(idx_trip_id) &&
-                                Move_id == Qry->FieldAsInteger(idx_move_id) &&
-                                !Qry->FieldIsNULL(idx_cod)
-                             ) {
-                            TDests Dest;
-                            Dest.SetCod(Qry->FieldAsString( idx_cod ));
-                            Dest.FCity = Qry->FieldAsString( idx_city );
-                            Dest.SetBC(Qry->FieldAsString( idx_bc ));
-                            if(Qry->FieldIsNULL( idx_land ))
-                                Dest.FLand = NoExists;
-                            else
-                                Dest.FLand = Qry->FieldAsDateTime(idx_land);
-                            if(Qry->FieldIsNULL(idx_takeoff))
-                                Dest.FTakeoff = NoExists;
-                            else
-                                Dest.FTakeoff = Qry->FieldAsDateTime(idx_takeoff);
-                            Dest.SetTripType(Qry->FieldAsString( idx_triptype ));
-                            Dest.SetF(Qry->FieldAsInteger(idx_f ));
-                            Dest.SetC(Qry->FieldAsInteger(idx_c ));
-                            Dest.SetY(Qry->FieldAsInteger(idx_y ));
-                            Dest.FCompany = Qry->FieldAsString(idx_company);
-                            if(Qry->FieldIsNULL(idx_trip))
-                                Dest.FTrip = NoExists;
-                            else
-                                Dest.FTrip = Qry->FieldAsInteger(idx_trip);
-                            Dest.FUnitrip = Qry->FieldAsString(idx_unitrip);
-                            Dest.Pr_Cancel = Qry->FieldAsInteger(idx_pr_cancel);
-                            Dest.Litera = Qry->FieldAsString( idx_litera );
-                            Dest.FSuffix = Qry->FieldAsString(idx_suffix);
-                            SubRange.GetDestList()->push_back( Dest );
-                            Qry->Next();
-                        }
-                    }
-                    SubRangeList.push_back(SubRange);
-                }
-                push_back(SubRangeList);
+                xmlNodePtr rangeNode = NewTextChild(rangeListNode, "range");
+
+                NewTextChild(rangeNode, "trip_id",      Qry->FieldAsString(idx_trip_id));
+                NewTextChild(rangeNode, "move_id",      Qry->FieldAsString(idx_move_id));
+                NewTextChild(rangeNode, "num",          Qry->FieldAsString(idx_num));
+                NewTextChild(rangeNode, "first_day",    Qry->FieldAsString(idx_first_day));
+                NewTextChild(rangeNode, "last_day",     Qry->FieldAsString(idx_last_day));
+                NewTextChild(rangeNode, "days",         Qry->FieldAsString(idx_days));
+                NewTextChild(rangeNode, "cancel",       Qry->FieldAsString(idx_cancel));
+                NewTextChild(rangeNode, "tlg",          Qry->FieldAsString(idx_tlg));
+                NewTextChild(rangeNode, "reference",    Qry->FieldAsString(idx_reference));
+                NewTextChild(rangeNode, "rnum",         Qry->FieldAsString(idx_rnum));
+                NewTextChild(rangeNode, "cod",          Qry->FieldAsString(idx_cod));
+                NewTextChild(rangeNode, "city",         Qry->FieldAsString(idx_city));
+                NewTextChild(rangeNode, "pr_cancel",    Qry->FieldAsString(idx_pr_cancel));
+                NewTextChild(rangeNode, "land",         Qry->FieldAsString(idx_land));
+                NewTextChild(rangeNode, "company",      Qry->FieldAsString(idx_company));
+                NewTextChild(rangeNode, "trip",         Qry->FieldAsString(idx_trip));
+                NewTextChild(rangeNode, "bc",           Qry->FieldAsString(idx_bc));
+                NewTextChild(rangeNode, "takeoff",      Qry->FieldAsString(idx_takeoff));
+                NewTextChild(rangeNode, "litera",       Qry->FieldAsString(idx_litera));
+                NewTextChild(rangeNode, "triptype",     Qry->FieldAsString(idx_triptype));
+                NewTextChild(rangeNode, "f",            Qry->FieldAsString(idx_f));
+                NewTextChild(rangeNode, "c",            Qry->FieldAsString(idx_c));
+                NewTextChild(rangeNode, "y",            Qry->FieldAsString(idx_y));
+                NewTextChild(rangeNode, "unitrip",      Qry->FieldAsString(idx_unitrip));
+                NewTextChild(rangeNode, "suffix",       Qry->FieldAsString(idx_suffix));  
+
+                Qry->Next();
             }
+            ProgTrace(TRACE5, "Building resDoc %ld", tm.Print());
         }
+
     } catch(...) {
         OraSession.DeleteQuery(*Qry);
         throw;
     }
     OraSession.DeleteQuery(*Qry);
-}
-
-void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    string buf = "123456";
-    throw UserException("%d", StrToInt(buf));
-    Season.Init(NodeAsNode("Season", reqNode));
-    Filter.Init(reqNode);
-
-    TRangeList RangeList;
-    TPerfTimer tm;
-    RangeList.Read();
-    ProgTrace(TRACE5, "Read(): %d", tm.Print());
-//    RangeList.CreateViewer();
-    ProgTrace(TRACE5, "RangeList.size(): %d", RangeList.size());
 }
 
 void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
