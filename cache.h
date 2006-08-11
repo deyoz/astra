@@ -111,6 +111,7 @@ class TCacheTable {
         int clientVerIface;
         TTable table;
 
+        void getPerms( );
         bool pr_irefresh, pr_drefresh;
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();

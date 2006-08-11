@@ -75,6 +75,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
   Logging = Qry->FieldAsInteger("logging") != 0;
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
+  getPerms( );      
   initFields(); /* инициализация FFields */
 }
 
@@ -96,31 +97,6 @@ bool TCacheTable::refreshInterface()
   if ( stid.empty() || StrToInt( stid.c_str(), clientVerIface ) == EOF )
     clientVerIface = -1;  
   ProgTrace(TRACE5, "Client version interface: %d", clientVerIface );
-    
-  Qry->Clear();
-  Qry->SQLText = 
-      "SELECT MAX(access_code) AS access_code FROM"
-      "  (SELECT access_code FROM user_cache_perms"
-      "   WHERE user_id=:user_id AND cache=:cache"
-      "   UNION"
-      "   SELECT MAX(access_code) FROM user_roles,role_cache_perms"
-      "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
-      "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
-  Qry->DeclareVariable("user_id",otInteger);
-  Qry->DeclareVariable("cache",otString);
-  Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
-  Qry->SetVariable( "cache", code );
-  tst();
-  Qry->Execute();
-  if(Qry->Eof || (Qry->FieldAsInteger("access_code")<=0)) {
-    Forbidden = true;
-    ReadOnly = true;
-  } 
-  else {
-    Forbidden = false;
-    ReadOnly = (Qry->FieldAsInteger("access_code")<5) ||
-                InsertSQL.empty() && UpdateSQL.empty() && DeleteSQL.empty();
-  }
   if ( clientVerIface == curVerIface ) 
     return false;
   clientVerIface = curVerIface;
@@ -307,7 +283,10 @@ bool TCacheTable::refreshData()
     	  default: vtype = otString;
     	}
     	Qry->DeclareVariable( *v, vtype );
-    	Qry->SetVariable( *v, SQLParams[ *v ].Value );
+    	if ( !SQLParams[ *v ].Value.empty() )
+    	  Qry->SetVariable( *v, SQLParams[ *v ].Value );
+    	else
+    	  Qry->SetVariable( *v, FNull );
     	ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
     	           SQLParams[ *v ].Value.c_str(), vtype );
     }
@@ -428,14 +407,12 @@ void TCacheTable::XMLData(const xmlNodePtr dataNode)
 {
     xmlNodePtr tabNode = NewTextChild(dataNode, "rows");
     SetProp( tabNode, "tid", clientVerData );
-    int index = 0;
     for(TTable::iterator it = table.begin(); it != table.end(); it++) {
         xmlNodePtr rowNode = NewTextChild(tabNode, "row");
         SetProp(rowNode, "pr_del", (it->status == usDeleted));
-        SetProp(rowNode, "index", index++);
         int colidx = 0;
         for(vector<string>::iterator ir = it->cols.begin(); ir != it->cols.end(); ir++,colidx++) {
-            SetProp(NewTextChild(rowNode, "col", ir->c_str()), "index", colidx);
+            NewTextChild(rowNode, "col", ir->c_str());
         }
     }
 }
@@ -634,7 +611,10 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
           value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
         else 
           value = row.old_cols[ Idx ];
-        Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
+        if ( !value.empty() )
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
+        else
+          Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
         ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d", 
                   (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
       }
@@ -697,10 +677,40 @@ bool TCacheTable::changeIfaceVer() {
   return ( getIfaceVer() != curVerIface );
 }
 
+void TCacheTable::getPerms( )
+{
+  if ( Params.find( TAG_CODE ) == Params.end() )
+    throw Exception("wrong message format");    
+  string code = Params[TAG_CODE].Value;	
+  Qry->Clear();
+  Qry->SQLText = 
+      "SELECT MAX(access_code) AS access_code FROM"
+      "  (SELECT access_code FROM user_cache_perms"
+      "   WHERE user_id=:user_id AND cache=:cache"
+      "   UNION"
+      "   SELECT MAX(access_code) FROM user_roles,role_cache_perms"
+      "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
+      "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
+  Qry->DeclareVariable("user_id",otInteger);
+  Qry->DeclareVariable("cache",otString);
+  Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
+  Qry->SetVariable( "cache", code );
+  tst();
+  Qry->Execute();
+  if(Qry->Eof || (Qry->FieldAsInteger("access_code")<=0)) {
+    Forbidden = true;
+    ReadOnly = true;
+  } 
+  else {
+    Forbidden = false;
+    ReadOnly = (Qry->FieldAsInteger("access_code")<5) ||
+                InsertSQL.empty() && UpdateSQL.empty() && DeleteSQL.empty();
+  }  	
+}
+
 /*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {  	
-  TReqInfo::Instance()->user.check_access( amRead );	
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
   TCacheTable cache( reqNode );
@@ -715,12 +725,11 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 };
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  TReqInfo::Instance()->user.check_access( amWrite );	
-  ProgTrace(TRACE2, "CacheInterface::SaveCache");	
+{	
+  ProgTrace(TRACE2, "CacheInterface::SaveCache");	  
   TCacheTable cache( reqNode );
   if ( cache.changeIfaceVer() )
-    throw UserException( "Версия интерфейса изменилась. Обновите данные." );  
+    throw UserException( "Версия интерфейса изменилась. Обновите данные." );    
   cache.ApplyUpdates( reqNode );  
   cache.refresh();
   tst();
@@ -775,7 +784,10 @@ void TParams1::setSQL(TQuery *Qry)
             default: vtype = otString;
         }
         Qry->DeclareVariable( *v, vtype );
-        Qry->SetVariable( *v, (*this)[ *v ].Value );
+        if ( !(*this)[ *v ].Value.empty() )
+          Qry->SetVariable( *v, (*this)[ *v ].Value );
+        else
+          Qry->SetVariable( *v, FNull );
         ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
                 (*this)[ *v ].Value.c_str(), vtype );
     }
