@@ -22,8 +22,8 @@ unlock:
 	
 
 
-CFLAGS=$(COMPFLAGS)
-CPPFLAGS=$(COMPFLAGS) $(CPPCOMPFLAGS)
+CFLAGS=-Wall $(COMPFLAGS)
+CPPFLAGS=-Wall $(COMPFLAGS) $(CPPCOMPFLAGS)
 
 include $(SRCHOME)/depsrules
 include $(SRCHOME)/make_rules
