@@ -16,9 +16,8 @@ using namespace BASIC;
 using namespace ASTRA;
 
 void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  ProgTrace(TRACE2, "AdmInterface::LoadAdm" );
-  TReqInfo *ri = TReqInfo::Instance();
+{  
+  TReqInfo *ri = TReqInfo::Instance();  
   ri->user.check_access( amRead );
 
   TQuery *Qry = OraSession.CreateQuery();

@@ -134,7 +134,8 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );
+  TReqInfo *reqInfo=TReqInfo::Instance();
+  reqInfo->user.check_access( amWrite );
   TQuery Qry(&OraSession);  
   int user_id = NodeAsInteger( "user_id", reqNode );  
   Qry.SQLText = "UPDATE users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
@@ -149,7 +150,7 @@ void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id ); 
   Qry.Execute();    
-  TReqInfo::Instance()->MsgToLog( string( "Сброшен пароль пользователя " ) + 
+  reqInfo->MsgToLog( string( "Сброшен пароль пользователя " ) + 
                                   Qry.FieldAsString( "descr" ), evtAccess );          
   showMessage( string( "Пользователю " ) + Qry.FieldAsString( "descr" ) +
                         " назначен пароль по умолчанию 'ПАРОЛЬ'" );  
