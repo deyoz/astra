@@ -27,6 +27,38 @@ int GetNextTrip_id()
     return Qry.FieldAsInteger(0);
 }
 
+void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    throw UserException("Some ERROR!!!");
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "begin "
+        "   delete routes where move_id = :move_id; "
+        "   delete sched_days where move_id = :move_id; "
+        "end; ";
+    Qry.DeclareVariable("move_id", otInteger);
+    xmlNodePtr curNode = NodeAsNode("Moves/move_id", reqNode);
+    while(curNode) {
+        Qry.SetVariable("move_id", NodeAsInteger(curNode));
+        Qry.Execute();
+        curNode = curNode->next;
+    }
+    TReqInfo::Instance()->MsgToLog("Удаление рейса ", evtSeason, NodeAsInteger("trip_id", reqNode));
+}
+
+void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "begin "
+        "   season.get_spp(:vdata); "
+        "end; ";
+    Qry.DeclareVariable("vdata", otDate);
+    Qry.SetVariable("vdata", NodeAsDateTime("date", reqNode));
+    Qry.Execute();
+    showMessage("Данные успешно сохранены");
+}
+
 void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 
