@@ -198,8 +198,7 @@ void process_tlg(void)
       if (len<tlg_header_len)
         throw Exception("Telegram too small (sender=%s, num=%d, type=%d)",
                         tlg_in.Sender,tlg_in.num,tlg_in.type);
-    };
-    ProgTrace(TRACE5,"%s->%s:%s",tlg_in.Sender,tlg_in.Receiver,tlg_in.body);
+    };    
     if (strcmp(tlg_in.Receiver,OWN_CANON_NAME)!=0)
       throw Exception("Unknown telegram receiver %s",tlg_in.Receiver);
 
@@ -323,8 +322,7 @@ void process_tlg(void)
       case TLG_F_NEG:
       case TLG_CFG_ERR:
         //эта часть будет работать при условии генерации уникальных tlg_num для типа OUT!
-        {
-          ProgTrace(TRACE5,"TLG_ACK recieved");
+        {          
           TQuery TlgUpdQry(&OraSession);
           if (tlg_in.type==TLG_ACK||
               tlg_in.type==TLG_F_NEG)
@@ -350,19 +348,21 @@ void process_tlg(void)
             case TLG_ACK:
               TlgUpdQry.SetVariable("curr_status","PUT");
               TlgUpdQry.SetVariable("new_status","SEND");
-              ProgTrace(TRACE5,"PUT->SEND");
+              ProgTrace(TRACE5,"PUT->SEND (tlg_num=%d)",tlg_in.num);              
               break;
             case TLG_CFG_ERR:
               TlgUpdQry.SetVariable("curr_status","PUT");
               //TlgUpdQry.SetVariable("new_status","ERR");
+              ProgTrace(TRACE5,"PUT->ERR (tlg_num=%d)",tlg_in.num);              
               break;
             case TLG_F_ACK:
               TlgUpdQry.SetVariable("curr_status","SEND");
               //TlgUpdQry.SetVariable("new_status","DONE");
+              ProgTrace(TRACE5,"SEND->DONE (tlg_num=%d)",tlg_in.num);              
               break;
             case TLG_F_NEG:
               TlgUpdQry.SetVariable("curr_status","SEND");
-              TlgUpdQry.SetVariable("new_status","PUT");
+              TlgUpdQry.SetVariable("new_status","PUT");              
               break;
           };
           TlgUpdQry.Execute();

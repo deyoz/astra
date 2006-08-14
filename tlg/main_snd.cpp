@@ -278,6 +278,7 @@ void scan_tlg(int tlg_id)
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
 #endif
+        ProgTrace(TRACE5,"Attempt send telegram (tlg_num=%d)", tlg_out.num);
       };
     }
     catch(Exception E)
