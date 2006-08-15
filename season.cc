@@ -43,7 +43,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
         Qry.Execute();
         curNode = curNode->next;
     }
-    TReqInfo::Instance()->MsgToLog("Удаление рейса ", evtSeason, NodeAsInteger("trip_id", reqNode));
+    TReqInfo::Instance()->MsgToLog("�������� ३� ", evtSeason, NodeAsInteger("trip_id", reqNode));
 }
 
 void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -56,7 +56,7 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     Qry.DeclareVariable("vdata", otDate);
     Qry.SetVariable("vdata", NodeAsDateTime("date", reqNode));
     Qry.Execute();
-    showMessage("Данные успешно сохранены");
+    showMessage("����� �ᯥ譮 ��࠭���");
 }
 
 void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -216,7 +216,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
         curNode = curNode->next;
     }
-    TReqInfo::Instance()->MsgToLog("Изменение характеристик рейса ", evtSeason, trip_id);
+    TReqInfo::Instance()->MsgToLog("��������� �ࠪ���⨪ ३� ", evtSeason, trip_id);
 }
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
