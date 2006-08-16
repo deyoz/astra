@@ -172,14 +172,16 @@ void scan_tlg(int tlg_id)
   struct sockaddr_in to_addr;
   memset(&to_addr,0,sizeof(to_addr));
   AIRSRV_MSG tlg_out;
-  int len,count,ttl;
+  int len,count;
+  uint16_t ttl;
   H2H_MSG h2hinf;
 
   TlgQry.Clear();
   if (tlg_id<0)
   {
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
+      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,\
+              SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND\
              tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
@@ -189,7 +191,8 @@ void scan_tlg(int tlg_id)
   else
   {
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
+      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,\
+            SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.id=:id AND\
              tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
@@ -223,14 +226,14 @@ void scan_tlg(int tlg_id)
       tlg_out.Receiver[5]=0;
       strncpy(tlg_out.Sender,OWN_CANON_NAME,5);
       strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
-
       len=TlgQry.GetSizeLongField("tlg_text");
       if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
       TlgQry.FieldAsLong("tlg_text",tlg_out.body);
       //проверим TTL
       ttl=0;
       if (!TlgQry.FieldIsNULL("ttl")&&
-          (ttl=TlgQry.FieldAsInteger("ttl")-(int)((Now()-TlgQry.FieldAsDateTime("time"))*86400))<=0)
+           (ttl=TlgQry.FieldAsInteger("ttl")-
+           (int)((TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60))<=0)
       {
         UpdQry.Execute();
         if (UpdQry.RowsProcessed()>0)
@@ -267,8 +270,7 @@ void scan_tlg(int tlg_id)
           if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
           strncpy(tlg_out.body,h2hinf.data,len);
         };
-
-        tlg_out.TTL=ttl;
+        tlg_out.TTL=htons(ttl);
 #ifdef __WIN32__
         if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==SOCKET_ERROR)
@@ -278,11 +280,12 @@ void scan_tlg(int tlg_id)
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
 #endif
-        ProgTrace(TRACE5,"Attempt send telegram (tlg_num=%d)", tlg_out.num);
+        ProgTrace(TRACE0,"Attempt send telegram (tlg_num=%lu)", ntohl(tlg_out.num));
       };
     }
     catch(Exception E)
     {
+      OraSession.Rollback();
       UpdQry.Execute();
       if (UpdQry.RowsProcessed()>0)
       {

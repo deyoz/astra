@@ -48,20 +48,20 @@ class BitSet
 
 class TUser {
   public:
-    int user_id;  	
+    int user_id;
     std::string login;
     std::string descr;
-    int access_code;    	
+    int access_code;
     BitSet<TAccessMode> access;
     TUser();
-    void setAccessPair( );      
+    void setAccessPair( );
     void check_access( TAccessMode mode );
-    bool getAccessMode( TAccessMode mode );  
+    bool getAccessMode( TAccessMode mode );
     void clear();
 };
 
-class TDesk { 
-  public:	 
+class TDesk {
+  public:
     std::string code;
     std::string city;
     std::string airp;
@@ -73,16 +73,16 @@ class TDesk {
 class TReqInfo
 {
   private:
-    std::string screen;
     int screen_id;
   public:
+    std::string screen;
     void clear();
     TReqInfo();
-    virtual ~TReqInfo() {} 
-    TUser user;    
-    TDesk desk;        
+    virtual ~TReqInfo() {}
+    TUser user;
+    TDesk desk;
     static TReqInfo *Instance();
-    void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr, 
+    void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      bool checkUserLogon );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
@@ -91,10 +91,10 @@ class TReqInfo
     }
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1) {
       MsgToLog(msg, ev_type,id1,0,0);
-    }    
+    }
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2) {
       MsgToLog(msg, ev_type,id1,id2,0);
-    }        
+    }
 };
 
 ASTRA::TClass DecodeClass(char* s);
@@ -121,8 +121,8 @@ void showMessage( const std::string &message );
 void showBasicInfo(void);
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
-        int id1 = 0, 
-        int id2 = 0, 
+        int id1 = 0,
+        int id2 = 0,
         int id3 = 0);
 void MsgToLog(TLogMsg &msg);
 
@@ -142,7 +142,7 @@ public:
   };
 
   void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};  
+  void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
 };
 

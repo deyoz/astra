@@ -198,7 +198,7 @@ void process_tlg(void)
       if (len<tlg_header_len)
         throw Exception("Telegram too small (sender=%s, num=%d, type=%d)",
                         tlg_in.Sender,tlg_in.num,tlg_in.type);
-    };    
+    };
     if (strcmp(tlg_in.Receiver,OWN_CANON_NAME)!=0)
       throw Exception("Unknown telegram receiver %s",tlg_in.Receiver);
 
@@ -322,7 +322,7 @@ void process_tlg(void)
       case TLG_F_NEG:
       case TLG_CFG_ERR:
         //эта часть будет работать при условии генерации уникальных tlg_num для типа OUT!
-        {          
+        {
           TQuery TlgUpdQry(&OraSession);
           if (tlg_in.type==TLG_ACK||
               tlg_in.type==TLG_F_NEG)
@@ -348,21 +348,21 @@ void process_tlg(void)
             case TLG_ACK:
               TlgUpdQry.SetVariable("curr_status","PUT");
               TlgUpdQry.SetVariable("new_status","SEND");
-              ProgTrace(TRACE5,"PUT->SEND (tlg_num=%d)",tlg_in.num);              
+              ProgTrace(TRACE5,"PUT->SEND (tlg_num=%ld)",tlg_in.num);
               break;
             case TLG_CFG_ERR:
               TlgUpdQry.SetVariable("curr_status","PUT");
               //TlgUpdQry.SetVariable("new_status","ERR");
-              ProgTrace(TRACE5,"PUT->ERR (tlg_num=%d)",tlg_in.num);              
+              ProgTrace(TRACE5,"PUT->ERR (tlg_num=%ld)",tlg_in.num);
               break;
             case TLG_F_ACK:
               TlgUpdQry.SetVariable("curr_status","SEND");
               //TlgUpdQry.SetVariable("new_status","DONE");
-              ProgTrace(TRACE5,"SEND->DONE (tlg_num=%d)",tlg_in.num);              
+              ProgTrace(TRACE5,"SEND->DONE (tlg_num=%ld)",tlg_in.num);
               break;
             case TLG_F_NEG:
               TlgUpdQry.SetVariable("curr_status","SEND");
-              TlgUpdQry.SetVariable("new_status","PUT");              
+              TlgUpdQry.SetVariable("new_status","PUT");
               break;
           };
           TlgUpdQry.Execute();
@@ -370,6 +370,10 @@ void process_tlg(void)
           if (TlgUpdQry.RowsProcessed()==0)
           {
             OraSession.Rollback();
+            ProgError(STDLOG,"Can't find tlg in tlg_queue "
+                    "(sender: %s, tlg_num: %ld, curr_status: %s)",
+                    tlg_in.Receiver, tlg_in.num,
+                    TlgUpdQry.GetVariableAsString("curr_status"));
             return;
           };
           if (tlg_in.type==TLG_CFG_ERR)
@@ -454,7 +458,7 @@ void scan_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_text,tlg_queue.time,ttl\
+      "SELECT tlgs.id,tlgs.tlg_text,SYSDATE,tlg_queue.time,ttl\
        FROM tlgs,tlg_queue\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.type='INB' AND tlg_queue.status='PUT'\
        ORDER BY DECODE(ttl,NULL,1,0),tlg_queue.time+NVL(ttl,0)/86400";
@@ -528,7 +532,7 @@ void scan_tlg(void)
       UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));
       //проверим TTL
       if (!TlgQry.FieldIsNULL("ttl")&&
-          (Now()-TlgQry.FieldAsDateTime("time"))*86400>=TlgQry.FieldAsInteger("ttl"))
+           (TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60>=TlgQry.FieldAsInteger("ttl"))
       {
         UpdQry.Execute();
         if (UpdQry.RowsProcessed()>0)

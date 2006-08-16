@@ -7,6 +7,7 @@
 #include "edilib/edi_func_cpp.h"
 #include "astra_ticket.h"
 #include "cont_tools.h"
+#include "etick_change_status.h"
 
 #include "astra_tick_view_xml.h"
 #include "astra_tick_read_edi.h"
@@ -17,17 +18,18 @@ using namespace edilib;
 using namespace Ticketing::TickReader;
 using namespace Ticketing::TickView;
 using namespace Ticketing::TickMng;
-
+using namespace Ticketing::ChangeStatus;
+using namespace boost::gregorian;
+using namespace boost::posix_time;
 
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
 
-  TickDispByNum tickDisp(OrigOfRequest("1H", "MOW", "12345678",
-                         "01MOW","MOW",'N',
-                         ctxt->pult,
-                         ctxt->opr.substr(ctxt->opr.size()-4, ctxt->opr.size())), tick_no);
+  OrigOfRequest org(*TReqInfo::Instance());
+  TickDispByNum tickDisp(org, tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
+  showErrorMessage("Нет связи с сервером эл. билетов");
 };
 
 void ETSearchInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -94,12 +96,32 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 }
 
 //!!!
-void ETSearchInterface::ChangeETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void ETSearchInterface::ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  string tick_no=NodeAsString("tick_num",reqNode);
-  int coupon_num=NodeAsInteger("coupon_num",reqNode);
-  string coupon_status=NodeAsString("coupon_status",reqNode);
-  ProgTrace( TRACE5, "tick_no=%s, coupon_num=%d, coupon_status=%s", tick_no.c_str(), coupon_num, coupon_status.c_str() );
-  
+  xmlNodePtr node = reqNode->children;
+  list<Ticket> ltick;
+  while (node!=NULL)
+  {
+      string tick_no=NodeAsString("tick_num",node);
+      int coupon_num=NodeAsInteger("coupon_num",node);
+      string coupon_status=NodeAsString("coupon_status",node);
+      ProgTrace( TRACE5, "tick_no=%s, coupon_num=%d, coupon_status=%s",
+                 tick_no.c_str(), coupon_num, coupon_status.c_str() );
+
+      Coupon_info ci (coupon_num,CouponStatus::coupon_status(coupon_status, true));
+
+//       Itin itin("P2","", 1009,-1, date(2006,6,5), time_duration(23,15,0),
+//                 "VKO", "LED");
+
+      Coupon cpn(ci, tick_no);
+      list<Coupon> lcpn;
+      lcpn.push_back(cpn);
+
+      Ticket tick(tick_no, lcpn);
+      ltick.push_back(tick);
+      node=node->next;
+  };
+
+  ChangeStatus::ETChangeStatus(TReqInfo::Instance(), ltick);
 }
 

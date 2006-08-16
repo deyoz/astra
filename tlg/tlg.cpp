@@ -24,6 +24,9 @@ using namespace edilib::EdiSess;
 using namespace Ticketing;
 using namespace jxtlib;
 
+const std::string EdiMess::Display = "131";
+const std::string EdiMess::ChangeStat = "142";
+
 static edi_loaded_char_sets edi_chrset[]=
 {
     {"IATA", "\x3A\x2B,\x3F \x27" /* :+,? ' */},
@@ -144,7 +147,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        SendTlgType("MOWRT", "MOWRA", true, 99, tlg);
+        SendTlgType("MOWRT", "MOWRA", true, 20, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -167,12 +170,20 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 
+void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
+
 message_funcs_type message_TKCREQ[] =
 {
-    {"131", ParseTKCRESdisplay,
+    {EdiMess::Display.c_str(), ParseTKCRESdisplay,
             ProcTKCRESdisplay,
             CreateTKCREQdisplay,
             "Ticket display"},
+    {EdiMess::ChangeStat.c_str(), ParseTKCRESchange_status,
+            ProcTKCRESchange_status,
+            CreateTKCREQchange_status,
+            "Ticket change of status"},
 };
 
 message_funcs_str message_funcs[] =
@@ -229,6 +240,7 @@ void proc_edifact(const std::string &tlg)
     if(ret){
         throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
     }
+    ProgTrace(TRACE2, "Edifact done.");
 }
 
 EdiMesFuncs::messages_map_t *EdiMesFuncs::messages_map;
@@ -259,28 +271,44 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
 
 }
 
+void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
+{
+    int err=0;
+    edi_udata_wr ud(new AstraEdiSessWR(TChange.org().pult()), EdiMess::ChangeStat);
+
+    tst();
+    int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TChange, &err);
+    if(ret)
+    {
+        throw Exception("SendEdiMessage for change of status failed");
+    }
+}
+
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 {
     int err=0;
-    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), "131");
+    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), EdiMess::Display);
 
     tst();
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
-    if(!ret){
-    } else {
-        //throw
+    if(ret)
+    {
+        throw Exception("SendEdiMessage DISPLAY failed");
     }
 }
 
 string prepareKickText()
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
     const char *iface = (const char *)readSysContextNVL("CUR_IFACE", "");
     const char *handle= (const char *)readSysContextNVL("HANDLE","");
     const char *oper  = (const char *)readSysContextNVL("OPR",   "");
+
     string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
             "<term>"
             "<query handle=\"");
-    text = text + handle + "\" id=\"" +iface+ "\" ver=\"0\" opr=\""+ oper +"\">"
+    text = text + handle + "\" id=\"" +iface+
+            "\" ver=\"0\" opr=\""+ oper +"\" screen=\""+reqInfo->screen+"\">"
             "<kick></kick>"
             "</query>"
             "</term>";
@@ -294,9 +322,25 @@ void saveTlgSource(const string &pult, const string &tlg)
 
     if(writeSysContext("TlgSource", tlg.c_str()))
     {
-        throw Exception("");
+        throw Exception("writeSysContext() failed");
     }
     registerHookBefore(SaveContextsHook);
+}
+
+void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
+                               edi_common_data *data)
+{
+    EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
+    ChngStatData &TickD = dynamic_cast<ChngStatData &>(*data);
+}
+
+void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
+                              edi_common_data *data)
+{
+}
+void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
+                             edi_common_data *data)
+{
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -377,10 +421,14 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         }
         tst();
 
-        TickDisp *td = static_cast<TickDisp *>(data);
         SetEdiFullSegment(pMes, "MSG",0, ":"+ed->msgId());
-        SetEdiFullSegment(pMes, "ORG",0, "NW+52519950+++A++PJ++"+td->org().pult());
-
+        edi_common_data *td = static_cast<edi_common_data *>(data);
+        SetEdiFullSegment(pMes, "ORG",0,
+                          td->org().airlineCode() +
+                                  "+"+td->org().pprNumber()+
+                                  "+++"+td->org().type()+
+                                  "+::"+td->org().langStr()+
+                                  "+"+td->org().pult());
         mes_funcs.collect_req(pHead, *ed, td);
     }
     catch(std::exception &e)
@@ -398,6 +446,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 
 int ProcCONTRL(edi_mes_head *pHead, void *udata, void *data, int *err)
 {
+    ProgTrace(TRACE1, "Proc CONTRL");
     return 0;
 }
 

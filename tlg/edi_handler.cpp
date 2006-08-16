@@ -81,13 +81,19 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       throw;
     };
   }
-  catch(...) {};
+  catch(...)
+  {
+      ProgError(STDLOG, "Unknown exception");
+  };
   try
   {
     OraSession.Rollback();
     OraSession.LogOff();
   }
-  catch(...) {};
+  catch(...)
+  {
+      ProgError(STDLOG, "Unknown exception");
+  };
   return 0;
 };
 
@@ -124,13 +130,15 @@ void handle_tlg(void)
   {
       for(;!TlgQry.Eof && (count++)<SCAN_COUNT; TlgQry.Next(), OraSession.Rollback())
       {
+          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",
+                    TlgQry.FieldAsInteger("id"));
           try{
-              char *tlg;
               int len = TlgQry.GetSizeLongField("tlg_text");
-              tlg = new (char [len]);
-              tlg[len]=0;
-              TlgQry.FieldAsLong("tlg_text", tlg);
-              proc_edifact(tlg);
+              boost::shared_ptr< char > tlg (new (char [len+1]));
+              TlgQry.FieldAsLong("tlg_text", tlg.get());
+              tlg.get()[len]=0;
+              ProgTrace(TRACE5,"TLG_IN: <%s>", tlg.get());
+              proc_edifact(tlg.get());
               deleteTlg(TlgQry.FieldAsInteger("id"));
               callPostHooksBefore();
               OraSession.Commit();
@@ -144,10 +152,13 @@ void handle_tlg(void)
           {
               ProgError(STDLOG, "std::exception: %s", e.what());
           }
+          ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",
+                    TlgQry.FieldAsInteger("id"));
       };
   }
   catch(...)
   {
+      ProgError(STDLOG, "Unknown exception");
     throw;
   };
 }
@@ -197,7 +208,7 @@ void EdiHelpSignal::run()
     memcpy(buf,msg1,sizeof(msg1));
     strcpy(buf+sizeof(msg1),sigtext);
     send_signal_udp(&addr,0,ADDR,buf,sizeof(msg1)+strlen(sigtext)+1);
-    ProgTrace(TRACE1,"send: %.20s",sigtext);
+    ProgTrace(TRACE1,"send: %s",sigtext);
 }
 
 //*******************************************
@@ -221,16 +232,20 @@ int confirm_notify_levb(const char *pult)
         CursCtl c=make_curs(
                 "select intmsgid,address,text from edi_help where pult=:p"
                 "  and date1>sysdate-1/1440 order by date1 desc");
+        tst();
         c.autoNullStr().
                 bind(":p",pult).defFull(&id,sizeof(id),0,&binlen,SQLT_BIN).
                 def(address).def(txt).exfet();
+        tst();
         if(c.err()==NO_DATA_FOUND){
             ProgTrace(TRACE1,"nothing in edi_help for %s",pult);
             return -1;
         }
+        tst();
         if(binlen!=12){
             throw Exception("wrong len");
         }
+        tst();
     } catch (Exception &e){
         ProgError(STDLOG,"%s",e.what());
         return -2;

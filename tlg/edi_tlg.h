@@ -5,6 +5,12 @@
 #include "astra_ticket.h"
 #include "monitor_ctl.h"
 
+struct EdiMess
+{
+    static const std::string Display;
+    static const std::string ChangeStat;
+};
+
 class AstraEdiSessWR : public edilib::EdiSess::EdiSessWrData
 {
     edilib::EdiSess::EdiSession EdiSess;
@@ -169,7 +175,26 @@ public:
     const std::string tickNum() const { return TickNum; }
 };
 
+class ChngStatData : public edi_common_data
+{
+    std::list<Ticketing::Ticket> lTick;
+    Ticketing::Itin::SharedPtr Itin_;
+public:
+    ChngStatData(const Ticketing::OrigOfRequest &org,
+                 const std::list<Ticketing::Ticket> &lt,
+                 const Ticketing::Itin *itin_ = NULL)
+    :edi_common_data(org), lTick(lt)
+    {
+        if(itin_){
+            Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
+        }
+    }
+    const std::list<Ticketing::Ticket> ltick() const { return lTick; }
+};
 
+// Запрос на смену статуса
+void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange);
+// Запрос на Display
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp);
 
 typedef void (* message_func_t)
