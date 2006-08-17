@@ -115,10 +115,12 @@ void handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_text,tlg_queue.time,ttl\
+      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl\
        FROM tlgs,tlg_queue\
-       WHERE tlg_queue.id=tlgs.id AND tlg_queue.type='INA' AND tlg_queue.status='PUT'\
+       WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
+             tlg_queue.type='INA' AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";
+    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME);   
   };
 
   int count;
@@ -157,8 +159,7 @@ void handle_tlg(void)
       };
   }
   catch(...)
-  {
-      ProgError(STDLOG, "Unknown exception");
+  {      
     throw;
   };
 }

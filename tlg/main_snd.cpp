@@ -124,7 +124,10 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       throw;
     };
   }
-  catch(...) {};
+  catch(...) 
+  {
+    ProgError(STDLOG, "Unknown exception");
+  };
 #ifdef __WIN32__
   if (sockfd!=INVALID_SOCKET) closesocket(sockfd);
 #else
@@ -135,7 +138,10 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OraSession.Rollback();
     OraSession.LogOff();
   }
-  catch(...) {};
+  catch(...) 
+  {
+    ProgError(STDLOG, "Unknown exception");	
+  };
   return 0;
 };
 
@@ -180,22 +186,24 @@ void scan_tlg(int tlg_id)
   if (tlg_id<0)
   {
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,\
+      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,\
               SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND\
-             tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
+             tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND\
+             tlg_queue.sender=:sender AND\
              tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";
   }
   else
   {
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_num,tlgs.receiver,\
+      "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,\
             SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.id=:id AND\
-             tlgs.receiver=rot.canon_name(+) AND tlg_queue.sender=:sender AND\
+             tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND\
+             tlg_queue.sender=:sender AND\
              tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
   };

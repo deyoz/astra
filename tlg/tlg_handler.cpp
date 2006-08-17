@@ -68,13 +68,19 @@ int main_tlg_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       throw;
     };
   }
-  catch(...) {};
+  catch(...) 
+  {
+    ProgError(STDLOG, "Unknown exception");	
+  };
   try
   {
     OraSession.Rollback();
     OraSession.LogOff();
   }
-  catch(...) {};
+  catch(...) 
+  {
+    ProgError(STDLOG, "Unknown exception");	
+  };
   return 0;
 };
 
