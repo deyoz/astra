@@ -262,8 +262,71 @@ TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur)
 
 TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur)
 {
-  return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );
+  return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );  
 }
+
+xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node)
+{
+  xmlNodePtr node2=node;			
+  while (node2!=NULL)
+  {
+    if (strcmp((char*)node2->name,expr)==0)
+    {
+      if (node2->next!=NULL) node=node2->next;
+      return node2;      
+    };
+    node2=node2->prev;
+  };
+  node2=node->next;
+  while (node2!=NULL) 
+  {
+    if (strcmp((char*)node2->name,expr)==0)
+    {
+      if (node2->next!=NULL) node=node2->next;
+      return node2;            
+    };
+    node2=node2->next;
+  };
+  return NULL;
+}
+
+xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node)
+{
+  xmlNodePtr node2=GetNodeFast(expr,node);
+  if (node2==NULL) 
+    throw EXMLError(string("Node '") + expr + "' does not exists");       
+  return node2;	
+}
+
+bool NodeIsNULLFast(char *expr, xmlNodePtr &node)
+{
+  return NodeIsNULL(NodeAsNodeFast(expr,node));	
+}
+
+char* NodeAsStringFast(char *expr, xmlNodePtr &node)
+{
+  return NodeAsString(NodeAsNodeFast(expr,node));		
+}
+
+int NodeAsIntegerFast(char *expr, xmlNodePtr &node)
+{
+  return NodeAsInteger(NodeAsNodeFast(expr,node));		
+}
+
+double NodeAsFloatFast(char *expr, xmlNodePtr &node)
+{
+  return NodeAsFloat(NodeAsNodeFast(expr,node));		
+}
+
+BASIC::TDateTime NodeAsDateTimeFast(char *expr, char *format, xmlNodePtr &node)
+{
+  return NodeAsDateTime(NodeAsNodeFast(expr,node),format);		
+}
+
+BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node)
+{
+  return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);			  
+}  
 
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {

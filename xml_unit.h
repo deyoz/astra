@@ -37,6 +37,17 @@ BASIC::TDateTime NodeAsDateTime(xmlNodePtr node, char* format);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cur=NULL);
 BASIC::TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur);
+//оптимизированные по быстродействию функции
+//node - любой брат(сосед) искомого 
+xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node);
+xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node);
+bool NodeIsNULLFast(char *expr, xmlNodePtr &node);
+char* NodeAsStringFast(char *expr, xmlNodePtr &node);
+int NodeAsIntegerFast(char *expr, xmlNodePtr &node);
+double NodeAsFloatFast(char *expr, xmlNodePtr &node);
+BASIC::TDateTime NodeAsDateTimeFast(char *expr, char *format, xmlNodePtr &node);
+BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node);
+
 void NodeSetContent(xmlNodePtr cur, const char* content);
 void NodeSetContent(xmlNodePtr cur, const std::string content);
 void NodeSetContent(xmlNodePtr cur, const int content);
