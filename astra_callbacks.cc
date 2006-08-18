@@ -8,9 +8,11 @@
 #include "season.h"
 #include "etick.h" 
 #include "images.h" 
-#include "seats.h" 
+#include "tripinfo.h" 
+#include "salonform.h" 
 #include "astra_utils.h" 
 #include "basic.h"
+#include "exceptions.h"
 #define NICKNAME "VLAD"
 #include "test.h"
 
@@ -34,7 +36,8 @@ void AstraJxtCallbacks::InitInterfaces()
   new SeasonInterface();
   new ETSearchInterface();
   new ImagesInterface();      
-  new SeatsInterface();        
+  new TripInfoInterface();        
+  new SalonsInterface();        
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
@@ -56,6 +59,11 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     }
 }
    
+void AstraJxtCallbacks::UserAfter(const char *body, int blen, const char *head,
+                          int hlen, char **res, int len)
+{
+	
+}
 
 
 void AstraJxtCallbacks::HandleException(std::exception *e)
@@ -65,6 +73,10 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	XMLRequestCtxt *ctxt = getXmlCtxt();
 	xmlNodePtr resNode = ctxt->resDoc->children->children;
 	xmlNodePtr node = resNode->children;
+	
+	UserException2 *ue2 = dynamic_cast<UserException2*>(e);	
+	if (ue2) return;	
+	
 	xmlNodePtr node2;
 	while(node!=NULL)	
 	{	  

@@ -10,6 +10,7 @@
 #define NICKNAME "VLAD"
 #include "test.h"
 #include <string.h>
+#include "stl_utils.h"
 #include "xml_unit.h"
 
 using namespace std;
@@ -72,16 +73,16 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   clear();
   TQuery &Qry = *OraSession.CreateQuery();
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
-  screen = vscreen;	
+  screen = upperc( vscreen );	
   desk.code = vpult;        
   try {
     Qry.Clear();
-    Qry.SQLText = "SELECT id FROM screen WHERE exe = UPPER(:screen)";
+    Qry.SQLText = "SELECT id FROM screen WHERE exe = :screen";
     Qry.DeclareVariable( "screen", otString );
-    Qry.SetVariable( "screen", vscreen );
+    Qry.SetVariable( "screen", screen );
     Qry.Execute();
     if ( Qry.RowCount() == 0 )    
-      throw Exception( (string)"Unknown screen " + vscreen );  
+      throw Exception( (string)"Unknown screen " + screen );  
     screen_id = Qry.FieldAsInteger( "id" );
         
     Qry.Clear();
@@ -431,6 +432,12 @@ void showErrorMessage(const std::string &message )
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "errormessage", message );
 };
+
+void showErrorMessageAndRollback(const std::string &message )
+{
+  showErrorMessage(message);
+  throw UserException2();
+}
 
 void showMessage(const std::string &message )
 {

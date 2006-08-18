@@ -19,6 +19,7 @@ public:
      AddEvent("setimages",evHandle);     
   };
 
+  static void GetisPlaceMap( std::map<std::string,bool> &ispl );
   void GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   static void GetImages( xmlNodePtr reqNode, xmlNodePtr imagesNode );

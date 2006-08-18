@@ -13,6 +13,20 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void ImagesInterface::GetisPlaceMap( map<string,bool> &ispl )
+{	
+  tst();	
+  ispl.clear();  	
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT code, pr_seat FROM comp_elem_types WHERE pr_del=0";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    ispl[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_seat" );
+    Qry.Next();
+  }
+  tst();
+}
+
 void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   TReqInfo::Instance()->user.check_access( amRead );	
@@ -36,37 +50,36 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    lastUpdDate = Qry->FieldAsDateTime( "lastUpdDate" );
    SetProp( imagesNode, "default_comp_elem", Qry->FieldAsString( "def_comp_elem" ) );   
    SetProp( imagesNode, "lastUpdDate", DateTimeToStr( lastUpdDate ) );
-   if ( fabs( lastUpdDate - NodeAsDateTime( "@lastUpdDate", reqNode ) ) <= 5.0/(24.0*60.0*60.0) )
-    return; /* обновления не нужны */
+   
+   bool sendImages = ( fabs( lastUpdDate - NodeAsDateTime( "@lastUpdDate", reqNode ) ) > 5.0/(24.0*60.0*60.0) );
    /* пересылаем все данные */
    Qry->Clear();
-   Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del = 0";
+   if ( sendImages )
+     Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del = 0";
+   else
+     Qry->SQLText = "SELECT code, name, pr_seat FROM comp_elem_types WHERE pr_del = 0";
    Qry->Execute();   
-   int i = 0;
    int len = 0;
    while ( !Qry->Eof ) {
      xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
-     SetProp( imageNode, "index", i );
      NewTextChild( imageNode, "code", Qry->FieldAsString( "code" ) );
      NewTextChild( imageNode, "name", Qry->FieldAsString( "name" ) );
      NewTextChild( imageNode, "pr_seat", Qry->FieldAsInteger( "pr_seat" ) );
-     if ( len != Qry->GetSizeLongField( "image" ) ) {
-       len = Qry->GetSizeLongField( "image" );
+     if ( sendImages ) {
+       if ( len != Qry->GetSizeLongField( "image" ) ) {
+         len = Qry->GetSizeLongField( "image" );
+         if ( data == NULL )
+           data = malloc( len );
+         else
+           data = realloc( data, len );
+       }
        if ( data == NULL )
-         data = malloc( len );
-       else
-         data = realloc( data, len );
+         throw Exception( "Ошибка программы" );     
+       Qry->FieldAsLong( "image", data );
+       string res = b64_encode( (const char*)data, len );
+       NewTextChild( imageNode, "image", res.c_str() );
      }
-     if ( data == NULL )
-       throw Exception( "Ошибка программы" );     
-     Qry->FieldAsLong( "image", data );
-     for ( int k=0; k<len; k++ )
-       ProgTrace( TRACE5, "c[%i]=%i", k, ((unsigned char*)data)[ k ] );
-     string res = b64_encode( (const char*)data, len );
-     ProgTrace( TRACE5, "image=%s, len=%d", res.c_str(), res.size() );
-     NewTextChild( imageNode, "image", res.c_str() );
      Qry->Next();
-     i++;
    }
   }  
   catch( ... ) {
@@ -87,11 +100,12 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   TQuery *Qry = OraSession.CreateQuery();
   try {
    Qry->SQLText = "BEGIN "\
-                  " UPDATE comp_elem_types SET name=:name,pr_seat=:pr_seat,time_create=:time_create,image=:image "\
+                  " UPDATE comp_elem_types "
+                  "   SET name=:name,pr_seat=:pr_seat,time_create=:time_create,image=:image, pr_del=0 "\
                   "  WHERE code=:code; "\
                   " IF SQL%NOTFOUND THEN "\
-                  "  INSERT INTO comp_elem_types(code,name,pr_seat,time_create,image) "\
-                  "   VALUES(:code,:name,:pr_seat,:time_create,:image); "\
+                  "  INSERT INTO comp_elem_types(code,name,pr_seat,time_create,image,pr_del) "\
+                  "   VALUES(:code,:name,:pr_seat,:time_create,:image,0); "\
                   " END IF; "\
                   "END;";
    Qry->DeclareVariable( "code", otString );
@@ -99,7 +113,9 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
    Qry->DeclareVariable( "pr_seat", otInteger );
    Qry->DeclareVariable( "time_create", otDate );
    Qry->DeclareVariable( "image", otLong );                  
-   xmlNodePtr node = GetNode("images", reqNode);
+   xmlNodePtr node = GetNode("data/images", reqNode);
+   TDateTime d = NodeAsDateTime( "@time_create", node );
+   Qry->SetVariable( "time_create", d );          
    if ( node != NULL ) {
      node = node->children;
      string StrDec;
@@ -107,10 +123,9 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
        Qry->SetVariable( "code", NodeAsString( "code", node ) );
        Qry->SetVariable( "name", NodeAsString( "name", node ) );
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );       
-       Qry->SetVariable( "time_create", NodeAsDateTime( "time_create", node ) );       
        StrDec = NodeAsString( "image", node );
-       StrDec = b64_decode( StrDec.c_str(), StrDec.length() );       
-       Qry->CreateLongVariable( "time_create", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );              
+       StrDec = b64_decode( StrDec.c_str(), StrDec.length() );       	
+       Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );              
        Qry->Execute();
        node = node->next;       
      }	

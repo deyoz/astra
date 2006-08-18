@@ -1,66 +1,144 @@
 #ifndef _SEATS_H_
 #define _SEATS_H_
 
+#include "salons.h"
+#include "astra_utils.h"
+#include <map>
 #include <libxml/tree.h>
-#include <string>
-#include "JxtInterface.h"
 
-struct TRem {
-  std::string rem;
-  int pr_denial;
+enum TSeatStep { sLeft, sRight, sUp, sDown };
+enum TWhere { sLeftRight, sUpDown, sEveryWhere };
+
+class TCounters {
+  private:
+    int p_Count_3G;
+    int p_Count_2G;
+    int p_CountG;
+    int p_Count_3V;
+    int p_Count_2V;
+  public:
+    TCounters();
+    void Clear();
+    int p_Count_3( TSeatStep Step = sRight );    
+    int p_Count_2( TSeatStep Step = sRight );
+    int p_Count( TSeatStep Step = sRight );
+    void Set_p_Count_3( int Count, TSeatStep Step = sRight );
+    void Set_p_Count_2( int Count, TSeatStep Step = sRight );
+    void Set_p_Count( int Count, TSeatStep Step = sRight );          
+    void Add_p_Count_3( int Count, TSeatStep Step = sRight );
+    void Add_p_Count_2( int Count, TSeatStep Step = sRight );
+    void Add_p_Count( int Count, TSeatStep Step = sRight );              
 };
 
-struct TPlace {
-  int x, y;
-  std::string elem_type;
-  int isplace;
-  int xprior, yprior;
-  int agle;
+struct TPassenger {
+  /*вход*/
+  int grpId;
+  int regNo;
+  std::string fullName;
+  int pax_id; /* pax_id */
+  std::string placeName;
+  std::string PrevPlaceName;
+  std::string OldPlaceName;
+  bool isSeat;
+  int countPlace;
+  TSeatStep Step;  
+  std::vector<std::string> rems;
+  std::string maxRem;
+  std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
+  bool prSmoke;
+  std::string Elem_Type;
   std::string clname;
-  int pr_smoke;
-  int not_good;
-  std::string xname, yname;
-  std::string status;
-  int pr_free;
-  bool block;
-  std::vector<TRem> rems;
-};
-
-typedef struct {
-  int num;
-  std::vector<TPlace> places;
-} TPlaceList;
-
-struct TSalons {
-  int trip_id;
-  std::string ClName;
-  std::vector<TPlaceList*> placelists;
-  ~TSalons( ) {
-    for ( std::vector<TPlaceList*>::iterator i = placelists.begin(); i != placelists.end(); i++ ) {
-      delete *i;  	
-    }
-    placelists.clear();
+  std::string placeStatus;
+  int priority;
+  /*выход*/
+  TPlaceList *placeList; /* салон */
+  TPoint Pos; /* указывает место */
+  bool InUse;
+  TPassenger() {
+    countPlace = 1;
+    prSmoke = false;
+    placeStatus = "FP";
+    priority = 0;
+    placeList = NULL;
+    Pos.x = 0;
+    Pos.y = 0;
+    InUse = false;  	
   }
 };
 
+typedef std::vector<TPassenger> VPassengers;
 
-class SeatsInterface : public JxtInterface
-{
-private:
-public:
-  SeatsInterface() : JxtInterface("","seats")
-  {
-     Handler *evHandle;
-     evHandle=JxtHandler<SeatsInterface>::CreateHandler(&SeatsInterface::XMLReadSalons);
-     AddEvent("XMLReadSalons",evHandle);     
-  };
-
-  void XMLReadSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void BuildSalons( TSalons *Salons, xmlNodePtr salonsNode );
-  static void InternalReadSalons( TSalons *Salons );
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+class TPassengers {
+  private:
+    std::map<std::string, int> remarks;
+    VPassengers FPassengers;
+    void addRemPriority( TPassenger &pass );
+    void Calc_Priority( TPassenger &pass );
+  public:
+    TCounters counters;  
+    std::string clname;   // класс с которым мы работаем
+    bool KTube;
+    bool KWindow;
+    bool UseSmoke;
+    TPassengers();
+    ~TPassengers();    
+    void Clear();    
+    void Add( TPassenger &pass );
+    int getCount();
+    TPassenger &TPassengers::Get( int Idx );
+    void copyTo( VPassengers &npass );
+    void copyFrom( VPassengers &npass );
+    void SetCountersForPass( TPassenger  &pass );
+    bool existsNoSeats();
+    void Build( xmlNodePtr passNode );
 };
 
- 
+struct TSeatPlace {
+  TPlaceList *placeList;
+  TPoint Pos;
+  std::vector<TPlace> oldPlaces;
+  TSeatStep Step;
+  bool InUse;
+  TSeatPlace() {
+    placeList = NULL;
+    InUse = false;
+  }
+};
+
+typedef std::vector<TSeatPlace> VSeatPlaces; 
+typedef VSeatPlaces::iterator ISeatPlace;
+
+class TSeatPlaces {
+  private:
+    VSeatPlaces seatplaces;
+    bool Alone; /* посадка одного в ряду - внутренняя переменная - не трогать */
+    int Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatStep Step );
+    int FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step );
+    bool SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted );
+    bool SeatsStayedSubGrp( TWhere Where );
+    TSeatPlace &GetEqualSeatPlace( TPassenger &pass );
+    bool LSD( int G3, int G2, int G, int V3, int V2, TWhere Where );
+    bool SeatsGrp_On( TPoint FP );
+    bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
+  public:
+    TCounters counters;  
+    TSeatPlaces();
+    ~TSeatPlaces();
+    void Clear();
+    void Add( TSeatPlace &seatplace );
+    void RollBack( int Begin, int End ); 
+    void RollBack( ); 
+    bool SeatGrpOnBasePlace( );
+    bool SeatsGrp( );
+    bool SeatsPassengers( );  
+    void PlacesToPassengers();    
+};
+/* тут описаны будут доступные ф-ции */
+/* автоматическая пересадка пассажиров при изменении компоновки */
+void ReSeats( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
+void SelectPassengers( TSalons *Salons, TPassengers &p );
+
+extern TPassengers Passengers;
+
 #endif /*_SEATS_H_*/
 

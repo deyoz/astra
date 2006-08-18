@@ -14,7 +14,8 @@ class AstraJxtCallbacks : public jxtlib::JXTLibCallbacks
     virtual void HandleException(std::exception *e);    
     virtual void UserBefore(const char *body, int blen, const char *head,
                           int hlen, char **res, int len);
-    
+    virtual void UserAfter(const char *body, int blen, const char *head,
+                           int hlen, char **res, int len);    
 };
 
 /*****************************************************************************/

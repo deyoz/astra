@@ -4,12 +4,12 @@
 #include <string>
 #include "astra_consts.h"
 #include "basic.h"
+#include "exceptions.h"
 #include "oralib.h"
 #include <map>
 #include "jxt_xml_cont.h"
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-#include <string>
 #include "JxtInterface.h"
 
 
@@ -129,6 +129,8 @@ void MsgToLog(TLogMsg &msg);
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
+void showErrorMessageAndRollback(const std::string &message );
+
 class SysReqInterface : public JxtInterface
 {
 public:
@@ -144,6 +146,12 @@ public:
   void ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBasicInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode){};
+};
+
+class UserException2:public EXCEPTIONS::UserException
+{
+  public:
+    UserException2(): UserException(""){};  
 };
 
 #endif /*_ASTRA_UTILS_H_*/
