@@ -5,6 +5,7 @@
 #include "edilib/edi_astra_msg_types.h"
 #include "edi_tlg.h"
 #include "edi_msg.h"
+#include "exceptions.h"
 #include "astra_utils.h"
 #include "etick/lang.h"
 
@@ -23,6 +24,7 @@ using namespace edilib;
 using namespace edilib::EdiSess;
 using namespace Ticketing;
 using namespace jxtlib;
+using namespace EXCEPTIONS;
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
@@ -280,7 +282,7 @@ void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TChange, &err);
     if(ret)
     {
-        throw Exception("SendEdiMessage for change of status failed");
+        throw UserException("SendEdiMessage for change of status failed");
     }
 }
 
@@ -293,7 +295,7 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
     if(ret)
     {
-        throw Exception("SendEdiMessage DISPLAY failed");
+        throw UserException("SendEdiMessage DISPLAY failed");
     }
 }
 
@@ -322,7 +324,7 @@ void saveTlgSource(const string &pult, const string &tlg)
 
     if(writeSysContext("TlgSource", tlg.c_str()))
     {
-        throw Exception("writeSysContext() failed");
+        throw EXCEPTIONS::Exception("writeSysContext() failed");
     }
     registerHookBefore(SaveContextsHook);
 }
@@ -332,6 +334,39 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 {
     EDI_REAL_MES_STRUCT *pMes = GetEdiMesStructW();
     ChngStatData &TickD = dynamic_cast<ChngStatData &>(*data);
+
+    // EQN = кол-во билетов в запросе
+    ProgTrace(TRACE2,"Tick.sizer()=%d", TickD.ltick().size());
+    SetEdiFullSegment(pMes, "EQN",0,
+                      HelpCpp::string_cast(TickD.ltick().size())+":TD");
+    int sg1=0;
+    Ticket::Trace(TRACE4,TickD.ltick());
+    for(list<Ticket>::const_iterator i=TickD.ltick().begin();
+        i!=TickD.ltick().end();i++,sg1++)
+    {
+        ProgTrace(TRACE2, "sg1=%d", sg1);
+        const Ticket & tick  =  (*i);
+        SetEdiSegGr(pMes, 1, sg1);
+        SetEdiPointToSegGrW(pMes, 1, sg1);
+        SetEdiFullSegment(pMes, "TKT",0, tick.ticknum()+":T");
+
+        PushEdiPointW(pMes);
+        int sg2=0;
+        for(list<Coupon>::const_iterator j=tick.getCoupon().begin();
+            j!= tick.getCoupon().end();j++, sg2++)
+        {
+            const Coupon &cpn = (*j);
+            ProgTrace(TRACE2, "sg2=%d", sg2);
+            SetEdiSegGr(pMes, 2, sg2);
+            SetEdiPointToSegGrW(pMes, 2, sg2);
+
+            SetEdiFullSegment(pMes, "CPN",0,
+                              HelpCpp::string_cast(cpn.couponInfo().num()) + ":" +
+                                      cpn.couponInfo().status().code());
+        }
+        PopEdiPointW(pMes);
+        ResetEdiPointW(pMes);
+    }
 }
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -424,7 +459,8 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         SetEdiFullSegment(pMes, "MSG",0, ":"+ed->msgId());
         edi_common_data *td = static_cast<edi_common_data *>(data);
         SetEdiFullSegment(pMes, "ORG",0,
-                          td->org().airlineCode() +
+                          td->org().airlineCode() + ":" +
+                                  td->org().locationCode() +
                                   "+"+td->org().pprNumber()+
                                   "+++"+td->org().type()+
                                   "+::"+td->org().langStr()+

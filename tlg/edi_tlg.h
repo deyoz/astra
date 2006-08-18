@@ -189,7 +189,7 @@ public:
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
         }
     }
-    const std::list<Ticketing::Ticket> ltick() const { return lTick; }
+    const std::list<Ticketing::Ticket> & ltick() const { return lTick; }
 };
 
 // Запрос на смену статуса
