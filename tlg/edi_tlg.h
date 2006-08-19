@@ -5,7 +5,7 @@
 #include "astra_ticket.h"
 #include "monitor_ctl.h"
 
-std::string get_last_unique();
+std::string get_last_session_ref();
 
 struct EdiMess
 {

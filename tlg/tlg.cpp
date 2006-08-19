@@ -28,11 +28,11 @@ using namespace EXCEPTIONS;
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
-static std::string last_unique;
+static std::string last_session_ref;
 
-std::string get_last_unique()
+std::string get_last_session_ref()
 {
-  return last_unique;
+  return last_session_ref;
 }
 
 static edi_loaded_char_sets edi_chrset[]=
@@ -76,6 +76,7 @@ int FuncBeforeEdiProc(edi_mes_head *pHead, void *udata, int *err)
         UpdateEdiSession(&dynamic_cast<EdiSessRdData &>(*data->sessData()));
         ProgTrace(TRACE1,"Check edifact session - Ok");
         /* ‚‘… •, „‹†€… ... */
+        last_session_ref = pHead->our_ref;
     }
     catch(edilib::EdiExcept &e)
     {
@@ -148,7 +149,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
 
     try {
         std::string tlg = edilib::WriteEdiMessage(GetEdiMesStructW());
-        last_unique = pHead->our_ref;
+        last_session_ref = pHead->our_ref;
 
         // ‘®§¤ ¥β § ―¨αμ Ά „
         CommitEdiSession(ed->sessData()->ediSession());
