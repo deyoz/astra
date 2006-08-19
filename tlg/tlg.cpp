@@ -28,6 +28,12 @@ using namespace EXCEPTIONS;
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
+static std::string last_unique;
+
+std::string get_last_unique()
+{
+  return last_unique;
+}
 
 static edi_loaded_char_sets edi_chrset[]=
 {
@@ -142,7 +148,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
 
     try {
         std::string tlg = edilib::WriteEdiMessage(GetEdiMesStructW());
-//        strcpy(last_unique, pHead->our_ref);
+        last_unique = pHead->our_ref;
 
         // ‘®§¤ ¥β § ―¨αμ Ά „
         CommitEdiSession(ed->sessData()->ediSession());

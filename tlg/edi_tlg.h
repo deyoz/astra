@@ -5,6 +5,8 @@
 #include "astra_ticket.h"
 #include "monitor_ctl.h"
 
+std::string get_last_unique();
+
 struct EdiMess
 {
     static const std::string Display;
