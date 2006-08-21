@@ -477,55 +477,50 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
     PopEdiPointG(pMes);
 }
 
-namespace {
-    Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes, TickStatAction::TickStatAction_t tact)
-    {
-        PushEdiPointG(pMes);
-        SetEdiPointToSegmentG(pMes, "CPN",0, "INV_COUPON");
+Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
+{
+    PushEdiPointG(pMes);
+    SetEdiPointToSegmentG(pMes, "CPN",0, "INV_COUPON");
 
-        int numCPN = GetNumComposite(pMes, "C640", "INV_COUPON");
-        if( numCPN >1 ){
-            ProgError(STDLOG,"Bad number of C640 (%d)! (More then 1)", numCPN);
-            throw Exception("Bad number of C640! (More then 1)");
-        }
-
-        SetEdiPointToCompositeG(pMes, "C640");
-        int num = GetDBNumCast<int>(EdiDigitCast<int>("INV_COUPON"),
-                                    pMes, 1050,0, "INV_COUPON");
-
-        char media=*GetDBNum(pMes, 1159);
-        if(!media){
-            media=TicketMedia::Media::Electro;
-        }
-        if(media != TicketMedia::Media::Electro &&
-           media != TicketMedia::Media::Paper){
-            ProgError(STDLOG,"Invalid coupon media [%c]", media);
-            throw Exception("Invalid coupon media");
-        }
-
-           CouponStatus::coupon_status Status;
-           if(GetNumDataElem(pMes, 4405)){
-               Status = GetDBNumCast<CouponStatus::coupon_status>
-                       (EdiCast::CoupStatCast("INV_COUPON"),
-                        pMes, 4405,0, "INV_COUPON");
-           } else {
-               if (tact == TickStatAction::oldtick){
-                   Status = CouponStatus::coupon_status(CouponStatus::Exchanged);
-               } else {
-                   if(media == TicketMedia::Media::Electro){
-                       Status = CouponStatus::coupon_status(CouponStatus::OriginalIssue);
-                   } else {
-                       Status = CouponStatus::coupon_status(CouponStatus::Paper);
-                   }
-               }
-           }
-
-           string sac = GetDBNum(pMes, 9887);
-           PopEdiPointG(pMes);
-
-           return Coupon_info(num, Status, media, sac);
+    int numCPN = GetNumComposite(pMes, "C640", "INV_COUPON");
+    if( numCPN >1 ){
+        ProgError(STDLOG,"Bad number of C640 (%d)! (More then 1)", numCPN);
+        throw Exception("Bad number of C640! (More then 1)");
     }
 
+    SetEdiPointToCompositeG(pMes, "C640");
+    int num = GetDBNumCast<int>(EdiDigitCast<int>("INV_COUPON"),
+                                pMes, 1050,0, "INV_COUPON");
+
+    char media=*GetDBNum(pMes, 1159);
+    if(!media){
+        media=TicketMedia::Media::Electro;
+    }
+    if(media != TicketMedia::Media::Electro &&
+       media != TicketMedia::Media::Paper){
+        ProgError(STDLOG,"Invalid coupon media [%c]", media);
+        throw Exception("Invalid coupon media");
+       }
+
+       CouponStatus::coupon_status Status;
+       if(GetNumDataElem(pMes, 4405)){
+           Status = GetDBNumCast<CouponStatus::coupon_status>
+                   (EdiCast::CoupStatCast("INV_COUPON"),
+                    pMes, 4405,0, "INV_COUPON");
+       } else {
+           if(media == TicketMedia::Media::Electro){
+               Status = CouponStatus::coupon_status(CouponStatus::OriginalIssue);
+           } else {
+               Status = CouponStatus::coupon_status(CouponStatus::Paper);
+           }
+       }
+
+       string sac = GetDBNum(pMes, 9887);
+       PopEdiPointG(pMes);
+
+       return Coupon_info(num, Status, media, sac);
+}
+namespace {
     inline Luggage MakeLuggage(EDI_REAL_MES_STRUCT *pMes)
     {
         int quantity=0;
@@ -711,18 +706,14 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
     for(int i=0; i<numCoup; i++){
         SetEdiPointToSegGrG(pMes, 5,i, "PROG_ERR");
         //Считываем купоны для текущего буклета
-	//Coupon
-        Coupon_info Ci = MakeCouponInfo(pMes, Data.currTicket().second);
-        if(Data.currTicket().second == TickStatAction::oldtick){
-            lCpn.push_back(Coupon(Ci, Data.currTicket().first));
-        } else {
-            Data.setCurrCoupon(Ci.num());
+        //Coupon
+        Coupon_info Ci = MakeCouponInfo(pMes);
+        Data.setCurrCoupon(Ci.num());
 
-            list<FrequentPass> lFti;
-            frequentPassRead()(RData, lFti);
-            lCpn.push_back(Coupon(Ci, MakeItin(pMes, Data.currTicket().first),
-                           lFti, Data.currTicket().first));
-        }
+        list<FrequentPass> lFti;
+        frequentPassRead()(RData, lFti);
+        lCpn.push_back(Coupon(Ci, MakeItin(pMes, Data.currTicket().first),
+                       lFti, Data.currTicket().first));
         PopEdiPoint_wd();
     }
     PopEdiPoint();
@@ -758,9 +749,12 @@ void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti)
 }
 
 namespace {
-    void makeIFT(REdiData &Data, unsigned level, list<FreeTextInfo> &lIft)
+    void makeIFT__(EDI_REAL_MES_STRUCT *pMes,
+                 unsigned level,
+                 const string &currTicket,
+                 int currCoupon,
+                 list<FreeTextInfo> &lIft)
     {
-        EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
         PushEdiPointG(pMes);
         unsigned num = GetNumSegment(pMes, "IFT");
         if(!num){
@@ -796,8 +790,8 @@ namespace {
                                          level,
                                          FreeTextType::FTxtType(Type,Qualifier),
                                          Text,
-                                         Data.currTicket().first,
-                                         Data.currCoupon()));
+                                         currTicket,
+                                         currCoupon));
                 } else {
                     lIft.back().addText(Text);
                 }
@@ -806,7 +800,21 @@ namespace {
         }
         PopEdiPointG(pMes);
     }
+
+    inline void makeIFT(REdiData &Data, unsigned level, list<FreeTextInfo> &lIft)
+    {
+        makeIFT__(Data.EdiMes(),
+                       level,
+                       Data.currTicket().first,
+                       Data.currCoupon(),
+                       lIft);
+    }
 } // namespace ...
+
+void readEdiIFT(EDI_REAL_MES_STRUCT *pMes, list<FreeTextInfo> &lIft)
+{
+    return makeIFT__(pMes, 0, "", 0, lIft);
+}
 
 void FreeTextInfoEdiR::operator () (ReaderData &RData, list<FreeTextInfo> &lIft) const
 {

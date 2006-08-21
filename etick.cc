@@ -113,7 +113,7 @@ void ETSearchInterface::ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 //       Itin itin("P2","", 1009,-1, date(2006,6,5), time_duration(23,15,0),
 //                 "VKO", "LED");
 
-      Coupon cpn(ci, tick_no);
+      Coupon cpn(ci);
       list<Coupon> lcpn;
       lcpn.push_back(cpn);
 
@@ -122,6 +122,6 @@ void ETSearchInterface::ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       node=node->next;
   };
 
-  ChangeStatus::ETChangeStatus(TReqInfo::Instance(), ltick);
+  ChangeStatus::ETChangeStatus(OrigOfRequest(*TReqInfo::Instance()), ltick);
 }
 

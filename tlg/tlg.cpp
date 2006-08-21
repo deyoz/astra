@@ -13,16 +13,17 @@
 #include "cont_tools.h"
 #include "jxtlib.h"
 #include "posthooks.h"
-
+#include "etick_change_status.h"
 //#include "etick/exceptions.h"
 
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
+#define NICKNAME "ROMAN"
+#define NICKTRACE ROMAN_TRACE
 #include "test.h"
 
 using namespace edilib;
 using namespace edilib::EdiSess;
 using namespace Ticketing;
+using namespace Ticketing::ChangeStatus;
 using namespace jxtlib;
 using namespace EXCEPTIONS;
 
@@ -384,11 +385,15 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
 {
+    ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
+    chngStatAns.Trace(TRACE2);
 }
+
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
-	confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
+
+    confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)

@@ -94,7 +94,30 @@ public:
 typedef BaseFreeTextInfo FreeTextInfo;
 
 // NOTE: See eticklib for realization
-typedef BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo> Coupon;
+class Coupon : public BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>
+{
+public:
+    Coupon(const Coupon_info &ci)
+    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>(ci,"")
+    {
+    }
+    Coupon(const Coupon_info &ci,
+           const Itin &i,
+           const list<FrequentPass> &fPass,
+           const std::string &tnum)
+    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>
+            (ci,i,fPass,tnum)
+    {
+    }
+
+    Coupon(const Coupon_info &ci,
+           const Itin &i,
+           const std::string &tnum)
+    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>(ci,i,tnum)
+    {
+    }
+
+};
 
 // NOTE: See eticklib for realization
 class Ticket : public BaseTicket<Coupon>
