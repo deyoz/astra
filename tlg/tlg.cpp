@@ -156,7 +156,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        SendTlgType("MOWRT", "MOWRA", true, 20, tlg);
+        SendTlgType("MOWRT", "MOWDC", true, 20, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -174,6 +174,8 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
     }
     return ret;
 }
+
+int confirm_notify_levb(const char *pult);
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data);
@@ -374,6 +376,9 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
         PopEdiPointW(pMes);
         ResetEdiPointW(pMes);
     }
+    udata.ediHelp()->
+            configForPerespros(prepareKickText().c_str(),
+                               TickD.org().pult().c_str());
 }
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -383,6 +388,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
+	confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -414,7 +420,6 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
 }
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
-    int confirm_notify_levb(const char *pult);
     // Запись телеграммы в контекст, для связи с obrzap'ом
     // вызов переспроса
     confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
