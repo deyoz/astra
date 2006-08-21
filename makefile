@@ -1,12 +1,16 @@
 .PHONY: all depend tag clean \
-	rebuild  depend2 lock unlock
-all:    SysTarg
+	SysTarg2 rebuild  depend2 lock unlock
+all:    SysTarg2
 	$(MAKE) astra
 ifndef SRCHOME
 SRCHOME=.
 endif
 include include.mk
-include systarg.mk
+
+export EDILIB_PATH
+
+SysTarg2:
+	$(MAKE) -f systarg.mk
 
 TCL_LIBS=$(TCL_SYS_LIB) $(TCL_MON_PATH)/tclmonlib.a
 SERVERLIB=$(SERVERLIB_PATH)/serverlib.a
