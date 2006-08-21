@@ -7,6 +7,7 @@
 #include "cache.h"
 #include "astra_utils.h"
 
+
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -56,7 +57,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
         Qry->SetVariable("trip_id", trip_id);
         Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-        Qry->Execute();
+        Qry->Execute();        
         TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, trip_id);
         OraSession.DeleteQuery(*Qry);
     } catch(...) {
@@ -137,7 +138,7 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
                                        Qry->GetVariableAsInteger("point_id"),
                                        Qry->GetVariableAsInteger("regno"),
                                        Qry->GetVariableAsInteger("grp_id"));
-    }
+    }    
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "pr_brd", pr_brd);
     NewTextChild(dataNode, "new_tid", new_tid);
