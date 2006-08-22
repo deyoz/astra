@@ -377,9 +377,11 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
         PopEdiPointW(pMes);
         ResetEdiPointW(pMes);
     }
-    udata.ediHelp()->
-            configForPerespros(prepareKickText().c_str(),
-                               TickD.org().pult().c_str());
+    if(TickD.org().pult() != "SYSTEM"){
+        udata.ediHelp()->
+                configForPerespros(prepareKickText().c_str(),
+                                   TickD.org().pult().c_str());
+    }
 }
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
