@@ -163,5 +163,14 @@ bool TStagesRules::CanStatus( TStage_Type stage_type, TStage stage )
   return false;
 }
 
+string TStagesRules::status( TStage_Type stage_type, TStage stage )
+{
+  TStage_Statuses &v = StageStatuses[ stage_type ];
+  for( TStage_Statuses::iterator s=v.begin(); s!=v.end(); s++ ) {
+    if ( s->stage == stage )
+      return s->status;
+  }
+  return "";	
+}
 
 

@@ -3,44 +3,61 @@
 
 #include <libxml/tree.h>
 #include <string>
+#include <vector>
+#include <map>
+#include "oralib.h"
 #include "JxtInterface.h"
 
-struct TTrferItem {
-  std::string last_trfer;
-  int hall_id;
-  std::string hall_name;
-  int seats,adult,child,baby,foreigner;
-  int umnr,vip,rkWeight,bagAmount,bagWeight,excess;
+struct TVar {
+  std::string name;
+  otFieldType type;
+  std::string value;
+  TVar( std::string &aname, otFieldType atype, std::string &avalue ) {
+    name = aname;
+    type = atype;
+    value = avalue;
+  }
 };
 
-
-struct TCounterItem {
-  std::string cl;
-  std::string target;
-  std::vector<TTrferItem> trfer;
-  int cfg,resa,tranzit;
+class TSQLParams {
+  private:
+    std::vector<TVar> vars;  
+  public:
+    std::string sqlfrom;  
+    void addVariable( TVar &var );
+    void addVariable( std::string aname, otFieldType atype, std::string avalue );
+    void clearVariables( );
+    void setVariables( TQuery &Qry );
 };
 
-class TripInfoInterface : public JxtInterface
+class TSQL
 {
 private:
-  void readTripHeader( int point_id, xmlNodePtr dataNode );
-  void readTripCounters( int point_id, xmlNodePtr dataNode );
+  std::map<std::string,TSQLParams> sqltrips;
+  static TSQL *Instance(); 
+  void createSQLTrips( );
 public:
-  TripInfoInterface() : JxtInterface("","tripinfo")
-  {
-     Handler *evHandle;
-     evHandle=JxtHandler<TripInfoInterface>::CreateHandler(&TripInfoInterface::ReadTrips);
-     AddEvent("ReadTrips",evHandle);     
-     evHandle=JxtHandler<TripInfoInterface>::CreateHandler(&TripInfoInterface::ReadTripInfo);
-     AddEvent("ReadTripInfo",evHandle);               
-  };
-
-  void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  TSQL();
+  static void setSQLTrips( TQuery &Qry, const std::string &screen ); 
 };
 
+void readTripCounters( int point_id, xmlNodePtr dataNode );
+void viewPNL( int point_id, xmlNodePtr dataNode );
+
+
+class TripsInterface : public JxtInterface
+{
+private:
+public:
+  TripsInterface() : JxtInterface("","trips")
+  {
+     Handler *evHandle;
+     evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::ReadTrips);
+     AddEvent("ReadTrips",evHandle);     
+  };
+  void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+};
  
 #endif /*_TRIPINFO_H_*/
 

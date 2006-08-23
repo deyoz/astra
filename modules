@@ -1,5 +1,5 @@
 MODULES=astra_utils.o astra_consts.o xml_unit.o astra_main.o locale.o adm.o pay.o cache.o etick.o astra_callbacks.o \
-        images.o tripinfo.o salons.o seats.o season.o maindcs.o salonform.o\
+        cent.o prepreg.o images.o tripinfo.o salons.o seats.o season.o maindcs.o salonform.o\
 	stages.o brd.o astra_tick_read_edi.o astra_tick_view_xml.o\
 	etick_change_status.o timer.o\
         tlg/edi_handler.o tlg/main_snd.o tlg/main_srv.o tlg/tlg_handler.o \

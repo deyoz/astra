@@ -9,6 +9,8 @@
 #include "etick.h" 
 #include "images.h" 
 #include "tripinfo.h" 
+#include "cent.h" 
+#include "prepreg.h" 
 #include "salonform.h" 
 #include "astra_utils.h" 
 #include "basic.h"
@@ -36,8 +38,10 @@ void AstraJxtCallbacks::InitInterfaces()
   new SeasonInterface();
   new ETSearchInterface();
   new ImagesInterface();      
-  new TripInfoInterface();        
+  new TripsInterface();        
   new SalonsInterface();        
+  new CentInterface();           
+  new PrepRegInterface();          
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,

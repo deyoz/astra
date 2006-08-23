@@ -1,64 +1,130 @@
 #include <stdlib.h>
 #include "tripinfo.h"
-#include "basic.h"
 #define NICKNAME "DJEK" 
 #include "setup.h" 
 #include "test.h"
-#include "exceptions.h"
-#include "xml_unit.h"
-#include "astra_utils.h"
-#include "astra_consts.h"
-#include "oralib.h"
-#include <map>
 #include "stages.h"
+#include "astra_utils.h"
+#include "stl_utils.h"
+#include "oralib.h"
+#include "xml_unit.h"
 
 using namespace std;
-using namespace BASIC;
-using namespace EXCEPTIONS;
-using namespace ASTRA;
 
-class TSQLWhere
-{
-private:
-  map<string,string> sqltrips;
-  static TSQLWhere *Instance() {
-    static TSQLWhere *instance_ = 0;
-    if ( !instance_ )
-      instance_ = new TSQLWhere();
-    return instance_;    
-  }  
-public:
-  TSQLWhere() {
-    sqltrips[ "CENT.EXE" ] = 
-       "/*NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1 AND act IS NULL AND*/ "\
-       " trips.status=0 ";    	
-  }      
-  static string &tripswhere( const string &screen ) {    
-    return Instance()->sqltrips[ screen ];
-  }  
-  
+struct TTrferItem {
+  std::string last_trfer;
+  int hall_id;
+  std::string hall_name;
+  int seats,adult,child,baby,foreigner;
+  int umnr,vip,rkWeight,bagAmount,bagWeight,excess;
 };
 
 
-void TripInfoInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+struct TCounterItem {
+  std::string cl;
+  std::string target;
+  std::vector<TTrferItem> trfer;
+  int cfg,resa,tranzit;
+};
+
+
+void TSQLParams::addVariable( TVar &var ) 
 {
-//!!! убрать коментарии в sql запросе
-  ProgTrace(TRACE5, "TripInfoInterface::ReadTrips" );
+  vars.push_back( var );
+}
+
+void TSQLParams::addVariable( string aname, otFieldType atype, string avalue ) 
+{
+  TVar var( aname, atype, avalue );
+  vars.push_back( var );
+}
+
+void TSQLParams::clearVariables( ) 
+{
+  vars.clear();
+}
+
+void TSQLParams::setVariables( TQuery &Qry ) {
+  Qry.ClearVariables();
+  for ( std::vector<TVar>::iterator ip=vars.begin(); ip!=vars.end(); ip++ ) {
+    Qry.CreateVariable( ip->name, ip->type, ip->value );
+    ProgTrace( TRACE5, "Qry.CreateVariable name=%s, value=%s", ip->name.c_str(), ip->value.c_str() );
+  }
+}
+
+TSQL::TSQL() {      	
+ /* в этом конструкторе задаются окончания запроса по рейсам и переменные участв. в запросе */
+ createSQLTrips();
+}      
+
+TSQL *TSQL::Instance() {
+  static TSQL *instance_ = 0;
+  if ( !instance_ )
+    instance_ = new TSQL();
+  return instance_;    
+}  
+
+void TSQL::createSQLTrips( ) {
+//!!! убрать коментарии в sql запросе    
+  sqltrips[ "CENT.EXE" ].sqlfrom = 
+    " FROM trips "\
+    "WHERE act IS NULL AND trips.status=0 "\
+    " /* AND *NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1 */ ";
+  TSQLParams p;  	      
+  p.sqlfrom = 
+    " FROM trips "\
+    "WHERE act IS NULL AND trips.status=0 AND "\
+    "      gtimer.is_final_stage(trips.trip_id, :ckin_stage_type, :no_active_stage_id)=0  ";
+  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
+  p.addVariable( "no_active_stage_id",  otInteger, IntToString( sNoActive ) );
+  sqltrips[ "PREPREG.EXE" ] = p;
+  p.clearVariables();  	    
+  /* задаем текст */
+  p.sqlfrom = 
+    " FROM "\
+    "    trips, "\
+    "    trip_stations "\
+    "WHERE trips.act IS NULL AND trips.status=0 AND "\
+    "    trips.trip_id=trip_stations.trip_id AND "\
+    "    trip_stations.name= :station AND "\
+    "    trip_stations.work_mode='П' AND "\
+    "    gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0*/ ";
+  /* задаем переменные */
+  p.addVariable( "station", otString, TReqInfo::Instance()->desk.code );
+  p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
+  p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );      
+  /* запоминаем */
+  sqltrips[ "BRDBUS.EXE" ] = p;      
+  /* не забываем очищать за собой переменные */
+  p.clearVariables();  	
+}
+
+void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {    
+  Qry.Clear();
+  TSQLParams p = Instance()->sqltrips[ screen ];
+  string sql = 
+    "SELECT trips.trip_id, "\
+    "       trip||DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
+    "                    TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))|| "\
+    "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
+    "              TO_CHAR(scd,'(DD)')) AS str " + p.sqlfrom +
+    " ORDER BY NVL(act,NVL(est,scd)) ";  
+  Qry.SQLText = sql;
+  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
+  p.setVariables( Qry );    
+}    
+
+/*******************************************************************************/
+void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace(TRACE5, "TripsInterface::ReadTrips" );
   TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
-  TSQLWhere SQLWhere;
   TQuery Qry( &OraSession );
-  Qry.Clear();
-  string sql = "SELECT trips.trip_id, "\
-               "       trip||DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
-               "                    TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))|| "\
-               "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
-               "              TO_CHAR(scd,'(DD)')) AS str "\
-               " FROM trips "\
-               "WHERE " + TSQLWhere::tripswhere( TReqInfo::Instance()->screen ) + 
-               " ORDER BY NVL(act,NVL(est,scd)) ";
-  Qry.SQLText = sql;
+  TSQL::setSQLTrips( Qry, TReqInfo::Instance()->screen );
+  tst();
   Qry.Execute();
+  tst();
   xmlNodePtr tripsNode = NewTextChild( dataNode, "trips" );
   while ( !Qry.Eof ) {
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
@@ -68,66 +134,9 @@ void TripInfoInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   } 
 };
 
-void TripInfoInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
+void readTripCounters( int point_id, xmlNodePtr dataNode )
 {
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT  trips.trip_id, "\
-                "        trips.bc, "\
-                "        SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes, "\
-                "        SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places, "\
-                "        scd, est, act, "\
-                "        trips.triptype, "\
-                "        trips.litera, "\
-                "        trips.remark, "\
-                "        comp.pr_saloninit "\
-                " FROM  trips, "\
-                " (SELECT COUNT(*) AS pr_saloninit FROM trip_comp_elems "\
-                "   WHERE trip_id=:trip_id AND rownum<2) comp "\
-                "  WHERE trips.trip_id= :trip_id AND "\
-                "/* NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1 AND act IS NULL AND */ "\
-                " trips.status=0 ";
-  Qry.DeclareVariable( "trip_id", otInteger );
-  Qry.SetVariable( "trip_id", point_id );
-  Qry.Execute();  
-  TTripStages tripstages( point_id );  
-  if ( !Qry.RowCount() )
-    showErrorMessage( "Информация о рейсе недоступна" );
-  else {
-    xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
-    NewTextChild( node, "trip_id", Qry.FieldAsInteger( "trip_id" ) );
-    NewTextChild( node, "bc", Qry.FieldAsString( "bc" ) );
-    NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
-    NewTextChild( node, "places", Qry.FieldAsString( "places" ) );
-    TDateTime brd_to = tripstages.time( sCloseBoarding );
-    NewTextChild( node, "brd_to", DateTimeToStr( brd_to, "hh:nn" ) );
-    TDateTime takeoff;
-    if ( !Qry.FieldIsNULL( "act" ) )
-      takeoff = Qry.FieldAsDateTime( "act" );
-    else
-      if ( !Qry.FieldIsNULL( "est" ) )
-        takeoff = Qry.FieldAsDateTime( "est" );
-      else
-        takeoff = Qry.FieldAsDateTime( "scd" );
-    NewTextChild( node, "takeoff", DateTimeToStr( takeoff, "hh:nn" ) );
-    NewTextChild( node, "triptype", Qry.FieldAsString( "triptype" ) );
-    NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
-    TStage stage;
-    if ( !Qry.FieldIsNULL( "act" ) )
-      stage = sTakeoff;
-    else 
-      stage = tripstages.getStage( stCheckIn );
-    NewTextChild( node, "ckin_stage", stage );
-    if ( !Qry.FieldIsNULL( "act" ) )
-      stage = sTakeoff;
-    else stage = tripstages.getStage( stCraft );
-    NewTextChild( node, "craft_stage", stage );
-    NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
-    NewTextChild( node, "pr_saloninit", Qry.FieldAsInteger( "pr_saloninit" ) );    
-  }	
-}
-
-void TripInfoInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
-{
+  ProgTrace(TRACE5, "TripsInterface::readTripCounters" );	
   vector<TCounterItem> counters;
   /*считаем информацию по классам и п/н из Counters2 */
   TQuery Qry( &OraSession );  
@@ -319,20 +328,68 @@ void TripInfoInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   }  
 }
 
-void TripInfoInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void viewPNL( int point_id, xmlNodePtr dataNode )
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );
-  ProgTrace(TRACE5, "TripInfoInterface::ReadTrips, point_id=%d", point_id );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  NewTextChild( dataNode, "point_id", point_id );
-  if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-    readTripHeader( point_id, dataNode );    
-  if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
-    readTripCounters( point_id, dataNode );    
-    
+  TQuery Qry( &OraSession );
+  TQuery RQry( &OraSession );  
+  Qry.SQLText = 
+    "SELECT pnr_ref, "\
+    "       RTRIM(surname||' '||name) full_name, "\
+    "       pers_type, "\
+    "       class, "\
+    "       seat_no, "\
+    "       target, "\
+    "       report.get_trfer_airp(airp_arv) AS last_target, "\
+    "       report.get_PSPT(pax_id) AS document, "\
+    "       pax_id, "\
+    "       crs_pnr.pnr_id "\
+    " FROM crs_pnr,crs_pax,v_last_crs_trfer "\
+    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "\
+    "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "\
+    "      crs_pnr.point_id=:point_id AND "\
+    "      crs_pax.pr_del=0 "\
+    "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";	
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  RQry.SQLText =
+    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(remark.priority,-1) AS priority "\
+    " FROM crs_pax_rem,remark "\
+    "WHERE crs_pax_rem.rem_code=remark.cod(+) AND crs_pax_rem.pax_id=:pax_id "\
+    "ORDER BY priority DESC,rem_code,rem ";
+  RQry.DeclareVariable( "pax_id", otInteger );
+
+  dataNode = NewTextChild( dataNode, "trippnl" );
+  while ( !Qry.Eof ) {
+    xmlNodePtr itemNode = NewTextChild( dataNode, "item" );
+    NewTextChild( itemNode, "pnr_ref", Qry.FieldAsString( "pnr_ref" ) );
+    NewTextChild( itemNode, "full_name", Qry.FieldAsString( "full_name" ) );
+    NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ) );
+    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
+    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
+    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
+    NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ) );
+    RQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
+    RQry.Execute();
+    string rem, rem_code, rcode, ticket;
+    while ( !RQry.Eof ) {
+      rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
+      rem_code = RQry.FieldAsString( "rem_code" );
+      rcode = rem_code;
+      rcode = upperc( rcode );
+      if ( rcode.find( "TKNO" ) != string::npos  && ticket.empty() ) {
+      	ticket = RQry.FieldAsString( "rem" );
+      }
+      RQry.Next();
+    }
+    NewTextChild( itemNode, "ticket", ticket );
+    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ) );    
+    NewTextChild( itemNode, "rem", rem );
+    NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );    
+    NewTextChild( itemNode, "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
+    Qry.Next();
+  }
 }
 
-
-void TripInfoInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void TripsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };

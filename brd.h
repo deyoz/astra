@@ -10,8 +10,6 @@ public:
   BrdInterface() : JxtInterface("123","brd")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Trips);
-     AddEvent("trips",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Trip);
      AddEvent("trip",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::BrdList);
@@ -30,7 +28,6 @@ public:
   void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void Trips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
 };
