@@ -55,4 +55,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 
+bool deleteTlg(int tlg_id);
+bool errorTlg(int tlg_id, std::string err);
+
 #endif

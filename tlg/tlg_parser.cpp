@@ -280,6 +280,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
               c=0;
               res=sscanf(tlg.lex,"ANA/%6[0-9]%c",ana,&c);
               if (c!=0||res!=1) throw ETlgError("Wrong association number");
+              sprintf(tlg.lex,"ANA/%06s",ana);
               info.merge_key+=" ";
               info.merge_key+=tlg.lex;
               if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
@@ -644,7 +645,7 @@ void ParseEnding(TTlgPartInfo ending, TEndingInfo& info)
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, TPnrItem &pnr, bool &pr_prev_rem);
+void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &pr_prev_rem);
 void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
 
 void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
@@ -1129,7 +1130,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
 
             while ((p=tlg.GetNameElement(p))!=NULL)
             {
-              ParseNameElement(tlg,*iPnrItem,pr_prev_rem);
+              ParseNameElement(tlg,info,*iPnrItem,pr_prev_rem);
             };
 
             e_part=3;
@@ -1169,7 +1170,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
               iPaxItemPrev=iPaxItem;         
               iPaxItem++;
             };
-          };  
+          };
         };
   }
   catch (ETlgError E)
@@ -1179,7 +1180,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, TPnrItem &pnr, bool &pr_prev_rem)
+void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &pr_prev_rem)
 {
   char c,lexh[sizeof(tlg.lex)];
   int res;
@@ -1238,28 +1239,43 @@ void ParseNameElement(TTlgParser &tlg, TPnrItem &pnr, bool &pr_prev_rem)
     {
       if (pnr.grp_name!=lexh)
         throw ETlgError("Different corporate or group name element in group found");
-    }    
+    }
     else
       pnr.grp_name=lexh;
     return;
   };
   if (strcmp(lexh,"L")==0)
   {
+    TPnrAddrItem PnrAddr;
     lexh[0]=0;
-    res=sscanf(tlg.lex,".L/%20[A-ZА-ЯЁ0-9]%[^.]",lexh,tlg.lex);
-    if (res<1||lexh[0]==0) throw ETlgError("Wrong PNR address");
-    if (strcmp(pnr.pnr_ref,"")!=0)
-    {
-/*      if (strcmp(pnr.pnr_ref,lexh)!=0)
-        throw ETlgError("Different PNR address in group found");*/
-    }
-    else strcpy(pnr.pnr_ref,lexh);
+    res=sscanf(tlg.lex,".L/%20[A-ZА-ЯЁ0-9]%[^.]",PnrAddr.addr,tlg.lex);
+    if (res<1||PnrAddr.addr[0]==0) throw ETlgError("Wrong PNR address");
     if (res==2)
     {
       c=0;
-      res=sscanf(tlg.lex,"/%3[A-ZА-ЯЁ0-9]%c",lexh,&c);
+      res=sscanf(tlg.lex,"/%3[A-ZА-ЯЁ0-9]%c",PnrAddr.airline,&c);
       if (c!=0||res!=1) throw ETlgError("Wrong PNR address");
-    };  
+      GetAirline(PnrAddr.airline);
+    };
+    if (PnrAddr.airline[0]==0) strcpy(PnrAddr.airline,info.flt.airline);
+
+    //анализ на повторение
+    vector<TPnrAddrItem>::iterator i;
+    for(i=pnr.addrs.begin();i!=pnr.addrs.end();i++)
+      if (strcmp(PnrAddr.airline,i->airline)==0) break;
+    if (i!=pnr.addrs.end())
+    {
+      if (strcmp(i->addr,PnrAddr.addr)!=0)
+        throw ETlgError("Different PNR address in group found");
+    }
+    else
+    {
+      //если а/к PNR и PNL совпадают - вставим PNR первым
+      if (strcmp(PnrAddr.airline,info.flt.airline)==0)
+        pnr.addrs.insert(pnr.addrs.begin(),PnrAddr);
+      else
+        pnr.addrs.push_back(PnrAddr);
+    };
     return;
   };
   if (strcmp(lexh,"WL")==0)
@@ -1296,7 +1312,7 @@ void ParseNameElement(TTlgParser &tlg, TPnrItem &pnr, bool &pr_prev_rem)
       if (res==0) return; //другой элемент
       if (c!=0||res!=1||Transfer.num<=0)
         throw ETlgError("Wrong connection element");
-      if (lexh[0]=='I') Transfer.num=-Transfer.num;          
+      if (lexh[0]=='I') Transfer.num=-Transfer.num;
       c=0;
       res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
     };    
@@ -1415,11 +1431,6 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         strcmp(rem_code,"TTKNO")==0)
     {
       strcpy(iRemItem->code,"TKNO");
-      continue;
-    };
-    if (strcmp(rem_code,"DOCS")==0)
-    {
-      strcpy(iRemItem->code,"PSPT");
       continue;
     };
     if (strlen(rem_code)<=5) strcpy(iRemItem->code,rem_code);
@@ -1875,7 +1886,7 @@ TTlgParts GetParts(char* tlg_p)
 };
 
 bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bool forcibly,
-                       const char* OWN_CANON_NAME, const char* ERR_CANON_NAME)
+                       char* OWN_CANON_NAME, char* ERR_CANON_NAME)
 {
   vector<TRouteItem>::iterator iRouteItem;
   vector<TSeatsItem>::iterator iSeatsItem;
@@ -1885,6 +1896,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
   vector<TPaxItem>::iterator iPaxItem;
   vector<TRemItem>::iterator iRemItem;
   vector<TTransferItem>::iterator iTransfer;
+  vector<TPnrAddrItem>::iterator iPnrAddr;
   vector<TInfItem>::iterator iInfItem;
 
   char crs[sizeof(info.sender)];  
@@ -1975,7 +1987,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
 
   bool pr_recount=false;
   //записать цифровые данные
-  if (!con.resa.empty()&&(last_resa==0||last_resa<info.time_create))
+  if (!con.resa.empty()&&(last_resa==0||last_resa<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
@@ -2019,7 +2031,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     };
   };
 
-  if (!con.transit.empty()&&(last_tranzit==0||last_tranzit<info.time_create))
+  if (!con.transit.empty()&&(last_tranzit==0||last_tranzit<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
@@ -2064,7 +2076,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     };
   };
 
-  if (!con.cfg.empty()&&!con.avail.empty()&&(last_cfg==0||last_cfg<info.time_create))
+  if (!con.cfg.empty()&&!con.avail.empty()&&(last_cfg==0||last_cfg<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
@@ -2170,17 +2182,42 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
         Qry.Execute();
         tid=Qry.FieldAsInteger("tid");
 
+        Qry.Clear();
+        Qry.SQLText=
+          "INSERT INTO crs_trips(point_id,crs,airline,flt_no,suffix,scd)\
+           VALUES(:point_id,:crs,:airline,:flt_no,:suffix,:scd)";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.CreateVariable("crs",otString,crs);
+        Qry.CreateVariable("airline",otString,info.flt.airline);
+        Qry.CreateVariable("flt_no",otInteger,(int)info.flt.flt_no);
+        Qry.CreateVariable("suffix",otString,info.flt.suffix);
+        Qry.CreateVariable("scd",otDate,info.flt.scd);
+        try
+        {
+          Qry.Execute();
+        }
+        catch(EOracleError E)
+        {
+          if (E.Code!=1) throw;
+        };
+
         TQuery CrsPnrQry(&OraSession);
         CrsPnrQry.Clear();
         CrsPnrQry.SQLText=
-          "SELECT pnr_id FROM crs_pnr \
-           WHERE point_id= :point_id AND crs= :crs AND\
-                 target= :target AND subclass= :subclass AND pnr_ref= :pnr_ref";
+          "SELECT crs_pnr.pnr_id FROM pnr_addrs,crs_pnr \
+           WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id(+) AND\
+                 point_id= :point_id AND crs= :crs AND\
+                 target= :target AND subclass= :subclass AND\
+                 (pnr_addrs.airline IS NULL AND pnr_ref= :pnr_ref OR\
+                  pnr_addrs.airline IS NOT NULL AND\
+                  pnr_addrs.airline=:pnr_airline AND pnr_addrs.addr=:pnr_addr)";
         CrsPnrQry.CreateVariable("point_id",otInteger,point_id);
         CrsPnrQry.CreateVariable("crs",otString,crs);
         CrsPnrQry.DeclareVariable("target",otString);
         CrsPnrQry.DeclareVariable("subclass",otString);
         CrsPnrQry.DeclareVariable("pnr_ref",otString);
+        CrsPnrQry.DeclareVariable("pnr_airline",otString);
+        CrsPnrQry.DeclareVariable("pnr_addr",otString);
 
         TQuery CrsPnrInsQry(&OraSession);
         CrsPnrInsQry.Clear();
@@ -2271,6 +2308,19 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
         CrsTransferQry.DeclareVariable("airp_arv",otString);
         CrsTransferQry.DeclareVariable("subclass",otString);
 
+        TQuery PnrAddrsQry(&OraSession);
+        PnrAddrsQry.Clear();
+        PnrAddrsQry.SQLText=
+          "BEGIN\
+             UPDATE pnr_addrs SET addr=:addr WHERE pnr_id=:pnr_id AND airline=:airline;\
+             IF SQL%NOTFOUND THEN\
+               INSERT INTO pnr_addrs(pnr_id,airline,addr) VALUES(:pnr_id,:airline,:addr);\
+             END IF;\
+           END;";
+        PnrAddrsQry.DeclareVariable("pnr_id",otInteger);
+        PnrAddrsQry.DeclareVariable("airline",otString);
+        PnrAddrsQry.DeclareVariable("addr",otString);
+
         int pnr_id,pax_id;
         bool pr_sync_pnr;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
@@ -2285,18 +2335,24 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
             TPnrItem& pnr=*iPnrItem;
             pr_sync_pnr=true;
             pnr_id=0;
-            if (pnr.pnr_ref[0]!=0)
+            //попробовать найти pnr_id по PNR reference
+            for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
-              //попробовать найти pnr_id по PNR reference
-              CrsPnrQry.SetVariable("pnr_ref",pnr.pnr_ref);
+              CrsPnrQry.SetVariable("pnr_ref",iPnrAddr->addr);
+              CrsPnrQry.SetVariable("pnr_airline",iPnrAddr->airline);
+              CrsPnrQry.SetVariable("pnr_addr",iPnrAddr->addr);
               CrsPnrQry.Execute();
               if (CrsPnrQry.RowCount()>0)
               {
                 pr_sync_pnr=false;
+                if (pnr_id!=0&&pnr_id!=CrsPnrQry.FieldAsInteger("pnr_id"))
+                  throw ETlgError("More than one group found (PNR=%s/%s)",
+                                  iPnrAddr->airline,iPnrAddr->addr);
                 pnr_id=CrsPnrQry.FieldAsInteger("pnr_id");
                 CrsPnrQry.Next();
                 if (!CrsPnrQry.Eof)
-                  throw ETlgError("More than one group found (PNR=%s)",pnr.pnr_ref);
+                  throw ETlgError("More than one group found (PNR=%s/%s)",
+                                  iPnrAddr->airline,iPnrAddr->addr);
               };
             };
             if (pnr_id==0)
@@ -2401,7 +2457,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
             };
 
             //создать новую группу или проапдейтить старую
-            CrsPnrInsQry.SetVariable("pnr_ref",pnr.pnr_ref);
+            if (!pnr.addrs.empty())
+              CrsPnrInsQry.SetVariable("pnr_ref",pnr.addrs.begin()->addr);
+            else
+              CrsPnrInsQry.SetVariable("pnr_ref",FNull);
             CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name);
             CrsPnrInsQry.SetVariable("wl_priority",pnr.wl_priority);
             if (pnr_id==0)
@@ -2412,6 +2471,14 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
             pnr_id=CrsPnrInsQry.GetVariableAsInteger("pnr_id");
             CrsPaxQry.SetVariable("pnr_id",pnr_id);
             CrsPaxInsQry.SetVariable("pnr_id",pnr_id);
+            PnrAddrsQry.SetVariable("pnr_id",pnr_id);
+
+            for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
+            {
+              PnrAddrsQry.SetVariable("airline",iPnrAddr->airline);
+              PnrAddrsQry.SetVariable("addr",iPnrAddr->addr);
+              PnrAddrsQry.Execute();
+            };
 
             for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
             {
@@ -2428,9 +2495,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                   CrsPaxQry.Execute();
                   if (CrsPaxQry.RowCount()>0)
                   {
-                    if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;
-                    if (ne.indicator!=DEL&&
-                        info.time_create==CrsPaxQry.FieldAsDateTime("last_op")) continue;
+                    if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;                    
                     if (ne.indicator==CHG||ne.indicator==DEL)
                     {
                       pax_id=CrsPaxQry.FieldAsInteger("pax_id");
@@ -2591,7 +2656,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2600,7 +2665,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2609,7 +2674,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2617,7 +2682,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.what());
+                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };*/
               };
             };

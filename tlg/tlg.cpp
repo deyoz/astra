@@ -27,6 +27,32 @@ using namespace Ticketing::ChangeStatus;
 using namespace jxtlib;
 using namespace EXCEPTIONS;
 
+bool deleteTlg(int tlg_id)
+{
+    TQuery TlgQry(&OraSession);
+    TlgQry.Clear();
+    TlgQry.SQLText=
+           "DELETE FROM tlg_queue WHERE id= :id";
+    TlgQry.CreateVariable("id",otInteger,tlg_id);
+    TlgQry.Execute();
+    return TlgQry.RowsProcessed()>0;        
+};
+
+bool errorTlg(int tlg_id, string err)
+{    
+    if (deleteTlg(tlg_id)) 
+    {
+      TQuery TlgQry(&OraSession);	            
+      TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
+      TlgQry.CreateVariable("error",otString,err.substr(0,4));
+      TlgQry.CreateVariable("id",otInteger,tlg_id);
+      TlgQry.Execute();	
+      return TlgQry.RowsProcessed()>0;        
+    }
+    else return false;  
+};
+
+
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
 static std::string last_session_ref;
@@ -387,8 +413,8 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
 {
-    ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
-    chngStatAns.Trace(TRACE2);
+  //  ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
+  //  chngStatAns.Trace(TRACE2);
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,

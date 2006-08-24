@@ -27,7 +27,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 #define WAIT_INTERVAL           10      //seconds
-#define TLG_SCAN_INTERVAL       30      //seconds
+#define TLG_SCAN_INTERVAL       10      //seconds
 #define SCAN_COUNT              50      //кол-во разбираемых телеграмм за одно сканирование
 
 static const char* OWN_CANON_NAME=NULL;
@@ -466,21 +466,14 @@ void scan_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlgs.id,tlgs.tlg_text,SYSDATE,tlg_queue.time,ttl\
+      "SELECT tlg_queue.id,tlgs.tlg_text,SYSDATE,tlg_queue.time,ttl\
        FROM tlgs,tlg_queue\
-       WHERE tlg_queue.id=tlgs.id AND tlg_queue.type='INB' AND tlg_queue.status='PUT'\
-       ORDER BY DECODE(ttl,NULL,1,0),tlg_queue.time+NVL(ttl,0)/86400";
-  };
-
-  static TQuery UpdQry(&OraSession);
-  if (UpdQry.SQLText.IsEmpty())
-  {
-    UpdQry.Clear();
-    UpdQry.SQLText=
-      "DELETE FROM tlg_queue\
-       WHERE id= :id AND status='PUT'";
-    UpdQry.DeclareVariable("id",otInteger);
-  };
+       WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
+             tlg_queue.type='INB' AND tlg_queue.status='PUT'\
+       ORDER BY tlg_queue.time,tlg_queue.id";              
+    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME);
+       
+  };  
 
   static TQuery TlgIdQry(&OraSession);
   if (TlgIdQry.SQLText.IsEmpty())
@@ -526,7 +519,7 @@ void scan_tlg(void)
 
   TQuery Qry(&OraSession);
 
-  int len,count,bufLen=0,buf2Len=0;
+  int len,count,bufLen=0,buf2Len=0,tlg_id;
   char *buf=NULL,*buf2=NULL,*ph,c;
   TTlgParts parts;
   THeadingInfo HeadingInfo;
@@ -536,21 +529,13 @@ void scan_tlg(void)
   try
   {
     while (!TlgQry.Eof&&count<SCAN_COUNT)
-    {
-      UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));
+    {      
       //проверим TTL
+      tlg_id=TlgQry.FieldAsInteger("id");
       if (!TlgQry.FieldIsNULL("ttl")&&
            (TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60>=TlgQry.FieldAsInteger("ttl"))
       {
-        UpdQry.Execute();
-        if (UpdQry.RowsProcessed()>0)
-        {
-          Qry.Clear();
-          Qry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-          Qry.CreateVariable("error",otString,"TTL");
-          Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-          Qry.Execute();
-        };
+      	errorTlg(tlg_id,"TTL");
       }
       else
         try
@@ -639,8 +624,7 @@ void scan_tlg(void)
           };
           try
           {
-            UpdQry.Execute();
-            if (UpdQry.RowsProcessed()>0)
+            if (deleteTlg(tlg_id))	            
               InsQry.Execute();
           }
           catch(EOracleError E)
@@ -682,23 +666,14 @@ void scan_tlg(void)
                   {
                     InsQry.SetVariable("id",FNull);
                     InsQry.SetVariable("merge_key",FNull);
-                    UpdQry.Execute();
-                    if (UpdQry.RowsProcessed()>0)
+                    if (deleteTlg(tlg_id))	                                
                       InsQry.Execute();
                   }
                   else throw ETlgError("Duplicate part number");
                 }
                 else
                 {
-                  UpdQry.Execute();
-                  if (UpdQry.RowsProcessed()>0)
-                  {
-                    Qry.Clear();
-                    Qry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-                    Qry.CreateVariable("error",otString,"DUP");
-                    Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-                    Qry.Execute();
-                  };
+                  errorTlg(tlg_id,"DUP");	
                 };
               }
               else throw ETlgError("Duplicate part number");
@@ -714,15 +689,7 @@ void scan_tlg(void)
           SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s (tlgs.id=%d)",
                   E.what(),TlgQry.FieldAsInteger("id"));
 #endif
-          UpdQry.Execute();
-          if (UpdQry.RowsProcessed()>0)
-          {
-            Qry.Clear();
-            Qry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-            Qry.CreateVariable("error",otString,"PARS");
-            Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-            Qry.Execute();
-          };
+          errorTlg(tlg_id,"PARS");          
         };
       count++;
       TlgQry.Next();

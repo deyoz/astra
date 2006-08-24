@@ -97,16 +97,6 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
-void deleteTlg(int tlg_id)
-{
-    TQuery TlgQry(&OraSession);
-    TlgQry.Clear();
-    TlgQry.SQLText=
-           "DELETE FROM tlg_queue WHERE id= :id";
-    TlgQry.CreateVariable("id",otInteger,tlg_id);
-    TlgQry.Execute();
-}
-
 void handle_tlg(void)
 {
   static TQuery TlgQry(&OraSession);
@@ -123,7 +113,7 @@ void handle_tlg(void)
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME);   
   };
 
-  int count;
+  int count,tlg_id;
 
   count=0;
   TlgQry.Execute();
@@ -132,8 +122,8 @@ void handle_tlg(void)
   {
       for(;!TlgQry.Eof && (count++)<SCAN_COUNT; TlgQry.Next(), OraSession.Rollback())
       {
-          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",
-                    TlgQry.FieldAsInteger("id"));
+      	  tlg_id=TlgQry.FieldAsInteger("id");
+          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);                    
           try{
               int len = TlgQry.GetSizeLongField("tlg_text");
               boost::shared_ptr< char > tlg (new (char [len+1]));
@@ -141,21 +131,26 @@ void handle_tlg(void)
               tlg.get()[len]=0;
               ProgTrace(TRACE5,"TLG_IN: <%s>", tlg.get());
               proc_edifact(tlg.get());
-              deleteTlg(TlgQry.FieldAsInteger("id"));
+              deleteTlg(tlg_id);
               callPostHooksBefore();
               OraSession.Commit();
               callPostHooksAfter();
           }
           catch(edi_exception &e)
           {
-              ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
+              OraSession.Rollback();	              	
+              ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());	              
+              errorTlg(tlg_id,"PARS");
+              OraSession.Commit();
           }
           catch(std::exception &e)
           {
+              OraSession.Rollback();		
               ProgError(STDLOG, "std::exception: %s", e.what());
+              errorTlg(tlg_id,"PARS");
+              OraSession.Commit();              
           }
-          ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",
-                    TlgQry.FieldAsInteger("id"));
+          ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
       };
   }
   catch(...)

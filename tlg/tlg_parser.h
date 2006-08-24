@@ -256,12 +256,24 @@ class TNameElement
     };
 };
 
+class TPnrAddrItem
+{
+  public:
+    char airline[4];
+    char addr[21];
+    TPnrAddrItem()
+    {
+      *airline=0;
+      *addr=0;
+    };
+};
+
 class TPnrItem
 {
   public:
     char grp_ref[3];
     long grp_seats;
-    char pnr_ref[21];
+    std::vector<TPnrAddrItem> addrs;
     std::string grp_name;
     char wl_priority[7];
     std::vector<TNameElement> ne;
@@ -270,14 +282,13 @@ class TPnrItem
     {
       *grp_ref=0;
       grp_seats=0;
-      *pnr_ref=0;
       *wl_priority=0;
     };
     void Clear()
     {
       *grp_ref=0;
       grp_seats=0;
-      *pnr_ref=0;
+      addrs.clear();
       grp_name.clear();
       *wl_priority=0;
       ne.clear();
@@ -327,7 +338,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info);
 void ParseEnding(TTlgPartInfo ending, TEndingInfo& info);
 void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con);
 bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bool forcibly,
-                       const char* OWN_CANON_NAME, const char* ERR_CANON_NAME);
+                       char* OWN_CANON_NAME, char* ERR_CANON_NAME);
 void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info);                       
 
 #endif

@@ -2,20 +2,21 @@
  #include <unistd.h>
  #include <errno.h>
  #include <tcl.h>
- #include <math.h>
- #include "lwriter.h"
+ #include <math.h> 
 #endif
-#include "logger.h"
 #include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
+#include "daemon.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
-
-#define NICKNAME "VLAD"
 
 #define WAIT_INTERVAL           10      //seconds
 #define TLG_SCAN_INTERVAL	30   	//seconds
@@ -36,11 +37,15 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     try
     {
+      OpenLogFile("logairimp");	
       if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
 
       ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
+      
+      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+              ->connect_db();
 
       time_t scan_time=0;
       for(;;)
@@ -94,7 +99,7 @@ void handle_tlg(void)
       "SELECT id,\
               MAX(time_receive) AS time_receive\
        FROM tlgs_in WHERE time_parse IS NULL\
-       GROUP BY id ORDER BY MAX(time_create)";
+       GROUP BY id ORDER BY MAX(time_create),MAX(merge_key)";
   };
 
   static TQuery TlgInQry(&OraSession);
@@ -329,7 +334,7 @@ void handle_tlg(void)
             //(это будет работать только для ADL)
             forcibly=local_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
             if (SavePnlAdlContent(TripsQry.FieldAsInteger("point_id"),HeadingInfo,con,forcibly,
-                                  OWN_CANON_NAME,ERR_CANON_NAME))
+                                  (char*)OWN_CANON_NAME,(char*)ERR_CANON_NAME))
             {
               TlgInUpdQry.SetVariable("point_id",TripsQry.FieldAsInteger("point_id"));
               TlgInUpdQry.Execute();
