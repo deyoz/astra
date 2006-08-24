@@ -50,91 +50,89 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   ProgTrace( TRACE5, "trip_id=%d", trip_id );
-  TQuery *Qry = OraSession.CreateQuery();
+  TQuery Qry( &OraSession );
+  TSalons::GetTripParams( trip_id, dataNode );     
   
-  try { 
-   tst();
-   Qry->SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,0 as pr_comp "\
-                  " FROM comps, trips "\
-                  "WHERE trips.bc = comps.craft AND trips.trip_id = :trip_id "\
-                  "UNION "\
-                  "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,1 as pr_comp "\
-                  " FROM comps, trips "\
-                  "WHERE trips.bc = comps.craft AND trips.trip_id = :trip_id AND "\
-                  "      trips.comp_id = comps.comp_id "\
-                  "UNION "\
-                  "SELECT -1,bc as craft,bort, "\
-                  "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
-                  "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
-                  "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, '',1 "\
-                  "FROM "\
-                  "(SELECT -1, bc, bort, "\
-                  "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
-                  "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
-                  "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
-                  "  FROM trip_comp_elems, comp_elem_types, trips "\
-                  " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-                  "       comp_elem_types.pr_seat <> 0 AND "\
-                  "       trip_comp_elems.trip_id = trips.trip_id AND "\
-                  "       trips.trip_id = :trip_id AND "\
-                  "       trips.comp_id IS NULL "\
-                  "GROUP BY bc, bort) a "\
-                  "ORDER BY comp_id, craft, bort, classes, descr";
-   Qry->DeclareVariable( "trip_id", otInteger );
-   Qry->SetVariable( "trip_id", trip_id );
-   tst();
-   Qry->Execute();	
-   tst();
-   if ( Qry->RowCount() == 0 )
+ tst();
+ Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
+               "       comps.descr,0 as pr_comp "\
+               " FROM comps, trips "\
+               "WHERE trips.bc = comps.craft AND trips.trip_id = :trip_id "\
+               "UNION "\
+               "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
+               "       comps.descr,1 as pr_comp "\
+               " FROM comps, trips "\
+               "WHERE trips.bc = comps.craft AND trips.trip_id = :trip_id AND "\
+               "      trips.comp_id = comps.comp_id "\
+               "UNION "\
+               "SELECT -1,bc as craft,bort, "\
+               "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
+               "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
+               "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, '',1 "\
+               "FROM "\
+               "(SELECT -1, bc, bort, "\
+               "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
+               "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
+               "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
+               "  FROM trip_comp_elems, comp_elem_types, trips "\
+               " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+               "       comp_elem_types.pr_seat <> 0 AND "\
+               "       trip_comp_elems.trip_id = trips.trip_id AND "\
+               "       trips.trip_id = :trip_id AND "\
+               "       trips.comp_id IS NULL "\
+               "GROUP BY bc, bort) a "\
+               "ORDER BY comp_id, craft, bort, classes, descr";
+ Qry.DeclareVariable( "trip_id", otInteger );
+ Qry.SetVariable( "trip_id", trip_id );
+ tst();
+ Qry.Execute();	
+ tst();
+ try {
+   if ( Qry.RowCount() == 0 )
      throw UserException( "Нет компоновок по данному типу ВС" );
    xmlNodePtr compsNode = NewTextChild( dataNode, "comps"  );
    string StrVal;
-   while ( !Qry->Eof ) {
+   while ( !Qry.Eof ) {
      xmlNodePtr compNode = NewTextChild( compsNode, "comp" );     
-     if ( !Qry->FieldIsNULL( "bort" ) && Qry->FieldAsInteger( "pr_comp" ) != 1 )
-       StrVal = Qry->FieldAsString( "bort" );
+     if ( !Qry.FieldIsNULL( "bort" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
+       StrVal = Qry.FieldAsString( "bort" );
      else
        StrVal = "  ";     
-     StrVal += string( "  " ) + Qry->FieldAsString( "classes" );
+     StrVal += string( "  " ) + Qry.FieldAsString( "classes" );
      tst();
-     if ( !Qry->FieldIsNULL( "descr" ) && Qry->FieldAsInteger( "pr_comp" ) != 1 )     
-       StrVal += string( "  " ) + Qry->FieldAsString( "descr" );
+     if ( !Qry.FieldIsNULL( "descr" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )     
+       StrVal += string( "  " ) + Qry.FieldAsString( "descr" );
      tst();
-     if ( Qry->FieldAsInteger( "pr_comp" ) == 1 )
+     if ( Qry.FieldAsInteger( "pr_comp" ) == 1 )
        StrVal += CurrName;     
      NewTextChild( compNode, "name", StrVal );
-     NewTextChild( compNode, "comp_id", Qry->FieldAsInteger( "comp_id" ) );
-     NewTextChild( compNode, "pr_comp", Qry->FieldAsInteger( "pr_comp" ) );
-     NewTextChild( compNode, "craft", Qry->FieldAsString( "craft" ) );
-     NewTextChild( compNode, "bort", Qry->FieldAsString( "bort" ) );
-     NewTextChild( compNode, "classes", Qry->FieldAsString( "classes" ) );
+     NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
+     NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
+     NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
+     NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
+     NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
      tst();
-     NewTextChild( compNode, "descr", Qry->FieldAsString( "descr" ) );     
+     NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );     
      tst();
-     Qry->Next();
+     Qry.Next();
    }
+   tst();   
    TSalons Salons;      
    Salons.trip_id = trip_id;
    Salons.ClName.clear();
+   tst();        	
    Salons.Read( rTripSalons );
-   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );     
-   Salons.GetTripParams( trip_id, dataNode );     
-   Salons.Build( salonsNode );
-   tst();
+   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );          
+   Salons.Build( salonsNode );     
    SelectPassengers( &Salons, Passengers );
    tst();
    if ( Passengers.existsNoSeats() )
      Passengers.Build( dataNode );
+ }
+ catch( UserException ue ) {
+   showErrorMessage( ue.what() );	
    tst();
-  }
-  catch( ... ) {
-    OraSession.DeleteQuery( *Qry );
-    throw;
-  }
-  OraSession.DeleteQuery( *Qry );  
-  
+ }
 }
 
 void SalonsInterface::ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -488,8 +486,29 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );
     Qry.Next();
   }
-	}
+}
 
+void SalonsInterface::ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace( TRACE5, "SalonsInterface::ChangeBC" );
+  TReqInfo::Instance()->user.check_access( amWrite );
+  TQuery Qry( &OraSession );
+  Qry.SQLText = 
+    "BEGIN "\
+    " UPDATE trips SET bc = :bc, comp_id = NULL WHERE trip_id = :trip_id; "\
+    " DELETE trip_comp_rem WHERE trip_id = :trip_id; "\
+    " DELETE trip_comp_elems WHERE trip_id = :trip_id; "\
+    " DELETE trip_classes WHERE trip_id = :trip_id; "\
+    "END; ";
+  string bc = NodeAsString( "bc", reqNode );
+  int trip_id = NodeAsInteger( "trip_id", reqNode );
+  Qry.CreateVariable( "bc", otString,  bc );
+  Qry.CreateVariable( "trip_id", otInteger, trip_id );
+  Qry.Execute();
+  TReqInfo::Instance()->MsgToLog( string( "Изменен тип ВС на " ) + bc +
+                                  ". Текущая компоновка рейса удалена." , evtFlt, trip_id );  
+  SalonFormShow( ctxt, reqNode, resNode );                                   
+}
 
 
 void SalonsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
