@@ -88,7 +88,7 @@ void TSQL::createSQLTrips( ) {
     "    trips.trip_id=trip_stations.trip_id AND "\
     "    trip_stations.name= :station AND "\
     "    trip_stations.work_mode='П' AND "\
-    "    gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0*/ ";
+    "    gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0 ";
   /* задаем переменные */
   p.addVariable( "station", otString, TReqInfo::Instance()->desk.code );
   p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
