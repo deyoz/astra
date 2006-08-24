@@ -23,6 +23,7 @@
 #include "oralib.h"
 #include "ocilocal.h"
 #include "xml_unit.h"
+#include "perfom.h"
 
 using namespace jxtlib;
 using namespace BASIC;
@@ -63,12 +64,12 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     { /* оператор пришел пустой - отправляем инфу по оператору */
       showBasicInfo();
     }
+    PerfomInit();
 }
    
-void AstraJxtCallbacks::UserAfter(const char *body, int blen, const char *head,
-                          int hlen, char **res, int len)
+void AstraJxtCallbacks::UserAfter()
 {
-	
+  PerfomTest( 2007 );
 }
 
 
