@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include "basic.h"
 
 enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/

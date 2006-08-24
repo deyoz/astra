@@ -12,6 +12,7 @@
 #include "cent.h" 
 #include "prepreg.h" 
 #include "salonform.h" 
+#include "sopp.h" 
 #include "astra_utils.h" 
 #include "basic.h"
 #include "exceptions.h"
@@ -42,6 +43,7 @@ void AstraJxtCallbacks::InitInterfaces()
   new SalonsInterface();        
   new CentInterface();           
   new PrepRegInterface();          
+  new SoppInterface();            
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
