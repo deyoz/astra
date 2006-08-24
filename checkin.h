@@ -3,6 +3,7 @@
 
 #include <libxml/tree.h>
 #include "JxtInterface.h"		
+#include "astra_ticket.h"
 
 class CheckInInterface : public JxtInterface
 {
@@ -22,6 +23,6 @@ public:
 
 typedef enum {csaFlt,csaGrp,csaPax} TETCheckStatusArea;
 
-bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id=-1);
+bool ETCheckStatus(const Ticketing::OrigOfRequest &org, int id, TETCheckStatusArea area, int point_id=-1);
 
 #endif

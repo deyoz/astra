@@ -13,10 +13,12 @@
 #include "prepreg.h" 
 #include "salonform.h" 
 #include "sopp.h" 
+#include "checkin.h"
 #include "astra_utils.h" 
 #include "basic.h"
 #include "exceptions.h"
 #define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
 #include "test.h"
 
 #include "jxtlib.h"
@@ -40,6 +42,7 @@ void AstraJxtCallbacks::InitInterfaces()
   new SeasonInterface();
   new ETSearchInterface();
   new ImagesInterface();      
+  new CheckInInterface();
   new TripsInterface();        
   new SalonsInterface();        
   new CentInterface();           
@@ -116,11 +119,12 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
                 return;
 	}
 	std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
-	if (exp)
-	{		
-		ProgError(STDLOG,"logic_error: %s",exp->what());
-                node = ReplaceTextChild( resNode, "command" );		
-		ReplaceTextChild( node, "progerror", "Ошибка обработки запроса. Обратитесь к разработчикам" );
-		return;
-	};		
+	if (exp)	
+	  ProgError(STDLOG,"logic_error: %s",exp->what());	
+	else
+	  ProgError(STDLOG,"Unknown error");
+		
+        node = ReplaceTextChild( resNode, "command" );		
+	ReplaceTextChild( node, "progerror", "Ошибка обработки запроса. Обратитесь к разработчикам" );
+	return;	
 }

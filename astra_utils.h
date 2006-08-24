@@ -116,8 +116,10 @@ void SendTlgType(const char* receiver,
                  const std::string &text);
 void SendTlg(const char* receiver, const char* sender, const char *format, ...);
 
+void showProgError(const std::string &message );
 void showErrorMessage( const std::string &message );
 void showMessage( const std::string &message );
+void showErrorMessageAndRollback(const std::string &message );
 void showBasicInfo(void);
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
@@ -128,8 +130,6 @@ void MsgToLog(TLogMsg &msg);
 
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
-
-void showErrorMessageAndRollback(const std::string &message );
 
 class SysReqInterface : public JxtInterface
 {

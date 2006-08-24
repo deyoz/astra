@@ -26,7 +26,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    node=GetNode("pax_id",reqNode); 
    if (node!=NULL) 
    {
-     if (ETCheckStatus(NodeAsInteger(node),csaPax,point_id))     
+     if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaPax,point_id))     
        showProgError("Нет связи с сервером эл. билетов");  	    
      return;
    };
@@ -34,7 +34,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    node=GetNode("grp_id",reqNode); 
    if (node!=NULL) 
    {
-     if (ETCheckStatus(NodeAsInteger(node),csaGrp,point_id))     
+     if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaGrp,point_id))     
        showProgError("Нет связи с сервером эл. билетов");  	    
      return;
    };
@@ -42,7 +42,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    node=GetNode("point_id",reqNode); 
    if (node!=NULL) 
    {
-     if (ETCheckStatus(NodeAsInteger(node),csaFlt,point_id))
+     if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaFlt,point_id))
        showProgError("Нет связи с сервером эл. билетов");  	    
      return;
    };        
@@ -53,7 +53,7 @@ void CheckInInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
    ProgTrace(TRACE3,"Kick on change of status request");
 }
 
-bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
+bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, int point_id)
 {
   TQuery Qry(&OraSession);
   string sql=
@@ -136,7 +136,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
       //       Itin itin("P2","", 1009,-1, date(2006,6,5), time_duration(23,15,0),
 //                 "VKO", "LED");  
-      Coupon cpn(ci, "");
+      Coupon cpn(ci);
       list<Coupon> lcpn;
       lcpn.push_back(cpn);
 
@@ -176,7 +176,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
       //       Itin itin("P2","", 1009,-1, date(2006,6,5), time_duration(23,15,0),
 //                 "VKO", "LED");  
-      Coupon cpn(ci, "");
+      Coupon cpn(ci);
       list<Coupon> lcpn;
       lcpn.push_back(cpn);
 
@@ -191,7 +191,9 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
   
     
   if (!ltick.empty())   
-    ChangeStatus::ETChangeStatus(TReqInfo::Instance(), ltick);  
+    ChangeStatus::ETChangeStatus(org, ltick);  
+    
+    
 
   return (!ltick.empty());      
 }

@@ -9,7 +9,11 @@
 #include "timer.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include "checkin.h"
+#include "astra_ticket.h"
+#include "tlg/tlg.h"
 #define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
 #include "test.h"
 #include <daemon.h>
 const int sleepsec = 30;
@@ -17,6 +21,7 @@ const int sleepsec = 30;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+using namespace Ticketing;
 
 #ifndef __WIN32__
 
@@ -24,37 +29,48 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   TDateTime now;
   int PrevMin=-1;
-  OpenLogFile("log1");
-  ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-      ->connect_db();
-  for( ;; )
+  try
   {
-    try
+    OpenLogFile("log1");
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+        ->connect_db();
+    if (init_edifact()<0) throw Exception("'init_edifact' error");    
+    for( ;; )
     {
-      now=Now();
-      int Hour,Min,Sec;
-      DecodeTime(now,Hour,Min,Sec);
-      if (Min!=PrevMin)
+      try
       {
-        PrevMin=Min;
-        if (Min%2==0)
+        now=Now();
+        int Hour,Min,Sec;
+        DecodeTime(now,Hour,Min,Sec);
+        if (Min!=PrevMin)
         {
-          astra_timer();
+          PrevMin=Min;
+          if (Min%2==0)
+          {
+          //  astra_timer();
+            ETCheckStatusFlt();
+          };
+          if (Min%15==0)
+          {
+          //  sync_mvd(now);
+          };
         };
-        if (Min%15==0)
-        {
-          sync_mvd(now);
-        };
+      }
+      catch( std::exception E ) {
+        ProgError( STDLOG, "Exception: %s", E.what() );
+      }
+      catch( ... ) {
+        ProgError( STDLOG, "Unknown error" );
       };
-    }
-    catch( Exception E ) {
-      ProgError( STDLOG, "Exception: %s", E.what() );
-    }
-    catch( ... ) {
-      ProgError( STDLOG, "Unknown error" );
+      sleep( sleepsec );
     };
-    sleep( sleepsec );
-  };
+  }  
+  catch( std::exception E ) {
+    ProgError( STDLOG, "Exception: %s", E.what() );
+  }
+  catch( ... ) {
+    ProgError( STDLOG, "Unknown error" );
+  };    
 }
 #endif
 
@@ -77,6 +93,52 @@ void astra_timer(void)
     throw;
   };
 };
+
+void ETCheckStatusFlt(void)
+{
+  TQuery Qry(&OraSession);
+  try
+  {
+    ProgTrace(TRACE5,"ETCheckStatusFlt intrance");	
+    TQuery UpdQry(&OraSession);	
+    UpdQry.SQLText="UPDATE trips SET pr_etstatus=1 WHERE trip_id=:point_id";
+    UpdQry.DeclareVariable("point_id",otInteger);      	
+    Qry.SQLText=
+      "SELECT trip_id AS point_id,options.cod FROM trips,options "
+      "WHERE act IS NOT NULL AND "
+      "      NVL(pr_etstatus,0)=0";
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
+    {
+      try
+      {	      	
+      	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
+      	OrigOfRequest org("Y1",
+      	                  Qry.FieldAsString("cod"),
+      	                  Qry.FieldAsString("cod"),                          
+                          'Y',
+                          "SYSTEM",
+                          "",
+                          Lang::RUSSIAN);
+        if (!ETCheckStatus(org,Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
+        {
+          UpdQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
+          UpdQry.Execute();	
+        };	                
+        OraSession.Commit();
+      }  
+      catch(...) {};
+    };	   
+    Qry.Close();
+    UpdQry.Close();     	    
+  }
+  catch(...)
+  {
+    try { OraSession.Rollback( ); } catch( ... ) { };    
+    throw;
+  };
+};  
+
 
 #ifdef __WIN32__
 #define ENDL "\n"

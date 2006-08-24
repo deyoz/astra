@@ -426,6 +426,13 @@ void SendTlg(const char* receiver, const char* sender, const char *format, ...)
   catch(...) {};
 };
 
+void showProgError(const std::string &message )
+{
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
+  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "progerror", message );	
+};
+
 void showErrorMessage(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
