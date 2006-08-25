@@ -27,7 +27,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    if (node!=NULL) 
    {
      if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaPax,point_id))     
-       showProgError("Нет связи с сервером эл. билетов");  	    
+       showProgErrorMessage("Нет связи с сервером эл. билетов");  	    
      return;
    };
    
@@ -35,7 +35,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    if (node!=NULL) 
    {
      if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaGrp,point_id))     
-       showProgError("Нет связи с сервером эл. билетов");  	    
+       showProgErrorMessage("Нет связи с сервером эл. билетов");  	    
      return;
    };
    
@@ -43,7 +43,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    if (node!=NULL) 
    {
      if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger(node),csaFlt,point_id))
-       showProgError("Нет связи с сервером эл. билетов");  	    
+       showProgErrorMessage("Нет связи с сервером эл. билетов");  	    
      return;
    };        
 }
