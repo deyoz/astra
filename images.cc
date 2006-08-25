@@ -18,7 +18,7 @@ void ImagesInterface::GetisPlaceMap( map<string,bool> &ispl )
   tst();	
   ispl.clear();  	
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT code, pr_seat FROM comp_elem_types WHERE pr_del=0";
+  Qry.SQLText = "SELECT code, pr_seat FROM comp_elem_types WHERE pr_del IS NULL OR pr_del=0";
   Qry.Execute();
   while ( !Qry.Eof ) {
     ispl[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_seat" );
@@ -55,9 +55,9 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    /* пересылаем все данные */
    Qry->Clear();
    if ( sendImages )
-     Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del = 0";
+     Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
    else
-     Qry->SQLText = "SELECT code, name, pr_seat FROM comp_elem_types WHERE pr_del = 0";
+     Qry->SQLText = "SELECT code, name, pr_seat FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
    Qry->Execute();   
    int len = 0;
    while ( !Qry->Eof ) {
