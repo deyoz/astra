@@ -374,10 +374,10 @@ void SendTlgType(const char* receiver,
         Qry.Execute();
         Qry.SQLText=
                 "INSERT INTO "
-                "tlgs(id,sender,tlg_num,receiver,type,status,time,tlg_text,error) "
+                "tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
                 "VALUES"
                 "(tlgs_id.currval,:sender,tlgs_id.currval,:receiver,"
-                ":type,'PUT',SYSDATE,:text,NULL)";
+                ":type,SYSDATE,:text,NULL)";
         Qry.DeclareVariable("text",otLong);
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
@@ -387,6 +387,7 @@ void SendTlgType(const char* receiver,
     catch( std::exception &e)
     {
         ProgError(STDLOG, e.what());
+        throw;
     }
     catch(...)
     {
