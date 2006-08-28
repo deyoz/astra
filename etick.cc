@@ -31,7 +31,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   OrigOfRequest org(*TReqInfo::Instance());
   TickDispByNum tickDisp(org, tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
-  showProgErrorMessage("Нет связи с сервером эл. билетов");
+  showProgError("Нет связи с сервером эл. билетов");
 };
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
@@ -93,7 +93,7 @@ void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
   if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("pax_id",reqNode),csaPax,point_id))     
-    showProgErrorMessage("Нет связи с сервером эл. билетов");  	     
+    showProgError("Нет связи с сервером эл. билетов");  	     
 };
 
 void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -102,7 +102,7 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
   if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("grp_id",reqNode),csaGrp,point_id))     
-    showProgErrorMessage("Нет связи с сервером эл. билетов");  	     
+    showProgError("Нет связи с сервером эл. билетов");  	     
 };
 
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -111,7 +111,7 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
   if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("point_id",reqNode),csaFlt,point_id))     
-    showProgErrorMessage("Нет связи с сервером эл. билетов");  	     
+    showProgError("Нет связи с сервером эл. билетов");  	     
 };
 
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -105,7 +105,7 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	if (orae)
 	{		
 		ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);		
-		showProgErrorMessage("Ошибка обработки запроса. Обратитесь к разработчикам");		
+		showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");		
 //		addXmlBM(*ctxt);
                 return;
 	};
@@ -113,7 +113,7 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	if (ue)
 	{
                 ProgTrace( TRACE5, "UserException: %s", ue->what() );
-                showErrorMessage(ue->what());
+                showError(ue->what());
 		//addXmlBM(*ctxt);
                 return;
 	}
@@ -123,6 +123,6 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	else
 	  ProgError(STDLOG,"Unknown error");
 	  
-	showProgErrorMessage("Ошибка обработки запроса. Обратитесь к разработчикам");		  
+	showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");		  
 	return;	
 }

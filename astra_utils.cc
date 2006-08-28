@@ -427,11 +427,18 @@ void SendTlg(const char* receiver, const char* sender, const char *format, ...)
   catch(...) {};
 };
 
-void showProgErrorMessage(const std::string &message )
+void showProgError(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );	
+};
+
+void showError(const std::string &message )
+{
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
+  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );	
 };
 
 void showErrorMessage(const std::string &message )
@@ -451,7 +458,7 @@ void showMessage(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_message", message );
+  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
 };
 
 void showBasicInfo(void)

@@ -116,7 +116,8 @@ void SendTlgType(const char* receiver,
                  const std::string &text);
 void SendTlg(const char* receiver, const char* sender, const char *format, ...);
 
-void showProgErrorMessage(const std::string &message );
+void showProgError(const std::string &message );
+void showError(const std::string &message );
 void showErrorMessage( const std::string &message );
 void showMessage( const std::string &message );
 void showErrorMessageAndRollback(const std::string &message );
