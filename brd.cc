@@ -229,26 +229,26 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     xmlNodePtr listNode = NewTextChild(dataNode, "brd_list");
     while(!Qry->Eof) {
         xmlNodePtr paxNode = NewTextChild(listNode, "pax");
-        NewTextChild(paxNode, "pax_id",            Qry->FieldAsString("pax_id"));
-        NewTextChild(paxNode, "grp_id",            Qry->FieldAsString("grp_id"));
-        NewTextChild(paxNode, "point_id",          Qry->FieldAsString("point_id"));
-        NewTextChild(paxNode, "pr_brd",            Qry->FieldAsString("pr_brd"));
-        NewTextChild(paxNode, "reg_no",            Qry->FieldAsString("reg_no"));
+        NewTextChild(paxNode, "pax_id",            Qry->FieldAsInteger("pax_id"));
+        NewTextChild(paxNode, "grp_id",            Qry->FieldAsInteger("grp_id"));
+        NewTextChild(paxNode, "point_id",          Qry->FieldAsInteger("point_id"));
+        NewTextChild(paxNode, "pr_brd",            Qry->FieldAsInteger("pr_brd"));
+        NewTextChild(paxNode, "reg_no",            Qry->FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname",           Qry->FieldAsString("surname"));
         NewTextChild(paxNode, "name",              Qry->FieldAsString("name"));
         NewTextChild(paxNode, "pers_type",         Qry->FieldAsString("pers_type"));
         NewTextChild(paxNode, "seat_no",           Qry->FieldAsString("seat_no"));
-        NewTextChild(paxNode, "seats",             Qry->FieldAsString("seats"));
-        NewTextChild(paxNode, "doc_check",         Qry->FieldAsString("doc_check"));
-        NewTextChild(paxNode, "tid",               Qry->FieldAsString("tid"));
+        NewTextChild(paxNode, "seats",             Qry->FieldAsInteger("seats"));
+        NewTextChild(paxNode, "doc_check",         Qry->FieldAsInteger("doc_check"));
+        NewTextChild(paxNode, "tid",               Qry->FieldAsInteger("tid"));
         NewTextChild(paxNode, "seat_no_str",       Qry->FieldAsString("seat_no_str"));
         NewTextChild(paxNode, "remarks",           Qry->FieldAsString("remarks"));
-        NewTextChild(paxNode, "rk_amount",         Qry->FieldAsString("rk_amount"));
-        NewTextChild(paxNode, "rk_weight",         Qry->FieldAsString("rk_weight"));
-        NewTextChild(paxNode, "excess",            Qry->FieldAsString("excess"));
-        NewTextChild(paxNode, "value_bag_count",   Qry->FieldAsString("value_bag_count"));
+        NewTextChild(paxNode, "rk_amount",         Qry->FieldAsInteger("rk_amount"));
+        NewTextChild(paxNode, "rk_weight",         Qry->FieldAsInteger("rk_weight"));
+        NewTextChild(paxNode, "excess",            Qry->FieldAsInteger("excess"));
+        NewTextChild(paxNode, "value_bag_count",   Qry->FieldAsInteger("value_bag_count"));
         NewTextChild(paxNode, "tags",              Qry->FieldAsString("tags"));
-        NewTextChild(paxNode, "pr_payment",        Qry->FieldAsString("pr_payment"));
+        NewTextChild(paxNode, "pr_payment",        Qry->FieldAsInteger("pr_payment"));
         Qry->Next();
     }
     OraSession.DeleteQuery(*Qry);
@@ -293,7 +293,7 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
         Qry->Execute();
         if(!Qry->Eof) {
             xmlNodePtr fltNode = NewTextChild(dataNode, "flt");
-            NewTextChild(fltNode, "trip_id", Qry->FieldAsString("trip_id"));
+            NewTextChild(fltNode, "trip_id", Qry->FieldAsInteger("trip_id"));
             NewTextChild(fltNode, "bc", Qry->FieldAsString("bc"));
             NewTextChild(fltNode, "classes", Qry->FieldAsString("classes"));
             NewTextChild(fltNode, "places", Qry->FieldAsString("places"));
@@ -301,7 +301,7 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
             NewTextChild(fltNode, "takeoff", Qry->FieldAsString("takeoff"));
             NewTextChild(fltNode, "triptype", Qry->FieldAsString("triptype"));
             NewTextChild(fltNode, "litera", Qry->FieldAsString("litera"));
-            NewTextChild(fltNode, "brd_stage", Qry->FieldAsString("brd_stage"));
+            NewTextChild(fltNode, "brd_stage", Qry->FieldAsInteger("brd_stage"));
             NewTextChild(fltNode, "remark", Qry->FieldAsString("remark"));
         }
     }
@@ -326,8 +326,8 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
         Qry->Execute();
         if(!Qry->Eof) {
             xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
-            NewTextChild(countersNode, "reg", Qry->FieldAsString("reg"));
-            NewTextChild(countersNode, "brd", Qry->FieldAsString("brd"));
+            NewTextChild(countersNode, "reg", Qry->FieldAsInteger("reg"));
+            NewTextChild(countersNode, "brd", Qry->FieldAsInteger("brd"));
         }
     }
     OraSession.DeleteQuery(*Qry);
