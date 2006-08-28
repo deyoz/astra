@@ -8,13 +8,11 @@
 #include "exceptions.h"
 #include "astra_utils.h"
 #include "etick/lang.h"
-
-// „«ï ReadSysContext
-#include "cont_tools.h"
 #include "jxtlib.h"
 #include "posthooks.h"
 #include "etick_change_status.h"
-//#include "etick/exceptions.h"
+#include "jxt_cont.h"
+#include "cont_tools.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -26,6 +24,7 @@ using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
 using namespace jxtlib;
 using namespace EXCEPTIONS;
+using namespace JxtContext;
 
 bool deleteTlg(int tlg_id)
 {
@@ -338,9 +337,10 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 string prepareKickText()
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
-    const char *iface = (const char *)readSysContextNVL("CUR_IFACE", "");
-    const char *handle= (const char *)readSysContextNVL("HANDLE","");
-    const char *oper  = (const char *)readSysContextNVL("OPR",   "");
+    JxtCont *sysCont = getJxtContHandler()->sysContext();
+    const char *iface = sysCont->readC("CUR_IFACE","");        
+    const char *handle= sysCont->readC("HANDLE","");        
+    const char *oper  = sysCont->readC("OPR","");            
 
     string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
             "<term>"
@@ -357,11 +357,9 @@ void saveTlgSource(const string &pult, const string &tlg)
 {
     JXTLib::Instance()->GetCallbacks()->
             initJxtContext(pult);
-
-    if(writeSysContext("TlgSource", tlg.c_str()))
-    {
-        throw EXCEPTIONS::Exception("writeSysContext() failed");
-    }
+            
+    JxtCont *sysCont = getJxtContHandler()->sysContext();
+    sysCont->write("ETDisplayTlg",tlg);
     registerHookBefore(SaveContextsHook);
 }
 
