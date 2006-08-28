@@ -147,28 +147,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 void scan_tlg(int tlg_id)
 {
-  static TQuery TlgQry(&OraSession);
-  /*
-  static TQuery UpdAllQry(&OraSession);
-  if (UpdAllQry.SQLText.IsEmpty())
-  {
-    UpdAllQry.Clear();
-    UpdAllQry.SQLText=
-      "UPDATE tlgs SET status='ERR',time=SYSDATE\
-       WHERE type IN ('OUTA','OUTB') AND status='PUT' AND SYSDATE-time> :ack_wait_time /86400";
-    UpdAllQry.DeclareVariable("ack_wait_time",otInteger);
-    UpdAllQry.SetVariable("ack_wait_time",ACK_WAIT_TIME);
-  };*/
-
-  static TQuery UpdQry(&OraSession);
-  if (UpdQry.SQLText.IsEmpty())
-  {
-    UpdQry.Clear();
-    UpdQry.SQLText=
-      "DELETE FROM tlg_queue\
-       WHERE id= :id AND status='PUT'";
-    UpdQry.DeclareVariable("id",otInteger);
-  };
+  static TQuery TlgQry(&OraSession);  
 
   TQuery Qry(&OraSession);
 
@@ -213,7 +192,7 @@ void scan_tlg(int tlg_id)
   TlgQry.Execute();
   while (!TlgQry.Eof&&count<SCAN_COUNT)
   {
-    UpdQry.SetVariable("id",TlgQry.FieldAsInteger("id"));
+    tlg_id=TlgQry.FieldAsInteger("id");	    
     try
     {
       if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
@@ -238,23 +217,16 @@ void scan_tlg(int tlg_id)
       if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
       TlgQry.FieldAsLong("tlg_text",tlg_out.body);
       //проверим TTL
-      ttl=0;
+      ttl=0;      
       if (!TlgQry.FieldIsNULL("ttl")&&
            (ttl=TlgQry.FieldAsInteger("ttl")-
            (int)((TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60))<=0)
       {
-        UpdQry.Execute();
-        if (UpdQry.RowsProcessed()>0)
-        {
-          Qry.Clear();
-          Qry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-          Qry.CreateVariable("error",otString,"TTL");
-          Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-          Qry.Execute();
-        };
+      	errorTlg(tlg_id,"TTL");        
       }
       else
       {
+      	ProgTrace(TRACE5,"ttl=%d",ttl);
         //проверим, надо ли лепить h2h
         Qry.Clear();
         Qry.SQLText=
@@ -294,15 +266,7 @@ void scan_tlg(int tlg_id)
     catch(Exception E)
     {
       OraSession.Rollback();
-      UpdQry.Execute();
-      if (UpdQry.RowsProcessed()>0)
-      {
-        Qry.Clear();
-        Qry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-        Qry.CreateVariable("error",otString,"SEND");
-        Qry.CreateVariable("id",otInteger,TlgQry.FieldAsInteger("id"));
-        Qry.Execute();
-      };
+      errorTlg(tlg_id,"SEND");      
 #ifndef __WIN32__
       ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
                           E.what(),TlgQry.FieldAsInteger("id"));
