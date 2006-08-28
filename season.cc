@@ -282,29 +282,29 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             while(!Qry->Eof) {
                 xmlNodePtr rangeNode = NewTextChild(rangeListNode, "range");
 
-                NewTextChild(rangeNode, "trip_id",      Qry->FieldAsString(idx_trip_id));
-                NewTextChild(rangeNode, "move_id",      Qry->FieldAsString(idx_move_id));
-                NewTextChild(rangeNode, "num",          Qry->FieldAsString(idx_num));
+                NewTextChild(rangeNode, "trip_id",      Qry->FieldAsInteger(idx_trip_id));
+                NewTextChild(rangeNode, "move_id",      Qry->FieldAsInteger(idx_move_id));
+                NewTextChild(rangeNode, "num",          Qry->FieldAsInteger(idx_num));
                 NewTextChild(rangeNode, "first_day",    Qry->FieldAsString(idx_first_day));
                 NewTextChild(rangeNode, "last_day",     Qry->FieldAsString(idx_last_day));
                 NewTextChild(rangeNode, "days",         Qry->FieldAsString(idx_days));
-                NewTextChild(rangeNode, "cancel",       Qry->FieldAsString(idx_cancel));
+                NewTextChild(rangeNode, "cancel",       Qry->FieldAsInteger(idx_cancel));
                 NewTextChild(rangeNode, "tlg",          Qry->FieldAsString(idx_tlg));
                 NewTextChild(rangeNode, "reference",    Qry->FieldAsString(idx_reference));
-                NewTextChild(rangeNode, "rnum",         Qry->FieldAsString(idx_rnum));
+                NewTextChild(rangeNode, "rnum",         Qry->FieldAsInteger(idx_rnum));
                 NewTextChild(rangeNode, "cod",          Qry->FieldAsString(idx_cod));
                 NewTextChild(rangeNode, "city",         Qry->FieldAsString(idx_city));
-                NewTextChild(rangeNode, "pr_cancel",    Qry->FieldAsString(idx_pr_cancel));
+                NewTextChild(rangeNode, "pr_cancel",    Qry->FieldAsInteger(idx_pr_cancel));
                 NewTextChild(rangeNode, "land",         Qry->FieldAsString(idx_land));
                 NewTextChild(rangeNode, "company",      Qry->FieldAsString(idx_company));
-                NewTextChild(rangeNode, "trip",         Qry->FieldAsString(idx_trip));
+                NewTextChild(rangeNode, "trip",         Qry->FieldAsInteger(idx_trip));
                 NewTextChild(rangeNode, "bc",           Qry->FieldAsString(idx_bc));
                 NewTextChild(rangeNode, "takeoff",      Qry->FieldAsString(idx_takeoff));
                 NewTextChild(rangeNode, "litera",       Qry->FieldAsString(idx_litera));
                 NewTextChild(rangeNode, "triptype",     Qry->FieldAsString(idx_triptype));
-                NewTextChild(rangeNode, "f",            Qry->FieldAsString(idx_f));
-                NewTextChild(rangeNode, "c",            Qry->FieldAsString(idx_c));
-                NewTextChild(rangeNode, "y",            Qry->FieldAsString(idx_y));
+                NewTextChild(rangeNode, "f",            Qry->FieldAsInteger(idx_f));
+                NewTextChild(rangeNode, "c",            Qry->FieldAsInteger(idx_c));
+                NewTextChild(rangeNode, "y",            Qry->FieldAsInteger(idx_y));
                 NewTextChild(rangeNode, "unitrip",      Qry->FieldAsString(idx_unitrip));
                 NewTextChild(rangeNode, "suffix",       Qry->FieldAsString(idx_suffix));  
 
