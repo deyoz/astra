@@ -113,7 +113,7 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
 	if (ue)
 	{
                 ProgTrace( TRACE5, "UserException: %s", ue->what() );
-                showError(ue->what());
+                showError(ue->what(), ue->Code());
 		//addXmlBM(*ctxt);
                 return;
 	}

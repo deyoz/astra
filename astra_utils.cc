@@ -434,11 +434,12 @@ void showProgError(const std::string &message )
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );	
 };
 
-void showError(const std::string &message )
+void showError(const std::string &message, int code = 0 )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );	
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );	
+  SetProp(resNode, "code", code);
 };
 
 void showErrorMessage(const std::string &message )
