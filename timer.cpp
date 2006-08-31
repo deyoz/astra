@@ -9,7 +9,7 @@
 #include "timer.h"
 #include "oralib.h"
 #include "exceptions.h"
-#include "checkin.h"
+#include "etick.h"
 #include "astra_ticket.h"
 #include "tlg/tlg.h"
 #define NICKNAME "VLAD"
@@ -71,6 +71,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   catch( ... ) {
     ProgError( STDLOG, "Unknown error" );
   };    
+  return 0;
 }
 #endif
 
