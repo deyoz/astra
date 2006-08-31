@@ -137,6 +137,7 @@ class TSeatPlaces {
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void ReSeats( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
+void SeatsPassengers( );
 
 extern TPassengers Passengers;
 
