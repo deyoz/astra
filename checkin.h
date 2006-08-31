@@ -15,8 +15,10 @@ public:
      AddEvent("SavePax",evHandle);          
   };	
   
-  void SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};  
+  
+  void SavePaxRem(xmlNodePtr paxNode);
 };
 
 
