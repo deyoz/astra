@@ -18,18 +18,17 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-const
-  int PR_N_PLACE = 9;
-  int PR_REMPLACE = 8;
-  int PR_SMOKE = 7;
+const int PR_N_PLACE = 9;
+const int PR_REMPLACE = 8;
+const int PR_SMOKE = 7;
 
-  int PR_REM_TO_REM = 100;
-  int PR_REM_TO_NOREM = 90;
-  int PR_EQUAL_N_PLACE = 50;
-  int PR_EQUAL_REMPLACE = 20;
-  int PR_EQUAL_SMOKE = 10;
+const int PR_REM_TO_REM = 100;
+const int PR_REM_TO_NOREM = 90;
+const int PR_EQUAL_N_PLACE = 50;
+const int PR_EQUAL_REMPLACE = 20;
+const int PR_EQUAL_SMOKE = 10;
 
-  int MAXPLACE = 3;
+const int MAXPLACE = 3;
   
 typedef vector<int> TLine;
 
