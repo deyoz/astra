@@ -53,7 +53,8 @@ void AstraJxtCallbacks::InitInterfaces()
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
                           int hlen, char **res, int len)
-{      
+{   
+    OraSession.ClearQuerys();	   
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     std::string screen = NodeAsString("/term/query/@screen", xmlRC->reqDoc);
     TReqInfo *reqInfo = TReqInfo::Instance();    
