@@ -15,8 +15,14 @@
 using namespace std;
 using namespace BASIC;
 
+struct TSoppStage {
+  int stage_id;
+  TDateTime scd;
+  TDateTime est;
+  TDateTime act;
+};
+
 struct TTrip {
-  bool build;
   int move_row_id;
   string company;
   int flt_no;
@@ -34,8 +40,9 @@ struct TTrip {
   string remark;
   int reg;
   int resa;
+  vector<string> places;
+  vector<TSoppStage> stages;
   TTrip() {
-    build = false;
     move_row_id = -1;
     flt_no = -1;
     scd = -1;
@@ -107,11 +114,26 @@ inline void buildTrip( TTrip &trip, xmlNodePtr outNode )
     NewTextChild( outNode, "reg", trip.reg );
   if ( trip.resa )
     NewTextChild( outNode, "resa", trip.resa );    
-  trip.build = true;
+  xmlNodePtr node = NewTextChild( outNode, "places" );
+  for ( vector<string>::iterator isp=trip.places.begin(); isp!=trip.places.end(); isp++ ) {
+    NewTextChild( node, "cod", *isp );
+  }
+  if ( !trip.stages.empty() ) {
+    xmlNodePtr node = NewTextChild( outNode, "stages" );
+    for ( vector<TSoppStage>::iterator iss=trip.stages.begin(); iss!=trip.stages.end(); iss++ ) {
+      xmlNodePtr n = NewTextChild( node, "stage" );      
+      NewTextChild( n, "stage_id", iss->stage_id );
+      NewTextChild( outNode, "scd", DateTimeToStr( iss->scd ) );
+      if ( iss->est >= 0 )
+        NewTextChild( outNode, "est", DateTimeToStr( iss->est ) );
+      if ( iss->act >= 0 )
+        NewTextChild( outNode, "act", DateTimeToStr( iss->act ) );
+    }  
+  }
 }
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
+{	
   TQuery OutQry( &OraSession );
   OutQry.SQLText = 
     "SELECT trip_id,move_row_id,company,flt_no,suffix,scd,est,act,bc,bort,park,status,triptype,litera, "\
@@ -138,10 +160,24 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     "SELECT point_id as trip_id,SUM(crs_ok) as resa FROM counters2 "\
     " GROUP BY point_id "\
     "ORDER BY point_id ";
+  TQuery PlacesQry( &OraSession );
+  PlacesQry.SQLText = 
+    "SELECT trip_id,num,cod FROM place"\
+    " WHERE num > 0 "\
+    " UNION "\
+    "SELECT trip_id,num,cod FROM place_in "\
+    " WHERE num < 0 "\
+    " ORDER BY trip_id,num ";
+  TQuery StagesQry( &OraSession );
+  StagesQry.SQLText =     
+    "SELECT point_id,stage_id,scd,est,act FROM trip_stages "\
+    " ORDER BY point_id,stage_id ";    
   OutQry.Execute();
   InQry.Execute();
   RegQry.Execute();
   ResaQry.Execute();
+  PlacesQry.Execute();
+  StagesQry.Execute();
   map<int,TTrip> trips, trips_in;
   int trip_id;
   while ( !OutQry.Eof ) {
@@ -161,6 +197,29 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       }
       ResaQry.Next();
     }    
+    while ( !PlacesQry.Eof && trip_id >= PlacesQry.FieldAsInteger( "trip_id" ) ) {
+      if ( trip_id == PlacesQry.FieldAsInteger( "trip_id" ) ) {
+      	trip.places.push_back( PlacesQry.FieldAsString( "cod" ) );
+      }
+      PlacesQry.Next();
+    }            
+    TSoppStage stage;    
+    while ( !StagesQry.Eof && trip_id >= StagesQry.FieldAsInteger( "point_id" ) ) {
+      if ( trip_id == StagesQry.FieldAsInteger( "point_id" ) ) {      	
+      	stage.stage_id = StagesQry.FieldAsInteger( "stage_id" );
+      	stage.scd = StagesQry.FieldAsDateTime( "scd" );
+      	if ( StagesQry.FieldIsNULL( "est" ) )
+      	  stage.est = -1;
+      	else
+      	  stage.est = StagesQry.FieldAsDateTime( "est" );
+      	if ( StagesQry.FieldIsNULL( "act" ) )
+      	  stage.act = -1;
+      	else
+      	  stage.act = StagesQry.FieldAsDateTime( "act" );      	  
+      	trip.stages.push_back( stage );
+      }
+      PlacesQry.Next();
+    }                
     trips.insert( make_pair( trip_id, trip ) );
     OutQry.Next();
   }
@@ -172,27 +231,41 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   }
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
   dataNode = NewTextChild( dataNode, "trips" );
-  map<int,TTrip>::iterator itrip, jtrip;
-  /* заполняем вылет и если найдем, то и прилет */
-  for ( itrip=trips.begin(); itrip!=trips.end(); itrip++ ) {
+  map<int,TTrip>::iterator itrip=trips.begin(), jtrip=trips_in.begin();
+  while ( itrip != trips.end() || jtrip != trips_in.end() ) {
     xmlNodePtr tripNode = NewTextChild( dataNode, "trip" );
-    NewTextChild( tripNode, "trip_id", itrip->first );    
-    buildTrip( itrip->second, NewTextChild( tripNode, "out" ) );
-    jtrip = trips_in.find( itrip->first );
-    if ( jtrip != trips_in.end() ) { /* есть прилет */
-      buildTrip( jtrip->second, NewTextChild( tripNode, "in" ) );
+    if ( itrip != trips.end() && jtrip != trips_in.end() ) {
+      if ( itrip->first == jtrip->first ) {
+        NewTextChild( tripNode, "trip_id", itrip->first );
+        buildTrip( itrip->second, NewTextChild( tripNode, "out" ) );
+        buildTrip( jtrip->second, NewTextChild( tripNode, "in" ) );
+        itrip++;
+        jtrip++;
+      }
+      else
+        if ( itrip->first < jtrip->first ) {
+          NewTextChild( tripNode, "trip_id", itrip->first );
+          buildTrip( itrip->second, NewTextChild( tripNode, "out" ) );          
+          itrip++;
+        }
+        else {
+          NewTextChild( tripNode, "trip_id", jtrip->first );
+          buildTrip( jtrip->second, NewTextChild( tripNode, "in" ) );
+          jtrip++;
+        }
     }
+    else
+      if ( itrip == trips.end() ) {
+        NewTextChild( tripNode, "trip_id", jtrip->first );
+        buildTrip( jtrip->second, NewTextChild( tripNode, "in" ) );
+        jtrip++;
+      }
+      else {
+        NewTextChild( tripNode, "trip_id", itrip->first );
+        buildTrip( itrip->second, NewTextChild( tripNode, "out" ) );
+        itrip++;
+      } 
   }
-  /* заполняем оставшийся прилет */
-  for ( itrip=trips_in.begin(); itrip!=trips_in.end(); itrip++ ) {
-    xmlNodePtr tripNode = NewTextChild( dataNode, "trip" );
-    NewTextChild( tripNode, "trip_id", itrip->first );    
-    if ( itrip->second.build )
-      continue;
-    buildTrip( itrip->second, NewTextChild( tripNode, "in" ) );
-  }
- 
-  
     
 /*       'SELECT * FROM('+
        'SELECT trips.trip_id as trip_id,trips.move_row_id as move_row_id,'+

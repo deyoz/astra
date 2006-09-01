@@ -50,6 +50,7 @@ struct TPassenger {
   std::string clname;
   std::string placeStatus;
   int priority;
+  int tid;
   /*выход*/
   TPlaceList *placeList; /* салон */
   TPoint Pos; /* указывает место */
@@ -63,6 +64,7 @@ struct TPassenger {
     Pos.x = 0;
     Pos.y = 0;
     InUse = false;  	
+    tid = -1;
   }
 };
 
@@ -133,13 +135,16 @@ class TSeatPlaces {
     bool SeatsPassengers( );  
     void PlacesToPassengers();    
 };
+
+namespace SEATS {
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void ReSeats( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
+void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
+bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
 void SeatsPassengers( TSalons *Salons );
 void SavePlaces( );
-
+}
 extern TPassengers Passengers;
 
 #endif /*_SEATS_H_*/

@@ -546,7 +546,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
 
 void TPlace::Assign( TPlace &pl )
 {
-  tst();
   selected = pl.selected;
   visible = pl.visible;
   x = pl.x;
@@ -567,9 +566,7 @@ void TPlace::Assign( TPlace &pl )
   pr_free = pl.pr_free;
   block = pl.block;
   rems.clear();
-  tst();
   rems = pl.rems;
-  tst();
 }
 
 int TPlaceList::GetXsCount()
@@ -634,7 +631,6 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
   if ( !placeName.empty() && placeName[ 0 ] == '0' )
     placeName.erase( 0, 1 );
-  ProgTrace( TRACE5, "GetisPlaceXY: placeName=%s", placeName.c_str() );    
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ ) 
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
       if ( placeName == *iy + *ix ) {

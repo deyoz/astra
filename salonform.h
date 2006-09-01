@@ -13,8 +13,8 @@ public:
   SalonsInterface() : JxtInterface("","salons")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::XMLReadSalons);
-     AddEvent("XMLReadSalons",evHandle);     
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::CheckInShow);
+     AddEvent("CheckInShow",evHandle);     
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::SalonFormShow);
      AddEvent("SalonFormShow",evHandle);          
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::SalonFormWrite);
@@ -35,7 +35,7 @@ public:
      AddEvent("ChangeBC",evHandle);         
   };
 
-  void XMLReadSalons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void CheckInShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
   void SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
