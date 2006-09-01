@@ -161,7 +161,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	
     	TPassenger pas;      	
     	pas.clname=cl;
-    	if (place_status=="FP"&&GetNodeFast("pax_id",node2)&&!NodeIsNULL("pax_id",node2))
+    	if (place_status=="FP"&&GetNodeFast("pax_id",node2)&&!NodeIsNULLFast("pax_id",node2))
     	  pas.placeStatus="BR";
     	else  
     	  pas.placeStatus=place_status;
@@ -180,8 +180,16 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	Passengers.Add(pas);
     };
     tst();
+    // начитка салона
+    TSalons Salons;
+    Salons.trip_id = point_id;
+    Salons.ClName = cl;
+    Salons.Read( rTripSalons );
+    tst();
     //рассадка	    
-    SeatsPassengers( );  
+    SeatsPassengers( &Salons );      
+    tst();
+    SavePlaces( );
     tst();
     //заполним номера мест после рассадки
     node=NodeAsNode("passengers",reqNode);       
@@ -190,11 +198,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {           	                              
     	node2=node->children;
     	if (NodeAsIntegerFast("seats",node2)==0) continue;   
-    	if (Passengers.Get(i).placeName=="") throw Exception("SeatsPassengers error");
+    	if (Passengers.Get(i).placeName=="") throw Exception("SeatsPassengers: empty placeName");
     	ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
     	i++;
     };	
-    if (node!=NULL||i>=Passengers.getCount()) throw Exception("SeatsPassengers error");    
+    tst();
+    if (node!=NULL||i<Passengers.getCount()) throw Exception("SeatsPassengers: wrong count");    
     //получим рег. номера и признак совместной регистрации и посадки
     Qry.Clear();
     Qry.SQLText=
@@ -257,7 +266,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.DeclareVariable("coupon_no",otInteger);  
     Qry.DeclareVariable("document",otString);  
     Qry.DeclareVariable("subclass",otString);  
-    
+    tst();
     for(i=0;i<=1;i++)
     {
       node=NodeAsNode("passengers",reqNode);       
@@ -267,13 +276,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	seats=NodeAsIntegerFast("seats",node2);    	
       	if (seats<=0&&i==0||seats>0&&i==1) continue;
       	const char* surname=NodeAsStringFast("surname",node2);
-      	const char* name=NodeAsStringFast("surname",node2);
-      	const char* pers_type=NodeAsStringFast("surname",node2);
+      	const char* name=NodeAsStringFast("name",node2);
+      	const char* pers_type=NodeAsStringFast("pers_type",node2);
       	const char* seat_no=NodeAsStringFast("seat_no",node2);
+      	tst();
       	if (!NodeIsNULLFast("pax_id",node2))
       	  Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
       	else  
       	  Qry.SetVariable("pax_id",FNull);    	      	  
+      	tst();  
       	Qry.SetVariable("surname",surname);
       	Qry.SetVariable("name",name);
       	Qry.SetVariable("pers_type",pers_type);
@@ -309,6 +320,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           else
             throw;
         };
+        tst();
         ReplaceTextChild(node,"pax_id",Qry.GetVariableAsInteger("pax_id"));
         
       	TLogMsg msg; 
@@ -323,7 +335,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 msg.msg+=". Баг.нормы: "/*+normStr*/;      
         reqInfo->MsgToLog(msg);	
         reg_no++;
+        tst();
         SavePaxRem(node);                                        
+        tst();
       };      
     };  
     tst();
@@ -421,8 +435,8 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
   for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)      	  
   {
     node2=remNode->children;	
-    RemQry.SetVariable("rem",NodeAsStringFast("rem",node2));
-    RemQry.SetVariable("rem_code",NodeAsStringFast("reme_code",node2));
+    RemQry.SetVariable("rem",NodeAsStringFast("rem_text",node2));
+    RemQry.SetVariable("rem_code",NodeAsStringFast("rem_code",node2));
     RemQry.Execute();
   };      		
   RemQry.Close();   
