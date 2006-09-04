@@ -191,8 +191,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Salons.ClName = cl;
     Salons.Read( rTripSalons );    
     //рассадка	    
-    SeatsPassengers( &Salons );          
-    SavePlaces( );    
+    SEATS::SeatsPassengers( &Salons );          
+    SEATS::SavePlaces( );    
     //заполним номера мест после рассадки
     node=NodeAsNode("passengers",reqNode);       
     int i=0;    

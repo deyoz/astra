@@ -32,6 +32,7 @@ class TCounters {
 
 struct TPassenger {
   /*вход*/
+  int index;
   int grpId;
   int regNo;
   std::string fullName;
@@ -93,6 +94,7 @@ class TPassengers {
     void SetCountersForPass( TPassenger  &pass );
     bool existsNoSeats();
     void Build( xmlNodePtr passNode );
+    void sortByIndex();
 };
 
 struct TSeatPlace {
