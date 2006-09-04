@@ -31,6 +31,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("trip_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные"); 
+  
+  //map для норм
+  map<int,string> norms;
 
   //определим - новая регистрация или запись изменений
   xmlNodePtr node,node2,remNode; 
@@ -111,13 +114,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	};         
       if (addVIP && !flagVIP)
       {        
-        remNode=NewTextChild(ReplaceTextChild(node,"rems"),"rem");
+        node2=node->children;              
+        if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");             
+        remNode=NewTextChild(remNode,"rem");        
         NewTextChild(remNode,"rem_code","VIP");
         NewTextChild(remNode,"rem_text","VIP");          
       };	      
       if (seats>1 && !flagEXST && !flagSTCR)
       {
-      	remNode=NewTextChild(ReplaceTextChild(node,"rems"),"rem");        
+      	node2=node->children;              
+        if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");             
+        remNode=NewTextChild(remNode,"rem");        
         NewTextChild(remNode,"rem_code","EXST");
         NewTextChild(remNode,"rem_text","EXST");          	
       };      
@@ -149,8 +156,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     { 
       if (free<0) free=0;
       throw UserException("Доступных мест осталось %d",free);
-    };        
-    tst();
+    };            
     node=NodeAsNode("passengers",reqNode);       
     Passengers.Clear();          
     //заполним массив для рассадки			      	      
@@ -161,7 +167,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	
     	TPassenger pas;      	
     	pas.clname=cl;
-    	if (place_status=="FP"&&GetNodeFast("pax_id",node2)&&!NodeIsNULLFast("pax_id",node2))
+    	if (place_status=="FP"&&!NodeIsNULLFast("pax_id",node2))
     	  pas.placeStatus="BR";
     	else  
     	  pas.placeStatus=place_status;
@@ -178,22 +184,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	  };  
     	};        	
     	Passengers.Add(pas);
-    };
-    tst();
+    };    
     // начитка салона
     TSalons Salons;
     Salons.trip_id = point_id;
     Salons.ClName = cl;
-    Salons.Read( rTripSalons );
-    tst();
+    Salons.Read( rTripSalons );    
     //рассадка	    
-    SeatsPassengers( &Salons );      
-    tst();
-    SavePlaces( );
-    tst();
+    SeatsPassengers( &Salons );          
+    SavePlaces( );    
     //заполним номера мест после рассадки
     node=NodeAsNode("passengers",reqNode);       
-    int i=0;
+    int i=0;    
     for(node=node->children;node!=NULL&&i<Passengers.getCount();node=node->next)	      
     {           	                              
     	node2=node->children;
@@ -201,9 +203,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	if (Passengers.Get(i).placeName=="") throw Exception("SeatsPassengers: empty placeName");
     	ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
     	i++;
-    };	
-    tst();
-    if (node!=NULL||i<Passengers.getCount()) throw Exception("SeatsPassengers: wrong count");    
+    };	    
+    //if (node!=NULL||i<Passengers.getCount()) throw Exception("SeatsPassengers: wrong count");    
     //получим рег. номера и признак совместной регистрации и посадки
     Qry.Clear();
     Qry.SQLText=
@@ -265,8 +266,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.DeclareVariable("ticket_no",otString);  
     Qry.DeclareVariable("coupon_no",otInteger);  
     Qry.DeclareVariable("document",otString);  
-    Qry.DeclareVariable("subclass",otString);  
-    tst();
+    Qry.DeclareVariable("subclass",otString);      
     for(i=0;i<=1;i++)
     {
       node=NodeAsNode("passengers",reqNode);       
@@ -278,13 +278,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	const char* surname=NodeAsStringFast("surname",node2);
       	const char* name=NodeAsStringFast("name",node2);
       	const char* pers_type=NodeAsStringFast("pers_type",node2);
-      	const char* seat_no=NodeAsStringFast("seat_no",node2);
-      	tst();
+      	const char* seat_no=NodeAsStringFast("seat_no",node2);      	
       	if (!NodeIsNULLFast("pax_id",node2))
       	  Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
       	else  
-      	  Qry.SetVariable("pax_id",FNull);    	      	  
-      	tst();  
+      	  Qry.SetVariable("pax_id",FNull);    	      	        	
       	Qry.SetVariable("surname",surname);
       	Qry.SetVariable("name",name);
       	Qry.SetVariable("pers_type",pers_type);
@@ -316,13 +314,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         {
           if (E.Code==1)
             throw UserException((string)"Пассажир "+surname+(*name!=0?" ":"")+name+
-                                "уже зарегистрирован с другой стойки");
+                                        " уже зарегистрирован с другой стойки");
           else
             throw;
-        };
-        tst();
+        };        
         ReplaceTextChild(node,"pax_id",Qry.GetVariableAsInteger("pax_id"));
         
+        //запись ремарок
+        SavePaxRem(node);
+        //запись норм                                       
+        string normStr=SavePaxNorms(node,norms);
+        //запись информации по пассажиру в лог
       	TLogMsg msg; 
         msg.ev_type=ASTRA::evtPax;
         msg.id1=point_id;
@@ -332,15 +334,150 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 (pr_with_reg?" и посажен. ":". ")+     
                 "П/н: "+airp_arv+", класс: "+cl+", статус: "+grp_status+", место: "+
                 (seats>0?seat_no+(seats>1?"+"+IntToString(seats-1):""):"нет")+
-                msg.msg+=". Баг.нормы: "/*+normStr*/;      
+                msg.msg+=". Баг.нормы: "+normStr;      
         reqInfo->MsgToLog(msg);	
-        reg_no++;
-        tst();
-        SavePaxRem(node);                                        
-        tst();
+        reg_no++;        
       };      
-    };  
-    tst();
+    };                          
+  }
+  else
+  {
+    grp_id=NodeAsInteger(node);	
+    
+    //проверим pr_refuse
+    bool pr_refuse=true;
+    node=NodeAsNode("passengers",reqNode);       
+    for(node=node->children;node!=NULL;node=node->next)	      
+    {
+      node2=node->children;
+      if (NodeIsNULLFast("refuse",node2)) 
+      {
+        pr_refuse=false;
+        break;
+      };  
+    };
+        
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE pax_grp "
+      "SET excess=:excess,pr_refuse=:pr_refuse,tid=tid__seq.nextval "
+      "WHERE grp_id=:grp_id AND tid=:tid";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",reqNode));
+    Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));    
+    Qry.CreateVariable("pr_refuse",otInteger,(int)pr_refuse);                       
+    Qry.Execute();
+    if (Qry.RowsProcessed()<=0) 
+      throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+      
+    Qry.Clear();
+    Qry.SQLText="SELECT refuse,reg_no,seat_no FROM pax WHERE pax_id=:pax_id";
+    Qry.DeclareVariable("pax_id",otInteger);  
+        
+    TQuery PaxQry(&OraSession);    
+    PaxQry.Clear();
+    PaxQry.SQLText="UPDATE pax "
+                   "SET surname=:surname, "
+                   "    name=:name, "
+                   "    pers_type=:pers_type, "
+                   "    refuse=:refuse, "
+                   "    ticket_no=:ticket_no, "
+                   "    coupon_no=:coupon_no, "
+                   "    document=:document, "
+                   "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
+                   "    tid=tid__seq.currval "
+                   "WHERE pax_id=:pax_id AND tid=:tid";
+    PaxQry.DeclareVariable("pax_id",otInteger);
+    PaxQry.DeclareVariable("tid",otInteger);
+    PaxQry.DeclareVariable("surname",otString);
+    PaxQry.DeclareVariable("name",otString);
+    PaxQry.DeclareVariable("pers_type",otString);
+    PaxQry.DeclareVariable("refuse",otString);
+    PaxQry.DeclareVariable("ticket_no",otString);
+    PaxQry.DeclareVariable("coupon_no",otInteger);
+    PaxQry.DeclareVariable("document",otString);
+    
+    TQuery SalonQry(&OraSession);
+    SalonQry.Clear();
+    SalonQry.SQLText=
+      "BEGIN "
+      "  salons.seatpass( :point_id, :pax_id, :seat_no, 0 ); "
+      "END;";
+    SalonQry.CreateVariable("point_id",otInteger,point_id);
+    SalonQry.DeclareVariable("pax_id",otInteger);
+    SalonQry.DeclareVariable("seat_no",otString);
+                  
+    node=GetNode("passengers",reqNode);
+    if (node!=NULL)
+    {
+      node=node->children;	
+      for(node=node->children;node!=NULL;node=node->next)	      
+      {
+      	node2=node->children;      	      	
+      	int pax_id=NodeAsIntegerFast("pax_id",node2);
+      	Qry.SetVariable("pax_id",pax_id);
+      	Qry.Execute();
+      	string old_refuse=Qry.FieldAsString("refuse");      	
+      	int reg_no=Qry.FieldAsInteger("reg_no");      	
+      	if (!Qry.FieldIsNULL("seat_no"))
+      	{
+      	  SalonQry.SetVariable("pax_id",pax_id);
+      	  SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
+      	  SalonQry.Execute();      
+        };          
+      	
+      	const char* surname=NodeAsStringFast("surname",node2);
+      	const char* name=NodeAsStringFast("name",node2);
+      	const char* pers_type=NodeAsStringFast("pers_type",node2);
+      	const char* refuse=NodeAsStringFast("refuse",node2);
+      	PaxQry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
+      	PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
+      	PaxQry.SetVariable("surname",surname);
+      	PaxQry.SetVariable("name",name);
+      	PaxQry.SetVariable("pers_type",pers_type);
+      	PaxQry.SetVariable("refuse",refuse);
+      	PaxQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+      	if (!NodeIsNULLFast("coupon_no",node2))
+      	  PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+      	else  
+      	  PaxQry.SetVariable("coupon_no",FNull);
+      	PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
+      	PaxQry.Execute();
+      	if (PaxQry.RowsProcessed()<=0) 
+      	  throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
+                                      " производились с другой стойки. Обновите данные");      	
+        
+        //запись информации по пассажиру в лог                              
+        if (old_refuse!=refuse)
+        {
+          if (old_refuse=="")
+            reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
+                              "Причина отказа в регистрации: "+refuse+". ", 
+                              ASTRA::evtPax,point_id,reg_no,grp_id);
+          else
+            reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
+                              "Изменена причина отказа в регистрации: "+refuse+". ",
+                              ASTRA::evtPax,point_id,reg_no,grp_id);                              
+        }
+        else
+        {
+          //проверить на PaxUpdatespending!!!      
+          reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
+                            "Изменены данные пассажира.",
+                            ASTRA::evtPax,point_id,reg_no,grp_id);      
+        };                              
+        //запись ремарок
+        SavePaxRem(node);
+        //запись норм                                       
+        string normStr=SavePaxNorms(node,norms);                              
+        if (normStr!="")
+          reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
+                            "Баг.нормы: "+normStr,ASTRA::evtPax,point_id,reg_no,grp_id);                                                          
+      };	
+    };	
+    
+    
+  };
     //проверим дублирование билетов
     Qry.Clear();
     Qry.SQLText=    
@@ -358,13 +495,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	    strcmp(Qry.FieldAsString("ticket_no"),NodeAsStringFast("ticket_no",node2))==0)	
       	  throw UserException("Эл. билет №%s дублируется",NodeAsStringFast("ticket_no",node2));
       };	    	
-    };
-            
+    };	
     //обновление counters
     Qry.Clear();
     Qry.SQLText=
       "BEGIN "
       "  mvd.sync_pax_grp(:grp_id,:desk); "
+      "  ckin.check_grp(:grp_id); "  
       "  ckin.recount(:point_id); "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
@@ -372,44 +509,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);        
     Qry.Execute();
     Qry.Close();    
-  }
-  else
-  {
-    grp_id=NodeAsInteger(node);	
-    
-    Qry.Clear();
-    Qry.SQLText="UPDATE pax "
-                "SET surname=:surname, "
-                "    name=:name, "
-                "    pers_type=:pers_type, "
-                "    refuse=:refuse, "
-                "    ticket_no=:ticket_no, "
-                "    coupon_no=:coupon_no, "
-                "    document=:document, "
-                "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
-                "    tid=tid__seq.currval "
-                "WHERE pax_id=:pax_id AND tid=:tid";
-    Qry.DeclareVariable("pax_id",otInteger);
-    Qry.DeclareVariable("tid",otInteger);
-    Qry.DeclareVariable("surname",otString);
-    Qry.DeclareVariable("name",otString);
-    Qry.DeclareVariable("pers_type",otString);
-    Qry.DeclareVariable("refuse",otString);
-    Qry.DeclareVariable("ticket_no",otString);
-    Qry.DeclareVariable("coupon_no",otInteger);
-    Qry.DeclareVariable("document",otString);
-    
-    node=GetNode("passengers",reqNode);
-    if (node!=NULL)
-    {
-      node=node->children;	
-      for(node=node->children;node!=NULL;node=node->next)	      
-      {
-      };	
-    };	
-    
-    
-  };	
    
 };
 
@@ -419,17 +518,18 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
   if (paxNode==NULL) return;
   xmlNodePtr node2=paxNode->children;
   int pax_id=NodeAsIntegerFast("pax_id",node2);	
+  
+  xmlNodePtr remNode=GetNodeFast("rems",node2);
+  if (remNode==NULL) return;
 		
   TQuery RemQry(&OraSession);
   RemQry.Clear();
   RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id";
   RemQry.CreateVariable("pax_id",otInteger,pax_id);
   RemQry.Execute();
-  
-  xmlNodePtr remNode=GetNodeFast("rems",node2);
-  if (remNode==NULL) return;
-  
-  RemQry.SQLText="INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES (:pax_id,:rem,:rem_code)";
+      
+  RemQry.SQLText=
+    "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES (:pax_id,:rem,:rem_code)";
   RemQry.DeclareVariable("rem",otString);
   RemQry.DeclareVariable("rem_code",otString);
   for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)      	  
@@ -442,5 +542,131 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
   RemQry.Close();   
 };
 
+string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms)
+{  
+  if (paxNode==NULL) return "";
+  xmlNodePtr node2=paxNode->children;
+  int pax_id=NodeAsIntegerFast("pax_id",node2);	
+  
+  xmlNodePtr normNode=GetNodeFast("norms",node2);
+  if (normNode==NULL) return "";
+  
+  TQuery NormQry(&OraSession);
+  NormQry.Clear();
+  NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
+  NormQry.CreateVariable("pax_id",otInteger,pax_id);
+  NormQry.Execute();  
+  NormQry.SQLText=
+    "INSERT INTO pax_norms(pax_id,bag_type,norm_id) VALUES(:pax_id,:bag_type,:norm_id)";
+  NormQry.DeclareVariable("bag_type",otInteger);
+  NormQry.DeclareVariable("norm_id",otInteger);    
+  string logStr;
+  for(normNode=normNode->children;normNode!=NULL;normNode=normNode->next)      	  
+  {
+    node2=normNode->children;	        
+    //ищем норму в norms
+    if (!NodeIsNULLFast("norm_id",node2) && norms.find(NodeAsIntegerFast("norm_id",node2))==norms.end())
+    {
+    	int norm_id=NodeAsIntegerFast("norm_id",node2);
+    	TQuery Qry(&OraSession);
+        Qry.Clear();
+        Qry.SQLText="SELECT norm_type,amount,weight,per_unit FROM bag_norms WHERE id=:norm_id";
+        Qry.CreateVariable("norm_id",otInteger,norm_id);    
+        Qry.Execute();
+        if (Qry.Eof) throw Exception("Baggage norm not found (norm_id=%d)",norm_id);        
+        string normStr=lowerc(Qry.FieldAsString("norm_type"));
+        if (!Qry.FieldIsNULL("weight"))
+        {
+          if (!Qry.FieldIsNULL("amount"))	
+            normStr=normStr+" "+Qry.FieldAsString("amount")+"м"+Qry.FieldAsString("weight");
+          else
+            normStr=normStr+" "+Qry.FieldAsString("weight");
+          if (!Qry.FieldIsNULL("per_unit")&&Qry.FieldAsInteger("per_unit")>0)
+            normStr+="кг/м";
+          else
+            normStr+="кг";            
+        }
+        else
+        {
+          if (!Qry.FieldIsNULL("amount"))	
+            normStr=normStr+" "+Qry.FieldAsString("amount")+"м";          	
+        };		                               
+        norms[norm_id]=normStr;
+        ProgTrace(TRACE5,"Added baggage norm %s",normStr.c_str());
+    };      
+    if (!NodeIsNULLFast("bag_type",node2))
+      NormQry.SetVariable("bag_type",NodeAsIntegerFast("bag_type",node2));
+    else
+      NormQry.SetVariable("bag_type",FNull);
+    if (!NodeIsNULLFast("norm_id",node2))
+      NormQry.SetVariable("norm_id",NodeAsIntegerFast("norm_id",node2));
+    else
+      NormQry.SetVariable("norm_id",FNull);
+    NormQry.Execute();
+    //составим строчку для записи в журнал операций
+    if (!NodeIsNULLFast("bag_type",node2))
+    {    	      
+      if (!logStr.empty()) logStr+=", ";
+      if (!NodeIsNULLFast("norm_id",node2))
+        logStr=logStr+NodeAsStringFast("bag_type",node2)+": "+norms[NodeAsIntegerFast("norm_id",node2)];
+      else  
+        logStr=logStr+NodeAsStringFast("bag_type",node2)+": нет";       
+    }
+    else  
+    {
+      if (!logStr.empty()) logStr=", "+logStr;	
+      if (!NodeIsNULLFast("norm_id",node2))
+        logStr=norms[NodeAsIntegerFast("norm_id",node2)]+logStr;
+      else
+        logStr="нет"+logStr;	
+    };        
+  };      		
+  NormQry.Close();         
+  if (logStr=="") logStr="нет";
+  return logStr;
+};  
 
+void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
+{
+  if (grpNode==NULL) return;
+  xmlNodePtr node2=grpNode->children;
+  int grp_id=NodeAsIntegerFast("grp_id",node2);	
+  
+  xmlNodePtr trferNode=GetNodeFast("transfer",node2);
+  if (trferNode==NULL) return;      
+  
+  TQuery TrferQry(&OraSession);
+  TrferQry.Clear();
+  TrferQry.SQLText="DELETE FROM transfer WHERE grp_id=:grp_id";
+  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
+  TrferQry.Execute();
+      
+  TrferQry.SQLText=
+    "INSERT INTO transfer(grp_id,transfer_num,airline,flt_no,suffix,local_date,airp_arv,subclass) "
+    "VALUES(:grp_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_arv,:subclass)";
+  TrferQry.DeclareVariable("transfer_num",otInteger);
+  TrferQry.DeclareVariable("airline",otString);
+  TrferQry.DeclareVariable("flt_no",otInteger);
+  TrferQry.DeclareVariable("suffix",otString);
+  TrferQry.DeclareVariable("local_date",otInteger);
+  TrferQry.DeclareVariable("airp_arv",otString);
+  TrferQry.DeclareVariable("subclass",otString);  
+  int i=1;
+  for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,i++)      	  
+  {
+    node2=trferNode->children;
+    if (trferNode->next!=NULL)	
+      TrferQry.SetVariable("transfer_num",i);
+    else
+      TrferQry.SetVariable("transfer_num",9);      
+    TrferQry.SetVariable("airline",NodeAsStringFast("airline",node2));
+    TrferQry.SetVariable("flt_no",NodeAsIntegerFast("flt_no",node2));
+    TrferQry.SetVariable("suffix",NodeAsStringFast("suffix",node2));
+    TrferQry.SetVariable("local_date",NodeAsIntegerFast("local_date",node2));
+    TrferQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
+    TrferQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));    
+    TrferQry.Execute();
+  };      		
+  TrferQry.Close();             
+};
 

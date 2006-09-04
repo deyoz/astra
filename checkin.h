@@ -1,6 +1,8 @@
 #ifndef _CHECKIN_H_
 #define _CHECKIN_H_
 
+#include <string>
+#include <map>
 #include <libxml/tree.h>
 #include "JxtInterface.h"		
 #include "astra_ticket.h"
@@ -19,6 +21,8 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};  
   
   void SavePaxRem(xmlNodePtr paxNode);
+  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms);
+  void SaveTransfer(xmlNodePtr grpNode);
 };
 
 
