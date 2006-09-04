@@ -66,7 +66,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     }
 }
 
-void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+int BrdInterface::PaxUpdate(int pax_id, int &tid, int pr_brd)
 {
     TQuery *Qry = OraSession.CreateQuery();
     int new_tid = get_new_tid();
@@ -114,13 +114,15 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
     Qry->DeclareVariable("grp_id", otInteger);
 
     Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-    Qry->SetVariable("pax_id", NodeAsInteger("pax_id", reqNode));
-    Qry->SetVariable("tid", NodeAsInteger("tid", reqNode));
-    Qry->SetVariable("pr_brd", NodeAsInteger("pr_brd", reqNode));
+    Qry->SetVariable("pax_id", pax_id);
+    Qry->SetVariable("tid", tid);
+    Qry->SetVariable("pr_brd", pr_brd);
 
     Qry->Execute();
 
-    int pr_brd = Qry->GetVariableAsInteger("pr_brd");
+    pr_brd = Qry->GetVariableAsInteger("pr_brd");
+    tid = new_tid;
+
     if(pr_brd >= 0) {
         /*
         throw UserException((string)
@@ -138,48 +140,99 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
                                        Qry->GetVariableAsInteger("point_id"),
                                        Qry->GetVariableAsInteger("regno"),
                                        Qry->GetVariableAsInteger("grp_id"));
-    }    
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    NewTextChild(dataNode, "pr_brd", pr_brd);
-    NewTextChild(dataNode, "new_tid", new_tid);
+    }
     OraSession.DeleteQuery(*Qry);
+    return pr_brd;
 }
 
-void BrdInterface::CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    int pax_id = NodeAsInteger("pax_id", reqNode);
+    int tid = NodeAsInteger("tid", reqNode);
+    int pr_brd = NodeAsInteger("pr_brd", reqNode);
+    pr_brd = PaxUpdate(pax_id, tid, pr_brd);
+
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    if(pr_brd < 0) SetCounters(dataNode);
+    NewTextChild(dataNode, "pr_brd", pr_brd);
+    NewTextChild(dataNode, "new_tid", tid);
+}
+
+bool ChckSt(int pax_id, string seat_no)
+{
+    bool Result = true;
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "SELECT seat_no FROM bp_print, "
         "  (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
         "WHERE pax_id=:pax_id AND bp_print.time_print=a.time_print ";
-    TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(Qry);
+    Qry->DeclareVariable("pax_id", otInteger);
+    Qry->SetVariable("pax_id", pax_id);
     Qry->Execute();
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
     while(!Qry->Eof) {
-        if(strcmp(NodeAsString("seat_no", reqNode), Qry->FieldAsString("seat_no")) != 0)
+        if(seat_no == Qry->FieldAsString("seat_no"))
             break;
         Qry->Next();
     }
     if(!Qry->Eof)
-        NewTextChild(dataNode, "failed");
+        Result = false;
     OraSession.DeleteQuery(*Qry);
+    return Result;
 }
+
+void BrdInterface::CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int pax_id = NodeAsInteger("sqlparams/pax_id", reqNode);
+    string seat_no = NodeAsString("seat_no", reqNode);
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    if(!ChckSt(pax_id, seat_no))
+        NewTextChild(dataNode, "failed");
+}
+
+
+struct TPax {
+    int pax_id;
+    int grp_id;
+    int point_id;
+    int pr_brd;
+    int old_pr_brd;
+    int reg_no;
+    string surname;
+    string name;
+    string pers_type;
+    string seat_no;
+    int seats;
+    int doc_check;
+    int tid;
+    string seat_no_str;
+    string remarks;
+    int rk_amount;
+    int rk_weight;
+    int excess;
+    int value_bag_count;
+    string tags;
+    int pr_payment;
+};
+typedef vector<TPax> TPaxList;
 
 void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    enum {search, list} ListType;
+
     ProgTrace(TRACE5, "Query: %s", reqNode->name);
     TQuery *Qry = OraSession.CreateQuery();
 
     string condition;
-    if(strcmp((char *)reqNode->name, "brd_list") == 0)
+    if(strcmp((char *)reqNode->name, "brd_list") == 0) {
+        ListType = list;
         condition = " AND point_id= :point_id AND pr_brd= :pr_brd ";
-    else if(strcmp((char *)reqNode->name, "search_reg") == 0)
+    } else if(strcmp((char *)reqNode->name, "search_reg") == 0) {
+        ListType = search;
         condition = " AND point_id= :point_id AND reg_no= :reg_no AND pr_brd IS NOT NULL ";
-    else if(strcmp((char *)reqNode->name, "search_bar") == 0)
+    } else if(strcmp((char *)reqNode->name, "search_bar") == 0) {
+        ListType = search;
         condition = " AND pax_id= :pax_id AND pr_brd IS NOT NULL ";
-    else throw Exception("BrdInterface::BrdList: Unknown command tag %s", reqNode->name);
+    } else throw Exception("BrdInterface::BrdList: Unknown command tag %s", reqNode->name);
 
     string sqlText = (string)
         "SELECT "
@@ -225,33 +278,117 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SQLParams.getParams(GetNode("sqlparams", reqNode));
     SQLParams.setSQL(Qry);
     Qry->Execute();
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr listNode = NewTextChild(dataNode, "brd_list");
+    if(ListType == search && Qry->Eof)
+        throw UserException(1, "Пассажир не зарегистрирован");
+    TPaxList PaxList;
     while(!Qry->Eof) {
-        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
-        NewTextChild(paxNode, "pax_id",            Qry->FieldAsInteger("pax_id"));
-        NewTextChild(paxNode, "grp_id",            Qry->FieldAsInteger("grp_id"));
-        NewTextChild(paxNode, "point_id",          Qry->FieldAsInteger("point_id"));
-        NewTextChild(paxNode, "pr_brd",            Qry->FieldAsInteger("pr_brd"));
-        NewTextChild(paxNode, "reg_no",            Qry->FieldAsInteger("reg_no"));
-        NewTextChild(paxNode, "surname",           Qry->FieldAsString("surname"));
-        NewTextChild(paxNode, "name",              Qry->FieldAsString("name"));
-        NewTextChild(paxNode, "pers_type",         Qry->FieldAsString("pers_type"));
-        NewTextChild(paxNode, "seat_no",           Qry->FieldAsString("seat_no"));
-        NewTextChild(paxNode, "seats",             Qry->FieldAsInteger("seats"));
-        NewTextChild(paxNode, "doc_check",         Qry->FieldAsInteger("doc_check"));
-        NewTextChild(paxNode, "tid",               Qry->FieldAsInteger("tid"));
-        NewTextChild(paxNode, "seat_no_str",       Qry->FieldAsString("seat_no_str"));
-        NewTextChild(paxNode, "remarks",           Qry->FieldAsString("remarks"));
-        NewTextChild(paxNode, "rk_amount",         Qry->FieldAsInteger("rk_amount"));
-        NewTextChild(paxNode, "rk_weight",         Qry->FieldAsInteger("rk_weight"));
-        NewTextChild(paxNode, "excess",            Qry->FieldAsInteger("excess"));
-        NewTextChild(paxNode, "value_bag_count",   Qry->FieldAsInteger("value_bag_count"));
-        NewTextChild(paxNode, "tags",              Qry->FieldAsString("tags"));
-        NewTextChild(paxNode, "pr_payment",        Qry->FieldAsInteger("pr_payment"));
+        TPax Pax;
+        Pax.pax_id          = Qry->FieldAsInteger("pax_id");
+        Pax.grp_id          = Qry->FieldAsInteger("grp_id");
+        Pax.point_id        = Qry->FieldAsInteger("point_id");
+        Pax.pr_brd          = Qry->FieldAsInteger("pr_brd");
+        Pax.old_pr_brd      = Pax.pr_brd;
+        Pax.reg_no          = Qry->FieldAsInteger("reg_no");
+        Pax.surname         = Qry->FieldAsString("surname");
+        Pax.name            = Qry->FieldAsString("name");
+        Pax.pers_type       = Qry->FieldAsString("pers_type");
+        Pax.seat_no         = Qry->FieldAsString("seat_no");
+        Pax.seats           = Qry->FieldAsInteger("seats");
+        Pax.doc_check       = Qry->FieldAsInteger("doc_check");
+        Pax.tid             = Qry->FieldAsInteger("tid");
+        Pax.seat_no_str     = Qry->FieldAsString("seat_no_str");
+        Pax.remarks         = Qry->FieldAsString("remarks");
+        Pax.rk_amount       = Qry->FieldAsInteger("rk_amount");
+        Pax.rk_weight       = Qry->FieldAsInteger("rk_weight");
+        Pax.excess          = Qry->FieldAsInteger("excess");
+        Pax.value_bag_count = Qry->FieldAsInteger("value_bag_count");
+        Pax.tags            = Qry->FieldAsString("tags");
+        Pax.pr_payment      = Qry->FieldAsInteger("pr_payment");
+        PaxList.push_back(Pax);
         Qry->Next();
     }
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    switch(ListType) {
+        case search:
+            ProgTrace(TRACE5, "ListType: search");
+            break;
+        case list:
+            ProgTrace(TRACE5, "ListType: list");
+            break;
+    }
+    if(ListType == search) {
+        TPaxList::iterator Pax = PaxList.begin();
+        if(Pax->point_id != JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"))
+            throw UserException(1, "Пассажир относится к другому рейсу");
+        int boarding = NodeAsInteger("boarding", reqNode);
+        if(!boarding && !Pax->pr_brd || boarding && Pax->pr_brd) {
+            if(Pax->pr_brd)
+                throw UserException(1, "Пассажир с указанным номером уже прошел посадку");
+            else
+                throw UserException(1, "Пассажир с указанным номером не прошел посадку");
+        }
+        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no))
+            NewTextChild(dataNode, "failed");
+        else {
+            // update
+            Pax->pr_brd = !Pax->pr_brd;
+            int Result = PaxUpdate(Pax->pax_id, Pax->tid, Pax->pr_brd);
+            NewTextChild(dataNode, "pr_brd", Result);
+        }
+    }
     OraSession.DeleteQuery(*Qry);
+
+    xmlNodePtr listNode = NewTextChild(dataNode, "brd_list");
+    for(TPaxList::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
+        NewTextChild(paxNode, "pax_id", iv->pax_id);
+        NewTextChild(paxNode, "grp_id", iv->grp_id);
+        NewTextChild(paxNode, "point_id", iv->point_id);
+        NewTextChild(paxNode, "pr_brd", iv->pr_brd);
+        NewTextChild(paxNode, "old_pr_brd", iv->old_pr_brd);
+        NewTextChild(paxNode, "reg_no", iv->reg_no);
+        NewTextChild(paxNode, "surname", iv->surname);
+        NewTextChild(paxNode, "name", iv->name);
+        NewTextChild(paxNode, "pers_type", iv->pers_type);
+        NewTextChild(paxNode, "seat_no", iv->seat_no);
+        NewTextChild(paxNode, "seats", iv->seats);
+        NewTextChild(paxNode, "doc_check", iv->doc_check);
+        NewTextChild(paxNode, "tid", iv->tid);
+        NewTextChild(paxNode, "seat_no_str", iv->seat_no_str);
+        NewTextChild(paxNode, "remarks", iv->remarks);
+        NewTextChild(paxNode, "rk_amount", iv->rk_amount);
+        NewTextChild(paxNode, "rk_weight", iv->rk_weight);
+        NewTextChild(paxNode, "excess", iv->excess);
+        NewTextChild(paxNode, "value_bag_count", iv->value_bag_count);
+        NewTextChild(paxNode, "tags", iv->tags);
+        NewTextChild(paxNode, "pr_payment", iv->pr_payment);
+    }
+}
+
+void BrdInterface::SetCounters(xmlNodePtr dataNode)
+{
+    TQuery Qry(&OraSession);
+    int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+    Qry.SQLText =
+        "SELECT "
+        "    COUNT(*) AS reg, "
+        "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
+        "FROM "
+        "    pax_grp, "
+        "    pax "
+        "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    point_id=:trip_id AND "
+        "    pr_brd IS NOT NULL ";
+    Qry.DeclareVariable("trip_id", otInteger);
+
+    Qry.SetVariable("trip_id", trip_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
+        NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
+        NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
+    }
 }
 
 void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
