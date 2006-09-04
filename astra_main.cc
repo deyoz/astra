@@ -62,12 +62,12 @@ class AstraApplication : public ApplicationCallbacks
 */
 };
 
-
+/*
 void term3(int signo)
 {
   ProgError(STDLOG,"Killed in action :-( by %d",signo);
   exit(1);
-}
+}*/
 
 void AstraApplication::levC_app_init()
 {
