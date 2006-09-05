@@ -317,8 +317,20 @@ bool TCacheTable::refreshData()
       for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++) {
         if(Qry->FieldIsNULL(vecFieldIdx[ j ] )) 
           row.cols.push_back( "" );
-        else 
-          row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+        else {
+            switch( i->DataType ) {
+              case ftSignedNumber:
+              case ftUnsignedNumber:
+                if ( i->Scale > 0 || i->DataSize>9 ) 
+                  row.cols.push_back( FloatToString( Qry->FieldAsFloat( vecFieldIdx[ j ] ) ) );
+                else
+                  row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );              
+                break;
+              default:
+                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );              
+                  break;
+            }
+        }
       }
       if(delIdx >= 0 &&  Qry->FieldAsInteger(delIdx) != 0)
         row.status = usDeleted;
