@@ -343,29 +343,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
   {
     grp_id=NodeAsInteger(node);	
-    
-    //проверим pr_refuse
-    bool pr_refuse=true;
-    node=NodeAsNode("passengers",reqNode);       
-    for(node=node->children;node!=NULL;node=node->next)	      
-    {
-      node2=node->children;
-      if (NodeIsNULLFast("refuse",node2)) 
-      {
-        pr_refuse=false;
-        break;
-      };  
-    };
-        
+                
     Qry.Clear();
     Qry.SQLText=
       "UPDATE pax_grp "
-      "SET excess=:excess,pr_refuse=:pr_refuse,tid=tid__seq.nextval "
+      "SET excess=:excess,tid=tid__seq.nextval "
       "WHERE grp_id=:grp_id AND tid=:tid";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",reqNode));
-    Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));    
-    Qry.CreateVariable("pr_refuse",otInteger,(int)pr_refuse);                       
+    Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));       
     Qry.Execute();
     if (Qry.RowsProcessed()<=0) 
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
@@ -402,35 +388,33 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     SalonQry.SQLText=
       "BEGIN "
       "  salons.seatpass( :point_id, :pax_id, :seat_no, 0 ); "
+      "  UPDATE pax SET seat_no=NULL,prev_seat_no=seat_no WHERE pax_id=:pax_id; "
       "END;";
     SalonQry.CreateVariable("point_id",otInteger,point_id);
     SalonQry.DeclareVariable("pax_id",otInteger);
-    SalonQry.DeclareVariable("seat_no",otString);
-                  
+    SalonQry.DeclareVariable("seat_no",otString);    
     node=GetNode("passengers",reqNode);
     if (node!=NULL)
-    {
-      node=node->children;	
+    {      
       for(node=node->children;node!=NULL;node=node->next)	      
-      {
+      {     
       	node2=node->children;      	      	
-      	int pax_id=NodeAsIntegerFast("pax_id",node2);
+      	int pax_id=NodeAsIntegerFast("pax_id",node2);     
       	Qry.SetVariable("pax_id",pax_id);
       	Qry.Execute();
       	string old_refuse=Qry.FieldAsString("refuse");      	
-      	int reg_no=Qry.FieldAsInteger("reg_no");      	
-      	if (!Qry.FieldIsNULL("seat_no"))
+      	int reg_no=Qry.FieldAsInteger("reg_no");      	      	                	
+      	if (!NodeIsNULLFast("refuse",node2)&&!Qry.FieldIsNULL("seat_no"))
       	{
       	  SalonQry.SetVariable("pax_id",pax_id);
       	  SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
       	  SalonQry.Execute();      
-        };          
-      	
+        };    
       	const char* surname=NodeAsStringFast("surname",node2);
       	const char* name=NodeAsStringFast("name",node2);
       	const char* pers_type=NodeAsStringFast("pers_type",node2);
-      	const char* refuse=NodeAsStringFast("refuse",node2);
-      	PaxQry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
+      	const char* refuse=NodeAsStringFast("refuse",node2);      	  	
+      	PaxQry.SetVariable("pax_id",pax_id);
       	PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
       	PaxQry.SetVariable("surname",surname);
       	PaxQry.SetVariable("name",name);
@@ -465,7 +449,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
                             "Изменены данные пассажира.",
                             ASTRA::evtPax,point_id,reg_no,grp_id);      
-        };                              
+        };                                      
         //запись ремарок
         SavePaxRem(node);
         //запись норм                                       
