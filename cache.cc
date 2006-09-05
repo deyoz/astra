@@ -578,8 +578,6 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         if ( iv->status != status ) 
           continue;
         SetVariables( *iv, vars );
-        /* задаем переменные, которые дополнительно пришли 
-           после вызова на клиенте OnSetVariable */
         try {
           Qry->Execute();
           if ( Logging ) /* логирование */
@@ -631,6 +629,13 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
                   (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
       }
     }
+  }
+  /* задаем переменные, которые дополнительно пришли 
+     после вызова на клиенте OnSetVariable */  
+  for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
+    Qry->SetVariable( iv->first, iv->second.Value );
+    ProgTrace( TRACE5, "SetVariable name=%s, value=%s", 
+              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );    
   }
 }
 
