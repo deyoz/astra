@@ -321,8 +321,9 @@ bool TCacheTable::refreshData()
             switch( i->DataType ) {
               case ftSignedNumber:
               case ftUnsignedNumber:
-                if ( i->Scale > 0 || i->DataSize>9 ) 
-                  row.cols.push_back( FloatToString( Qry->FieldAsFloat( vecFieldIdx[ j ] ) ) );
+                ProgTrace( TRACE5, "Name=%s,Scale=%d, DataSize=%d", i->Name.c_str(), i->Scale, i->DataSize );
+                if ( i->Scale > 0 || i->DataSize > 9 ) 
+                  row.cols.push_back( Qry->FieldAsString( vecFieldIdx[ j ] ) );
                 else
                   row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );              
                 break;
