@@ -227,6 +227,7 @@ void scan_tlg(int tlg_id)
       else
       {
       	ProgTrace(TRACE5,"ttl=%d",ttl);
+      	ProgTrace(TRACE5,"ttl2=%d",(int)((TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60));
         //проверим, надо ли лепить h2h
         Qry.Clear();
         Qry.SQLText=

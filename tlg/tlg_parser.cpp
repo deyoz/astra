@@ -11,6 +11,7 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "oralib.h"
+#include "misc.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -75,10 +76,8 @@ char* TTlgParser::GetWord(char* p)
 {
   int len;
   if (p==NULL) return NULL;
-  for(;*p!=0&&!(*p>='A'&&*p<='Z'||*p>='А'&&*p<='Я'||*p=='Ё'||*p>='0'&&*p<='9');p++);
-  for(len=0;*(p+len)>='A'&&*(p+len)<='Z'||
-            *(p+len)>='А'&&*(p+len)<='Я'||*(p+len)=='Ё'||
-            *(p+len)>='0'&&*(p+len)<='9';len++);
+  for(;*p!=0&&!(IsUpperLetter(*p)||IsDigit(*p));p++);
+  for(len=0;IsUpperLetter(*(p+len))||IsDigit(*(p+len));len++);
   if (len>(int)sizeof(lex)-1) len=sizeof(lex)-1;
   lex[len]=0;
   strncpy(lex,p,len);
@@ -218,7 +217,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
             info.flt.suffix[0]=0;
             info.flt.suffix[1]=0;
             c=0;
-            if (flt[2]>='0'&&flt[2]<='9')
+            if (IsDigit(flt[2]))
               res=sscanf(flt,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             else
@@ -226,9 +225,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
-                !(info.flt.suffix[0]>='A'&&info.flt.suffix[0]<='Z'||
-                  info.flt.suffix[0]>='А'&&info.flt.suffix[0]<='Я'||
-                  info.flt.suffix[0]=='Ё')) throw ETlgError("Wrong flight");
+                !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
             GetAirline(info.flt.airline);
 
             TDateTime today;
@@ -358,7 +355,7 @@ void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
             info.flt.suffix[0]=0;
             info.flt.suffix[1]=0;
             c=0;
-            if (flt[2]>='0'&&flt[2]<='9')
+            if (IsDigit(flt[2]))
               res=sscanf(flt,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             else
@@ -366,9 +363,7 @@ void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
-                !(info.flt.suffix[0]>='A'&&info.flt.suffix[0]<='Z'||
-                  info.flt.suffix[0]>='А'&&info.flt.suffix[0]<='Я'||
-                  info.flt.suffix[0]=='Ё')) throw ETlgError("Wrong flight");
+                !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
             GetAirline(info.flt.airline);
             //переведем day в TDateTime
             curr_time=gmtime(&curr_time_t);
@@ -1218,12 +1213,8 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
     if (!RemItem.text.empty())
     {
       c=RemItem.text.at(RemItem.text.size()-1);
-      if ((c>='A'&&c<='Z'||
-           c>='А'&&c<='Я'||c=='Ё'||
-           c>='0'&&c<='9')&&
-          (tlg.lex[4]>='A'&&tlg.lex[4]<='Z'||
-           tlg.lex[4]>='А'&&tlg.lex[4]<='Я'||tlg.lex[4]=='Ё'||
-           tlg.lex[4]>='0'&&tlg.lex[4]<='9'))
+      if ((IsUpperLetter(c)||IsDigit(c))&&
+          (IsUpperLetter(tlg.lex[4])||IsDigit(tlg.lex[4])))           
         RemItem.text+=" ";
     };
     RemItem.text+=tlg.lex+4;
