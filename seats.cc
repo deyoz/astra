@@ -1258,6 +1258,8 @@ void TPassengers::Add( TPassenger &pass )
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
 //  ProgTrace(TRACE5, "pass.countPlace=%d", pass.countPlace );
+//  for ( vector<string>::iterator i=pass.rems.begin(); i!=pass.rems.end(); i++ )
+//    ProgTrace(TRACE5, "pass.rem=%s", i->c_str() );
   bool Pr_PLC = false;	
   if ( pass.countPlace > 1 &&
        find( pass.rems.begin(), pass.rems.end(), string( "STCR" ) ) != pass.rems.end() ) {

@@ -248,6 +248,7 @@ bool TCacheTable::refreshData()
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry->SQLText = SelectSQL;
       FindVariables(Qry->SQLText.SQLText(), false, vars);
+      clientVerData = -1;
     } 
     else { /* обновляем с использованием RefreshSQL и clientVerData */ 
       Qry->SQLText = RefreshSQL;  
@@ -377,6 +378,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
     xmlNodePtr ifaceNode = NewTextChild(dataNode, "iface");
 
     NewTextChild(ifaceNode, "title", Title);
+    NewTextChild(ifaceNode, "CanRefresh", !RefreshSQL.empty());
     NewTextChild(ifaceNode, "CanInsert", !InsertSQL.empty());
     NewTextChild(ifaceNode, "CanUpdate", !UpdateSQL.empty());
     NewTextChild(ifaceNode, "CanDelete", !DeleteSQL.empty());

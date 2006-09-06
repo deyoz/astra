@@ -134,6 +134,7 @@ inline void buildTrip( TTrip &trip, xmlNodePtr outNode )
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {	
+  ProgTrace( TRACE5, "ReadTrips" );
   TQuery OutQry( &OraSession );
   OutQry.SQLText = 
     "SELECT trip_id,move_row_id,company,flt_no,suffix,scd,est,act,bc,bort,park,status,triptype,litera, "\
@@ -267,33 +268,6 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       } 
   }
     
-/*       'SELECT * FROM('+
-       'SELECT trips.trip_id as trip_id,trips.move_row_id as move_row_id,'+
-       'trips_in.move_row_id as move_row_id_in,trips.trip as trip,trips_in.trip as trip_in,'+
-       'trips.company as company,trips_in.company as company_in,trips.scd as scd,trips_in.scd as scd_in,'+
-       'trips.est as est,trips_in.est as est_in,trips.act as act,trips_in.act as act_in,'+
-       'trips.bc as bc,trips.bort as bort,trips.park as park,'+
-       'trips.status as statusnum,NVL(trips_in.status,-1) as statusnum_in,'+
-       'b.reg as reg,d.resa as resa,trips.triptype as triptype,trips.litera as litera,'+
-       'SUBSTR( ckin.get_classes( trips.trip_id ), 1, 24 ) as classes,'+
-       'trips.remark as remark '+
-       'FROM trips,trips_in,(SELECT trips.trip_id, SUM(pax.seats) as reg FROM trips, pax_grp, pax '+
-       'WHERE (trips.trip_id=pax_grp.point_id)AND(pax_grp.grp_id=pax.grp_id)AND(pax.pr_brd IS NOT NULL) GROUP BY trips.trip_id) b,'+
-       '(SELECT point_id AS trip_id,SUM(crs_ok) as resa FROM counters2 GROUP BY point_id) d '+
-       'WHERE (trips.status!=-1)AND(trips.trip_id=trips_in.trip_id(+))AND'+
-       '(trips.trip_id=b.trip_id(+))AND(trips.trip_id=d.trip_id(+)) '+
-       'UNION '+
-       'SELECT trips_in.trip_id,TO_NUMBER(NULL),TO_NUMBER(trips_in.move_row_id),'+
-       'TO_CHAR(NULL),trips_in.trip,TO_CHAR(NULL),trips_in.company,TO_DATE(NULL),trips_in.scd,'+
-       'TO_DATE(NULL),trips_in.est,TO_DATE(NULL),trips_in.act,trips_in.bc,trips_in.bort,trips_in.park,'+
-       '-1,trips_in.status,'+
-       'TO_NUMBER(NULL),'+
-       'TO_NUMBER(NULL),TO_CHAR(NULL),TO_CHAR(NULL),TO_CHAR(NULL),'+
-       'TO_CHAR(NULL) '+
-       'FROM trips_in,trips WHERE (trips_in.status!=-1)AND(trips.trip_id(+)=trips_in.trip_id)AND'+
-       '((trips.status=-1)OR(trips.trip_id IS NULL))) '+
-       ' ORDER BY trip_id';*/
-    	
 }
 
 void SoppInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

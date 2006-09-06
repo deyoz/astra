@@ -65,11 +65,10 @@ TSQL *TSQL::Instance() {
 }  
 
 void TSQL::createSQLTrips( ) {
-//!!! убрать коментарии в sql запросе    
   sqltrips[ "CENT.EXE" ].sqlfrom = 
     " FROM trips "\
     "WHERE act IS NULL AND trips.status=0 "\
-    " /* AND *NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1 */ ";
+    " AND *NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1  ";
   TSQLParams p;  	      
   p.sqlfrom = 
     " FROM trips "\
