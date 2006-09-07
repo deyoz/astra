@@ -244,7 +244,19 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TReqInfo::Instance()->user.check_access( amRead );	
   TPerfTimer tm;
   TQuery SQry( &OraSession );
-  string sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference ";
+  string sql;
+  sql = "SELECT summer,winter FROM ";
+  sql += COMMON_ORAUSER();
+  sql += ".options";
+  SQry.SQLText = sql;
+  SQry.Execute();
+  if ( !SQry.RowCount() )
+    throw Exception( "table options is empty" );
+  xmlNodePtr dataNode = NewTextChild(resNode, "data");                  
+  NewTextChild( dataNode, "winter", SQry.FieldAsString( "winter" ) );
+  NewTextChild( dataNode, "summer", SQry.FieldAsString( "summer" ) );
+  SQry.Clear();
+  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference ";
   sql += " FROM ";
   sql += COMMON_ORAUSER();
   sql += ".sched_days ";
@@ -336,8 +348,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   }
   mapds.insert(std::make_pair( move_id, ds ) );
   ProgTrace(TRACE5, "getdata %ld", tm.Print());  
-  
-  xmlNodePtr dataNode = NewTextChild(resNode, "data");              
+    
   xmlNodePtr rangeListNode, destsNode = NULL;
   xmlNodePtr destNode;
   int trip_id = -1;
