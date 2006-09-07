@@ -68,7 +68,7 @@ void TSQL::createSQLTrips( ) {
   sqltrips[ "CENT.EXE" ].sqlfrom = 
     " FROM trips "\
     "WHERE act IS NULL AND trips.status=0 "\
-    " AND *NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1  ";
+    " AND NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1  ";
   TSQLParams p;  	      
   p.sqlfrom = 
     " FROM trips "\
@@ -89,7 +89,6 @@ void TSQL::createSQLTrips( ) {
     "    trip_stations.work_mode='П' AND "\
     "    gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0 ";
   /* задаем переменные */
-  p.addVariable( "station", otString, TReqInfo::Instance()->desk.code );
   p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
   p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );      
   /* запоминаем */
@@ -111,6 +110,8 @@ void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {
   Qry.SQLText = sql;
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   p.setVariables( Qry );    
+  if ( screen == "BRDBUS.EXE" )
+   Qry.CreateVariable( "station", otString, TReqInfo::Instance()->desk.code );
 }    
 
 /*******************************************************************************/
