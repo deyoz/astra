@@ -1,5 +1,5 @@
 #include "stat.h"
-
+/*
 SELECT
   0 AS priority,
   halls2.name AS hall,
@@ -9,7 +9,7 @@ SELECT
   NVL(SUM(unchecked),0) AS unchecked,
   NVL(SUM(excess),0) AS excess
 FROM
- (SELECT    
+ (SELECT
     0,stat.hall,
     COUNT(DISTINCT trips.trip_id) AS trips,
     SUM(f+c+y) AS pax,
@@ -60,7 +60,7 @@ SELECT
   NVL(SUM(unchecked),0) AS unchecked,
   NVL(SUM(excess),0) AS excess
 FROM
- (SELECT        
+ (SELECT
     COUNT(DISTINCT trips.trip_id) AS trips,
     SUM(f+c+y) AS pax,
     SUM(weight) AS weight,
@@ -96,7 +96,7 @@ union
             (:class is null or pax_grp.class = :class)
         )
 ) stat
-ORDER BY priority,hall
+ORDER BY priority,hall*/
 
 
 void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
