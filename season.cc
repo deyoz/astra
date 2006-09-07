@@ -245,7 +245,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TPerfTimer tm;
   TQuery SQry( &OraSession );
   string sql;
-  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, ''HH:DD.MM.Y'' ) as summer FROM ";
+  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, 'HH:DD.MM.Y' ) as summer FROM ";
   sql += COMMON_ORAUSER();
   sql += ".options";
   SQry.SQLText = sql;
