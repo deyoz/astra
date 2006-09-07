@@ -4,7 +4,6 @@
  #include <tcl.h>
  #include <math.h> 
 #endif
-#include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -177,7 +176,7 @@ void handle_tlg(void)
       {
 #ifndef __WIN32__
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
-        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
+        sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
 #else
         char bufh[50];
         sprintf(bufh,"Telegram (id: %d)",tlg_id);
@@ -399,7 +398,7 @@ void handle_tlg(void)
       	OraSession.Rollback();
 #ifndef __WIN32__
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-        SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+        sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
 #else
         char bufh[50];
         sprintf(bufh,"Telegram (id: %d)",tlg_id);

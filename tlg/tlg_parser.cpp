@@ -2647,7 +2647,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2656,7 +2656,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2665,7 +2665,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2673,7 +2673,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
                 };*/
               };
             };

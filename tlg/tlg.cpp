@@ -26,6 +26,71 @@ using namespace jxtlib;
 using namespace EXCEPTIONS;
 using namespace JxtContext;
 
+void sendTlg(const char* receiver,
+             const char* sender,
+             bool isEdi,
+             int ttl,
+             const std::string &text)
+{
+    try
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl) "
+                "VALUES"
+                "(tlgs_id.nextval,:sender,tlgs_id.nextval,:receiver,"
+                ":type,'PUT',SYSDATE,:ttl)";
+        Qry.CreateVariable("sender",otString,sender);
+        Qry.CreateVariable("receiver",otString,receiver);
+        Qry.CreateVariable("type",otString,isEdi?"OUTA":"OUTB");
+        if (isEdi&&ttl>0)
+          Qry.CreateVariable("ttl",otInteger,ttl);
+        else
+          Qry.CreateVariable("ttl",otInteger,FNull);
+        Qry.Execute();
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
+                "VALUES"
+                "(tlgs_id.currval,:sender,tlgs_id.currval,:receiver,"
+                ":type,SYSDATE,:text,NULL)";
+        Qry.DeclareVariable("text",otLong);
+        Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
+        Qry.DeleteVariable("ttl");
+        Qry.Execute();
+        Qry.Close();
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlgType: Unknown error while trying to send tlg");
+        throw;
+    };
+}
+void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...)
+{
+  try
+  {      
+    char Message[500];
+    if (receiver==NULL||sender==NULL||format==NULL) return;
+    va_list ap;
+    va_start(ap, format);
+    sprintf(Message,"Sender: %s\n",sender);
+    int len=strlen(Message);
+    vsnprintf(Message+len, sizeof(Message)-len, format, ap);
+    Message[sizeof(Message)-1]=0;
+    va_end(ap);
+  
+    sendTlg(receiver,sender,false,0,Message);        
+  }
+  catch(...) {};
+};
+
 bool deleteTlg(int tlg_id)
 {
     TQuery TlgQry(&OraSession);
@@ -182,7 +247,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        SendTlgType("MOWRT", "MOWDC", true, 20, tlg);
+        sendTlg("MOWRT", "MOWDC", true, 20, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());

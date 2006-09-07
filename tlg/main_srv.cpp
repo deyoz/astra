@@ -10,7 +10,6 @@
  #include <tcl.h>
 #endif
 #include <string>
-#include "astra_utils.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -451,7 +450,7 @@ void process_tlg(void)
   {
 #ifndef __WIN32__
     ProgError(STDLOG,"Exception: %s",E.what());
-    SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s",E.what());
+    sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s",E.what());
 #endif
   };
   OraSession.Commit();
@@ -686,7 +685,7 @@ void scan_tlg(void)
 #ifndef __WIN32__
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
                        E.what(),TlgQry.FieldAsInteger("id"));
-          SendTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s (tlgs.id=%d)",
+          sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s (tlgs.id=%d)",
                   E.what(),TlgQry.FieldAsInteger("id"));
 #endif
           errorTlg(tlg_id,"PARS");          

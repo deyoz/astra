@@ -57,5 +57,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, std::string err);
+void sendTlg(const char* receiver, const char* sender, bool isEdi, int ttl, const std::string &text);
+void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...);
 
 #endif
