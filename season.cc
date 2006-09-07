@@ -9,6 +9,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include "astra_main.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -37,12 +38,17 @@ typedef vector<TDest> TDests;
 void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo::Instance()->user.check_access( amWrite );
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
-        "begin "
-        "   delete routes where move_id = :move_id; "
-        "   delete sched_days where move_id = :move_id; "
-        "end; ";
+    TQuery Qry(&OraSession);
+    string sql = "begin ";
+    sql += " delete ";
+    sql += COMMON_ORAUSER();
+    sql += ".routes where move_id = :move_id; ";
+    sql += " delete ";
+    sql += COMMON_ORAUSER();    
+    sql += ".sched_days where move_id = :move_id; ";
+    sql += " end; ";
+
+    Qry.SQLText = sql;
     Qry.DeclareVariable("move_id", otInteger);
     xmlNodePtr curNode = NodeAsNode("Moves/move_id", reqNode);
     while(curNode) {
@@ -71,19 +77,31 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 {
   TReqInfo::Instance()->user.check_access( amWrite );	
     TQuery NQry(&OraSession);        
-    NQry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
+    string sql = "SELECT ";
+    sql += COMMON_ORAUSER();
+    sql += ".routes_move_id.nextval AS move_id FROM dual";
+    NQry.SQLText = sql;
     TQuery SQry(&OraSession);        
     TQuery RQry( &OraSession );
     int trip_id = 0;
     if(NodeIsNULL("trip_id", reqNode)) {
-      SQry.SQLText = "SELECT routes_trip_id.nextval AS trip_id FROM dual";
+      sql = "SELECT ";
+      sql += COMMON_ORAUSER();
+      sql += ".routes_trip_id.nextval AS trip_id FROM dual";
+      SQry.SQLText = sql;
       SQry.Execute();
       trip_id = SQry.FieldAsInteger(0);
     } else {
-        SQry.SQLText =
-             "BEGIN "
-             "DELETE routes WHERE move_id IN (SELECT move_id FROM sched_days WHERE trip_id=:trip_id );"
-             "DELETE sched_days WHERE trip_id=:trip_id; END; ";
+    	sql = "BEGIN ";
+    	sql += "DELETE ";
+    	sql += COMMON_ORAUSER();
+    	sql += ".routes WHERE move_id IN (SELECT move_id FROM ";
+    	sql += COMMON_ORAUSER();
+    	sql += ".sched_days WHERE trip_id=:trip_id ); ";
+    	sql += "DELETE ";
+    	sql += COMMON_ORAUSER();
+    	sql += ".sched_days WHERE trip_id=:trip_id; END; ";
+        SQry.SQLText = sql;
         SQry.DeclareVariable("TRIP_ID", otInteger);
         trip_id = NodeAsInteger("trip_id", reqNode);
         SQry.SetVariable("TRIP_ID", trip_id);
@@ -91,9 +109,11 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     }
 
     SQry.Clear();
-    SQry.SQLText =
-         "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_cancel,tlg,reference) "
-         "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_cancel,:tlg,:reference) ";
+    sql = "INSERT INTO ";
+    sql += COMMON_ORAUSER();
+    sql += ".sched_days(trip_id,move_id,num,first_day,last_day,days,pr_cancel,tlg,reference) ";
+    sql += "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_cancel,:tlg,:reference) ";
+    SQry.SQLText = sql;
     SQry.DeclareVariable( "TRIP_ID", otInteger );
     SQry.DeclareVariable( "MOVE_ID", otInteger );
     SQry.DeclareVariable( "NUM", otInteger );
@@ -105,10 +125,12 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     SQry.DeclareVariable( "REFERENCE", otString );
 
     RQry.Clear();
-    RQry.SQLText = 
-         "INSERT INTO routes(move_id,num,cod,pr_cancel,land,company,trip,bc,takeoff,litera, "
-         "triptype,f,c,y,unitrip,delta_in,delta_out,suffix) VALUES(:move_id,:num,:cod,:pr_cancel,:land, "
-         ":company,:trip,:bc,:takeoff,:litera,:triptype,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix) ";
+    sql = "INSERT INTO ";
+    sql += COMMON_ORAUSER();
+    sql += ".routes(move_id,num,cod,pr_cancel,land,company,trip,bc,takeoff,litera, ";
+    sql += "triptype,f,c,y,unitrip,delta_in,delta_out,suffix) VALUES(:move_id,:num,:cod,:pr_cancel,:land, ";
+    sql += ":company,:trip,:bc,:takeoff,:litera,:triptype,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix) ";
+    RQry.SQLText = sql;
     RQry.DeclareVariable( "MOVE_ID", otInteger );
     RQry.DeclareVariable( "NUM", otInteger );
     RQry.DeclareVariable( "COD", otString );
@@ -222,10 +244,13 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TReqInfo::Instance()->user.check_access( amRead );	
   TPerfTimer tm;
   TQuery SQry( &OraSession );
-  SQry.SQLText = 
-     "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference "\
-     " FROM sched_days "\
-     "ORDER BY trip_id,move_id,num";
+  string sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference ";
+  sql += " FROM ";
+  sql += COMMON_ORAUSER();
+  sql += ".sched_days ";
+  sql += "ORDER BY trip_id,move_id,num";
+  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
+  SQry.SQLText = sql;
   SQry.Execute();
   int idx_trip_id = SQry.FieldIndex("trip_id");
   int idx_smove_id = SQry.FieldIndex("move_id");
@@ -239,12 +264,16 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   if ( !SQry.RowCount() )
     throw UserException( "В расписании отсутствуют рейсы" );
   TQuery RQry( &OraSession );
-  RQry.SQLText = 
-    "SELECT move_id,routes.cod cod,airps.city city,pr_cancel,land+delta_in land,company,"\
-    "       trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix "\
-    " FROM routes, airps "\
-    "WHERE routes.cod=airps.cod "\
-    "ORDER BY move_id,num";
+  sql = "SELECT move_id,routes.cod cod,airps.city city,pr_cancel,land+delta_in land,company,"\
+        "       trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix ";
+  sql += " FROM ";
+  sql += COMMON_ORAUSER();
+  sql += ".routes, airps ";
+  sql += "WHERE routes.cod=airps.cod "\
+         "ORDER BY move_id,num";
+
+  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
+  RQry.SQLText = sql;
   RQry.Execute();  
   
   ProgTrace(TRACE5, "Executing qry %ld", tm.Print());  

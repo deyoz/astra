@@ -12,6 +12,7 @@
 #include <libxml/tree.h>
 #include "JxtInterface.h"
 
+const std::string COMMON_ORAUSER();
 
 struct TLogMsg {
   std::string msg;
