@@ -91,22 +91,29 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   screen = upperc( vscreen );	
   desk.code = vpult;        
+  string sql;
   try {
     Qry.Clear();
-    Qry.SQLText = "SELECT id FROM screen WHERE exe = :screen";
+    sql = string( "SELECT id FROM " ) + COMMON_ORAUSER() + ".screen WHERE exe = :screen";
+    Qry.SQLText = sql;
     Qry.DeclareVariable( "screen", otString );
     Qry.SetVariable( "screen", screen );
     Qry.Execute();
+    tst();
     if ( Qry.RowCount() == 0 )    
       throw Exception( (string)"Unknown screen " + screen );  
     screen_id = Qry.FieldAsInteger( "id" );
         
     Qry.Clear();
-    Qry.SQLText = "SELECT pr_denial, city, airp FROM desks, sale_points "\
-                  " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
+    sql = string("SELECT pr_denial, city, airp FROM ") +COMMON_ORAUSER()+ ".desks," +
+          COMMON_ORAUSER() + ".sale_points " + 
+          " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
+          
+    Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
     Qry.SetVariable( "pult", vpult );
     Qry.Execute();
+    tst();
     if ( Qry.RowCount() == 0 )
       throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );         	
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
@@ -114,18 +121,23 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     desk.city = Qry.FieldAsString( "city" );
     desk.airp = Qry.FieldAsString( "airp" );
     Qry.Clear();
-    Qry.SQLText = "SELECT SYSDATE+tz/24 as time FROM cities WHERE cod=:city";
+    sql = string("SELECT SYSDATE+tz/24 as time FROM ") + COMMON_ORAUSER() + 
+          ".cities WHERE cod=:city";
+    Qry.SQLText = sql;
     Qry.DeclareVariable( "city", otString );
     Qry.SetVariable( "city", desk.city );
     Qry.Execute();    
+    tst();
     desk.time = Qry.FieldAsDateTime( "time" );
     
     Qry.Clear();
-    Qry.SQLText = "SELECT user_id, login, descr, pr_denial FROM astra.users2 "\
-                  " WHERE desk = UPPER(:pult) ";
+    sql = "SELECT user_id, login, descr, pr_denial FROM " + COMMON_ORAUSER() + ".users2 "+   
+          " WHERE desk = UPPER(:pult) ";
+    Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
     Qry.SetVariable( "pult", vpult );
     Qry.Execute();
+    tst();
     
     if ( Qry.RowCount() == 0 )
     {      
@@ -145,14 +157,17 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     user.login = Qry.FieldAsString( "login" );    
     
     Qry.Clear();
-    Qry.SQLText = "SELECT 1 AS priority,access_code FROM astra.user_perms "\
-                  " WHERE user_perms.screen_id=:screen_id AND user_perms.user_id=:user_id "\
-                  " UNION "\
-                  "SELECT 2,MAX(access_code) FROM astra.user_roles,astra.role_perms "\
-                  " WHERE user_roles.role_id=role_perms.role_id AND "\
-                  "       role_perms.screen_id=:screen_id AND "\
-                  "       user_roles.user_id=:user_id "\
-                  "ORDER BY priority";
+    sql = "SELECT 1 AS priority,access_code FROM " + COMMON_ORAUSER() + ".user_perms " +
+          " WHERE user_perms.screen_id=:screen_id AND user_perms.user_id=:user_id " +
+          " UNION " +
+          "SELECT 2,MAX(access_code) FROM " + COMMON_ORAUSER() + ".user_roles,"+
+          COMMON_ORAUSER() + ".role_perms "+
+          " WHERE user_roles.role_id=role_perms.role_id AND "+
+          "       role_perms.screen_id=:screen_id AND "+
+          "       user_roles.user_id=:user_id "+
+          "ORDER BY priority";
+    
+    Qry.SQLText = sql;
                 
     Qry.DeclareVariable( "user_id",otInteger );
     Qry.DeclareVariable( "screen_id", otString );
