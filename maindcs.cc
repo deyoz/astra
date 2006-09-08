@@ -16,22 +16,26 @@ void GetModuleList(xmlNodePtr resNode)
 {
     TReqInfo *reqinfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);        
-    Qry.SQLText =
-        "SELECT 1 AS priority,MAX(access_code) AS access_code, "
-        "       screen.id,screen.name,screen.exe "
-        "FROM user_perms,screen "
-        "WHERE user_perms.screen_id=screen.id AND "
-        "      user_perms.user_id=:user_id "
-        "GROUP BY screen.id,screen.name,screen.exe "
-        "UNION "
-        "SELECT 2,MAX(access_code), "
-        "       screen.id,screen.name,screen.exe "
-        "FROM user_roles,role_perms,screen "
-        "WHERE user_roles.role_id=role_perms.role_id AND "
-        "      role_perms.screen_id=screen.id AND "
-        "      user_roles.user_id=:user_id "
-        "GROUP BY screen.id,screen.name,screen.exe "
-        "ORDER BY id,priority ";
+    string sql =
+        string( "SELECT 1 AS priority,MAX(access_code) AS access_code, " ) +
+        "       screen.id,screen.name,screen.exe " +
+        "FROM " + COMMON_ORAUSER() + ".user_perms," +
+        COMMON_ORAUSER()+".screen "+
+        "WHERE user_perms.screen_id=screen.id AND "+
+        "      user_perms.user_id=:user_id "+
+        "GROUP BY screen.id,screen.name,screen.exe "+
+        "UNION "+
+        "SELECT 2,MAX(access_code), "+
+        "       screen.id,screen.name,screen.exe "+
+        "FROM "+COMMON_ORAUSER()+".user_roles,"+
+        COMMON_ORAUSER()+".role_perms,"+
+        COMMON_ORAUSER()+".screen "+
+        "WHERE user_roles.role_id=role_perms.role_id AND "+
+        "      role_perms.screen_id=screen.id AND "+
+        "      user_roles.user_id=:user_id "+
+        "GROUP BY screen.id,screen.name,screen.exe "+
+        "ORDER BY id,priority ";        
+    Qry.SQLText = sql;
     Qry.DeclareVariable("user_id", otInteger);
     Qry.SetVariable("user_id", reqinfo->user.user_id);
     Qry.Execute();
@@ -72,9 +76,11 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);                    
     Qry.Clear();
-    Qry.SQLText = 
-      "SELECT user_id, login, passwd, descr, pr_denial, desk FROM users2 "
+    string sql=
+      string("SELECT user_id, login, passwd, descr, pr_denial, desk FROM ")+
+      COMMON_ORAUSER()+".users2 "+
       "WHERE login= UPPER(:userr) AND passwd= UPPER(:passwd) FOR UPDATE ";
+    Qry.SQLText = sql;     
     Qry.CreateVariable("userr", otString, NodeAsString("userr", reqNode));
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));      
     Qry.Execute();
@@ -95,10 +101,11 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (Qry.FieldAsString("passwd")==(string)"ПАРОЛЬ" )
       showErrorMessage("Пользователю необходимо изменить пароль");
     Qry.Clear();
-    Qry.SQLText = "BEGIN "
-                  "  UPDATE users2 SET desk = NULL WHERE desk = :desk; " 
-                  "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
+    sql = string( "BEGIN " )+
+                  "  UPDATE "+COMMON_ORAUSER()+".users2 SET desk = NULL WHERE desk = :desk; "+
+                  "  UPDATE "+COMMON_ORAUSER()+".users2 SET desk = :desk WHERE user_id = :user_id; "+
                   "END;";
+    Qry.SQLText = sql;                  
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);
     Qry.Execute();        
@@ -110,7 +117,9 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 {
     TReqInfo *reqInfo = TReqInfo::Instance();	
     TQuery Qry(&OraSession);            
-    Qry.SQLText = "UPDATE users2 SET desk = NULL WHERE user_id = :user_id";
+    string sql =
+     string( "UPDATE " ) + COMMON_ORAUSER()+".users2 SET desk = NULL WHERE user_id = :user_id";
+    Qry.SQLText = sql;
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
     showMessage("Сеанс работы в системе завершен");
@@ -122,7 +131,8 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = "UPDATE users2 SET passwd = :passwd WHERE user_id = :user_id";
+    string sql = string("UPDATE ") + COMMON_ORAUSER()+".users2 SET passwd = :passwd WHERE user_id = :user_id";
+    Qry.SQLText = sql;
     Qry.CreateVariable("user_id", otInteger, TReqInfo::Instance()->user.user_id);
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
     Qry.Execute();
@@ -138,7 +148,8 @@ void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   reqInfo->user.check_access( amWrite );
   TQuery Qry(&OraSession);  
   int user_id = NodeAsInteger( "user_id", reqNode );  
-  Qry.SQLText = "UPDATE users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
+  string sql= "UPDATE " + COMMON_ORAUSER()+".users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
+  Qry.SQLText = sql;
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id ); 
   Qry.Execute();
@@ -146,7 +157,8 @@ void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     throw Exception( "Невозможно сбросить пароль" );
   SetProp( resNode, "handle", "1" );
   Qry.Clear();
-  Qry.SQLText = "SELECT descr FROM users2 WHERE user_id=:user_id";
+  sql = string( "SELECT descr FROM " ) + COMMON_ORAUSER() + ".users2 WHERE user_id=:user_id";
+  Qry.SQLText = sql;
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", user_id ); 
   Qry.Execute();    
