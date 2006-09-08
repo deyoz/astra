@@ -333,6 +333,7 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             // update
             Pax->pr_brd = !Pax->pr_brd;
             int Result = PaxUpdate(Pax->pax_id, Pax->tid, Pax->pr_brd);
+            Pax->old_pr_brd = Pax->pr_brd;
             NewTextChild(dataNode, "pr_brd", Result);
         }
     }
