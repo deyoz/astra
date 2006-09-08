@@ -170,8 +170,7 @@ bool ChckSt(int pax_id, string seat_no)
     Qry->SetVariable("pax_id", pax_id);
     Qry->Execute();
     while(!Qry->Eof) {
-        if(seat_no == Qry->FieldAsString("seat_no"))
-            break;
+        if(seat_no != Qry->FieldAsString("seat_no")) break;
         Qry->Next();
     }
     if(!Qry->Eof)
@@ -179,16 +178,6 @@ bool ChckSt(int pax_id, string seat_no)
     OraSession.DeleteQuery(*Qry);
     return Result;
 }
-
-void BrdInterface::CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    int pax_id = NodeAsInteger("sqlparams/pax_id", reqNode);
-    string seat_no = NodeAsString("seat_no", reqNode);
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    if(!ChckSt(pax_id, seat_no))
-        NewTextChild(dataNode, "failed");
-}
-
 
 struct TPax {
     int pax_id;
@@ -219,7 +208,6 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
     enum {search, list} ListType;
 
-    ProgTrace(TRACE5, "Query: %s", reqNode->name);
     TQuery *Qry = OraSession.CreateQuery();
 
     string condition;
@@ -310,10 +298,8 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     switch(ListType) {
         case search:
-            ProgTrace(TRACE5, "ListType: search");
             break;
         case list:
-            ProgTrace(TRACE5, "ListType: list");
             break;
     }
     if(ListType == search) {
@@ -327,8 +313,10 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             else
                 throw UserException(1, "Пассажир с указанным номером не прошел посадку");
         }
-        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no))
+        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no_str))
+        {
             NewTextChild(dataNode, "failed");
+        }    
         else {
             // update
             Pax->pr_brd = !Pax->pr_brd;

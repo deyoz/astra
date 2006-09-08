@@ -19,8 +19,6 @@ public:
      AddEvent("brd_list",evHandle);
      AddEvent("search_reg",evHandle);
      AddEvent("search_bar",evHandle);
-     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::CheckSeat);
-     AddEvent("check_seat",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::PaxUpd);
      AddEvent("brd_paxupd",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Deplane);
@@ -29,7 +27,6 @@ public:
   
   void Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void CheckSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
