@@ -38,9 +38,9 @@ namespace ChangeStatus
 
     ChngStatAnswer ChngStatAnswer::readEdiTlg(EDI_REAL_MES_STRUCT *pMes)
     {
-        if(*GetDBFName(pMes, DataElement(4343), SegmElement("ERC"), "PROG_ERR") != '3')
+        if(*GetDBFName(pMes, DataElement(4343), SegmElement("MSG"), "PROG_ERR") != '3')
         {
-            string GlobErr = GetDBFName(pMes, DataElement(9321), SegmElement("ERC"), "PROG_ERR");
+            string GlobErr = GetDBFName(pMes, DataElement(9321), "PROG_ERR",CompElement("C901"), SegmElement("ERC"));
             list<FreeTextInfo> lIft;
             TickReader::readEdiIFT(pMes, lIft);
             return ChngStatAnswer(pair<string, string>
@@ -65,9 +65,10 @@ namespace ChangeStatus
                                           SegmElement("TKT"));
 
             PushEdiPointG(pMes);
-            int cnum = GetNumSegGr(pMes, 1); // Сколько купонов для данного билета
-            for(int j=0;j<cnum;i++)
+            int cnum = GetNumSegGr(pMes, 2); // Сколько купонов для данного билета
+            for(int j=0;j<cnum;j++)
             {
+                tst();
                 SetEdiPointToSegGrG(pMes, SegGrElement(2, j), "PROG_ERR");
                 Coupon_info ci = TickReader::MakeCouponInfo(pMes);
                 lCpn.push_back(Coupon(ci));

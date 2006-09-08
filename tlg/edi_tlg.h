@@ -96,14 +96,14 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
 class edi_udata
 {
     edilib::EdiSess::EdiSessData *SessData;
-    ServerFramework::EdiHelpManager EdiHelpMng;
+//     ServerFramework::EdiHelpManager EdiHelpMng;
 public:
     edi_udata(edilib::EdiSess::EdiSessData *sd)
-    :SessData(sd),EdiHelpMng(ServerFramework::EdiHelpManager(15))
+    :SessData(sd)/*,EdiHelpMng(ServerFramework::EdiHelpManager(15))*/
     {
     }
     edilib::EdiSess::EdiSessData *sessData() {return SessData; }
-    ServerFramework::EdiHelpManager *ediHelp() { return &EdiHelpMng; }
+//     ServerFramework::EdiHelpManager *ediHelp() { return &EdiHelpMng; }
     virtual ~edi_udata(){ delete SessData; }
 };
 

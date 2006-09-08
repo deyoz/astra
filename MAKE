@@ -42,7 +42,7 @@ int main() {
 EOF
 
 #KHOSTS="konst serg mamontov corall seastar nmu.dev.sirena2000.ru pike asm giv khonov alex dsb bav grigory djek"
-KHOSTS="seastar mamontov"
+KHOSTS="pike mamontov"
 export DISTCC_FALLBACK=0
 DISTCCTEST=`echo $DISTCC|sed 's/ccache//'`
 for i in $KHOSTS; do

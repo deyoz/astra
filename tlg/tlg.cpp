@@ -13,6 +13,7 @@
 #include "etick_change_status.h"
 #include "jxt_cont.h"
 #include "cont_tools.h"
+#include <daemon.h>
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -75,7 +76,7 @@ void sendTlg(const char* receiver,
 void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...)
 {
   try
-  {      
+  {
     char Message[500];
     if (receiver==NULL||sender==NULL||format==NULL) return;
     va_list ap;
@@ -85,8 +86,8 @@ void sendErrorTlg(const char* receiver, const char* sender, const char *format, 
     vsnprintf(Message+len, sizeof(Message)-len, format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
-  
-    sendTlg(receiver,sender,false,0,Message);        
+
+    sendTlg(receiver,sender,false,0,Message);
   }
   catch(...) {};
 };
@@ -99,21 +100,21 @@ bool deleteTlg(int tlg_id)
            "DELETE FROM tlg_queue WHERE id= :id";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
     TlgQry.Execute();
-    return TlgQry.RowsProcessed()>0;        
+    return TlgQry.RowsProcessed()>0;
 };
 
 bool errorTlg(int tlg_id, string err)
-{    
-    if (deleteTlg(tlg_id)) 
+{
+    if (deleteTlg(tlg_id))
     {
-      TQuery TlgQry(&OraSession);	            
+      TQuery TlgQry(&OraSession);
       TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
       TlgQry.CreateVariable("error",otString,err.substr(0,4));
       TlgQry.CreateVariable("id",otInteger,tlg_id);
-      TlgQry.Execute();	
-      return TlgQry.RowsProcessed()>0;        
+      TlgQry.Execute();
+      return TlgQry.RowsProcessed()>0;
     }
-    else return false;  
+    else return false;
 };
 
 
@@ -247,7 +248,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        sendTlg("MOWRT", "MOWDC", true, 20, tlg);
+        sendTlg("MOWTT", "MOWRA", true, 20, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -403,9 +404,9 @@ string prepareKickText()
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     JxtCont *sysCont = getJxtContHandler()->sysContext();
-    const char *iface = sysCont->readC("CUR_IFACE","");        
-    const char *handle= sysCont->readC("HANDLE","");        
-    const char *oper  = sysCont->readC("OPR","");            
+    const char *iface = sysCont->readC("CUR_IFACE","");
+    const char *handle= sysCont->readC("HANDLE","");
+    const char *oper  = sysCont->readC("OPR","");
 
     string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
             "<term>"
@@ -422,7 +423,7 @@ void saveTlgSource(const string &pult, const string &tlg)
 {
     JXTLib::Instance()->GetCallbacks()->
             initJxtContext(pult);
-            
+
     JxtCont *sysCont = getJxtContHandler()->sysContext();
     sysCont->write("ETDisplayTlg",tlg);
     registerHookBefore(SaveContextsHook);
@@ -467,23 +468,24 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
         ResetEdiPointW(pMes);
     }
     if(TickD.org().pult() != "SYSTEM"){
-        udata.ediHelp()->
+/*        udata.ediHelp()->
                 configForPerespros(prepareKickText().c_str(),
-                                   TickD.org().pult().c_str());
+                                   TickD.org().pult().c_str());*/
+        ServerFramework::getQueryRunner().getEdiHelpManager().
+                configForPerespros(prepareKickText().c_str(),15);
     }
 }
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
 {
-  //  ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
-  //  chngStatAns.Trace(TRACE2);
+    ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
+    chngStatAns.Trace(TRACE2);
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
-
     confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
 }
 
@@ -506,9 +508,11 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
         default:
             throw EdiExcept("Unsupported dispType");
     }
-    udata.ediHelp()->
-            configForPerespros(prepareKickText().c_str(),
-                               TickD.org().pult().c_str());
+//     udata.ediHelp()->
+//             configForPerespros(prepareKickText().c_str(),
+//                                TickD.org().pult().c_str());
+    ServerFramework::getQueryRunner().getEdiHelpManager().
+            configForPerespros(prepareKickText().c_str(),15);
 }
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)

@@ -28,6 +28,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
     {
+        ServerFramework::QueryRunner query_runner (ServerFramework::JxtQueryRunner());
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
 
