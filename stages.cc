@@ -173,4 +173,29 @@ string TStagesRules::status( TStage_Type stage_type, TStage stage )
   return "";	
 }
 
+void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
+{
+  stagetimes.clear();
+  TQuery Qry( &OraSession );
+  Qry.SQLText  = "SELECT craft, trip_type, time, "\
+                 "       DECODE( craft, NULL, 0, 2 )+ "\
+                 "       DECODE( trip_type, NULL, 0, 1 ) AS priority "\
+                 " FROM graph_times "\
+                 " WHERE stage_id=:stage "\
+                 "UNION "\
+                 "SELECT NULL, NULL, time, -1 FROM graph_stages "\
+                 "WHERE stage_id=:stage "\
+                 " ORDER BY priority, craft, trip_type ";
+  Qry.CreateVariable( "stage", otInteger, stage );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    TStageTimes st;
+    st.craft = Qry.FieldAsString( "craft" );
+    st.trip_type = Qry.FieldAsString( "trip_type" );
+    st.time = Qry.FieldAsInteger( "time" );
+    stagetimes.push_back( st );
+    Qry.Next();
+  }
+}
+
 

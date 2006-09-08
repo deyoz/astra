@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "astra_main.h"
+#include "stages.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -65,10 +65,12 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     TQuery Qry(&OraSession);        
     Qry.SQLText = 
         "begin "
-        "   season.get_spp(:vdata); "
+        "   season.get_spp(:vdata,:common_orauser); "
         "end; ";
     Qry.DeclareVariable("vdata", otDate);
+    Qry.DeclareVariable( "common_orauser", otString );
     Qry.SetVariable("vdata", NodeAsDateTime("date", reqNode));
+    Qry.SetVariable( "common_orauser", COMMON_ORAUSER() );
     Qry.Execute();
     showMessage("Данные успешно сохранены");
 }
@@ -416,6 +418,22 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SQry.Next();
   }
   ProgTrace(TRACE5, "build %ld", tm.Print());  
+}
+
+void SeasonInterface::RemovalGangWayTimes(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo::Instance()->user.check_access( amRead );	
+  vector<TStageTimes> st;
+  GetStageTimes( st, sRemovalGangWay );
+  xmlNodePtr dataNode = NewTextChild(resNode, "data");                  
+  xmlNodePtr node = NewTextChild(dataNode, "times"); 
+  xmlNodePtr stnode;
+  for (vector<TStageTimes>::iterator i=st.begin(); i!=st.end(); i++ ) {
+    stnode = NewTextChild( node, "time" );
+    NewTextChild( stnode, "craft", i->craft );
+    NewTextChild( stnode, "trip_type", i->trip_type );
+    NewTextChild( stnode, "time", i->time );
+  }  	
 }
 
 void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

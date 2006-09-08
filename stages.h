@@ -81,6 +81,14 @@ class TStagesRules {
 
 };
 
+struct TStageTimes {
+  std::string craft;
+  std::string trip_type;
+  int time;
+};
+
+void GetStageTimes( std::vector<TStageTimes> &stagetimes, TStage stage );
+
 
 #endif /*_STAGES_H_*/
 
