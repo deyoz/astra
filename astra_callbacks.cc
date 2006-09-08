@@ -7,13 +7,14 @@
 #include "pay.h"
 #include "brd.h"
 #include "season.h"
-#include "etick.h"
-#include "images.h"
-#include "tripinfo.h"
-#include "cent.h"
-#include "prepreg.h"
-#include "salonform.h"
-#include "sopp.h"
+#include "etick.h" 
+#include "images.h" 
+#include "tripinfo.h" 
+#include "cent.h" 
+#include "prepreg.h" 
+#include "salonform.h" 
+#include "sopp.h" 
+#include "stat.h" 
 #include "checkin.h"
 #include "astra_utils.h"
 #include "basic.h"
@@ -33,27 +34,28 @@ using namespace BASIC;
 
 void AstraJxtCallbacks::InitInterfaces()
 {
-  ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
-  new SysReqInterface();
-  new MainDCSInterface();
-  new AdmInterface();
-  new PayInterface();
-  new CacheInterface();
-  new BrdInterface();
-  new SeasonInterface();
-  new ETSearchInterface();
-  new ETStatusInterface();
-  new ImagesInterface();
-  new CheckInInterface();
-  new TripsInterface();
-  new SalonsInterface();
-  new CentInterface();
-  new PrepRegInterface();
-  new SoppInterface();
+    ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
+    new SysReqInterface();
+    new MainDCSInterface();
+    new AdmInterface();
+    new PayInterface();
+    new CacheInterface();
+    new BrdInterface();
+    new SeasonInterface();
+    new ETSearchInterface();
+    new ETStatusInterface();
+    new ImagesInterface();
+    new CheckInInterface();
+    new TripsInterface();        
+    new SalonsInterface();        
+    new CentInterface();           
+    new PrepRegInterface();          
+    new SoppInterface();            
+    new StatInterface();            
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
-                          int hlen, char **res, int len)
+        int hlen, char **res, int len)
 {
     OraSession.ClearQuerys();
     XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -61,14 +63,14 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     TReqInfo *reqInfo = TReqInfo::Instance();
     ProgTrace(TRACE3,"Before reqInfo->Initialize");
     bool checkUserLogon =
-      GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) == NULL &&
-      GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) == NULL &&
-      GetNode( "/term/query/ClientError", xmlRC->reqDoc ) == NULL;
+        GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) == NULL &&
+        GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) == NULL &&
+        GetNode( "/term/query/ClientError", xmlRC->reqDoc ) == NULL;
 
     reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, checkUserLogon );
     if ( xmlRC->opr.empty() )
     { /* оператор пришел пустой - отправляем инфу по оператору */
-      showBasicInfo();
+        showBasicInfo();
     }
     PerfomInit();
     ServerFramework::getQueryRunner().setPult(xmlRC->pult);
@@ -76,56 +78,56 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
 
 void AstraJxtCallbacks::UserAfter()
 {
-  PerfomTest( 2007 );
+    PerfomTest( 2007 );
 }
 
 
 void AstraJxtCallbacks::HandleException(std::exception *e)
 {
-	ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
+    ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
 
-	XMLRequestCtxt *ctxt = getXmlCtxt();
-	xmlNodePtr resNode = ctxt->resDoc->children->children;
-	xmlNodePtr node = resNode->children;
+    XMLRequestCtxt *ctxt = getXmlCtxt();
+    xmlNodePtr resNode = ctxt->resDoc->children->children;
+    xmlNodePtr node = resNode->children;
 
-	UserException2 *ue2 = dynamic_cast<UserException2*>(e);
-	if (ue2) return;
+    UserException2 *ue2 = dynamic_cast<UserException2*>(e);
+    if (ue2) return;
 
-	xmlNodePtr node2;
-	while(node!=NULL)
-	{
-	  if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0)
-	  {
-	    node2=node;
-	    node=node->next;
-	    xmlUnlinkNode(node2);
-	    xmlFreeNode(node2);
-	  }
-	  else node=node->next;
-	};
+    xmlNodePtr node2;
+    while(node!=NULL)
+    {
+        if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0)
+        {
+            node2=node;
+            node=node->next;
+            xmlUnlinkNode(node2);
+            xmlFreeNode(node2);
+        }
+        else node=node->next;
+    };
 
-	EOracleError *orae = dynamic_cast<EOracleError*>(e);
-	if (orae)
-	{
-		ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
-		showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
-//		addXmlBM(*ctxt);
-                return;
-	};
-	EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
-	if (ue)
-	{
-                ProgTrace( TRACE5, "UserException: %s", ue->what() );
-                showError(ue->what(), ue->Code());
-		//addXmlBM(*ctxt);
-                return;
-	}
-	std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
-	if (exp)
-	  ProgError(STDLOG,"logic_error: %s",exp->what());
-	else
-	  ProgError(STDLOG,"Unknown error");
+    EOracleError *orae = dynamic_cast<EOracleError*>(e);
+    if (orae)
+    {
+        ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
+        showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+        //		addXmlBM(*ctxt);
+        return;
+    };
+    EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
+    if (ue)
+    {
+        ProgTrace( TRACE5, "UserException: %s", ue->what() );
+        showError(ue->what(), ue->Code());
+        //addXmlBM(*ctxt);
+        return;
+    }
+    std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
+    if (exp)
+        ProgError(STDLOG,"logic_error: %s",exp->what());
+    else
+        ProgError(STDLOG,"Unknown error");
 
-	showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
-	return;
+    showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+    return;
 }
