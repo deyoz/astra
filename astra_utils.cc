@@ -12,6 +12,7 @@
 #include <string.h>
 #include "stl_utils.h"
 #include "xml_unit.h"
+#include "monitor_ctl.h"
 #include "cfgproc.h"
 
 using namespace std;
@@ -426,6 +427,14 @@ void showBasicInfo(void)
     xmlFreeNode(node);	
   };
   resNode = NewTextChild(resNode,"basic_info");  
+
+  // достанем пользователя и пароль oracle
+  string buf = get_connect_string();
+  buf = buf.substr(0, buf.find("@"));
+  string::size_type pos = buf.find("/");
+  NewTextChild(resNode, "orauser", buf.substr(0, pos));
+  NewTextChild(resNode, "orapasswd", buf.substr(pos + 1, string::npos));
+
   if (!reqInfo->user.login.empty())
   {
     node = NewTextChild(resNode,"user");
