@@ -248,7 +248,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        sendTlg("MOWTT", "MOWRA", true, 20, tlg);
+        sendTlg(ETS_CANON_NAME().c_str(), OWN_CANON_NAME().c_str(), true, 20, tlg);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());

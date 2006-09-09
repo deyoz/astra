@@ -13,6 +13,8 @@
 #include "JxtInterface.h"
 
 const std::string COMMON_ORAUSER();
+const std::string ETS_CANON_NAME();
+const std::string OWN_CANON_NAME();
 
 struct TLogMsg {
   std::string msg;
