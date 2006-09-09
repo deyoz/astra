@@ -192,7 +192,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "END;";
   Qry.CreateVariable( "airline", otString, airline );
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp ); //??? пульт в аэропорту
+  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //??? пульт в аэропорту
   Qry.DeclareVariable( "priority", otInteger );
   Qry.Execute();
   bool empty_priority = Qry.VariableIsNULL( "priority" );
@@ -200,7 +200,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   if ( !empty_priority )
     priority = Qry.GetVariableAsInteger( "priority" );
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
-             airline.c_str(), flt_no, TReqInfo::Instance()->desk.airp.c_str(), empty_priority, priority );
+             airline.c_str(), flt_no, TReqInfo::Instance()->opt.airport.c_str(), empty_priority, priority );
   Qry.Clear();
   Qry.SQLText = 
     "SELECT crs2.code,crs2.name,1 AS sort, "\
@@ -231,7 +231,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.CreateVariable( "priority", otInteger, priority );
   Qry.CreateVariable( "airline", otString, airline );
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp ); //???
+  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //???
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crs" );  
@@ -306,7 +306,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.CreateVariable( "priority", otInteger, priority );
     Qry.CreateVariable( "airline", otString, airline );
     Qry.CreateVariable( "flt_no", otInteger, flt_no );
-    Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->desk.airp ); //???
+    Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //???
     Qry.CreateVariable( "point_id", otInteger, point_id );      
   }
   Qry.Execute();

@@ -246,7 +246,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TReqInfo::Instance()->user.check_access( amRead );	
   TPerfTimer tm;
   TQuery SQry( &OraSession );
-  SQry.SQLText = "SELECT cod FROM options";
+  SQry.SQLText = "SELECT cod FROM options"; /*???!!!*/
   SQry.Execute();
   if ( !SQry.RowCount() )
     throw Exception( "table options is empty" );
