@@ -123,11 +123,11 @@ inline void buildTrip( TTrip &trip, xmlNodePtr outNode )
     for ( vector<TSoppStage>::iterator iss=trip.stages.begin(); iss!=trip.stages.end(); iss++ ) {
       xmlNodePtr n = NewTextChild( node, "stage" );      
       NewTextChild( n, "stage_id", iss->stage_id );
-      NewTextChild( outNode, "scd", DateTimeToStr( iss->scd ) );
+      NewTextChild( n, "scd", DateTimeToStr( iss->scd ) );
       if ( iss->est >= 0 )
-        NewTextChild( outNode, "est", DateTimeToStr( iss->est ) );
+        NewTextChild( n, "est", DateTimeToStr( iss->est ) );
       if ( iss->act >= 0 )
-        NewTextChild( outNode, "act", DateTimeToStr( iss->act ) );
+        NewTextChild( n, "act", DateTimeToStr( iss->act ) );
     }  
   }
 }
@@ -181,9 +181,11 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   StagesQry.Execute();
   map<int,TTrip> trips, trips_in;
   int trip_id;
+  tst();
   while ( !OutQry.Eof ) {
     TTrip trip;
     trip_id = fillTrip( trip, OutQry );
+    tst();
     while ( !RegQry.Eof && trip_id >= RegQry.FieldAsInteger( "trip_id" ) ) {
       if ( trip_id == RegQry.FieldAsInteger( "trip_id" ) ) {
       	trip.reg = RegQry.FieldAsInteger( "reg" );
@@ -191,6 +193,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       }
       RegQry.Next();
     }
+    tst();    
     while ( !ResaQry.Eof && trip_id >= ResaQry.FieldAsInteger( "trip_id" ) ) {
       if ( trip_id == ResaQry.FieldAsInteger( "trip_id" ) ) {
       	trip.resa = ResaQry.FieldAsInteger( "resa" );
@@ -198,12 +201,14 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       }
       ResaQry.Next();
     }    
+    tst();    
     while ( !PlacesQry.Eof && trip_id >= PlacesQry.FieldAsInteger( "trip_id" ) ) {
       if ( trip_id == PlacesQry.FieldAsInteger( "trip_id" ) ) {
       	trip.places.push_back( PlacesQry.FieldAsString( "cod" ) );
       }
       PlacesQry.Next();
-    }            
+    }     
+    tst();           
     TSoppStage stage;    
     while ( !StagesQry.Eof && trip_id >= StagesQry.FieldAsInteger( "point_id" ) ) {
       if ( trip_id == StagesQry.FieldAsInteger( "point_id" ) ) {      	
@@ -219,8 +224,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       	  stage.act = StagesQry.FieldAsDateTime( "act" );      	  
       	trip.stages.push_back( stage );
       }
-      PlacesQry.Next();
-    }                
+      
+      StagesQry.Next();
+    } 
+    tst();                   
     trips.insert( make_pair( trip_id, trip ) );
     OutQry.Next();
   }
@@ -230,6 +237,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     trips_in.insert( make_pair( trip_id, trip ) );
     InQry.Next();    
   }
+  tst();
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
   dataNode = NewTextChild( dataNode, "trips" );
   map<int,TTrip>::iterator itrip=trips.begin(), jtrip=trips_in.begin();
