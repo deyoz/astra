@@ -247,7 +247,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TPerfTimer tm;
   TQuery SQry( &OraSession );
   string sql;
-  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, 'HH:DD.MM.Y' ) as summer FROM ";
+  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, 'HH:DD.MM.Y' ) as summer,cod FROM ";
   sql += COMMON_ORAUSER();
   sql += ".options";
   SQry.SQLText = sql;
@@ -255,6 +255,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   if ( !SQry.RowCount() )
     throw Exception( "table options is empty" );
   xmlNodePtr dataNode = NewTextChild(resNode, "data");                  
+  NewTextChild( dataNode, "airp", SQry.FieldAsString( "cod" ) );
   NewTextChild( dataNode, "winter", SQry.FieldAsString( "winter" ) );
   NewTextChild( dataNode, "summer", SQry.FieldAsString( "summer" ) );
   SQry.Clear();
@@ -413,6 +414,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
       	if ( !id->suffix.empty() )
       	  NewTextChild( destNode, "suffix", id->suffix );      	      	        	        	        	
       }
+      ProgTrace( TRACE5, "move_id=%d", move_id );
       mapds[ move_id ].clear(); /* уже использовали маршрут */
     }
     SQry.Next();
