@@ -15,6 +15,53 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
+void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear(); 
+  Qry.SQLText= 
+    "SELECT "
+    "  reg_no,surname,name,target,last_trfer,class,hall, "
+    "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+    "  seats,pers_type,document, "
+    "  ckin.get_bagAmount(pax.grp_id,pax.reg_no,rownum) AS bag_amount, "
+    "  ckin.get_bagWeight(pax.grp_id,pax.reg_no,rownum) AS bag_weight, "
+    "  ckin.get_rkWeight(pax.grp_id,pax.reg_no,rownum) AS rk_weight, "
+    "  ckin.get_excess(pax.grp_id,pax.reg_no) AS excess, "
+    "  ckin.get_birks(pax.grp_id,pax.reg_no) AS tags, "
+    "  pax.grp_id "
+    "FROM pax_grp,pax,v_last_trfer "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
+    "      point_id=:point_id AND pr_brd IS NOT NULL "
+    "ORDER BY reg_no";
+  Qry.CreateVariable("point_id",otInteger,point_id);  
+  Qry.Execute();
+  xmlNodePtr node=NewTextChild(resNode,"passengers");
+  for(;!Qry.Eof;Qry.Next())
+  {
+    xmlNodePtr paxNode=NewTextChild(node,"pax");
+    NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger("reg_no"));    
+    NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));    
+    NewTextChild(paxNode,"name",Qry.FieldAsString("name"));    
+    NewTextChild(paxNode,"target",Qry.FieldAsString("target"));    
+    NewTextChild(paxNode,"last_trfer",Qry.FieldAsString("last_trfer"));    
+    NewTextChild(paxNode,"class",Qry.FieldAsString("class"));    
+    NewTextChild(paxNode,"hall",Qry.FieldAsInteger("hall"));    
+    NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));    
+    NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));    
+    NewTextChild(paxNode,"document",Qry.FieldAsString("document"));    
+    NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"));    
+    NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"));    
+    NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"));    
+    NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"));    
+    NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"));       
+    NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));            
+  };        
+  Qry.Close();    
+};           
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id,grp_id,ckin_stage,hall;

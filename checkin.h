@@ -17,10 +17,13 @@ public:
      AddEvent("SavePax",evHandle);        
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
      AddEvent("LoadPax",evHandle);     
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
+     AddEvent("PaxList",evHandle);     
   };	
   
   void SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
+  void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};  
   
   void SavePaxRem(xmlNodePtr paxNode);
