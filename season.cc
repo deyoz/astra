@@ -246,16 +246,22 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   TReqInfo::Instance()->user.check_access( amRead );	
   TPerfTimer tm;
   TQuery SQry( &OraSession );
+  SQry.SQLText = "SELECT cod FROM options";
+  SQry.Execute();
+  if ( !SQry.RowCount() )
+    throw Exception( "table options is empty" );
+  string airp = SQry.FieldAsString( "cod" );
   string sql;
-  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, 'HH:DD.MM.Y' ) as summer,cod FROM ";
+  sql = "SELECT TO_CHAR( winter, 'HH:DD.MM.Y' ) as winter, TO_CHAR( summer, 'HH:DD.MM.Y' ) as summer FROM ";
   sql += COMMON_ORAUSER();
   sql += ".options";
+  SQry.Clear();
   SQry.SQLText = sql;
   SQry.Execute();
   if ( !SQry.RowCount() )
     throw Exception( "table options is empty" );
   xmlNodePtr dataNode = NewTextChild(resNode, "data");                  
-  NewTextChild( dataNode, "airp", SQry.FieldAsString( "cod" ) );
+  NewTextChild( dataNode, "airp", airp );
   NewTextChild( dataNode, "winter", SQry.FieldAsString( "winter" ) );
   NewTextChild( dataNode, "summer", SQry.FieldAsString( "summer" ) );
   SQry.Clear();
