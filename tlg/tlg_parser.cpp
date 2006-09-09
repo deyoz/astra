@@ -2155,7 +2155,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     {
       //определим, является ли PNL чисто цифровым (с учетом ZZ)
       bool pr_ne=false;
+      int seats=0;
       for(iTotals=con.resa.begin();iTotals!=con.resa.end()&&!pr_ne;iTotals++)
+      {
+        seats+=iTotals->seats+iTotals->pad;
         for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end()&&!pr_ne;iPnrItem++)
         {
           TPnrItem& pnr=*iPnrItem;
@@ -2164,7 +2167,8 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
             TNameElement& ne=*iNameElement;
             if (ne.surname!="ZZ") pr_ne=true;
           };
-        };
+        };        
+      };        
       if (pr_ne)
       {
         //получим идентификатор транзакции
@@ -2718,7 +2722,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
       if (strcmp(info.tlg_type,"PNL")==0)
       {
         //PNL
-        if (pr_ne)
+        if (pr_ne || seats==0)
           //нецифровой
           pr_pnl_new=2;
         else
