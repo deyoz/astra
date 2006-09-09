@@ -1,4 +1,4 @@
- #include "setup.h"
+#include "setup.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "JxtInterface.h"
@@ -74,6 +74,12 @@ void TReqInfo::clear()
   screen_id = 0;
   desk.clear();
   user.clear();  
+  
+  opt.airport.clear();
+  opt.airport_lat.clear();
+  opt.city.clear();
+  opt.airport_name.clear();
+  opt.city_name.clear();  
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -179,6 +185,19 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
       user.access_code = Qry.FieldAsInteger( "access_code" );
     else
       user.access_code = 0;
+    Qry.Clear();
+    Qry.SQLText = "SELECT airps.cod AS air_cod,airps.lat AS air_cod_lat,airps.name AS air_name, "\
+                  "       cities.cod AS city_cod,cities.name AS city_name,SYSDATE "\
+                  "FROM options,airps,cities "\
+                  "WHERE options.cod=airps.cod AND airps.city=cities.cod";
+    Qry.Execute();
+    if ( Qry.RowCount() ) {
+      opt.airport = Qry.FieldAsString( "AIR_COD" );
+      opt.airport_lat = Qry.FieldAsString( "AIR_COD_LAT" );
+      opt.airport_name = Qry.FieldAsString( "AIR_NAME" );
+      opt.city = Qry.FieldAsString( "CITY_COD" );
+      opt.city_name = Qry.FieldAsString( "CITY_NAME" );
+    }          
   }
   catch( ... ) {
     OraSession.DeleteQuery( Qry );
@@ -448,6 +467,12 @@ void showBasicInfo(void)
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) ); 
   };  
+  node = NewTextChild( resNode, "opt" );
+  NewTextChild( node, "airport", reqInfo->opt.airport );
+  NewTextChild( node,"airport_lat", reqInfo->opt.airport_lat );
+  NewTextChild( node,"city", reqInfo->opt.city );
+  NewTextChild( node,"airport_name", reqInfo->opt.airport_name );
+  NewTextChild( node,"city_name", reqInfo->opt.city_name );  
 };
 
 /***************************************************************************************/

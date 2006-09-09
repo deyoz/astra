@@ -71,6 +71,15 @@ class TDesk {
     void clear();
 };
 
+class TOpt {
+  public:
+    std::string airport;
+    std::string airport_lat;
+    std::string city;
+    std::string airport_name;
+    std::string city_name;
+};
+
 class TReqInfo
 {
   private:
@@ -82,6 +91,7 @@ class TReqInfo
     virtual ~TReqInfo() {}
     TUser user;
     TDesk desk;
+    TOpt opt;
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      bool checkUserLogon );
