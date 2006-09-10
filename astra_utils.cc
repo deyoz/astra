@@ -501,6 +501,7 @@ void showBasicInfo(void)
   NewTextChild( node,"city", reqInfo->opt.city );
   NewTextChild( node,"airport_name", reqInfo->opt.airport_name );
   NewTextChild( node,"city_name", reqInfo->opt.city_name );  
+  NewTextChild( node,"user_id", reqInfo->user.user_id );  /* ???для кассы, а вообще не нужен */
 };
 
 /***************************************************************************************/
