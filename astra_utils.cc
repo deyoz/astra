@@ -133,8 +133,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SQLText = sql;
     Qry.DeclareVariable( "screen", otString );
     Qry.SetVariable( "screen", screen );
-    Qry.Execute();
-    tst();
+    Qry.Execute();    
     if ( Qry.RowCount() == 0 )    
       throw Exception( (string)"Unknown screen " + screen );  
     screen_id = Qry.FieldAsInteger( "id" );
@@ -147,8 +146,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
     Qry.SetVariable( "pult", vpult );
-    Qry.Execute();
-    tst();
+    Qry.Execute();    
     if ( Qry.RowCount() == 0 )
       throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );         	
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
@@ -161,8 +159,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SQLText = sql;
     Qry.DeclareVariable( "city", otString );
     Qry.SetVariable( "city", desk.city );
-    Qry.Execute();    
-    tst();
+    Qry.Execute();        
     desk.time = Qry.FieldAsDateTime( "time" );
     
     Qry.Clear();
@@ -171,8 +168,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
     Qry.SetVariable( "pult", vpult );
-    Qry.Execute();
-    tst();
+    Qry.Execute();    
     
     if ( Qry.RowCount() == 0 )
     {      

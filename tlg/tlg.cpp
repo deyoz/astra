@@ -13,6 +13,7 @@
 #include "etick_change_status.h"
 #include "jxt_cont.h"
 #include "cont_tools.h"
+#include "oralib.h"
 #include <daemon.h>
 
 #define NICKNAME "ROMAN"
@@ -23,6 +24,7 @@ using namespace edilib;
 using namespace edilib::EdiSess;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
+using namespace Ticketing::CouponStatus;
 using namespace jxtlib;
 using namespace EXCEPTIONS;
 using namespace JxtContext;
@@ -333,15 +335,21 @@ void proc_edifact(const std::string &tlg)
     edi_udata_rd udata(new AstraEdiSessRD(), tlg);
     int err=0, ret;
 
-    edi_mes_head edih;
-    memset(&edih,0, sizeof(edih));
-    udata.sessDataRd()->setMesHead(edih);
+    try{
+        edi_mes_head edih;
+        memset(&edih,0, sizeof(edih));
+        udata.sessDataRd()->setMesHead(edih);
 
-    ProgTrace(TRACE2, "Edifact Handle");
-    ret = FullObrEdiMessage(tlg.c_str(),&edih,&udata,&err);
-
+        ProgTrace(TRACE2, "Edifact Handle");
+        ret = FullObrEdiMessage(tlg.c_str(),&edih,&udata,&err);
+    }
+    catch(...)
+    {
+        ProgError(STDLOG,"!!! Unknown exception !!!");
+        ret = -1;
+    }
     if(ret){
-        throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
+         throw edi_fatal_except(STDLOG, EdiErr::EDI_PROC_ERR, "Ошибка обработки");
     }
     ProgTrace(TRACE2, "Edifact done.");
 }
@@ -420,14 +428,18 @@ string prepareKickText()
     return text;
 }
 
-void saveTlgSource(const string &pult, const string &tlg)
+void throw2UserLevel(const string &pult, const string &name, const string &text)
 {
     JXTLib::Instance()->GetCallbacks()->
             initJxtContext(pult);
 
     JxtCont *sysCont = getJxtContHandler()->sysContext();
-    sysCont->write("ETDisplayTlg",tlg);
-    registerHookBefore(SaveContextsHook);
+    sysCont->write(name,text);
+    registerHookBefore(SaveContextsHook);    
+}
+void saveTlgSource(const string &pult, const string &tlg)
+{
+    throw2UserLevel(pult, "ETDisplayTlg", tlg);
 }
 
 void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
@@ -514,11 +526,43 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
     }
 }
 
-void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
+void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,    
                               edi_common_data *data)
 {
     ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
     chngStatAns.Trace(TRACE2);
+    if (chngStatAns.isGlobErr())
+    {
+        throw2UserLevel(udata.sessData()->ediSession()->pult, "ChangeOfStatusError", chngStatAns.globErr().second);
+        return;
+    }
+    std::list<Ticket>::const_iterator currTick;
+    TQuery Qry(&OraSession);
+    for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
+    {
+      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) continue;  
+      if (currTick->getCoupon().empty()) continue;
+      coupon_status status(currTick->getCoupon().front().couponInfo().status());
+      Qry.Clear();
+      if (status.codeInt()==Checked ||
+          status.codeInt()==Boarded ||
+          status.codeInt()==Flown)
+      {    
+        //сделать update          
+        Qry.SQLText=
+          "UPDATE etickets SET coupon_status=:status "
+          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";        
+        Qry.CreateVariable("status",otString,status.dispCode());        
+      }  
+      else
+      {
+        //удалить из таблицы             
+        Qry.SQLText="DELETE FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";                
+      };
+      Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
+      Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());          
+      Qry.Execute();        
+    };    
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -571,6 +615,7 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 {
     ProgTrace(TRACE4, "ProcEDIREQ: tlg_in is %s", pHead->msg_type_str->code);
 
+  try {
     edi_udata *ud = (edi_udata *)udata;
     const message_funcs_type &mes_funcs=
             EdiMesFuncs::GetEdiFunc(pHead->msg_type,
@@ -582,7 +627,26 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
 
     mes_funcs.parse(pHead, *ud, 0);
     mes_funcs.proc(pHead, *ud, 0);
-    return 0;
+  }
+  catch(edi_exception &e)
+  {
+      ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());	              
+      *err=1;
+      return -1;
+  }
+  catch(std::exception &e)
+  {
+      ProgError(STDLOG, "std::exception: %s", e.what());
+      *err=2;
+      return -1;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "Unknown error");
+      *err=3;
+      return -1;
+  }
+  return 0;
 }
 
 int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)

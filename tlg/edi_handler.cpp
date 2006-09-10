@@ -26,8 +26,8 @@ using namespace EXCEPTIONS;
 #define TLG_SCAN_INTERVAL	1   	//seconds
 #define SCAN_COUNT              10      //кол-во разбираемых телеграмм за одно сканирование
 
-static const char* OWN_CANON_NAME=NULL;
-static const char* ERR_CANON_NAME=NULL;
+//static const char* OWN_CANON_NAME=NULL;
+//static const char* ERR_CANON_NAME=NULL;
 
 //bool obr_tlg_queue::has_removed;
 
@@ -38,17 +38,15 @@ int main(int argc, char* argv[])
 #else
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 #endif
-{
-  try
-  {
+{  
     try
     {
       OpenLogFile("logairimp");
-      if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
+  /*    if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
           strlen(OWN_CANON_NAME)!=5)
         throw Exception("Unknown or wrong OWN_CANON_NAME");
 
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
+      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);*/
 
       ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
               ->connect_db();
@@ -70,21 +68,18 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
 #ifndef __WIN32__
       ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-#endif
-      throw;
+#endif      
     }
     catch(std::exception E)
     {
 #ifndef __WIN32__
       ProgError(STDLOG,"std::exception: %s",E.what());
 #endif
-      throw;
-    };
-  }
-  catch(...)
-  {
+    }
+    catch(...)
+    {
       ProgError(STDLOG, "Unknown exception");
-  };
+    };
   try
   {
     OraSession.Rollback();
@@ -110,7 +105,7 @@ void handle_tlg(void)
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
              tlg_queue.type='INA' AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME);   
+    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());   
   };
 
   int count,tlg_id;
@@ -150,11 +145,19 @@ void handle_tlg(void)
               errorTlg(tlg_id,"PARS");
               OraSession.Commit();              
           }
+          catch(...)
+          {
+              OraSession.Rollback();		
+              ProgError(STDLOG, "Unknown error");
+              errorTlg(tlg_id,"UNKN");
+              OraSession.Commit();              
+          }
           ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
       };
   }
   catch(...)
   {      
+    ProgError(STDLOG, "Unknown error");    
     throw;
   };
 }

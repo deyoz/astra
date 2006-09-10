@@ -111,9 +111,8 @@ public:
     }
 
     Coupon(const Coupon_info &ci,
-           const Itin &i,
-           const std::string &tnum)
-    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>(ci,i,tnum)
+           const Itin &i)
+    :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>(ci,i,"")
     {
     }
 
