@@ -22,26 +22,33 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
   TQuery *Qry = OraSession.CreateQuery();
   try {
-    Qry->SQLText = "SELECT cache,adm_cache_tables.title,depth,num,0 AS access_code, "\
-                   "       0 AS pr_ins,0 AS pr_upd,0 AS pr_del "\
-                   "FROM adm_cache_tables WHERE cache IS NULL "\
-                   "UNION "\
-                   "SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title), "\
-                   "       depth,num,NVL(access_code,0),"\
-                   "       DECODE(insert_sql,NULL,0,1) AS pr_ins, "\
-                   "       DECODE(update_sql,NULL,0,1) AS pr_upd, "\
-                   "       DECODE(delete_sql,NULL,0,1) AS pr_del "\
-                   "FROM adm_cache_tables,cache_tables, "\
-                   "      (SELECT user_cache_perms.cache,access_code FROM user_cache_perms "\
-                   "       WHERE user_id=:user_id "\
-                   "       UNION "\
-                   "       SELECT role_cache_perms.cache,MAX(access_code) FROM user_roles,role_cache_perms "\
-                   "       WHERE user_roles.role_id=role_cache_perms.role_id AND "\
-                   "             user_roles.user_id=:user_id "\
-                   "       GROUP BY role_cache_perms.cache) perms "\
-                   "WHERE adm_cache_tables.cache=cache_tables.code AND "\
-                   "      cache_tables.code=perms.cache(+) "\
-                   " ORDER BY num,title,cache,access_code DESC ";
+    string sql =
+     "SELECT cache,adm_cache_tables.title,depth,num,0 AS access_code, "\
+     "       0 AS pr_ins,0 AS pr_upd,0 AS pr_del "\
+     "FROM adm_cache_tables WHERE cache IS NULL "\
+     "UNION "\
+     "SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title), "\
+     "       depth,num,NVL(access_code,0),"\
+     "       DECODE(insert_sql,NULL,0,1) AS pr_ins, "\
+     "       DECODE(update_sql,NULL,0,1) AS pr_upd, "\
+     "       DECODE(delete_sql,NULL,0,1) AS pr_del "\
+     "FROM adm_cache_tables,cache_tables, "\
+     "      (SELECT user_cache_perms.cache,access_code FROM user_cache_perms "\
+     "       WHERE user_id=:user_id "\
+     "       UNION "\
+     "       SELECT role_cache_perms.cache,MAX(access_code) FROM ";
+     sql += COMMON_ORAUSER();
+     sql += ".user_roles,";
+     sql += COMMON_ORAUSER();
+     sql += ".role_cache_perms ";
+     sql +=
+     "       WHERE user_roles.role_id=role_cache_perms.role_id AND "\
+     "             user_roles.user_id=:user_id "\
+     "       GROUP BY role_cache_perms.cache) perms "\
+     "WHERE adm_cache_tables.cache=cache_tables.code AND "\
+     "      cache_tables.code=perms.cache(+) "\
+     " ORDER BY num,title,cache,access_code DESC ";
+    Qry->SQLText = sql;
     Qry->DeclareVariable( "user_id", otInteger );
     Qry->SetVariable( "user_id", ri->user.user_id );
     Qry->Execute();
