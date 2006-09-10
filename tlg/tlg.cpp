@@ -346,6 +346,7 @@ void proc_edifact(const std::string &tlg)
     ProgTrace(TRACE2, "Edifact done.");
 }
 
+
 EdiMesFuncs::messages_map_t *EdiMesFuncs::messages_map;
 const message_funcs_type &EdiMesFuncs::GetEdiFunc(
         edi_msg_types_t mes_type, const std::string &msg_code)
