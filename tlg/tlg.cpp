@@ -429,6 +429,36 @@ void saveTlgSource(const string &pult, const string &tlg)
     registerHookBefore(SaveContextsHook);
 }
 
+void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
+{
+    ostringstream tmp;
+    tmp << (itin.date1().is_special()?"":
+            HelpCpp::string_cast(itin.date1(), "%d%m%y"))
+            << ":" <<
+                    (itin.time1().is_special()?"":
+            HelpCpp::string_cast(itin.time1(), "%H%M"))
+            << "+" <<
+            itin.depPointCode() << "+" <<
+            itin.arrPointCode() << "+" <<
+            itin.airCode();
+    if(!itin.operAirCode().empty()){
+        tmp << ":" << itin.operAirCode();
+    }
+    tmp << "+";
+    if(itin.flightnum())
+        tmp << itin.flightnum();
+    else
+        tmp << ItinStatus::itin_status::Open;
+    tmp << ":" << itin.classCode();
+    if (cpnnum)
+        tmp << "++" << cpnnum;
+
+    ProgTrace(TRACE3,"TVL: %s", tmp.str().c_str());
+    SetEdiFullSegment(pMes, SegmElement("TVL"), tmp.str());
+
+    return;
+}
+
 void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                                edi_common_data *data)
 {
@@ -441,6 +471,9 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                       HelpCpp::string_cast(TickD.ltick().size())+":TD");
     int sg1=0;
     Ticket::Trace(TRACE4,TickD.ltick());
+    if(TickD.isGlobItin()){
+        makeItin(pMes, TickD.itin());
+    }
     for(list<Ticket>::const_iterator i=TickD.ltick().begin();
         i!=TickD.ltick().end();i++,sg1++)
     {
@@ -463,6 +496,10 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
             SetEdiFullSegment(pMes, "CPN",0,
                               HelpCpp::string_cast(cpn.couponInfo().num()) + ":" +
                                       cpn.couponInfo().status().code());
+
+            if(cpn.haveItin()){
+                makeItin(pMes, cpn.itin(), cpn.couponInfo().num());
+            }
         }
         PopEdiPointW(pMes);
         ResetEdiPointW(pMes);
