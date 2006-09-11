@@ -66,10 +66,11 @@ struct TCacheField2 {
     }
 };
 
-typedef struct {
+struct TParam {
     std::string Value;
     TCacheConvertType DataType;
-} TParam;
+    TParam() { DataType = ctString; };
+};
 
 typedef std::map<std::string, TParam> TParams;
 
