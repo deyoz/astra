@@ -127,7 +127,9 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     JxtCont *sysCont = getJxtContHandler()->sysContext();
     string glob_err = sysCont->read("ChangeOfStatusError");
     sysCont->remove("ChangeOfStatusError");
-    if (!glob_err.empty()) throw UserException("Ошибка сервера эл. билетов: %s",glob_err.c_str());    
+    if (!glob_err.empty())
+      showErrorMessage(string("Ошибка сервера эл. билетов: ")+glob_err);   
+    
 };
 
 bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, int point_id)
