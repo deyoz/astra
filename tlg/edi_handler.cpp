@@ -130,6 +130,7 @@ void handle_tlg(void)
               callPostHooksBefore();
               OraSession.Commit();
               callPostHooksAfter();
+              emptyHookTables();
           }
           catch(edi_exception &e)
           {
