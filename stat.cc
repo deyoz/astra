@@ -124,7 +124,15 @@ void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     SQLParams.getParams(paramsNode);
 
     SQLParams.setSQL(&Qry);
+    try {
     Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException(376);
+        else
+            throw;
+    }
+
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr DepStatNode = NewTextChild(dataNode, "DepStat");
     while(!Qry.Eof) {
