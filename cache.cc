@@ -804,13 +804,18 @@ void TParams1::setSQL(TQuery *Qry)
     {
         otFieldType vtype;
         switch( (*this)[ *v ].DataType ) {
-            case ctInteger: vtype = otInteger;
-                            break;
-            case ctDouble: vtype = otFloat;
-                           break;
-            case ctDateTime: vtype = otDate;
-                             break;
-            default: vtype = otString;
+            case ctInteger:
+                vtype = otInteger;
+                break;
+            case ctDouble:
+                vtype = otFloat;
+                break;
+            case ctDateTime:
+                vtype = otDate;
+                break;
+            default:
+                vtype = otString;
+                break;
         }
         Qry->DeclareVariable( *v, vtype );
         if ( !(*this)[ *v ].Value.empty() ) {
