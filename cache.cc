@@ -706,16 +706,15 @@ void TCacheTable::getPerms( )
   string code = Params[TAG_CODE].Value;	
   Qry->Clear();
   string sql;
-  sql =       /*???user_cache_perms */
+  sql =       
     "SELECT MAX(access_code) AS access_code FROM"\
-    "  (SELECT access_code FROM user_cache_perms"\
+    "  (SELECT access_code FROM astra.user_cache_perms"\
     "   WHERE user_id=:user_id AND cache=:cache"\
     "   UNION"\
     "   SELECT MAX(access_code) FROM ";
   sql += COMMON_ORAUSER();
   sql += ".user_roles,";
-  sql += COMMON_ORAUSER();
-  sql += ".role_cache_perms";
+  sql += "astra.role_cache_perms";
   sql += 
     "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
     "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
