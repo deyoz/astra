@@ -705,14 +705,22 @@ void TCacheTable::getPerms( )
     throw Exception("wrong message format");    
   string code = Params[TAG_CODE].Value;	
   Qry->Clear();
-  Qry->SQLText = 
-      "SELECT MAX(access_code) AS access_code FROM"
-      "  (SELECT access_code FROM user_cache_perms"
-      "   WHERE user_id=:user_id AND cache=:cache"
-      "   UNION"
-      "   SELECT MAX(access_code) FROM user_roles,role_cache_perms"
-      "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
-      "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
+  string sql;
+  sql =       /*???user_cache_perms */
+    "SELECT MAX(access_code) AS access_code FROM"\
+    "  (SELECT access_code FROM user_cache_perms"\
+    "   WHERE user_id=:user_id AND cache=:cache"\
+    "   UNION"\
+    "   SELECT MAX(access_code) FROM ";
+  sql += COMMON_ORAUSER();
+  sql += ".user_roles,";
+  sql += COMMON_ORAUSER();
+  sql += ".role_cache_perms";
+  sql += 
+    "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
+    "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
+  
+  Qry->SQLText = sql;
   Qry->DeclareVariable("user_id",otInteger);
   Qry->DeclareVariable("cache",otString);
   Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
