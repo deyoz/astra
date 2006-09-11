@@ -813,10 +813,16 @@ void TParams1::setSQL(TQuery *Qry)
             default: vtype = otString;
         }
         Qry->DeclareVariable( *v, vtype );
-        if ( !(*this)[ *v ].Value.empty() )
-          Qry->SetVariable( *v, (*this)[ *v ].Value );
-        else
-          Qry->SetVariable( *v, FNull );
+        if ( !(*this)[ *v ].Value.empty() ) {
+            if(vtype == otDate) {
+                TDateTime Value;
+                if(StrToDateTime( (*this)[ *v ].Value.c_str(), ServerFormatDateTimeAsString, Value ) == EOF)
+                    throw Exception("TParams1::setSQL: cannot convert " + *v + " value to otDate");
+                Qry->SetVariable( *v, Value );
+            } else
+                Qry->SetVariable( *v, (*this)[ *v ].Value );
+        } else
+            Qry->SetVariable( *v, FNull );
         ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
                 (*this)[ *v ].Value.c_str(), vtype );
     }
