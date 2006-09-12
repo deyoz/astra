@@ -1255,6 +1255,7 @@ void TPassengers::sortByIndex()
 
 void TPassengers::Add( TPassenger &pass )
 {
+  tst();
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
 //  ProgTrace(TRACE5, "pass.countPlace=%d", pass.countPlace );
@@ -1287,12 +1288,14 @@ void TPassengers::Add( TPassenger &pass )
     clname = pass.clname;
  // высчитываем приоритет
   Calc_Priority( pass );  
+  tst();
   if ( pass.placeRem.find( "SW" ) == 2 )
     KWindow = true;
   if ( pass.placeRem.find( "SA" ) == 2 )
     KTube = true;
   if ( pass.placeRem.find( "SM" ) == 0 )
     this->UseSmoke = true;  
+  tst();
   vector<TPassenger>::iterator ipass;
   for ( ipass=FPassengers.begin(); ipass!=FPassengers.end(); ipass++ ) {
     if ( pass.priority > ipass->priority )
@@ -1303,6 +1306,7 @@ void TPassengers::Add( TPassenger &pass )
     FPassengers.push_back( pass );
   else
     FPassengers.insert( ipass, pass );
+  tst();
 }
 
 int TPassengers::getCount()
@@ -1369,6 +1373,7 @@ void GET_LINE_ARRAY( )
   lines.clear();
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
   Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
+  tst();
   for ( vector<TPlaceList*>::iterator iplaceList=CurrSalon->placelists.begin();
         iplaceList!=CurrSalon->placelists.end(); iplaceList++ ) {
     int xlen = (*iplaceList)->GetXsCount();
@@ -1384,17 +1389,22 @@ void GET_LINE_ARRAY( )
           linesVar = 1;
       else
         if ( Passengers.KTube ) {
-          if ( x - 1 >= 0 && (*iplaceList)->GetXsName( x + 1 ).empty() )
+          ProgTrace( TRACE5, "x=%d", x );
+          if ( x - 1 >= 0 && (*iplaceList)->GetXsName( x - 1 ).empty() ||
+               x + 1 <= xlen - 1 && (*iplaceList)->GetXsName( x + 1 ).empty() )
             linesVar = 0;
           else
             linesVar = 1;
+          tst();
         }  
         else linesVar = 1;
+      ProgTrace( TRACE5, "lineVar=%d,x=%d", linesVar, x );
       if ( linesVar == 0 )
         linesSalonVar0.lines.push_back( x );
       else
         linesSalonVar1.lines.push_back( x );
     } 
+    tst();
     linesSalonVar0.placeList = *iplaceList;
     linesSalonVar1.placeList = *iplaceList;    
     lines.getVarLine( 0 ).push_back( linesSalonVar0 );
@@ -1534,15 +1544,19 @@ namespace SEATS {
 /* рассадка пассажиров */
 void SeatsPassengers( TSalons *Salons )
 {
+  tst();
   if ( !Passengers.getCount() )
     return;
   SeatPlaces.Clear();
+  tst();  
   CurrSalon = Salons;
   vector<string> Statuses;
   CanUseStatus = true;
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   CanUseElem_Type = false; /* пока не будем работать с типами мест */
+  tst();  
   GET_LINE_ARRAY( );
+  tst();  
   SeatAlg = sSeatGrpOnBasePlace;
   try {
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
@@ -1600,8 +1614,8 @@ void SeatsPassengers( TSalons *Salons )
                   CanUseGood = ( PlaceStatus != "NG" ); /* неудобные места */
                   if ( !CanUseGood )
                     PlaceStatus = "FP";
-//                  ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%d,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s",
-//                             (int)SeatAlg,FCanUseRems,FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str());
+                  ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%d,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s",
+                             (int)SeatAlg,FCanUseRems,FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str());
                   switch( (int)SeatAlg ) {
                     case sSeatGrpOnBasePlace:
                       if ( SeatPlaces.SeatGrpOnBasePlace( ) )
