@@ -417,7 +417,6 @@ void TSalons::Read( TReadStyle readStyle )
     placelists.pop_back( );
     delete placeList; // нам этот класс/салон не нужен
   }
-  tst();
 }
 
 void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
