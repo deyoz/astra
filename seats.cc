@@ -950,10 +950,14 @@ bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
   tst();
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
   if ( Passengers.counters.p_Count_3( sDown ) + Passengers.counters.p_Count_2( sDown ) > 0 ) {
+    tst();
     if ( !SeatSubGrp_On( FP, sDown, 0 ) ) { /* не получается */
+      tst();
       RollBack( );
+      tst();
       return false;
     }
+    tst();
     /* если нет других пассажиров, то тогда рассадка выполнена успешно */
     if ( Passengers.counters.p_Count_3() + 
          Passengers.counters.p_Count_2() + 
