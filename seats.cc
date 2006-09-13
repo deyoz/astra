@@ -505,11 +505,9 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
          EP.x--;
          break;
       case sDown:
-         tst();
          EP.y++;
          break;
       case sUp:
-         tst();
          EP.y--;
          break;                  
     }
@@ -694,7 +692,6 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
       }
     }
     /* нашли самое удаленное место и сейчас удалим его */
-    tst();    
     RollBack( EndWanted, EndWanted );
     counters.Add_p_Count( 1 );
     return true; /* все нашли выходим */
@@ -730,7 +727,6 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
 
 bool TSeatPlaces::SeatsStayedSubGrp( TWhere Where )
 {
-  tst();
   /* проверка а осталась ли часть группы, или группа состоит из одного человека ? */
   if ( counters.p_Count_3( sRight ) == Passengers.counters.p_Count_3( sRight ) &&
        counters.p_Count_2( sRight ) == Passengers.counters.p_Count_2( sRight ) &&
@@ -878,7 +874,6 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
 //               (int)isp->oldPlaces.size(), pass.countPlace );         
     if ( isp->InUse || (int)isp->oldPlaces.size() != pass.countPlace ) /* кол-во мест должно совпадать */
       continue;
-    tst();    
     int EqualQ = 0;
     if ( (int)isp->oldPlaces.size() == pass.countPlace )
       EqualQ = pass.countPlace*10000; //??? always true!
@@ -947,17 +942,12 @@ bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
 {
   /* очистить помеченные места */
   RollBack( );
-  tst();
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
   if ( Passengers.counters.p_Count_3( sDown ) + Passengers.counters.p_Count_2( sDown ) > 0 ) {
-    tst();
     if ( !SeatSubGrp_On( FP, sDown, 0 ) ) { /* не получается */
-      tst();
       RollBack( );
-      tst();
       return false;
     }
-    tst();
     /* если нет других пассажиров, то тогда рассадка выполнена успешно */
     if ( Passengers.counters.p_Count_3() + 
          Passengers.counters.p_Count_2() + 
@@ -972,19 +962,14 @@ bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
       return false;
     }
   }
-  tst();
   if ( seatplaces.empty() )
     return false;
-  tst();
   /* если мы здесь то смогли рассадить часть группы
      рассаживаем оставшуюся часть группы */
   /* можно попытаться посадить и сверху и снизу от занятых мест */
-  tst();
   if ( SeatsStayedSubGrp( sEveryWhere ) ) 
     return true;
-  tst();
   RollBack( );
-  tst();
   return false;
 }
 
@@ -1122,7 +1107,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
 /* рассадка группы по всем салонам */
 bool TSeatPlaces::SeatsGrp( )
 {
-ProgTrace( TRACE5, "SeatsGrp( )" );
+//ProgTrace( TRACE5, "SeatsGrp( )" );
  RollBack( );
  for ( int linesVar=0; linesVar<=1; linesVar++ ) {
    for( vecVarLines::iterator ilines=lines.getVarLine( linesVar ).begin();
@@ -1134,7 +1119,6 @@ ProgTrace( TRACE5, "SeatsGrp( )" );
        for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
          FP.x = *z;
          FP.y = y; /* пробег по местам */
-         ProgTrace( TRACE5, "salon num=%d, FP(%d,%d)", CurrSalon->CurrPlaceList()->num, FP.x, FP.y );
          if ( SeatsGrp_On( FP ) ) {
            return true;
          }
@@ -1142,16 +1126,14 @@ ProgTrace( TRACE5, "SeatsGrp( )" );
      }
    }
  }
- tst();
  RollBack( );
- tst();
  return false;
 }
 
 /* рассадка пассажиров по местам не учитывая группу */
 bool TSeatPlaces::SeatsPassengers( )
 {	
-ProgTrace( TRACE5, "SeatsPassengers( )" );	
+//ProgTrace( TRACE5, "SeatsPassengers( )" );	
   vector<TPassenger> npass;
   Passengers.copyTo( npass );
   try {
@@ -1267,7 +1249,6 @@ void TPassengers::sortByIndex()
 
 void TPassengers::Add( TPassenger &pass )
 {
-  tst();
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
 //  ProgTrace(TRACE5, "pass.countPlace=%d", pass.countPlace );
@@ -1276,7 +1257,6 @@ void TPassengers::Add( TPassenger &pass )
   bool Pr_PLC = false;	
   if ( pass.countPlace > 1 &&
        find( pass.rems.begin(), pass.rems.end(), string( "STCR" ) ) != pass.rems.end() ) {
-    tst();
     pass.Step = sDown;
     switch( pass.countPlace ) {
       case 2: counters.Add_p_Count_2( 1, sDown );
@@ -1300,14 +1280,12 @@ void TPassengers::Add( TPassenger &pass )
     clname = pass.clname;
  // высчитываем приоритет
   Calc_Priority( pass );  
-  tst();
   if ( pass.placeRem.find( "SW" ) == 2 )
     KWindow = true;
   if ( pass.placeRem.find( "SA" ) == 2 )
     KTube = true;
   if ( pass.placeRem.find( "SM" ) == 0 )
     this->UseSmoke = true;  
-  tst();
   vector<TPassenger>::iterator ipass;
   for ( ipass=FPassengers.begin(); ipass!=FPassengers.end(); ipass++ ) {
     if ( pass.priority > ipass->priority )
@@ -1318,7 +1296,6 @@ void TPassengers::Add( TPassenger &pass )
     FPassengers.push_back( pass );
   else
     FPassengers.insert( ipass, pass );
-  tst();
 }
 
 int TPassengers::getCount()
@@ -1385,7 +1362,6 @@ void GET_LINE_ARRAY( )
   lines.clear();
   Passengers.KWindow = ( Passengers.KWindow && !Passengers.KTube );
   Passengers.KTube = ( !Passengers.KWindow && Passengers.KTube );
-  tst();
   for ( vector<TPlaceList*>::iterator iplaceList=CurrSalon->placelists.begin();
         iplaceList!=CurrSalon->placelists.end(); iplaceList++ ) {
     int xlen = (*iplaceList)->GetXsCount();
@@ -1401,22 +1377,18 @@ void GET_LINE_ARRAY( )
           linesVar = 1;
       else
         if ( Passengers.KTube ) {
-          ProgTrace( TRACE5, "x=%d", x );
           if ( x - 1 >= 0 && (*iplaceList)->GetXsName( x - 1 ).empty() ||
                x + 1 <= xlen - 1 && (*iplaceList)->GetXsName( x + 1 ).empty() )
             linesVar = 0;
           else
             linesVar = 1;
-          tst();
         }  
         else linesVar = 1;
-      ProgTrace( TRACE5, "lineVar=%d,x=%d", linesVar, x );
       if ( linesVar == 0 )
         linesSalonVar0.lines.push_back( x );
       else
         linesSalonVar1.lines.push_back( x );
     } 
-    tst();
     linesSalonVar0.placeList = *iplaceList;
     linesSalonVar1.placeList = *iplaceList;    
     lines.getVarLine( 0 ).push_back( linesSalonVar0 );
@@ -1556,22 +1528,19 @@ namespace SEATS {
 /* рассадка пассажиров */
 void SeatsPassengers( TSalons *Salons )
 {
-  tst();
   if ( !Passengers.getCount() )
     return;
   SeatPlaces.Clear();
-  tst();  
   CurrSalon = Salons;
   vector<string> Statuses;
   CanUseStatus = true;
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   CanUseElem_Type = false; /* пока не будем работать с типами мест */
-  tst();  
   GET_LINE_ARRAY( );
   tst();  
   SeatAlg = sSeatGrpOnBasePlace;
   try {
-   for ( int FSeatAlg=1; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
+   for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
       SeatAlg = (TSeatAlg)FSeatAlg;
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
         CanUseRems = (TUseRem)FCanUseRems;
@@ -1626,15 +1595,14 @@ void SeatsPassengers( TSalons *Salons )
                   CanUseGood = ( PlaceStatus != "NG" ); /* неудобные места */
                   if ( !CanUseGood )
                     PlaceStatus = "FP";
-                  ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%d,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s",
-                             (int)SeatAlg,FCanUseRems,FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str());
+/*                  ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%d,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s",
+                             (int)SeatAlg,FCanUseRems,FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str());*/
                   switch( (int)SeatAlg ) {
                     case sSeatGrpOnBasePlace:
                       if ( SeatPlaces.SeatGrpOnBasePlace( ) )
                         throw 1;
                       break;
                     case sSeatGrp:
-                      tst();
                       if ( SeatPlaces.SeatsGrp( ) )
                         throw 1;
                       break;
@@ -1704,7 +1672,6 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
     pass.regNo = Qry.FieldAsInteger( "reg_no" );
     string fname = Qry.FieldAsString( "surname" );    
     pass.fullName = TrimString( fname ) + Qry.FieldAsString( "name" ); 
-    tst();
     for ( vector<TPlaceList*>::iterator placeList=Salons->placelists.begin();
           placeList!=Salons->placelists.end(); placeList++ ) {
       if ( (*placeList)->GetisPlaceXY( pass.placeName, pass.Pos ) ) {
@@ -1716,9 +1683,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
     if ( Qry.FieldAsInteger( "step" ) ) {
       pass.rems.push_back( "STCR" );
     }
-    tst();
     p.Add( pass );
-    tst();
     Qry.Next();
   }	
 }
@@ -1885,7 +1850,6 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
           }
           if ( ExistsBasePlace( pass, vSeats ) )	
             continue;
-          tst();
           if ( SeatOnNotBase ) {
             tst();
             pass.InUse = false;

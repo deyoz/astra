@@ -416,6 +416,7 @@ void TSalons::Read( TReadStyle readStyle )
     placelists.pop_back( );
     delete placeList; // нам этот класс/салон не нужен
   }
+  tst();
 }
 
 void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
@@ -615,7 +616,6 @@ string TPlaceList::GetPlaceName( TPoint &p )
 string TPlaceList::GetXsName( int x )
 {
   if ( x < 0 || x >= GetXsCount() ) {
-    ProgTrace( TRACE5, "x=%d, GetXsCount()=%d", x, GetXsCount() );
     throw Exception( "Неправильные x координата места" );
   }
   return xs[ x ];
@@ -637,7 +637,6 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
       if ( placeName == *iy + *ix ) {
       	p.x = distance( xs.begin(), ix );
       	p.y = distance( ys.begin(), iy );
-      	ProgTrace( TRACE5, "return p.x=%d, p.y=%d, isplace=%d", p.x, p.y, place( p )->isplace );
       	return place( p )->isplace;
       }
     }
