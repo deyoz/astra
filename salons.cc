@@ -275,7 +275,6 @@ void TSalons::Write( TReadStyle readStyle )
         else 
           Qry.SetVariable( "enabled", 1 );
       }
-      ProgTrace( TRACE5,"(%d,%d)", place->x, place->y );
       Qry.Execute();
       if ( !place->rems.empty() ) {
         RQry.SetVariable( "x", place->x );
@@ -655,10 +654,10 @@ void TPlaceList::Add( TPlace &pl )
     ys.resize( pl.y + 1, "" );
   if ( !pl.yname.empty() )
     ys[ pl.y ] = pl.yname;
-  int idx = GetPlaceIndex( pl.x, pl.y );
-  if ( idx >= (int)places.size() ) {
-    places.resize( idx + 1 );
+  if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
+    places.resize( (int)xs.size()*(int)ys.size() );
   }
+  int idx = GetPlaceIndex( pl.x, pl.y );  
   if ( pl.xprior >= 0 && pl.yprior >= 0 ) {
     TPoint p( pl.xprior, pl.yprior );
     place( p )->xnext = pl.x;
