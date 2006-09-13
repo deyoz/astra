@@ -1113,7 +1113,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
 /* рассадка группы по всем салонам */
 bool TSeatPlaces::SeatsGrp( )
 {
-//ProgTrace( TRACE5, "SeatsGrp( )" );
+ProgTrace( TRACE5, "SeatsGrp( )" );
  RollBack( );
  for ( int linesVar=0; linesVar<=1; linesVar++ ) {
    for( vecVarLines::iterator ilines=lines.getVarLine( linesVar ).begin();
@@ -1125,6 +1125,7 @@ bool TSeatPlaces::SeatsGrp( )
        for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
          FP.x = *z;
          FP.y = y; /* пробег по местам */
+         ProgTrace( TRACE5, "FP(%d,%d)", FP.x, FP.y );
          if ( SeatsGrp_On( FP ) ) {
            return true;
          }
@@ -1132,7 +1133,9 @@ bool TSeatPlaces::SeatsGrp( )
      }
    }
  }
+ tst();
  RollBack( );
+ tst();
  return false;
 }
 
@@ -1559,7 +1562,7 @@ void SeatsPassengers( TSalons *Salons )
   tst();  
   SeatAlg = sSeatGrpOnBasePlace;
   try {
-   for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
+   for ( int FSeatAlg=1; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
       SeatAlg = (TSeatAlg)FSeatAlg;
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
         CanUseRems = (TUseRem)FCanUseRems;
@@ -1622,6 +1625,7 @@ void SeatsPassengers( TSalons *Salons )
                         throw 1;
                       break;
                     case sSeatGrp:
+                      tst();
                       if ( SeatPlaces.SeatsGrp( ) )
                         throw 1;
                       break;
