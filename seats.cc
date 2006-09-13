@@ -947,7 +947,7 @@ bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
 {
   /* очистить помеченные места */
   RollBack( );
-//  tst();
+  tst();
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
   if ( Passengers.counters.p_Count_3( sDown ) + Passengers.counters.p_Count_2( sDown ) > 0 ) {
     if ( !SeatSubGrp_On( FP, sDown, 0 ) ) { /* не получается */
@@ -968,14 +968,19 @@ bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
       return false;
     }
   }
+  tst();
   if ( seatplaces.empty() )
     return false;
+  tst();
   /* если мы здесь то смогли рассадить часть группы
      рассаживаем оставшуюся часть группы */
   /* можно попытаться посадить и сверху и снизу от занятых мест */
+  tst();
   if ( SeatsStayedSubGrp( sEveryWhere ) ) 
     return true;
+  tst();
   RollBack( );
+  tst();
   return false;
 }
 
@@ -1125,7 +1130,7 @@ ProgTrace( TRACE5, "SeatsGrp( )" );
        for ( vector<int>::iterator z=ilines->lines.begin(); z!=ilines->lines.end(); z++ ) {
          FP.x = *z;
          FP.y = y; /* пробег по местам */
-         ProgTrace( TRACE5, "FP(%d,%d)", FP.x, FP.y );
+         ProgTrace( TRACE5, "salon num=%d, FP(%d,%d)", CurrSalon->CurrPlaceList()->num, FP.x, FP.y );
          if ( SeatsGrp_On( FP ) ) {
            return true;
          }
