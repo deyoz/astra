@@ -12,8 +12,11 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::DepStatRun);
      AddEvent("DepStatRun",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::BagTagStatRun);
+     AddEvent("BagTagStatRun",evHandle);
   };	
   
+  void BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
 };
