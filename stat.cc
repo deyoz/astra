@@ -12,6 +12,71 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void drawPaxLog(xmlNodePtr resNode, TQuery &Qry)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr PaxLogNode = NewTextChild(dataNode, "PaxLog");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(PaxLogNode, "row");
+
+        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "idf", Qry.FieldAsString("ev_user"));
+        NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
+        NewTextChild(rowNode, "time", DateTimeToStr(Qry.FieldAsDateTime("time")));
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "txt", Qry.FieldAsString("msg"));
+        NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
+        NewTextChild(rowNode, "module", Qry.FieldAsString("screen"));
+
+        Qry.Next();
+    }
+}
+
+void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "SELECT msg, time, id1 AS point_id, "
+        "       nvl(screen.name, events.screen) screen, "
+        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM astra.events, astra.screen, "
+        "     (SELECT trip_id FROM astra.trips "
+        "      WHERE trips.scd>= :FirstDate AND trips.scd< :LastDate AND trips.trip= :trip "
+        "      ORDER BY trip_id) trips "
+        "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+        "      events.screen = screen.exe(+) and "
+        "      events.id1=trips.trip_id "
+        "UNION "
+        "SELECT msg, time, id1 AS point_id, "
+        "       nvl(screen.name, events.screen) screen, "
+        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM arx.events, astra.screen, "
+        "     (SELECT part_key,trip_id FROM arx.trips "
+        "      WHERE trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND trips.trip= :trip "
+        "      ORDER BY part_key,trip_id) trips "
+        "WHERE events.part_key=trips.part_key AND "
+        "      events.screen = screen.exe(+) and "
+        "      events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+        "      events.id1=trips.trip_id ";
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(&Qry);
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException(376);
+        else
+            throw;
+    }
+    drawPaxLog(resNode, Qry);
+}
+
 void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);        
@@ -43,23 +108,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         else
             throw;
     }
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr PaxLogNode = NewTextChild(dataNode, "PaxLog");
-    while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(PaxLogNode, "row");
-
-        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "idf", Qry.FieldAsString("ev_user"));
-        NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
-        NewTextChild(rowNode, "time", DateTimeToStr(Qry.FieldAsDateTime("time")));
-        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "txt", Qry.FieldAsString("msg"));
-        NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
-        NewTextChild(rowNode, "module", Qry.FieldAsString("screen"));
-
-        Qry.Next();
-    }
+    drawPaxLog(resNode, Qry);
 }
 
 struct THallItem {
