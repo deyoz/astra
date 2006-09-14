@@ -12,6 +12,56 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText =
+        "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM astra.events "
+        "WHERE type IN (:evtPax,:evtPay) AND "
+        "      id1=:trip_id AND "
+        "      (id2 IS NULL OR id2=:reg_no) AND "
+        "      (id3 IS NULL OR id3=:grp_id) "
+        "UNION "
+        "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM arx.events "
+        "WHERE part_key=:part_key AND "
+        "      type IN (:evtPax,:evtPay) AND "
+        "      id1=:trip_id AND "
+        "      (id2 IS NULL OR id2=:reg_no) AND "
+        "      (id3 IS NULL OR id3=:grp_id) ";
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(&Qry);
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException(376);
+        else
+            throw;
+    }
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr PaxLogNode = NewTextChild(dataNode, "PaxLog");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(PaxLogNode, "row");
+
+        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "idf", Qry.FieldAsString("ev_user"));
+        NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
+        NewTextChild(rowNode, "time", DateTimeToStr(Qry.FieldAsDateTime("time")));
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "txt", Qry.FieldAsString("msg"));
+        NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
+        NewTextChild(rowNode, "module", Qry.FieldAsString("screen"));
+
+        Qry.Next();
+    }
+}
+
 struct THallItem {
     int id;
     string name;
@@ -141,10 +191,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             string hall;
             if(!Qry.FieldIsNULL("hall")) {
                 int hall_id = Qry.FieldAsInteger("hall");
-                ProgTrace(TRACE5, "hall_id: %d", hall_id);
                 THalls::iterator ih = halls.begin();
                 for(; ih != halls.end(); ih++) {
-                    ProgTrace(TRACE5, "id: %d, name: %s", ih->id, ih->name.c_str());
                     if(ih->id == hall_id) break;
                 }
                 if(ih == halls.end())
@@ -159,7 +207,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         Qry.Next();
     }
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 struct TTagQryParts {
@@ -455,7 +502,6 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ProgTrace(TRACE5, "DepStatRun");
     TQuery Qry(&OraSession);        
     Qry.SQLText =
         "SELECT "
