@@ -16,6 +16,7 @@ public:
      AddEvent("BagTagStatRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::PaxListRun);
      AddEvent("PaxListRun",evHandle);
+     AddEvent("PaxSrcRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::PaxLog);
      AddEvent("LogRun",evHandle);
      AddEvent("FltLogRun",evHandle);

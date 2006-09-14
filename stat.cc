@@ -173,7 +173,65 @@ void THalls::Init()
 
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string qry =
+    string tag = (char *)reqNode->name;
+    xmlNodePtr paramsNode = GetNode("sqlparams", reqNode);
+    string grp_id, grp, arx_grp_id, arx_grp;
+    if(tag == "PaxListRun")
+        ; // do nothing
+    else if(tag == "PaxSrcRun") {
+        string family, pass, ticketno;
+
+        xmlNodePtr curNode = GetNode("family", paramsNode);
+        if(curNode) family = NodeAsString(curNode);
+
+        curNode = GetNode("pass", paramsNode);
+        if(curNode) pass = NodeAsString(curNode);
+
+        curNode = GetNode("ticketno", paramsNode);
+        if(curNode) ticketno = NodeAsString(curNode);
+
+        if(family.size() || pass.size() || ticketno.size()) {
+            TDateTime FirstDate = NodeAsDateTime("FirstDate", paramsNode);
+            TDateTime LastDate = NodeAsDateTime("LastDate", paramsNode);
+            grp_id =
+                ",(SELECT DISTINCT grp_id FROM astra.pax "
+                "  WHERE (:family is null or surname ";
+            if(FirstDate + 1 < LastDate && family.size() < 4)
+                grp_id += " = :family) and ";
+            else
+                grp_id += " LIKE :family||'%') and ";
+            grp_id +=
+                "  (:ticketno is null or ticket_no = :ticketno) and  "
+                "  (:pass is null or document = :pass)  "
+                "  ORDER BY grp_id) grps ";
+            grp = " pax_grp.grp_id=grps.grp_id AND ";
+
+            arx_grp_id =
+                ",(SELECT DISTINCT part_key,grp_id FROM arx.pax "
+                "  WHERE pax.part_key>= :FirstDate AND pax.part_key< :LastDate AND ";
+            if(FirstDate + 1 < LastDate && family.size() < 4)
+                arx_grp_id += "        (:family is null or surname= :family) and ";
+            else
+                arx_grp_id += "        (:family is null or surname LIKE :family||'%') and ";
+            arx_grp_id +=
+                "  (:ticketno is null or ticket_no = :ticketno) and  "
+                "  (:pass is null or document = :pass)  "
+                "  ORDER BY part_key,grp_id) grps ";
+            arx_grp = "pax.part_key=grps.part_key AND pax.grp_id=grps.grp_id AND ";
+        } else {
+            grp_id =
+                ",(SELECT DISTINCT grp_id FROM astra.bag_tags "
+                "  WHERE no=:n_birk ORDER BY grp_id) grps ";
+            grp = "pax_grp.grp_id=grps.grp_id AND ";
+            arx_grp_id =
+                ",(SELECT DISTINCT part_key,grp_id FROM arx.bag_tags "
+                "  WHERE bag_tags.part_key>= :FirstDate AND bag_tags.part_key< :LastDate AND "
+                "        no=:n_birk ORDER BY part_key,grp_id) grps ";
+            arx_grp = "pax.part_key=grps.part_key AND pax.grp_id=grps.grp_id AND ";
+        }
+    } else
+        throw Exception((string)"PaxLog: unknown tag " + tag);
+    string qry = (string)
         "SELECT "
         "  pax.pax_id,pax_grp.point_id, "
         "  pax_grp.grp_id, "
@@ -194,10 +252,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  pax_grp.hall AS hall, "
         "  pax.document, "
         "  pax.ticket_no "
-        "FROM astra.trips,astra.pax_grp,astra.pax "
-        //--здесь дополнительная выборка grp_id по фамилии или бирке
-        "WHERE trips.trip_id=pax_grp.point_id AND pax_grp.grp_id=pax.grp_id AND "
-        //--дополнительное условие pax_grp.grp_id=...
+        "FROM astra.trips,astra.pax_grp,astra.pax " +
+        grp_id +
+        "WHERE trips.trip_id=pax_grp.point_id AND pax_grp.grp_id=pax.grp_id AND " +
+        grp +
         "      trips.scd>= :FirstDate AND trips.scd< :LastDate AND "
         "      (:trip IS NULL OR trips.trip= :trip) and "
         "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM astra.place WHERE place.trip_id=trips.trip_id AND place.city=:dest)) "
@@ -222,20 +280,25 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  pax_grp.hall AS hall, "
         "  pax.document, "
         "  pax.ticket_no "
-        "FROM arx.trips,arx.pax_grp,arx.pax "
-        //--здесь дополнительная выборка grp_id по фамилии или бирке
-        "WHERE trips.part_key=pax_grp.part_key AND trips.trip_id=pax_grp.point_id AND pax_grp.part_key=pax.part_key AND pax_grp.grp_id=pax.grp_id AND "
-        //--дополнительное условие pax_grp.grp_id=...
+        "FROM arx.trips,arx.pax_grp,arx.pax " +
+        arx_grp_id +
+        "WHERE trips.part_key=pax_grp.part_key AND trips.trip_id=pax_grp.point_id AND pax_grp.part_key=pax.part_key AND pax_grp.grp_id=pax.grp_id AND " +
+        arx_grp +
         "      trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND "
         "      (:trip IS NULL OR trips.trip= :trip) and "
         "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM arx.place WHERE place.part_key=trips.part_key AND place.trip_id=trips.trip_id AND place.city=:dest)) ";
-    //--ORDER BY scd,trip,trip_id,n_reg
+
+    ofstream fout("out.sql");
+    if(fout.good())
+        fout << qry;
+    fout.close();
+
     THalls halls;
     halls.Init();
     TQuery Qry(&OraSession);        
     Qry.SQLText = qry;
     TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.getParams(paramsNode);
     SQLParams.setSQL(&Qry);
     try {
         Qry.Execute();
