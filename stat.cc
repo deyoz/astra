@@ -12,6 +12,156 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+struct THallItem {
+    int id;
+    string name;
+};
+
+class THalls: public vector<THallItem> {
+    public:
+        void Init();
+};
+
+void THalls::Init()
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = "SELECT id,name FROM astra.halls2,astra.options WHERE halls2.airp=options.cod ORDER BY id";
+    Qry.Execute();
+    while(!Qry.Eof) {
+        THallItem hi;
+        hi.id = Qry.FieldAsInteger("id");
+        hi.name = Qry.FieldAsString("name");
+        this->push_back(hi);
+        Qry.Next();
+    }
+}
+
+void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string qry =
+        "SELECT "
+        "  pax.pax_id,pax_grp.point_id, "
+        "  pax_grp.grp_id, "
+        "  trips.company AS airline,trips.flt_no,trips.suffix, "
+        "  trips.scd, "
+        "  pax.reg_no, "
+        "  pax.surname,pax.name, "
+        "  pax_grp.target, "
+        "  astra.ckin.get_bagAmount(pax_grp.grp_id,pax.reg_no,rownum) AS bag_amount, "
+        "  astra.ckin.get_bagWeight(pax_grp.grp_id,pax.reg_no,rownum) AS bag_weight, "
+        "  astra.ckin.get_rkWeight(pax_grp.grp_id,pax.reg_no,rownum) AS rk_weight, "
+        "  astra.ckin.get_birks(pax_grp.grp_id,pax.reg_no,0) AS tags, "
+        "  astra.ckin.get_excess(pax_grp.grp_id,pax.reg_no) AS excess, "
+        "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Аннул.') AS status, "
+        "  pax_grp.class, "
+        "  LPAD(pax.seat_no,3,'0')|| "
+        "           DECODE(SIGN(1-pax.seats),-1,'+'||TO_CHAR(pax.seats-1),'') AS seat_no, "
+        "  pax_grp.hall AS hall, "
+        "  pax.document, "
+        "  pax.ticket_no "
+        "FROM astra.trips,astra.pax_grp,astra.pax "
+        //--здесь дополнительная выборка grp_id по фамилии или бирке
+        "WHERE trips.trip_id=pax_grp.point_id AND pax_grp.grp_id=pax.grp_id AND "
+        //--дополнительное условие pax_grp.grp_id=...
+        "      trips.scd>= :FirstDate AND trips.scd< :LastDate AND "
+        "      (:trip IS NULL OR trips.trip= :trip) and "
+        "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM astra.place WHERE place.trip_id=trips.trip_id AND place.city=:dest)) "
+        "UNION "
+        "SELECT "
+        "  pax.pax_id,pax_grp.point_id, "
+        "  pax_grp.grp_id, "
+        "  trips.company AS airline,trips.flt_no,trips.suffix, "
+        "  trips.scd, "
+        "  pax.reg_no, "
+        "  pax.surname,pax.name, "
+        "  pax_grp.target, "
+        "  arx.ckin.get_bagAmount(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS bag_amount, "
+        "  arx.ckin.get_bagWeight(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS bag_weight, "
+        "  arx.ckin.get_rkWeight(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS rk_weight, "
+        "  arx.ckin.get_birks(pax_grp.part_key,pax_grp.grp_id,pax.reg_no) AS tags, "
+        "  arx.ckin.get_excess(pax_grp.part_key,pax_grp.grp_id,pax.reg_no) AS excess, "
+        "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Аннул.') AS status, "
+        "  pax_grp.class, "
+        "  LPAD(pax.seat_no,3,'0')|| "
+        "           DECODE(SIGN(1-pax.seats),-1,'+'||TO_CHAR(pax.seats-1),'') AS seat_no, "
+        "  pax_grp.hall AS hall, "
+        "  pax.document, "
+        "  pax.ticket_no "
+        "FROM arx.trips,arx.pax_grp,arx.pax "
+        //--здесь дополнительная выборка grp_id по фамилии или бирке
+        "WHERE trips.part_key=pax_grp.part_key AND trips.trip_id=pax_grp.point_id AND pax_grp.part_key=pax.part_key AND pax_grp.grp_id=pax.grp_id AND "
+        //--дополнительное условие pax_grp.grp_id=...
+        "      trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND "
+        "      (:trip IS NULL OR trips.trip= :trip) and "
+        "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM arx.place WHERE place.part_key=trips.part_key AND place.trip_id=trips.trip_id AND place.city=:dest)) ";
+    //--ORDER BY scd,trip,trip_id,n_reg
+    THalls halls;
+    halls.Init();
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = qry;
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(&Qry);
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException(376);
+        else
+            throw;
+    }
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr PaxesNode = NewTextChild(dataNode, "Paxes");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(PaxesNode, "row");
+
+        string airline = Qry.FieldAsString("airline");
+        int flt_no = Qry.FieldAsInteger("flt_no");
+        string suffix = Qry.FieldAsString("suffix");
+
+        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "airline", airline);
+        NewTextChild(rowNode, "flt_no", flt_no);
+        NewTextChild(rowNode, "suffix", suffix);
+        NewTextChild(rowNode, "trip", airline+IntToString(flt_no)+suffix);
+        NewTextChild(rowNode, "scd", DateTimeToStr(Qry.FieldAsDateTime("scd")));
+        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", (string)Qry.FieldAsString("surname")+" "+Qry.FieldAsString("name"));
+        NewTextChild(rowNode, "bagAmount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bagWeight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "rkWeight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(rowNode, "status", Qry.FieldAsString("status"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        {
+            string hall;
+            if(!Qry.FieldIsNULL("hall")) {
+                int hall_id = Qry.FieldAsInteger("hall");
+                ProgTrace(TRACE5, "hall_id: %d", hall_id);
+                THalls::iterator ih = halls.begin();
+                for(; ih != halls.end(); ih++) {
+                    ProgTrace(TRACE5, "id: %d, name: %s", ih->id, ih->name.c_str());
+                    if(ih->id == hall_id) break;
+                }
+                if(ih == halls.end())
+                    hall = IntToString(hall_id);
+                else
+                    hall = ih->name;
+            }
+            NewTextChild(rowNode, "hall", hall);
+        }
+        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+
+        Qry.Next();
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
 struct TTagQryParts {
     string
         select,
@@ -241,11 +391,6 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         "  tscd, " +
         qry_parts.order_by +
         "color ";
-
-    ofstream fout("out.sql");
-    if(fout.good())
-        fout << qry;
-    fout.close();
 
     TQuery Qry(&OraSession);        
     Qry.SQLText = qry;
