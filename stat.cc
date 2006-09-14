@@ -12,8 +12,122 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void drawPaxLog(xmlNodePtr resNode, TQuery &Qry)
+void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    string tag = (char *)reqNode->name;
+    char *qry = NULL;
+    if(tag == "LogRun")
+        qry =
+            "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM astra.events "
+            "WHERE type IN (:evtPax,:evtPay) AND "
+            "      id1=:trip_id AND "
+            "      (id2 IS NULL OR id2=:reg_no) AND "
+            "      (id3 IS NULL OR id3=:grp_id) "
+            "UNION "
+            "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM arx.events "
+            "WHERE part_key=:part_key AND "
+            "      type IN (:evtPax,:evtPay) AND "
+            "      id1=:trip_id AND "
+            "      (id2 IS NULL OR id2=:reg_no) AND "
+            "      (id3 IS NULL OR id3=:grp_id) ";
+    else if(tag == "FltLogRun")
+        qry =
+            "SELECT msg, time, id1 AS point_id, "
+            "       nvl(screen.name, events.screen) screen, "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM astra.events, astra.screen, "
+            "     (SELECT trip_id FROM astra.trips "
+            "      WHERE trips.scd>= :FirstDate AND trips.scd< :LastDate AND trips.trip= :trip "
+            "      ORDER BY trip_id) trips "
+            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "      events.screen = screen.exe(+) and "
+            "      events.id1=trips.trip_id "
+            "UNION "
+            "SELECT msg, time, id1 AS point_id, "
+            "       nvl(screen.name, events.screen) screen, "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM arx.events, astra.screen, "
+            "     (SELECT part_key,trip_id FROM arx.trips "
+            "      WHERE trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND trips.trip= :trip "
+            "      ORDER BY part_key,trip_id) trips "
+            "WHERE events.part_key=trips.part_key AND "
+            "      events.screen = screen.exe(+) and "
+            "      events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "      events.id1=trips.trip_id ";
+    else if(tag == "SystemLogRun")
+        qry =
+            "SELECT msg, time, id1 AS point_id, "
+            "  nvl(screen.name, events.screen) screen, "
+            "  DECODE(type,:evtPax,id2,id2,NULL) AS reg_no, "
+            "  DECODE(type,:evtPax,id3,id3,NULL) AS grp_id, "
+            "  ev_user, station, ev_order "
+            "FROM astra.events, astra.screen "
+            "WHERE "
+            "  events.time >= :FirstDate and "
+            "  events.time < :LastDate and "
+            "  events.screen = screen.exe(+) and "
+            "  (:agent is null or nvl(ev_user, '‘¨αβ¥¬ ') = :agent) and "
+            "  (:module is null or nvl(screen.name, '‘¨αβ¥¬ ') = :module) and "
+            "  (:station is null or nvl(station, '‘¨αβ¥¬ ') = :station) and "
+            "  events.type IN ( "
+            "    :evtFlt, "
+            "    :evtPax, "
+            "    :evtGraph, "
+            "    :evtTlg, "
+            "    :evtComp, "
+            "    :evtAccess, "
+            "    :evtSystem, "
+            "    :evtCodif, "
+            "    :evtPeriod "
+            "  ) "
+            "UNION "
+            "SELECT msg, time, id1 AS point_id, "
+            "  nvl(screen.name, events.screen) screen, "
+            "  DECODE(type,:evtPax,id2,NULL) AS reg_no, "
+            "  DECODE(type,:evtPax,id3,NULL) AS grp_id, "
+            "  ev_user, station, ev_order "
+            "FROM arx.events, astra.screen "
+            "WHERE "
+            "  events.part_key >= :FirstDate and "
+            "  events.part_key < :LastDate and "
+            "  events.screen = screen.exe(+) and "
+            "  (:agent is null or nvl(ev_user, '‘¨αβ¥¬ ') = :agent) and "
+            "  (:module is null or nvl(screen.name, '‘¨αβ¥¬ ') = :module) and "
+            "  (:station is null or nvl(station, '‘¨αβ¥¬ ') = :station) and "
+            "  events.type IN ( "
+            "    :evtFlt, "
+            "    :evtPax, "
+            "    :evtGraph, "
+            "    :evtTlg, "
+            "    :evtComp, "
+            "    :evtAccess, "
+            "    :evtSystem, "
+            "    :evtCodif, "
+            "    :evtPeriod "
+            "  ) ";
+    else
+        throw Exception((string)"PaxLog: unknown tag " + tag);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = qry;
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(&Qry);
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException(376);
+        else
+            throw;
+    }
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr PaxLogNode = NewTextChild(dataNode, "PaxLog");
     while(!Qry.Eof) {
@@ -31,84 +145,6 @@ void drawPaxLog(xmlNodePtr resNode, TQuery &Qry)
 
         Qry.Next();
     }
-}
-
-void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
-        "SELECT msg, time, id1 AS point_id, "
-        "       nvl(screen.name, events.screen) screen, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM astra.events, astra.screen, "
-        "     (SELECT trip_id FROM astra.trips "
-        "      WHERE trips.scd>= :FirstDate AND trips.scd< :LastDate AND trips.trip= :trip "
-        "      ORDER BY trip_id) trips "
-        "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
-        "      events.screen = screen.exe(+) and "
-        "      events.id1=trips.trip_id "
-        "UNION "
-        "SELECT msg, time, id1 AS point_id, "
-        "       nvl(screen.name, events.screen) screen, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM arx.events, astra.screen, "
-        "     (SELECT part_key,trip_id FROM arx.trips "
-        "      WHERE trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND trips.trip= :trip "
-        "      ORDER BY part_key,trip_id) trips "
-        "WHERE events.part_key=trips.part_key AND "
-        "      events.screen = screen.exe(+) and "
-        "      events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
-        "      events.id1=trips.trip_id ";
-    TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(&Qry);
-    try {
-        Qry.Execute();
-    } catch (EOracleError E) {
-        if(E.Code == 376)
-            throw UserException(376);
-        else
-            throw;
-    }
-    drawPaxLog(resNode, Qry);
-}
-
-void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TQuery Qry(&OraSession);        
-    Qry.SQLText =
-        "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM astra.events "
-        "WHERE type IN (:evtPax,:evtPay) AND "
-        "      id1=:trip_id AND "
-        "      (id2 IS NULL OR id2=:reg_no) AND "
-        "      (id3 IS NULL OR id3=:grp_id) "
-        "UNION "
-        "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM arx.events "
-        "WHERE part_key=:part_key AND "
-        "      type IN (:evtPax,:evtPay) AND "
-        "      id1=:trip_id AND "
-        "      (id2 IS NULL OR id2=:reg_no) AND "
-        "      (id3 IS NULL OR id3=:grp_id) ";
-    TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(&Qry);
-    try {
-        Qry.Execute();
-    } catch (EOracleError E) {
-        if(E.Code == 376)
-            throw UserException(376);
-        else
-            throw;
-    }
-    drawPaxLog(resNode, Qry);
 }
 
 struct THallItem {

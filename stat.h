@@ -16,14 +16,13 @@ public:
      AddEvent("BagTagStatRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::PaxListRun);
      AddEvent("PaxListRun",evHandle);
-     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::LogRun);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::PaxLog);
      AddEvent("LogRun",evHandle);
-     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FltLogRun);
      AddEvent("FltLogRun",evHandle);
+     AddEvent("SystemLogRun",evHandle);
   };	
   
-  void FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
