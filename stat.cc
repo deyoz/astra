@@ -12,16 +12,31 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-enum TScreenState {DepStat, BagTagStat, PaxList, FltLog, SystemLog, PaxSrc};
+enum TScreenState {DepStat, BagTagStat, PaxList, FltLog, SystemLog, PaxSrc, TScreenStateNum};
+const char *ScreenStateS[] = {"DepStat", "BagTagStat", "PaxList", "FltLog", "SystemLog", "PaxSrc"};
 
+TScreenState DecodeScreenState(const string val)
+{
+    int i;
+    for(i = 0; i < TScreenStateNum; i++)
+        if(val == ScreenStateS[i])
+            break;
+    if(i == TScreenStateNum)
+        throw Exception((string)"DecodeScreenState: unknown ScreenState " + val);
+    else
+        return TScreenState(i);
+}
+
+const int depends_len = 3;
 struct TCBox {
     string cbox, qry;
-    string depends[3];
+    string depends[depends_len];
 };
 
+const int cboxes_len = 5;
 struct TCategory {
     TScreenState scr;
-    TCBox cboxes[5];
+    TCBox cboxes[cboxes_len];
 };
 
 TCategory Category[] = {
@@ -419,7 +434,38 @@ TCategory Category[] = {
     }
 };
 
-int CategorySize = sizeof(Category)/sizeof(Category[0]);
+const int CategorySize = sizeof(Category)/sizeof(Category[0]);
+
+void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string cbox = NodeAsString("cbox", reqNode);
+    TScreenState scr = DecodeScreenState(NodeAsString("ScreenState", reqNode));
+    TCategory *Ctg = &Category[scr];
+    int i = 0;
+    for(; i < cboxes_len; i++)
+        if(Ctg->cboxes[i].cbox + "CBox" == cbox) break;
+    if(i == cboxes_len)throw Exception((string)"CommonCBoxDropDown: data not found for " + cbox);
+    TCBox *cbox_data = &Ctg->cboxes[i];
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = cbox_data->qry;
+    TParams1 SQLParams;
+    SQLParams.getParams(GetNode("sqlparams", reqNode));
+    SQLParams.setSQL(&Qry);
+    if(scr == FltLog) {
+        Qry.CreateVariable("evtFlt", otString, EncodeEventType(evtFlt));
+        Qry.CreateVariable("evtGraph", otString, EncodeEventType(evtGraph));
+        Qry.CreateVariable("evtTlg", otString, EncodeEventType(evtTlg));
+        Qry.CreateVariable("evtPax", otString, EncodeEventType(evtPax));
+        Qry.CreateVariable("evtPay", otString, EncodeEventType(evtPay));
+    }
+    Qry.Execute();
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr cboxNode = NewTextChild(dataNode, "cbox");
+    while(!Qry.Eof) {
+        NewTextChild(cboxNode, "f", Qry.FieldAsString(0));
+        Qry.Next();
+    }
+}
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1050,19 +1096,6 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    for(int i = 0; i < CategorySize; i++) {
-        ProgTrace(TRACE5, "********* CATEGORY %d **********", i);
-        ProgTrace(TRACE5, "scr: %d", Category[i].scr);
-        ProgTrace(TRACE5, "CBOXES");
-        for(int j = 0; j < 5; j++) {
-            ProgTrace(TRACE5, "cbox: %s", Category[i].cboxes[j].cbox.c_str());
-            ProgTrace(TRACE5, "qry: %s", Category[i].cboxes[j].qry.c_str());
-            ProgTrace(TRACE5, "depends 1: %s", Category[i].cboxes[j].depends[0].c_str());
-            ProgTrace(TRACE5, "depends 2: %s", Category[i].cboxes[j].depends[1].c_str());
-            ProgTrace(TRACE5, "depends 3: %s", Category[i].cboxes[j].depends[2].c_str());
-        }
-    }
-
     TQuery Qry(&OraSession);        
     Qry.SQLText =
         "SELECT "
