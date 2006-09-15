@@ -12,6 +12,407 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+enum TScreenState {DepStat, BagTagStat, PaxList, FltLog, SystemLog, PaxSrc};
+
+struct TCBox {
+    string cbox, qry;
+    string depends[3];
+};
+
+struct TCategory {
+    TScreenState scr;
+    TCBox cboxes[5];
+};
+
+TCategory Category[] = {
+    {
+        DepStat,
+        {
+            {
+                "Flt",
+
+                "SELECT trips.trip "
+                "FROM astra.trips,astra.place, astra.pax_grp "
+                "WHERE trips.trip_id=place.trip_id AND "
+                "      trips.trip_id = pax_grp.point_id(+) and "
+                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+                "      (:awk IS NULL OR trips.company = :awk) AND "
+                "      place.num>0 AND "
+                "      (:dest IS NULL OR place.city= :dest) and "
+                "      (:class is null or pax_grp.class = :class) "
+                "UNION "
+                "SELECT trips.trip "
+                "FROM arx.trips,arx.place,arx.pax_grp "
+                "WHERE "
+                "      trips.trip_id = pax_grp.point_id(+) and "
+                "      trips.part_key=place.part_key AND trips.trip_id=place.trip_id AND "
+                "      place.part_key >= :FirstDate AND place.part_key < :LastDate AND "
+                "      (:awk IS NULL OR trips.company = :awk) AND "
+                "      place.num>0 AND "
+                "      (:dest IS NULL OR place.city= :dest) and "
+                "      (:class is null or pax_grp.class = :class) "
+                "ORDER BY trip  ",
+
+                {"Dest", "Awk", "Class"}
+            },
+            {
+                "Awk",
+
+                "select company from "
+                "    astra.trips, astra.place, astra.pax_grp "
+                "where "
+                "    trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+                "    trips.trip_id=place.trip_id AND "
+                "    trips.trip_id = pax_grp.point_id(+) and "
+                "    (:class is null or pax_grp.class = :class) and "
+                "    place.num>0 AND "
+                "    (:dest IS NULL OR place.city= :dest) and "
+                "    (:flt IS NULL OR trips.trip= :flt) "
+                "union "
+                "select company from "
+                "    arx.trips, arx.place, arx.pax_grp "
+                "where "
+                "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
+                "    trips.trip_id=place.trip_id AND "
+                "    trips.trip_id = pax_grp.point_id(+) and "
+                "    (:class is null or pax_grp.class = :class) and "
+                "    place.num>0 AND "
+                "    (:dest IS NULL OR place.city= :dest) and "
+                "    (:flt IS NULL OR trips.trip= :flt) ",
+
+                {"Flt",    "Dest", "Class"}
+            },
+            {
+                "Dest",
+
+                "SELECT place.city AS dest "
+                "FROM astra.trips,astra.place,astra.pax_grp "
+                "WHERE  "
+                "      trips.trip_id=place.trip_id AND "
+                "      trips.trip_id = pax_grp.point_id(+) and "
+                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+                "      (:awk IS NULL OR trips.company = :awk) AND "
+                "      place.num>0 AND "
+                "      (:flt IS NULL OR trips.trip= :flt) and "
+                "      (:class is null or pax_grp.class = :class) "
+                "UNION "
+                "SELECT place.city AS dest "
+                "FROM arx.trips,arx.place,arx.pax_grp "
+                "WHERE  "
+                "      trips.trip_id=place.trip_id AND "
+                "      trips.trip_id = pax_grp.point_id(+) and "
+                "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
+                "      (:awk IS NULL OR trips.company = :awk) AND "
+                "      place.num>0 AND "
+                "      (:flt IS NULL OR trips.trip= :flt) and "
+                "      (:class is null or pax_grp.class = :class) "
+                "ORDER BY dest  ",
+
+                {"Awk",    "Flt",  "Class"}
+            },
+            {
+                "Class",
+
+                "select "
+                "    distinct pax_grp.class "
+                "from "
+                "    astra.trips, astra.pax_grp, astra.place "
+                "WHERE "
+                "    trips.trip_id=place.trip_id AND "
+                "    trips.trip_id=pax_grp.point_id and "
+                "    trips.scd>= :FirstDate AND "
+                "    trips.scd< :LastDate AND "
+                "    (:awk is null or trips.company = :awk) and "
+                "    (:flt IS NULL OR trips.trip= :flt) and "
+                "    place.num>0 AND "
+                "    (:dest IS NULL OR place.city= :dest) "
+                "union "
+                "select "
+                "    distinct pax_grp.class "
+                "from "
+                "    arx.trips, arx.pax_grp, arx.place "
+                "WHERE "
+                "    trips.trip_id=pax_grp.point_id AND "
+                "    trips.trip_id=place.trip_id AND "
+                "    trips.trip_id=pax_grp.point_id and "
+                "    trips.scd>= :FirstDate AND "
+                "    trips.scd< :LastDate AND "
+                "    (:awk is null or trips.company = :awk) and "
+                "    (:flt IS NULL OR trips.trip= :flt) and "
+                "    place.num>0 AND "
+                "    (:dest IS NULL OR place.city= :dest) ",
+
+                {"Awk",    "Flt",  "Dest"}
+            },
+            {
+                "Rem",
+
+                "select "
+                "    distinct pax_rem.rem_code "
+                "from "
+                "    astra.trips, astra.pax_grp, astra.pax, astra.pax_rem, astra.remark "
+                "WHERE "
+                "    trips.scd>= :FirstDate AND "
+                "    trips.scd< :LastDate AND "
+                "    trips.trip_id=pax_grp.point_id AND "
+                "    pax_grp.grp_id = pax.grp_id and "
+                "    pax.pax_id = pax_rem.pax_id and "
+                "    pax_rem.rem_code is not null and "
+                "    pax_rem.rem_code = remark.cod "
+                "union "
+                "select "
+                "    distinct pax_rem.rem_code "
+                "from "
+                "    arx.trips, arx.pax_grp, arx.pax, arx.pax_rem, astra.remark "
+                "WHERE "
+                "    trips.trip_id=pax_grp.point_id AND "
+                "    pax_grp.grp_id = pax.grp_id and "
+                "    pax.pax_id = pax_rem.pax_id and "
+                "    pax_rem.rem_code is not null and "
+                "    pax_rem.rem_code = remark.cod and "
+                "    pax_rem.part_key>= :FirstDate AND "
+                "    pax_rem.part_key< :LastDate "
+            },
+        }
+    },
+    {
+        BagTagStat,
+        {
+            "Awk",
+
+            "select company from "
+            "    astra.trips "
+            "where "
+            "    trips.scd >= :FirstDate AND trips.scd < :LastDate "
+            "union "
+            "select company from "
+            "    arx.trips "
+            "where "
+            "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate "
+        }
+    },
+    {
+        PaxList,
+        {
+            "Flt",
+
+            "SELECT trips.trip "
+            "FROM astra.trips "
+            "WHERE "
+            "      trips.scd >= :FirstDate AND trips.scd < :LastDate "
+            "UNION "
+            "SELECT trips.trip "
+            "FROM arx.trips "
+            "WHERE "
+            "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate "
+            "ORDER BY trip  "
+        }
+    },
+    {
+        FltLog,
+        {
+            "Flt",
+
+            "SELECT trips.trip  "
+            "FROM astra.events, "
+            "     (SELECT trip, trip_id FROM astra.trips "
+            "      WHERE trips.scd>= :FirstDate AND "
+            "        trips.scd< :LastDate "
+            "      ORDER BY trip_id) trips "
+            "WHERE    "
+            "    events.type in ( "
+            "    :evtFlt, "
+            "    :evtGraph, "
+            "    :evtTlg, "
+            "    :evtPax, "
+            "    :evtPay "
+            "    ) and "
+            "    events.id1 = trips.trip_id "
+            "UNION    "
+            "SELECT trips.trip    "
+            "FROM arx.events, "
+            "     (SELECT trip, trip_id, part_key FROM arx.trips "
+            "      WHERE trips.part_key>= :FirstDate AND "
+            "        trips.part_key< :LastDate "
+            "      ORDER BY trip_id) trips "
+            "WHERE    "
+            "    events.part_key=trips.part_key AND  "
+            "    events.type in ( "
+            "    :evtFlt, "
+            "    :evtGraph, "
+            "    :evtTlg, "
+            "    :evtPax, "
+            "    :evtPay "
+            "    ) and "
+            "    events.id1 = trips.trip_id "
+            "ORDER BY trip "
+        }
+    },
+        /*
+    {
+        SystemLog,
+        {
+            "Agent",
+
+            "select ''‘¨αβ¥¬ '' agent from dual where "
+            "  (:station is null or :station = ''‘¨αβ¥¬ '') and "
+            "  (:module is null or :module = ''‘¨αβ¥¬ '') "
+            "union "
+            "select ev_user agent from astra.events, astra.screen "
+            "where "
+            "    time >= :FirstDate and "
+            "    time < :LastDate and "
+            "    (:station is null or station = :station) and "
+            "    events.screen = screen.exe(+) and "
+            "    (:module is null or nvl(screen.name, events.screen) = :module) "
+            "union "
+            "select ev_user agent from arx.events, astra.screen "
+            "where "
+            "    time >= :FirstDate and "
+            "    time < :LastDate and "
+            "    (:station is null or station = :station) and "
+            "    events.screen = screen.exe(+) and "
+            "    (:module is null or nvl(screen.name, events.screen) = :module) "
+            "order by "
+            "    agent ",
+
+            {"Station", "Module"}
+        },
+        {
+            "Station",
+
+            "select ''‘¨αβ¥¬ '' station from dual where "
+            "  (:agent is null or :agent = ''‘¨αβ¥¬ '') and "
+            "  (:module is null or :module = ''‘¨αβ¥¬ '') "
+            "union "
+            "select station from astra.events, astra.screen "
+            "where "
+            "    time >= :FirstDate and "
+            "    time < :LastDate and "
+            "    station is not null and "
+            "    (:agent is null or ev_user = :agent) and "
+            "    events.screen = screen.exe(+) and "
+            "    (:module is null or nvl(screen.name, events.screen) = :module) "
+            "union "
+            "select station from arx.events, astra.screen "
+            "where "
+            "    time >= :FirstDate and "
+            "    time < :LastDate and "
+            "    station is not null and "
+            "    (:agent is null or ev_user = :agent) and "
+            "    events.screen = screen.exe(+) and "
+            "    (:module is null or nvl(screen.name, events.screen) = :module) "
+            "order by "
+            "    station ",
+
+            {"Agent", "Module"}
+        },
+        {
+            "Module",
+
+            "select ''‘¨αβ¥¬ '' module from dual where "
+            "  (:agent is null or :agent = ''‘¨αβ¥¬ '') and "
+            "  (:station is null or :station = ''‘¨αβ¥¬ '') "
+            "union " 
+            "select nvl(screen.name, events.screen) module from astra.events, astra.screen where "
+            "    events.time >= :FirstDate and "
+            "    events.time < :LastDate and "
+            "    (:station is null or station = :station) and "
+            "    (:agent is null or ev_user = :agent) and "
+            "    events.screen is not null and "
+            "    events.screen = screen.exe(+) "
+            "union "
+            "select nvl(screen.name, events.screen) module from arx.events, astra.screen where "
+            "    events.part_key >= :FirstDate and "
+            "    events.part_key < :LastDate and "
+            "    (:station is null or station = :station) and "
+            "    (:agent is null or ev_user = :agent) and "
+            "    events.screen is not null and "
+            "    events.screen = screen.exe(+) "
+            "order by "
+            "    module ",
+
+            {"Agent", "Station"}
+        }
+    },
+    {
+        PaxSrc,
+        {
+            "Flt",
+
+            "SELECT trips.trip "
+            "FROM astra.trips,astra.place "
+            "WHERE trips.trip_id=place.trip_id AND "
+            "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+            "      (:awk IS NULL OR trips.company = :awk) AND "
+            "      place.num>0 AND "
+            "      (:dest IS NULL OR place.city= :dest) "
+            "UNION "
+            "SELECT trips.trip "
+            "FROM arx.trips,arx.place "
+            "WHERE "
+            "      trips.part_key=place.part_key AND trips.trip_id=place.trip_id AND "
+            "      place.part_key >= :FirstDate AND place.part_key < :LastDate AND "
+            "      (:awk IS NULL OR trips.company = :awk) AND "
+            "      place.num>0 AND "
+            "      (:dest IS NULL OR place.city= :dest) "
+            "ORDER BY trip  ",
+
+            {"Dest",   "Awk"}
+        },
+        {
+            "Awk",
+
+            "select company from "
+            "    astra.trips, astra.place "
+            "where "
+            "    trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+            "    trips.trip_id=place.trip_id AND "
+            "    place.num>0 AND "
+            "    (:dest IS NULL OR place.city= :dest) and "
+            "    (:flt IS NULL OR trips.trip= :flt) "
+            "union "
+            "select company from "
+            "    arx.trips, arx.place "
+            "where "
+            "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
+            "    trips.trip_id=place.trip_id AND "
+            "    place.num>0 AND "
+            "    (:dest IS NULL OR place.city= :dest) and "
+            "    (:flt IS NULL OR trips.trip= :flt) ",
+
+            {"Flt",    "Dest"}
+        },
+        {
+            "Dest",
+
+            "SELECT place.city AS dest "
+            "FROM astra.trips,astra.place "
+            "WHERE  "
+            "      trips.trip_id=place.trip_id AND "
+            "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
+            "      (:awk IS NULL OR trips.company = :awk) AND "
+            "      place.num>0 AND "
+            "      (:flt IS NULL OR trips.trip= :flt) "
+            "UNION "
+            "SELECT place.city AS dest "
+            "FROM arx.trips,arx.place "
+            "WHERE  "
+            "      trips.trip_id=place.trip_id AND "
+            "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
+            "      (:awk IS NULL OR trips.company = :awk) AND "
+            "      place.num>0 AND "
+            "      (:flt IS NULL OR trips.trip= :flt) "
+            "ORDER BY dest  ",
+
+            {"Awk",    "Flt"}
+        }
+    }
+        */
+};
+
+int CategorySize = sizeof(Category)/sizeof(Category[0]);
+
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string tag = (char *)reqNode->name;
@@ -179,16 +580,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(tag == "PaxListRun")
         ; // do nothing
     else if(tag == "PaxSrcRun") {
+        xmlNodePtr curNode = paramsNode->children;
+
         string family, pass, ticketno;
-
-        xmlNodePtr curNode = GetNode("family", paramsNode);
-        if(curNode) family = NodeAsString(curNode);
-
-        curNode = GetNode("pass", paramsNode);
-        if(curNode) pass = NodeAsString(curNode);
-
-        curNode = GetNode("ticketno", paramsNode);
-        if(curNode) ticketno = NodeAsString(curNode);
+        family = NodeAsStringFast("family", curNode, "");
+        pass = NodeAsStringFast("pass", curNode, "");
+        ticketno = NodeAsStringFast("ticketno", curNode, "");
 
         if(family.size() || pass.size() || ticketno.size()) {
             TDateTime FirstDate = NodeAsDateTime("FirstDate", paramsNode);
@@ -287,11 +684,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "      trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND "
         "      (:trip IS NULL OR trips.trip= :trip) and "
         "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM arx.place WHERE place.part_key=trips.part_key AND place.trip_id=trips.trip_id AND place.city=:dest)) ";
-
-    ofstream fout("out.sql");
-    if(fout.good())
-        fout << qry;
-    fout.close();
 
     THalls halls;
     halls.Init();
@@ -650,6 +1042,19 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    for(int i = 0; i < CategorySize; i++) {
+        ProgTrace(TRACE5, "*********CATEGORY**********");
+        ProgTrace(TRACE5, "scr: %d", Category[i].scr);
+        for(int j = 0; j < 5; j++) {
+            ProgTrace(TRACE5, "CBOXES:");
+            ProgTrace(TRACE5, "cbox: %s", Category[i].cboxes[j].cbox.c_str());
+            ProgTrace(TRACE5, "qry: %s", Category[i].cboxes[j].qry.c_str());
+            ProgTrace(TRACE5, "depends 1: %s", Category[i].cboxes[j].depends[1].c_str());
+            ProgTrace(TRACE5, "depends 2: %s", Category[i].cboxes[j].depends[2].c_str());
+            ProgTrace(TRACE5, "depends 3: %s", Category[i].cboxes[j].depends[3].c_str());
+        }
+    }
+
     TQuery Qry(&OraSession);        
     Qry.SQLText =
         "SELECT "
