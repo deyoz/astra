@@ -328,6 +328,46 @@ BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node)
   return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);			  
 }  
 
+bool NodeIsNULLFast(char *expr, xmlNodePtr &node, bool nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeIsNULL(NodeAsNodeFast(expr,node));	
+}
+
+char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeAsString(NodeAsNodeFast(expr,node));		
+}
+
+int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeAsInteger(NodeAsNodeFast(expr,node));		
+}
+
+double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeAsFloat(NodeAsNodeFast(expr,node));		
+}
+
+TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, TDateTime nvl)
+{
+    if(GetNodeFast(expr, node) == NULL)
+        return nvl;
+    else
+        return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);			  
+}  
+
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {
   if (name==NULL) return NULL;
@@ -348,6 +388,22 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content)
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content)
 {
   return NewTextChild(parent, name, FloatToString(content).c_str());
+};
+
+void NewTextChild(xmlNodePtr parent, const char *name, const string content, const string nvl)
+{
+    if(content != nvl)
+        NewTextChild(parent, name, content.c_str());
+};
+
+void NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl)
+{
+  NewTextChild(parent, name, IntToString(content), IntToString(nvl));
+};
+
+void NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl)
+{
+  NewTextChild(parent, name, FloatToString(content), FloatToString(nvl));
 };
 
 

@@ -48,6 +48,18 @@ double NodeAsFloatFast(char *expr, xmlNodePtr &node);
 BASIC::TDateTime NodeAsDateTimeFast(char *expr, char *format, xmlNodePtr &node);
 BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node);
 
+// Если узел не найден, возвращается nvl
+bool NodeIsNULLFast(char *expr, xmlNodePtr &node, bool nvl);
+char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl);
+int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl);
+double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl);
+BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, BASIC::TDateTime nvl);
+
+// Если content == nvl, узел не создается
+void NewTextChild(xmlNodePtr parent, const char *name, const std::string content, const std::string nvl);
+void NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl);
+void NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl);
+
 void NodeSetContent(xmlNodePtr cur, const char* content);
 void NodeSetContent(xmlNodePtr cur, const std::string content);
 void NodeSetContent(xmlNodePtr cur, const int content);
