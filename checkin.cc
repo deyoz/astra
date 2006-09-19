@@ -1176,7 +1176,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
   node=NewTextChild(grpNode,"tags");    
   BagQry.Clear();
   BagQry.SQLText=
-    "SELECT num,tag_type,no_len,no,color,bag_num,pr_ier,pr_print "
+    "SELECT num,tag_type,no_len,no,color,bag_num,prn_type,pr_print "
     "FROM bag_tags,tag_types "
     "WHERE bag_tags.tag_type=tag_types.code AND grp_id=:grp_id "
     "ORDER BY num";  
@@ -1194,7 +1194,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
       NewTextChild(tagNode,"bag_num",BagQry.FieldAsInteger("bag_num"));
     else  
       NewTextChild(tagNode,"bag_num");
-    NewTextChild(tagNode,"printable",(int)(BagQry.FieldAsInteger("pr_ier")!=0));
+    NewTextChild(tagNode,"printable",(int)(!BagQry.FieldIsNULL("prn_type")));
     NewTextChild(tagNode,"pr_print",(int)(BagQry.FieldAsInteger("pr_print")!=0));    
   };          
   BagQry.Close();  

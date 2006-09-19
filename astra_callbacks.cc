@@ -4,7 +4,6 @@
 #include "maindcs.h"
 #include "adm.h"
 #include "cache.h"
-#include "pay.h"
 #include "brd.h"
 #include "season.h"
 #include "etick.h" 
@@ -37,8 +36,7 @@ void AstraJxtCallbacks::InitInterfaces()
     ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
     new SysReqInterface();
     new MainDCSInterface();
-    new AdmInterface();
-    new PayInterface();
+    new AdmInterface();    
     new CacheInterface();
     new BrdInterface();
     new SeasonInterface();

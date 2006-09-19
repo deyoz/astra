@@ -290,7 +290,7 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     TrferItem.baby = 0;
     TrferItem.foreigner = 0;
     TrferItem.umnr = 0;
-    TrferItem.vip = Qry.FieldAsInteger( "vip" );
+    TrferItem.vip = 0;
     TrferItem.rkWeight = 0;
     TrferItem.bagAmount = Qry.FieldAsInteger( "bagAmount" );
     TrferItem.bagWeight = Qry.FieldAsInteger( "bagWeight" );
