@@ -51,7 +51,7 @@ const string ETS_CANON_NAME()
   }  
   return ETSNAME;	
 }
-
+ 
 const string OWN_CANON_NAME()
 {
   static string OWNNAME;	
@@ -91,10 +91,17 @@ void TUser::clear()
   login.clear();
   descr.clear();  
   access_code = 0;    	
-  access.clearFlags();
+  access_mode.clearFlags();
   time_form = tfUnknown;
   user_id=-1;
 };	
+
+void TAccess::clear()
+{
+  rights.clear();
+  airlines.clear();
+  airps.clear();
+}
 
 TReqInfo::TReqInfo()
 {
@@ -167,7 +174,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     desk.time = Qry.FieldAsDateTime( "time" );
     
     Qry.Clear();
-    sql = "SELECT user_id, login, descr, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+   
+    sql = "SELECT user_id, login, descr, type, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+   
           " WHERE desk = UPPER(:pult) ";
     Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
@@ -189,6 +196,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
         throw UserException( "Пользователю отказано в доступе" );
     user.user_id = Qry.FieldAsInteger( "user_id" );
     user.descr = Qry.FieldAsString( "descr" );    
+    user.user_type = (TUserType)Qry.FieldAsInteger( "type" );   
     user.login = Qry.FieldAsString( "login" );    
     user.time_form = tfUnknown;
     if (strcmp(Qry.FieldAsString( "time_form" ),"UTC")==0)        user.time_form = tfUTC;
@@ -241,34 +249,34 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
 
 void TUser::setAccessPair()
 {
-  access.clearFlags();
+  access_mode.clearFlags();
   switch( access_code ) {
     case 0: break;
     case 1:
     case 2:
     case 3:
-    case 4: access.setFlag( amRead );
+    case 4: access_mode.setFlag( amRead );
             break;
     case 5:
-    case 6: access.setFlag( amRead );
-            access.setFlag( amPartialWrite );
+    case 6: access_mode.setFlag( amRead );
+            access_mode.setFlag( amPartialWrite );
             break;
-    default:access.setFlag( amRead );
-            access.setFlag( amPartialWrite );
-            access.setFlag( amWrite );
+    default:access_mode.setFlag( amRead );
+            access_mode.setFlag( amPartialWrite );
+            access_mode.setFlag( amWrite );
   }
 }
 
 
 void TUser::check_access( TAccessMode mode )
 {
-  if ( !access.isFlag( mode ) )
+  if ( !access_mode.isFlag( mode ) )
     throw UserException( "Недостаточно прав. Доступ к информации невозможен" );
 }
 
 bool TUser::getAccessMode( TAccessMode mode )
 {
-  return access.isFlag( mode );
+  return access_mode.isFlag( mode );
 }
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
@@ -296,7 +304,6 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     Qry->DeclareVariable("id1", otInteger);
     Qry->DeclareVariable("id2", otInteger);
     Qry->DeclareVariable("id3", otInteger);
-
     Qry->SetVariable("type", EncodeEventType(msg.ev_type));
     Qry->SetVariable("msg", msg.msg);
     Qry->SetVariable("screen", screen);

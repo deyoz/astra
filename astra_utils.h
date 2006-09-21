@@ -24,6 +24,7 @@ struct TLogMsg {
   ASTRA::TEventType ev_type;
   int id1,id2,id3;
   TLogMsg() {
+    ev_type = ASTRA::evtUnknown;
     msg = "";
     id1 = 0;
     id2 = 0;
@@ -32,6 +33,7 @@ struct TLogMsg {
 };
 
 enum TAccessMode { amRead, amPartialWrite, amWrite };
+enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown }; 
 
 template <class T>
@@ -53,13 +55,23 @@ class BitSet
   }
 };
 
+class TAccess {
+  public:
+    std::vector<int> rights;
+    std::vector<std::string> airlines;
+    std::vector<std::string> airps;
+    void clear();
+};
+
 class TUser {
   public:
     int user_id;
     std::string login;
     std::string descr;
+    TUserType user_type;
+    TAccess access;
     int access_code;
-    BitSet<TAccessMode> access;
+    BitSet<TAccessMode> access_mode;
     TTimeForm time_form;    
     TUser();
     void setAccessPair( );
