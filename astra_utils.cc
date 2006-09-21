@@ -20,6 +20,8 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace JxtContext;
+using namespace boost::local_time;
+using namespace boost::posix_time;
 
 
 const string COMMON_ORAUSER()
@@ -73,22 +75,24 @@ void TDesk::clear()
 {
   code.clear();
   city.clear();
-  airp.clear();
+  tz_region.clear();
   time = 0;
 };
 
 TUser::TUser()
 {
   access_code = 0;
+  time_form = tfUnknown;
   user_id = -1;	
 };
 
 void TUser::clear()
 {
   login.clear();
-  descr.clear();
+  descr.clear();  
   access_code = 0;    	
   access.clearFlags();
+  time_form = tfUnknown;
   user_id=-1;
 };	
 
@@ -139,7 +143,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     screen_id = Qry.FieldAsInteger( "id" );
         
     Qry.Clear();
-    sql = string("SELECT pr_denial, city, airp FROM ") +COMMON_ORAUSER()+ ".desks," +
+    sql = string("SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region FROM ") +COMMON_ORAUSER()+ ".desks," +
           COMMON_ORAUSER() + ".sale_points " + 
           " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
           
@@ -152,7 +156,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
       throw UserException( "ã«ìâ ®âª«îç¥­" );         	
     desk.city = Qry.FieldAsString( "city" );
-    desk.airp = Qry.FieldAsString( "airp" );
+    desk.tz_region = Qry.FieldAsString( "tz_region" );
     Qry.Clear();
     sql = string("SELECT SYSDATE+tz/24 as time FROM ") + COMMON_ORAUSER() + 
           ".cities WHERE cod=:city";
@@ -163,7 +167,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     desk.time = Qry.FieldAsDateTime( "time" );
     
     Qry.Clear();
-    sql = "SELECT user_id, login, descr, pr_denial FROM " + COMMON_ORAUSER() + ".users2 "+   
+    sql = "SELECT user_id, login, descr, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+   
           " WHERE desk = UPPER(:pult) ";
     Qry.SQLText = sql;
     Qry.DeclareVariable( "pult", otString );
@@ -186,6 +190,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     user.user_id = Qry.FieldAsInteger( "user_id" );
     user.descr = Qry.FieldAsString( "descr" );    
     user.login = Qry.FieldAsString( "login" );    
+    user.time_form = tfUnknown;
+    if (strcmp(Qry.FieldAsString( "time_form" ),"UTC")==0)        user.time_form = tfUTC;
+    if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_DESK")==0) user.time_form = tfLocalDesk;
+    if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_ALL")==0)  user.time_form = tfLocalAll;
     
     Qry.Clear();
     sql = "SELECT 1 AS priority,access_code FROM " + COMMON_ORAUSER() + ".user_perms " +
@@ -486,8 +494,7 @@ void showBasicInfo(void)
   };    
   if (!reqInfo->desk.code.empty())
   {
-    node = NewTextChild(resNode,"desk");
-    NewTextChild(node,"airp",reqInfo->desk.airp);
+    node = NewTextChild(resNode,"desk");    
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) ); 
   };  
@@ -510,4 +517,79 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                NodeAsString( "msg", reqNode ) ) ;
 }
 
+TDateTime UTCToLocal(TDateTime d, string region)
+{
+  if (region.empty()) throw Exception("Region not specified",region.c_str());            
+  tz_database tz_db;
+  try
+  {
+    tz_db.load_from_file("date_time_zonespec.csv");
+  }
+  catch (boost::local_time::data_not_accessible)
+  {
+    throw Exception("File 'date_time_zonespec.csv' not found");    
+  }       
+  catch (boost::local_time::bad_field_count)
+  {
+    throw Exception("File 'date_time_zonespec.csv' wrong format");        
+  };         
+  time_zone_ptr tz = tz_db.time_zone_from_region(region);      
+  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  local_date_time ld(DateTimeToBoost(d),tz);
+  return BoostToDateTime(ld.local_time());  
+}        
 
+TDateTime LocalToUTC(TDateTime d, string region)
+{
+  if (region.empty()) throw Exception("Region not specified",region.c_str());            
+  tz_database tz_db;
+  try
+  {
+    tz_db.load_from_file("date_time_zonespec.csv");
+  }
+  catch (boost::local_time::data_not_accessible)
+  {
+    throw Exception("File 'date_time_zonespec.csv' not found");    
+  }       
+  catch (boost::local_time::bad_field_count)
+  {
+    throw Exception("File 'date_time_zonespec.csv' wrong format");        
+  };    
+  time_zone_ptr tz = tz_db.time_zone_from_region(region);      
+  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  ptime pt=DateTimeToBoost(d);
+  local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR );
+  return BoostToDateTime(ld.utc_time());  
+};        
+
+TDateTime UTCToClient(TDateTime d, string region)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();	
+  switch (reqInfo->user.time_form)
+  {
+    case tfUTC: 
+      return d;
+    case tfLocalDesk:
+      return UTCToLocal(d,reqInfo->desk.tz_region);
+    case tfLocalAll:
+      return UTCToLocal(d,region); 
+    default: 
+      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);    
+  };               
+};
+
+TDateTime ClientToUTC(TDateTime d, string region)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();	
+  switch (reqInfo->user.time_form)
+  {
+    case tfUTC: 
+      return d;
+    case tfLocalDesk:
+      return LocalToUTC(d,reqInfo->desk.tz_region);
+    case tfLocalAll:
+      return LocalToUTC(d,region); 
+    default: 
+      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);    
+  };               
+};

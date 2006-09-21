@@ -2,6 +2,9 @@
 #define _ASTRA_UTILS_H_
 
 #include <string>
+#include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/date_time/local_time/local_time.hpp>
 #include "astra_consts.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -29,6 +32,7 @@ struct TLogMsg {
 };
 
 enum TAccessMode { amRead, amPartialWrite, amWrite };
+enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown }; 
 
 template <class T>
 class BitSet
@@ -56,6 +60,7 @@ class TUser {
     std::string descr;
     int access_code;
     BitSet<TAccessMode> access;
+    TTimeForm time_form;    
     TUser();
     void setAccessPair( );
     void check_access( TAccessMode mode );
@@ -67,7 +72,7 @@ class TDesk {
   public:
     std::string code;
     std::string city;
-    std::string airp;
+    std::string tz_region;    
     BASIC::TDateTime time;
     TDesk();
     void clear();
@@ -138,6 +143,11 @@ void MsgToLog(TLogMsg &msg);
 
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
+
+BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
+BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
+BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
+BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region);
 
 class SysReqInterface : public JxtInterface
 {

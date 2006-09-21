@@ -1,4 +1,5 @@
 #include "checkin.h"
+#include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "stl_utils.h"
@@ -13,6 +14,7 @@
 #include "test.h"
 
 using namespace std;
+using namespace BASIC;
 using namespace EXCEPTIONS;
 
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1408,6 +1410,40 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
   };  
   Qry.Close();
 };
+
+void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo* reqInfo = TReqInfo::Instance();
+  NewTextChild(resNode,"LocalDateTime");
+  NewTextChild(resNode,"UTCDateTime");           
+  if (!NodeIsNULL("UTCDateTime",reqNode))
+  {
+    try
+    {
+      TDateTime ud = NodeAsDateTime("UTCDateTime",reqNode);      
+      ud = UTCToLocal(ud,reqInfo->desk.tz_region);    
+      ReplaceTextChild(resNode,"LocalDateTime",DateTimeToStr(ud,"dd.mm.yyyy hh:nn:ss"));
+    }      
+    catch(std::logic_error e)
+    {
+      showErrorMessage(e.what());          
+    };
+  }; 
+      
+  if (!NodeIsNULL("LocalDateTime",reqNode))
+  {
+    try
+    {
+      TDateTime ld = NodeAsDateTime("LocalDateTime",reqNode);          
+      ld = LocalToUTC(ld,reqInfo->desk.tz_region);              
+      ReplaceTextChild(resNode,"UTCDateTime",DateTimeToStr(ld,"dd.mm.yyyy hh:nn:ss"));    
+    }      
+    catch(std::logic_error e)
+    {
+      showErrorMessage(e.what());          
+    };
+  };
+};        
 
 
 

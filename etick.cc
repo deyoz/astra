@@ -226,12 +226,13 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
         Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
         //if (area==csaFlt) 
         //{
+          ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier 
                   Qry.FieldAsInteger("flt_no"),   
                   -1,
-                  ToBoostDate(Qry.FieldAsDateTime("scd")),
-                  ToBoostTime(Qry.FieldAsDateTime("scd")),
+                  scd.date(),
+                  scd.time_of_day(),                  
                   airp_dep,
                   airp_arv);
           Coupon cpn(ci,itin);        
@@ -284,12 +285,13 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     for(;!Qry.Eof;Qry.Next())
     {      
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);      
+      ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier 
                   Qry.FieldAsInteger("flt_no"),   
                   -1,
-                  ToBoostDate(Qry.FieldAsDateTime("scd")),
-                  ToBoostTime(Qry.FieldAsDateTime("scd")),
+                  scd.date(),
+                  scd.time_of_day(),                  
                   Qry.FieldAsString("airp_dep"),
                   Qry.FieldAsString("airp_arv"));      
       Coupon cpn(ci,itin);

@@ -153,9 +153,9 @@ public:
     OrigOfRequest(const TReqInfo &req)
     : BaseOrigOfRequest(
                         "Y1",
-                        req.desk.airp,
+                        req.opt.airport_lat,
                         "","",//ppr,agn
-                        req.desk.airp,
+                        req.opt.airport_lat,
                         'Y',
                         req.desk.code,
                         "",
