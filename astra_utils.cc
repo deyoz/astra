@@ -524,22 +524,30 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                NodeAsString( "msg", reqNode ) ) ;
 }
 
+tz_database &get_tz_database()
+{
+  static tz_database tz_db;
+  if ( tz_db.region_list().empty() ) {
+    try
+    {
+      tz_db.load_from_file("date_time_zonespec.csv");
+    }
+    catch (boost::local_time::data_not_accessible)
+    {
+      throw Exception("File 'date_time_zonespec.csv' not found");    
+    }       
+    catch (boost::local_time::bad_field_count)
+    {
+      throw Exception("File 'date_time_zonespec.csv' wrong format");        
+    };           
+  }
+  return tz_db;
+}
+
 TDateTime UTCToLocal(TDateTime d, string region)
 {
   if (region.empty()) throw Exception("Region not specified",region.c_str());            
-  tz_database tz_db;
-  try
-  {
-    tz_db.load_from_file("date_time_zonespec.csv");
-  }
-  catch (boost::local_time::data_not_accessible)
-  {
-    throw Exception("File 'date_time_zonespec.csv' not found");    
-  }       
-  catch (boost::local_time::bad_field_count)
-  {
-    throw Exception("File 'date_time_zonespec.csv' wrong format");        
-  };         
+  tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);      
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
   local_date_time ld(DateTimeToBoost(d),tz);
@@ -549,19 +557,7 @@ TDateTime UTCToLocal(TDateTime d, string region)
 TDateTime LocalToUTC(TDateTime d, string region)
 {
   if (region.empty()) throw Exception("Region not specified",region.c_str());            
-  tz_database tz_db;
-  try
-  {
-    tz_db.load_from_file("date_time_zonespec.csv");
-  }
-  catch (boost::local_time::data_not_accessible)
-  {
-    throw Exception("File 'date_time_zonespec.csv' not found");    
-  }       
-  catch (boost::local_time::bad_field_count)
-  {
-    throw Exception("File 'date_time_zonespec.csv' wrong format");        
-  };    
+  tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);      
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
   ptime pt=DateTimeToBoost(d);
