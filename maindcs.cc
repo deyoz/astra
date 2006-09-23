@@ -16,46 +16,30 @@ void GetModuleList(xmlNodePtr resNode)
 {
     TReqInfo *reqinfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);        
-    string sql =
-        string( "SELECT 1 AS priority,MAX(access_code) AS access_code, " ) +
-        "       screen.id,screen.name,screen.exe " +
-        "FROM " + COMMON_ORAUSER() + ".user_perms," +
-        COMMON_ORAUSER()+".screen "+
-        "WHERE user_perms.screen_id=screen.id AND "+
-        "      user_perms.user_id=:user_id "+
-        "GROUP BY screen.id,screen.name,screen.exe "+
-        "UNION "+
-        "SELECT 2,MAX(access_code), "+
-        "       screen.id,screen.name,screen.exe "+
-        "FROM "+COMMON_ORAUSER()+".user_roles,"+
-        COMMON_ORAUSER()+".role_perms,"+
-        COMMON_ORAUSER()+".screen "+
-        "WHERE user_roles.role_id=role_perms.role_id AND "+
-        "      role_perms.screen_id=screen.id AND "+
-        "      user_roles.user_id=:user_id "+
-        "GROUP BY screen.id,screen.name,screen.exe "+
-        "ORDER BY id,priority ";        
-    Qry.SQLText = sql;
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT DISTINCT screen.id,screen.name,screen.exe "
+      "FROM user_roles,role_rights,screen_rights,screen "
+      "WHERE user_roles.role_id=role_rights.role_id AND "
+      "      role_rights.right_id=screen_rights.right_id AND "
+      "      screen_rights.screen_id=screen.id AND "
+      "      user_roles.user_id=:user_id ";
+      "ORDER BY id ";                 
     Qry.DeclareVariable("user_id", otInteger);
     Qry.SetVariable("user_id", reqinfo->user.user_id);
     Qry.Execute();
     xmlNodePtr modulesNode = NewTextChild(resNode, "modules");
-    int screen_id = -1;
-    bool modules_exists = false;
-    while(!Qry.Eof) {
-        if(screen_id != Qry.FieldAsInteger("id")) {
-            if(Qry.FieldAsInteger("access_code") > 0) {
-                modules_exists = true;
-                xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
-                NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
-                NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
-                NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
-            }
-            screen_id = Qry.FieldAsInteger("id");
-        }
-        Qry.Next();
-    }
-    if(!modules_exists) showErrorMessage("Пользователю закрыт доступ ко всем модулям");        
+    if (!Qry.Eof)
+    {
+      for(;!Qry.Eof;Qry.Next())
+      {
+        xmlNodePtr moduleNode = NewTextChild(modulesNode, "module");
+        NewTextChild(moduleNode, "id", Qry.FieldAsInteger("id"));
+        NewTextChild(moduleNode, "name", Qry.FieldAsString("name"));
+        NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
+      };     
+    }    
+    else showErrorMessage("Пользователю закрыт доступ ко всем модулям");                
 }
 
 void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -145,7 +129,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void MainDCSInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo=TReqInfo::Instance();
-  reqInfo->user.check_access( amWrite );
+  //reqInfo->user.check_access( amWrite );
   TQuery Qry(&OraSession);  
   int user_id = NodeAsInteger( "user_id", reqNode );  
   string sql= "UPDATE " + COMMON_ORAUSER()+".users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";

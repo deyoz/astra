@@ -69,7 +69,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int point_id,grp_id,ckin_stage,hall;
   string cl,airp_arv;
   TReqInfo *reqInfo = TReqInfo::Instance();     
-  reqInfo->user.check_access(amPartialWrite);
+  //reqInfo->user.check_access(amPartialWrite);
   TQuery Qry(&OraSession);
   //определим, открыт ли рейс для регистрации
   
@@ -1421,7 +1421,8 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     try
     {
       TDateTime ud = NodeAsDateTime("UTCDateTime",reqNode);      
-      ud = UTCToLocal(ud,reqInfo->desk.tz_region);    
+      ud = NowLocal();
+      //ud = UTCToLocal(ud,reqInfo->desk.tz_region);    
       ReplaceTextChild(resNode,"LocalDateTime",DateTimeToStr(ud,"dd.mm.yyyy hh:nn:ss"));
     }      
     catch(std::logic_error e)
@@ -1435,7 +1436,8 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     try
     {
       TDateTime ld = NodeAsDateTime("LocalDateTime",reqNode);          
-      ld = LocalToUTC(ld,reqInfo->desk.tz_region);              
+      ld = NowUTC();
+      //ld = LocalToUTC(ld,reqInfo->desk.tz_region);              
       ReplaceTextChild(resNode,"UTCDateTime",DateTimeToStr(ld,"dd.mm.yyyy hh:nn:ss"));    
     }      
     catch(std::logic_error e)

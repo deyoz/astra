@@ -27,7 +27,7 @@ using namespace ASTRA;
 void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonsInterface::CheckInShow" );
-  TReqInfo::Instance()->user.check_access( amRead );
+  //TReqInfo::Instance()->user.check_access( amRead );
   TSalons Salons;      
   Salons.trip_id = NodeAsInteger( "trip_id", reqNode );
   Salons.ClName = NodeAsString( "ClName", reqNode );
@@ -47,7 +47,7 @@ void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonsInterface::SalonFormShow" );	
-  TReqInfo::Instance()->user.check_access( amRead );
+  //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   ProgTrace( TRACE5, "trip_id=%d", trip_id );
@@ -138,7 +138,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void SalonsInterface::ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amRead );	
+  //TReqInfo::Instance()->user.check_access( amRead );	
   bool SeatNoIsNull = NodeAsInteger( "SeatNoIsNull", reqNode );	
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   NewTextChild( resNode, "existsregpassengers", TSalons::InternalExistsRegPassenger( trip_id, SeatNoIsNull ) );
@@ -147,7 +147,7 @@ void SalonsInterface::ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonsInterface::SalonFormWrite" );		
-  TReqInfo::Instance()->user.check_access( amWrite );
+  //TReqInfo::Instance()->user.check_access( amWrite );
   TQuery Qry( &OraSession );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   int comp_id = NodeAsInteger( "comp_id", reqNode );
@@ -240,7 +240,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
 void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );	
+  //TReqInfo::Instance()->user.check_access( amWrite );	
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );	
   int tid = NodeAsInteger( "tid", reqNode );  
@@ -303,7 +303,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );	
+  //TReqInfo::Instance()->user.check_access( amWrite );	
   int trip_id = NodeAsInteger( "trip_id", reqNode );	
   ProgTrace(TRACE5, "SalonsInterface::AutoReseatsPassengers, trip_id=%d", trip_id );				  
   TQuery Qry( &OraSession );
@@ -334,7 +334,7 @@ void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 {
   int comp_id = NodeAsInteger( "comp_id", reqNode );	
   ProgTrace(TRACE5, "SalonsInterface::BaseComponFormShow, comp_id=%d", comp_id );				  
-  TReqInfo::Instance()->user.check_access( amRead );
+  //TReqInfo::Instance()->user.check_access( amRead );
   TSalons Salons;
   Salons.comp_id = comp_id;
   Salons.Read( rComponSalons );
@@ -348,7 +348,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 {
   int comp_id = NodeAsInteger( "comp_id", reqNode );
   ProgTrace( TRACE5, "SalonsInterface::BaseComponFormWrite, comp_id=%d", comp_id );
-  TReqInfo::Instance()->user.check_access( amWrite );
+  //TReqInfo::Instance()->user.check_access( amWrite );
   TSalons Salons;
   Salons.Parse( GetNode( "salons", reqNode ) );
   Salons.comp_id = NodeAsInteger( "comp_id", reqNode );
@@ -411,7 +411,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
-  TReqInfo::Instance()->user.check_access( amRead );
+  //TReqInfo::Instance()->user.check_access( amRead );
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT comp_id,craft,bort,descr,classes FROM comps "\
                 " ORDER BY craft,comp_id";
@@ -432,7 +432,7 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 void SalonsInterface::ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace( TRACE5, "SalonsInterface::ChangeBC" );
-  TReqInfo::Instance()->user.check_access( amWrite );
+  //TReqInfo::Instance()->user.check_access( amWrite );
   TQuery Qry( &OraSession );
   Qry.SQLText = 
     "BEGIN "\

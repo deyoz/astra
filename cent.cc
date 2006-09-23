@@ -86,7 +86,7 @@ void CentInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace(TRACE5, "CentInterface::ReadTrips, point_id=%d", point_id );
-  TReqInfo::Instance()->user.check_access( amRead );    
+  //TReqInfo::Instance()->user.check_access( amRead );    
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
   if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */

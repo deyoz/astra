@@ -29,7 +29,7 @@ void ImagesInterface::GetisPlaceMap( map<string,bool> &ispl )
 
 void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-  TReqInfo::Instance()->user.check_access( amRead );	
+  //TReqInfo::Instance()->user.check_access( amRead );	
   ProgTrace( TRACE5, "ImagesInterface::GetImages" );	
   xmlNodePtr dataNode = GetNode( "data", resNode );
   if ( dataNode == NULL )
@@ -95,7 +95,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 
 void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );	
+  //TReqInfo::Instance()->user.check_access( amWrite );	
   ProgTrace(TRACE2, "ImagesInterface::SetImages" );
   TQuery *Qry = OraSession.CreateQuery();
   try {

@@ -32,7 +32,6 @@ struct TLogMsg {
   }
 };
 
-enum TAccessMode { amRead, amPartialWrite, amWrite };
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown }; 
 
@@ -69,14 +68,9 @@ class TUser {
     std::string login;
     std::string descr;
     TUserType user_type;
-    TAccess access;
-    int access_code;
-    BitSet<TAccessMode> access_mode;
+    TAccess access;    
     TTimeForm time_form;    
     TUser();
-    void setAccessPair( );
-    void check_access( TAccessMode mode );
-    bool getAccessMode( TAccessMode mode );
     void clear();
 };
 

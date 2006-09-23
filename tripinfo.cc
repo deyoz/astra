@@ -118,7 +118,7 @@ void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {
 void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "TripsInterface::ReadTrips" );
-  TReqInfo::Instance()->user.check_access( amRead );
+  //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
   TQuery Qry( &OraSession );
   TSQL::setSQLTrips( Qry, TReqInfo::Instance()->screen );

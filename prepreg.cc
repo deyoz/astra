@@ -333,7 +333,7 @@ void PrepRegInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace(TRACE5, "TripInfoInterface::ReadTrips, point_id=%d", point_id );
-  TReqInfo::Instance()->user.check_access( amRead );    
+  //TReqInfo::Instance()->user.check_access( amRead );    
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
   if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
@@ -348,7 +348,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace(TRACE5, "TripInfoInterface::CrsDataApplyUpdates, point_id=%d", point_id );
-  TReqInfo::Instance()->user.check_access( amWrite );    	
+  //TReqInfo::Instance()->user.check_access( amWrite );    	
   xmlNodePtr node = GetNode( "crsdata", reqNode );
   if ( !node || !node->children )
     return;
@@ -406,7 +406,7 @@ void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace(TRACE5, "PrepRegInterface::ViewPNL, point_id=%d", point_id );
-  TReqInfo::Instance()->user.check_access( amRead );    		
+  //TReqInfo::Instance()->user.check_access( amRead );    		
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewPNL( point_id, dataNode );
 }

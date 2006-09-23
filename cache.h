@@ -105,6 +105,10 @@ class TCacheTable {
         std::string DeleteSQL;
         TEventType EventType;
         bool Logging;
+        int SelectRight;
+        int InsertRight;
+        int UpdateRight;
+        int DeleteRight;
         bool Forbidden, ReadOnly;
         std::vector<TCacheField2> FFields;
         int clientVerData;

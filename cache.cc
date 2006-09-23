@@ -59,7 +59,8 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
     
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
-                 "       logging, event_type, tid "
+                 "       logging, event_type, tid, "
+                 "       select_right, insert_right, update_right, delete_right "
                  " FROM cache_tables WHERE code = :code";
   Qry->DeclareVariable("code", otString);
   Qry->SetVariable("code", code);
@@ -75,6 +76,23 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
   Logging = Qry->FieldAsInteger("logging") != 0;
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
+  //получим права доступа до операций
+  if (!Qry->FieldIsNULL("select_right"))
+    SelectRight=Qry->FieldAsInteger("select_right");
+  else
+    SelectRight=-1;
+  if (!Qry->FieldIsNULL("insert_right"))
+    InsertRight=Qry->FieldAsInteger("insert_right");
+  else
+    InsertRight=-1;
+  if (!Qry->FieldIsNULL("update_right"))
+    UpdateRight=Qry->FieldAsInteger("update_right");
+  else
+    UpdateRight=-1;  
+  if (!Qry->FieldIsNULL("delete_right"))
+    DeleteRight=Qry->FieldAsInteger("delete_right");
+  else
+    DeleteRight=-1;      
   getPerms( );      
   initFields(); /* инициализация FFields */
 }
@@ -379,9 +397,9 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
     NewTextChild(ifaceNode, "title", Title);
     NewTextChild(ifaceNode, "CanRefresh", !RefreshSQL.empty());
-    NewTextChild(ifaceNode, "CanInsert", !InsertSQL.empty());
-    NewTextChild(ifaceNode, "CanUpdate", !UpdateSQL.empty());
-    NewTextChild(ifaceNode, "CanDelete", !DeleteSQL.empty());
+    NewTextChild(ifaceNode, "CanInsert", !(InsertSQL.empty()||InsertRight<0) );
+    NewTextChild(ifaceNode, "CanUpdate", !(UpdateSQL.empty()||UpdateRight<0) );
+    NewTextChild(ifaceNode, "CanDelete", !(DeleteSQL.empty()||DeleteRight<0) );
 
     xmlNodePtr ffieldsNode = NewTextChild(ifaceNode, "fields");
     SetProp( ffieldsNode, "tid", curVerIface );
@@ -705,36 +723,47 @@ void TCacheTable::getPerms( )
     throw Exception("wrong message format");    
   string code = Params[TAG_CODE].Value;	
   Qry->Clear();
-  string sql;
-  sql =       
-    "SELECT MAX(access_code) AS access_code FROM"\
-    "  (SELECT access_code FROM astra.user_cache_perms"\
-    "   WHERE user_id=:user_id AND cache=:cache"\
-    "   UNION"\
-    "   SELECT MAX(access_code) FROM ";
-  sql += COMMON_ORAUSER();
-  sql += ".user_roles,";
-  sql += "astra.role_cache_perms";
-  sql += 
-    "   WHERE user_roles.role_id=role_cache_perms.role_id AND"
-    "         user_roles.user_id=:user_id AND role_cache_perms.cache=:cache)";
-  
-  Qry->SQLText = sql;
+  Qry->SQLText=
+    "SELECT role_rights.right_id "
+    "FROM user_roles,role_rights "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      user_roles.user_id=:user_id AND role_rights.right_id=:right_id AND "
+    "      rownum<2";
   Qry->DeclareVariable("user_id",otInteger);
-  Qry->DeclareVariable("cache",otString);
+  Qry->DeclareVariable("right_id",otString);
   Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
-  Qry->SetVariable( "cache", code );
-  tst();
-  Qry->Execute();
-  if(Qry->Eof || (Qry->FieldAsInteger("access_code")<=0)) {
-    Forbidden = true;
-    ReadOnly = true;
-  } 
-  else {
-    Forbidden = false;
-    ReadOnly = (Qry->FieldAsInteger("access_code")<5) ||
-                InsertSQL.empty() && UpdateSQL.empty() && DeleteSQL.empty();
-  }  	
+  
+  if (SelectRight>=0)
+  {
+    Qry->SetVariable( "right_id", SelectRight );
+    Qry->Execute();
+    if (!Qry->Eof) SelectRight=-1;
+  };
+  
+  if (InsertRight>=0)
+  {
+    Qry->SetVariable( "right_id", InsertRight );
+    Qry->Execute();
+    if (Qry->Eof) InsertRight=-1;
+  };
+  if (UpdateRight>=0)
+  {
+    Qry->SetVariable( "right_id", UpdateRight );
+    Qry->Execute();
+    if (Qry->Eof) UpdateRight=-1;
+  };
+  if (DeleteRight>=0)
+  {
+    Qry->SetVariable( "right_id", DeleteRight );
+    Qry->Execute();
+    if (Qry->Eof) DeleteRight=-1;
+  };  
+  
+  Forbidden = SelectRight>=0;
+  ReadOnly = SelectRight>=0 || 
+             (InsertSQL.empty() || InsertRight<0) && 
+             (UpdateSQL.empty() || UpdateRight<0) && 
+             (DeleteSQL.empty() || DeleteRight<0);
 }
 
 /*//////////////////////////////////////////////////////////////////////////////*/

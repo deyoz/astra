@@ -37,7 +37,7 @@ typedef vector<TDest> TDests;
 
 void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );
+  //TReqInfo::Instance()->user.check_access( amWrite );
     TQuery Qry(&OraSession);
     string sql = "begin ";
     sql += " delete ";
@@ -61,7 +61,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );	
+  //TReqInfo::Instance()->user.check_access( amWrite );	
     TQuery Qry(&OraSession);        
     Qry.SQLText = 
         "begin "
@@ -77,7 +77,7 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amWrite );	
+  //TReqInfo::Instance()->user.check_access( amWrite );	
     TQuery NQry(&OraSession);        
     string sql = "SELECT ";
     sql += COMMON_ORAUSER();
@@ -243,7 +243,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   map<int,TDests> mapds;
-  TReqInfo::Instance()->user.check_access( amRead );	
+  //TReqInfo::Instance()->user.check_access( amRead );	
   TPerfTimer tm;
   TQuery SQry( &OraSession );
   SQry.SQLText = "SELECT cod FROM options"; /*???!!!*/
@@ -430,7 +430,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 void SeasonInterface::RemovalGangWayTimes(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo::Instance()->user.check_access( amRead );	
+  //TReqInfo::Instance()->user.check_access( amRead );	
   vector<TStageTimes> st;
   GetStageTimes( st, sRemovalGangWay );
   xmlNodePtr dataNode = NewTextChild(resNode, "data");                  
