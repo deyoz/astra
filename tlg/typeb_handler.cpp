@@ -1,9 +1,7 @@
-#ifndef __WIN32__
- #include <unistd.h>
- #include <errno.h>
- #include <tcl.h>
- #include <math.h> 
-#endif
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
+#include <math.h> 
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -17,64 +15,48 @@
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define WAIT_INTERVAL           10      //seconds
-#define TLG_SCAN_INTERVAL	30   	//seconds
-#define SCAN_COUNT              10      //кол-во разбираемых телеграмм за одно сканирование
-
-static const char* OWN_CANON_NAME=NULL;
-static const char* ERR_CANON_NAME=NULL;
+#define WAIT_INTERVAL           60      //seconds
+#define TLG_SCAN_INTERVAL      600   	//seconds
+#define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
 
 static void handle_tlg(void);
 
-#ifdef __WIN32__
-int main(int argc, char* argv[])
-#else
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-#endif
-{
+{  
   try
   {
-    try
-    {
-      OpenLogFile("logairimp");	
-      if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
-          strlen(OWN_CANON_NAME)!=5)
-        throw Exception("Unknown or wrong OWN_CANON_NAME");
+    OpenLogFile("logairimp");	
+          
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+            ->connect_db();
 
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
-      
-      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-              ->connect_db();
-
-      time_t scan_time=0;
-      for(;;)
+    time_t scan_time=0;
+    char buf[2];
+    for(;;)
+    {      	
+      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-      	sleep(WAIT_INTERVAL);
-        if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-        {
-          handle_tlg();
-          scan_time=time(NULL);
-        };
-      }; // end of loop
-    }
-    catch(EOracleError E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-#endif
-      throw;
-    }
-    catch(Exception E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.what());
-#endif
-      throw;
-    };
+        handle_tlg();
+        scan_time=time(NULL);
+      };
+      if (waitCmd("CMD_TYPEB_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
+      {
+        handle_tlg();
+        scan_time=time(NULL);
+      };  
+    }; // end of loop
   }
-  catch(...) 
+  catch(EOracleError E)
   {
-    ProgError(STDLOG, "Unknown exception");	
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());    
+  }
+  catch(Exception E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());    
+  }
+  catch(...)
+  {
+    ProgError(STDLOG, "Unknown exception");
   };
   try
   {
@@ -174,16 +156,8 @@ void handle_tlg(void)
       }
       catch(EXCEPTIONS::Exception E)
       {
-#ifndef __WIN32__
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
-        sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
-#else
-        char bufh[50];
-        sprintf(bufh,"Telegram (id: %d)",tlg_id);
-        Form1->PrintMsg(bufh);
-        Form1->PrintMsg(E.what());
-        Form1->PrintMsg("");
-#endif
+        sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
         count++;
@@ -333,7 +307,7 @@ void handle_tlg(void)
             //(это будет работать только для ADL)
             forcibly=local_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
             if (SavePnlAdlContent(TripsQry.FieldAsInteger("point_id"),HeadingInfo,con,forcibly,
-                                  (char*)OWN_CANON_NAME,(char*)ERR_CANON_NAME))
+                                  (char*)OWN_CANON_NAME(),(char*)ERR_CANON_NAME()))
             {
               TlgInUpdQry.SetVariable("point_id",TripsQry.FieldAsInteger("point_id"));
               TlgInUpdQry.Execute();
@@ -396,16 +370,8 @@ void handle_tlg(void)
       catch(EXCEPTIONS::Exception E)
       {
       	OraSession.Rollback();
-#ifndef __WIN32__
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-        sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-#else
-        char bufh[50];
-        sprintf(bufh,"Telegram (id: %d)",tlg_id);
-        Form1->PrintMsg(bufh);
-        Form1->PrintMsg(E.what());
-        Form1->PrintMsg("");
-#endif
+        sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
         count++;

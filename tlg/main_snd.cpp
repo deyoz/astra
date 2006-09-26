@@ -1,14 +1,9 @@
-#ifdef __WIN32__
- #include <winsock2.h>
- #include <winbase.h>
-#else
- #include <sys/types.h>
- #include <sys/socket.h>
- #include <arpa/inet.h>
- #include <unistd.h>
- #include <errno.h>
- #include <tcl.h>
-#endif
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -21,118 +16,70 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 
 //#define ACK_WAIT_TIME         15*60   //seconds
-#define WAIT_INTERVAL           1       //seconds
-#define TLG_SCAN_INTERVAL       1      //seconds
-#define SCAN_COUNT              30       //кол-во посылаемых телеграмм за одно сканирование
+#define WAIT_INTERVAL           10       //seconds
+#define TLG_SCAN_INTERVAL       30       //seconds
+#define SCAN_COUNT             100       //кол-во посылаемых телеграмм за одно сканирование
 
-static char* OWN_CANON_NAME=NULL;
-#ifdef __WIN32__
-static SOCKET sockfd=INVALID_SOCKET;
-#else
 static int sockfd=-1;
-#endif
 
 static void scan_tlg(int tlg_id=-1);
 int h2h_out(H2H_MSG *h2h_msg);
 
-#ifdef __WIN32__
-int main(int argc, char* argv[])
-#else
 int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-#endif
-{
+{  
   try
   {
-    try
+    OpenLogFile("logairimp");      
+
+    int SND_PORT;
+    const char *port_tcl=Tcl_GetVar(interp,"SND_PORT",TCL_GLOBAL_ONLY);
+    if (port_tcl==NULL||StrToInt(port_tcl,SND_PORT)==EOF)
+      throw Exception("Unknown or wrong SND_PORT");
+
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+      ->connect_db();
+
+    if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
+      throw Exception("'socket' error %d: %s",errno,strerror(errno));
+    sockaddr_in adr;
+    memset(&adr,0,sizeof(adr));
+    adr.sin_family=AF_INET;
+    adr.sin_addr.s_addr=/*htonl(*/INADDR_ANY/*)*/; //???
+    adr.sin_port=htons(SND_PORT);
+
+    if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
+      throw Exception("'bind' error %d: %s",errno,strerror(errno));
+      
+    time_t scan_time=0;
+    char buf[2];
+    for (;;)
     {
-      OpenLogFile("logairimp");
-      if ((OWN_CANON_NAME=(char *)Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
-          strlen(OWN_CANON_NAME)!=5)
-        throw Exception("Unknown or wrong OWN_CANON_NAME");
-
-      int SND_PORT;
-#ifdef __WIN32__
-      SND_PORT= 8997
-#else
-      const char *port_tcl=Tcl_GetVar(interp,"SND_PORT",TCL_GLOBAL_ONLY);
-      if (port_tcl==NULL||StrToInt(port_tcl,SND_PORT)==EOF)
-        throw Exception("Unknown or wrong SND_PORT");
-#endif
-      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-        ->connect_db();
-
-#ifdef __WIN32__
-      if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==INVALID_SOCKET)
-        throw Exception("'socket' error %d",WSAGetLastError());
-#else
-      if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
-        throw Exception("'socket' error %d: %s",errno,strerror(errno));
-#endif
-      sockaddr_in adr;
-      memset(&adr,0,sizeof(adr));
-      adr.sin_family=AF_INET;
-      adr.sin_addr.s_addr=/*htonl(*/INADDR_ANY/*)*/; //???
-      adr.sin_port=htons(SND_PORT);
-#ifdef __WIN32__
-      if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==SOCKET_ERROR)
-        throw Exception("'bind' error %d",WSAGetLastError());
-#else
-      if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
-        throw Exception("'bind' error %d: %s",errno,strerror(errno));
-#endif
-/*      fd_set rfds;
-      struct timeval tv;
-      int res;*/
-      time_t scan_time=0;
-      for (;;)
+      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-/*        FD_ZERO(&rfds);
-        FD_SET(sockfd,&rfds);
-        tv.tv_sec=5;
-        tv.tv_usec=0;
-#ifdef __WIN32__
-        if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==SOCKET_ERROR)
-          throw Exception("'select' error %d",WSAGetLastError());
-#else
-        if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
-          throw Exception("'select' error %d: %s",errno,strerror(errno));
-#endif*/
-#ifdef __WIN32__
-        Sleep(WAIT_INTERVAL*1000);
-#else
-        sleep(WAIT_INTERVAL);
-#endif
-        if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-        {
-          scan_tlg();
-          scan_time=time(NULL);
-        };
-      }; // end of loop
-    }
-    catch(EOracleError E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-#endif
-      throw;
-    }
-    catch(Exception E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.what());
-#endif
-      throw;
-    };
+        scan_tlg();
+        scan_time=time(NULL);
+      };
+      if (waitCmd("CMD_TLG_SND",WAIT_INTERVAL,buf,sizeof(buf)))
+      {
+        scan_tlg();
+        scan_time=time(NULL);
+      };  
+    }; // end of loop
   }
+  catch(EOracleError E)
+  {
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());      
+  }
+  catch(Exception E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());      
+  }    
   catch(...) 
   {
     ProgError(STDLOG, "Unknown exception");
   };
-#ifdef __WIN32__
-  if (sockfd!=INVALID_SOCKET) closesocket(sockfd);
-#else
+
   if (sockfd!=-1) close(sockfd);
-#endif
   try
   {
     OraSession.Rollback();
@@ -186,8 +133,8 @@ void scan_tlg(int tlg_id)
              tlg_queue.type IN ('OUTA','OUTB') AND tlg_queue.status='PUT'";
     TlgQry.CreateVariable("id",otInteger,tlg_id);
   };
-  TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME);
-
+  TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
+  
   count=0;
   TlgQry.Execute();
   while (!TlgQry.Eof&&count<SCAN_COUNT)
@@ -197,13 +144,9 @@ void scan_tlg(int tlg_id)
     {
       if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
         throw Exception("Unknown receiver");
-#ifdef __WIN32__
-      if ((to_addr.sin_addr.s_addr=inet_addr(TlgQry.FieldAsString("ip_address")))==INADDR_NONE)
-        throw Exception("'inet_addr' error");
-#else
+
       if (inet_aton(TlgQry.FieldAsString("ip_address"),&to_addr.sin_addr)==0)
         throw Exception("'inet_aton' error %d: %s",errno,strerror(errno));
-#endif
       to_addr.sin_family=AF_INET;
       to_addr.sin_port=htons(TlgQry.FieldAsInteger("ip_port"));
 
@@ -211,7 +154,7 @@ void scan_tlg(int tlg_id)
       tlg_out.type=htons(TLG_OUT);
       tlg_out.Sender[5]=0;
       tlg_out.Receiver[5]=0;
-      strncpy(tlg_out.Sender,OWN_CANON_NAME,5);
+      strncpy(tlg_out.Sender,OWN_CANON_NAME(),5);
       strncpy(tlg_out.Receiver,TlgQry.FieldAsString("receiver"),5);
       len=TlgQry.GetSizeLongField("tlg_text");
       if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
@@ -252,15 +195,10 @@ void scan_tlg(int tlg_id)
           strncpy(tlg_out.body,h2hinf.data,len);
         };
         tlg_out.TTL=htons(ttl);
-#ifdef __WIN32__
-        if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
-                   (struct sockaddr*)&to_addr,sizeof(to_addr))==SOCKET_ERROR)
-          throw Exception("'sendto' error %d",WSAGetLastError());
-#else
+
         if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
-#endif
         ProgTrace(TRACE0,"Attempt send telegram (tlg_num=%lu)", ntohl(tlg_out.num));
       };
     }
@@ -268,10 +206,7 @@ void scan_tlg(int tlg_id)
     {
       OraSession.Rollback();
       errorTlg(tlg_id,"SEND");      
-#ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                          E.what(),TlgQry.FieldAsInteger("id"));
-#endif
+      ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),TlgQry.FieldAsInteger("id"));
     };
     count++;
     TlgQry.Next();

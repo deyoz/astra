@@ -1,10 +1,7 @@
-#ifndef __WIN32__
- #include <unistd.h>
- #include <errno.h>
- #include <tcl.h>
- #include <math.h>
-#endif
-#include "astra_utils.h"
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
+#include <math.h>
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -22,64 +19,50 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 //using namespace tlg_process;
 
-#define WAIT_INTERVAL           1      //seconds
-#define TLG_SCAN_INTERVAL	1   	//seconds
-#define SCAN_COUNT              10      //кол-во разбираемых телеграмм за одно сканирование
-
-//static const char* OWN_CANON_NAME=NULL;
-//static const char* ERR_CANON_NAME=NULL;
-
-//bool obr_tlg_queue::has_removed;
+#define WAIT_INTERVAL           60      //seconds
+#define TLG_SCAN_INTERVAL      600   	//seconds
+#define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
 
 static void handle_tlg(void);
 
-#ifdef __WIN32__
-int main(int argc, char* argv[])
-#else
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-#endif
 {  
-    try
-    {
-      OpenLogFile("logairimp");
-  /*    if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
-          strlen(OWN_CANON_NAME)!=5)
-        throw Exception("Unknown or wrong OWN_CANON_NAME");
+  try
+  {
+    OpenLogFile("logairimp");  
 
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);*/
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+            ->connect_db();
+    if (init_edifact()<0) throw Exception("'init_edifact' error");
 
-      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-              ->connect_db();
-      if (init_edifact()<0) throw Exception("'init_edifact' error");
-
-      time_t scan_time=0;
-
-      for(;;)
+    time_t scan_time=0;
+    char buf[2];
+    for(;;)
+    {      	
+      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-      	sleep(WAIT_INTERVAL);
-        if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-        {
-          handle_tlg();
-          scan_time=time(NULL);
-        };
-      }; // end of loop
-    }
-    catch(EOracleError E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-#endif      
-    }
-    catch(std::exception E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"std::exception: %s",E.what());
-#endif
-    }
-    catch(...)
-    {
-      ProgError(STDLOG, "Unknown exception");
-    };
+        handle_tlg();
+        scan_time=time(NULL);
+      };
+      if (waitCmd("CMD_EDI_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
+      {
+        handle_tlg();
+        scan_time=time(NULL);
+      };  
+    }; // end of loop
+  }
+  catch(EOracleError E)
+  {
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+  }
+  catch(std::exception E)
+  {
+    ProgError(STDLOG,"std::exception: %s",E.what());
+  }
+  catch(...)
+  {
+    ProgError(STDLOG, "Unknown exception");
+  };
   try
   {
     OraSession.Rollback();
@@ -87,7 +70,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   }
   catch(...)
   {
-      ProgError(STDLOG, "Unknown exception");
+    ProgError(STDLOG, "Unknown exception");
   };
   return 0;
 };

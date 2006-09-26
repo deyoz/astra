@@ -1,3 +1,4 @@
+#include "tlg.h"
 #include <tcl.h>
 #include "ocilocal.h"
 #include "edilib/edi_func_cpp.h"
@@ -6,7 +7,6 @@
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "exceptions.h"
-#include "astra_utils.h"
 #include "etick/lang.h"
 #include "jxtlib.h"
 #include "posthooks.h"
@@ -15,6 +15,7 @@
 #include "cont_tools.h"
 #include "oralib.h"
 #include <daemon.h>
+#include "cfgproc.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -28,6 +29,56 @@ using namespace Ticketing::CouponStatus;
 using namespace jxtlib;
 using namespace EXCEPTIONS;
 using namespace JxtContext;
+
+const char* ETS_CANON_NAME()
+{
+  static string ETSNAME;	
+  if ( ETSNAME.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "ETS_CANON_NAME", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param ETS_CANON_NAME" );
+    ETSNAME = r;
+    ProgTrace( TRACE5, "ETS_CANON_NAME=%s", ETSNAME.c_str() );  	
+  }  
+  return ETSNAME.c_str();	
+}
+ 
+const char* OWN_CANON_NAME()
+{
+  static string OWNNAME;	
+  if ( OWNNAME.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "OWN_CANON_NAME", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param OWN_CANON_NAME" );
+    OWNNAME = r;
+    ProgTrace( TRACE5, "OWN_CANON_NAME=%s", OWNNAME.c_str() );  	
+  }  
+  return OWNNAME.c_str();	
+}
+
+const char* ERR_CANON_NAME()
+{
+  static string ERRNAME;	
+  if ( ERRNAME.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "ERR_CANON_NAME", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param ERR_CANON_NAME" );
+    ERRNAME = r;
+    ProgTrace( TRACE5, "ERR_CANON_NAME=%s", ERRNAME.c_str() );  	
+  }  
+  return ERRNAME.c_str();	
+}
+
+namespace 
+{
+        void sendCmdTlgSnd()
+        {
+                sendCmd("CMD_TLG_SND","HELLO WORLD!");
+        }
+}
 
 void sendTlg(const char* receiver,
              const char* sender,
@@ -62,7 +113,7 @@ void sendTlg(const char* receiver,
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
         Qry.Execute();
-        Qry.Close();
+        Qry.Close();           
     }
     catch( std::exception &e)
     {
@@ -71,7 +122,7 @@ void sendTlg(const char* receiver,
     }
     catch(...)
     {
-        ProgError(STDLOG, "sendTlgType: Unknown error while trying to send tlg");
+        ProgError(STDLOG, "sendTlg: UnknERR error while trying to send tlg");
         throw;
     };
 }
@@ -119,6 +170,116 @@ bool errorTlg(int tlg_id, string err)
     else return false;
 };
 
+void sendCmd(const char* receiver, const char* cmd)
+{  
+  try                      
+  {
+    if (receiver==NULL || *receiver==0) 
+      throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");
+    if (cmd==NULL || *cmd==0) 
+      throw EXCEPTIONS::Exception( "sendCmd: cmd not defined");
+    static int sockfd=-1;
+    static struct sockaddr_un sock_addr; 	    
+    static map<string,string> addrs;
+    if (sockfd==-1)
+    {    
+      if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
+        throw EXCEPTIONS::Exception("sendCmd: 'socket' error %d: %s",errno,strerror(errno));                
+      memset(&sock_addr,0,sizeof(sock_addr));      
+      sock_addr.sun_family=AF_UNIX;    
+      ProgTrace(TRACE5,"sendCmd: socket opened");
+    };
+    
+    if (addrs.find(receiver)==addrs.end())
+    {        
+      if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
+        throw EXCEPTIONS::Exception( "sendCmd: can't read parameter '%s'", receiver );    
+      addrs[receiver]=sock_addr.sun_path;    
+      ProgTrace(TRACE5,"sendCmd: receiver %s added",receiver);
+    };      
+    strcpy(sock_addr.sun_path,addrs[receiver].c_str());    
+   
+    if (sendto(sockfd,cmd,strlen(cmd),0,
+               (struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
+      throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));	        
+    ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s",cmd,receiver);
+  }
+  catch(EXCEPTIONS::Exception E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());
+  };      
+};        
+
+bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
+{
+  if (receiver==NULL || *receiver==0) 
+    throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");      
+  if (buf==NULL || buflen <= 1 )
+    throw EXCEPTIONS::Exception( "sendCmd: buf not defined");      
+  static map<string,int> sockfds;  
+  
+  int sockfd;    
+  if (sockfds.find(receiver)==sockfds.end())
+  {    
+    if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)    
+      throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));    
+    try    
+    {
+      struct sockaddr_un sock_addr; 	
+      memset(&sock_addr,0,sizeof(sock_addr));      
+      sock_addr.sun_family=AF_UNIX;            
+      if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
+        throw EXCEPTIONS::Exception( "waitCmd: can't read parameter '%s'", receiver );
+      unlink(sock_addr.sun_path);  
+      if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
+        throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));                    
+      sockfds[receiver]=sockfd;  
+    }  
+    catch(...)
+    {
+      close(sockfd);   
+      throw;  
+    };                  
+    ProgTrace(TRACE5,"waitCmd: receiver %s added",receiver);
+  };
+  sockfd=sockfds[receiver];
+  
+  try      
+  {
+    fd_set rfds;
+    struct timeval tv;
+    FD_ZERO(&rfds);
+    FD_SET(sockfd,&rfds);
+    tv.tv_sec=secs;
+    tv.tv_usec=0; 
+    int res;       
+    if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
+    {
+      if (errno!=EINTR) 
+        throw EXCEPTIONS::Exception("waitCmd: 'select' error %d: %s",errno,strerror(errno));
+    };         
+    if (res>0&&FD_ISSET(sockfd,&rfds)) 
+    {     
+      int len;    
+      memset((void*)buf,0,buflen);              
+      if ((len = recv(sockfd,(char*)buf,buflen-1,0))==-1)
+      {
+        if (errno!=ECONNREFUSED) 
+          throw EXCEPTIONS::Exception("waitCmd: 'recv' error %d: %s",errno,strerror(errno));      
+      }
+      else 
+      {
+        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s",buf,receiver);  
+        return true;
+      };      
+    };  
+  }
+  catch(EXCEPTIONS::Exception E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());
+  };        
+  return false;              
+};        
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
@@ -196,7 +357,7 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
 //             SendEdiTlgErrCONTRL(get_tlg_context()->rot_num, 0, *err);
         }
         catch(...){
-            ProgError(STDLOG, "Unknown exception!");
+            ProgError(STDLOG, "UnknERR exception!");
         }
     }
     return ret;
@@ -250,7 +411,8 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
-        sendTlg(ETS_CANON_NAME().c_str(), OWN_CANON_NAME().c_str(), true, 20, tlg);
+        sendTlg(ETS_CANON_NAME(), OWN_CANON_NAME(), true, 20, tlg);
+        registerHookAfter(sendCmdTlgSnd);
     }
     catch (edilib::Exception &x){
         ProgError(STDLOG, "%s", x.what());
@@ -345,7 +507,7 @@ void proc_edifact(const std::string &tlg)
     }
     catch(...)
     {
-        ProgError(STDLOG,"!!! Unknown exception !!!");
+        ProgError(STDLOG,"!!! UnknERR exception !!!");
         ret = -1;
     }
     if(ret){
@@ -371,7 +533,7 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
     if(iter2 == tmap.end()){
         //err
         throw edi_soft_except (STDLOG, EdiErr::EDI_INV_MESSAGE_F,
-                                "Unknown message function for message %d, code=%s",
+                                "UnknERR message function for message %d, code=%s",
                                 mes_type, msg_code.c_str());
     }
     if(!iter2->second.parse || !iter2->second.proc || !iter2->second.collect_req)
@@ -642,7 +804,7 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
   }
   catch(...)
   {
-      ProgError(STDLOG, "Unknown error");
+      ProgError(STDLOG, "UnknERR error");
       *err=3;
       return -1;
   }
@@ -688,7 +850,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
     }
     catch(...)
     {
-        ProgError(STDLOG,"Unknown exception");
+        ProgError(STDLOG,"UnknERR exception");
         *err = 1;
     }
     return *err;

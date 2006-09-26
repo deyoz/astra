@@ -1,14 +1,9 @@
-#ifdef __WIN32__
- #include <winsock2.h>
- #include <winbase.h>
-#else
- #include <sys/types.h>
- #include <sys/socket.h>
- #include <arpa/inet.h>
- #include <unistd.h>
- #include <errno.h>
- #include <tcl.h>
-#endif
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <errno.h>
+#include <tcl.h>
 #include <string>
 #include "exceptions.h"
 #include "oralib.h"
@@ -29,116 +24,74 @@ using namespace std;
 #define TLG_SCAN_INTERVAL       10      //seconds
 #define SCAN_COUNT              50      //кол-во разбираемых телеграмм за одно сканирование
 
-static const char* OWN_CANON_NAME=NULL;
-static const char* ERR_CANON_NAME=NULL;
-#ifdef __WIN32__
-static SOCKET sockfd=INVALID_SOCKET;
-#else
 static int sockfd=-1;
-#endif
 
 void process_tlg(void);
 static void scan_tlg(void);
 int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
-#ifdef __WIN32__
-int main(int argc, char* argv[])
-#else
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-#endif
 {
   try
   {
-    try
+    OpenLogFile("logairimp");      
+
+    int SRV_PORT;
+    const char *port_tcl=Tcl_GetVar(interp,"SRV_PORT",TCL_GLOBAL_ONLY);
+    if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
+      throw Exception("Unknown or wrong SRV_PORT");
+      
+    ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
+      ->connect_db();
+    if (init_edifact()<0) throw Exception("'init_edifact' error");
+
+    if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
+      throw Exception("'socket' error %d: %s",errno,strerror(errno));
+    sockaddr_in adr;
+    memset(&adr,0,sizeof(adr));
+    adr.sin_family=AF_INET;
+    adr.sin_addr.s_addr=htonl(INADDR_ANY); //???
+    adr.sin_port=htons(SRV_PORT);
+
+    if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
+      throw Exception("'bind' error %d: %s",errno,strerror(errno));
+
+    fd_set rfds;
+    struct timeval tv;
+    int res;
+    time_t scan_time=0;
+    for (;;)
     {
-      OpenLogFile("logairimp");
-      if ((OWN_CANON_NAME=Tcl_GetVar(interp,"OWN_CANON_NAME",TCL_GLOBAL_ONLY))==NULL||
-          strlen(OWN_CANON_NAME)!=5)
-        throw Exception("Unknown or wrong OWN_CANON_NAME");
+      FD_ZERO(&rfds);
+      FD_SET(sockfd,&rfds);
+      tv.tv_sec=WAIT_INTERVAL;
+      tv.tv_usec=0;
 
-      ERR_CANON_NAME=Tcl_GetVar(interp,"ERR_CANON_NAME",TCL_GLOBAL_ONLY);
+      if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
+        throw Exception("'select' error %d: %s",errno,strerror(errno));
+      if (res!=0&&FD_ISSET(sockfd,&rfds)) process_tlg();
 
-      int SRV_PORT;
-#ifdef __WIN32__
-      SRV_PORT= 8998
-#else
-      const char *port_tcl=Tcl_GetVar(interp,"SRV_PORT",TCL_GLOBAL_ONLY);
-      if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
-        throw Exception("Unknown or wrong SRV_PORT");
-#endif
-      ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
-        ->connect_db();
-      if (init_edifact()<0) throw Exception("'init_edifact' error");
-
-#ifdef __WIN32__
-      if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==INVALID_SOCKET)
-        throw Exception("'socket' error %d",WSAGetLastError());
-#else
-      if ((sockfd=socket(AF_INET,SOCK_DGRAM,0))==-1)
-        throw Exception("'socket' error %d: %s",errno,strerror(errno));
-#endif
-      sockaddr_in adr;
-      memset(&adr,0,sizeof(adr));
-      adr.sin_family=AF_INET;
-      adr.sin_addr.s_addr=htonl(INADDR_ANY); //???
-      adr.sin_port=htons(SRV_PORT);
-#ifdef __WIN32__
-      if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==SOCKET_ERROR)
-        throw Exception("'bind' error %d",WSAGetLastError());
-#else
-      if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
-        throw Exception("'bind' error %d: %s",errno,strerror(errno));
-#endif
-      fd_set rfds;
-      struct timeval tv;
-      int res;
-      time_t scan_time=0;
-      for (;;)
+      if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-        FD_ZERO(&rfds);
-        FD_SET(sockfd,&rfds);
-        tv.tv_sec=WAIT_INTERVAL;
-        tv.tv_usec=0;
-#ifdef __WIN32__
-        if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==SOCKET_ERROR)
-          throw Exception("'select' error %d",WSAGetLastError());
-#else
-        if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
-          throw Exception("'select' error %d: %s",errno,strerror(errno));
-#endif
-        if (res!=0&&FD_ISSET(sockfd,&rfds)) process_tlg();
-
-        if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
-        {
-          scan_tlg();
-          scan_time=time(NULL);
-        };
-      }; // end of loop
-    }
-    catch(EOracleError E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
-#endif
-      throw;
-    }
-    catch(Exception E)
-    {
-#ifndef __WIN32__
-      ProgError(STDLOG,"Exception: %s",E.what());
-#endif
-      throw;
-    };
+        scan_tlg();
+        scan_time=time(NULL);
+      };
+    }; // end of loop
+  }
+  catch(EOracleError E)
+  {
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+  }
+  catch(Exception E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());
   }
   catch(...) 
   {
     ProgError(STDLOG, "Unknown exception");	
   };
-#ifdef __WIN32__
-  if (sockfd!=INVALID_SOCKET) closesocket(sockfd);
-#else
+
   if (sockfd!=-1) close(sockfd);
-#endif
   try
   {
     OraSession.Rollback();
@@ -169,15 +122,12 @@ void process_tlg(void)
 
   try
   {
-#ifdef __WIN32__
-#else
     if ((len = recvfrom(sockfd,(char*)&tlg_in,sizeof(tlg_in),0,
                         (struct sockaddr*)&from_addr,(socklen_t*)&from_addr_len))==-1)
     {
       if (errno==ECONNREFUSED) return;
       throw Exception("'recvfrom' error %d: %s",errno,strerror(errno));
     };
-#endif
     tlg_in.num=ntohl(tlg_in.num);
     tlg_in.type=ntohs(tlg_in.type);
     tlg_in.TTL=ntohs(tlg_in.TTL);
@@ -204,7 +154,7 @@ void process_tlg(void)
         throw Exception("Telegram too small (sender=%s, num=%d, type=%d)",
                         tlg_in.Sender,tlg_in.num,tlg_in.type);
     };
-    if (strcmp(tlg_in.Receiver,OWN_CANON_NAME)!=0)
+    if (strcmp(tlg_in.Receiver,OWN_CANON_NAME())!=0)
       throw Exception("Unknown telegram receiver %s",tlg_in.Receiver);
 
     TQuery RotQry(&OraSession);
@@ -219,7 +169,7 @@ void process_tlg(void)
        ORDER BY 1";
     RotQry.CreateVariable("addr",otString,inet_ntoa(from_addr.sin_addr));
     RotQry.CreateVariable("port",otInteger,ntohs(from_addr.sin_port));
-    RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME);
+    RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME());
     RotQry.CreateVariable("canon_name",otString,tlg_in.Sender);    
     RotQry.Execute();
     if (RotQry.RowCount()==0)
@@ -435,25 +385,19 @@ void process_tlg(void)
       tlg_out.TTL=htons(0);
       strncpy(tlg_out.Sender,tlg_in.Receiver,6);
       strncpy(tlg_out.Receiver,tlg_in.Sender,6);
-#ifdef __WIN32__
-        if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
-                   (struct sockaddr*)&to_addr,sizeof(to_addr))==SOCKET_ERROR)
-          throw Exception("'sendto' error %d",WSAGetLastError());
-#else
-        if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
-                   (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
-          throw Exception("'sendto' error %d: %s",errno,strerror(errno));
-    };
-#endif
+      if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
+                 (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
+        throw Exception("'sendto' error %d: %s",errno,strerror(errno));
+    };    
+    OraSession.Commit();
+    if (is_edi) sendCmd("CMD_EDI_HANDLER","HELLO WORLD!");                 
   }
   catch(Exception E)
   {
-#ifndef __WIN32__
     ProgError(STDLOG,"Exception: %s",E.what());
-    sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s",E.what());
-#endif
-  };
-  OraSession.Commit();
+    sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s",E.what());
+    OraSession.Commit();
+  };  
   return;
 };
 
@@ -470,7 +414,7 @@ void scan_tlg(void)
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
              tlg_queue.type='INB' AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";              
-    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME);
+    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
        
   };  
 
@@ -520,6 +464,7 @@ void scan_tlg(void)
 
   int len,count,bufLen=0,buf2Len=0,tlg_id;
   char *buf=NULL,*buf2=NULL,*ph,c;
+  bool pr_typeb_cmd=false;
   TTlgParts parts;
   THeadingInfo HeadingInfo;
   TEndingInfo EndingInfo;
@@ -624,7 +569,10 @@ void scan_tlg(void)
           try
           {
             if (deleteTlg(tlg_id))	            
+            {
               InsQry.Execute();
+              pr_typeb_cmd=true;
+            };  
           }
           catch(EOracleError E)
           {
@@ -666,7 +614,10 @@ void scan_tlg(void)
                     InsQry.SetVariable("id",FNull);
                     InsQry.SetVariable("merge_key",FNull);
                     if (deleteTlg(tlg_id))	                                
+                    {
                       InsQry.Execute();
+                      pr_typeb_cmd=true;
+                    };  
                   }
                   else throw ETlgError("Duplicate part number");
                 }
@@ -682,18 +633,17 @@ void scan_tlg(void)
         }
         catch(EXCEPTIONS::Exception E)
         {
-#ifndef __WIN32__
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
                        E.what(),TlgQry.FieldAsInteger("id"));
-          sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Exception: %s (tlgs.id=%d)",
+          sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s (tlgs.id=%d)",
                   E.what(),TlgQry.FieldAsInteger("id"));
-#endif
           errorTlg(tlg_id,"PARS");          
         };
       count++;
       TlgQry.Next();
     };
-    OraSession.Commit();
+    OraSession.Commit();    
+    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","HELLO WORLD");    
     if (buf!=NULL) free(buf);
     if (buf2!=NULL) free(buf2);
   }

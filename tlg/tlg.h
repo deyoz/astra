@@ -1,6 +1,8 @@
 #ifndef _TLG_H_
 #define _TLG_H_
 
+#include <daemon.h>
+
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536
 
@@ -55,9 +57,16 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 
+const char* ETS_CANON_NAME();
+const char* OWN_CANON_NAME();
+const char* ERR_CANON_NAME();
+
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, std::string err);
 void sendTlg(const char* receiver, const char* sender, bool isEdi, int ttl, const std::string &text);
 void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...);
+
+void sendCmd(const char* receiver, const char* cmd);
+bool waitCmd(const char* receiver, int secs, const char* buf, int buflen);
 
 #endif
