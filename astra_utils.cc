@@ -38,34 +38,6 @@ const string COMMON_ORAUSER()
   return CORAUSER;	
 }
 
-const string ETS_CANON_NAME()
-{
-  static string ETSNAME;	
-  if ( ETSNAME.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "ETS_CANON_NAME", r, sizeof( r ) ) < 0 )
-      throw Exception( "Can't read param ETS_CANON_NAME" );
-    ETSNAME = r;
-    ProgTrace( TRACE5, "ETS_CANON_NAME=%s", ETSNAME.c_str() );  	
-  }  
-  return ETSNAME;	
-}
- 
-const string OWN_CANON_NAME()
-{
-  static string OWNNAME;	
-  if ( OWNNAME.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_CANON_NAME", r, sizeof( r ) ) < 0 )
-      throw Exception( "Can't read param OWN_CANON_NAME" );
-    OWNNAME = r;
-    ProgTrace( TRACE5, "OWN_CANON_NAME=%s", OWNNAME.c_str() );  	
-  }  
-  return OWNNAME;	
-}
-
 TDesk::TDesk()
 {
   time = 0;	
