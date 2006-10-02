@@ -1,4 +1,6 @@
-INCLUDES = -I$(top_srcdir)/src $(all_includes)
+include $(TCLMON_PATH)/tclconfig
+
+INCLUDES = -I$(top_srcdir)/src $(all_includes) $(TCLINCLUDE)
 METASOURCES = AUTO
 lib_LIBRARIES = libtlg.a
 libtlg_a_SOURCES = edi_handler.cpp  edi_msg.h  main_snd.cpp  \

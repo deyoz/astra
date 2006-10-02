@@ -1,18 +1,18 @@
 include $(TCLMON_PATH)/tclconfig
 
+# set the include path found by configure
+INCLUDES = $(all_includes)
+
 bin_PROGRAMS = astra
 
--include systarg.mk
-
-# set the include path found by configure
-INCLUDES = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @ETICKLIB_CXXFLAGS@ @TCLMON_CXXFLAGS@ \
-	$(all_includes)
-# the library search path.
-
 BUILT_SOURCES = SysTarg
+export EDILIB_PATH
+SysTarg:
+	$(MAKE) -f $(srcdir)/systarg.mk
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
+AM_CXXFLAGS = $(TCLINCLUDE)
 astra_SOURCES = \
 	adm.cc                   astra_utils.cc  etick_change_status.cpp  salons.cc  timer.cpp \
 	astra_callbacks.cc       brd.cc          images.cc                season.cc  tripinfo.cc \

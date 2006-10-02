@@ -36,7 +36,8 @@ AX_BOOST_BASE
 #check for check
 AM_PATH_CHECK
 
-AM_PROG_LIBTOOL
+AC_PROG_LIBTOOL
+AC_PROG_RANLIB
 
 CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CXXFLAGS $SERVERLIB_CXXFLAGS \
  $ETICKLIB_CXXFLAGS $SHARED_CXXFLAGS $TCLMON_CXXFLAGS $XML_CPPFLAGS $CHECK_CFLAGS \
@@ -44,6 +45,12 @@ CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CX
 CXXFLAGS="$CFLAGS $BOOST_CPPFLAGS"
 AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile m4/Makefile)
 
+if ! test -f $srcdir/src/local_after.tcl ; then
+	cp $srcdir/src/local_after.example.tcl $srcdir/src/local_after.tcl
+fi
+if ! test -f $srcdir/src/local_before.tcl ; then
+	cp $srcdir/src/local_before.example.tcl $srcdir/src/local_before.tcl
+fi
 echo "================================="
 echo "Done. Run make"
 echo "================================="
