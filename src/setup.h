@@ -1,2 +1,1 @@
-#define ASTRA2007
 
