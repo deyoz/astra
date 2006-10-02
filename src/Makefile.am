@@ -2,12 +2,14 @@ include $(TCLMON_PATH)/tclconfig
 
 bin_PROGRAMS = astra
 
+-include systarg.mk
+
 # set the include path found by configure
 INCLUDES = @SERVERLIB_CXXFLAGS@ @ETICKLIB_CXXFLAGS@ @TCLMON_CXXFLAGS@ \
 	$(all_includes)
 # the library search path.
 
-BUILT_SOURCES = 
+BUILT_SOURCES = SysTarg
 
 astra_LDFLAGS = @ORACLE_LDFLAGS@ @SHARED_LDFLAGS@
 
