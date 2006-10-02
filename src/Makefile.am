@@ -5,7 +5,7 @@ bin_PROGRAMS = astra
 -include systarg.mk
 
 # set the include path found by configure
-INCLUDES = @SERVERLIB_CXXFLAGS@ @ETICKLIB_CXXFLAGS@ @TCLMON_CXXFLAGS@ \
+INCLUDES = $(TCLINCLUDE) @SERVERLIB_CXXFLAGS@ @ETICKLIB_CXXFLAGS@ @TCLMON_CXXFLAGS@ \
 	$(all_includes)
 # the library search path.
 
