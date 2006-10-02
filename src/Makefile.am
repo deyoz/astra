@@ -37,7 +37,7 @@ noinst_HEADERS = \
 	adm.h                  astra_tick_view_xml.h  images.h     sopp.h \
 	astra_callbacks.h      astra_utils.h          maindcs.h    stages.h \
 	astra_consts.h         brd.h                  prepreg.h    stat.h \
-	astra_main.h           cache.h                salonform.h  testing_def.h \
+	astra_main.h           cache.h                salonform.h  \
 	astra_ticket.h         cent.h                 salons.h     timer.h \
 	astra_tick_read_edi.h  checkin.h              season.h     tripinfo.h \
 	astra_tick_reader.h    etick_change_status.h  seats.h      xml_unit.h \
