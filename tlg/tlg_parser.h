@@ -322,6 +322,69 @@ struct TPnlAdlContent
   std::vector<TTotalsByDest> resa;
 };
 
+class TTagRangeItem
+{
+  public:      
+    double first_tag;
+    int num;        
+    TTagRangeItem()
+    {
+      first_tag=0.0;
+      num=0;    
+    };        
+};        
+
+class TPtmTotalsByDest : public TTotalsByDest
+{
+  public:
+    int bag_amount,bag_weight;
+    TPtmTotalsByDest() : TTotalsByDest()
+    {
+      bag_amount=0;
+      bag_weight=0;  
+    };              
+};        
+
+class TBtmGrpItem : public TPnrItem
+{  
+  public:      
+    std::vector<TTagRangeItem> tags;   
+    int bag_amount,bag_weight,rk_amount,rk_weight;    
+    TBtmGrpItem() : TPnrItem()
+    {
+      bag_amount=0;
+      bag_weight=0;
+      rk_amount=0;
+      rk_weight=0;    
+    };            
+};        
+
+class TPtmOutFltInfo : public TTransferItem
+{
+  public:           
+    std::vector<TPtmTotalsByDest> total;        
+    TPtmOutFltInfo() : TTransferItem() {};
+};
+
+class TBtmOutFltInfo : public TTransferItem
+{
+  public:           
+    std::vector<TBtmGrpItem> pnr;        
+    TBtmOutFltInfo() : TTransferItem() {};
+};        
+
+struct TPtmContent
+{
+  TTransferItem InFlt;
+  std::vector<TPtmOutFltInfo> OutFlt;      
+};        
+
+struct TBtmContent
+{
+  std::vector<TTransferItem> InFlt;
+  std::vector<TBtmOutFltInfo> OutFlt;      
+};        
+
 class TTlgParser
 {
   public:
@@ -337,6 +400,8 @@ TTlgParts GetParts(char* tlg_p);
 TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info);
 void ParseEnding(TTlgPartInfo ending, TEndingInfo& info);
 void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con);
+/*void ParsePtmBody(TTlgPartInfo body, THeadingInfo& info, TPtmContent& con);
+void ParseBtmBody(TTlgPartInfo body, THeadingInfo& info, TBtmContent& con);*/
 bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bool forcibly,
                        char* OWN_CANON_NAME, char* ERR_CANON_NAME);
 void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info);                       
