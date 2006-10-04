@@ -14,6 +14,7 @@
 #include "salonform.h" 
 #include "sopp.h" 
 #include "stat.h" 
+#include "print.h" 
 #include "checkin.h"
 #include "astra_utils.h"
 #include "basic.h"
@@ -50,6 +51,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new PrepRegInterface();          
     new SoppInterface();            
     new StatInterface();            
+    new PrintInterface();            
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,

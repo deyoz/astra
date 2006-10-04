@@ -17,9 +17,9 @@ astra_SOURCES = \
 	adm.cc                   astra_utils.cc  etick_change_status.cpp  salons.cc  timer.cpp \
 	astra_callbacks.cc       brd.cc          images.cc                season.cc  tripinfo.cc \
 	astra_consts.cc          cache.cc        locale.cc                seats.cc   xml_unit.cc \
-	astra_main.cc            cent.cc         maindcs.cc               sopp.cc \
+	astra_main.cc            cent.cc         maindcs.cc               sopp.cc    print.cc \
 	astra_tick_read_edi.cpp  checkin.cc      prepreg.cc               stages.cc \
-	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc 
+	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -37,9 +37,9 @@ noinst_HEADERS = \
 	adm.h                  astra_tick_view_xml.h  images.h     sopp.h \
 	astra_callbacks.h      astra_utils.h          maindcs.h    stages.h \
 	astra_consts.h         brd.h                  prepreg.h    stat.h \
-	astra_main.h           cache.h                salonform.h  \
+	astra_main.h           cache.h                salonform.h  print.h \
 	astra_ticket.h         cent.h                 salons.h     timer.h \
 	astra_tick_read_edi.h  checkin.h              season.h     tripinfo.h \
 	astra_tick_reader.h    etick_change_status.h  seats.h      xml_unit.h \
-	astra_tick_view.h      etick.h                setup.h
+	astra_tick_view.h      etick.h                setup.h	
 
