@@ -15,6 +15,8 @@
 #include <libxml/tree.h>
 #include "JxtInterface.h"
 
+std::string AlignString(std::string str, int len, std::string align);
+
 const std::string COMMON_ORAUSER();
 
 struct TLogMsg {

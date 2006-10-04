@@ -23,6 +23,30 @@ using namespace JxtContext;
 using namespace boost::local_time;
 using namespace boost::posix_time;
 
+string AlignString(string str, int len, string align)
+{
+    TrimString(str);
+    string result;
+    if(str.size() > (u_int)len)
+        result = str.substr(0, len);
+    else {
+        switch (*align.c_str())
+        {
+            case 'R':
+                result.assign(len - str.size(), ' ');
+                break;
+            case 'C':
+                result.assign((len - str.size())/2, ' ');
+                break;
+            case 'L':
+                break;
+        }
+        result += str;
+        string buf(len - result.size(), ' ');
+        result += buf;
+    }
+    return result;
+}
 
 const string COMMON_ORAUSER()
 {
