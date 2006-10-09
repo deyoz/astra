@@ -6,10 +6,12 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "misc.h"
+#include "stages.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
+using namespace ASTRA;
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
@@ -30,8 +32,9 @@ class PrintDataParser {
 
                 typedef map<string, TTagValue> TData;
                 TData data;
+                void dump_data();
             public:
-                t_field_map(int pax_id);
+                t_field_map(int pax_id, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
                 ~t_field_map();
         };
@@ -39,16 +42,23 @@ class PrintDataParser {
         t_field_map field_map;
         string parse_field(int offset, string field);
     public:
-        PrintDataParser(int pax_id): field_map(pax_id) {};
+        PrintDataParser(int pax_id, xmlNodePtr tagsNode): field_map(pax_id, tagsNode) {};
         string parse(string &form);
 };
+
+void PrintDataParser::t_field_map::dump_data()
+{
+        ProgTrace(TRACE5, "------MAP DUMP------");
+        for(TData::iterator di = data.begin(); di != data.end(); ++di) {
+            ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+        }
+        ProgTrace(TRACE5, "------MAP DUMP------");
+}
 
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format)
 {
     string result;
-
     TData::iterator di;
-
     while(1) {
         di = data.find(name);
         if(di != data.end()) break;
@@ -117,8 +127,24 @@ PrintDataParser::t_field_map::~t_field_map()
     for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
 }
 
-PrintDataParser::t_field_map::t_field_map(int pax_id)
+PrintDataParser::t_field_map::t_field_map(int pax_id, xmlNodePtr tagsNode)
 {
+    {
+        // Положим в мэп теги из клиентского запроса
+        xmlNodePtr curNode = tagsNode->children;
+        while(curNode) {
+            string name = (char *)curNode->name;
+            name = upperc(name);
+            TTagValue TagValue;
+            TagValue.type = otString;
+            TagValue.StringVal = NodeAsString(curNode);
+            if(data.find(name) != data.end())
+                throw Exception("Duplicate tag found in client data " + name);
+            data[name] = TagValue;
+            curNode = curNode->next;
+        }
+    }
+
     int grp_id;
     int trip_id;
     {
@@ -157,6 +183,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
+        "   gtimer.get_stage_time(trip_id,:brd_open_stage_id) brd_from, "
+        "   gtimer.get_stage_time(trip_id,:brd_close_stage_id) brd_to, "
         "   TRIP_ID, "
         "   TRIP, "
         "   SCD, "
@@ -180,6 +208,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
         "where "
         "   trip_id = :trip_id";
     Qry->CreateVariable("trip_id", otInteger, trip_id);
+    Qry->CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
+    Qry->CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
@@ -304,7 +334,8 @@ string PrintDataParser::parse(string &form)
     string result;
     char Mode = 'S';
     string::size_type VarPos = 0;
-    for(string::size_type i = 0; i < form.size(); i++) {
+    string::size_type i = 0;
+    for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
                 if(form[i] == '>')
@@ -338,6 +369,8 @@ string PrintDataParser::parse(string &form)
                 break;
         }
     }
+    if(Mode != 'S')
+        throw Exception("'>' not found at " + IntToString(i + 1));
     return result;
 }
 
@@ -374,7 +407,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     string Pectab, Print;
     GetPrintData(Qry.FieldAsInteger("grp_id"), NodeAsInteger("prn_type", reqNode), Pectab, Print);
-    PrintDataParser parser(NodeAsInteger("pax_id", reqNode));
+    PrintDataParser parser(NodeAsInteger("pax_id", reqNode), NodeAsNode("tags", reqNode));
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "print", parser.parse(Print));
 }
