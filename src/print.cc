@@ -15,12 +15,21 @@ using namespace BASIC;
 
 class PrintDataParser {
     private:
-        typedef vector<TQuery*> TTags;
+        typedef vector<TQuery*> TQrys;
 
         class t_field_map {
             private:
-                TTags Tags;
-                vector<string> unique_tag_names;
+                TQrys Qrys;
+
+                struct TTagValue {
+                    otFieldType type;
+                    string StringVal;
+                    int IntegerVal;
+                    TDateTime DateTimeVal;
+                };
+
+                typedef map<string, TTagValue> TData;
+                TData data;
             public:
                 t_field_map(int pax_id);
                 string get_field(string name, int len, string align, string date_format);
@@ -37,41 +46,64 @@ class PrintDataParser {
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format)
 {
     string result;
-    TTags::iterator iv = Tags.begin();
-    for(; iv != Tags.end(); ++iv) {
-        if(!(*iv)->FieldsCount()) {
-            (*iv)->Execute();
-            // uniqueness check
-            for(int i = 0; i < (*iv)->FieldsCount(); i++) {
-                if(find(unique_tag_names.begin(), unique_tag_names.end(), (*iv)->FieldName(i)) != unique_tag_names.end())
-                    throw Exception((string)"Duplicate field found " + (*iv)->FieldName(i));
-                unique_tag_names.push_back((*iv)->FieldName(i));
-            }
-        }
-        int i = 0;
-        for(; i < (*iv)->FieldsCount(); i++) if((*iv)->FieldName(i) == name) break;
-        if(i == (*iv)->FieldsCount()) continue;
 
+    TData::iterator di;
+
+    while(1) {
+        di = data.find(name);
+        if(di != data.end()) break;
+        TQrys::iterator ti = Qrys.begin();
+        for(; ti != Qrys.end(); ++ti)
+            if(!(*ti)->FieldsCount()) break;
+        if(ti == Qrys.end())
+            break;
+//            throw Exception("Tag not found " + name);
+        (*ti)->Execute();
+        for(int i = 0; i < (*ti)->FieldsCount(); i++) {
+            if(data.find((*ti)->FieldName(i)) != data.end())
+                throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
+            TTagValue TagValue;
+            switch((*ti)->FieldType(i)) {
+                case otString:
+                case otChar:
+                case otLong:
+                case otLongRaw:
+                case otFloat:
+                    TagValue.type = otString;
+                    TagValue.StringVal = (*ti)->FieldAsString(i);
+                    break;
+                case otInteger:
+                    TagValue.type = otInteger;
+                    TagValue.IntegerVal = (*ti)->FieldAsInteger(i);
+                    break;
+                case otDate:
+                    TagValue.type = otDate;
+                    TagValue.DateTimeVal = (*ti)->FieldAsDateTime(i);
+                    break;
+            }
+            data[(*ti)->FieldName(i)] = TagValue;
+        }
+    }
+
+    if(di != data.end()) {
+        TTagValue TagValue = di->second;
         ostringstream buf;
         buf.width(len);
-        switch((*iv)->FieldType(i)) {
+        switch(TagValue.type) {
             case otString:
             case otChar:
             case otLong:
             case otLongRaw:
-                buf.fill(' ');
-                buf << (*iv)->FieldAsString(i);
-                break;
             case otFloat:
-                buf.fill('0');
-                buf << (*iv)->FieldAsFloat(i);
+                buf.fill(' ');
+                buf << TagValue.StringVal;
                 break;
             case otInteger:
                 buf.fill('0');
-                buf << (*iv)->FieldAsInteger(i);
+                buf << TagValue.IntegerVal;
                 break;
             case otDate:
-                buf << DateTimeToStr((*iv)->FieldAsDateTime(i), date_format);
+                buf << DateTimeToStr(TagValue.DateTimeVal, date_format);
                 break;
         }
         if(!len) len = buf.str().size();
@@ -82,7 +114,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
 
 PrintDataParser::t_field_map::~t_field_map()
 {
-    for(TTags::iterator iv = Tags.begin(); iv != Tags.end(); ++iv) OraSession.DeleteQuery(**iv);
+    for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id)
@@ -120,7 +152,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
                   "       cities.cod AS city_cod,cities.name AS city_name,SYSDATE "\
                   "FROM options,airps,cities "\
                   "WHERE options.cod=airps.cod AND airps.city=cities.cod";
-    Tags.push_back(Qry);
+    Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
@@ -148,7 +180,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
         "where "
         "   trip_id = :trip_id";
     Qry->CreateVariable("trip_id", otInteger, trip_id);
-    Tags.push_back(Qry);
+    Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
@@ -175,7 +207,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
         "where "
         "   pax_id = :pax_id";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
-    Tags.push_back(Qry);
+    Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
@@ -199,7 +231,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id)
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.target = airps.cod ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
-    Tags.push_back(Qry);
+    Qrys.push_back(Qry);
 }
 
 string PrintDataParser::parse_field(int offset, string field)
