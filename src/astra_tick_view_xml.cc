@@ -381,9 +381,9 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     ostringstream ebd;
     if(itin.luggage().quantity()){
-	ebd<<itin.luggage().quantity()<<" Šƒ"/*" "<<itin.luggage().charge() <<" "<<itin.luggage().measure()*/;
+        ebd<<itin.luggage().quantity()<<itin.luggage().code();
     } else {
-	ebd<<"…’";
+        ebd<<"…’";
     }
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"lugg_norm",ebd.str()),"index",col_num++); // ®à¬  ¡ £ ¦ 
 
