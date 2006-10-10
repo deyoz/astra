@@ -344,37 +344,36 @@ string PrintDataParser::parse(string &form)
     for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
-                if(form[i] == ']')
-                    Mode = 'R';
-                else if(form[i] == '[') {
+                if(form[i] == '[') {
+                    VarPos = i + 1;
                     Mode = 'Q';
                 } else
                     result += form[i];
                 break;
             case 'Q':
-                if(form[i] == '[') {
-                    result += '[';
-                    Mode = 'S';
-                } else {
-                    VarPos = i;
+                if(form[i] == ']')
+                    Mode = 'R';
+                else if(form[i] == '[')
                     Mode = 'L';
+                break;
+            case 'R':
+                if(form[i] == ']')
+                    Mode = 'Q';
+                else {
+                    --i;
+                    Mode = 'S';
+                    result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
                 }
                 break;
             case 'L':
-                if(form[i] == ']') {
-                    result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
-                    Mode = 'S';
-                }
-                break;
-            case 'R':
-                if(form[i] == ']') {
-                    result += ']';
-                    Mode = 'S';
-                } else
-                    throw Exception("2nd ']' not found at " + IntToString(i + 1));
+                if(form[i] == '[')
+                    Mode = 'Q';
+                else
+                    throw Exception("2nd '[' not found at " + IntToString(i + 1));
                 break;
         }
     }
+
     if(Mode != 'S')
         throw Exception("']' not found at " + IntToString(i + 1));
     return result;
@@ -402,7 +401,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
         if(slash_point != tag.size()) --slash_point;
     }
 
-    int start_point, end_point;
+    u_int start_point, end_point;
     if(pr_lat) {
         start_point = slash_point;
         end_point = tag.size();
@@ -420,9 +419,15 @@ string PrintDataParser::parse_tag(int offset, string tag)
             case 'S':
                 if(tag[i] == '>')
                     Mode = 'R';
-                else if(tag[i] == '<') {
+                else if(tag[i] == '<')
                     Mode = 'Q';
-                } else
+                else if(tag[i] == '[')
+                    Mode = 'M';
+                else if(tag[i] == ']')
+                    Mode = 'N';
+                else if(tag[i] == '/')
+                    Mode = 'O';
+                else
                     result += tag[i];
                 break;
             case 'Q':
@@ -439,6 +444,21 @@ string PrintDataParser::parse_tag(int offset, string tag)
                     result += parse_field(VarPos, tag.substr(VarPos, i - VarPos));
                     Mode = 'S';
                 }
+                break;
+            case 'M':
+                result += '[';
+                Mode = 'S';
+                break;
+            case 'N':
+                result += ']';
+                Mode = 'S';
+                break;
+            case 'O':
+                if(tag[i] == '/') {
+                    result += '/';
+                    Mode = 'S';
+                } else
+                    throw Exception("2nd '/' not found at " + IntToString(offset + i + 1));
                 break;
             case 'R':
                 if(tag[i] == '>') {
