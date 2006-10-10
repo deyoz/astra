@@ -17,10 +17,10 @@ using namespace ASTRA;
 
 class PrintDataParser {
     private:
-        typedef vector<TQuery*> TQrys;
-
         class t_field_map {
             private:
+                int pr_lat;
+                typedef vector<TQuery*> TQrys;
                 TQrys Qrys;
 
                 struct TTagValue {
@@ -34,15 +34,20 @@ class PrintDataParser {
                 TData data;
                 void dump_data();
             public:
-                t_field_map(int pax_id, xmlNodePtr tagsNode);
+                t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
                 ~t_field_map();
         };
 
+        int pr_lat;
         t_field_map field_map;
         string parse_field(int offset, string field);
+        string parse_tag(int offset, string tag);
     public:
-        PrintDataParser(int pax_id, xmlNodePtr tagsNode): field_map(pax_id, tagsNode) {};
+        PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode): field_map(pax_id, pr_lat, tagsNode)
+        {
+            this->pr_lat = pr_lat;
+        };
         string parse(string &form);
 };
 
@@ -127,8 +132,9 @@ PrintDataParser::t_field_map::~t_field_map()
     for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
 }
 
-PrintDataParser::t_field_map::t_field_map(int pax_id, xmlNodePtr tagsNode)
+PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode)
 {
+    this->pr_lat = pr_lat;
     {
         // Положим в мэп теги из клиентского запроса
         xmlNodePtr curNode = tagsNode->children;
@@ -338,15 +344,89 @@ string PrintDataParser::parse(string &form)
     for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
-                if(form[i] == '>')
+                if(form[i] == ']')
                     Mode = 'R';
-                else if(form[i] == '<') {
+                else if(form[i] == '[') {
                     Mode = 'Q';
                 } else
                     result += form[i];
                 break;
             case 'Q':
-                if(form[i] == '<') {
+                if(form[i] == '[') {
+                    result += '[';
+                    Mode = 'S';
+                } else {
+                    VarPos = i;
+                    Mode = 'L';
+                }
+                break;
+            case 'L':
+                if(form[i] == ']') {
+                    result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
+                    Mode = 'S';
+                }
+                break;
+            case 'R':
+                if(form[i] == ']') {
+                    result += ']';
+                    Mode = 'S';
+                } else
+                    throw Exception("2nd ']' not found at " + IntToString(i + 1));
+                break;
+        }
+    }
+    if(Mode != 'S')
+        throw Exception("']' not found at " + IntToString(i + 1));
+    return result;
+}
+
+string PrintDataParser::parse_tag(int offset, string tag)
+{
+    u_int slash_point = 0;
+    {
+        char Mode = 'S';
+        for(; slash_point < tag.size() && Mode != 'L'; slash_point++) {
+            switch(Mode) {
+                case 'S':
+                    if(tag[slash_point] == '/')
+                        Mode = 'F';
+                    break;
+                case 'F':
+                    if(tag[slash_point] == '/')
+                        Mode = 'S';
+                    else
+                        Mode = 'L';
+                    break;
+            }
+        }
+        if(slash_point != tag.size()) --slash_point;
+    }
+
+    int start_point, end_point;
+    if(pr_lat) {
+        start_point = slash_point;
+        end_point = tag.size();
+    } else {
+        start_point = 0;
+        end_point = slash_point - (slash_point == tag.size() ? 0 : 1);
+    }
+
+    string result;
+    char Mode = 'S';
+    string::size_type VarPos = 0;
+    string::size_type i = start_point;
+    for(; i < end_point; i++) {
+        switch(Mode) {
+            case 'S':
+                if(tag[i] == '>')
+                    Mode = 'R';
+                else if(tag[i] == '<') {
+                    Mode = 'Q';
+                } else
+                    result += tag[i];
+                break;
+            case 'Q':
+                if(tag[i] == '<') {
                     result += '<';
                     Mode = 'S';
                 } else {
@@ -355,22 +435,22 @@ string PrintDataParser::parse(string &form)
                 }
                 break;
             case 'L':
-                if(form[i] == '>') {
-                    result += parse_field(VarPos, form.substr(VarPos, i - VarPos));
+                if(tag[i] == '>') {
+                    result += parse_field(VarPos, tag.substr(VarPos, i - VarPos));
                     Mode = 'S';
                 }
                 break;
             case 'R':
-                if(form[i] == '>') {
+                if(tag[i] == '>') {
                     result += '>';
                     Mode = 'S';
                 } else
-                    throw Exception("2nd '>' not found at " + IntToString(i + 1));
+                    throw Exception("2nd '>' not found at " + IntToString(offset + i + 1));
                 break;
         }
     }
     if(Mode != 'S')
-        throw Exception("'>' not found at " + IntToString(i + 1));
+        throw Exception("'>' not found at " + IntToString(offset + i + 1));
     return result;
 }
 
@@ -407,7 +487,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     string Pectab, Print;
     GetPrintData(Qry.FieldAsInteger("grp_id"), NodeAsInteger("prn_type", reqNode), Pectab, Print);
-    PrintDataParser parser(NodeAsInteger("pax_id", reqNode), NodeAsNode("tags", reqNode));
+    PrintDataParser parser(
+            NodeAsInteger("pax_id", reqNode),
+            NodeAsInteger("pr_lat", reqNode),
+            NodeAsNode("tags", reqNode)
+            );
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "print", parser.parse(Print));
 }
