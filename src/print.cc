@@ -382,9 +382,10 @@ string PrintDataParser::parse(string &form)
 string PrintDataParser::parse_tag(int offset, string tag)
 {
     u_int slash_point = 0;
+    bool slash_found;
     {
         char Mode = 'S';
-        for(; slash_point < tag.size() && Mode != 'L'; slash_point++) {
+        for(; slash_point < tag.size(); ++slash_point) {
             switch(Mode) {
                 case 'S':
                     if(tag[slash_point] == '/')
@@ -397,17 +398,25 @@ string PrintDataParser::parse_tag(int offset, string tag)
                         Mode = 'L';
                     break;
             }
+            if(Mode == 'L') break;
         }
-        if(slash_point != tag.size()) --slash_point;
+        slash_found = (slash_point != tag.size() || Mode == 'F');
+        if(slash_found) --slash_point;
     }
 
     u_int start_point, end_point;
-    if(pr_lat) {
-        start_point = slash_point;
-        end_point = tag.size();
+
+    if(slash_found) {
+        if(pr_lat) {
+            start_point = slash_point + 1;
+            end_point = tag.size();
+        } else {
+            start_point = 0;
+            end_point = slash_point;
+        }
     } else {
         start_point = 0;
-        end_point = slash_point - (slash_point == tag.size() ? 0 : 1);
+        end_point = tag.size();
     }
 
     string result;
