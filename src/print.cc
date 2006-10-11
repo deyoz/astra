@@ -180,10 +180,20 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     }
 
     TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText = "SELECT airps.cod AS air_cod,airps.lat AS air_cod_lat,airps.name AS air_name, "\
-                  "       cities.cod AS city_cod,cities.name AS city_name,SYSDATE "\
-                  "FROM options,airps,cities "\
-                  "WHERE options.cod=airps.cod AND airps.city=cities.cod";
+    Qry->SQLText =
+        "SELECT "
+        "   system.get_airp(airps.cod, :pr_lat) air_cod, "
+        "   system.get_airp_name(airps.cod, :pr_lat) air_name, "
+        "   system.get_city(cities.cod, :pr_lat) city_cod, "
+        "   system.get_city_name(cities.cod, :pr_lat) city_name "
+        "FROM "
+        "   options, "
+        "   airps, "
+        "   cities "
+        "WHERE "
+        "   options.cod=airps.cod AND "
+        "   airps.city=cities.cod";
+    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
@@ -192,11 +202,10 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   gtimer.get_stage_time(trip_id,:brd_open_stage_id) brd_from, "
         "   gtimer.get_stage_time(trip_id,:brd_close_stage_id) brd_to, "
         "   TRIP_ID, "
-        "   TRIP, "
         "   SCD, "
         "   EST, "
         "   ACT, "
-        "   COMPANY, "
+        "   system.get_airline(company, :pr_lat) COMPANY, "
         "   BC, "
         "   BORT, "
         "   TRIPTYPE, "
@@ -216,44 +225,48 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     Qry->CreateVariable("trip_id", otInteger, trip_id);
     Qry->CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
     Qry->CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
+    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   PAX_ID, "
-        "   GRP_ID, "
-        "   SURNAME, "
-        "   NAME, "
-        "   PERS_TYPE, "
-        "   SEAT_NO, "
-        "   SEAT_TYPE, "
-        "   SEATS, "
-        "   PR_BRD, "
-        "   REFUSE, "
-        "   REG_NO, "
-        "   TICKET_NO, "
-        "   DOCUMENT, "
-        "   SUBCLASS, "
-        "   DOC_CHECK, "
-        "   PREV_SEAT_NO, "
-        "   COUPON_NO "
+        "   pax.PAX_ID, "
+        "   pax.GRP_ID, "
+        "   pax.SURNAME, "
+        "   pax.NAME, "
+        "   system.get_person(pax.pers_type, :pr_lat) PERS_TYPE, "
+        "   persons.name pers_type_name, "
+        "   pax.SEAT_NO, "
+        "   pax.SEAT_TYPE, "
+        "   pax.SEATS, "
+        "   pax.PR_BRD, "
+        "   pax.REFUSE, "
+        "   pax.REG_NO, "
+        "   pax.TICKET_NO, "
+        "   pax.DOCUMENT, "
+        "   pax.SUBCLASS, "
+        "   pax.DOC_CHECK, "
+        "   pax.PREV_SEAT_NO, "
+        "   pax.COUPON_NO "
         "from "
-        "   pax "
+        "   pax, "
+        "   persons "
         "where "
-        "   pax_id = :pax_id";
+        "   pax_id = :pax_id and "
+        "   pax.pers_type = persons.code ";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
+    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   airps.name arvname, "
-        "   airps.latname lat_arvname, "
+        "   system.get_airp_name(airps.cod, :pr_lat) arvname, "
         "   pax_grp.POINT_ID, "
-        "   pax_grp.TARGET, "
-        "   pax_grp.CLASS, "
-        "   pax_grp.CLASS_BAG, "
+        "   system.get_city(pax_grp.TARGET, :pr_lat) target, "
+        "   system.get_class(pax_grp.CLASS, :pr_lat) class, "
+        "   system.get_class(pax_grp.CLASS_BAG, :pr_lat) class_bag, "
         "   pax_grp.EXCESS, "
         "   pax_grp.PR_WL, "
         "   pax_grp.WL_TYPE, "
@@ -267,6 +280,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.target = airps.cod ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
+    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 }
 
