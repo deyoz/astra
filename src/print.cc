@@ -20,8 +20,10 @@ class PrintDataParser {
         class t_field_map {
             private:
                 struct TTagValue {
+                    bool null;
                     otFieldType type;
                     string StringVal;
+                    double FloatVal;
                     int IntegerVal;
                     TDateTime DateTimeVal;
                 };
@@ -89,8 +91,10 @@ void PrintDataParser::t_field_map::TPrnQryBuilder::set_field(string name, TTagVa
             case otChar:
             case otLong:
             case otLongRaw:
-            case otFloat:
                 Qry.SetVariable(name, val.StringVal);
+                break;
+            case otFloat:
+                Qry.SetVariable(name, val.FloatVal);
                 break;
             case otInteger:
                 Qry.SetVariable(name, val.IntegerVal);
@@ -133,14 +137,20 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             if(data.find((*ti)->FieldName(i)) != data.end())
                 throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
             TTagValue TagValue;
+            TagValue.null = (*ti)->FieldIsNULL(i);
+            ProgTrace(TRACE5, "FIELD: %s", (*ti)->FieldName(i));
             switch((*ti)->FieldType(i)) {
                 case otString:
                 case otChar:
                 case otLong:
                 case otLongRaw:
-                case otFloat:
+                    ProgTrace(TRACE5, "TYPE %d: otString", (*ti)->FieldType(i));
                     TagValue.type = otString;
                     TagValue.StringVal = (*ti)->FieldAsString(i);
+                    break;
+                case otFloat:
+                    TagValue.type = otFloat;
+                    TagValue.FloatVal = (*ti)->FieldAsFloat(i);
                     break;
                 case otInteger:
                     TagValue.type = otInteger;
@@ -156,6 +166,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     }
 
     if(di != data.end()) {
+        if(pr_lat && !di_ru->second.null && di->second.null)
+            throw Exception("value is empty for " + di->first);
         PrnQryBuilder->set_field(di_ru->first, di_ru->second);
         TTagValue TagValue = di->second;
         ostringstream buf;
@@ -165,9 +177,12 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             case otChar:
             case otLong:
             case otLongRaw:
-            case otFloat:
                 buf.fill(' ');
                 buf << TagValue.StringVal;
+                break;
+            case otFloat:
+                buf.fill('0');
+                buf << TagValue.FloatVal;
                 break;
             case otInteger:
                 buf.fill('0');
@@ -177,7 +192,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 buf << DateTimeToStr(TagValue.DateTimeVal, date_format);
                 break;
         }
-        if(buf.str().empty()) throw Exception("value is empty for " + di->first);
         if(!len) len = buf.str().size();
         result = AlignString(buf.str(), len, align);
     }
@@ -206,6 +220,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
             if(data.find(name) != data.end())
                 throw Exception("Duplicate tag found in client data " + name);
             data[name] = TagValue;
+            TagValue.StringVal = transliter(TagValue.StringVal);
+            data[name + "_LAT"] = TagValue;
             curNode = curNode->next;
         }
     }
@@ -270,15 +286,22 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   trips.company airline, "
         "   avia.latkod airline_lat, "
         "   trips.BC, "
+        "   system.transliter(trips.BC, 1) bc_lat, "
         "   trips.BORT, "
+        "   system.transliter(trips.BORT, 1) bort_lat, "
         "   trips.TRIPTYPE, "
+        "   system.transliter(trips.TRIPTYPE, 1) triptype_lat, "
         "   trips.LITERA, "
+        "   system.transliter(trips.LITERA, 1) litera_lat, "
         "   trips.PARK, "
+        "   system.transliter(trips.PARK, 1) park_lat, "
         "   trips.MAX_COMMERCE, "
         "   trips.REMARK, "
+        "   system.transliter(trips.REMARK, 1) remark_lat, "
         "   trips.MOVE_ROW_ID, "
         "   trips.FLT_NO, "
         "   trips.SUFFIX, "
+        "   system.transliter(trips.SUFFIX, 1) suffix_lat, "
         "   trips.COMP_ID, "
         "   trips.PR_ETSTATUS "
         "from "
@@ -298,28 +321,42 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax.PAX_ID, "
         "   pax.GRP_ID, "
         "   pax.SURNAME, "
+        "   system.transliter(pax.SURNAME, 1) surname_lat, "
         "   pax.NAME, "
+        "   system.transliter(pax.NAME, 1) name_lat, "
         "   pax.pers_type pers_type, "
         "   persons.code_lat pers_type_lat, "
         "   persons.name pers_type_name, "
         "   pax.SEAT_NO, "
+        "   system.transliter(pax.SEAT_NO, 1) seat_no_lat, "
         "   pax.SEAT_TYPE, "
+        "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
         "   pax.SEATS, "
         "   pax.PR_BRD, "
         "   pax.REFUSE, "
+        "   system.transliter(pax.REFUSE, 1) refuse_lat, "
+        "   refuse.name refuse_name, "
+        "   refuse.lat refuse_name_lat, "
         "   pax.REG_NO, "
         "   pax.TICKET_NO, "
+        "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
         "   pax.DOCUMENT, "
+        "   system.transliter(pax.DOCUMENT, 1) document_lat, "
         "   pax.SUBCLASS, "
+        "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
         "   pax.DOC_CHECK, "
         "   pax.PREV_SEAT_NO, "
+        "   ckin.get_birks(pax.grp_id, pax.reg_no, 0) tags, "
+        "   ckin.get_birks(pax.grp_id, pax.reg_no, 1) tags_lat, "
         "   pax.COUPON_NO "
         "from "
         "   pax, "
-        "   persons "
+        "   persons, "
+        "   refuse "
         "where "
         "   pax_id = :pax_id and "
-        "   pax.pers_type = persons.code ";
+        "   pax.pers_type = persons.code  and "
+        "   pax.refuse = refuse.cod(+) ";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
     Qrys.push_back(Qry);
 
@@ -342,7 +379,10 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_grp.WL_TYPE, "
         "   pax_grp.WL_NUM, "
         "   pax_grp.HALL, "
-        "   pax_grp.PR_REFUSE "
+        "   pax_grp.PR_REFUSE, "
+        "   ckin.get_bagAmount(pax_grp.grp_id, null) bag_amount, "
+        "   ckin.get_bagWeight(pax_grp.grp_id, null) bag_weight, "
+        "   ckin.get_rkWeight(pax_grp.grp_id, null) rk_weight "
         "from "
         "   pax_grp, "
         "   airps, "
@@ -597,7 +637,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = "select grp_id from pax where pax_id = :pax_id";
     Qry.CreateVariable("pax_id", otInteger, NodeAsInteger("pax_id", reqNode));
     Qry.Execute();
