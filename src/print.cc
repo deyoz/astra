@@ -19,10 +19,6 @@ class PrintDataParser {
     private:
         class t_field_map {
             private:
-                int pr_lat;
-                typedef vector<TQuery*> TQrys;
-                TQrys Qrys;
-
                 struct TTagValue {
                     otFieldType type;
                     string StringVal;
@@ -33,9 +29,31 @@ class PrintDataParser {
                 typedef map<string, TTagValue> TData;
                 TData data;
                 void dump_data();
+
+                class TPrnQryBuilder {
+                    private:
+                        TQuery Qry;
+                        TQuery prnFields;
+                        string name_list, var_list;
+                    public:
+                        TPrnQryBuilder(int pax_id): Qry(&OraSession), prnFields(&OraSession)
+                        {
+                            Qry.CreateVariable("PAX_ID", otInteger, pax_id);
+                            prnFields.SQLText = "select * from bp_print where 1 = 0";
+                            prnFields.Execute();
+                        };
+                        void set_field(string name, TTagValue &val);
+                        TQuery *get();
+                } *PrnQryBuilder;
+
+                int pr_lat;
+                typedef vector<TQuery*> TQrys;
+                TQrys Qrys;
+
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
+                TQuery *get_prn_qry() { return PrnQryBuilder->get(); };
                 ~t_field_map();
         };
 
@@ -49,7 +67,40 @@ class PrintDataParser {
             this->pr_lat = pr_lat;
         };
         string parse(string &form);
+        TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
 };
+
+TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
+{
+    string qry =
+        "insert into bp_print(pax_id, time_print, pr_print" + name_list + ") values(:pax_id, sysdate, 0" + var_list + ")";
+    Qry.SQLText = qry;
+    return &Qry;
+}
+
+void PrintDataParser::t_field_map::TPrnQryBuilder::set_field(string name, TTagValue &val)
+{
+    if(prnFields.GetFieldIndex(name) != -1 && Qry.Variables->FindVariable(name.c_str()) < 0) {
+        name_list += ", " + name;
+        var_list += ", :" + name;
+        Qry.DeclareVariable(name, val.type);
+        switch(val.type) {
+            case otString:
+            case otChar:
+            case otLong:
+            case otLongRaw:
+            case otFloat:
+                Qry.SetVariable(name, val.StringVal);
+                break;
+            case otInteger:
+                Qry.SetVariable(name, val.IntegerVal);
+                break;
+            case otDate:
+                Qry.SetVariable(name, val.DateTimeVal);
+                break;
+        }
+    }
+}
 
 void PrintDataParser::t_field_map::dump_data()
 {
@@ -63,16 +114,20 @@ void PrintDataParser::t_field_map::dump_data()
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format)
 {
     string result;
-    TData::iterator di;
+    TData::iterator di, di_ru;
     while(1) {
         di = data.find(name);
+        di_ru = di;
+        if(pr_lat && di != data.end()) {
+            TData::iterator di_lat = data.find(name + "_LAT");
+            if(di_lat != data.end()) di = di_lat;
+        }
         if(di != data.end()) break;
         TQrys::iterator ti = Qrys.begin();
         for(; ti != Qrys.end(); ++ti)
             if(!(*ti)->FieldsCount()) break;
         if(ti == Qrys.end())
-            break;
-//            throw Exception("Tag not found " + name);
+            throw Exception("Tag not found " + name);
         (*ti)->Execute();
         for(int i = 0; i < (*ti)->FieldsCount(); i++) {
             if(data.find((*ti)->FieldName(i)) != data.end())
@@ -101,6 +156,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     }
 
     if(di != data.end()) {
+        PrnQryBuilder->set_field(di_ru->first, di_ru->second);
         TTagValue TagValue = di->second;
         ostringstream buf;
         buf.width(len);
@@ -121,6 +177,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 buf << DateTimeToStr(TagValue.DateTimeVal, date_format);
                 break;
         }
+        if(buf.str().empty()) throw Exception("value is empty for " + di->first);
         if(!len) len = buf.str().size();
         result = AlignString(buf.str(), len, align);
     }
@@ -130,10 +187,12 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
 PrintDataParser::t_field_map::~t_field_map()
 {
     for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
+    delete(PrnQryBuilder);
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode)
 {
+    PrnQryBuilder = new TPrnQryBuilder(pax_id);
     this->pr_lat = pr_lat;
     {
         // Положим в мэп теги из клиентского запроса
@@ -182,10 +241,14 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "SELECT "
-        "   system.get_airp(airps.cod, :pr_lat) air_cod, "
-        "   system.get_airp_name(airps.cod, :pr_lat) air_name, "
-        "   system.get_city(cities.cod, :pr_lat) city_cod, "
-        "   system.get_city_name(cities.cod, :pr_lat) city_name "
+        "   airps.cod air_cod, "
+        "   airps.lat air_cod_lat, "
+        "   airps.name air_name, "
+        "   airps.latname air_name_lat, "
+        "   cities.cod city_cod, "
+        "   cities.lat city_cod_lat, "
+        "   cities.name city_name, "
+        "   cities.latname city_name_lat "
         "FROM "
         "   options, "
         "   airps, "
@@ -193,39 +256,40 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "WHERE "
         "   options.cod=airps.cod AND "
         "   airps.city=cities.cod";
-    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   gtimer.get_stage_time(trip_id,:brd_open_stage_id) brd_from, "
-        "   gtimer.get_stage_time(trip_id,:brd_close_stage_id) brd_to, "
-        "   TRIP_ID, "
-        "   SCD, "
-        "   EST, "
-        "   ACT, "
-        "   system.get_airline(company, :pr_lat) COMPANY, "
-        "   BC, "
-        "   BORT, "
-        "   TRIPTYPE, "
-        "   LITERA, "
-        "   PARK, "
-        "   MAX_COMMERCE, "
-        "   REMARK, "
-        "   MOVE_ROW_ID, "
-        "   FLT_NO, "
-        "   SUFFIX, "
-        "   COMP_ID, "
-        "   PR_ETSTATUS "
+        "   gtimer.get_stage_time(trips.trip_id,:brd_open_stage_id) brd_from, "
+        "   gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id) brd_to, "
+        "   trips.TRIP_ID, "
+        "   trips.SCD, "
+        "   trips.EST, "
+        "   trips.ACT, "
+        "   trips.company airline, "
+        "   avia.latkod airline_lat, "
+        "   trips.BC, "
+        "   trips.BORT, "
+        "   trips.TRIPTYPE, "
+        "   trips.LITERA, "
+        "   trips.PARK, "
+        "   trips.MAX_COMMERCE, "
+        "   trips.REMARK, "
+        "   trips.MOVE_ROW_ID, "
+        "   trips.FLT_NO, "
+        "   trips.SUFFIX, "
+        "   trips.COMP_ID, "
+        "   trips.PR_ETSTATUS "
         "from "
-        "   trips "
+        "   trips, "
+        "   avia "
         "where "
-        "   trip_id = :trip_id";
+        "   trips.trip_id = :trip_id and "
+        "   trips.company = avia.kod_ak ";
     Qry->CreateVariable("trip_id", otInteger, trip_id);
     Qry->CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
     Qry->CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
-    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
@@ -235,7 +299,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax.GRP_ID, "
         "   pax.SURNAME, "
         "   pax.NAME, "
-        "   system.get_person(pax.pers_type, :pr_lat) PERS_TYPE, "
+        "   pax.pers_type pers_type, "
+        "   persons.code_lat pers_type_lat, "
         "   persons.name pers_type_name, "
         "   pax.SEAT_NO, "
         "   pax.SEAT_TYPE, "
@@ -256,17 +321,22 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_id = :pax_id and "
         "   pax.pers_type = persons.code ";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
-    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   system.get_airp_name(airps.cod, :pr_lat) arvname, "
-        "   pax_grp.POINT_ID, "
-        "   system.get_city(pax_grp.TARGET, :pr_lat) target, "
-        "   system.get_class(pax_grp.CLASS, :pr_lat) class, "
-        "   system.get_class(pax_grp.CLASS_BAG, :pr_lat) class_bag, "
+        "   airps.name arvname, "
+        "   airps.latname arvname_lat, "
+        "   pax_grp.point_id, "
+        "   pax_grp.class, "
+        "   classes.lat class_lat, "
+        "   classes.name class_name, "
+        "   classes.name_lat class_name_lat, "
+        "   pax_grp.class_bag, "
+        "   cl_bag.lat class_bag_lat, "
+        "   cl_bag.name class_bag_name, "
+        "   cl_bag.name_lat class_bag_name_lat, "
         "   pax_grp.EXCESS, "
         "   pax_grp.PR_WL, "
         "   pax_grp.WL_TYPE, "
@@ -275,12 +345,15 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_grp.PR_REFUSE "
         "from "
         "   pax_grp, "
-        "   airps "
+        "   airps, "
+        "   classes, "
+        "   classes cl_bag "
         "where "
         "   pax_grp.grp_id = :grp_id and "
-        "   pax_grp.target = airps.cod ";
+        "   pax_grp.target = airps.cod and "
+        "   pax_grp.class = classes.id and "
+        "   pax_grp.class_bag = cl_bag.id ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
-    Qry->CreateVariable("pr_lat", otInteger, pr_lat);
     Qrys.push_back(Qry);
 }
 
@@ -537,6 +610,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             );
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     NewTextChild(dataNode, "print", parser.parse(Print));
+    {
+        TQuery *Qry = parser.get_prn_qry();
+        ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
+        Qry->Execute();
+    }
 }
 
 void PrintInterface::GetPectabDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
