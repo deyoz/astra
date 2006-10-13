@@ -22,12 +22,15 @@ class ETlgError:public EXCEPTIONS::Exception
     ETlgError(std::string msg):EXCEPTIONS::Exception(msg) {};
 };
 
-typedef enum {tcUnknown,tcDCS,tcAHM} TTlgCategory;
+enum TTlgCategory{tcUnknown,tcDCS,tcBSM,tcAHM};
 
-typedef enum  {Address,
+enum TTlgElement
+              {//общие
+               Address,
                CommunicationsReference,
                MessageIdentifier,
                FlightElement,
+               //PNL и ADL
                AssociationNumber,
                BonusPrograms,
                Configuration,
@@ -35,11 +38,14 @@ typedef enum  {Address,
                SpaceAvailableElement,
                TranzitElement,
                TotalsByDestination,
-               EndOfMessage} TPnlAdlElement;
+               //PTM
+               TransferPassengerData,
+               //общие
+               EndOfMessage};
 
-extern const char* TPnlAdlElementS[12];
+extern const char* TTlgElementS[13];
 
-typedef enum {None,ADD,CHG,DEL} TIndicator;
+enum TIndicator{None,ADD,CHG,DEL};
 
 class TTlgPartInfo
 {
@@ -50,6 +56,13 @@ class TTlgPartInfo
     {
       p=NULL;
       line=0;
+    };
+    TTlgPartInfo& operator =(const TTlgPartInfo &info)
+    {
+      if (this == &info) return *this;
+      p=info.p;
+      line=info.line;
+      return *this;
     };
 };
 
@@ -65,14 +78,11 @@ class TFltInfo
     long flt_no;
     char suffix[2];
     BASIC::TDateTime scd;
-    char brd_point[4];
+    bool pr_utc;
+    char airp_dep[4],airp_arv[4];
     TFltInfo()
     {
-      *airline=0;
-      flt_no=0;
-      *suffix=0;
-      scd=0;
-      *brd_point=0;
+      Clear();
     };
     void Clear()
     {
@@ -80,7 +90,9 @@ class TFltInfo
       flt_no=0;
       *suffix=0;
       scd=0;
-      *brd_point=0;
+      pr_utc=false;
+      *airp_dep=0;
+      *airp_arv=0;
     };
 };
 
@@ -92,45 +104,79 @@ class THeadingInfo
     std::string message_identity;
     BASIC::TDateTime time_create;
     char tlg_type[4];
-    TFltInfo flt;
-    long part_no;
-    std::string merge_key; //[39]
+    TTlgCategory tlg_cat;
+
     THeadingInfo()
     {
       *sender=0;
       *double_signature=0;
       time_create=0;
       *tlg_type=0;
-      part_no=0;
+      tlg_cat=tcUnknown;
     };
-    void Clear()
+    THeadingInfo(THeadingInfo &info)
     {
-      *sender=0;
-      *double_signature=0;
-      message_identity.clear();
-      time_create=0;
-      *tlg_type=0;
-      flt.Clear();
-      part_no=0;
-      merge_key.clear();
+      strcpy(sender,info.sender);
+      strcpy(double_signature,info.double_signature);
+      message_identity=info.message_identity;
+      time_create=info.time_create;
+      strcpy(tlg_type,info.tlg_type);
+      tlg_cat=info.tlg_cat;
     };
+    virtual ~THeadingInfo(){};
+};
+
+class TDCSHeadingInfo : public THeadingInfo
+{
+  public:
+    TFltInfo flt;
+    long part_no;
+    long association_number;
+    TDCSHeadingInfo() : THeadingInfo()
+    {
+      part_no=0;
+      association_number=0;
+    };
+    TDCSHeadingInfo(THeadingInfo &info) : THeadingInfo(info)
+    {
+      part_no=0;
+      association_number=0;
+    };
+};
+
+
+class TBSMHeadingInfo : public THeadingInfo
+{
+  public:
+    long part_no;
+    char airp[4];
+    std::string reference_number;
+    TBSMHeadingInfo() : THeadingInfo()
+    {
+      *airp=0;
+      part_no=0;
+    };
+    TBSMHeadingInfo(THeadingInfo &info) : THeadingInfo(info)
+    {
+      *airp=0;
+      part_no=0;
+    };
+};
+
+class TAHMHeadingInfo : public THeadingInfo
+{
+  public:
+    TAHMHeadingInfo() : THeadingInfo() {};
+    TAHMHeadingInfo(THeadingInfo &info) : THeadingInfo(info)  {};
 };
 
 class TEndingInfo
 {
   public:
-    char tlg_type[4];
     long part_no;
     bool pr_final_part;
     TEndingInfo()
     {
-      *tlg_type=0;
-      part_no=0;
-      pr_final_part=true;
-    };
-    void Clear()
-    {
-      *tlg_type=0;
       part_no=0;
       pr_final_part=true;
     };
@@ -213,20 +259,23 @@ class TInfItem
     std::string surname,name;
 };
 
-class TTransferItem
+class TTransferItem : public TFltInfo
 {
   public:
     long num;
-    TFltInfo flt;
     long local_date;
     long local_time;
-    char arv_point[4];
     char subcl[2];
-    TTransferItem()
+    TTransferItem() : TFltInfo()
     {
+      Clear();
+    };
+    void Clear()
+    {
+      TFltInfo::Clear();
       num=0;
       local_date=0;
-      *arv_point=0;
+      local_time=0;
       *subcl=0;
     };
 };
@@ -315,75 +364,118 @@ class TTotalsByDest
     };
 };
 
-struct TPnlAdlContent
-{
-  std::vector<TRbdItem> rbd;
-  std::vector<TRouteItem> cfg,avail,transit;
-  std::vector<TTotalsByDest> resa;
-};
-
-class TTagRangeItem
-{
-  public:      
-    double first_tag;
-    int num;        
-    TTagRangeItem()
-    {
-      first_tag=0.0;
-      num=0;    
-    };        
-};        
-
-class TPtmTotalsByDest : public TTotalsByDest
+class TPnlAdlContent
 {
   public:
-    int bag_amount,bag_weight;
-    TPtmTotalsByDest() : TTotalsByDest()
+    TFltInfo flt;
+    std::vector<TRbdItem> rbd;
+    std::vector<TRouteItem> cfg,avail,transit;
+    std::vector<TTotalsByDest> resa;
+    void Clear()
     {
-      bag_amount=0;
-      bag_weight=0;  
-    };              
-};        
+      flt.Clear();
+      rbd.clear();
+      cfg.clear();
+      avail.clear();
+      transit.clear();
+      resa.clear();
+    };
+};
 
-class TBtmGrpItem : public TPnrItem
-{  
-  public:      
-    std::vector<TTagRangeItem> tags;   
-    int bag_amount,bag_weight,rk_amount,rk_weight;    
-    TBtmGrpItem() : TPnrItem()
+class TPtmTransferData
+{
+  public:
+    long seats;
+    long bag_amount,bag_weight;
+    char weight_unit[2];
+    std::string surname;
+    std::vector<std::string> name;
+    TPtmTransferData()
     {
+      seats=0;
       bag_amount=0;
       bag_weight=0;
-      rk_amount=0;
-      rk_weight=0;    
-    };            
-};        
+      *weight_unit=0;
+    };
+};
 
 class TPtmOutFltInfo : public TTransferItem
 {
-  public:           
-    std::vector<TPtmTotalsByDest> total;        
+  public:
+    std::vector<TPtmTransferData> data;
     TPtmOutFltInfo() : TTransferItem() {};
+};
+
+class TPtmContent
+{
+  public:
+    TTransferItem InFlt;
+    std::vector<TPtmOutFltInfo> OutFlt;
+    void Clear()
+    {
+      InFlt.Clear();
+      OutFlt.clear();
+    };
+};
+
+class TBtmTagItem
+{
+  public:
+    double first_no;
+    int num;
+    TBtmTagItem()
+    {
+      first_no=0.0;
+      num=0;
+    };
+};
+
+class TBtmPaxItem
+{
+  public:
+    std::string surname;
+    std::vector<std::string> name;
+};
+
+class TBtmGrpItem
+{
+  public:
+    std::vector<TBtmTagItem> tags;
+    std::vector<TBtmPaxItem> pax;
+    long bag_amount,bag_weight,rk_weight;
+    char weight_unit[2];
+    TBtmGrpItem()
+    {
+      bag_amount=0;
+      bag_weight=0;
+      rk_weight=0;
+      *weight_unit=0;
+    };
 };
 
 class TBtmOutFltInfo : public TTransferItem
 {
-  public:           
-    std::vector<TBtmGrpItem> pnr;        
+  public:
+    std::vector<TBtmGrpItem> grp;
     TBtmOutFltInfo() : TTransferItem() {};
-};        
+};
 
-struct TPtmContent
+class TBtmTransferInfo
 {
-  TTransferItem InFlt;
-  std::vector<TPtmOutFltInfo> OutFlt;      
-};        
+  public:
+    TTransferItem InFlt;
+    std::vector<TBtmOutFltInfo> OutFlt;
+};
 
-struct TBtmContent
+class TBtmContent
 {
-  std::vector<TTransferItem> InFlt;
-  std::vector<TBtmOutFltInfo> OutFlt;      
-};        
+  public:
+    std::vector<TBtmTransferInfo> Transfer;
+    void Clear()
+    {
+      Transfer.clear();
+    };
+};
 
 class TTlgParser
 {
@@ -391,20 +483,24 @@ class TTlgParser
     char lex[71];
     char* NextLine(char* p);
     char* GetLexeme(char* p);
+    char* GetSlashedLexeme(char* p);
+    char* GetToEOLLexeme(char* p);
     char* GetWord(char* p);
     char* GetNameElement(char* p);
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type);
 TTlgParts GetParts(char* tlg_p);
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info);
-void ParseEnding(TTlgPartInfo ending, TEndingInfo& info);
-void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con);
-/*void ParsePtmBody(TTlgPartInfo body, THeadingInfo& info, TPtmContent& con);
-void ParseBtmBody(TTlgPartInfo body, THeadingInfo& info, TBtmContent& con);*/
-bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bool forcibly,
-                       char* OWN_CANON_NAME, char* ERR_CANON_NAME);
-void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info);                       
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info);
+void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info);
+void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
+void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
+void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
+bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
+void SavePTMContent(int tlg_id, TPtmContent& con);
+void SaveBTMContent(int tlg_id, TBtmContent& con);
+void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
+int SaveFlt(int tlg_id, TFltInfo& flt);
 
 #endif
 

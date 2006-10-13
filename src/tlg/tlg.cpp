@@ -32,47 +32,48 @@ using namespace JxtContext;
 
 const char* ETS_CANON_NAME()
 {
-  static string ETSNAME;	
+  static string ETSNAME;
   if ( ETSNAME.empty() ) {
     char r[100];
     r[0]=0;
     if ( get_param( "ETS_CANON_NAME", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param ETS_CANON_NAME" );
     ETSNAME = r;
-    ProgTrace( TRACE5, "ETS_CANON_NAME=%s", ETSNAME.c_str() );  	
-  }  
-  return ETSNAME.c_str();	
+    ProgTrace( TRACE5, "ETS_CANON_NAME=%s", ETSNAME.c_str() );
+  }
+  return ETSNAME.c_str();
 }
- 
+
 const char* OWN_CANON_NAME()
 {
-  static string OWNNAME;	
+  static string OWNNAME;
   if ( OWNNAME.empty() ) {
     char r[100];
     r[0]=0;
     if ( get_param( "OWN_CANON_NAME", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param OWN_CANON_NAME" );
     OWNNAME = r;
-    ProgTrace( TRACE5, "OWN_CANON_NAME=%s", OWNNAME.c_str() );  	
-  }  
-  return OWNNAME.c_str();	
+    ProgTrace( TRACE5, "OWN_CANON_NAME=%s", OWNNAME.c_str() );
+  }
+  return OWNNAME.c_str();
 }
 
 const char* ERR_CANON_NAME()
 {
-  static string ERRNAME;	
-  if ( ERRNAME.empty() ) {
+  static bool init=false;
+  static string ERRNAME;
+  if ( !init ) {
     char r[100];
     r[0]=0;
-    if ( get_param( "ERR_CANON_NAME", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param ERR_CANON_NAME" );
-    ERRNAME = r;
-    ProgTrace( TRACE5, "ERR_CANON_NAME=%s", ERRNAME.c_str() );  	
-  }  
-  return ERRNAME.c_str();	
+    if ( get_param( "ERR_CANON_NAME", r, sizeof( r ) ) >= 0 )
+      ERRNAME = r;
+    ProgTrace( TRACE5, "ERR_CANON_NAME=%s", ERRNAME.c_str() );
+    init=true;
+  }
+  return ERRNAME.c_str();
 }
 
-namespace 
+namespace
 {
         void sendCmdTlgSnd()
         {
@@ -113,7 +114,7 @@ void sendTlg(const char* receiver,
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");
         Qry.Execute();
-        Qry.Close();           
+        Qry.Close();
     }
     catch( std::exception &e)
     {
@@ -131,7 +132,7 @@ void sendErrorTlg(const char* receiver, const char* sender, const char *format, 
   try
   {
     char Message[500];
-    if (receiver==NULL||sender==NULL||format==NULL) return;
+    if (receiver==NULL||sender==NULL||format==NULL||*receiver==0) return;
     va_list ap;
     va_start(ap, format);
     sprintf(Message,"Sender: %s\n",sender);
@@ -171,115 +172,115 @@ bool errorTlg(int tlg_id, string err)
 };
 
 void sendCmd(const char* receiver, const char* cmd)
-{  
-  try                      
+{
+  try
   {
-    if (receiver==NULL || *receiver==0) 
+    if (receiver==NULL || *receiver==0)
       throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");
-    if (cmd==NULL || *cmd==0) 
+    if (cmd==NULL || *cmd==0)
       throw EXCEPTIONS::Exception( "sendCmd: cmd not defined");
     static int sockfd=-1;
-    static struct sockaddr_un sock_addr; 	    
+    static struct sockaddr_un sock_addr;
     static map<string,string> addrs;
     if (sockfd==-1)
-    {    
+    {
       if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
-        throw EXCEPTIONS::Exception("sendCmd: 'socket' error %d: %s",errno,strerror(errno));                
-      memset(&sock_addr,0,sizeof(sock_addr));      
-      sock_addr.sun_family=AF_UNIX;    
+        throw EXCEPTIONS::Exception("sendCmd: 'socket' error %d: %s",errno,strerror(errno));
+      memset(&sock_addr,0,sizeof(sock_addr));
+      sock_addr.sun_family=AF_UNIX;
       ProgTrace(TRACE5,"sendCmd: socket opened");
     };
-    
+
     if (addrs.find(receiver)==addrs.end())
-    {        
+    {
       if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
-        throw EXCEPTIONS::Exception( "sendCmd: can't read parameter '%s'", receiver );    
-      addrs[receiver]=sock_addr.sun_path;    
+        throw EXCEPTIONS::Exception( "sendCmd: can't read parameter '%s'", receiver );
+      addrs[receiver]=sock_addr.sun_path;
       ProgTrace(TRACE5,"sendCmd: receiver %s added",receiver);
-    };      
-    strcpy(sock_addr.sun_path,addrs[receiver].c_str());    
-   
+    };
+    strcpy(sock_addr.sun_path,addrs[receiver].c_str());
+
     if (sendto(sockfd,cmd,strlen(cmd),0,
                (struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
-      throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));	        
+      throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
     ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s",cmd,receiver);
   }
   catch(EXCEPTIONS::Exception E)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
-  };      
-};        
+  };
+};
 
 bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
 {
-  if (receiver==NULL || *receiver==0) 
-    throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");      
+  if (receiver==NULL || *receiver==0)
+    throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");
   if (buf==NULL || buflen <= 1 )
-    throw EXCEPTIONS::Exception( "sendCmd: buf not defined");      
-  static map<string,int> sockfds;  
-  
-  int sockfd;    
+    throw EXCEPTIONS::Exception( "sendCmd: buf not defined");
+  static map<string,int> sockfds;
+
+  int sockfd;
   if (sockfds.find(receiver)==sockfds.end())
-  {    
-    if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)    
-      throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));    
-    try    
+  {
+    if ((sockfd=socket(AF_UNIX,SOCK_DGRAM,0))==-1)
+      throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));
+    try
     {
-      struct sockaddr_un sock_addr; 	
-      memset(&sock_addr,0,sizeof(sock_addr));      
-      sock_addr.sun_family=AF_UNIX;            
+      struct sockaddr_un sock_addr;
+      memset(&sock_addr,0,sizeof(sock_addr));
+      sock_addr.sun_family=AF_UNIX;
       if ( get_param( receiver, sock_addr.sun_path, sizeof (sock_addr.sun_path) - 1 ) < 0 )
         throw EXCEPTIONS::Exception( "waitCmd: can't read parameter '%s'", receiver );
-      unlink(sock_addr.sun_path);  
+      unlink(sock_addr.sun_path);
       if (bind(sockfd,(struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
-        throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));                    
-      sockfds[receiver]=sockfd;  
-    }  
+        throw EXCEPTIONS::Exception("waitCmd: 'bind' error %d: %s",errno,strerror(errno));
+      sockfds[receiver]=sockfd;
+    }
     catch(...)
     {
-      close(sockfd);   
-      throw;  
-    };                  
+      close(sockfd);
+      throw;
+    };
     ProgTrace(TRACE5,"waitCmd: receiver %s added",receiver);
   };
   sockfd=sockfds[receiver];
-  
-  try      
+
+  try
   {
     fd_set rfds;
     struct timeval tv;
     FD_ZERO(&rfds);
     FD_SET(sockfd,&rfds);
     tv.tv_sec=secs;
-    tv.tv_usec=0; 
-    int res;       
+    tv.tv_usec=0;
+    int res;
     if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
     {
-      if (errno!=EINTR) 
+      if (errno!=EINTR)
         throw EXCEPTIONS::Exception("waitCmd: 'select' error %d: %s",errno,strerror(errno));
-    };         
-    if (res>0&&FD_ISSET(sockfd,&rfds)) 
-    {     
-      int len;    
-      memset((void*)buf,0,buflen);              
+    };
+    if (res>0&&FD_ISSET(sockfd,&rfds))
+    {
+      int len;
+      memset((void*)buf,0,buflen);
       if ((len = recv(sockfd,(char*)buf,buflen-1,0))==-1)
       {
-        if (errno!=ECONNREFUSED) 
-          throw EXCEPTIONS::Exception("waitCmd: 'recv' error %d: %s",errno,strerror(errno));      
+        if (errno!=ECONNREFUSED)
+          throw EXCEPTIONS::Exception("waitCmd: 'recv' error %d: %s",errno,strerror(errno));
       }
-      else 
+      else
       {
-        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s",buf,receiver);  
+        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s",buf,receiver);
         return true;
-      };      
-    };  
+      };
+    };
   }
   catch(EXCEPTIONS::Exception E)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
-  };        
-  return false;              
-};        
+  };
+  return false;
+};
 
 const std::string EdiMess::Display = "131";
 const std::string EdiMess::ChangeStat = "142";
@@ -597,7 +598,7 @@ void throw2UserLevel(const string &pult, const string &name, const string &text)
 
     JxtCont *sysCont = getJxtContHandler()->sysContext();
     sysCont->write(name,text);
-    registerHookBefore(SaveContextsHook);    
+    registerHookBefore(SaveContextsHook);
 }
 void saveTlgSource(const string &pult, const string &tlg)
 {
@@ -688,7 +689,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
     }
 }
 
-void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,    
+void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
 {
     ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
@@ -702,29 +703,29 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     TQuery Qry(&OraSession);
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) continue;  
+      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) continue;
       if (currTick->getCoupon().empty()) continue;
       coupon_status status(currTick->getCoupon().front().couponInfo().status());
       Qry.Clear();
       if (status.codeInt()==Checked ||
           status.codeInt()==Boarded ||
           status.codeInt()==Flown)
-      {    
-        //сделать update          
+      {
+        //сделать update
         Qry.SQLText=
           "UPDATE etickets SET coupon_status=:status "
-          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";        
-        Qry.CreateVariable("status",otString,status.dispCode());        
-      }  
+          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
+        Qry.CreateVariable("status",otString,status.dispCode());
+      }
       else
       {
-        //удалить из таблицы             
-        Qry.SQLText="DELETE FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";                
+        //удалить из таблицы
+        Qry.SQLText="DELETE FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
       };
       Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
-      Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());          
-      Qry.Execute();        
-    };    
+      Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
+      Qry.Execute();
+    };
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -792,7 +793,7 @@ int ProcEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
   }
   catch(edi_exception &e)
   {
-      ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());	              
+      ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
       *err=1;
       return -1;
   }

@@ -4,17 +4,16 @@
 #include <stdlib.h>
 #include <time.h>
 #include <list>
-#ifndef __WIN32__
- #include "lwriter.h"
-#endif
 #include "tlg_parser.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "misc.h"
+#include "tlg.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
+#include "test.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -37,7 +36,7 @@ const TMonthCode Months[12] =
      {"НОЯ","NOV"},
      {"ДЕК","DEC"}};
 
-const char* TPnlAdlElementS[] =
+const char* TTlgElementS[] =
               {"Address",
                "CommunicationsReference",
                "MessageIdentifier",
@@ -49,6 +48,7 @@ const char* TPnlAdlElementS[] =
                "SpaceAvailableElement",
                "TranzitElement",
                "TotalsByDestination",
+               "TransferPassengerData",
                "EndOfMessage"};
 
 char* TTlgParser::NextLine(char* p)
@@ -70,6 +70,30 @@ char* TTlgParser::GetLexeme(char* p)
   strncpy(lex,p,len);
   if (len==0) return NULL;
   else return p+len;
+};
+
+char* TTlgParser::GetSlashedLexeme(char* p)
+{
+  int len;
+  char *res;
+  if (p==NULL) return NULL;
+  //удалим все предшествующие пробелы
+  for(;*p>0&&*p<=' '&&*p!='\n';p++);
+  for(len=0;*(p+len)!=0&&*(p+len)!='\n'&&*(p+len)!='/';len++);
+  //запомним позицию слэша
+  res=p+len;
+  if (*res=='/') res++;
+  else
+    if (len==0) res=NULL;
+  //удалим все последующие пробелы
+  for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  len++;
+  //заполним tlg.lex
+  if (len>(int)sizeof(lex)-1)
+    throw ETlgError("Too long lexeme");
+  lex[len]=0;
+  strncpy(lex,p,len);
+  return res;
 };
 
 char* TTlgParser::GetWord(char* p)
@@ -102,9 +126,25 @@ char* TTlgParser::GetNameElement(char* p)
   else return p+len;
 };
 
-char* GetPnlAdlElementName(TPnlAdlElement e)
+char* TTlgParser::GetToEOLLexeme(char* p)
 {
-  return (char*)TPnlAdlElementS[e];
+  int len;
+  if (p==NULL) return NULL;
+  for(;*p>0&&*p<=' '&&*p!='\n';p++);
+  for(len=0;*(p+len)!=0&&*(p+len)!='\n';len++);
+  for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  len++;
+  if (len>(int)sizeof(lex)-1)
+    throw ETlgError("Too long lexeme");
+  lex[len]=0;
+  strncpy(lex,p,len);
+  if (len==0) return NULL;
+  else return p+len;
+};
+
+char* GetTlgElementName(TTlgElement e)
+{
+  return (char*)TTlgElementS[e];
 };
 
 char GetSalonLine(char line)
@@ -117,7 +157,7 @@ char GetSalonLine(char line)
   else return *p;
 };
 
-enum TNsiType {ntAirlines,ntAirps,ntSubcls};
+enum TNsiType {ntAirlines,ntAirps,ntClass,ntSubcls};
 
 char* GetNsiCode(char* value, TNsiType nsi, char* code)
 {
@@ -132,6 +172,9 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
       Qry.SQLText="SELECT cod AS code FROM airps WHERE :code IN (cod,lat)";
       break;
     case ntSubcls:
+      Qry.SQLText="SELECT code FROM subcls WHERE :code IN (code,code_lat)";
+      break;
+    case ntClass:
       Qry.SQLText="SELECT class AS code FROM subcls WHERE :code IN (code,code_lat)";
       break;
   };
@@ -142,7 +185,8 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
     {
       case ntAirlines: throw ETlgError("Airline not found (code=%s)",Qry.GetVariableAsString("code"));
       case ntAirps:    throw ETlgError("Airport not found (code=%s)",Qry.GetVariableAsString("code"));
-      case ntSubcls:   throw ETlgError("Class not found (code=%s)",Qry.GetVariableAsString("code"));
+      case ntSubcls:
+      case ntClass:    throw ETlgError("Subclass not found (code=%s)",Qry.GetVariableAsString("code"));
     };
   strcpy(code,Qry.FieldAsString("code"));
   Qry.Next();
@@ -151,7 +195,8 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
     {
       case ntAirlines: throw ETlgError("More than one airline found  (code=%s)",Qry.GetVariableAsString("code"));
       case ntAirps:    throw ETlgError("More than one airport found (code=%s)",Qry.GetVariableAsString("code"));
-      case ntSubcls:   throw ETlgError("More than one class found (code=%s)",Qry.GetVariableAsString("code"));
+      case ntSubcls:
+      case ntClass:    throw ETlgError("More than one subclass found (code=%s)",Qry.GetVariableAsString("code"));
     };
   return code;
 };
@@ -169,7 +214,12 @@ char* GetAirp(char* airp)
 TClass GetClass(char* subcl)
 {
   char subclh[2];
-  return DecodeClass(GetNsiCode(subcl,ntSubcls,subclh));
+  return DecodeClass(GetNsiCode(subcl,ntClass,subclh));
+};
+
+char* GetSubcl(char* subcl)
+{
+  return GetNsiCode(subcl,ntSubcls,subcl);
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type)
@@ -177,22 +227,486 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   TTlgCategory cat;
   cat=tcUnknown;
   if (strcmp(tlg_type,"PNL")==0||
-      strcmp(tlg_type,"ADL")==0) cat=tcDCS;
+      strcmp(tlg_type,"ADL")==0||
+      strcmp(tlg_type,"PTM")==0) cat=tcDCS;
+  if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
-  return cat;    
+  return cat;
 };
 
-TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
+class TBSMInfo
+{
+  public:
+    virtual ~TBSMInfo(){};
+};
+
+class TBSMVersionInfo : public TBSMInfo
+{
+  public:
+    char ver_no[2];
+    char src_indicator[2];
+    char airp[4];
+    long part_no;
+    std::string message_number;
+    TBSMVersionInfo()
+    {
+      *ver_no=0;
+      *src_indicator=0;
+      *airp=0;
+      part_no=0;
+    };
+};
+
+class TBSMFltInfo : public TBSMInfo
+{
+  public:
+    char airline[4];
+    long flt_no;
+    char suffix[2];
+    TDateTime scd;
+    char airp[4];
+    char subcl[2];
+    TBSMFltInfo()
+    {
+      *airline=0;
+      flt_no=0;
+      *suffix=0;
+      scd=0;
+      *airp=0;
+      *subcl=0;
+    };
+};
+
+class TBSMTag : public TBSMInfo
+{
+  public:
+    char first_no[11];
+    char num[4];
+    TBSMTag()
+    {
+      *first_no=0;
+      *num=0;
+    };
+};
+
+class TBSMBag : public TBSMInfo
+{
+  public:
+    char weight_unit[2];
+    long bag_amount,bag_weight,rk_weight;
+    TBSMBag()
+    {
+      bag_amount=0;
+      bag_weight=0;
+      rk_weight=0;
+      *weight_unit=0;
+    };
+};
+
+class TBSMPax : public TBSMInfo
+{
+  public:
+    std::string surname;
+    std::vector<std::string> name;
+};
+
+char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
+{
+  char c,lexh[sizeof(tlg.lex)],id[2];
+  int res;
+  *id=0;
+  data=NULL;
+  try
+  {
+    p=tlg.GetSlashedLexeme(p);
+    c=0;
+    res=sscanf(tlg.lex,".%1[A-Z]%c",id,&c);
+    if (c!=0||res!=1)
+      throw ETlgError("Wrong element identifier");
+    try
+    {
+      if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Wrong format");
+      switch (*id)
+      {
+        case 'V':
+          {
+            data = new TBSMVersionInfo;
+            TBSMVersionInfo& info = *(TBSMVersionInfo*)data;
+
+            c=0;
+            res=sscanf(tlg.lex,"%1[A-Z0-9]%1[LTXR]%3[A-ZА-ЯЁ]%c",info.ver_no,info.src_indicator,info.airp,&c);
+            if (c!=0||res!=3) throw ETlgError("Wrong format");
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL&&*tlg.lex!=0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"PART%lu%c",&info.part_no,&c);
+              if (c!=0||res!=1||
+                  info.part_no<=0||info.part_no>=100) throw ETlgError("Wrong part number");
+            }
+            else info.part_no=1;
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL&&*tlg.lex!=0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%10[A-Z0-9]%c",lexh,&c);
+              if (c!=0||res!=1) throw ETlgError("Wrong message reference number");
+              info.message_number=lexh;
+            };
+            break;
+          }
+        case 'I':
+        case 'F':
+          {
+            data = new TBSMFltInfo;
+            TBSMFltInfo& flt = *(TBSMFltInfo*)data;
+
+            if (strlen(tlg.lex)<3||strlen(tlg.lex)>8) throw ETlgError("Wrong flight number");
+            flt.suffix[0]=0;
+            flt.suffix[1]=0;
+            c=0;
+            if (IsDigit(tlg.lex[2]))
+              res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
+            else
+              res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
+            if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight number");
+            if (res==3&&
+                !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight number");
+            GetAirline(flt.airline);
+
+            if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Flight date not found");
+            long int day;
+            char month[4];
+            c=0;
+            res=sscanf(tlg.lex,"%2lu%3[A-ZА-ЯЁ]%c",&day,month,&c);
+            if (c!=0||res!=2||day<=0) throw ETlgError("Wrong flight date");
+
+            TDateTime today=NowLocal();
+            int year,mon,currday;
+            DecodeDate(today,year,mon,currday);
+            try
+            {
+              for(mon=1;mon<=12;mon++)
+                if (strcmp(month,Months[mon-1].lat)==0||
+                    strcmp(month,Months[mon-1].rus)==0) break;
+              EncodeDate(year,mon,day,flt.scd);
+              if ((int)today>(int)flt.scd+30)  //рейс может задержаться на месяц
+                EncodeDate(year+1,mon,day,flt.scd);
+            }
+            catch(EConvertError)
+            {
+              throw ETlgError("Can't convert flight date");
+            };
+
+            if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Airport code not found");
+            c=0;
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",flt.airp,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong airport code");
+            GetAirp(flt.airp);
+
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%1[A-ZА-ЯЁ]%c",flt.subcl,&c);
+              if (c!=0||res!=1) throw ETlgError("Wrong class");
+              GetSubcl(flt.subcl);
+            };
+            if (tlg.GetSlashedLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+            break;
+          }
+        case 'N':
+          {
+            data = new TBSMTag;
+            TBSMTag& tag = *(TBSMTag*)data;
+
+            c=0;
+            res=sscanf(tlg.lex,"%10[0-9]%3[0-9]%c",tag.first_no,tag.num,&c);
+            if (c!=0||res!=2||
+                strlen(tag.first_no)!=10||strlen(tag.num)!=3) throw ETlgError("Wrong format");
+            if (tlg.GetSlashedLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+            break;
+          }
+        case 'W':
+          {
+            data = new TBSMBag;
+            TBSMBag& bag = *(TBSMBag*)data;
+
+            if (strcmp(tlg.lex,"L")!=0&&
+                strcmp(tlg.lex,"K")!=0&&
+                strcmp(tlg.lex,"P")!=0) throw ETlgError("Wrong pieces/weight indicator");
+            strcpy(bag.weight_unit,tlg.lex);
+
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL&&*tlg.lex!=0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%3lu%c",&bag.bag_amount,&c);
+              if (c!=0||res!=1||bag.bag_amount<0) throw ETlgError("Wrong number of checked bags");
+            };
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL&&*tlg.lex!=0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%4lu%c",&bag.bag_weight,&c);
+              if (c!=0||res!=1||bag.bag_weight<0) throw ETlgError("Wrong checked weight");
+            };
+            if ((p=tlg.GetSlashedLexeme(p))!=NULL&&*tlg.lex!=0)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%3lu%c",&bag.rk_weight,&c);
+              if (c!=0||res!=1||bag.rk_weight<0) throw ETlgError("Wrong unchecked weight");
+            };
+            if (tlg.GetSlashedLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+            break;
+          }
+        case 'P':
+          {
+            data = new TBSMPax;
+            TBSMPax& pax = *(TBSMPax*)data;
+
+            c=0;
+            res=sscanf(tlg.lex,"%*3[0-9]%[A-ZА-ЯЁ ]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            pax.surname=lexh;
+
+            if (tlg.GetToEOLLexeme(p)!=NULL)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%*[A-ZА-ЯЁ /]%c",&c);
+              if (c!=0||res>0) throw ETlgError("Wrong format");
+              p=tlg.lex;
+              while ((p=tlg.GetSlashedLexeme(p))!=NULL)
+                pax.name.push_back(tlg.lex);
+            };
+            break;
+          }
+        default: data=NULL;
+      };
+      return (*id);
+    }
+    catch (ETlgError E)
+    {
+      switch (*id)
+      {
+        case 'V': throw ETlgError("Version and supplementary data: %s",E.what());
+        case 'I': throw ETlgError("Inbound flight information: %s",E.what());
+        case 'F': throw ETlgError("Outbound flight information: %s",E.what());
+        case 'N': throw ETlgError("Baggage tag details: %s",E.what());
+        case 'W': throw ETlgError("Pieces and weight data: %s",E.what());
+        case 'P': throw ETlgError("Passenger name: %s",E.what());
+        default: throw;
+      };
+    };
+  }
+  catch(...)
+  {
+    if (data!=NULL) delete data;
+    data=NULL;
+    throw;
+  };
+};
+
+TTlgPartInfo ParseBSMHeading(TTlgPartInfo heading, TBSMHeadingInfo &info)
+{
+  int line;
+  char c,*line_p;
+  TTlgParser tlg;
+  TTlgPartInfo next;
+
+  try
+  {
+    line_p=heading.p;
+    line=heading.line-1;
+    do
+    {
+      line++;
+      if (tlg.GetLexeme(line_p)==NULL) continue;
+
+      TBSMInfo *data=NULL;
+      c=ParseBSMElement(line_p,tlg,data);
+      try
+      {
+        if (c!='V') throw ("Version and supplementary data not found");
+        TBSMVersionInfo &verInfo = *(dynamic_cast<TBSMVersionInfo*>(data));
+        info.part_no=verInfo.part_no;
+        strcpy(info.airp,verInfo.airp);
+        info.reference_number=verInfo.message_number;
+        if (data!=NULL) delete data;
+      }
+      catch(...)
+      {
+        if (data!=NULL) delete data;
+        throw;
+      };
+      next.p=tlg.NextLine(line_p);
+      next.line=line+1;
+      return next;
+    }
+    while ((line_p=tlg.NextLine(line_p))!=NULL);
+  }
+  catch(ETlgError E)
+  {
+    //вывести ошибку+номер строки
+    throw ETlgError("Line %d: %s",line,E.what());
+  };
+  next.p=line_p;
+  next.line=line;
+  return next;
+};
+
+void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
+{
+  vector<TBtmTransferInfo>::iterator iIn;
+  vector<TBtmOutFltInfo>::iterator iOut;
+  vector<TBtmGrpItem>::iterator iGrp;
+  vector<TBtmTagItem>::iterator iTag;
+  vector<string>::iterator i;
+
+  con.Clear();
+
+  int line;
+  char e,prior,*line_p;
+  TTlgParser tlg;
+
+  TBSMInfo *data=NULL;
+
+  try
+  {
+    line_p=body.p;
+    line=body.line-1;
+
+    char airp[4]; //аэропорт в котором происходит трансфер
+    strcpy(airp,info.airp);
+    GetAirp(airp);
+    prior='V';
+
+    do
+    {
+      line++;
+      if (tlg.GetLexeme(line_p)==NULL) continue;
+
+      e=ParseBSMElement(line_p,tlg,data);
+      if (data==NULL) continue;
+      try
+      {
+        switch (e)
+        {
+          case 'V': throw ETlgError("Wrong element order");
+          case 'I':
+            {
+              if (strchr("VP",prior)==NULL) throw ETlgError("Wrong element order");
+              TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
+              TBtmTransferInfo trfer;
+              strcpy(trfer.InFlt.airline,flt.airline);
+              trfer.InFlt.flt_no=flt.flt_no;
+              strcpy(trfer.InFlt.suffix,flt.suffix);
+              trfer.InFlt.scd=flt.scd;
+              trfer.InFlt.pr_utc=false;
+              strcpy(trfer.InFlt.airp_dep,flt.airp);
+              strcpy(trfer.InFlt.airp_arv,airp);
+              strcpy(trfer.InFlt.subcl,flt.subcl);
+              for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
+                if (strcmp(iIn->InFlt.airline,trfer.InFlt.airline)==0&&
+                  iIn->InFlt.flt_no==trfer.InFlt.flt_no&&
+                  strcmp(iIn->InFlt.suffix,trfer.InFlt.suffix)==0&&
+                  iIn->InFlt.scd==trfer.InFlt.scd&&
+                  iIn->InFlt.pr_utc==trfer.InFlt.pr_utc&&
+                  strcmp(iIn->InFlt.airp_dep,trfer.InFlt.airp_dep)==0&&
+                  strcmp(iIn->InFlt.airp_arv,trfer.InFlt.airp_arv)==0&&
+                  strcmp(iIn->InFlt.subcl,trfer.InFlt.subcl)==0) break;
+
+              if (iIn==con.Transfer.end())
+                iIn=con.Transfer.insert(con.Transfer.end(),trfer);
+              break;
+            }
+          case 'F':
+            {
+              if (strchr("IP",prior)==NULL) throw ETlgError("Wrong element order");
+              TBSMFltInfo &flt = *(dynamic_cast<TBSMFltInfo*>(data));
+              TBtmOutFltInfo OutFlt;
+              strcpy(OutFlt.airline,flt.airline);
+              OutFlt.flt_no=flt.flt_no;
+              strcpy(OutFlt.suffix,flt.suffix);
+              OutFlt.scd=flt.scd;
+              OutFlt.pr_utc=false;
+              strcpy(OutFlt.airp_dep,airp);
+              strcpy(OutFlt.airp_arv,flt.airp);
+              strcpy(OutFlt.subcl,flt.subcl);
+              for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
+                if (strcmp(iOut->airline,OutFlt.airline)==0&&
+                  iOut->flt_no==OutFlt.flt_no&&
+                  strcmp(iOut->suffix,OutFlt.suffix)==0&&
+                  iOut->scd==OutFlt.scd&&
+                  iOut->pr_utc==OutFlt.pr_utc&&
+                  strcmp(iOut->airp_dep,OutFlt.airp_dep)==0&&
+                  strcmp(iOut->airp_arv,OutFlt.airp_arv)==0&&
+                  strcmp(iOut->subcl,OutFlt.subcl)==0) break;
+
+              if (iOut==iIn->OutFlt.end())
+                iOut=iIn->OutFlt.insert(iIn->OutFlt.end(),OutFlt);
+              break;
+            }
+          case 'N':
+            {
+              if (strchr("FNP",prior)==NULL) throw ETlgError("Wrong element order");
+              TBSMTag &BSMTag = *(dynamic_cast<TBSMTag*>(data));
+              TBtmTagItem tag;
+              StrToFloat(BSMTag.first_no,tag.first_no);
+              StrToInt(BSMTag.num,tag.num);
+              if (prior!='N')
+              {
+                TBtmGrpItem grp;
+                iGrp=iOut->grp.insert(iOut->grp.end(),grp);
+              };
+              iGrp->tags.push_back(tag);
+              break;
+            }
+          case 'W':
+            {
+              if (strchr("N",prior)==NULL) throw ETlgError("Wrong element order");
+              TBSMBag &bag = *(dynamic_cast<TBSMBag*>(data));
+              strcpy(iGrp->weight_unit,bag.weight_unit);
+              iGrp->bag_amount=bag.bag_amount;
+              iGrp->bag_weight=bag.bag_weight;
+              iGrp->rk_weight=bag.rk_weight;
+              break;
+            }
+          case 'P':
+            {
+              if (strchr("NWP",prior)==NULL) throw ETlgError("Wrong element order");
+              TBSMPax &BSMPax = *(dynamic_cast<TBSMPax*>(data));
+              TBtmPaxItem pax;
+              pax.surname=BSMPax.surname;
+              pax.name=BSMPax.name;
+              iGrp->pax.push_back(pax);
+              break;
+            }
+          default: ;
+        };
+        if (data!=NULL) delete data;
+        prior=e;
+      }
+      catch(...)
+      {
+        if (data!=NULL) delete data;
+        throw;
+      };
+    }
+    while ((line_p=tlg.NextLine(line_p))!=NULL);
+  }
+  catch (ETlgError E)
+  {
+    throw ETlgError("Line %d: %s",line,E.what());
+  };
+  return;
+};
+
+TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
 {
   int line,res;
   char c,*p,*line_p;
   TTlgParser tlg;
-  TPnlAdlElement e;
+  TTlgElement e;
   TTlgPartInfo next;
-
-  time_t curr_time_t=time(NULL);
-  struct tm *curr_time;
 
   try
   {
@@ -211,7 +725,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
             long int day;
             char month[4],flt[9];
             c=0;
-            res=sscanf(tlg.lex,"%8[A-ZА-ЯЁ0-9]/%2lu%3[A-ZА-ЯЁ0-9]%c",flt,&day,month,&c);
+            res=sscanf(tlg.lex,"%8[A-ZА-ЯЁ0-9]/%2lu%3[A-ZА-ЯЁ]%c",flt,&day,month,&c);
             if (c!=0||res!=3||day<=0) throw ETlgError("Wrong flight/local date");
             if (strlen(flt)<3) throw ETlgError("Wrong flight");
             info.flt.suffix[0]=0;
@@ -226,37 +740,46 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetAirline(info.flt.airline);
 
-            TDateTime today;
-            curr_time=localtime(&curr_time_t);
-            curr_time->tm_year+=1900;
+            TDateTime today=NowLocal();
+            int year,mon,currday;
+            DecodeDate(today,year,mon,currday);
             try
             {
-              EncodeDate(curr_time->tm_year,curr_time->tm_mon+1,curr_time->tm_mday,today);
-              for(curr_time->tm_mon=1;curr_time->tm_mon<=12;curr_time->tm_mon++)
-                if (strcmp(month,Months[curr_time->tm_mon-1].lat)==0||
-                    strcmp(month,Months[curr_time->tm_mon-1].rus)==0) break;
-              EncodeDate(curr_time->tm_year,curr_time->tm_mon,day,info.flt.scd);
+              for(mon=1;mon<=12;mon++)
+                if (strcmp(month,Months[mon-1].lat)==0||
+                    strcmp(month,Months[mon-1].rus)==0) break;
+              EncodeDate(year,mon,day,info.flt.scd);
               if ((int)today>(int)info.flt.scd+30)  //рейс может задержаться на месяц
-                EncodeDate(curr_time->tm_year+1,curr_time->tm_mon,day,info.flt.scd);
+                EncodeDate(year+1,mon,day,info.flt.scd);
+              info.flt.pr_utc=false;
             }
             catch(EConvertError)
             {
-              throw ETlgError("Wrong local date");
+              throw ETlgError("Can't convert local date");
             };
-            info.merge_key+=" ";
-            info.merge_key+=tlg.lex;
-            if ((p=tlg.GetLexeme(p))!=NULL)
+            if (strcmp(info.tlg_type,"PNL")==0||
+                strcmp(info.tlg_type,"ADL")==0)
             {
-              c=0;
-              res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",info.flt.brd_point,&c);
-              if (c!=0||res!=1) throw ETlgError("Wrong boarding point");
-              GetAirp(info.flt.brd_point);
-            }
-            else throw ETlgError("Wrong boarding point");
-            info.merge_key+=" ";
-            info.merge_key+=tlg.lex;
+              if ((p=tlg.GetLexeme(p))!=NULL)
+              {
+                c=0;
+                res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",info.flt.airp_dep,&c);
+                if (c!=0||res!=1) throw ETlgError("Wrong boarding point");
+              }
+              else throw ETlgError("Wrong boarding point");
+            };
+            if (strcmp(info.tlg_type,"PTM")==0)
+            {
+              if ((p=tlg.GetLexeme(p))!=NULL)
+              {
+                c=0;
+                res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%3[A-ZА-ЯЁ]%c",info.flt.airp_dep,info.flt.airp_arv,&c);
+                if (c!=0||res!=2) throw ETlgError("Wrong boarding/transfer point");
+              }
+              else throw ETlgError("Wrong bording/transfer point");
+            };
+
             if ((p=tlg.GetLexeme(p))!=NULL)
             {
               c=0;
@@ -273,13 +796,11 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
           {
             if (strncmp(tlg.lex,"ANA/",4)==0)
             {
-              char ana[7];
               c=0;
-              res=sscanf(tlg.lex,"ANA/%6[0-9]%c",ana,&c);
-              if (c!=0||res!=1) throw ETlgError("Wrong association number");
-              sprintf(tlg.lex,"ANA/%06s",ana);
-              info.merge_key+=" ";
-              info.merge_key+=tlg.lex;
+              res=sscanf(tlg.lex,"ANA/%lu%c",&info.association_number,&c);
+              if (c!=0||res!=1||
+                  info.association_number<100||info.association_number>999999)
+                throw ETlgError("Wrong association number");
               if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
               next.p=tlg.NextLine(line_p);
               next.line=line+1;
@@ -306,23 +827,19 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, THeadingInfo& info)
   return next;
 };
 
-TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, THeadingInfo& info)
+TTlgPartInfo ParseAHMHeading(TTlgPartInfo heading, TAHMHeadingInfo &info)
 {
   TTlgPartInfo next;
-  next.p=heading.p;
-  next.line=heading.line;
+  next=heading;
   return next;
 };
 
-void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
+void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
 {
   int line,res;
   char c,*line_p;
   TTlgParser tlg;
-  TPnlAdlElement e;
-
-  time_t curr_time_t=time(NULL);
-  struct tm *curr_time;
+  TTlgElement e;
 
   try
   {
@@ -340,51 +857,51 @@ void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
             //message flight
             char lexh[sizeof(tlg.lex)];
             long int day=0;
-            char flt[9];
+            char trip[9];
             res=sscanf(tlg.lex,"%11[A-ZА-ЯЁ0-9/].%s",lexh,tlg.lex);
             if (res!=2) throw ETlgError("Wrong flight identifier");
             c=0;
-            res=sscanf(lexh,"%8[A-ZА-ЯЁ0-9]%c",flt,&c);
+            res=sscanf(lexh,"%8[A-ZА-ЯЁ0-9]%c",trip,&c);
             if (c!=0||res!=1)
             {
               c=0;
-              res=sscanf(lexh,"%8[A-ZА-ЯЁ0-9]/%2lu%c",flt,&day,&c);
-              if (c!=0||res!=2||day<=0) throw ETlgError("Wrong flight/GMT date");
+              res=sscanf(lexh,"%8[A-ZА-ЯЁ0-9]/%2lu%c",trip,&day,&c);
+              if (c!=0||res!=2||day<=0) throw ETlgError("Wrong flight/UTC date");
             };
-            if (strlen(flt)<3) throw ETlgError("Wrong flight");
-            info.flt.suffix[0]=0;
-            info.flt.suffix[1]=0;
+            if (strlen(trip)<3) throw ETlgError("Wrong flight");
+            flt.suffix[0]=0;
+            flt.suffix[1]=0;
             c=0;
-            if (IsDigit(flt[2]))
-              res=sscanf(flt,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
-                             info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
+            if (IsDigit(trip[2]))
+              res=sscanf(trip,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             else
-              res=sscanf(flt,"%3[A-ZА-ЯЁ0-9]%4lu%c%c",
-                             info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
-            if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
+              res=sscanf(trip,"%3[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
+            if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
-                !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetAirline(info.flt.airline);
+                !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
+            GetAirline(flt.airline);
             //переведем day в TDateTime
-            curr_time=gmtime(&curr_time_t);
-            curr_time->tm_year+=1900;
-            curr_time->tm_mon+=1;
-            if (curr_time->tm_mday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+            int year,mon,currday;
+            DecodeDate(NowUTC(),year,mon,currday);
+            if (currday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
             {
-              if (curr_time->tm_mon==1)
+              if (mon==1)
               {
-                curr_time->tm_mon=12;
-                curr_time->tm_year--;
+                mon=12;
+                year--;
               }
-              else curr_time->tm_mon--;
+              else mon--;
             };
             try
             {
-              EncodeDate(curr_time->tm_year,curr_time->tm_mon,day,info.flt.scd);
+              EncodeDate(year,mon,day,flt.scd);
+              flt.pr_utc=true;
             }
             catch(EConvertError)
             {
-              throw ETlgError("Wrong GMT date");
+              throw ETlgError("Can't convert UTC date");
             };
             return;
           };
@@ -402,19 +919,20 @@ void PasreAHMFltInfo(TTlgPartInfo body, THeadingInfo& info)
 };
 
 //возвращает TTlgPartInfo следующей части (body)
-TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
+TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
 {
-  info.Clear();
-
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
-  TPnlAdlElement e;
+  TTlgElement e;
   TTlgPartInfo next;
 
-  time_t curr_time_t=time(NULL);
-  struct tm *curr_time;
-
+  if (info!=NULL)
+  {
+    delete info;
+    info = NULL;
+  };
+  THeadingInfo infoh;
   try
   {
     line_p=heading.p;
@@ -428,16 +946,15 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
       {
         case CommunicationsReference:
           c=0;
-          res=sscanf(tlg.lex,".%7[A-ZА-ЯЁ0-9]%c",info.sender,&c);
-          if (c!=0||res!=1||strlen(info.sender)!=7) throw ETlgError("Wrong address");
-          info.merge_key=tlg.lex;
+          res=sscanf(tlg.lex,".%7[A-ZА-ЯЁ0-9]%c",infoh.sender,&c);
+          if (c!=0||res!=1||strlen(infoh.sender)!=7) throw ETlgError("Wrong address");
           if ((ph=tlg.GetLexeme(p))!=NULL)
           {
             c=0;
-            res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c%s",info.double_signature,&c,tlg.lex);
-            if (res<2||c!='/'||strlen(info.double_signature)!=2)
+            res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c%s",infoh.double_signature,&c,tlg.lex);
+            if (res<2||c!='/'||strlen(infoh.double_signature)!=2)
             {
-              *info.double_signature=0;
+              *infoh.double_signature=0;
               p=tlg.GetLexeme(p);
             }
             else
@@ -447,14 +964,14 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
             };
             while (p!=NULL)
             {
-              if (info.message_identity.empty())
-                info.message_identity=tlg.lex;
+              if (infoh.message_identity.empty())
+                infoh.message_identity=tlg.lex;
               else
               {
-                info.message_identity+=' ';
-                info.message_identity+=tlg.lex;
+                infoh.message_identity+=' ';
+                infoh.message_identity+=tlg.lex;
               };
-              if (info.time_create==0)
+              if (infoh.time_create==0)
               {
                 try
                 {
@@ -471,29 +988,27 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
                       if (c!=0||res!=1||sec<0) throw ETlgError("Wrong creation time");
                     };
                   };
-
                   TDateTime day_create,time_create;
-                  curr_time=gmtime(&curr_time_t);
-                  curr_time->tm_year+=1900;
-                  curr_time->tm_mon+=1;
-                  if (curr_time->tm_mday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+                  int year,mon,currday;
+                  DecodeDate(NowUTC(),year,mon,currday);
+                  if (currday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
                   {
-                    if (curr_time->tm_mon==1)
+                    if (mon==1)
                     {
-                      curr_time->tm_mon=12;
-                      curr_time->tm_year--;
+                      mon=12;
+                      year--;
                     }
-                    else curr_time->tm_mon--;
+                    else mon--;
                   };
                   try
                   {
-                    EncodeDate(curr_time->tm_year,curr_time->tm_mon,day,day_create);
+                    EncodeDate(year,mon,currday,day_create);
                     EncodeTime(hour,min,sec,time_create);
-                    info.time_create=day_create+time_create;
+                    infoh.time_create=day_create+time_create;
                   }
                   catch(EConvertError)
                   {
-                    throw ETlgError("Wrong creation time");
+                    throw ETlgError("Can't convert creation time");
                   };
                 }
                 catch(ETlgError) {};
@@ -504,49 +1019,69 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo& info)
           e=MessageIdentifier;
           break;
         case MessageIdentifier:
-          next.p=line_p;
-          next.line=line;
           //message identifier
           c=0;
-          res=sscanf(tlg.lex,"%3[A-Z]%c",info.tlg_type,&c);
+          res=sscanf(tlg.lex,"%3[A-Z]%c",infoh.tlg_type,&c);
           if (c!=0||res!=1||tlg.GetLexeme(p)!=NULL)
           {
-            *(info.tlg_type)=0;
+            *(infoh.tlg_type)=0;
+            heading.p=line_p;
+            heading.line=line;
           }
           else
           {
-            switch (GetTlgCategory(info.tlg_type))
-            {
-              case tcDCS:
-                heading.p=tlg.NextLine(line_p);
-                heading.line=line+1;
-                next=ParseDCSHeading(heading,info);
-                break;
-              case tcAHM:
-                heading.p=tlg.NextLine(line_p);
-                heading.line=line+1;
-                next=ParseAHMHeading(heading,info);
-                break;
-              default:;
-            };
+            heading.p=tlg.NextLine(line_p);
+            heading.line=line+1;
+          };
+
+          infoh.tlg_cat=GetTlgCategory(infoh.tlg_type);
+
+          switch (infoh.tlg_cat)
+          {
+            case tcDCS:
+              info = new TDCSHeadingInfo(infoh);
+              next=ParseDCSHeading(heading,*(TDCSHeadingInfo*)info);
+              break;
+            case tcBSM:
+              info = new TBSMHeadingInfo(infoh);
+              next=ParseBSMHeading(heading,*(TBSMHeadingInfo*)info);
+              break;
+            case tcAHM:
+              info = new TAHMHeadingInfo(infoh);
+              next=ParseAHMHeading(heading,*(TAHMHeadingInfo*)info);
+              break;
+            default:
+              info = new THeadingInfo(infoh);
+              next=heading;
+              break;
           };
           return next;
         default:;
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
+    if (info==NULL) info = new THeadingInfo(infoh);
   }
   catch(ETlgError E)
   {
+    if (info!=NULL) delete info;
+    info=NULL;
     //вывести ошибку+номер строки
     throw ETlgError("Line %d: %s",line,E.what());
+  }
+  catch(...)
+  {
+    if (info!=NULL) delete info;
+    info=NULL;
+    throw;
   };
   next.p=line_p;
   next.line=line;
   return next;
 };
 
-void ParseDCSEnding(TTlgPartInfo ending, TEndingInfo& info)
+
+void ParseDCSEnding(TTlgPartInfo ending, THeadingInfo &headingInfo, TEndingInfo &info)
 {
   int line,res;
   char c,*p;
@@ -558,15 +1093,19 @@ void ParseDCSEnding(TTlgPartInfo ending, TEndingInfo& info)
     line=ending.line;
     if ((p=tlg.GetLexeme(ending.p))!=NULL)
     {
-      sprintf(endtlg,"END%s",info.tlg_type);
+      sprintf(endtlg,"END%s",headingInfo.tlg_type);
       if (strcmp(tlg.lex,endtlg)!=0)
       {
-        long part_no=info.part_no;
         c=0;
         res=sscanf(tlg.lex+3,"PART%lu%c",&info.part_no,&c);
         if (c!=0||res!=1) throw ETlgError("Wrong end of message");
         if (info.part_no<=0||info.part_no>=1000) throw ETlgError("Wrong part number");
-        if (part_no!=0&&info.part_no!=part_no) throw ETlgError("Wrong part number");
+        long part_no;
+        if (headingInfo.tlg_cat==tcDCS)
+          part_no=(dynamic_cast<TDCSHeadingInfo&>(headingInfo)).part_no;
+        else
+          part_no=(dynamic_cast<TBSMHeadingInfo&>(headingInfo)).part_no;
+        if (info.part_no!=part_no) throw ETlgError("Wrong part number");
         info.pr_final_part=false;
       }
       else
@@ -597,12 +1136,10 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
       if (strcmp(tlg.lex,"PART")!=0) throw ETlgError("Wrong end of message");
       if ((p=tlg.GetLexeme(p))!=NULL)
       {
-        long part_no=info.part_no;
         c=0;
         res=sscanf(tlg.lex,"%lu%c",&info.part_no,&c);
         if (c!=0||res!=1) throw ETlgError("Wrong end of message");
         if (info.part_no<=0||info.part_no>=1000) throw ETlgError("Wrong part number");
-        if (part_no!=0&&info.part_no!=part_no) throw ETlgError("Wrong part number");
       }
       else throw ETlgError("Wrong end of message");
       if ((p=tlg.GetLexeme(p))!=NULL)
@@ -624,26 +1161,249 @@ void ParseAHMEnding(TTlgPartInfo ending, TEndingInfo& info)
 };
 
 //важно чтобы заполнялись изначально
-//info.tlg_type=HeadingInfo.tlg_type и info.part_no=HeadingInfo.part_no 
-void ParseEnding(TTlgPartInfo ending, TEndingInfo& info)
+//info.tlg_type=HeadingInfo.tlg_type и info.part_no=HeadingInfo.part_no
+void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &info)
 {
-  switch (GetTlgCategory(info.tlg_type))
+  if (headingInfo==NULL) throw ETlgError("headingInfo not defined");
+  if (info!=NULL)
   {
-    case tcDCS:
-      ParseDCSEnding(ending,info);
-      break;
-    case tcAHM:
-      ParseAHMEnding(ending,info);
-      break;
-    default:;
+    delete info;
+    info = NULL;
+  };
+  info = new TEndingInfo;
+  try
+  {
+    switch (headingInfo->tlg_cat)
+    {
+      case tcDCS:
+        ParseDCSEnding(ending,*dynamic_cast<TDCSHeadingInfo*>(headingInfo), *info);
+        break;
+      case tcBSM:
+        ParseDCSEnding(ending,*dynamic_cast<TBSMHeadingInfo*>(headingInfo), *info);
+        break;
+      case tcAHM:
+        ParseAHMEnding(ending, *info);
+        break;
+      default:;
+    };
+  }
+  catch(...)
+  {
+    delete info;
+    throw;
   };
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &pr_prev_rem);
+void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
 void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
 
-void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
+void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
+{
+  vector<TPtmOutFltInfo>::iterator iOut;
+
+  con.Clear();
+
+  int line,res;
+  char c,*p,*line_p,*ph;
+  TTlgParser tlg;
+  char lexh[sizeof(tlg.lex)];
+  TTlgElement e;
+  try
+  {
+    line_p=body.p;
+    line=body.line-1;
+    e=FlightElement;
+
+    strcpy(con.InFlt.airline,info.flt.airline);
+    GetAirline(con.InFlt.airline);
+    con.InFlt.flt_no=info.flt.flt_no;
+    strcpy(con.InFlt.suffix,info.flt.suffix);
+    con.InFlt.scd=info.flt.scd;
+    con.InFlt.pr_utc=info.flt.pr_utc;
+    strcpy(con.InFlt.airp_dep,info.flt.airp_dep);
+    GetAirp(con.InFlt.airp_dep);
+    strcpy(con.InFlt.airp_arv,info.flt.airp_arv);
+    GetAirp(con.InFlt.airp_arv);
+
+    e=TransferPassengerData;
+    do
+    {
+      line++;
+      if ((p=tlg.GetLexeme(line_p))==NULL) continue;
+      switch (e)
+      {
+        case TransferPassengerData:
+          {
+            if (strcmp(tlg.lex,"NIL")==0)
+            {
+              if (tlg.GetLexeme(p)!=NULL) throw ETlgError("Unknown lexeme");
+              break;
+            };
+            TPtmOutFltInfo flt;
+            TPtmTransferData data;
+            strcpy(lexh,tlg.lex);
+            if ((ph=tlg.GetSlashedLexeme(lexh))==NULL)
+              throw ETlgError("Connecting flight not found");
+
+            if (strlen(tlg.lex)<3||strlen(tlg.lex)>8) throw ETlgError("Wrong connecting flight");
+            flt.suffix[0]=0;
+            flt.suffix[1]=0;
+            c=0;
+            if (IsDigit(tlg.lex[2]))
+              res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
+            else
+              res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ0-9]%4lu%c%c",
+                             flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
+            if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong connecting flight");
+            if (res==3&&
+                !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong connecting flight");
+            GetAirline(flt.airline);
+            if ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
+            {
+              //либо дата, либо признак курящего
+              long int day=0;
+              c=0;
+              res=sscanf(tlg.lex,"%2lu%c",&day,&c);
+              if (c!=0||res!=1)
+              {
+                //это не дата
+                flt.scd=info.flt.scd;
+              }
+              else
+              {
+                //это дата
+                if (day<=0) throw ETlgError("Wrong connecting flight date");
+                int year,mon,currday;
+                DecodeDate(info.flt.scd,year,mon,currday);
+                if (day<currday)
+                {
+                  if (mon==12)
+                  {
+                    mon=1;
+                    year++;
+                  }
+                  else mon++;
+                };
+                try
+                {
+                  EncodeDate(year,mon,day,flt.scd);
+                }
+                catch(EConvertError)
+                {
+                  throw ETlgError("Can't convert connecting flight date");
+                };
+                ph=tlg.GetSlashedLexeme(ph);
+              };
+              if (ph!=NULL)
+              {
+                if (strcmp(tlg.lex,"S")!=0&&
+                    strcmp(tlg.lex,"N")!=0)
+                  throw ETlgError("Wrong smoking indicator");
+              };
+              if ((ph=tlg.GetSlashedLexeme(ph))!=NULL) throw ETlgError("Unknown lexeme");
+            }
+            else flt.scd=info.flt.scd;
+            flt.pr_utc=false;
+
+            if ((p=tlg.GetLexeme(p))==NULL)
+              throw ETlgError("Destination of the connecting flight not found");
+            c=0;
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",flt.airp_arv,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong destination of the connecting flight");
+            GetAirp(flt.airp_arv);
+            strcpy(flt.airp_dep,con.InFlt.airp_arv);
+
+            if ((p=tlg.GetLexeme(p))==NULL)
+              throw ETlgError("Number of seats not found");
+            flt.subcl[0]=0;
+            c=0;
+            res=sscanf(tlg.lex,"%3lu%1[A-ZА-ЯЁ]%c",&data.seats,flt.subcl,&c);
+            if (c==0&&res==1&&flt.subcl[0]==0)
+            {
+              //разберем подкласс в следующей лексеме
+              if ((p=tlg.GetLexeme(p))==NULL)
+                throw ETlgError("Class of service not found");
+              c=0;
+              res=sscanf(tlg.lex,"%1[A-ZА-ЯЁ]%c",flt.subcl,&c);
+              if (c!=0||res!=1)
+                throw ETlgError("Class of service: wrong format");
+            }
+            else
+            {
+              if (c!=0||res!=2)
+                throw ETlgError("Number of seats/class of service: wrong format");
+            };
+            if (data.seats<0) throw ETlgError("Number of seats: wrong format");
+            GetSubcl(flt.subcl);
+
+            if (tlg.GetToEOLLexeme(p)==NULL) //считаем до конца строки
+              throw ETlgError("Checked baggage not found");
+
+            lexh[0]=0;
+            sscanf(tlg.lex,"%[^.]%s",lexh,tlg.lex);  //обрежим до точки
+
+            if ((ph=tlg.GetLexeme(lexh))==NULL)
+              throw ETlgError("Checked baggage not found");
+            char ch;
+            c=0;
+            ch=0;
+            res=sscanf(tlg.lex,"%3lu%c%4lu%1[KL]%c",
+                               &data.bag_amount,&ch,&data.bag_weight,data.weight_unit,&c);
+            if (c!=0||res!=4||ch!='B')
+            {
+              data.bag_weight=0;
+              *(data.weight_unit)=0;
+              c=0;
+              ch=0;
+              res=sscanf(tlg.lex,"%3lu%c%c",&data.bag_amount,&ch,&c);
+              if (c!=0||res!=2||ch!='B')
+                throw ETlgError("Checked baggage: wrong format");
+            };
+            if (data.bag_amount<0||data.bag_weight<0)
+              throw ETlgError("Checked baggage: wrong format");
+
+            //ph указывает на начало NAME-элемента в буфере lexh
+            c=0;
+            res=sscanf(ph,"%*[A-ZА-ЯЁ /]%c",&c);
+            if (c!=0||res>0) throw ETlgError("Name element: wrong format");
+
+            if ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
+            {
+              data.surname=tlg.lex;
+              while ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
+                data.name.push_back(tlg.lex);
+            };
+
+            //ищем рейс flt в con.OutFlt
+            for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
+              if (strcmp(iOut->airline,flt.airline)==0&&
+                  iOut->flt_no==flt.flt_no&&
+                  strcmp(iOut->suffix,flt.suffix)==0&&
+                  iOut->scd==flt.scd&&
+                  iOut->pr_utc==flt.pr_utc&&
+                  strcmp(iOut->airp_dep,flt.airp_dep)==0&&
+                  strcmp(iOut->airp_arv,flt.airp_arv)==0&&
+                  strcmp(iOut->subcl,flt.subcl)==0) break;
+            if (iOut==con.OutFlt.end())
+              iOut=con.OutFlt.insert(con.OutFlt.end(),flt);
+            iOut->data.push_back(data);
+            break;
+          }
+        default:;
+      };
+    }
+    while ((line_p=tlg.NextLine(line_p))!=NULL);
+  }
+  catch (ETlgError E)
+  {
+    throw ETlgError("%s, line %d: %s",GetTlgElementName(e),line,E.what());
+  };
+  return;
+};
+
+void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con)
 {
   vector<TRbdItem>::iterator iRbdItem;
   vector<TRouteItem>::iterator iRouteItem;
@@ -652,17 +1412,13 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
   vector<TPaxItem>::iterator iPaxItem,iPaxItemPrev;
   vector<TPnrItem>::iterator iPnrItem;
 
-  con.rbd.clear();
-  con.cfg.clear();
-  con.avail.clear();
-  con.transit.clear();
-  con.resa.clear();
+  con.Clear();
 
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
   char lexh[sizeof(tlg.lex)];
-  TPnlAdlElement e;
+  TTlgElement e;
   TIndicator Indicator;
   int e_part;
   bool pr_prev_rem;
@@ -670,6 +1426,17 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
   {
     line_p=body.p;
     line=body.line-1;
+    e=FlightElement;
+
+    strcpy(con.flt.airline,info.flt.airline);
+    GetAirline(con.flt.airline);
+    con.flt.flt_no=info.flt.flt_no;
+    strcpy(con.flt.suffix,info.flt.suffix);
+    con.flt.scd=info.flt.scd;
+    con.flt.pr_utc=info.flt.pr_utc;
+    strcpy(con.flt.airp_dep,info.flt.airp_dep);
+    GetAirp(con.flt.airp_dep);
+
     e=BonusPrograms;
     do
     {
@@ -693,7 +1460,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
               res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]/%s",RouteItem.station,tlg.lex);
               if (res!=2) throw ETlgError("Wrong format");
               if (con.cfg.empty())
-                strcpy(RouteItem.station,info.flt.brd_point);
+                strcpy(RouteItem.station,con.flt.airp_dep);
               else
                 GetAirp(RouteItem.station);
               for(iRouteItem=con.cfg.begin();iRouteItem!=con.cfg.end();iRouteItem++)
@@ -772,7 +1539,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
                   if (strcmp(RouteItem.station,iRouteItem->station)==0)
                     throw ETlgError("Duplicate airport code '%s'",RouteItem.station);
                 };
-                if (!(con.avail.empty()&&RouteItem.station==info.flt.brd_point))
+                if (!(con.avail.empty()&&RouteItem.station==con.flt.airp_dep))
                   con.avail.push_back(RouteItem);
 
               }
@@ -780,7 +1547,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
               if (!con.avail.empty())
               {
                 iRouteItem=con.avail.begin();
-                if (strcmp(iRouteItem->station,info.flt.brd_point)==0)
+                if (strcmp(iRouteItem->station,con.flt.airp_dep)==0)
                   con.avail.erase(iRouteItem);
               };
               e_part=3;
@@ -937,16 +1704,6 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
         case TotalsByDestination:
           if (tlg.lex[0]=='-')
           {
-/*            if (pr_parse_ne)
-            {
-              ParseRemarks(tlg,ne);
-              iTotals->ne.push_back(ne); //сохранить, поскольку новый totals
-              SaveNameElement(tid,Totals,Indicator,ne);
-              //восстановить lex
-              tlg.GetLexeme(line_p);
-              //очистить старый NameElement
-              ne.Clear();
-            };*/
             TTotalsByDest Totals;
             char minus=0;
             c=0;
@@ -997,8 +1754,6 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
           else
             if (e_part==1) throw ETlgError("Totals by destination expected");
 
-//          if (!pr_parse_ne) break;  //не разбирать name element
-
           if (strcmp(info.tlg_type,"ADL")==0)
           {
             if (e_part>1&&
@@ -1016,18 +1771,11 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
             else
               if (Indicator==None) throw ETlgError("ADD/CHG/DEL indicator expected");
           };
-//          pr_ne=1;
 
           if (e_part>1)
           {
             if (!(tlg.lex[0]=='.'&&e_part>2))
             {
-/*              ParseRemarks(tlg,ne);
-              iTotals->ne.push_back(ne);  //сохранить, поскольку начался новый PNR
-              SaveNameElement(tid,Totals,Indicator,ne);
-              //очистить старый NameElement
-              ne.Clear();*/
-
               if ((p=tlg.GetNameElement(line_p))==NULL) continue;
 
               char grp_ref[3];
@@ -1084,7 +1832,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
               {
                 //есть имена
                 c=0;
-                res=sscanf(tlg.lex,"%[A-ZА-ЯЁ /-]%c",lexh,&c); 
+                res=sscanf(tlg.lex,"%[A-ZА-ЯЁ /-]%c",lexh,&c);
                 if (c!=0||res!=1) throw ETlgError("Wrong format");
 
                 iPaxItem=ne.pax.begin();
@@ -1125,7 +1873,7 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
 
             while ((p=tlg.GetNameElement(p))!=NULL)
             {
-              ParseNameElement(tlg,info,*iPnrItem,pr_prev_rem);
+              ParseNameElement(tlg,con.flt,*iPnrItem,pr_prev_rem);
             };
 
             e_part=3;
@@ -1135,15 +1883,11 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
-/*    if (pr_parse_ne)
-    {
-      ParseRemarks(tlg,ne);
-      iTotals->ne.push_back(ne);  //сохранить то, что не сохранили
-      SaveNameElement(tid,Totals,Indicator,ne);
-    };*/
     //разобрать все ремарки
     vector<TNameElement>::iterator i;
     for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
+    {
+      GetSubcl(iTotals->subcl); //подклассы в базе храним русские
       for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
         for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
         {
@@ -1162,20 +1906,21 @@ void ParsePnlAdlBody(TTlgPartInfo body, THeadingInfo& info, TPnlAdlContent& con)
             }
             else
             {
-              iPaxItemPrev=iPaxItem;         
+              iPaxItemPrev=iPaxItem;
               iPaxItem++;
             };
           };
         };
+    };
   }
   catch (ETlgError E)
   {
-    throw ETlgError("%s, line %d: %s",GetPnlAdlElementName(e),line,E.what());
+    throw ETlgError("%s, line %d: %s",GetTlgElementName(e),line,E.what());
   };
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &pr_prev_rem)
+void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem)
 {
   char c,lexh[sizeof(tlg.lex)];
   int res;
@@ -1214,7 +1959,7 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
     {
       c=RemItem.text.at(RemItem.text.size()-1);
       if ((IsUpperLetter(c)||IsDigit(c))&&
-          (IsUpperLetter(tlg.lex[4])||IsDigit(tlg.lex[4])))           
+          (IsUpperLetter(tlg.lex[4])||IsDigit(tlg.lex[4])))
         RemItem.text+=" ";
     };
     RemItem.text+=tlg.lex+4;
@@ -1248,7 +1993,7 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
       if (c!=0||res!=1) throw ETlgError("Wrong PNR address");
       GetAirline(PnrAddr.airline);
     };
-    if (PnrAddr.airline[0]==0) strcpy(PnrAddr.airline,info.flt.airline);
+    if (PnrAddr.airline[0]==0) strcpy(PnrAddr.airline,flt.airline);
 
     //анализ на повторение
     vector<TPnrAddrItem>::iterator i;
@@ -1262,7 +2007,7 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
     else
     {
       //если а/к PNR и PNL совпадают - вставим PNR первым
-      if (strcmp(PnrAddr.airline,info.flt.airline)==0)
+      if (strcmp(PnrAddr.airline,flt.airline)==0)
         pnr.addrs.insert(pnr.addrs.begin(),PnrAddr);
       else
         pnr.addrs.push_back(PnrAddr);
@@ -1277,7 +2022,7 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
       c=0;
       res=sscanf(tlg.lex,".WL/%6[A-ZА-ЯЁ0-9]%c",lexh,&c);
       if (c!=0||res!=1) throw ETlgError("Wrong WL priority identification");
-    };  
+    };
     if (strcmp(pnr.wl_priority,"")!=0)
     {
       if (strcmp(pnr.wl_priority,lexh)!=0)
@@ -1289,13 +2034,13 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
   if (lexh[0]=='I'||lexh[0]=='O')
   {
     TTransferItem Transfer;
-    if (lexh[1]==0) 
+    if (lexh[1]==0)
     {
       Transfer.num=1;
-      if (lexh[0]=='I') Transfer.num=-Transfer.num;        
+      if (lexh[0]=='I') Transfer.num=-Transfer.num;
       c=0;
       res=sscanf(tlg.lex,".%*c/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
-    }  
+    }
     else
     {
       c=0;
@@ -1306,51 +2051,51 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
       if (lexh[0]=='I') Transfer.num=-Transfer.num;
       c=0;
       res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
-    };    
+    };
     if (c!=0||res!=1) throw ETlgError("Wrong connection element");
     c=0;
     if (isdigit(lexh[2]))
     {
       res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%4lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
-                      Transfer.flt.airline,&Transfer.flt.flt_no,
+                      Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
         res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%4lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
-                        Transfer.flt.airline,&Transfer.flt.flt_no,
-                        Transfer.flt.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
+                        Transfer.airline,&Transfer.flt_no,
+                        Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");
       };
     }
     else
     {
       res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%4lu%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
-                      Transfer.flt.airline,&Transfer.flt.flt_no,
+                      Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
         res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%4lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
-                        Transfer.flt.airline,&Transfer.flt.flt_no,
-                        Transfer.flt.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
+                        Transfer.airline,&Transfer.flt_no,
+                        Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");
       };
     };
 
-    if (Transfer.flt.flt_no<0||Transfer.local_date<=0||Transfer.local_date>31)
+    if (Transfer.flt_no<0||Transfer.local_date<=0||Transfer.local_date>31)
       throw ETlgError("Wrong connection element");
 
-    Transfer.flt.brd_point[0]=0;
-    Transfer.arv_point[0]=0;
+    Transfer.airp_dep[0]=0;
+    Transfer.airp_arv[0]=0;
     lexh[0]=0;
-    res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]", 
-                       Transfer.flt.brd_point,Transfer.arv_point,lexh);
-    if (res<2||Transfer.flt.brd_point[0]==0||Transfer.arv_point[0]==0)
+    res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]",
+                       Transfer.airp_dep,Transfer.airp_arv,lexh);
+    if (res<2||Transfer.airp_dep[0]==0||Transfer.airp_arv[0]==0)
     {
-      Transfer.flt.brd_point[0]=0;
+      Transfer.airp_dep[0]=0;
       lexh[0]=0;
       res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]",
-                         Transfer.flt.brd_point,lexh);
-      if (res<1||Transfer.flt.brd_point[0]==0) throw ETlgError("Wrong connection element");
+                         Transfer.airp_dep,lexh);
+      if (res<1||Transfer.airp_dep[0]==0) throw ETlgError("Wrong connection element");
     };
     if (lexh[0]!=0)
     {
@@ -1363,10 +2108,10 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
         if (c!=0||res!=1) throw ETlgError("Wrong connection element");
       };
     };
-    if (Transfer.num>0&&Transfer.arv_point[0]==0)
+    if (Transfer.num>0&&Transfer.airp_arv[0]==0)
     {
-      strcpy(Transfer.arv_point,Transfer.flt.brd_point);
-      Transfer.flt.brd_point[0]=0;
+      strcpy(Transfer.airp_arv,Transfer.airp_dep);
+      Transfer.airp_dep[0]=0;
     };
     //анализ на повторение
     vector<TTransferItem>::iterator i;
@@ -1374,14 +2119,14 @@ void ParseNameElement(TTlgParser &tlg, THeadingInfo& info, TPnrItem &pnr, bool &
       if (Transfer.num==i->num) break;
     if (i!=pnr.transfer.end())
     {
-      if (strcmp(i->flt.airline,Transfer.flt.airline)!=0||
-          i->flt.flt_no!=Transfer.flt.flt_no||
-          strcmp(i->flt.suffix,Transfer.flt.suffix)!=0||
-          i->flt.brd_point[0]!=0&&Transfer.flt.brd_point[0]!=0&&
-          strcmp(i->flt.brd_point,Transfer.flt.brd_point)!=0||
+      if (strcmp(i->airline,Transfer.airline)!=0||
+          i->flt_no!=Transfer.flt_no||
+          strcmp(i->suffix,Transfer.suffix)!=0||
+          i->airp_dep[0]!=0&&Transfer.airp_dep[0]!=0&&
+          strcmp(i->airp_dep,Transfer.airp_dep)!=0||
           i->local_date!=Transfer.local_date||
-          i->arv_point[0]!=0&&Transfer.arv_point[0]!=0&&
-          strcmp(i->arv_point,Transfer.arv_point)!=0||
+          i->airp_arv[0]!=0&&Transfer.airp_arv[0]!=0&&
+          strcmp(i->airp_arv,Transfer.airp_arv)!=0||
           strcmp(i->subcl,Transfer.subcl)!=0)
         throw ETlgError("Different inbound/onward connection in group found");
     }
@@ -1454,7 +2199,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         do
         {
           lexh[0]=0;
-          res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex); 
+          res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
           if (res<1) break;
           if (lexh[0]!=0)
           {
@@ -1755,7 +2500,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
     sscanf(rem_code,"%3lu%s",&num,rem_code);
     if (strcmp(rem_code,"CHD")==0)
     {
-      if (ne.pax.size()==1) ne.pax.begin()->pers_type=child; 
+      if (ne.pax.size()==1) ne.pax.begin()->pers_type=child;
       else
       {
         if (p==NULL) continue;
@@ -1763,7 +2508,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         do
         {
           //поискать фамилию/имя внутри ремарки
-          res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%*[0-9]%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex); 
+          res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%*[0-9]%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex);
           if (res==0)
             res=sscanf(p,"%*[0-9]%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex);
           if (res==0)
@@ -1805,9 +2550,9 @@ TTlgParts GetParts(char* tlg_p)
   int line;
   char *p,*line_p;
   TTlgParser tlg;
-  THeadingInfo HeadingInfo;
+  THeadingInfo *HeadingInfo=NULL;
   TTlgParts parts;
-  TPnlAdlElement e;
+  TTlgElement e;
 
   parts.addr.p=tlg_p;
   parts.addr.line=1;
@@ -1837,9 +2582,10 @@ TTlgParts GetParts(char* tlg_p)
           e=EndOfMessage;
           if ((p=tlg.GetLexeme(line_p))==NULL) break;
         case EndOfMessage:
-          switch (GetTlgCategory(HeadingInfo.tlg_type))
+          switch (HeadingInfo->tlg_cat)
           {
             case tcDCS:
+            case tcBSM:
               if (strstr(tlg.lex,"END")==tlg.lex)
               {
                 parts.ending.p=line_p;
@@ -1862,22 +2608,369 @@ TTlgParts GetParts(char* tlg_p)
       };
     }
     while ((line_p=tlg.NextLine(line_p))!=NULL);
+
+    if (parts.addr.p==NULL) throw ETlgError("Address not found");
+    if (parts.heading.p==NULL) throw ETlgError("Heading not found");
+    if (parts.body.p==NULL) throw ETlgError("Body not found");
+    if (parts.ending.p==NULL&&
+        (HeadingInfo->tlg_cat==tcDCS||
+         HeadingInfo->tlg_cat==tcBSM)) throw ETlgError("End of message not found");
+
+    if (HeadingInfo!=NULL) delete HeadingInfo;
   }
-  catch(ETlgError E)
+  catch(...)
   {
-    //вывести ошибку
+    if (HeadingInfo!=NULL) delete HeadingInfo;
     throw;
   };
-  if (parts.addr.p==NULL) throw ETlgError("Address not found");
-  if (parts.heading.p==NULL) throw ETlgError("Heading not found");
-  if (parts.body.p==NULL) throw ETlgError("Body not found");
-  if (GetTlgCategory(HeadingInfo.tlg_type)==tcDCS&&
-      parts.ending.p==NULL) throw ETlgError("End of message not found");
   return parts;
 };
 
-bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bool forcibly,
-                       char* OWN_CANON_NAME, char* ERR_CANON_NAME)
+bool bind_tlg(int point_id, TFltInfo &flt, char* own_airp)
+{
+  bool res=false;
+  if (strcmp(flt.airp_dep,own_airp)!=0&&strcmp(flt.airp_arv,own_airp)!=0) return res;
+  TQuery BindQry(&OraSession);
+  BindQry.SQLText=
+    "INSERT INTO tlg_binding(point_id_tlg,point_id_spp) VALUES(:point_id_tlg,:point_id_spp)";
+  BindQry.CreateVariable("point_id_tlg",otInteger,point_id);
+  BindQry.DeclareVariable("point_id_spp",otInteger);
+  TQuery TripsQry(&OraSession);
+  TripsQry.CreateVariable("airline",otString,flt.airline);
+  TripsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+  TripsQry.CreateVariable("suffix",otString,flt.suffix);
+  if (strcmp(flt.airp_dep,own_airp)==0)
+  {
+    //наш пункт - пункт вылета
+    if (flt.pr_utc)
+    {
+      //перевод в UTC trips.scd
+      TripsQry.SQLText=
+        "SELECT trip_id AS point_id,scd,system.AirpTZRegion(:own_airp) AS region "
+        "FROM trips "
+        "WHERE company=:airline AND flt_no=:flt_no AND "
+        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+        "      status=0 ";
+      TripsQry.CreateVariable("own_airp",otString,own_airp);
+    }
+    else
+    {
+      TripsQry.SQLText=
+        "SELECT trip_id AS point_id "
+        "FROM trips "
+        "WHERE company=:airline AND flt_no=:flt_no AND "
+        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+        "      TRUNC(scd)= :scd AND status=0 ";
+      TripsQry.CreateVariable("scd",otDate,flt.scd);
+    };
+  }
+  else
+  {
+    //наш пункт - пункт прилета
+    if (*flt.airp_dep==0) return res; //не можем привязать так как не можем определить scd
+    TripsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
+    if (flt.pr_utc)
+    {
+      //перевод в UTC trips.scd
+      TripsQry.SQLText=
+        "SELECT trips_in.trip_id AS point_id,takeoff_scd AS scd, "
+        "       system.AirpTZRegion(place_in.cod) AS region "
+        "FROM trips_in,place_in "
+        "WHERE trips_in.trip_id=place_in.trip_id AND "
+        "      company=:airline AND flt_no=:flt_no AND "
+        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+        "      place_in.cod=:airp_dep AND status=0 ";
+    }
+    else
+    {
+      TripsQry.SQLText=
+        "SELECT trips_in.trip_id AS point_id "
+        "FROM trips_in,place_in "
+        "WHERE trips_in.trip_id=place_in.trip_id AND "
+        "      company=:airline AND flt_no=:flt_no AND "
+        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+        "      TRUNC(takeoff_scd)= :scd AND place_in.cod=:airp_dep AND status=0 ";
+      TripsQry.CreateVariable("scd",otDate,flt.scd);
+    };
+  };
+  TripsQry.Execute();
+  TDateTime scd;
+  for(;!TripsQry.Eof;TripsQry.Next())
+  {
+    if (flt.pr_utc)
+    {
+      scd=TripsQry.FieldAsDateTime("scd");
+      LocalToUTC(scd,TripsQry.FieldAsString("region"));
+      modf(scd,&scd);
+      if (scd!=flt.scd) continue;
+    };
+    BindQry.SetVariable("point_id_spp",TripsQry.FieldAsInteger("point_id"));
+    try
+    {
+      BindQry.Execute();
+    }
+    catch(EOracleError E)
+    {
+      if (E.Code!=1) throw;
+    };
+    res=true;
+  };
+  return res;
+};
+
+void bind_tlg(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,options.cod AS own_airp "
+    "FROM tlg_trips,options "
+    "WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  TFltInfo flt;
+  char own_airp[4];
+  strcpy(flt.airline,Qry.FieldAsString("airline"));
+  flt.flt_no=Qry.FieldAsInteger("flt_no");
+  strcpy(flt.suffix,Qry.FieldAsString("suffix"));
+  flt.scd=Qry.FieldAsDateTime("scd");
+  modf(flt.scd,&flt.scd);
+  flt.pr_utc=Qry.FieldAsInteger("pr_utc")!=0;
+  strcpy(flt.airp_dep,Qry.FieldAsString("airp_dep"));
+  strcpy(flt.airp_arv,Qry.FieldAsString("airp_arv"));
+  strcpy(own_airp,Qry.FieldAsString("own_airp"));
+  if (bind_tlg(point_id,flt,own_airp)) return;
+  //не склалось привязать к рейсу на прямую - привяжем через таблицу CRS_CODE_SHARE
+  bool res=false;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no FROM crs_code_share "
+    "WHERE airline_crs=:airline AND "
+    "      (flt_no_crs=:flt_no OR flt_no_crs IS NULL AND :flt_no IS NULL) "
+    "ORDER BY flt_no_crs,airline,flt_no";
+  Qry.CreateVariable("airline",otString,flt.airline);
+  Qry.DeclareVariable("flt_no",otInteger);
+  for(int i=0;i<2;i++)
+  {
+    if (i==0)
+      //сначала проверим по а/к и номеру рейса
+      Qry.SetVariable("flt_no",(int)flt.flt_no);
+    else
+      //потом проверим только по а/к
+      Qry.SetVariable("flt_no",FNull);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      strcpy(flt.airline,Qry.FieldAsString("airline"));
+      if (!Qry.FieldIsNULL("flt_no"))
+        flt.flt_no=Qry.FieldAsInteger("flt_no");
+      if (bind_tlg(point_id,flt,own_airp)) res=true;
+    };
+    break;
+  };
+};
+
+int SaveFlt(int tlg_id, TFltInfo& flt)
+{
+  int point_id;
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "  SELECT point_id FROM tlg_trips "
+    "  WHERE airline=:airline AND flt_no=:flt_no AND "
+    "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+    "      scd=:scd AND pr_utc=:pr_utc AND "
+    "      (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
+    "      (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv)";
+  Qry.CreateVariable("airline",otString,flt.airline);
+  Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+  Qry.CreateVariable("suffix",otString,flt.suffix);
+  Qry.CreateVariable("scd",otDate,flt.scd);
+  Qry.CreateVariable("pr_utc",otInteger,(int)flt.pr_utc);
+  Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
+  Qry.CreateVariable("airp_arv",otString,flt.airp_arv);
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    Qry.SQLText=
+      "BEGIN "
+      "  SELECT trips_id.nextval INTO :point_id FROM dual; "
+      "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv) "
+      "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv); "
+      "END;";
+    Qry.DeclareVariable("point_id",otInteger);
+    Qry.Execute();
+    point_id=Qry.GetVariableAsInteger("point_id");
+    bind_tlg(point_id);
+  }
+  else point_id=Qry.FieldAsInteger("point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO tlg_source(point_id_tlg,tlg_id) "
+    "VALUES(:point_id_tlg,:tlg_id)";
+  Qry.CreateVariable("point_id_tlg",otInteger,point_id);
+  Qry.CreateVariable("tlg_id",otInteger,tlg_id);
+  try
+  {
+    Qry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if (E.Code!=1) throw;
+  };
+  return point_id;
+};
+
+void SaveBTMContent(int tlg_id, TBtmContent& con)
+{
+  vector<TBtmTransferInfo>::iterator iIn;
+  vector<TBtmOutFltInfo>::iterator iOut;
+  vector<TBtmGrpItem>::iterator iGrp;
+  vector<TBtmPaxItem>::iterator iPax;
+  vector<TBtmTagItem>::iterator iTag;
+  vector<string>::iterator i;
+  int point_id_in,point_id_out;
+
+  TQuery TrferQry(&OraSession);
+  TrferQry.SQLText=
+    "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
+    "VALUES(id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+  TrferQry.DeclareVariable("point_id_in",otInteger);
+  TrferQry.DeclareVariable("subcl_in",otString);
+  TrferQry.DeclareVariable("point_id_out",otInteger);
+  TrferQry.DeclareVariable("subcl_out",otString);
+  TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
+
+  TQuery GrpQry(&OraSession);
+  GrpQry.SQLText=
+    "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
+    "VALUES(pax_grp__seq.nextval,id__seq.currval,NULL,:bag_amount,:bag_weight,:rk_weight,:weight_unit) ";
+  GrpQry.DeclareVariable("bag_amount",otInteger);
+  GrpQry.DeclareVariable("bag_weight",otInteger);
+  GrpQry.DeclareVariable("rk_weight",otInteger);
+  GrpQry.DeclareVariable("weight_unit",otString);
+
+  TQuery PaxQry(&OraSession);
+  PaxQry.SQLText=
+    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(pax_grp__seq.currval,:surname,:name)";
+  PaxQry.DeclareVariable("surname",otString);
+  PaxQry.DeclareVariable("name",otString);
+
+  TQuery TagQry(&OraSession);
+  TagQry.SQLText=
+    "INSERT INTO trfer_tags(grp_id,no) VALUES(pax_grp__seq.currval,:no)";
+  TagQry.DeclareVariable("no",otFloat);
+
+  for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
+  {
+    point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(iIn->InFlt));
+    TrferQry.SetVariable("point_id_in",point_id_in);
+    TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
+    for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
+    {
+      point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut));
+      TrferQry.SetVariable("point_id_out",point_id_out);
+      TrferQry.SetVariable("subcl_out",iOut->subcl);
+      TrferQry.Execute();
+      for(iGrp=iOut->grp.begin();iGrp!=iOut->grp.end();iGrp++)
+      {
+        if (*(iGrp->weight_unit)!=0)
+        {
+          GrpQry.SetVariable("bag_amount",(int)iGrp->bag_amount);
+          GrpQry.SetVariable("bag_weight",(int)iGrp->bag_weight);
+          GrpQry.SetVariable("rk_weight",(int)iGrp->rk_weight);
+        }
+        else
+        {
+          GrpQry.SetVariable("bag_amount",FNull);
+          GrpQry.SetVariable("bag_weight",FNull);
+          GrpQry.SetVariable("rk_weight",FNull);
+        };
+        GrpQry.SetVariable("weight_unit",iGrp->weight_unit);
+        GrpQry.Execute();
+        for(iPax=iGrp->pax.begin();iPax!=iGrp->pax.end();iPax++)
+        {
+          PaxQry.SetVariable("surname",iPax->surname);
+          for(i=iPax->name.begin();i!=iPax->name.end();i++)
+          {
+            PaxQry.SetVariable("name",*i);
+            PaxQry.Execute();
+          };
+        };
+        for(iTag=iGrp->tags.begin();iTag!=iGrp->tags.end();iTag++)
+          for(int j=0;j<iTag->num;j++)
+          {
+            TagQry.SetVariable("no",iTag->first_no+j);
+            TagQry.Execute();
+          };
+      };
+    };
+  };
+};
+
+void SavePTMContent(int tlg_id, TPtmContent& con)
+{
+  vector<TPtmOutFltInfo>::iterator iOut;
+  vector<TPtmTransferData>::iterator iData;
+  vector<string>::iterator i;
+  int point_id_in,point_id_out;
+
+  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt));
+
+  TQuery TrferQry(&OraSession);
+  TrferQry.SQLText=
+    "INSERT INTO tlg_transfer(trfer_id,point_id_in,subcl_in,point_id_out,subcl_out,tlg_id) "
+    "VALUES(id__seq.nextval,:point_id_in,:subcl_in,:point_id_out,:subcl_out,:tlg_id)";
+  TrferQry.CreateVariable("point_id_in",otInteger,point_id_in);
+  TrferQry.CreateVariable("subcl_in",otString,FNull); //подкласс прилета неизвестен
+  TrferQry.DeclareVariable("point_id_out",otInteger);
+  TrferQry.DeclareVariable("subcl_out",otString);
+  TrferQry.CreateVariable("tlg_id",otInteger,tlg_id);
+
+  TQuery GrpQry(&OraSession);
+  GrpQry.SQLText=
+    "INSERT INTO trfer_grp(grp_id,trfer_id,seats,bag_amount,bag_weight,rk_weight,weight_unit) "
+    "VALUES(pax_grp__seq.nextval,id__seq.currval,:seats,:bag_amount,:bag_weight,NULL,:weight_unit) ";
+  GrpQry.DeclareVariable("seats",otInteger);
+  GrpQry.DeclareVariable("bag_amount",otInteger);
+  GrpQry.DeclareVariable("bag_weight",otInteger);
+  GrpQry.DeclareVariable("weight_unit",otString);
+
+  TQuery PaxQry(&OraSession);
+  PaxQry.SQLText=
+    "INSERT INTO trfer_pax(grp_id,surname,name) VALUES(pax_grp__seq.currval,:surname,:name)";
+  PaxQry.DeclareVariable("surname",otString);
+  PaxQry.DeclareVariable("name",otString);
+
+  for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
+  {
+    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut));
+    TrferQry.SetVariable("point_id_out",point_id_out);
+    TrferQry.SetVariable("subcl_out",iOut->subcl);
+    TrferQry.Execute();
+    for(iData=iOut->data.begin();iData!=iOut->data.end();iData++)
+    {
+      GrpQry.SetVariable("seats",(int)iData->seats);
+      GrpQry.SetVariable("bag_amount",(int)iData->bag_amount);
+      if (*(iData->weight_unit)!=0)
+        GrpQry.SetVariable("bag_weight",(int)iData->bag_weight);
+      else
+        GrpQry.SetVariable("bag_weight",FNull);
+      GrpQry.SetVariable("weight_unit",iData->weight_unit);
+      GrpQry.Execute();
+      if (iData->surname.empty()) continue;
+      PaxQry.SetVariable("surname",iData->surname);
+      for(i=iData->name.begin();i!=iData->name.end();i++)
+      {
+        PaxQry.SetVariable("name",*i);
+        PaxQry.Execute();
+      };
+    };
+  };
+};
+
+bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
   vector<TSeatsItem>::iterator iSeatsItem;
@@ -1890,30 +2983,17 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
   vector<TPnrAddrItem>::iterator iPnrAddr;
   vector<TInfItem>::iterator iInfItem;
 
-  char crs[sizeof(info.sender)];  
+  char crs[sizeof(info.sender)];
   int tid;
 
   TQuery Qry(&OraSession);
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
+  int point_id=SaveFlt(tlg_id,con.flt);
+
   //идентифицируем систему бронирования
-//  if (strlen(info.sender)>5&&strcmp(info.sender+5,"1M")==0)
-    //это Сирена 2.3
-    strcpy(crs,info.sender);
-/*  else
-  {
-    strncpy(crs,info.sender,5);
-    crs[5]=0;
-  };*/
-#ifdef __WIN32__
-  Qry.Clear();
-  Qry.SQLText="SELECT code FROM crs2 WHERE code=:code";
-  Qry.CreateVariable("code",otString,crs);
-  Qry.Execute();
-  if (Qry.RowCount()==0)
-  {
-#endif
+  strcpy(crs,info.sender);
   Qry.Clear();
   Qry.SQLText="INSERT INTO crs2(code,name) VALUES(:code,:code)";
   Qry.CreateVariable("code",otString,crs);
@@ -1925,9 +3005,6 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
   {
     if (E.Code!=1) throw;
   };
-#ifdef __WIN32__
-  };
-#endif
 
   Qry.Clear();
   Qry.SQLText=
@@ -1936,16 +3013,16 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
            (flt_no=:flt_no OR flt_no IS NULL) AND\
            (airp_dep=:airp_dep OR airp_dep IS NULL) AND rownum=1";
   Qry.CreateVariable("crs",otString,crs);
-  Qry.CreateVariable("airline",otString,info.flt.airline);
-  Qry.CreateVariable("flt_no",otInteger,(int)info.flt.flt_no);
-  Qry.CreateVariable("airp_dep",otString,info.flt.brd_point);
+  Qry.CreateVariable("airline",otString,con.flt.airline);
+  Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
+  Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
   Qry.Execute();
   if (Qry.RowCount()==0)
   {
     Qry.SQLText=
       "INSERT INTO crs_set(airline,flt_no,airp_dep,crs,priority)\
        VALUES(:airline,:flt_no,:airp_dep,:crs,0)";
-    Qry.Execute();   
+    Qry.Execute();
   };
 
   TDateTime last_resa=0,last_tranzit=0,last_cfg=0;
@@ -1968,7 +3045,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
       last_cfg=Qry.FieldAsDateTime("last_cfg");
     pr_pnl=Qry.FieldAsInteger("pr_pnl");
   };
-  
+
   //pr_pnl=0 - не пришел цифровой PNL
   //pr_pnl=1 - пришел цифровой PNL
   //pr_pnl=2 - пришел нецифровой PNL
@@ -1984,7 +3061,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN \
-         UPDATE crs_data2 SET resa=NULL,pad=NULL WHERE point_id=:point_id AND crs=:crs; \
+         UPDATE crs_data SET resa=NULL,pad=NULL WHERE point_id=:point_id AND crs=:crs; \
          UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:crs; \
          IF SQL%NOTFOUND THEN \
            INSERT INTO crs_data_stat(point_id,crs,last_resa) \
@@ -1999,10 +3076,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN\
-         UPDATE crs_data2 SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad)\
+         UPDATE crs_data SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad)\
          WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
          IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data2(point_id,target,class,crs,resa,pad) \
+           INSERT INTO crs_data(point_id,target,class,crs,resa,pad) \
            VALUES(:point_id,:target,:class,:crs,:resa,:pad); \
          END IF; \
        END;";
@@ -2028,7 +3105,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN \
-         UPDATE crs_data2 SET tranzit=NULL WHERE point_id=:point_id AND crs=:crs; \
+         UPDATE crs_data SET tranzit=NULL WHERE point_id=:point_id AND crs=:crs; \
          UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:crs; \
          IF SQL%NOTFOUND THEN \
            INSERT INTO crs_data_stat(point_id,crs,last_tranzit) \
@@ -2043,10 +3120,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN\
-         UPDATE crs_data2 SET tranzit=NVL(tranzit+:tranzit,:tranzit)\
+         UPDATE crs_data SET tranzit=NVL(tranzit+:tranzit,:tranzit)\
          WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
          IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data2(point_id,target,class,crs,tranzit) \
+           INSERT INTO crs_data(point_id,target,class,crs,tranzit) \
            VALUES(:point_id,:target,:class,:crs,:tranzit); \
          END IF; \
        END;";
@@ -2073,7 +3150,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN \
-         UPDATE crs_data2 SET cfg=NULL,avail=NULL WHERE point_id=:point_id AND crs=:crs; \
+         UPDATE crs_data SET cfg=NULL,avail=NULL WHERE point_id=:point_id AND crs=:crs; \
          UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:crs; \
          IF SQL%NOTFOUND THEN \
            INSERT INTO crs_data_stat(point_id,crs,last_cfg) \
@@ -2088,10 +3165,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN\
-         UPDATE crs_data2 SET cfg=NVL(cfg+:cfg,:cfg)\
+         UPDATE crs_data SET cfg=NVL(cfg+:cfg,:cfg)\
          WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
          IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data2(point_id,target,class,crs,cfg) \
+           INSERT INTO crs_data(point_id,target,class,crs,cfg) \
            VALUES(:point_id,:target,:class,:crs,:cfg); \
          END IF; \
        END;";
@@ -2114,10 +3191,10 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
     Qry.Clear();
     Qry.SQLText=
       "BEGIN\
-         UPDATE crs_data2 SET avail=NVL(avail+:avail,:avail)\
+         UPDATE crs_data SET avail=NVL(avail+:avail,:avail)\
          WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
          IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data2(point_id,target,class,crs,avail) \
+           INSERT INTO crs_data(point_id,target,class,crs,avail) \
            VALUES(:point_id,:target,:class,:crs,:avail); \
          END IF; \
        END;";
@@ -2141,9 +3218,15 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
   {
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN\
-         ckin.recount(:point_id);\
-       END;";
+      "DECLARE "
+      "  CURSOR cur IS "
+      "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
+      "curRow cur%ROWTYPE; "
+      "BEGIN "
+      "  FOR curRow IN cur LOOP "
+      "    ckin.recount(curRow.point_id_spp); "
+      "  END LOOP; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
   };
@@ -2167,8 +3250,8 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
             TNameElement& ne=*iNameElement;
             if (ne.surname!="ZZ") pr_ne=true;
           };
-        };        
-      };        
+        };
+      };
       if (pr_ne)
       {
         //получим идентификатор транзакции
@@ -2176,25 +3259,6 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
         Qry.SQLText="SELECT tid__seq.nextval AS tid FROM dual";
         Qry.Execute();
         tid=Qry.FieldAsInteger("tid");
-
-        Qry.Clear();
-        Qry.SQLText=
-          "INSERT INTO crs_trips(point_id,crs,airline,flt_no,suffix,scd)\
-           VALUES(:point_id,:crs,:airline,:flt_no,:suffix,:scd)";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.CreateVariable("crs",otString,crs);
-        Qry.CreateVariable("airline",otString,info.flt.airline);
-        Qry.CreateVariable("flt_no",otInteger,(int)info.flt.flt_no);
-        Qry.CreateVariable("suffix",otString,info.flt.suffix);
-        Qry.CreateVariable("scd",otDate,info.flt.scd);
-        try
-        {
-          Qry.Execute();
-        }
-        catch(EOracleError E)
-        {
-          if (E.Code!=1) throw;
-        };
 
         TQuery CrsPnrQry(&OraSession);
         CrsPnrQry.Clear();
@@ -2490,7 +3554,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                   CrsPaxQry.Execute();
                   if (CrsPaxQry.RowCount()>0)
                   {
-                    if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;                    
+                    if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;
                     if (ne.indicator==CHG||ne.indicator==DEL)
                     {
                       pax_id=CrsPaxQry.FieldAsInteger("pax_id");
@@ -2605,7 +3669,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                   CrsPaxInsQry.SetVariable("pr_del",0);
                 CrsPaxInsQry.SetVariable("last_op",info.time_create);
                 CrsPaxInsQry.Execute();
-                
+
                 if (!pr_sync_pnr)
                 {
                   //делаем синхронизацию пассажира с розыском
@@ -2636,12 +3700,12 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
               for(iTransfer=pnr.transfer.begin();iTransfer!=pnr.transfer.end();iTransfer++)
               {
                 CrsTransferQry.SetVariable("transfer_num",(int)iTransfer->num);
-                CrsTransferQry.SetVariable("airline",iTransfer->flt.airline);
-                CrsTransferQry.SetVariable("flt_no",(int)iTransfer->flt.flt_no);
-                CrsTransferQry.SetVariable("suffix",iTransfer->flt.suffix);
+                CrsTransferQry.SetVariable("airline",iTransfer->airline);
+                CrsTransferQry.SetVariable("flt_no",(int)iTransfer->flt_no);
+                CrsTransferQry.SetVariable("suffix",iTransfer->suffix);
                 CrsTransferQry.SetVariable("local_date",(int)iTransfer->local_date);
-                CrsTransferQry.SetVariable("airp_dep",iTransfer->flt.brd_point);
-                CrsTransferQry.SetVariable("airp_arv",iTransfer->arv_point);
+                CrsTransferQry.SetVariable("airp_dep",iTransfer->airp_dep);
+                CrsTransferQry.SetVariable("airp_arv",iTransfer->airp_arv);
                 CrsTransferQry.SetVariable("subclass",iTransfer->subcl);
                 CrsTransferQry.Execute();
                 //проверка на существование в базе кодов авиакомпаний,аэропортов,подклассов
@@ -2651,25 +3715,25 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
                 };
                 try
                 {
-                  if (iTransfer->flt.brd_point[0]!=0)
-                    GetAirp(iTransfer->flt.brd_point);
+                  if (iTransfer->flt.airp_dep[0]!=0)
+                    GetAirp(iTransfer->flt.airp_dep);
                 }
                 catch(ETlgError E)
                 {
-                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
                 };
                 try
                 {
-                  if (iTransfer->arv_point[0]!=0)
-                    GetAirp(iTransfer->arv_point);
+                  if (iTransfer->flt.airp_arv[0]!=0)
+                    GetAirp(iTransfer->flt.airp_arv);
                 }
                 catch(ETlgError E)
                 {
-                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
                 };
                 try
                 {
@@ -2677,7 +3741,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
                 }
                 catch(ETlgError E)
                 {
-                  sendErrorTlg(ERR_CANON_NAME,OWN_CANON_NAME,"Transfer: %s",E.Message);
+                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
                 };*/
               };
             };
@@ -2708,12 +3772,18 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        //разметим забронированные места в салоне 
+        //разметим забронированные места в салоне
         Qry.Clear();
         Qry.SQLText=
-          "BEGIN\
-             salons.initcomp(:point_id);\
-           END;";
+          "DECLARE "
+          "  CURSOR cur IS "
+          "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
+          "curRow cur%ROWTYPE; "
+          "BEGIN "
+          "  FOR curRow IN cur LOOP "
+          "    salons.initcomp(CurRow.point_id_spp); "
+          "  END LOOP; "
+          "END;";
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
       };
@@ -2745,7 +3815,7 @@ bool SavePnlAdlContent(int point_id, THeadingInfo& info, TPnlAdlContent& con, bo
         Qry.CreateVariable("crs",otString,crs);
         Qry.CreateVariable("pr_pnl",otInteger,pr_pnl_new);
         Qry.Execute();
-      };      
+      };
     }
     else
     {

@@ -34,13 +34,13 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
-    OpenLogFile("logairimp");      
+    OpenLogFile("logairimp");
 
     int SRV_PORT;
     const char *port_tcl=Tcl_GetVar(interp,"SRV_PORT",TCL_GLOBAL_ONLY);
     if (port_tcl==NULL||StrToInt(port_tcl,SRV_PORT)==EOF)
       throw Exception("Unknown or wrong SRV_PORT");
-      
+
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
       ->connect_db();
     if (init_edifact()<0) throw Exception("'init_edifact' error");
@@ -86,9 +86,9 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
   }
-  catch(...) 
+  catch(...)
   {
-    ProgError(STDLOG, "Unknown exception");	
+    ProgError(STDLOG, "Unknown exception");
   };
 
   if (sockfd!=-1) close(sockfd);
@@ -97,9 +97,9 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OraSession.Rollback();
     OraSession.LogOff();
   }
-  catch(...) 
+  catch(...)
   {
-    ProgError(STDLOG, "Unknown exception");	
+    ProgError(STDLOG, "Unknown exception");
   };
   return 0;
 };
@@ -170,7 +170,7 @@ void process_tlg(void)
     RotQry.CreateVariable("addr",otString,inet_ntoa(from_addr.sin_addr));
     RotQry.CreateVariable("port",otInteger,ntohs(from_addr.sin_port));
     RotQry.CreateVariable("own_canon_name",otString,OWN_CANON_NAME());
-    RotQry.CreateVariable("canon_name",otString,tlg_in.Sender);    
+    RotQry.CreateVariable("canon_name",otString,tlg_in.Sender);
     RotQry.Execute();
     if (RotQry.RowCount()==0)
       throw Exception("Telegram from unknown router %s:%d",
@@ -324,7 +324,9 @@ void process_tlg(void)
           };
           TlgUpdQry.Execute();
           //если TlgUpdQry.RowsProcessed()==0,значит нарушена последовательность телеграмм
-          if (TlgUpdQry.RowsProcessed()==0)
+          if ((tlg_in.type==TLG_ACK||
+               tlg_in.type==TLG_F_NEG)&&
+              TlgUpdQry.RowsProcessed()==0)
           {
             OraSession.Rollback();
             ProgError(STDLOG,"Can't find tlg in tlg_queue "
@@ -388,16 +390,16 @@ void process_tlg(void)
       if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
                  (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
         throw Exception("'sendto' error %d: %s",errno,strerror(errno));
-    };    
+    };
     OraSession.Commit();
-    if (is_edi) sendCmd("CMD_EDI_HANDLER","HELLO WORLD!");                 
+    if (is_edi) sendCmd("CMD_EDI_HANDLER","HELLO WORLD!");
   }
   catch(Exception E)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
     sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s",E.what());
     OraSession.Commit();
-  };  
+  };
   return;
 };
 
@@ -413,10 +415,10 @@ void scan_tlg(void)
        FROM tlgs,tlg_queue\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
              tlg_queue.type='INB' AND tlg_queue.status='PUT'\
-       ORDER BY tlg_queue.time,tlg_queue.id";              
+       ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
-       
-  };  
+
+  };
 
   static TQuery TlgIdQry(&OraSession);
   if (TlgIdQry.SQLText.IsEmpty())
@@ -466,14 +468,14 @@ void scan_tlg(void)
   char *buf=NULL,*buf2=NULL,*ph,c;
   bool pr_typeb_cmd=false;
   TTlgParts parts;
-  THeadingInfo HeadingInfo;
-  TEndingInfo EndingInfo;
+  THeadingInfo *HeadingInfo=NULL;
+  TEndingInfo *EndingInfo=NULL;
   count=0;
   TlgQry.Execute();
   try
   {
     while (!TlgQry.Eof&&count<SCAN_COUNT)
-    {      
+    {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
       if (!TlgQry.FieldIsNULL("ttl")&&
@@ -499,39 +501,58 @@ void scan_tlg(void)
           buf[len-1]=0;
           parts=GetParts(buf);
           ParseHeading(parts.heading,HeadingInfo);
-          strcpy(EndingInfo.tlg_type,HeadingInfo.tlg_type);
-          EndingInfo.part_no=HeadingInfo.part_no;
-          ParseEnding(parts.ending,EndingInfo);
+          ParseEnding(parts.ending,HeadingInfo,EndingInfo);
           if (parts.heading.p-parts.addr.p>255) throw ETlgError("Address too long");
           if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
           if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
 
-          if (GetTlgCategory(HeadingInfo.tlg_type)==tcDCS&&
-              HeadingInfo.time_create!=0)
+
+          if ((HeadingInfo->tlg_cat==tcDCS||
+               HeadingInfo->tlg_cat==tcBSM)&&
+               HeadingInfo->time_create!=0)
           {
-            TlgIdQry.SetVariable("id",FNull);
-            TlgIdQry.SetVariable("tlg_type",HeadingInfo.tlg_type);
-            TlgIdQry.SetVariable("merge_key",HeadingInfo.merge_key);
-            if (strcmp(HeadingInfo.tlg_type,"PNL")==0)
+            long part_no;
+            ostringstream merge_key;
+            merge_key << "." << HeadingInfo->sender;
+            if (HeadingInfo->tlg_cat==tcDCS)
             {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo.time_create-2.0/1440);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo.time_create+2.0/1440);
+              TDCSHeadingInfo &info = *dynamic_cast<TDCSHeadingInfo*>(HeadingInfo);
+              part_no=info.part_no;
+              merge_key << " " << info.flt.airline << setw(3) << setfill('0') << info.flt.flt_no
+                               << info.flt.suffix << "/" << DateTimeToStr(info.flt.scd,"ddmmm") << " "
+                               << info.flt.airp_dep << info.flt.airp_arv;
+              if (info.association_number>0)
+                merge_key << " " << setw(6) << setfill('0') << info.association_number;
             }
             else
             {
-              TlgIdQry.SetVariable("min_time_create",HeadingInfo.time_create);
-              TlgIdQry.SetVariable("max_time_create",HeadingInfo.time_create);
+              TBSMHeadingInfo &info = *dynamic_cast<TBSMHeadingInfo*>(HeadingInfo);
+              part_no=info.part_no;
+              merge_key << " " << info.airp;
+              if (!info.reference_number.empty())
+                merge_key << " " << info.reference_number;
+            };
+
+            TlgIdQry.SetVariable("id",FNull);
+            TlgIdQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
+            TlgIdQry.SetVariable("merge_key",merge_key.str());
+            if (strcmp(HeadingInfo->tlg_type,"PNL")==0)
+            {
+              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create-2.0/1440);
+              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create+2.0/1440);
+            }
+            else
+            {
+              TlgIdQry.SetVariable("min_time_create",HeadingInfo->time_create);
+              TlgIdQry.SetVariable("max_time_create",HeadingInfo->time_create);
             };
             TlgIdQry.Execute();
             if (TlgIdQry.VariableIsNULL("id"))
               InsQry.SetVariable("id",FNull);
             else
               InsQry.SetVariable("id",TlgIdQry.GetVariableAsInteger("id"));
-            if (HeadingInfo.part_no!=0)
-              InsQry.SetVariable("part_no",(int)HeadingInfo.part_no);
-            else
-              InsQry.SetVariable("part_no",1);
-            InsQry.SetVariable("merge_key",HeadingInfo.merge_key);
+            InsQry.SetVariable("part_no",(int)part_no);
+            InsQry.SetVariable("merge_key",merge_key.str());
           }
           else
           {
@@ -540,9 +561,9 @@ void scan_tlg(void)
             InsQry.SetVariable("merge_key",FNull);
           };
 
-          InsQry.SetVariable("tlg_type",HeadingInfo.tlg_type);
-          if (HeadingInfo.time_create!=0)
-            InsQry.SetVariable("time_create",HeadingInfo.time_create);
+          InsQry.SetVariable("tlg_type",HeadingInfo->tlg_type);
+          if (HeadingInfo->time_create!=0)
+            InsQry.SetVariable("time_create",HeadingInfo->time_create);
           else
             InsQry.SetVariable("time_create",FNull);
 
@@ -568,11 +589,11 @@ void scan_tlg(void)
           };
           try
           {
-            if (deleteTlg(tlg_id))	            
+            if (deleteTlg(tlg_id))
             {
               InsQry.Execute();
               pr_typeb_cmd=true;
-            };  
+            };
           }
           catch(EOracleError E)
           {
@@ -609,21 +630,26 @@ void scan_tlg(void)
                 strcat(buf2,Qry.FieldAsString("ending"));
                 if (strcmp(buf,buf2)!=0)
                 {
-                  if (HeadingInfo.part_no==1&&EndingInfo.pr_final_part)  //телеграмма состоит из одной части
+                  long part_no;
+                  if (HeadingInfo->tlg_cat==tcDCS)
+                    part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+                  else
+                    part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+                  if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
                   {
                     InsQry.SetVariable("id",FNull);
                     InsQry.SetVariable("merge_key",FNull);
-                    if (deleteTlg(tlg_id))	                                
+                    if (deleteTlg(tlg_id))
                     {
                       InsQry.Execute();
                       pr_typeb_cmd=true;
-                    };  
+                    };
                   }
                   else throw ETlgError("Duplicate part number");
                 }
                 else
                 {
-                  errorTlg(tlg_id,"DUP");	
+                  errorTlg(tlg_id,"DUP");
                 };
               }
               else throw ETlgError("Duplicate part number");
@@ -637,18 +663,22 @@ void scan_tlg(void)
                        E.what(),TlgQry.FieldAsInteger("id"));
           sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s (tlgs.id=%d)",
                   E.what(),TlgQry.FieldAsInteger("id"));
-          errorTlg(tlg_id,"PARS");          
+          errorTlg(tlg_id,"PARS");
         };
       count++;
       TlgQry.Next();
     };
-    OraSession.Commit();    
-    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","HELLO WORLD");    
+    OraSession.Commit();
+    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","HELLO WORLD");
+    if (HeadingInfo!=NULL) delete HeadingInfo;
+    if (EndingInfo!=NULL) delete EndingInfo;
     if (buf!=NULL) free(buf);
     if (buf2!=NULL) free(buf2);
   }
   catch(...)
   {
+    if (HeadingInfo!=NULL) delete HeadingInfo;
+    if (EndingInfo!=NULL) delete EndingInfo;
     if (buf!=NULL) free(buf);
     if (buf2!=NULL) free(buf2);
     throw;
