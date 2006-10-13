@@ -343,10 +343,10 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "       report.get_PSPT(pax_id) AS document, "\
     "       pax_id, "\
     "       crs_pnr.pnr_id "\
-    " FROM crs_pnr,crs_pax,v_last_crs_trfer "\
-    "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "\
+    " FROM crs_pnr,tlg_binding,crs_pax,v_last_crs_trfer "\
+    "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "\
+    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "\
     "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "\
-    "      crs_pnr.point_id=:point_id AND "\
     "      crs_pax.pr_del=0 "\
     "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";	
   Qry.CreateVariable( "point_id", otInteger, point_id );

@@ -213,17 +213,19 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "   WHERE airline=:airline AND "\
     "         (flt_no=:flt_no OR flt_no IS NULL) AND "\
     "         (airp_dep=:airp OR airp_dep IS NULL)) crs_set, "\
-    " (SELECT DISTINCT crs FROM crs_data2 WHERE point_id=:point_id  AND crs IS NOT NULL) crs_data, "\
-    " (SELECT DISTINCT crs FROM crs_pnr   WHERE point_id=:point_id) crs_pnr "\
+    " (SELECT DISTINCT crs FROM crs_data,tlg_binding "\
+    "  WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id) crs_data, "\
+    " (SELECT DISTINCT crs FROM crs_pnr,tlg_binding "\
+    "  WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id) crs_pnr "\
     "WHERE crs2.code=crs_set.crs(+) AND "\
     "      crs2.code=crs_data.crs(+) AND "\
     "      crs2.code=crs_pnr.crs(+) AND "\
     "      (crs_set.crs IS NOT NULL OR crs_data.crs IS NOT NULL OR crs_pnr.crs IS NOT NULL) "\
     "UNION "\
     "SELECT NULL AS code,'Общие данные' AS name,0 AS sort, "\
-    "       DECODE(crs_data.crs,0,0,1) AS pr_charge,0,0 "\
+    "       DECODE(trip_data.crs,0,0,1) AS pr_charge,0,0 "\
     "FROM dual, "\
-    " (SELECT COUNT(*) AS crs FROM crs_data2 WHERE point_id=:point_id AND crs IS NULL) crs_data "\
+    " (SELECT COUNT(*) AS crs FROM trip_data WHERE point_id=:point_id) trip_data "\
     "ORDER BY sort,name ";
   if ( empty_priority )
     Qry.CreateVariable( "priority", otInteger, FNull );
@@ -249,12 +251,13 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "SELECT crs, "\
     "       target, "\
     "       class, "\
-    "       resa, "\
-    "       tranzit "\
-    " FROM crs_data2,place "\
-    "WHERE crs_data2.point_id=place.trip_id(+) AND crs_data2.target=place.cod(+) AND "\
-    "      crs_data2.point_id=:point_id AND crs IS NOT NULL AND "\
+    "       SUM(resa) AS resa, "\
+    "       SUM(tranzit) AS tranzit "\
+    " FROM crs_data,tlg_binding,place "\
+    "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "\
+    "      crs_data.point_id=place.trip_id(+) AND crs_data.target=place.cod(+) AND "\
     "      (resa IS NOT NULL OR tranzit IS NOT NULL) "\
+    "GROUP BY crs,place.num,target,class "\
     "ORDER BY crs,place.num,target ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -279,12 +282,15 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     tst();
     Qry.SQLText = 
       "SELECT target,class, "\
-      "       DECODE(crs,NULL,1,0) AS priority, "\
+      "       0 AS priority, "\
       "       NVL(SUM(resa),0) AS resa, "\
       "       NVL(SUM(tranzit),0) AS tranzit "\
-      "FROM crs_data2 "\
-      " WHERE point_id=:point_id "\
-      "GROUP BY target,class,DECODE(crs,NULL,1,0) "\
+      "FROM crs_data,tlg_binding "\
+      "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id "\
+      "GROUP BY target,class "\
+      "UNION "\
+      "SELECT target,class,1,resa,tranzit "\
+      "FROM trip_data WHERE point_id=:point_id "\
       "ORDER BY target,class,priority DESC ";
     Qry.DeclareVariable( "point_id", otInteger );
     Qry.SetVariable( "point_id", point_id );    
@@ -293,15 +299,17 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     tst();
     Qry.SQLText = 
       "SELECT target,class, "\
-      "       DECODE(crs,NULL,1,0) AS priority, "\
+      "       0 AS priority, "\
       "       NVL(SUM(resa),0) AS resa, "\
       "       NVL(SUM(tranzit),0) AS tranzit "\
-      "FROM crs_data2 "\
-      "WHERE point_id=:point_id AND "\
-      "      (crs IS NULL OR "\
-      "       crs IN (SELECT code FROM crs2 "\
-      "                WHERE ckin.get_crs_priority(code,:airline,:flt_no,:airp)=:priority)) "\
-      "GROUP BY target,class,DECODE(crs,NULL,1,0) "\
+      "FROM crs_data,tlg_binding "\
+      "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "\
+      "      crs IN (SELECT code FROM crs2 "\
+      "              WHERE ckin.get_crs_priority(code,:airline,:flt_no,:airp)=:priority) "\
+      "GROUP BY target,class "\
+      "UNION "\
+      "SELECT target,class,1,resa,tranzit "\
+      "FROM trip_data WHERE point_id=:point_id "\
       "ORDER BY target,class,priority DESC ";    
     Qry.CreateVariable( "priority", otInteger, priority );
     Qry.CreateVariable( "airline", otString, airline );
@@ -356,11 +364,11 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   TQuery Qry( &OraSession );
   Qry.SQLText = 
     "BEGIN "\
-    " UPDATE crs_data2 SET resa= :resa, tranzit= :tranzit "\
-    "  WHERE point_id=:point_id AND crs IS NULL AND target=:target AND class=:class; "\
+    " UPDATE trip_data SET resa= :resa, tranzit= :tranzit "\
+    "  WHERE point_id=:point_id AND target=:target AND class=:class; "\
     " IF SQL%NOTFOUND THEN "\
-    "  INSERT INTO crs_data2(crs,point_id,target,class,resa,pad,tranzit,avail,cfg) "\
-    "   VALUES(NULL,:point_id,:target,:class,:resa,NULL,:tranzit,NULL,NULL); "\
+    "  INSERT INTO trip_data(point_id,target,class,resa,tranzit,avail) "\
+    "   VALUES(:point_id,:target,:class,:resa,:tranzit,NULL); "\
     " END IF; "\
     "END; ";
   Qry.DeclareVariable( "resa", otInteger );

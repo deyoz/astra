@@ -14,11 +14,18 @@ public:
   {
      Handler *evHandle;
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadTrips);
-     AddEvent("ReadTrips",evHandle);     
+     AddEvent("ReadTrips",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetPaxTransfer);
+     AddEvent("GetPaxTransfer",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetBagTransfer);
+     AddEvent("GetBagTransfer",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);
+  void GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
- 
+
 #endif /*_SOPP_H_*/
 
