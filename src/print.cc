@@ -156,8 +156,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         for(; ti != Qrys.end(); ++ti)
             if(!(*ti)->FieldsCount()) break;
         if(ti == Qrys.end())
-            break;
-//            throw Exception("Tag not found " + name);
+//            break;
+            throw Exception("Tag not found " + name);
         (*ti)->Execute();
         for(int i = 0; i < (*ti)->FieldsCount(); i++) {
             if(data.find((*ti)->FieldName(i)) != data.end())
@@ -701,7 +701,7 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void get_bt_forms(string tag_type, xmlNodePtr dataNode, vector<string> &prn_forms)
 {
     TQuery FormsQry(&OraSession);        
-    FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type";
+    FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type order by id, num";
     FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
     FormsQry.Execute();
     if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
@@ -719,6 +719,7 @@ struct TBTRouteItem {
     string airp_arv, airp_arv_lat;
     int local_date;
     string fltdate, fltdate_lat;
+    string airp_arv_name, airp_arv_name_lat;
 };
 
 void DumpRoute(vector<TBTRouteItem> &route)
@@ -733,6 +734,8 @@ void DumpRoute(vector<TBTRouteItem> &route)
         ProgTrace(TRACE5, "local_date: %d", iv->local_date);
         ProgTrace(TRACE5, "fltdate: %s", iv->fltdate.c_str());
         ProgTrace(TRACE5, "fltdate_lat: %s", iv->fltdate_lat.c_str());
+        ProgTrace(TRACE5, "airp_arv_name: %s", iv->airp_arv_name.c_str());
+        ProgTrace(TRACE5, "airp_arv_name_lat: %s", iv->airp_arv_name_lat.c_str());
         ProgTrace(TRACE5, "-----------RouteItem-----------");
     }
 }
@@ -748,7 +751,9 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   avia.latkod airline_lat,  "
         "   trips.flt_no,  "
         "   pax_grp.target airp_arv,  "
-        "   airps.lat airp_arv_lat  "
+        "   airps.lat airp_arv_lat, "
+        "   airps.name airp_arv_name, "
+        "   airps.latname airp_arv_name_lat "
         "from  "
         "   pax_grp,  "
         "   trips,  "
@@ -767,7 +772,9 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   avia.latkod airline_lat,  "
         "   transfer.flt_no,  "
         "   transfer.airp_arv,  "
-        "   airps.lat airp_arv_lat  "
+        "   airps.lat airp_arv_lat,  "
+        "   airps.name airp_arv_name, "
+        "   airps.latname airp_arv_name_lat "
         "from  "
         "   transfer,  "
         "   avia,  "
@@ -786,6 +793,8 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
         RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
+        RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");
+        RouteItem.airp_arv_name_lat = Qry.FieldAsString("airp_arv_name_lat");
         if(Qry.FieldIsNULL("local_date")) {
             DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, Day);
             RouteItem.local_date = Day;
@@ -819,6 +828,8 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
         parser.add_tag("airp_arv" + str_via_idx + "_lat", route[j].airp_arv_lat);
         parser.add_tag("fltdate" + str_via_idx, route[j].fltdate);
         parser.add_tag("fltdate" + str_via_idx + "_lat", route[j].fltdate_lat);
+        parser.add_tag("airp_arv_name" + str_via_idx, route[j].airp_arv_name);
+        parser.add_tag("airp_arv_name" + str_via_idx + "_lat", route[j].airp_arv_name_lat);
         ++via_idx;
     }
 }
