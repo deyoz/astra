@@ -99,9 +99,17 @@ void PrintDataParser::t_field_map::add_tag(string name, int val)
 TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
 {
     string qry =
-        "insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
-        "values(:pax_id, system.localsysdate, 0" + var_list + ")";
+        "   insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
+        "   values(:pax_id, system.localsysdate, 0" + var_list + ")";
+        /*
+        "begin "
+        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk "
+        "   insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
+        "   values(:pax_id, system.localsysdate, 0" + var_list + "); "
+        "end;";
+        */
     Qry.SQLText = qry;
+//    Qry.CreateVariable("desk",otString,reqInfo->desk);
     return &Qry;
 }
 
@@ -164,13 +172,11 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
             TTagValue TagValue;
             TagValue.null = (*ti)->FieldIsNULL(i);
-            ProgTrace(TRACE5, "FIELD: %s", (*ti)->FieldName(i));
             switch((*ti)->FieldType(i)) {
                 case otString:
                 case otChar:
                 case otLong:
                 case otLongRaw:
-                    ProgTrace(TRACE5, "TYPE %d: otString", (*ti)->FieldType(i));
                     TagValue.type = otString;
                     TagValue.StringVal = (*ti)->FieldAsString(i);
                     break;
@@ -849,24 +855,23 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     Qry.Execute();
     string tag_type;
     vector<string> prn_forms;
-    xmlNodePtr tagsNode = NewTextChild(dataNode, "tags");
-    xmlNodePtr tagNode, prnFormsNode;
+    xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
+    xmlNodePtr pectabsNode = NewTextChild(printBTNode, "pectabs");
+    xmlNodePtr tagsNode = NewTextChild(printBTNode, "tags");
     while(!Qry.Eof) {
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            tagNode = NewTextChild(tagsNode, "tag");
-            prnFormsNode = NewTextChild(tagNode, "prn_forms");
-            SetProp(tagNode, "type", tag_type);
-            get_bt_forms(tag_type, tagNode, prn_forms);
+            get_bt_forms(tag_type, pectabsNode, prn_forms);
         }
-        ProgTrace(TRACE5, "no: %d; tag_type: %s", Qry.FieldAsInteger("no"), Qry.FieldAsString("tag_type"));
 
         int tag_no = Qry.FieldAsInteger("no");
         int aircode = tag_no / 1000000;
         int no = tag_no % 1000000;
-        ProgTrace(TRACE5, "AIRCODE: %d", aircode);
-        ProgTrace(TRACE5, "NO: %d", no);
+
+        xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");
+        SetProp(tagNode, "type", tag_type);
+        SetProp(tagNode, "no", tag_no);
 
         PrintDataParser parser(pax_id, pr_lat, NULL);
 
@@ -880,16 +885,16 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-            NewTextChild(prnFormsNode, "prn_form", parser.parse(prn_forms.back()));
+            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms.back()));
         }
 
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
-            NewTextChild(prnFormsNode, "prn_form", parser.parse(prn_forms[BT_reminder - 1]));
+            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms[BT_reminder - 1]));
         }
-
         Qry.Next();
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
