@@ -55,6 +55,8 @@ class PrintDataParser {
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
+                void add_tag(string name, int val);
+                void add_tag(string name, string val);
                 TQuery *get_prn_qry() { return PrnQryBuilder->get(); };
                 ~t_field_map();
         };
@@ -70,12 +72,35 @@ class PrintDataParser {
         };
         string parse(string &form);
         TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
+        void add_tag(string name, int val) { return field_map.add_tag(name, val); };
+        void add_tag(string name, string val) { return field_map.add_tag(name, val); };
 };
+
+void PrintDataParser::t_field_map::add_tag(string name, string val)
+{
+    name = upperc(name);
+    TTagValue TagValue;
+    TagValue.null = false;
+    TagValue.type = otString;
+    TagValue.StringVal = val;
+    data[name] = TagValue;
+}
+
+void PrintDataParser::t_field_map::add_tag(string name, int val)
+{
+    name = upperc(name);
+    TTagValue TagValue;
+    TagValue.null = false;
+    TagValue.type = otInteger;
+    TagValue.IntegerVal = val;
+    data[name] = TagValue;
+}
 
 TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
 {
     string qry =
-        "insert into bp_print(pax_id, time_print, pr_print" + name_list + ") values(:pax_id, sysdate, 0" + var_list + ")";
+        "insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
+        "values(:pax_id, system.localsysdate, 0" + var_list + ")";
     Qry.SQLText = qry;
     return &Qry;
 }
@@ -131,7 +156,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         for(; ti != Qrys.end(); ++ti)
             if(!(*ti)->FieldsCount()) break;
         if(ti == Qrys.end())
-            throw Exception("Tag not found " + name);
+            break;
+//            throw Exception("Tag not found " + name);
         (*ti)->Execute();
         for(int i = 0; i < (*ti)->FieldsCount(); i++) {
             if(data.find((*ti)->FieldName(i)) != data.end())
@@ -189,7 +215,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 buf << TagValue.IntegerVal;
                 break;
             case otDate:
-                buf << DateTimeToStr(TagValue.DateTimeVal, date_format);
+                buf << DateTimeToStr(TagValue.DateTimeVal, date_format, pr_lat);
                 break;
         }
         if(!len) len = buf.str().size();
@@ -208,13 +234,14 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
 {
     PrnQryBuilder = new TPrnQryBuilder(pax_id);
     this->pr_lat = pr_lat;
-    {
+    if(tagsNode) {
         // Положим в мэп теги из клиентского запроса
         xmlNodePtr curNode = tagsNode->children;
         while(curNode) {
             string name = (char *)curNode->name;
             name = upperc(name);
             TTagValue TagValue;
+            TagValue.null = false;
             TagValue.type = otString;
             TagValue.StringVal = NodeAsString(curNode);
             if(data.find(name) != data.end())
@@ -257,6 +284,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "SELECT "
+        "   system.localsysdate issued, "
         "   airps.cod air_cod, "
         "   airps.lat air_cod_lat, "
         "   airps.name air_name, "
@@ -285,6 +313,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   trips.ACT, "
         "   trips.company airline, "
         "   avia.latkod airline_lat, "
+        "   avia.ak_name airline_name, "
+        "   avia.latname airline_name_lat, "
         "   trips.BC, "
         "   system.transliter(trips.BC, 1) bc_lat, "
         "   trips.BORT, "
@@ -363,8 +393,10 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   airps.name arvname, "
-        "   airps.latname arvname_lat, "
+        "   pax_grp.target airp_arv, "
+        "   airps.lat airp_arv_lat, "
+        "   airps.name airp_arv_name, "
+        "   airps.latname airp_arv_name_lat, "
         "   pax_grp.point_id, "
         "   pax_grp.class, "
         "   classes.lat class_lat, "
@@ -418,7 +450,7 @@ string PrintDataParser::parse_field(int offset, string field)
                 Mode = 'L';
                 break;
             case 'L':
-                if(!IsLetter(curr_char) && curr_char != '_')
+                if(!IsDigitIsLetter(curr_char) && curr_char != '_')
                     if(curr_char == '(') {
                         FieldName = upperc(field.substr(0, i));
                         VarPos = i;
@@ -577,7 +609,7 @@ string PrintDataParser::parse_tag(int offset, string tag)
                 break;
             case 'L':
                 if(tag[i] == '>') {
-                    result += parse_field(VarPos, tag.substr(VarPos, i - VarPos));
+                    result += parse_field(i, tag.substr(VarPos, i - VarPos));
                     Mode = 'S';
                 }
                 break;
@@ -635,26 +667,224 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Print = Qry.FieldAsString("prn_form");
 }
 
-void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr tagsNode)
 {
+    xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select grp_id from pax where pax_id = :pax_id";
-    Qry.CreateVariable("pax_id", otInteger, NodeAsInteger("pax_id", reqNode));
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     string Pectab, Print;
-    GetPrintData(Qry.FieldAsInteger("grp_id"), NodeAsInteger("prn_type", reqNode), Pectab, Print);
-    PrintDataParser parser(
-            NodeAsInteger("pax_id", reqNode),
-            NodeAsInteger("pr_lat", reqNode),
-            NodeAsNode("tags", reqNode)
-            );
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    NewTextChild(dataNode, "print", parser.parse(Print));
+    GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
+    NewTextChild(BPNode, "pectab", Pectab);
+    PrintDataParser parser(pax_id, pr_lat, tagsNode);
+    NewTextChild(BPNode, "print", parser.parse(Print));
     {
         TQuery *Qry = parser.get_prn_qry();
         ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
         Qry->Execute();
     }
+}
+
+void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    GetPrintDataBP(
+            dataNode,
+            NodeAsInteger("pax_id", reqNode),
+            NodeAsInteger("prn_type", reqNode),
+            NodeAsInteger("pr_lat", reqNode),
+            NodeAsNode("tags", reqNode)
+            );
+}
+
+void get_bt_forms(string tag_type, xmlNodePtr dataNode, vector<string> &prn_forms)
+{
+    TQuery FormsQry(&OraSession);        
+    FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type";
+    FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
+    FormsQry.Execute();
+    if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
+    xmlNodePtr pectabsNode = NewTextChild(dataNode, "pectabs");
+    while(!FormsQry.Eof) {
+        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        prn_forms.push_back(FormsQry.FieldAsString("prn_form"));
+        FormsQry.Next();
+    }
+}
+
+struct TBTRouteItem {
+    string airline, airline_lat;
+    int flt_no;
+    string airp_arv, airp_arv_lat;
+    int local_date;
+    string fltdate, fltdate_lat;
+};
+
+void DumpRoute(vector<TBTRouteItem> &route)
+{
+    ProgTrace(TRACE5, "-----------DUMP ROUTE-----------");
+    for(vector<TBTRouteItem>::iterator iv = route.begin(); iv != route.end(); ++iv) {
+        ProgTrace(TRACE5, "airline: %s", iv->airline.c_str());
+        ProgTrace(TRACE5, "airline_lat: %s", iv->airline_lat.c_str());
+        ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
+        ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
+        ProgTrace(TRACE5, "airp_arv_lat: %s", iv->airp_arv_lat.c_str());
+        ProgTrace(TRACE5, "local_date: %d", iv->local_date);
+        ProgTrace(TRACE5, "fltdate: %s", iv->fltdate.c_str());
+        ProgTrace(TRACE5, "fltdate_lat: %s", iv->fltdate_lat.c_str());
+        ProgTrace(TRACE5, "-----------RouteItem-----------");
+    }
+}
+
+void get_route(int grp_id, vector<TBTRouteItem> &route)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText =
+        "select  "
+        "   trips.scd,  "
+        "   null local_date,  "
+        "   trips.company airline,  "
+        "   avia.latkod airline_lat,  "
+        "   trips.flt_no,  "
+        "   pax_grp.target airp_arv,  "
+        "   airps.lat airp_arv_lat  "
+        "from  "
+        "   pax_grp,  "
+        "   trips,  "
+        "   avia,  "
+        "   airps  "
+        "where  "
+        "   pax_grp.grp_id = :grp_id and  "
+        "   pax_grp.point_id = trips.trip_id and  "
+        "   trips.company = avia.kod_ak and  "
+        "   pax_grp.target = airps.cod "
+        "union  "
+        "select  "
+        "   null,  "
+        "   transfer.local_date,  "
+        "   transfer.airline,  "
+        "   avia.latkod airline_lat,  "
+        "   transfer.flt_no,  "
+        "   transfer.airp_arv,  "
+        "   airps.lat airp_arv_lat  "
+        "from  "
+        "   transfer,  "
+        "   avia,  "
+        "   airps  "
+        "where  "
+        "   transfer.grp_id = :grp_id and  "
+        "   transfer.airline = avia.kod_ak and  "
+        "   transfer.airp_arv = airps.cod ";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+    int Year, Month, Day;
+    while(!Qry.Eof) {
+        TBTRouteItem RouteItem;
+        RouteItem.airline = Qry.FieldAsString("airline");
+        RouteItem.airline_lat = Qry.FieldAsString("airline_lat");
+        RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
+        RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
+        RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
+        if(Qry.FieldIsNULL("local_date")) {
+            DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, Day);
+            RouteItem.local_date = Day;
+        } else
+            RouteItem.local_date = Qry.FieldAsInteger("local_date");
+        if(RouteItem.local_date < Day) {
+            if(Month == 12)
+                Month = 1;
+            else
+                ++Month;
+        }
+        RouteItem.fltdate = IntToString(RouteItem.local_date) + ShortMonthNames[Month];
+        RouteItem.fltdate_lat = IntToString(RouteItem.local_date) + ShortMonthNamesLat[Month];
+        route.push_back(RouteItem);
+        Day = RouteItem.local_date;
+        Qry.Next();
+    }
+    DumpRoute(route);
+}
+
+void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int start_idx, int end_idx)
+{
+    int via_idx = 1;
+    for(int j = start_idx; j < end_idx; ++j) {
+        string str_via_idx = IntToString(via_idx);
+        parser.add_tag("flt_no" + str_via_idx, route[j].flt_no);
+        parser.add_tag("local_date" + str_via_idx, route[j].local_date);
+        parser.add_tag("airline" + str_via_idx, route[j].airline);
+        parser.add_tag("airline" + str_via_idx + "_lat", route[j].airline_lat);
+        parser.add_tag("airp_arv" + str_via_idx, route[j].airp_arv);
+        parser.add_tag("airp_arv" + str_via_idx + "_lat", route[j].airp_arv_lat);
+        parser.add_tag("fltdate" + str_via_idx, route[j].fltdate);
+        parser.add_tag("fltdate" + str_via_idx + "_lat", route[j].fltdate_lat);
+        ++via_idx;
+    }
+}
+
+void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
+{
+    vector<TBTRouteItem> route;
+    get_route(grp_id, route);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText =
+        "select pax_id from pax where grp_id = :grp_id and refuse is null and reg_no = "
+        "(select min(reg_no) from pax where grp_id = :grp_id and refuse is null)";
+    Qry.CreateVariable("GRP_ID", otInteger, grp_id);
+    Qry.Execute();
+    int pax_id = Qry.FieldAsInteger(0);
+    Qry.SQLText = "select no, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
+    Qry.Execute();
+    string tag_type;
+    vector<string> prn_forms;
+    xmlNodePtr tagsNode = NewTextChild(dataNode, "tags");
+    xmlNodePtr tagNode, prnFormsNode;
+    while(!Qry.Eof) {
+        string tmp_tag_type = Qry.FieldAsString("tag_type");
+        if(tag_type != tmp_tag_type) {
+            tag_type = tmp_tag_type;
+            tagNode = NewTextChild(tagsNode, "tag");
+            prnFormsNode = NewTextChild(tagNode, "prn_forms");
+            SetProp(tagNode, "type", tag_type);
+            get_bt_forms(tag_type, tagNode, prn_forms);
+        }
+        ProgTrace(TRACE5, "no: %d; tag_type: %s", Qry.FieldAsInteger("no"), Qry.FieldAsString("tag_type"));
+
+        int tag_no = Qry.FieldAsInteger("no");
+        int aircode = tag_no / 1000000;
+        int no = tag_no % 1000000;
+        ProgTrace(TRACE5, "AIRCODE: %d", aircode);
+        ProgTrace(TRACE5, "NO: %d", no);
+
+        PrintDataParser parser(pax_id, pr_lat, NULL);
+
+        parser.add_tag("aircode", aircode);
+        parser.add_tag("no", no);
+
+        int VIA_num = prn_forms.size();
+        int route_size = route.size();
+        int BT_count = route_size / VIA_num;
+        int BT_reminder = route_size % VIA_num;
+
+        for(int i = 0; i < BT_count; ++i) {
+            set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
+            NewTextChild(prnFormsNode, "prn_form", parser.parse(prn_forms.back()));
+        }
+
+        if(BT_reminder) {
+            set_via_fields(parser, route, route_size - BT_reminder, route_size);
+            NewTextChild(prnFormsNode, "prn_form", parser.parse(prn_forms[BT_reminder - 1]));
+        }
+
+        Qry.Next();
+    }
+}
+
+void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    GetPrintDataBT(dataNode, NodeAsInteger("grp_id", reqNode), NodeAsInteger("pr_lat", reqNode));
 }
 
 void PrintInterface::GetPectabDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
