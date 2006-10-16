@@ -5,7 +5,8 @@
 #include "JxtInterface.h"		
 
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
-void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr tagsNode);
+void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
+//void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNoePtr clientDataNode);
 
 class PrintInterface: public JxtInterface
 {

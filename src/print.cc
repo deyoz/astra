@@ -100,7 +100,7 @@ TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
 {
     string qry =
         "   insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
-        "   values(:pax_id, system.localsysdate, 0" + var_list + ")";
+        "   values(:pax_id, :now_utc, 0" + var_list + ")";
         /*
         "begin "
         "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk "
@@ -673,7 +673,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Print = Qry.FieldAsString("prn_form");
 }
 
-void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr tagsNode)
+void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
 {
     xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
     TQuery Qry(&OraSession);
@@ -683,12 +683,16 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     string Pectab, Print;
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
-    PrintDataParser parser(pax_id, pr_lat, tagsNode);
-    NewTextChild(BPNode, "print", parser.parse(Print));
+    PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+    xmlNodePtr printNode = NewTextChild(BPNode, "print", parser.parse(Print));
     {
         TQuery *Qry = parser.get_prn_qry();
+        TDateTime time_print = NowUTC();
+        Qry->CreateVariable("now_utc", otDate, time_print);
         ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
         Qry->Execute();
+        SetProp(printNode, "pax_id", pax_id);
+        SetProp(printNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
     }
 }
 
@@ -700,8 +704,9 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             NodeAsInteger("pax_id", reqNode),
             NodeAsInteger("prn_type", reqNode),
             NodeAsInteger("pr_lat", reqNode),
-            NodeAsNode("tags", reqNode)
+            NodeAsNode("clientData", reqNode)
             );
+    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 void get_bt_forms(string tag_type, xmlNodePtr dataNode, vector<string> &prn_forms)
