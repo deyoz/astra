@@ -525,6 +525,7 @@ namespace {
     {
         int quantity=0;
         string charge, measure;
+        bool have_lugg=false;
         PushEdiPointG(pMes);
         if(SetEdiPointToSegmentG(pMes, "EBD")){
             SetEdiPointToCompositeG(pMes, "C675",0, "INV_LUGGAGE");
@@ -533,10 +534,11 @@ namespace {
                      "INV_LUGGAGE");
             charge     =  GetDBNum(pMes, 5463);
             measure    =  GetDBNum(pMes, 6411);
+            have_lugg=true;
         }
         PopEdiPointG(pMes);
 
-        return Luggage(quantity, charge, measure);
+        return have_lugg?Luggage(quantity, charge, measure):Luggage();
     }
 
     inline string GetFareBasis(EDI_REAL_MES_STRUCT *pMes)
