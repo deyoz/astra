@@ -41,6 +41,7 @@ class PrintDataParser {
                         TPrnQryBuilder(int pax_id): Qry(&OraSession), prnFields(&OraSession)
                         {
                             Qry.CreateVariable("PAX_ID", otInteger, pax_id);
+                            Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
                             prnFields.SQLText = "select * from bp_print where 1 = 0";
                             prnFields.Execute();
                         };
@@ -99,17 +100,12 @@ void PrintDataParser::t_field_map::add_tag(string name, int val)
 TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
 {
     string qry =
-        "   insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
-        "   values(:pax_id, :now_utc, 0" + var_list + ")";
-        /*
         "begin "
-        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk "
-        "   insert into bp_print(pax_id, time_print, pr_print" + name_list + ") "
-        "   values(:pax_id, system.localsysdate, 0" + var_list + "); "
+        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
+        "   insert into bp_print(pax_id, time_print, pr_print, desk" + name_list + ") "
+        "   values(:pax_id, :now_utc, 0, :desk" + var_list + "); "
         "end;";
-        */
     Qry.SQLText = qry;
-//    Qry.CreateVariable("desk",otString,reqInfo->desk);
     return &Qry;
 }
 
@@ -697,15 +693,44 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     }
 }
 
-void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
+void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode)
 {
     string Pectab, Print;
-    GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
+    GetPrintData(grp_id, prn_type, Pectab, Print);
     xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
     NewTextChild(BPNode, "pectab", Pectab);
     TQuery Qry(&OraSession);        
-    Qry.SQLText =  "";
+    if(pr_all)
+        Qry.SQLText =
+            "select pax_id from pax where grp_id = :grp_id and refuse is null order by reg_no";
+    else
+        Qry.SQLText =
+            "select pax.pax_id from "
+            "   pax, bp_print "
+            "where "
+            "   pax.grp_id = :grp_id and "
+            "   pax.refuse is null and "
+            "   pax.pax_id = bp_print.pax_id(+) and "
+            "   bp_print.pr_print(+) <> 0 "
+            "order by "
+            "   pax.reg_no";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
+    xmlNodePtr prnFormsNode = NewTextChild(BPNode, "prn_forms");
+    while(!Qry.Eof) {
+        int pax_id = Qry.FieldAsInteger("pax_id");
+        PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+        xmlNodePtr prnFormNode = NewTextChild(prnFormsNode, "prn_form", parser.parse(Print));
+        {
+            TQuery *Qry = parser.get_prn_qry();
+            TDateTime time_print = NowUTC();
+            Qry->CreateVariable("now_utc", otDate, time_print);
+            Qry->Execute();
+            SetProp(prnFormNode, "pax_id", pax_id);
+            SetProp(prnFormNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
+        }
+        Qry.Next();
+    }
 }
 
 void PrintInterface::GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
