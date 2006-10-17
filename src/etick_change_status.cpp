@@ -82,9 +82,9 @@ namespace ChangeStatus
                                     DataElement(9321),
                                     SegmElement("ERC"));
 
-            return ChngStatAnswer(lTick, errMap);
         }
         PopEdiPointG(pMes);
+        return ChngStatAnswer(lTick, errMap);
     }
 }
 }
