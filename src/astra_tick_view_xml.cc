@@ -380,7 +380,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"sac",cpn.couponInfo().sac()),"index",col_num++); // код авторизации (Settlement)
 
     ostringstream ebd;
-    if(itin.luggage().quantity()){
+    if(itin.luggage().haveLuggage()){
         ebd<<itin.luggage().quantity()<<itin.luggage().code();
     } else {
         ebd<<"НЕТ";
