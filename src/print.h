@@ -6,7 +6,7 @@
 
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
-//void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNoePtr clientDataNode);
+void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
 
 class PrintInterface: public JxtInterface
 {
@@ -18,11 +18,14 @@ class PrintInterface: public JxtInterface
             AddEvent("GetPectabDataBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBPXML);
             AddEvent("GetPrintDataBP",evHandle);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetGRPPrintDataBPXML);
+            AddEvent("GetGRPPrintDataBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBTXML);
             AddEvent("GetPrintDataBT",evHandle);
         }
 
         void GetPectabDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  

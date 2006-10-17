@@ -684,16 +684,42 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
     PrintDataParser parser(pax_id, pr_lat, clientDataNode);
-    xmlNodePtr printNode = NewTextChild(BPNode, "print", parser.parse(Print));
+    xmlNodePtr prnFormsNode = NewTextChild(BPNode, "prn_forms");
+    xmlNodePtr prnFormNode = NewTextChild(prnFormsNode, "prn_form", parser.parse(Print));
     {
         TQuery *Qry = parser.get_prn_qry();
         TDateTime time_print = NowUTC();
         Qry->CreateVariable("now_utc", otDate, time_print);
         ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
         Qry->Execute();
-        SetProp(printNode, "pax_id", pax_id);
-        SetProp(printNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
+        SetProp(prnFormNode, "pax_id", pax_id);
+        SetProp(prnFormNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
     }
+}
+
+void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
+{
+    string Pectab, Print;
+    GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
+    xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
+    NewTextChild(BPNode, "pectab", Pectab);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText =  "";
+    Qry.Execute();
+}
+
+void PrintInterface::GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    GetPrintDataBP(
+            dataNode,
+            NodeAsInteger("grp_id", reqNode),
+            NodeAsInteger("prn_type", reqNode),
+            NodeAsInteger("pr_lat", reqNode),
+            NodeAsInteger("pr_all", reqNode),
+            NodeAsNode("clientData", reqNode)
+            );
+    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -709,14 +735,14 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
-void get_bt_forms(string tag_type, xmlNodePtr dataNode, vector<string> &prn_forms)
+void get_bt_forms(string tag_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
+    prn_forms.clear();
     TQuery FormsQry(&OraSession);        
     FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type order by id, num";
     FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
     FormsQry.Execute();
     if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
-    xmlNodePtr pectabsNode = NewTextChild(dataNode, "pectabs");
     while(!FormsQry.Eof) {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
         prn_forms.push_back(FormsQry.FieldAsString("prn_form"));
