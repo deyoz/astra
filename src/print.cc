@@ -363,12 +363,9 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   system.transliter(pax.SEAT_NO, 1) seat_no_lat, "
         "   pax.SEAT_TYPE, "
         "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
+        "   DECODE(pax.SEAT_TYPE,'SMSA',1,'SMSW',1,'SMST',1,0) pr_smoke, "
         "   pax.SEATS, "
         "   pax.PR_BRD, "
-        "   pax.REFUSE, "
-        "   system.transliter(pax.REFUSE, 1) refuse_lat, "
-        "   refuse.name refuse_name, "
-        "   refuse.lat refuse_name_lat, "
         "   pax.REG_NO, "
         "   pax.TICKET_NO, "
         "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
@@ -380,15 +377,14 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax.PREV_SEAT_NO, "
         "   ckin.get_birks(pax.grp_id, pax.reg_no, 0) tags, "
         "   ckin.get_birks(pax.grp_id, pax.reg_no, 1) tags_lat, "
-        "   pax.COUPON_NO "
+        "   pax.COUPON_NO, "
+        "   ckin.get_pnr(:pax_id) pnr "
         "from "
         "   pax, "
-        "   persons, "
-       // "   refuse "
+        "   persons "
         "where "
         "   pax_id = :pax_id and "
-        "   pax.pers_type = persons.code  and "
-        "   pax.refuse = refuse.cod(+) ";
+        "   pax.pers_type = persons.code";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
     Qrys.push_back(Qry);
 
@@ -404,10 +400,6 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   classes.lat class_lat, "
         "   classes.name class_name, "
         "   classes.name_lat class_name_lat, "
-        "   pax_grp.class_bag, "
-        "   cl_bag.lat class_bag_lat, "
-        "   cl_bag.name class_bag_name, "
-        "   cl_bag.name_lat class_bag_name_lat, "
         "   pax_grp.EXCESS, "
         "   pax_grp.PR_WL, "
         "   pax_grp.WL_TYPE, "
@@ -420,13 +412,11 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "from "
         "   pax_grp, "
         "   airps, "
-        "   classes, "
-      //  "   classes cl_bag "
+        "   classes "
         "where "
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.target = airps.cod and "
-        "   pax_grp.class = classes.id and "
-        "   pax_grp.class_bag = cl_bag.id ";
+        "   pax_grp.class = classes.id ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
     Qrys.push_back(Qry);
 }
@@ -652,6 +642,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Qry.SQLText = "select point_id, class from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
+    if(!Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
     int trip_id = Qry.FieldAsInteger("point_id");
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
@@ -671,25 +662,28 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
 {
-    xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
+    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select grp_id from pax where pax_id = :pax_id";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
     string Pectab, Print;
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
     PrintDataParser parser(pax_id, pr_lat, clientDataNode);
-    xmlNodePtr prnFormsNode = NewTextChild(BPNode, "prn_forms");
-    xmlNodePtr prnFormNode = NewTextChild(prnFormsNode, "prn_form", parser.parse(Print));
+    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+    xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
+    NewTextChild(paxNode, "prn_form", parser.parse(Print));
     {
         TQuery *Qry = parser.get_prn_qry();
         TDateTime time_print = NowUTC();
         Qry->CreateVariable("now_utc", otDate, time_print);
         ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
         Qry->Execute();
-        SetProp(prnFormNode, "pax_id", pax_id);
-        SetProp(prnFormNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
+        SetProp(paxNode, "pax_id", pax_id);
+        SetProp(paxNode, "time_print", DateTimeToStr(time_print));
     }
 }
 
@@ -697,7 +691,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
 {
     string Pectab, Print;
     GetPrintData(grp_id, prn_type, Pectab, Print);
-    xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
+    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", Pectab);
     TQuery Qry(&OraSession);
     if(pr_all)
@@ -705,30 +699,33 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
             "select pax_id from pax where grp_id = :grp_id and refuse is null order by reg_no";
     else
         Qry.SQLText =
-            "select distinct pax.reg_no,pax.pax_id from "
+            "select pax.pax_id from "
             "   pax, bp_print "
             "where "
             "   pax.grp_id = :grp_id and "
             "   pax.refuse is null and "
             "   pax.pax_id = bp_print.pax_id(+) and "
-            "   bp_print.pr_print(+) <> 0 and " //???
+            "   bp_print.pr_print(+) <> 0 and "
             "   bp_print.pax_id IS NULL "
             "order by "
             "   pax.reg_no";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    xmlNodePtr prnFormsNode = NewTextChild(BPNode, "prn_forms");
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
         PrintDataParser parser(pax_id, pr_lat, clientDataNode);
-        xmlNodePtr prnFormNode = NewTextChild(prnFormsNode, "prn_form", parser.parse(Print));
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        NewTextChild(paxNode, "prn_form", parser.parse(Print));
         {
             TQuery *Qry = parser.get_prn_qry();
             TDateTime time_print = NowUTC();
             Qry->CreateVariable("now_utc", otDate, time_print);
             Qry->Execute();
-            SetProp(prnFormNode, "pax_id", pax_id);
-            SetProp(prnFormNode, "time_print", DateTimeToStr(time_print, ServerFormatDateTimeAsString));
+            SetProp(paxNode, "pax_id", pax_id);
+            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
         }
         Qry.Next();
     }
@@ -903,12 +900,26 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     get_route(grp_id, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        /*
         "select pax_id from pax where grp_id = :grp_id and refuse is null and reg_no = "
         "(select min(reg_no) from pax where grp_id = :grp_id and refuse is null)";
+        */
+        "select "
+        "   pax_id "
+        "from "
+        "   pax "
+        "where "
+        "   grp_id = :grp_id and "
+        "   refuse is null "
+        "order by "
+        "   decode(seats, 0, 1, 0), "
+        "   decode(pers_type, 'ВЗ', 0, 'РБ', 1, 2), "
+        "   reg_no ";
     Qry.CreateVariable("GRP_ID", otInteger, grp_id);
     Qry.Execute();
+    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
     int pax_id = Qry.FieldAsInteger(0);
-    Qry.SQLText = "select no, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
+    Qry.SQLText = "select no, color, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
     Qry.Execute();
     if (Qry.Eof) return;
     string tag_type;
@@ -923,11 +934,12 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
             get_bt_forms(tag_type, pectabsNode, prn_forms);
         }
 
-        u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no"); //???
+        u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
         int aircode = tag_no / 1000000;
         int no = tag_no % 1000000;
 
         xmlNodePtr tagNode = NewTextChild(tagsNode, "tag");
+        SetProp(tagNode, "color", Qry.FieldAsString("color"));
         SetProp(tagNode, "type", tag_type);
         SetProp(tagNode, "no", tag_no);
 
@@ -961,12 +973,54 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     GetPrintDataBT(dataNode, NodeAsInteger("grp_id", reqNode), NodeAsInteger("pr_lat", reqNode));
 }
 
-void PrintInterface::GetPectabDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string Pectab, Print;
-    GetPrintData(NodeAsInteger("grp_id", reqNode), NodeAsInteger("prn_type", reqNode), Pectab, Print);
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    NewTextChild(dataNode, "pectab", Pectab);
+    TQuery PaxQry(&OraSession);            
+    PaxQry.SQLText = 
+      "SELECT pax_id FROM pax "
+      "WHERE pax_id=:pax_id AND tid=:tid ";
+    PaxQry.DeclareVariable("pax_id",otInteger);
+    PaxQry.DeclareVariable("tid",otInteger);
+    TQuery Qry(&OraSession);  
+    Qry.SQLText = 
+        "update bp_print set pr_print = 1 where pax_id = :pax_id and time_print = :time_print and pr_print = 0";
+    Qry.DeclareVariable("pax_id", otInteger);
+    Qry.DeclareVariable("time_print", otDate);
+    xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
+    while(curNode) {
+        PaxQry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
+        PaxQry.SetVariable("tid", NodeAsInteger("@tid", curNode));
+        PaxQry.Execute();
+        if(PaxQry.Eof)
+            throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+        Qry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
+        Qry.SetVariable("time_print", NodeAsDateTime("@time_print", curNode));
+        Qry.Execute();
+        if (Qry.RowsProcessed()==0)
+            throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+        curNode = curNode->next;
+    }
+}
+
+void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "update bag_tags set pr_print = 1 where tag_type = :type and no = :no and "
+        "   (color is null and :color is null or color = :color) and pr_print = 0";
+    Qry.DeclareVariable("type", otString);
+    Qry.DeclareVariable("no", otFloat);
+    Qry.DeclareVariable("color", otString);
+    xmlNodePtr curNode = NodeAsNode("tags/tag", reqNode);
+    while(curNode) {
+        Qry.SetVariable("type", NodeAsString("@type", curNode));
+        Qry.SetVariable("no", NodeAsFloat("@no", curNode));
+        Qry.SetVariable("color", NodeAsString("@color", curNode));
+        Qry.Execute();
+        if (Qry.RowsProcessed()==0)
+            throw UserException("Изменения по багажу производились с другой стойки. Обновите данные");
+        curNode = curNode->next;
+    }
 }
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
