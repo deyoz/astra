@@ -258,8 +258,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     int grp_id;
     int trip_id;
     {
-        TQuery Qry(&OraSession);        
-        Qry.SQLText = 
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
             "begin "
             "   select "
             "      grp_id into :grp_id "
@@ -384,7 +384,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "from "
         "   pax, "
         "   persons, "
-        "   refuse "
+       // "   refuse "
         "where "
         "   pax_id = :pax_id and "
         "   pax.pers_type = persons.code  and "
@@ -421,7 +421,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_grp, "
         "   airps, "
         "   classes, "
-        "   classes cl_bag "
+      //  "   classes cl_bag "
         "where "
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.target = airps.cod and "
@@ -648,14 +648,14 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = "select point_id, class from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
     int trip_id = Qry.FieldAsInteger("point_id");
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
-    Qry.SQLText = 
+    Qry.SQLText =
         "SELECT bp_id, form, prn_form FROM trip_bp tb, bp_forms bf "
         "WHERE bp_id = id and "
         "point_id=:point_id AND (class IS NULL OR class=:class) AND tb.pr_ier=:prn_type "
@@ -699,19 +699,20 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     GetPrintData(grp_id, prn_type, Pectab, Print);
     xmlNodePtr BPNode = NewTextChild(dataNode, "BP");
     NewTextChild(BPNode, "pectab", Pectab);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     if(pr_all)
         Qry.SQLText =
             "select pax_id from pax where grp_id = :grp_id and refuse is null order by reg_no";
     else
         Qry.SQLText =
-            "select pax.pax_id from "
+            "select distinct pax.reg_no,pax.pax_id from "
             "   pax, bp_print "
             "where "
             "   pax.grp_id = :grp_id and "
             "   pax.refuse is null and "
             "   pax.pax_id = bp_print.pax_id(+) and "
-            "   bp_print.pr_print(+) <> 0 "
+            "   bp_print.pr_print(+) <> 0 and " //???
+            "   bp_print.pax_id IS NULL "
             "order by "
             "   pax.reg_no";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
@@ -763,7 +764,7 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void get_bt_forms(string tag_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
     prn_forms.clear();
-    TQuery FormsQry(&OraSession);        
+    TQuery FormsQry(&OraSession);
     FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type order by id, num";
     FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
     FormsQry.Execute();
@@ -804,7 +805,7 @@ void DumpRoute(vector<TBTRouteItem> &route)
 
 void get_route(int grp_id, vector<TBTRouteItem> &route)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  "
         "   trips.scd,  "
@@ -900,7 +901,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
 {
     vector<TBTRouteItem> route;
     get_route(grp_id, route);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "select pax_id from pax where grp_id = :grp_id and refuse is null and reg_no = "
         "(select min(reg_no) from pax where grp_id = :grp_id and refuse is null)";
@@ -909,6 +910,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     int pax_id = Qry.FieldAsInteger(0);
     Qry.SQLText = "select no, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
     Qry.Execute();
+    if (Qry.Eof) return;
     string tag_type;
     vector<string> prn_forms;
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
@@ -921,7 +923,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
             get_bt_forms(tag_type, pectabsNode, prn_forms);
         }
 
-        int tag_no = Qry.FieldAsInteger("no");
+        u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no"); //???
         int aircode = tag_no / 1000000;
         int no = tag_no % 1000000;
 
