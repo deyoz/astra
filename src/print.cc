@@ -38,13 +38,14 @@ class PrintDataParser {
                 TQrys Qrys;
                 TQuery *prnQry;
 
-                TData::iterator data_find(string name);
+                bool printed(TData::iterator di);
 
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
                 void add_tag(string name, int val);
                 void add_tag(string name, string val);
+                void add_tag(string name, TDateTime val);
                 TQuery *get_prn_qry();
                 ~t_field_map();
         };
@@ -62,13 +63,12 @@ class PrintDataParser {
         TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
         void add_tag(string name, int val) { return field_map.add_tag(name, val); };
         void add_tag(string name, string val) { return field_map.add_tag(name, val); };
+        void add_tag(string name, TDateTime val) { return field_map.add_tag(name, val); };
 };
 
-PrintDataParser::t_field_map::TData::iterator PrintDataParser::t_field_map::data_find(string name)
+bool PrintDataParser::t_field_map::printed(TData::iterator di)
 {
-    TData::iterator result = data.find(name);
-    if(result == data.end()) throw Exception("tag not found for bp_print: " + name);
-    return result;
+    return di != data.end() && di->second.pr_print;
 }
 
 TQuery *PrintDataParser::t_field_map::get_prn_qry()
@@ -155,114 +155,126 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     prnQry->DeclareVariable("SURNAME", otString);
     prnQry->DeclareVariable("SUFFIX", otString);
 
-    TData::iterator di1, di2;
+    TData::iterator di1, di2, di3;
 
-    di1 = data_find("AIRLINE");
-    di2 = data_find("AIRLINE_NAME");
-    if(di1->second.pr_print || di2->second.pr_print)
+    di1 = data.find("AIRLINE");
+    di2 = data.find("AIRLINE_NAME");
+    if(printed(di1) || printed(di2))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
-    di1 = data_find("SCD");
-    if(di1->second.pr_print)
+    di1 = data.find("SCD");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
 
-    di1 = data_find("BRD_FROM");
-    if(di1->second.pr_print)
-        prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
-
-
-    di1 = data_find("BRD_TO");
-    if(di1->second.pr_print)
+    di1 = data.find("BRD_FROM");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
 
 
-    di1 = data_find("AIRP_ARV");
-    di2 = data_find("AIRP_ARV_NAME");
-    if(di1->second.pr_print || di2->second.pr_print)
+    di1 = data.find("BRD_TO");
+    if(printed(di1))
+        prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
+
+
+    di1 = data.find("AIRP_ARV");
+    di2 = data.find("AIRP_ARV_NAME");
+    if(printed(di1) || printed(di2))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("AIR_COD");
-    di2 = data_find("AIR_NAME");
-    if(di1->second.pr_print)
+    di1 = data.find("AIRP_DEP");
+    di2 = data.find("AIRP_DEP_NAME");
+    if(printed(di1) || printed(di2))
         prnQry->SetVariable("AIRP_DEP", di1->second.StringVal);
 
 
-    di1 = data_find("CLASS");
-    if(di1->second.pr_print)
+    di1 = data.find("CLASS");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("GATE");
-    if(di1->second.pr_print)
+    di1 = data.find("GATE");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("REG_NO");
-    if(di1->second.pr_print)
+    di1 = data.find("REG_NO");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("NAME");
-    if(di1->second.pr_print)
+    di1 = data.find("NAME");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("SEAT_NO");
-    if(di1->second.pr_print)
+    di1 = data.find("SEAT_NO");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("PR_SMOKE");
-    if(di1->second.pr_print)
+    di1 = data.find("PR_SMOKE");
+    di2 = data.find("NO_SMOKE");
+    di3 = data.find("SMOKE");
+    if(printed(di1) || printed(di2) || printed(di3))
         prnQry->SetVariable(di1->first, di1->second.FloatVal);
 
 
-    di1 = data_find("BAG_AMOUNT");
-    if(di1->second.pr_print)
+    di1 = data.find("BAG_AMOUNT");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("BAG_WEIGHT");
-    if(di1->second.pr_print)
+    di1 = data.find("BAG_WEIGHT");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("RK_WEIGHT");
-    if(di1->second.pr_print)
+    di1 = data.find("RK_WEIGHT");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("TAGS");
-    if(di1->second.pr_print)
+    di1 = data.find("TAGS");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("EXCESS");
-    if(di1->second.pr_print)
+    di1 = data.find("EXCESS");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("PERS_TYPE");
-    if(di1->second.pr_print)
+    di1 = data.find("PERS_TYPE");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("FLT_NO");
-    if(di1->second.pr_print)
+    di1 = data.find("FLT_NO");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.IntegerVal);
 
 
-    di1 = data_find("SURNAME");
-    if(di1->second.pr_print)
+    di1 = data.find("SURNAME");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data_find("SUFFIX");
-    if(di1->second.pr_print)
+    di1 = data.find("SUFFIX");
+    if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
     return prnQry;
+}
+
+void PrintDataParser::t_field_map::add_tag(string name, TDateTime val)
+{
+    name = upperc(name);
+    TTagValue TagValue;
+    TagValue.null = false;
+    TagValue.type = otDate;
+    TagValue.DateTimeVal = val;
+    data[name] = TagValue;
 }
 
 void PrintDataParser::t_field_map::add_tag(string name, string val)
@@ -437,15 +449,14 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "SELECT "
-        "   system.localsysdate issued, "
-        "   airps.cod air_cod, "
-        "   airps.lat air_cod_lat, "
-        "   airps.name air_name, "
-        "   airps.latname air_name_lat, "
-        "   cities.cod city_cod, "
-        "   cities.lat city_cod_lat, "
-        "   cities.name city_name, "
-        "   cities.latname city_name_lat "
+        "   airps.cod airp_dep, "
+        "   airps.lat airp_dep_lat, "
+        "   airps.name airp_dep_name, "
+        "   airps.latname airp_dep_name_lat, "
+        "   cities.cod city_dep_cod, "
+        "   cities.lat city_dep_cod_lat, "
+        "   cities.name city_dep_name, "
+        "   cities.latname city_dep_name_lat "
         "FROM "
         "   options, "
         "   airps, "
@@ -468,12 +479,12 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   avia.latkod airline_lat, "
         "   avia.ak_name airline_name, "
         "   avia.latname airline_name_lat, "
-        "   trips.BC, "
-        "   system.transliter(trips.BC, 1) bc_lat, "
+        "   trips.BC craft, "
+        "   system.transliter(trips.BC, 1) craft_lat, "
         "   trips.BORT, "
         "   system.transliter(trips.BORT, 1) bort_lat, "
-        "   trips.TRIPTYPE, "
-        "   system.transliter(trips.TRIPTYPE, 1) triptype_lat, "
+        "   trips.TRIPTYPE trip_type, "
+        "   system.transliter(trips.TRIPTYPE, 1) trip_type_lat, "
         "   trips.LITERA, "
         "   system.transliter(trips.LITERA, 1) litera_lat, "
         "   trips.PARK, "
@@ -481,12 +492,9 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   trips.MAX_COMMERCE, "
         "   trips.REMARK, "
         "   system.transliter(trips.REMARK, 1) remark_lat, "
-        "   trips.MOVE_ROW_ID, "
         "   trips.FLT_NO, "
         "   trips.SUFFIX, "
-        "   system.transliter(trips.SUFFIX, 1) suffix_lat, "
-        "   trips.COMP_ID, "
-        "   trips.PR_ETSTATUS "
+        "   system.transliter(trips.SUFFIX, 1) suffix_lat "
         "from "
         "   trips, "
         "   avia "
@@ -502,7 +510,6 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     Qry->SQLText =
         "select "
         "   pax.PAX_ID, "
-        "   pax.GRP_ID, "
         "   pax.SURNAME, "
         "   system.transliter(pax.SURNAME, 1) surname_lat, "
         "   pax.NAME, "
@@ -520,21 +527,31 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "       'SMSW',1, "
         "       'SMST',1, "
         "       0) pr_smoke, "
+        "   DECODE( "
+        "       pax.SEAT_TYPE, "
+        "       'SMSA',' ', "
+        "       'SMSW',' ', "
+        "       'SMST',' ', "
+        "       'X') no_smoke, "
+        "   DECODE( "
+        "       pax.SEAT_TYPE, "
+        "       'SMSA','X', "
+        "       'SMSW','X', "
+        "       'SMST','X', "
+        "       ' ') smoke, "
         "   pax.SEATS, "
-        "   pax.PR_BRD, "
         "   pax.REG_NO, "
         "   pax.TICKET_NO, "
+        "   pax.COUPON_NO, "
         "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
         "   pax.DOCUMENT, "
         "   system.transliter(pax.DOCUMENT, 1) document_lat, "
         "   pax.SUBCLASS, "
         "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
-        "   pax.DOC_CHECK, "
-        "   pax.PREV_SEAT_NO, "
         "   ckin.get_birks(pax.grp_id, pax.reg_no, 0) tags, "
         "   ckin.get_birks(pax.grp_id, pax.reg_no, 1) tags_lat, "
-        "   pax.COUPON_NO, "
-        "   ckin.get_pnr(:pax_id) pnr "
+        "   ckin.get_pnr(:pax_id) pnr, "
+        "   system.transliter(ckin.get_pnr(:pax_id)) pnr_lat "
         "from "
         "   pax, "
         "   persons "
@@ -551,28 +568,30 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   airps.lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
         "   airps.latname airp_arv_name_lat, "
-        "   pax_grp.point_id, "
+        "   cities.cod city_arv, "
+        "   cities.lat city_arv_lat, "
+        "   cities.name city_arv_name, "
+        "   cities.latname city_arv_name_lat, "
         "   pax_grp.class, "
         "   classes.lat class_lat, "
         "   classes.name class_name, "
         "   classes.name_lat class_name_lat, "
         "   pax_grp.EXCESS, "
-        "   pax_grp.PR_WL, "
-        "   pax_grp.WL_TYPE, "
-        "   pax_grp.WL_NUM, "
         "   pax_grp.HALL, "
-        "   pax_grp.PR_REFUSE, "
+        "   system.transliter(pax_grp.HALL) hall_lat, "
         "   ckin.get_bagAmount(pax_grp.grp_id, null) bag_amount, "
         "   ckin.get_bagWeight(pax_grp.grp_id, null) bag_weight, "
         "   ckin.get_rkWeight(pax_grp.grp_id, null) rk_weight "
         "from "
         "   pax_grp, "
         "   airps, "
-        "   classes "
+        "   classes, "
+        "   cities "
         "where "
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.target = airps.cod and "
-        "   pax_grp.class = classes.id ";
+        "   pax_grp.class = classes.id and "
+        "   airps.city = cities.cod ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
     Qrys.push_back(Qry);
 }
@@ -814,6 +833,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     if(Qry.Eof) throw UserException("На рейс не назначен бланк посадочных талонов");
     Pectab = Qry.FieldAsString("form");
     Print = Qry.FieldAsString("prn_form");
+//    if(Print.empty()) throw Exception("print form is empty for bp_id " + IntToString(Qry.FieldAsInteger("bp_id")));
 }
 
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
@@ -924,6 +944,9 @@ void get_bt_forms(string tag_type, xmlNodePtr pectabsNode, vector<string> &prn_f
     if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
     while(!FormsQry.Eof) {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        if(FormsQry.FieldIsNULL("prn_form"))
+            throw Exception("print form is empty for id " + IntToString(FormsQry.FieldAsInteger("id")) +
+                    ", num " + IntToString(FormsQry.FieldAsInteger("num")));
         prn_forms.push_back(FormsQry.FieldAsString("prn_form"));
         FormsQry.Next();
     }
@@ -1056,10 +1079,6 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     get_route(grp_id, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        /*
-        "select pax_id from pax where grp_id = :grp_id and refuse is null and reg_no = "
-        "(select min(reg_no) from pax where grp_id = :grp_id and refuse is null)";
-        */
         "select "
         "   pax_id "
         "from "
@@ -1083,6 +1102,10 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
     xmlNodePtr pectabsNode = NewTextChild(printBTNode, "pectabs");
     xmlNodePtr tagsNode = NewTextChild(printBTNode, "tags");
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
+    
     while(!Qry.Eof) {
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
@@ -1103,6 +1126,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
 
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
+        parser.add_tag("issued", issued);
 
         int VIA_num = prn_forms.size();
         int route_size = route.size();
