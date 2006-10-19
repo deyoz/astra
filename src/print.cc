@@ -833,7 +833,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     if(Qry.Eof) throw UserException("На рейс не назначен бланк посадочных талонов");
     Pectab = Qry.FieldAsString("form");
     Print = Qry.FieldAsString("prn_form");
-//    if(Print.empty()) throw Exception("print form is empty for bp_id " + IntToString(Qry.FieldAsInteger("bp_id")));
+    if(Print.empty()) throw Exception("print form is empty for bp_id " + IntToString(Qry.FieldAsInteger("bp_id")));
 }
 
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
