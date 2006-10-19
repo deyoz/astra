@@ -20,7 +20,7 @@ class PrintDataParser {
         class t_field_map {
             private:
                 struct TTagValue {
-                    bool null;
+                    bool null, pr_print;
                     otFieldType type;
                     string StringVal;
                     double FloatVal;
@@ -32,33 +32,20 @@ class PrintDataParser {
                 TData data;
                 void dump_data();
 
-                class TPrnQryBuilder {
-                    private:
-                        TQuery Qry;
-                        TQuery prnFields;
-                        string name_list, var_list;
-                    public:
-                        TPrnQryBuilder(int pax_id): Qry(&OraSession), prnFields(&OraSession)
-                        {
-                            Qry.CreateVariable("PAX_ID", otInteger, pax_id);
-                            Qry.CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
-                            prnFields.SQLText = "select * from bp_print where 1 = 0";
-                            prnFields.Execute();
-                        };
-                        void set_field(string name, TTagValue &val);
-                        TQuery *get();
-                } *PrnQryBuilder;
-
+                int pax_id;
                 int pr_lat;
                 typedef vector<TQuery*> TQrys;
                 TQrys Qrys;
+                TQuery *prnQry;
+
+                TData::iterator data_find(string name);
 
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
                 string get_field(string name, int len, string align, string date_format);
                 void add_tag(string name, int val);
                 void add_tag(string name, string val);
-                TQuery *get_prn_qry() { return PrnQryBuilder->get(); };
+                TQuery *get_prn_qry();
                 ~t_field_map();
         };
 
@@ -76,6 +63,207 @@ class PrintDataParser {
         void add_tag(string name, int val) { return field_map.add_tag(name, val); };
         void add_tag(string name, string val) { return field_map.add_tag(name, val); };
 };
+
+PrintDataParser::t_field_map::TData::iterator PrintDataParser::t_field_map::data_find(string name)
+{
+    TData::iterator result = data.find(name);
+    if(result == data.end()) throw Exception("tag not found for bp_print: " + name);
+    return result;
+}
+
+TQuery *PrintDataParser::t_field_map::get_prn_qry()
+{
+    prnQry = OraSession.CreateQuery();
+    prnQry->SQLText =
+        "begin "
+        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
+        "   insert into bp_print( "
+        "       pax_id, "
+        "       time_print, "
+        "       pr_print, "
+        "       desk, "
+        "       AIRLINE, "
+        "       SCD, "
+        "       BRD_FROM, "
+        "       BRD_TO, "
+        "       AIRP_ARV, "
+        "       AIRP_DEP, "
+        "       CLASS, "
+        "       GATE, "
+        "       REG_NO, "
+        "       NAME, "
+        "       SEAT_NO, "
+        "       PR_SMOKE, "
+        "       BAG_AMOUNT, "
+        "       BAG_WEIGHT, "
+        "       RK_WEIGHT, "
+        "       TAGS, "
+        "       EXCESS, "
+        "       PERS_TYPE, "
+        "       FLT_NO, "
+        "       SURNAME, "
+        "       SUFFIX "
+        "   ) values( "
+        "       :pax_id, "
+        "       :now_utc, "
+        "       0, "
+        "       :desk, "
+        "       :AIRLINE, "
+        "       :SCD, "
+        "       :BRD_FROM, "
+        "       :BRD_TO, "
+        "       :AIRP_ARV, "
+        "       :AIRP_DEP, "
+        "       :CLASS, "
+        "       :GATE, "
+        "       :REG_NO, "
+        "       :NAME, "
+        "       :SEAT_NO, "
+        "       :PR_SMOKE, "
+        "       :BAG_AMOUNT, "
+        "       :BAG_WEIGHT, "
+        "       :RK_WEIGHT, "
+        "       :TAGS, "
+        "       :EXCESS, "
+        "       :PERS_TYPE, "
+        "       :FLT_NO, "
+        "       :SURNAME, "
+        "       :SUFFIX "
+        "   ); "
+        "end;";
+    prnQry->CreateVariable("pax_id", otInteger, pax_id);
+    prnQry->CreateVariable("DESK", otString, TReqInfo::Instance()->desk.code);
+    prnQry->DeclareVariable("AIRLINE", otString);
+    prnQry->DeclareVariable("SCD", otDate);
+    prnQry->DeclareVariable("BRD_FROM", otDate);
+    prnQry->DeclareVariable("BRD_TO", otDate);
+    prnQry->DeclareVariable("AIRP_ARV", otString);
+    prnQry->DeclareVariable("AIRP_DEP", otString);
+    prnQry->DeclareVariable("CLASS", otString);
+    prnQry->DeclareVariable("GATE", otString);
+    prnQry->DeclareVariable("REG_NO", otInteger);
+    prnQry->DeclareVariable("NAME", otString);
+    prnQry->DeclareVariable("SEAT_NO", otString);
+    prnQry->DeclareVariable("PR_SMOKE", otInteger);
+    prnQry->DeclareVariable("BAG_AMOUNT", otInteger);
+    prnQry->DeclareVariable("BAG_WEIGHT", otInteger);
+    prnQry->DeclareVariable("RK_WEIGHT", otInteger);
+    prnQry->DeclareVariable("TAGS", otString);
+    prnQry->DeclareVariable("EXCESS", otInteger);
+    prnQry->DeclareVariable("PERS_TYPE", otString);
+    prnQry->DeclareVariable("FLT_NO", otInteger);
+    prnQry->DeclareVariable("SURNAME", otString);
+    prnQry->DeclareVariable("SUFFIX", otString);
+
+    TData::iterator di1, di2;
+
+    di1 = data_find("AIRLINE");
+    di2 = data_find("AIRLINE_NAME");
+    if(di1->second.pr_print || di2->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+    di1 = data_find("SCD");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
+
+    di1 = data_find("BRD_FROM");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
+
+
+    di1 = data_find("BRD_TO");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.DateTimeVal);
+
+
+    di1 = data_find("AIRP_ARV");
+    di2 = data_find("AIRP_ARV_NAME");
+    if(di1->second.pr_print || di2->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("AIR_COD");
+    di2 = data_find("AIR_NAME");
+    if(di1->second.pr_print)
+        prnQry->SetVariable("AIRP_DEP", di1->second.StringVal);
+
+
+    di1 = data_find("CLASS");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("GATE");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("REG_NO");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("NAME");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("SEAT_NO");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("PR_SMOKE");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.FloatVal);
+
+
+    di1 = data_find("BAG_AMOUNT");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("BAG_WEIGHT");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("RK_WEIGHT");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("TAGS");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("EXCESS");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("PERS_TYPE");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("FLT_NO");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+
+
+    di1 = data_find("SURNAME");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+
+    di1 = data_find("SUFFIX");
+    if(di1->second.pr_print)
+        prnQry->SetVariable(di1->first, di1->second.StringVal);
+
+    return prnQry;
+}
 
 void PrintDataParser::t_field_map::add_tag(string name, string val)
 {
@@ -95,44 +283,6 @@ void PrintDataParser::t_field_map::add_tag(string name, int val)
     TagValue.type = otInteger;
     TagValue.IntegerVal = val;
     data[name] = TagValue;
-}
-
-TQuery *PrintDataParser::t_field_map::TPrnQryBuilder::get()
-{
-    string qry =
-        "begin "
-        "   delete from bp_print where pax_id = :pax_id and pr_print = 0 and desk=:desk; "
-        "   insert into bp_print(pax_id, time_print, pr_print, desk" + name_list + ") "
-        "   values(:pax_id, :now_utc, 0, :desk" + var_list + "); "
-        "end;";
-    Qry.SQLText = qry;
-    return &Qry;
-}
-
-void PrintDataParser::t_field_map::TPrnQryBuilder::set_field(string name, TTagValue &val)
-{
-    if(prnFields.GetFieldIndex(name) != -1 && Qry.Variables->FindVariable(name.c_str()) < 0) {
-        name_list += ", " + name;
-        var_list += ", :" + name;
-        Qry.DeclareVariable(name, val.type);
-        switch(val.type) {
-            case otString:
-            case otChar:
-            case otLong:
-            case otLongRaw:
-                Qry.SetVariable(name, val.StringVal);
-                break;
-            case otFloat:
-                Qry.SetVariable(name, val.FloatVal);
-                break;
-            case otInteger:
-                Qry.SetVariable(name, val.IntegerVal);
-                break;
-            case otDate:
-                Qry.SetVariable(name, val.DateTimeVal);
-                break;
-        }
-    }
 }
 
 void PrintDataParser::t_field_map::dump_data()
@@ -167,6 +317,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             if(data.find((*ti)->FieldName(i)) != data.end())
                 throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
             TTagValue TagValue;
+            TagValue.pr_print = 0;
             TagValue.null = (*ti)->FieldIsNULL(i);
             switch((*ti)->FieldType(i)) {
                 case otString:
@@ -196,7 +347,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(di != data.end()) {
         if(pr_lat && !di_ru->second.null && di->second.null)
             throw Exception("value is empty for " + di->first);
-        PrnQryBuilder->set_field(di_ru->first, di_ru->second);
+        di_ru->second.pr_print = 1;
         TTagValue TagValue = di->second;
         ostringstream buf;
         buf.width(len);
@@ -228,13 +379,13 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
 
 PrintDataParser::t_field_map::~t_field_map()
 {
+    OraSession.DeleteQuery(*prnQry);
     for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
-    delete(PrnQryBuilder);
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode)
 {
-    PrnQryBuilder = new TPrnQryBuilder(pax_id);
+    this->pax_id = pax_id;
     this->pr_lat = pr_lat;
     if(tagsNode) {
         // Положим в мэп теги из клиентского запроса
@@ -363,7 +514,12 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   system.transliter(pax.SEAT_NO, 1) seat_no_lat, "
         "   pax.SEAT_TYPE, "
         "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
-        "   DECODE(pax.SEAT_TYPE,'SMSA',1,'SMSW',1,'SMST',1,0) pr_smoke, "
+        "   DECODE( "
+        "       pax.SEAT_TYPE, "
+        "       'SMSA',1, "
+        "       'SMSW',1, "
+        "       'SMST',1, "
+        "       0) pr_smoke, "
         "   pax.SEATS, "
         "   pax.PR_BRD, "
         "   pax.REG_NO, "
@@ -642,7 +798,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Qry.SQLText = "select point_id, class from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    if(!Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
     int trip_id = Qry.FieldAsInteger("point_id");
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
