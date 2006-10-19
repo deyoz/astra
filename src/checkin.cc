@@ -613,7 +613,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
   
   Qry.Clear();
-  Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND rownum=1";
+  Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
   Qry.DeclareVariable("pax_id",otInteger);    
   PaxQry.Clear();
   PaxQry.SQLText=
