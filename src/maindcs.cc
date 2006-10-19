@@ -23,7 +23,7 @@ void GetModuleList(xmlNodePtr resNode)
       "WHERE user_roles.role_id=role_rights.role_id AND "
       "      role_rights.right_id=screen_rights.right_id AND "
       "      screen_rights.screen_id=screen.id AND "
-      "      user_roles.user_id=:user_id ";
+      "      user_roles.user_id=:user_id "
       "ORDER BY id ";                 
     Qry.DeclareVariable("user_id", otInteger);
     Qry.SetVariable("user_id", reqinfo->user.user_id);
