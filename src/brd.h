@@ -2,7 +2,7 @@
 #define _BRD_H_
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"		
+#include "JxtInterface.h"
 
 class BrdInterface : public JxtInterface
 {
@@ -13,8 +13,6 @@ public:
   BrdInterface() : JxtInterface("123","brd")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Trip);
-     AddEvent("trip",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::BrdList);
      AddEvent("brd_list",evHandle);
      AddEvent("search_reg",evHandle);
@@ -23,13 +21,13 @@ public:
      AddEvent("brd_paxupd",evHandle);
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::Deplane);
      AddEvent("brd_deplane",evHandle);
-  };	
-  
+  };
+
   void Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  static void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

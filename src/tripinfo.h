@@ -21,9 +21,9 @@ struct TVar {
 
 class TSQLParams {
   private:
-    std::vector<TVar> vars;  
+    std::vector<TVar> vars;
   public:
-    std::string sqlfrom;  
+    std::string sqlfrom;
     void addVariable( TVar &var );
     void addVariable( std::string aname, otFieldType atype, std::string avalue );
     void clearVariables( );
@@ -34,11 +34,11 @@ class TSQL
 {
 private:
   std::map<std::string,TSQLParams> sqltrips;
-  static TSQL *Instance(); 
+  static TSQL *Instance();
   void createSQLTrips( );
 public:
   TSQL();
-  static void setSQLTrips( TQuery &Qry, const std::string &screen ); 
+  static void setSQLTrips( TQuery &Qry, const std::string &screen );
 };
 
 void readTripCounters( int point_id, xmlNodePtr dataNode );
@@ -52,12 +52,15 @@ public:
   TripsInterface() : JxtInterface("","trips")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::ReadTrips);
-     AddEvent("ReadTrips",evHandle);     
+     evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::GetTripList);
+     AddEvent("GetTripList",evHandle);
+     evHandle=JxtHandler<TripsInterface>::CreateHandler(&TripsInterface::GetTripInfo);
+     AddEvent("GetTripInfo",evHandle);
   };
-  void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
- 
+
 #endif /*_TRIPINFO_H_*/
 

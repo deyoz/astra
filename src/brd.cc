@@ -6,6 +6,7 @@
 #include "oralib.h"
 #include "cache.h"
 #include "astra_utils.h"
+#include "stages.h"
 
 
 using namespace EXCEPTIONS;
@@ -57,7 +58,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
         Qry->SetVariable("trip_id", trip_id);
         Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-        Qry->Execute();        
+        Qry->Execute();
         TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, trip_id);
         OraSession.DeleteQuery(*Qry);
     } catch(...) {
@@ -316,7 +317,7 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no_str))
         {
             NewTextChild(dataNode, "failed");
-        }    
+        }
         else {
             // update
             Pax->pr_brd = !Pax->pr_brd;
@@ -383,8 +384,10 @@ void BrdInterface::SetCounters(xmlNodePtr dataNode)
 void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery *Qry = OraSession.CreateQuery();
+    int trip_id = NodeAsInteger("point_id", reqNode);
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    if(GetNode("info", reqNode)) {
+    NewTextChild(dataNode, "point_id", trip_id);
+    if(GetNode("tripheader", reqNode)) {
         Qry->SQLText =
             "SELECT "
             "    trips.trip_id, "
@@ -413,12 +416,15 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
             "    trips.trip_id= :trip_id AND "
             "    trips.status=0 AND  "
             "    stages.brd_stage = :brd_open_stage_id ";
-        TParams1 SQLParams;
-        SQLParams.getParams(GetNode("sqlparams", reqNode));
-        SQLParams.setSQL(Qry);
+
+        Qry->CreateVariable("brd_close_stage_id",otInteger,sCloseBoarding);
+        Qry->CreateVariable("brd_stage_type",otInteger,stBoarding);
+        Qry->CreateVariable("brd_open_stage_id",otInteger,sOpenBoarding);
+        Qry->CreateVariable("station",otString,TReqInfo::Instance()->desk.code);
+        Qry->CreateVariable("trip_id",otInteger,trip_id);
         Qry->Execute();
         if(!Qry->Eof) {
-            xmlNodePtr fltNode = NewTextChild(dataNode, "flt");
+            xmlNodePtr fltNode = NewTextChild(dataNode, "tripheader");
             NewTextChild(fltNode, "trip_id", Qry->FieldAsInteger("trip_id"));
             NewTextChild(fltNode, "bc", Qry->FieldAsString("bc"));
             NewTextChild(fltNode, "classes", Qry->FieldAsString("classes"));
@@ -427,13 +433,14 @@ void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
             NewTextChild(fltNode, "takeoff", Qry->FieldAsString("takeoff"));
             NewTextChild(fltNode, "triptype", Qry->FieldAsString("triptype"));
             NewTextChild(fltNode, "litera", Qry->FieldAsString("litera"));
-            NewTextChild(fltNode, "brd_stage", Qry->FieldAsInteger("brd_stage"));
+            NewTextChild(fltNode, "brd_stage",
+              TStagesRules::Instance()->status( stBoarding, (TStage)Qry->FieldAsInteger("brd_stage") ) );
             NewTextChild(fltNode, "remark", Qry->FieldAsString("remark"));
         }
+        else showErrorMessage( "Информация о рейсе недоступна" );
     }
     Qry->Clear();
     if(GetNode("counters", reqNode)) {
-        int trip_id = NodeAsInteger("sqlparams/trip_id", reqNode);
         JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", trip_id);
         Qry->SQLText =
             "SELECT "

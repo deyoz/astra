@@ -8,6 +8,8 @@
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "prepreg.h"
+#include "brd.h"
 
 using namespace std;
 
@@ -115,9 +117,9 @@ void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {
 }
 
 /*******************************************************************************/
-void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE5, "TripsInterface::ReadTrips" );
+  ProgTrace(TRACE5, "TripsInterface::GetTripList" );
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   TQuery Qry( &OraSession );
@@ -132,6 +134,16 @@ void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild( tripNode, "str", Qry.FieldAsString( "str" ) );
     Qry.Next();
   }
+};
+
+void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    BrdInterface::Trip(ctxt,reqNode,resNode);
+  if (reqInfo->screen.name == "PREPREG.EXE")
+    PrepRegInterface::ReadTripInfo(ctxt,reqNode,resNode);
+
 };
 
 void readTripCounters( int point_id, xmlNodePtr dataNode )
