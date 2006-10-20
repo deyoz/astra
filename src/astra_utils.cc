@@ -50,21 +50,34 @@ string AlignString(string str, int len, string align)
 
 const string COMMON_ORAUSER()
 {
-  static string CORAUSER;	
+  static string CORAUSER;
   if ( CORAUSER.empty() ) {
     char r[100];
     r[0]=0;
     if ( get_param( "COMMON_ORAUSER", r, sizeof( r ) ) < 0 )
       throw Exception( "Can't read param COMMON_ORAUSER" );
     CORAUSER = r;
-    ProgTrace( TRACE5, "COMMON_ORAUSER=%s", CORAUSER.c_str() );  	
-  }  
-  return CORAUSER;	
+    ProgTrace( TRACE5, "COMMON_ORAUSER=%s", CORAUSER.c_str() );
+  }
+  return CORAUSER;
 }
+
+TScreen::TScreen()
+{
+  id=0;
+  version=0;
+};
+
+void TScreen::clear()
+{
+  id=0;
+  version=0;
+  name.clear();
+};
 
 TDesk::TDesk()
 {
-  time = 0;	
+  time = 0;
 };
 
 void TDesk::clear()
@@ -76,19 +89,19 @@ void TDesk::clear()
 };
 
 TUser::TUser()
-{  
+{
   time_form = tfUnknown;
-  user_id = -1;	
+  user_id = -1;
 };
 
 void TUser::clear()
 {
   login.clear();
   descr.clear();
-  access.clear();      
+  access.clear();
   time_form = tfUnknown;
   user_id=-1;
-};	
+};
 
 void TAccess::clear()
 {
@@ -99,20 +112,19 @@ void TAccess::clear()
 
 TReqInfo::TReqInfo()
 {
-  screen_id = 0;
 };
 
 void TReqInfo::clear()
 {
-  screen_id = 0;
   desk.clear();
-  user.clear();  
-  
+  user.clear();
+  screen.clear();
+
   opt.airport.clear();
   opt.airport_lat.clear();
   opt.city.clear();
   opt.airport_name.clear();
-  opt.city_name.clear();  
+  opt.city_name.clear();
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -123,113 +135,117 @@ TReqInfo *TReqInfo::Instance()
   return instance_;
 };
 
-void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult, 
+void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
                            const std::string &vopr, bool checkUserLogon )
 {
   clear();
   TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
-  screen = upperc( vscreen );	
-  desk.code = vpult;        
+  screen.name = upperc( vscreen );
+  desk.code = vpult;
   string sql;
-  
+
   Qry.Clear();
-  sql = string( "SELECT id FROM " ) + COMMON_ORAUSER() + ".screen WHERE exe = :screen";
+  sql = string( "SELECT id,version FROM " ) + COMMON_ORAUSER() + ".screen WHERE exe = :exe";
   Qry.SQLText = sql;
-  Qry.DeclareVariable( "screen", otString );
-  Qry.SetVariable( "screen", screen );
-  Qry.Execute();    
-  if ( Qry.RowCount() == 0 )    
-    throw Exception( (string)"Unknown screen " + screen );  
-  screen_id = Qry.FieldAsInteger( "id" );
-      
+  Qry.DeclareVariable( "exe", otString );
+  Qry.SetVariable( "exe", screen.name );
+  Qry.Execute();
+  if ( Qry.RowCount() == 0 )
+    throw Exception( (string)"Unknown screen " + screen.name );
+  screen.id = Qry.FieldAsInteger( "id" );
+  screen.version = Qry.FieldAsInteger( "version" );
+
   Qry.Clear();
   sql = string("SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region FROM ") +COMMON_ORAUSER()+ ".desks," +
-        COMMON_ORAUSER() + ".sale_points " + 
+        COMMON_ORAUSER() + ".sale_points " +
         " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
-        
+
   Qry.SQLText = sql;
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
-  Qry.Execute();    
+  Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );         	
+    throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-    throw UserException( "Пульт отключен" );         	
+    throw UserException( "Пульт отключен" );
   desk.city = Qry.FieldAsString( "city" );
   desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
-    
+
   Qry.Clear();
-  sql = "SELECT user_id, login, descr, type, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+   
+  sql = "SELECT user_id, login, descr, type, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+
         " WHERE desk = UPPER(:pult) ";
   Qry.SQLText = sql;
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
-  Qry.Execute();    
-  
+  Qry.Execute();
+
   if ( Qry.RowCount() == 0 )
-  {      
+  {
     if (!checkUserLogon)
      	return;
-    else 	
+    else
       throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
-  };  
+  };
   if ( !vopr.empty() )
     if ( vopr != Qry.FieldAsString( "login" ) )
       throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
-      
+
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
       throw UserException( "Пользователю отказано в доступе" );
   user.user_id = Qry.FieldAsInteger( "user_id" );
-  user.descr = Qry.FieldAsString( "descr" );    
-  user.user_type = (TUserType)Qry.FieldAsInteger( "type" );   
-  user.login = Qry.FieldAsString( "login" );    
+  user.descr = Qry.FieldAsString( "descr" );
+  user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
+  user.login = Qry.FieldAsString( "login" );
   user.time_form = tfUnknown;
   if (strcmp(Qry.FieldAsString( "time_form" ),"UTC")==0)        user.time_form = tfUTC;
   if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_DESK")==0) user.time_form = tfLocalDesk;
   if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_ALL")==0)  user.time_form = tfLocalAll;
-  
+
   //если служащий порта - проверим пульт с которого он заходит
-  if (user.user_type==utAirport) 
+  if (user.user_type==utAirport)
   {
     Qry.Clear();
-    Qry.SQLText=
-      "SELECT airps.city "
-      "FROM aro_airps,airps "
-      "WHERE aro_airps.airp=airps.cod AND "
-      "      airps.city=:city AND aro_airps.aro_id=:user_id AND rownum<2 ";
+    sql = string( "SELECT airps.city " ) +
+                  "FROM " + COMMON_ORAUSER() + ".aro_airps,airps " +
+                  "WHERE aro_airps.airp=airps.cod AND "
+                  "      airps.city=:city AND aro_airps.aro_id=:user_id AND rownum<2 ";
+    Qry.SQLText=sql;
     Qry.CreateVariable("city",otString,desk.city);
     Qry.CreateVariable("user_id",otInteger,user.user_id);
     Qry.Execute();
-    if (Qry.Eof) 
-      throw UserException( "Пользователю отказано в доступе с пульта %s", desk.code.c_str() );  
-  };      
-  
+    if (Qry.Eof)
+      throw UserException( "Пользователю отказано в доступе с пульта %s", desk.code.c_str() );
+  };
+
   Qry.Clear();
-  Qry.SQLText=
-    "SELECT DISTINCT screen_rights.right_id FROM user_roles,role_rights,screen_rights "
-    "WHERE user_roles.role_id=role_rights.role_id AND "
-    "      role_rights.right_id=screen_rights.right_id AND "
-    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";
+  sql = string( "SELECT DISTINCT screen_rights.right_id " ) +
+                "FROM " + COMMON_ORAUSER() + ".user_roles, " +
+                          COMMON_ORAUSER() + ".role_rights, " +
+                          COMMON_ORAUSER() + ".screen_rights "+
+                "WHERE user_roles.role_id=role_rights.role_id AND "
+                "      role_rights.right_id=screen_rights.right_id AND "
+                "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";
+  Qry.SQLText=sql;
   Qry.DeclareVariable( "user_id",otInteger );
   Qry.DeclareVariable( "screen_id", otInteger );
   Qry.SetVariable( "user_id", user.user_id );
-  Qry.SetVariable( "screen_id", screen_id );
-  Qry.Execute();  
+  Qry.SetVariable( "screen_id", screen.id );
+  Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
     user.access.rights.push_back(Qry.FieldAsInteger("right_id"));
   Qry.Clear();
-  Qry.CreateVariable( "user_id", otInteger, user.user_id );    
-  Qry.SQLText=
-    "SELECT airline FROM aro_airlines WHERE aro_id=:user_id";        
+  Qry.CreateVariable( "user_id", otInteger, user.user_id );
+  sql = string("SELECT airline FROM ") + COMMON_ORAUSER() + ".aro_airlines WHERE aro_id=:user_id";
+  Qry.SQLText=sql;
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airlines.push_back(Qry.FieldAsString("airline"));
-  Qry.SQLText=
-    "SELECT airp FROM aro_airps WHERE aro_id=:user_id"; 
+  sql = string("SELECT airp FROM ") + COMMON_ORAUSER() + ".aro_airps WHERE aro_id=:user_id";
+  Qry.SQLText=sql;
   for(Qry.Execute();!Qry.Eof;Qry.Next())
-    user.access.airlines.push_back(Qry.FieldAsString("airp"));  
-                   
+    user.access.airps.push_back(Qry.FieldAsString("airp"));
+
   Qry.Clear();
   Qry.SQLText = "SELECT airps.cod AS air_cod,airps.lat AS air_cod_lat,airps.name AS air_name, "\
                 "       cities.cod AS city_cod,cities.name AS city_name,SYSDATE "\
@@ -242,7 +258,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     opt.airport_name = Qry.FieldAsString( "AIR_NAME" );
     opt.city = Qry.FieldAsString( "CITY_COD" );
     opt.city_name = Qry.FieldAsString( "CITY_NAME" );
-  }            
+  }
 }
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
@@ -272,7 +288,7 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     Qry->DeclareVariable("id3", otInteger);
     Qry->SetVariable("type", EncodeEventType(msg.ev_type));
     Qry->SetVariable("msg", msg.msg);
-    Qry->SetVariable("screen", screen);
+    Qry->SetVariable("screen", screen.name);
     Qry->SetVariable("ev_user", user.descr);
     Qry->SetVariable("station", desk.code);
     if(msg.id1)
@@ -407,22 +423,22 @@ char *DecodeSeatNo( char *Value )
 void showProgError(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );	
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
 };
 
 void showError(const std::string &message, int code = 0 )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
-  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );	
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", message );
   SetProp(resNode, "code", code);
 };
 
 void showErrorMessage(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
 };
 
@@ -435,22 +451,22 @@ void showErrorMessageAndRollback(const std::string &message )
 void showMessage(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);      	
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
 };
 
 void showBasicInfo(void)
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
-  TReqInfo *reqInfo = TReqInfo::Instance();	
+  TReqInfo *reqInfo = TReqInfo::Instance();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   xmlNodePtr node = GetNode("basic_info", resNode);
-  if (node!=NULL) 
+  if (node!=NULL)
   {
     xmlUnlinkNode(node);
-    xmlFreeNode(node);	
+    xmlFreeNode(node);
   };
-  resNode = NewTextChild(resNode,"basic_info");  
+  resNode = NewTextChild(resNode,"basic_info");
 
   // достанем пользователя и пароль oracle
   string buf = get_connect_string();
@@ -461,47 +477,50 @@ void showBasicInfo(void)
 
   if (!reqInfo->user.login.empty())
   {
-    node = NewTextChild(resNode,"user");    
-    NewTextChild(node, "login",reqInfo->user.login);        
-    xmlNodePtr accessNode = NewTextChild(node, "access");    
+    node = NewTextChild(resNode,"user");
+    NewTextChild(node, "login",reqInfo->user.login);
+    xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
     node = NewTextChild(accessNode, "rights");
     for(vector<int>::const_iterator i=reqInfo->user.access.rights.begin();
-                                    i!=reqInfo->user.access.rights.end();i++)   
-      NewTextChild(node,"right",*i);      
-    //права доступа к авиакомпаниям   
-    node = NewTextChild(accessNode, "airlines");  
+                                    i!=reqInfo->user.access.rights.end();i++)
+      NewTextChild(node,"right",*i);
+    //права доступа к авиакомпаниям
+    node = NewTextChild(accessNode, "airlines");
     for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                       i!=reqInfo->user.access.airlines.end();i++)   
-      NewTextChild(node,"airline",*i);        
-    //права доступа к аэропортам   
-    node = NewTextChild(accessNode, "airps");  
+                                       i!=reqInfo->user.access.airlines.end();i++)
+      NewTextChild(node,"airline",*i);
+    //права доступа к аэропортам
+    node = NewTextChild(accessNode, "airps");
     for(vector<string>::const_iterator i=reqInfo->user.access.airps.begin();
-                                       i!=reqInfo->user.access.airps.end();i++)   
-      NewTextChild(node,"airp",*i);          
-  };    
+                                       i!=reqInfo->user.access.airps.end();i++)
+      NewTextChild(node,"airp",*i);
+  };
   if (!reqInfo->desk.code.empty())
   {
-    node = NewTextChild(resNode,"desk");    
+    node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
-    NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) ); 
-  };  
+    NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+  };
+  node = NewTextChild( resNode, "screen" );
+  NewTextChild( node, "version", reqInfo->screen.version );
+
   node = NewTextChild( resNode, "opt" );
   NewTextChild( node, "airport", reqInfo->opt.airport );
   NewTextChild( node,"airport_lat", reqInfo->opt.airport_lat );
   NewTextChild( node,"city", reqInfo->opt.city );
   NewTextChild( node,"airport_name", reqInfo->opt.airport_name );
-  NewTextChild( node,"city_name", reqInfo->opt.city_name );  
+  NewTextChild( node,"city_name", reqInfo->opt.city_name );
   NewTextChild( node,"user_id", reqInfo->user.user_id );  /* ???для кассы, а вообще не нужен */
 };
 
 /***************************************************************************************/
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{   
+{
     ProgError( STDLOG, "Модуль: %s. Пульт: %s. Оператор: %s. Время: %s. Ошибка: %s.",
                NodeAsString("/term/query/@screen", ctxt->reqDoc),
                ctxt->pult.c_str(), ctxt->opr.c_str(),
-               DateTimeToStr(Now(),"dd.mm.yyyy hh:nn:ss").c_str(),
+               DateTimeToStr(NowUTC(),"dd.mm.yyyy hh:nn:ss").c_str(),
                NodeAsString( "msg", reqNode ) ) ;
 }
 
@@ -515,65 +534,65 @@ tz_database &get_tz_database()
     }
     catch (boost::local_time::data_not_accessible)
     {
-      throw Exception("File 'date_time_zonespec.csv' not found");    
-    }       
+      throw Exception("File 'date_time_zonespec.csv' not found");
+    }
     catch (boost::local_time::bad_field_count)
     {
-      throw Exception("File 'date_time_zonespec.csv' wrong format");        
-    };           
+      throw Exception("File 'date_time_zonespec.csv' wrong format");
+    };
   }
   return tz_db;
 }
 
 TDateTime UTCToLocal(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified",region.c_str());            
+  if (region.empty()) throw Exception("Region not specified",region.c_str());
   tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region(region);      
+  time_zone_ptr tz = tz_db.time_zone_from_region(region);
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
   local_date_time ld(DateTimeToBoost(d),tz);
-  return BoostToDateTime(ld.local_time());  
-}        
+  return BoostToDateTime(ld.local_time());
+}
 
 TDateTime LocalToUTC(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified",region.c_str());            
+  if (region.empty()) throw Exception("Region not specified",region.c_str());
   tz_database &tz_db = get_tz_database();
-  time_zone_ptr tz = tz_db.time_zone_from_region(region);      
+  time_zone_ptr tz = tz_db.time_zone_from_region(region);
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
   ptime pt=DateTimeToBoost(d);
   local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR );
-  return BoostToDateTime(ld.utc_time());  
-};        
+  return BoostToDateTime(ld.utc_time());
+};
 
 TDateTime UTCToClient(TDateTime d, string region)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();	
+  TReqInfo *reqInfo = TReqInfo::Instance();
   switch (reqInfo->user.time_form)
   {
-    case tfUTC: 
+    case tfUTC:
       return d;
     case tfLocalDesk:
       return UTCToLocal(d,reqInfo->desk.tz_region);
     case tfLocalAll:
-      return UTCToLocal(d,region); 
-    default: 
-      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);    
-  };               
+      return UTCToLocal(d,region);
+    default:
+      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+  };
 };
 
 TDateTime ClientToUTC(TDateTime d, string region)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();	
+  TReqInfo *reqInfo = TReqInfo::Instance();
   switch (reqInfo->user.time_form)
   {
-    case tfUTC: 
+    case tfUTC:
       return d;
     case tfLocalDesk:
       return LocalToUTC(d,reqInfo->desk.tz_region);
     case tfLocalAll:
-      return LocalToUTC(d,region); 
-    default: 
-      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);    
-  };               
+      return LocalToUTC(d,region);
+    default:
+      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+  };
 };

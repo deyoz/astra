@@ -33,7 +33,7 @@ struct TLogMsg {
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
-enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown }; 
+enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown };
 
 template <class T>
 class BitSet
@@ -68,8 +68,8 @@ class TUser {
     std::string login;
     std::string descr;
     TUserType user_type;
-    TAccess access;    
-    TTimeForm time_form;    
+    TAccess access;
+    TTimeForm time_form;
     TUser();
     void clear();
 };
@@ -78,9 +78,18 @@ class TDesk {
   public:
     std::string code;
     std::string city;
-    std::string tz_region;    
+    std::string tz_region;
     BASIC::TDateTime time;
     TDesk();
+    void clear();
+};
+
+class TScreen {
+  public:
+    int id;
+    int version;
+    std::string name;
+    TScreen();
     void clear();
 };
 
@@ -95,15 +104,13 @@ class TOpt {
 
 class TReqInfo
 {
-  private:
-    int screen_id;
   public:
-    std::string screen;
     void clear();
     TReqInfo();
     virtual ~TReqInfo() {}
     TUser user;
     TDesk desk;
+    TScreen screen;
     TOpt opt;
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
@@ -175,7 +182,7 @@ public:
 class UserException2:public EXCEPTIONS::UserException
 {
   public:
-    UserException2(): UserException(""){};  
+    UserException2(): UserException(""){};
 };
 
 #endif /*_ASTRA_UTILS_H_*/

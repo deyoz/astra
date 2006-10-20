@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "tripinfo.h"
-#define NICKNAME "DJEK" 
-#include "setup.h" 
+#define NICKNAME "DJEK"
+#include "setup.h"
 #include "test.h"
 #include "stages.h"
 #include "astra_utils.h"
@@ -28,18 +28,18 @@ struct TCounterItem {
 };
 
 
-void TSQLParams::addVariable( TVar &var ) 
+void TSQLParams::addVariable( TVar &var )
 {
   vars.push_back( var );
 }
 
-void TSQLParams::addVariable( string aname, otFieldType atype, string avalue ) 
+void TSQLParams::addVariable( string aname, otFieldType atype, string avalue )
 {
   TVar var( aname, atype, avalue );
   vars.push_back( var );
 }
 
-void TSQLParams::clearVariables( ) 
+void TSQLParams::clearVariables( )
 {
   vars.clear();
 }
@@ -52,34 +52,34 @@ void TSQLParams::setVariables( TQuery &Qry ) {
   }
 }
 
-TSQL::TSQL() {      	
+TSQL::TSQL() {
  /* в этом конструкторе задаются окончания запроса по рейсам и переменные участв. в запросе */
  createSQLTrips();
-}      
+}
 
 TSQL *TSQL::Instance() {
   static TSQL *instance_ = 0;
   if ( !instance_ )
     instance_ = new TSQL();
-  return instance_;    
-}  
+  return instance_;
+}
 
 void TSQL::createSQLTrips( ) {
-  sqltrips[ "CENT.EXE" ].sqlfrom = 
+  sqltrips[ "CENT.EXE" ].sqlfrom =
     " FROM trips "\
     "WHERE act IS NULL AND trips.status=0 "\
     " AND NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1  ";
-  TSQLParams p;  	      
-  p.sqlfrom = 
+  TSQLParams p;
+  p.sqlfrom =
     " FROM trips "\
     "WHERE act IS NULL AND trips.status=0 AND "\
     "      gtimer.is_final_stage(trips.trip_id, :ckin_stage_type, :no_active_stage_id)=0  ";
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "no_active_stage_id",  otInteger, IntToString( sNoActive ) );
   sqltrips[ "PREPREG.EXE" ] = p;
-  p.clearVariables();  	    
+  p.clearVariables();
   /* задаем текст */
-  p.sqlfrom = 
+  p.sqlfrom =
     " FROM "\
     "    trips, "\
     "    trip_stations "\
@@ -90,38 +90,38 @@ void TSQL::createSQLTrips( ) {
     "    gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0 ";
   /* задаем переменные */
   p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
-  p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );      
+  p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );
   /* запоминаем */
-  sqltrips[ "BRDBUS.EXE" ] = p;      
+  sqltrips[ "BRDBUS.EXE" ] = p;
   /* не забываем очищать за собой переменные */
-  p.clearVariables();  	
+  p.clearVariables();
 }
 
-void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {    
+void TSQL::setSQLTrips( TQuery &Qry, const string &screen ) {
   Qry.Clear();
   TSQLParams p = Instance()->sqltrips[ screen ];
-  string sql = 
+  string sql =
     "SELECT trips.trip_id, "\
     "       trip||DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
     "                    TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))|| "\
     "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
     "              TO_CHAR(scd,'(DD)')) AS str " + p.sqlfrom +
-    " ORDER BY NVL(act,NVL(est,scd)) ";  
+    " ORDER BY NVL(act,NVL(est,scd)) ";
   Qry.SQLText = sql;
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
-  p.setVariables( Qry );    
+  p.setVariables( Qry );
   if ( screen == "BRDBUS.EXE" )
    Qry.CreateVariable( "station", otString, TReqInfo::Instance()->desk.code );
-}    
+}
 
 /*******************************************************************************/
 void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "TripsInterface::ReadTrips" );
   //TReqInfo::Instance()->user.check_access( amRead );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   TQuery Qry( &OraSession );
-  TSQL::setSQLTrips( Qry, TReqInfo::Instance()->screen );
+  TSQL::setSQLTrips( Qry, TReqInfo::Instance()->screen.name );
   tst();
   Qry.Execute();
   tst();
@@ -131,15 +131,15 @@ void TripsInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild( tripNode, "trip_id", Qry.FieldAsInteger( "trip_id" ) );
     NewTextChild( tripNode, "str", Qry.FieldAsString( "str" ) );
     Qry.Next();
-  } 
+  }
 };
 
 void readTripCounters( int point_id, xmlNodePtr dataNode )
 {
-  ProgTrace(TRACE5, "TripsInterface::readTripCounters" );	
+  ProgTrace(TRACE5, "TripsInterface::readTripCounters" );
   vector<TCounterItem> counters;
   /*считаем информацию по классам и п/н из Counters2 */
-  TQuery Qry( &OraSession );  
+  TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT counters2.class, "\
                 "       counters2.airp, "\
                 "       trip_classes.cfg, "\
@@ -164,7 +164,7 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     counters.push_back( counterItem );
     Qry.Next();
   }
-  
+
   /*считаем цифровую информацию о пассажирах и багаже по классам, п/н рейса, п/н трансфера и залам */
   Qry.Clear();
   Qry.SQLText = "SELECT a.class,a.target,DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer, "\
@@ -258,7 +258,7 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     TrferItem.bagAmount = Qry.FieldAsInteger( "bagAmount" );
     TrferItem.bagWeight = Qry.FieldAsInteger( "bagWeight" );
     TrferItem.excess = Qry.FieldAsInteger( "excess" );
-    c->trfer.push_back( TrferItem ); 
+    c->trfer.push_back( TrferItem );
     Qry.Next();
   }
   /* считаем информацию о досылаемом багаже по п/н рейса */
@@ -295,10 +295,10 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     TrferItem.bagAmount = Qry.FieldAsInteger( "bagAmount" );
     TrferItem.bagWeight = Qry.FieldAsInteger( "bagWeight" );
     TrferItem.excess = 0;
-    c->trfer.push_back( TrferItem ); 
+    c->trfer.push_back( TrferItem );
     Qry.Next();
   }
-  xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );	
+  xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
   xmlNodePtr counterItemNode, TrferNode, TrferItemNode;
   for ( vector<TCounterItem>::iterator c=counters.begin(); c!=counters.end(); c++ ) {
     counterItemNode = NewTextChild( node, "counteritem" );
@@ -310,10 +310,10 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     TrferNode = NewTextChild( counterItemNode, "trfer" );
     for ( vector<TTrferItem>::iterator trfer=c->trfer.begin(); trfer!=c->trfer.end(); trfer++ ) {
       TrferItemNode = NewTextChild( TrferNode, "trferitemnode" );
-      NewTextChild( TrferItemNode, "last_trfer", trfer->last_trfer ); 
-      NewTextChild( TrferItemNode, "hall_id", trfer->hall_id ); 
-      NewTextChild( TrferItemNode, "hall_name", trfer->hall_name ); 
-      NewTextChild( TrferItemNode, "seats", trfer->seats ); 
+      NewTextChild( TrferItemNode, "last_trfer", trfer->last_trfer );
+      NewTextChild( TrferItemNode, "hall_id", trfer->hall_id );
+      NewTextChild( TrferItemNode, "hall_name", trfer->hall_name );
+      NewTextChild( TrferItemNode, "seats", trfer->seats );
       NewTextChild( TrferItemNode, "adult", trfer->adult );
       NewTextChild( TrferItemNode, "child", trfer->child );
       NewTextChild( TrferItemNode, "baby", trfer->baby );
@@ -324,15 +324,15 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
       NewTextChild( TrferItemNode, "bagamount", trfer->bagAmount );
       NewTextChild( TrferItemNode, "bagweight", trfer->bagWeight );
       NewTextChild( TrferItemNode, "excess", trfer->excess );
-    }    
-  }  
+    }
+  }
 }
 
 void viewPNL( int point_id, xmlNodePtr dataNode )
 {
   TQuery Qry( &OraSession );
-  TQuery RQry( &OraSession );  
-  Qry.SQLText = 
+  TQuery RQry( &OraSession );
+  Qry.SQLText =
     "SELECT pnr_ref, "\
     "       RTRIM(surname||' '||name) full_name, "\
     "       pers_type, "\
@@ -348,7 +348,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "      crs_pnr.pnr_id=crs_pax.pnr_id AND "\
     "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "\
     "      crs_pax.pr_del=0 "\
-    "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";	
+    "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   RQry.SQLText =
@@ -382,9 +382,9 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
       RQry.Next();
     }
     NewTextChild( itemNode, "ticket", ticket );
-    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ) );    
+    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ) );
     NewTextChild( itemNode, "rem", rem );
-    NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );    
+    NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     NewTextChild( itemNode, "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
     Qry.Next();
   }
