@@ -8,19 +8,16 @@
 class CentInterface : public JxtInterface
 {
 private:
-  void readTripHeader( int point_id, xmlNodePtr dataNode );
+  static void readTripHeader( int point_id, xmlNodePtr dataNode );
 public:
   CentInterface() : JxtInterface("","cent")
   {
-     Handler *evHandle;
-     evHandle=JxtHandler<CentInterface>::CreateHandler(&CentInterface::ReadTripInfo);
-     AddEvent("ReadTripInfo",evHandle);               
   };
 
-  void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
- 
+
 #endif /*_CENT_H_*/
 

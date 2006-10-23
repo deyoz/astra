@@ -16,8 +16,8 @@
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define WAIT_INTERVAL           10      //seconds
-#define TLG_SCAN_INTERVAL       10   	  //seconds
+#define WAIT_INTERVAL           60      //seconds
+#define TLG_SCAN_INTERVAL      600   	  //seconds
 #define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
 
 static void handle_tlg(void);

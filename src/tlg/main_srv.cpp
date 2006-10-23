@@ -21,7 +21,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 
 #define WAIT_INTERVAL           10      //seconds
-#define TLG_SCAN_INTERVAL       10      //seconds
+#define TLG_SCAN_INTERVAL       30      //seconds
 #define SCAN_COUNT              50      //кол-во разбираемых телеграмм за одно сканирование
 
 static int sockfd=-1;

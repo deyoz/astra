@@ -17,14 +17,17 @@ void GetModuleList(xmlNodePtr resNode)
     TReqInfo *reqinfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText=
-      "SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order "
-      "FROM user_roles,role_rights,screen_rights,screen "
+    string sql=string("SELECT DISTINCT screen.id,screen.name,screen.exe,screen.view_order ")+
+      "FROM "+COMMON_ORAUSER()+".user_roles,"+
+              COMMON_ORAUSER()+".role_rights,"+
+              COMMON_ORAUSER()+".screen_rights,"+
+              COMMON_ORAUSER()+".screen "+
       "WHERE user_roles.role_id=role_rights.role_id AND "
       "      role_rights.right_id=screen_rights.right_id AND "
       "      screen_rights.screen_id=screen.id AND "
       "      user_roles.user_id=:user_id "
       "ORDER BY view_order";
+    Qry.SQLText=sql;
     Qry.DeclareVariable("user_id", otInteger);
     Qry.SetVariable("user_id", reqinfo->user.user_id);
     Qry.Execute();

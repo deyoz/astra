@@ -10,6 +10,7 @@
 #include "xml_unit.h"
 #include "prepreg.h"
 #include "brd.h"
+#include "cent.h"
 
 using namespace std;
 
@@ -141,6 +142,8 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TReqInfo *reqInfo = TReqInfo::Instance();
   if (reqInfo->screen.name == "BRDBUS.EXE")
     BrdInterface::Trip(ctxt,reqNode,resNode);
+  if (reqInfo->screen.name == "CENT.EXE")
+    CentInterface::ReadTripInfo(ctxt,reqNode,resNode);
   if (reqInfo->screen.name == "PREPREG.EXE")
     PrepRegInterface::ReadTripInfo(ctxt,reqNode,resNode);
 
