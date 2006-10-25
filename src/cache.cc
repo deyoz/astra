@@ -34,29 +34,29 @@ void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
     xmlNodePtr propNode  = GetNode( "@type", curNode ); /* используется для sqlparams */
     if ( propNode )
       vparams[ name ].DataType = (TCacheConvertType)NodeAsInteger( propNode );
-    else  
+    else
       vparams[ name ].DataType = ctString;
     curNode = curNode->next;
   }
 }
 
-/* конструктор класса - выбираем общие параметры + общие переменные для sql запроса 
+/* конструктор класса - выбираем общие параметры + общие переменные для sql запроса
    + выборка данных из таблицы cache_tables, cache_fields */
 TCacheTable::TCacheTable(xmlNodePtr cacheNode)
 {
-  if ( cacheNode == NULL ) 
-    throw Exception("wrong message format");	
+  if ( cacheNode == NULL )
+    throw Exception("wrong message format");
   getParams(GetNode("params", cacheNode), Params); /* общие параметры */
   getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
   if ( Params.find( TAG_CODE ) == Params.end() )
-    throw Exception("wrong message format");    
+    throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;
   Qry = OraSession.CreateQuery();
   Forbidden = true;
   ReadOnly = true;
   clientVerData = -1;
   clientVerIface = -1;
-    
+
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
                  "       logging, event_type, tid, "
@@ -65,7 +65,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
   Qry->DeclareVariable("code", otString);
   Qry->SetVariable("code", code);
   Qry->Execute();
-  if ( Qry->Eof ) 
+  if ( Qry->Eof )
     throw Exception( "table " + string( code ) + " not found" );
   Title = Qry->FieldAsString( "title" );
   SelectSQL = Qry->FieldAsString("select_sql");
@@ -88,12 +88,12 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
   if (!Qry->FieldIsNULL("update_right"))
     UpdateRight=Qry->FieldAsInteger("update_right");
   else
-    UpdateRight=-1;  
+    UpdateRight=-1;
   if (!Qry->FieldIsNULL("delete_right"))
     DeleteRight=Qry->FieldAsInteger("delete_right");
   else
-    DeleteRight=-1;      
-  getPerms( );      
+    DeleteRight=-1;
+  getPerms( );
   initFields(); /* инициализация FFields */
 }
 
@@ -113,9 +113,9 @@ bool TCacheTable::refreshInterface()
   string stid = Params[ TAG_REFRESH_INTERFACE ].Value;
   TrimString( stid );
   if ( stid.empty() || StrToInt( stid.c_str(), clientVerIface ) == EOF )
-    clientVerIface = -1;  
+    clientVerIface = -1;
   ProgTrace(TRACE5, "Client version interface: %d", clientVerIface );
-  if ( clientVerIface == curVerIface ) 
+  if ( clientVerIface == curVerIface )
     return false;
   clientVerIface = curVerIface;
   ProgTrace( TRACE5, "must refresh interface" );
@@ -127,7 +127,7 @@ void TCacheTable::initFields()
     string code = Params[TAG_CODE].Value;
     // считаем инфу о полях кэша
     Qry->Clear();
-    Qry->SQLText = 
+    Qry->SQLText =
         "SELECT name,title,width,char_case,align,data_type, "
         "       data_size,scale,nullable,pr_ident,read_only, "
         "       refer_code,refer_name,refer_level "
@@ -239,7 +239,7 @@ void TCacheTable::initFields()
         }
         /* проверим, чтобы имена полей не дублировались */
         for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
-            if(FField.Name == i->Name) 
+            if(FField.Name == i->Name)
                 throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
         FFields.push_back(FField);
         Qry->Next();
@@ -267,11 +267,11 @@ bool TCacheTable::refreshData()
       Qry->SQLText = SelectSQL;
       FindVariables(Qry->SQLText.SQLText(), false, vars);
       clientVerData = -1;
-    } 
-    else { /* обновляем с использованием RefreshSQL и clientVerData */ 
-      Qry->SQLText = RefreshSQL;  
+    }
+    else { /* обновляем с использованием RefreshSQL и clientVerData */
+      Qry->SQLText = RefreshSQL;
       /* выделение всех переменных без повтора */
-      FindVariables( Qry->SQLText.SQLText(), false, vars ); 
+      FindVariables( Qry->SQLText.SQLText(), false, vars );
       /* задание переменной TID */
       f = find( vars.begin(), vars.end(), "TID" );
       if ( f != vars.end() ) {
@@ -281,11 +281,11 @@ bool TCacheTable::refreshData()
         vars.erase( f );
       }
     }
-    /* задание переменной USER_ID */    
+    /* задание переменной USER_ID */
     f = find( vars.begin(), vars.end(), "USER_ID" );
     if ( f != vars.end() ) {
       Qry->DeclareVariable("user_id", otInteger);
-      Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id ); 
+      Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
       vars.erase( f );
     }
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
@@ -306,10 +306,10 @@ bool TCacheTable::refreshData()
     	  Qry->SetVariable( *v, SQLParams[ *v ].Value );
     	else
     	  Qry->SetVariable( *v, FNull );
-    	ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
+    	ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
     	           SQLParams[ *v ].Value.c_str(), vtype );
     }
-   
+
     ProgTrace(TRACE5, "SQLText=%s", Qry->SQLText.SQLText());
     Qry->Execute();
 
@@ -329,27 +329,27 @@ bool TCacheTable::refreshData()
     //читаем кэш
     tst();
     while( !Qry->Eof ) {
-      if( tidIdx >= 0 && Qry->FieldAsInteger( tidIdx ) > clientVerData ) 
+      if( tidIdx >= 0 && Qry->FieldAsInteger( tidIdx ) > clientVerData )
         clientVerData = Qry->FieldAsInteger( tidIdx );
       TRow row;
       int j=0;
       for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++,j++) {
-        if(Qry->FieldIsNULL(vecFieldIdx[ j ] )) 
+        if(Qry->FieldIsNULL(vecFieldIdx[ j ] ))
           row.cols.push_back( "" );
         else {
             switch( i->DataType ) {
               case ftSignedNumber:
               case ftUnsignedNumber:
-                if ( i->Scale > 0 || i->DataSize > 9 ) 
+                if ( i->Scale > 0 || i->DataSize > 9 )
                   row.cols.push_back( Qry->FieldAsString( vecFieldIdx[ j ] ) );
                 else
-                  row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );              
+                  row.cols.push_back( IntToString( Qry->FieldAsInteger( vecFieldIdx[ j ] ) ) );
                 break;
-              case ftBoolean:              
+              case ftBoolean:
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );              
+                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                   break;
             }
         }
@@ -409,10 +409,10 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
         SetProp(ffieldNode, "index", i++);
 
-        NewTextChild(ffieldNode, "Name", iv->Name); 
+        NewTextChild(ffieldNode, "Name", iv->Name);
 
-        NewTextChild( ffieldNode, "Title", iv->Title ); 
-        NewTextChild( ffieldNode, "Width", iv->Width ); 
+        NewTextChild( ffieldNode, "Title", iv->Title );
+        NewTextChild( ffieldNode, "Width", iv->Width );
         char *charCase;
         switch(iv->CharCase) {
             case ecLowerCase:
@@ -425,16 +425,16 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
                 charCase = "";
         }
         NewTextChild(ffieldNode, "CharCase",     charCase);
-        NewTextChild(ffieldNode, "Align",        iv->Align); 
-        NewTextChild(ffieldNode, "DataType",     iv->DataType); 
-        NewTextChild(ffieldNode, "DataSize",     iv->DataSize); 
-        NewTextChild(ffieldNode, "Scale",        iv->Scale); 
-        NewTextChild(ffieldNode, "Nullable",     iv->Nullable); 
-        NewTextChild(ffieldNode, "Ident",        iv->Ident); 
-        NewTextChild(ffieldNode, "ReadOnly",     iv->ReadOnly); 
-        NewTextChild(ffieldNode, "ReferCode",    iv->ReferCode); 
-        NewTextChild(ffieldNode, "ReferName",    iv->ReferName); 
-        NewTextChild(ffieldNode, "ReferLevel",   iv->ReferLevel); 
+        NewTextChild(ffieldNode, "Align",        iv->Align);
+        NewTextChild(ffieldNode, "DataType",     iv->DataType);
+        NewTextChild(ffieldNode, "DataSize",     iv->DataSize);
+        NewTextChild(ffieldNode, "Scale",        iv->Scale);
+        NewTextChild(ffieldNode, "Nullable",     iv->Nullable);
+        NewTextChild(ffieldNode, "Ident",        iv->Ident);
+        NewTextChild(ffieldNode, "ReadOnly",     iv->ReadOnly);
+        NewTextChild(ffieldNode, "ReferCode",    iv->ReferCode);
+        NewTextChild(ffieldNode, "ReferName",    iv->ReferName);
+        NewTextChild(ffieldNode, "ReferLevel",   iv->ReferLevel);
     }
 }
 
@@ -483,11 +483,11 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
               row.cols.push_back( NodeAsString((char*)string(strnode + "/new").c_str(), rowNode) );
               break;
             case usDeleted:
-              row.old_cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );            
+              row.old_cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
               break;
             case usInserted:
               row.cols.push_back( NodeAsString((char*)strnode.c_str(), rowNode) );
-              break;             
+              break;
             default:;
           }
         }
@@ -496,7 +496,7 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
     }
 }
 
-void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus, 
+void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                              const std::vector<std::string> &vars )
 {
   string str1, str2;
@@ -510,15 +510,15 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
         if ( iv->Title.empty() )
           str1 += iv->Name;
         else
-          str1 += iv->Title;          
-        str1 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";  
+          str1 += iv->Title;
+        str1 += "='" + string( Qry->GetVariableAsString( vars[ iv->VarIdx[ 0 ] ] ) ) + "'";
     }
   }
   for (int l=0; l<2; l++ ) {
-    int Idx=0;  	
+    int Idx=0;
     str2 = "";
     for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
-      ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d", 
+      ProgTrace( TRACE5, "l=%d, Ident=%d, Idx=%d, iv->VarIdx[0]=%d, iv->VarIdx[1]=%d",
                  l, iv->Ident, Idx, iv->VarIdx[0], iv->VarIdx[1] );
       if ( !l && !iv->Ident ||  /* new variable value !!!iv->VarIdx[i] */
            UpdateStatus == usInserted && iv->VarIdx[ 0 ] < 0 ||
@@ -537,8 +537,8 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
       ProgTrace( TRACE5, "str2=|%s|", str2.c_str() );
     }
     if ( !str2.empty() )
-      break;    
-  } 
+      break;
+  }
   switch( UpdateStatus ) {
     case usInserted:
            str1 = "Ввод строки в таблице '" + Title + "': " + str1 +
@@ -553,7 +553,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
                   ". Идентификатор: " + str2;
            break;
     default:;
-  }  
+  }
   TReqInfo::Instance()->MsgToLog( str1, EventType );
 }
 
@@ -598,7 +598,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         ProgTrace( TRACE5, "NewVerData=%d", NewVerData );
       }
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ ) {
-        if ( iv->status != status ) 
+        if ( iv->status != status )
           continue;
         SetVariables( *iv, vars );
         try {
@@ -642,23 +642,23 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
       if(iv->VarIdx[i] >= 0) { /* есть индекс переменной */
         if(i == 0)
           value = row.cols[ Idx ]; /* берем из нужного столбца данных, которые пришли */
-        else 
+        else
           value = row.old_cols[ Idx ];
         if ( !value.empty() )
           Qry->SetVariable( vars[ iv->VarIdx[i] ],(char *)value.c_str());
         else
           Qry->SetVariable( vars[ iv->VarIdx[i] ],FNull);
-        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d", 
+        ProgTrace( TRACE5, "SetVariable name=%s, value=%s, ind=%d",
                   (char*)vars[ iv->VarIdx[i] ].c_str(),(char *)value.c_str(), Idx );
       }
     }
   }
-  /* задаем переменные, которые дополнительно пришли 
-     после вызова на клиенте OnSetVariable */  
+  /* задаем переменные, которые дополнительно пришли
+     после вызова на клиенте OnSetVariable */
   for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
     Qry->SetVariable( iv->first, iv->second.Value );
-    ProgTrace( TRACE5, "SetVariable name=%s, value=%s", 
-              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );    
+    ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
+              (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
   }
 }
 
@@ -697,7 +697,7 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
                 iv->VarIdx[i] = distance( vars.begin(), f );
                 ProgTrace( TRACE5, "variable name=%s, iv->VarIdx[i]=%d, i=%d",
                            VarName.c_str(), iv->VarIdx[i], i );
-      } 
+      }
       else
         iv->VarIdx[i] = -1;
     }
@@ -709,7 +709,7 @@ int TCacheTable::getIfaceVer() {
   int res;
   TrimString( stid );
   if ( stid.empty() || StrToInt( stid.c_str(), res ) == EOF )
-    res = -1;  
+    res = -1;
   return res;
 }
 
@@ -720,26 +720,29 @@ bool TCacheTable::changeIfaceVer() {
 void TCacheTable::getPerms( )
 {
   if ( Params.find( TAG_CODE ) == Params.end() )
-    throw Exception("wrong message format");    
-  string code = Params[TAG_CODE].Value;	
+    throw Exception("wrong message format");
+  string code = Params[TAG_CODE].Value;
   Qry->Clear();
-  Qry->SQLText=
-    "SELECT role_rights.right_id "
-    "FROM user_roles,role_rights "
+  string sql;
+  sql=
+    string("SELECT role_rights.right_id ")+
+    "FROM "+COMMON_ORAUSER()+".user_roles, "
+           +COMMON_ORAUSER()+".role_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      user_roles.user_id=:user_id AND role_rights.right_id=:right_id AND "
     "      rownum<2";
+  Qry->SQLText=sql;
   Qry->DeclareVariable("user_id",otInteger);
   Qry->DeclareVariable("right_id",otString);
   Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
-  
+
   if (SelectRight>=0)
   {
     Qry->SetVariable( "right_id", SelectRight );
     Qry->Execute();
     if (!Qry->Eof) SelectRight=-1;
   };
-  
+
   if (InsertRight>=0)
   {
     Qry->SetVariable( "right_id", InsertRight );
@@ -757,18 +760,18 @@ void TCacheTable::getPerms( )
     Qry->SetVariable( "right_id", DeleteRight );
     Qry->Execute();
     if (Qry->Eof) DeleteRight=-1;
-  };  
-  
+  };
+
   Forbidden = SelectRight>=0;
-  ReadOnly = SelectRight>=0 || 
-             (InsertSQL.empty() || InsertRight<0) && 
-             (UpdateSQL.empty() || UpdateRight<0) && 
+  ReadOnly = SelectRight>=0 ||
+             (InsertSQL.empty() || InsertRight<0) &&
+             (UpdateSQL.empty() || UpdateRight<0) &&
              (DeleteSQL.empty() || DeleteRight<0);
 }
 
 /*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{  	
+{
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
   TCacheTable cache( reqNode );
@@ -779,23 +782,23 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
-  cache.buildAnswer(resNode);  	  
+  cache.buildAnswer(resNode);
 };
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{	
-  ProgTrace(TRACE2, "CacheInterface::SaveCache");	  
+{
+  ProgTrace(TRACE2, "CacheInterface::SaveCache");
   TCacheTable cache( reqNode );
   if ( cache.changeIfaceVer() )
-    throw UserException( "Версия интерфейса изменилась. Обновите данные." );    
-  cache.ApplyUpdates( reqNode );  
+    throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+  cache.ApplyUpdates( reqNode );
   cache.refresh();
   tst();
   SetProp(resNode, "handle", "1");
   xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
-  cache.buildAnswer(resNode);  	 
+  cache.buildAnswer(resNode);
   showMessage( "Изменения успешно сохранены" );
 };
 
@@ -819,7 +822,7 @@ void TParams1::getParams(xmlNodePtr paramNode)
         xmlNodePtr propNode  = GetNode( "@type", curNode );
         if ( propNode )
             (*this)[ name ].DataType = (TCacheConvertType)NodeAsInteger( propNode );
-        else  
+        else
             (*this)[ name ].DataType = ctString;
         curNode = curNode->next;
     }
@@ -857,7 +860,7 @@ void TParams1::setSQL(TQuery *Qry)
                 Qry->SetVariable( *v, (*this)[ *v ].Value );
         } else
             Qry->SetVariable( *v, FNull );
-        ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(), 
+        ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
                 (*this)[ *v ].Value.c_str(), vtype );
     }
 }

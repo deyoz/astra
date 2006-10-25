@@ -16,15 +16,17 @@ using namespace BASIC;
 using namespace ASTRA;
 
 void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{  
-  TReqInfo *ri = TReqInfo::Instance();  
+{
+  TReqInfo *ri = TReqInfo::Instance();
   //ri->user.check_access( amRead );
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText=   
-    "SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title) AS title, " 
+  string sql=
+    string("SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title) AS title, ")+
     "       depth,num "
-    "FROM adm_cache_tables,cache_tables,user_roles,role_rights "
+    "FROM adm_cache_tables,cache_tables,"+
+          COMMON_ORAUSER()+".user_roles,"+
+          COMMON_ORAUSER()+".role_rights "+
     "WHERE adm_cache_tables.cache=cache_tables.code AND "
     "      user_roles.role_id=role_rights.role_id AND "
     "      role_rights.right_id IN (select_right,insert_right,update_right,delete_right) AND "
@@ -38,19 +40,20 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     "UNION "
     "SELECT cache,title,depth,num FROM adm_cache_tables WHERE cache IS NULL "
     "ORDER BY num ";
+  Qry.SQLText=sql;
   Qry.DeclareVariable( "user_id", otInteger );
   Qry.SetVariable( "user_id", ri->user.user_id );
-  Qry.Execute();  
+  Qry.Execute();
   xmlNodePtr node = NewTextChild( resNode, "CacheTables" );
-  xmlNodePtr rowNode;  
+  xmlNodePtr rowNode;
   for(;!Qry.Eof;Qry.Next())
   {
-    rowNode = NewTextChild( node, "CacheTable" );    
-    NewTextChild( rowNode, "cache", Qry.FieldAsString("cache") );    
-    NewTextChild( rowNode, "title", Qry.FieldAsString("title") );        
-    NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );    
-  };      
-  Qry.Close();        
+    rowNode = NewTextChild( node, "CacheTable" );
+    NewTextChild( rowNode, "cache", Qry.FieldAsString("cache") );
+    NewTextChild( rowNode, "title", Qry.FieldAsString("title") );
+    NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );
+  };
+  Qry.Close();
 };
 
 
