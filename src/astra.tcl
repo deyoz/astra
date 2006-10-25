@@ -163,6 +163,10 @@ set CMD_AIRSRV $SOCKDIR/airsrv_cmd
 set CMD_AIRXML $SOCKDIR/airxml_cmd
 set CMD_WAIT_PNR $SOCKDIR/wait_pnr_cmd
 
+set CMD_EDI_HANDLER $SOCKDIR/edi_handler_cmd
+set CMD_TYPEB_HANDLER $SOCKDIR/typeb_handler_cmd
+set CMD_TLG_SND $SOCKDIR/tlg_snd_cmd
+
 set env(NLS_DATE_FORMAT) RRMMDD
 
 
