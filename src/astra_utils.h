@@ -157,6 +157,7 @@ void MsgToLog(TLogMsg &msg);
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
+boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
