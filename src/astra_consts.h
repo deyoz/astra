@@ -31,6 +31,8 @@ const int NoExists = INT_MIN;
 const std::string NoDays = ".......";
 const std::string AllDays = "1234567";
 
+enum tmodify { fnochange, fchange, finsert, fdelete };
+
 };
 
 #endif
