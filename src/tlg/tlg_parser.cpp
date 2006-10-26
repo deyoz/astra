@@ -2822,7 +2822,54 @@ int SaveFlt(int tlg_id, TFltInfo& flt)
   return point_id;
 };
 
-void SaveBTMContent(int tlg_id, TBtmContent& con)
+bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT MAX(time_create) AS max_time_create "
+    "FROM tlg_source,tlgs_in "
+    "WHERE tlg_source.tlg_id=tlgs_in.id AND "
+    "      tlg_source.point_id_tlg=:point_id_in AND tlgs_in.type=:tlg_type";
+  Qry.CreateVariable("point_id_in",otInteger,point_id_in);
+  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("max_time_create"))
+  {
+    if (Qry.FieldAsDateTime("max_time_create") > info.time_create) return false;
+    TQuery TrferQry(&OraSession);
+    TrferQry.SQLText=
+      "SELECT tlg_transfer.trfer_id "
+      "FROM tlgs_in,tlg_transfer "
+      "WHERE tlgs_in.id=tlg_transfer.tlg_id AND tlgs_in.type=:tlg_type AND "
+      "      tlg_transfer.point_id_in=:point_id_in ";
+    TrferQry.CreateVariable("point_id_in",otInteger,point_id_in);
+    TrferQry.CreateVariable("tlg_type",otString,info.tlg_type);
+    TrferQry.Execute();
+
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  DELETE FROM "
+      "    (SELECT * FROM trfer_grp,trfer_pax "
+      "     WHERE trfer_grp.grp_id=trfer_pax.grp_id AND trfer_grp.trfer_id=:trfer_id); "
+      "  DELETE FROM "
+      "    (SELECT * FROM trfer_grp,trfer_tags "
+      "     WHERE trfer_grp.grp_id=trfer_tags.grp_id AND trfer_grp.trfer_id=:trfer_id); "
+      "  DELETE FROM trfer_grp WHERE trfer_id=:trfer_id; "
+      "  DELETE FROM tlg_transfer WHERE trfer_id=:trfer_id; "
+      "END;";
+    Qry.DeclareVariable("trfer_id",otInteger);
+
+    for(;!TrferQry.Eof;TrferQry.Next())
+    {
+      Qry.SetVariable("trfer_id",TrferQry.FieldAsInteger("trfer_id"));
+      Qry.Execute();
+    };
+  };
+  return true;
+};
+
+void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
 {
   vector<TBtmTransferInfo>::iterator iIn;
   vector<TBtmOutFltInfo>::iterator iOut;
@@ -2865,6 +2912,7 @@ void SaveBTMContent(int tlg_id, TBtmContent& con)
   for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
   {
     point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(iIn->InFlt));
+    if (!DeletePTMBTMContent(point_id_in,info)) continue;
     TrferQry.SetVariable("point_id_in",point_id_in);
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
     for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
@@ -2892,9 +2940,17 @@ void SaveBTMContent(int tlg_id, TBtmContent& con)
         for(iPax=iGrp->pax.begin();iPax!=iGrp->pax.end();iPax++)
         {
           PaxQry.SetVariable("surname",iPax->surname);
-          for(i=iPax->name.begin();i!=iPax->name.end();i++)
+          if (!iPax->name.empty())
           {
-            PaxQry.SetVariable("name",*i);
+            for(i=iPax->name.begin();i!=iPax->name.end();i++)
+            {
+              PaxQry.SetVariable("name",*i);
+              PaxQry.Execute();
+            };
+          }
+          else
+          {
+            PaxQry.SetVariable("name",FNull);
             PaxQry.Execute();
           };
         };
@@ -2909,7 +2965,7 @@ void SaveBTMContent(int tlg_id, TBtmContent& con)
   };
 };
 
-void SavePTMContent(int tlg_id, TPtmContent& con)
+void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 {
   vector<TPtmOutFltInfo>::iterator iOut;
   vector<TPtmTransferData>::iterator iData;
@@ -2917,6 +2973,7 @@ void SavePTMContent(int tlg_id, TPtmContent& con)
   int point_id_in,point_id_out;
 
   point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt));
+  if (!DeletePTMBTMContent(point_id_in,info)) return;
 
   TQuery TrferQry(&OraSession);
   TrferQry.SQLText=
@@ -2961,9 +3018,17 @@ void SavePTMContent(int tlg_id, TPtmContent& con)
       GrpQry.Execute();
       if (iData->surname.empty()) continue;
       PaxQry.SetVariable("surname",iData->surname);
-      for(i=iData->name.begin();i!=iData->name.end();i++)
+      if (!iData->name.empty())
       {
-        PaxQry.SetVariable("name",*i);
+        for(i=iData->name.begin();i!=iData->name.end();i++)
+        {
+          PaxQry.SetVariable("name",*i);
+          PaxQry.Execute();
+        };
+      }
+      else
+      {
+        PaxQry.SetVariable("name",FNull);
         PaxQry.Execute();
       };
     };

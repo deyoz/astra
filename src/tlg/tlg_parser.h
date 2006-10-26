@@ -497,8 +497,8 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
-void SavePTMContent(int tlg_id, TPtmContent& con);
-void SaveBTMContent(int tlg_id, TBtmContent& con);
+void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
+void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 int SaveFlt(int tlg_id, TFltInfo& flt);
 

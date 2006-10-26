@@ -16,8 +16,8 @@
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define WAIT_INTERVAL           60      //seconds
-#define TLG_SCAN_INTERVAL      600   	  //seconds
+#define WAIT_INTERVAL           10      //seconds
+#define TLG_SCAN_INTERVAL       60   	  //seconds
 #define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
 
 static void handle_tlg(void);
@@ -248,7 +248,7 @@ void handle_tlg(void)
             {
               TPtmContent con;
               ParsePTMContent(part,info,con);
-              SavePTMContent(tlg_id,con);
+              SavePTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
@@ -264,7 +264,7 @@ void handle_tlg(void)
             {
               TBtmContent con;
               ParseBTMContent(part,info,con);
-              SaveBTMContent(tlg_id,con);
+              SaveBTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
@@ -313,6 +313,49 @@ void handle_tlg(void)
     if (buf!=NULL) free(buf);
     throw;
   };
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "DECLARE "
+    "  CURSOR cur1 IS "
+    "    SELECT point_id,airline,flt_no,suffix,scd,airp_dep "
+    "    FROM tlg_binding,tlg_trips,options "
+    "    WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
+    "          pr_utc=0 AND tlg_binding.point_id_spp IS NULL AND options.cod=airp_dep;  "
+    "  CURSOR cur2 IS "
+    "    SELECT point_id,airline,flt_no,suffix,scd,airp_dep "
+    "    FROM tlg_binding,tlg_trips,options "
+    "    WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
+    "          pr_utc=0 AND tlg_binding.point_id_spp IS NULL AND options.cod=airp_arv AND airp_dep IS NOT NULL; "
+    "  vpoint_id trips.trip_id%TYPE; "
+    "  BEGIN "
+    "    FOR cur1Row IN cur1 LOOP "
+    "    BEGIN "
+    "      SELECT trip_id INTO vpoint_id  "
+    "      FROM trips  "
+    "      WHERE company=cur1Row.airline AND flt_no=cur1Row.flt_no AND  "
+    "            (suffix IS NULL AND cur1Row.suffix IS NULL OR suffix=cur1Row.suffix) AND  "
+    "            TRUNC(scd)= cur1Row.scd AND status=0; "
+    "      INSERT INTO tlg_binding(point_id_tlg,point_id_spp) VALUES(cur1Row.point_id,vpoint_id); "
+    "    EXCEPTION "
+    "      WHEN NO_DATA_FOUND THEN NULL; "
+    "    END; "
+    "    END LOOP; "
+    "    FOR cur2Row IN cur2 LOOP "
+    "    BEGIN "
+    "      SELECT trips_in.trip_id INTO vpoint_id "
+    "      FROM trips_in,place_in "
+    "      WHERE trips_in.trip_id=place_in.trip_id AND "
+    "            company=cur2Row.airline AND flt_no=cur2Row.flt_no AND "
+    "            (suffix IS NULL AND cur2Row.suffix IS NULL OR suffix=cur2Row.suffix) AND "
+    "            TRUNC(takeoff_scd)= cur2Row.scd AND place_in.cod=cur2Row.airp_dep AND status=0; "
+    "      INSERT INTO tlg_binding(point_id_tlg,point_id_spp) VALUES(cur2Row.point_id,vpoint_id); "
+    "    EXCEPTION "
+    "      WHEN NO_DATA_FOUND THEN NULL; "
+    "    END; "
+    "    END LOOP; "
+    "  END; ";
+  Qry.Execute();
+  OraSession.Commit();
 };
 
 
