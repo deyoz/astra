@@ -526,11 +526,13 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 tz_database &get_tz_database()
 {
+  static bool init=false;
   static tz_database tz_db;
-  if ( tz_db.region_list().empty() ) {
+  if (!init) {
     try
     {
       tz_db.load_from_file("date_time_zonespec.csv");
+      init=true;
     }
     catch (boost::local_time::data_not_accessible)
     {
