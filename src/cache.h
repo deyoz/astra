@@ -85,7 +85,7 @@ class TParams1 : public  std::map<std::string, TParam>
 typedef struct {
     std::vector<std::string> cols;
     std::vector<std::string> old_cols;
-    std::vector<std::string> new_cols;
+/*    std::vector<std::string> new_cols; */
     TCacheUpdateStatus status;
     TParams params;
     int index;
@@ -115,6 +115,7 @@ class TCacheTable {
         int curVerIface; 
         int clientVerIface;
         TTable table;
+        std::vector<std::string> vars;
 
         void getPerms( );
         bool pr_irefresh, pr_drefresh;
@@ -128,14 +129,15 @@ class TCacheTable {
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();
-        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus,
-                        const std::vector<std::string> &vars );
+        void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus );
         void Clear();
     public:
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
         bool changeIfaceVer();
+        std::string code();
+        int FieldIndex( const std::string name );
         TCacheTable(xmlNodePtr cacheNode);
         ~TCacheTable();
 };
