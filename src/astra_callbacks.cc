@@ -16,6 +16,7 @@
 #include "stat.h" 
 #include "print.h" 
 #include "checkin.h"
+#include "docs.h"
 #include "astra_utils.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -52,6 +53,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new SoppInterface();            
     new StatInterface();            
     new PrintInterface();            
+    new DocsInterface();            
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
