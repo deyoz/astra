@@ -10,6 +10,57 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
+void RunBMTrfer(xmlNodePtr formDataNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "SELECT "
+        "  pr_vip, "
+        "  pr_trfer, "
+        "  DECODE(0,0,last_target,last_target_lat) AS last_target, "
+        "  class, "
+        "  lvl, "
+        "  tag_type, "
+        "  DECODE(0,0,color_name,color_name_lat) AS color, "
+        "  birk_range, "
+        "  num, "
+        "  NULL null_val, "
+        "  DECODE(0,0,class_name,class_name_lat) AS class_name, "
+        "  amount, "
+        "  weight "
+        "FROM v_bm_trfer "
+        "WHERE trip_id=7938 AND target='Œˆ' AND pr_vip=0 "
+        "ORDER BY "
+        "   pr_vip, "
+        "   pr_trfer, "
+        "   last_target, "
+        "   class, "
+        "   lvl, "
+        "   tag_type, "
+        "   color_name, "
+        "   birk_range ";
+    Qry.Execute();
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm_trfer");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "pr_vip", Qry.FieldAsString("pr_vip"));
+        NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
+        NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "lvl", Qry.FieldAsString("lvl"));
+        NewTextChild(rowNode, "tag_type", Qry.FieldAsString("tag_type"));
+        NewTextChild(rowNode, "color", Qry.FieldAsString("color"));
+        NewTextChild(rowNode, "birk_range", Qry.FieldAsString("birk_range"));
+        NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
+        NewTextChild(rowNode, "null_val", Qry.FieldAsString("null_val"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
+        NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
+        NewTextChild(rowNode, "weight", Qry.FieldAsInteger("weight"));
+        Qry.Next();
+    }
+}
+
 void RunTest3(xmlNodePtr formDataNode)
 {
     TQuery Qry(&OraSession);        
@@ -149,7 +200,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
     if(Qry.Eof) throw UserException("form " + name + " not found");
-    // Ð¿Ð¾Ð»Ð¾Ð¶Ð¸Ð¼ Ð² Ð¾Ñ‚Ð²ÐµÑ‚ ÑˆÐ°Ð±Ð»Ð¾Ð½ Ð¾Ñ‚Ñ‡ÐµÑ‚Ð°
+    // ¯®«®¦¨¬ ¢ ®â¢¥â è ¡«®­ ®âç¥â 
     int len = Qry.GetSizeLongField("form");
     void *data = malloc(len);
     if ( data == NULL )
@@ -163,12 +214,14 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     free(data);
 
-    // Ñ‚ÐµÐ¿ÐµÑ€ÑŒ Ð¿Ð¾Ð»Ð¾Ð¶Ð¸Ð¼ Ð´Ð°Ð½Ð½Ñ‹Ðµ Ð´Ð»Ñ Ð¾Ñ‚Ñ‡ÐµÑ‚Ð°
+    // â¥¯¥àì ¯®«®¦¨¬ ¤ ­­ë¥ ¤«ï ®âç¥â 
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     if(name == "test1") RunTest1(formDataNode);
-    // Ð¾Ñ‚Ñ‡ÐµÑ‚ test2 ÑÐ²ÑÐ·Ñ‹Ð²Ð°Ð½Ð¸Ðµ 2-Ñ… Ð´Ð°Ñ‚Ð°ÑÐµÑ‚Ð¾Ð² ÑÑ‚Ð¾ Ð±Ð°Ð°Ð°Ð»ÑˆÐ¾Ð¹ Ð²Ð¾Ð¿Ñ€Ð¾Ñ.
+    // ®âç¥â test2 á¢ï§ë¢ ­¨¥ 2-å ¤ â á¥â®¢ íâ® ¡   «è®© ¢®¯à®á.
     else if(name == "test2") RunTest2(formDataNode);
+    // group test
     else if(name == "test3") RunTest3(formDataNode);
+    else if(name == "BMTrfer") RunBMTrfer(formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
