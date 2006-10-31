@@ -2,7 +2,7 @@
 #include <stdio.h>
 #ifdef __WIN32__
  #include <dos.h>
- #define sleep(x) _sleep(x)  
+ #define sleep(x) _sleep(x)
 #endif
 #include <signal.h>
 #include <fstream>
@@ -34,7 +34,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OpenLogFile("log1");
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
-    if (init_edifact()<0) throw Exception("'init_edifact' error");    
+    if (init_edifact()<0) throw Exception("'init_edifact' error");
     for( ;; )
     {
       try
@@ -64,13 +64,13 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
       sleep( sleepsec );
     };
-  }  
+  }
   catch( std::exception E ) {
     ProgError( STDLOG, "Exception: %s", E.what() );
   }
   catch( ... ) {
     ProgError( STDLOG, "Unknown error" );
-  };    
+  };
   return 0;
 }
 #endif
@@ -100,23 +100,23 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
-    ProgTrace(TRACE5,"ETCheckStatusFlt intrance");	
-    TQuery UpdQry(&OraSession);	
-    UpdQry.SQLText="UPDATE trips SET pr_etstatus=1 WHERE trip_id=:point_id";
-    UpdQry.DeclareVariable("point_id",otInteger);      	
-    Qry.SQLText=
-      "SELECT trip_id AS point_id,options.cod FROM trips,options "
+    ProgTrace(TRACE5,"ETCheckStatusFlt intrance");
+    TQuery UpdQry(&OraSession);
+    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
+    UpdQry.DeclareVariable("point_id",otInteger);
+    Qry.SQLText= /*!!!*/
+      "SELECT point_id,options.cod FROM trips,options "
       "WHERE act IS NOT NULL AND "
       "      NVL(pr_etstatus,0)=0";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
       try
-      {	      	
+      {
       	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
       	OrigOfRequest org("Y1",
       	                  Qry.FieldAsString("cod"),
-      	                  Qry.FieldAsString("cod"),                          
+      	                  Qry.FieldAsString("cod"),
                           'Y',
                           "SYSTEM",
                           "",
@@ -124,21 +124,21 @@ void ETCheckStatusFlt(void)
         if (!ETCheckStatus(org,Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
         {
           UpdQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
-          UpdQry.Execute();	
-        };	                
+          UpdQry.Execute();
+        };
         OraSession.Commit();
-      }  
+      }
       catch(...) {};
-    };	   
+    };
     Qry.Close();
-    UpdQry.Close();     	    
+    UpdQry.Close();
   }
   catch(...)
   {
-    try { OraSession.Rollback( ); } catch( ... ) { };    
+    try { OraSession.Rollback( ); } catch( ... ) { };
     throw;
   };
-};  
+};
 
 
 #ifdef __WIN32__
@@ -163,7 +163,7 @@ void sync_mvd(TDateTime now)
       (now-Qry.FieldAsDateTime("last_create"))<1.0/1440) return;
 
   fstream f;
-  char file_name[64];                    
+  char file_name[64];
 
   sprintf(file_name,"%s%02d%02d.%s",
           Qry.FieldAsString("dir"),Hour,Min,Qry.FieldAsString("airp_lat"));

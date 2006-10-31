@@ -431,7 +431,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
             "   where "
             "      pax_id = :pax_id;"
             "   select "
-            "      point_id into :trip_id "
+            "      point_dep into :point_id "
             "   from "
             "      pax_grp "
             "   where "
@@ -439,11 +439,11 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
             "end;";
         Qry.DeclareVariable("pax_id", otInteger);
         Qry.DeclareVariable("grp_id", otInteger);
-        Qry.DeclareVariable("trip_id", otInteger);
+        Qry.DeclareVariable("point_id", otInteger);
         Qry.SetVariable("pax_id", pax_id);
         Qry.Execute();
         grp_id = Qry.GetVariableAsInteger("grp_id");
-        trip_id = Qry.GetVariableAsInteger("trip_id");
+        trip_id = Qry.GetVariableAsInteger("point_id");
     }
 
     TQuery *Qry = OraSession.CreateQuery();
@@ -469,39 +469,32 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   gtimer.get_stage_time(trips.trip_id,:brd_open_stage_id) brd_from, "
-        "   gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id) brd_to, "
-        "   trips.TRIP_ID, "
-        "   trips.SCD, "
-        "   trips.EST, "
-        "   trips.ACT, "
-        "   trips.company airline, "
+        "   gtimer.get_stage_time(points.point_id,:brd_open_stage_id) brd_from, "
+        "   gtimer.get_stage_time(points.point_id,:brd_close_stage_id) brd_to, "
+        "   points.POINT_ID trip_id, "
+        "   points.SCD_OUT scd, "
+        "   points.EST_OUT est, "
+        "   points.ACT_OUT act, "
+        "   points.AIRLINE, "
         "   avia.latkod airline_lat, "
         "   avia.ak_name airline_name, "
         "   avia.latname airline_name_lat, "
-        "   trips.BC craft, "
-        "   system.transliter(trips.BC, 1) craft_lat, "
-        "   trips.BORT, "
-        "   system.transliter(trips.BORT, 1) bort_lat, "
-        "   trips.TRIPTYPE trip_type, "
-        "   system.transliter(trips.TRIPTYPE, 1) trip_type_lat, "
-        "   trips.LITERA, "
-        "   system.transliter(trips.LITERA, 1) litera_lat, "
-        "   trips.PARK, "
-        "   system.transliter(trips.PARK, 1) park_lat, "
-        "   trips.MAX_COMMERCE, "
-        "   trips.REMARK, "
-        "   system.transliter(trips.REMARK, 1) remark_lat, "
-        "   trips.FLT_NO, "
-        "   trips.SUFFIX, "
-        "   system.transliter(trips.SUFFIX, 1) suffix_lat "
+        "   crafts.code craft, "
+        "   crafts.code_lat craft_lat, "
+        "   points.BORT, "
+        "   system.transliter(points.BORT, 1) bort_lat, "
+        "   points.FLT_NO, "
+        "   points.SUFFIX, "
+        "   system.transliter(points.SUFFIX, 1) suffix_lat "
         "from "
-        "   trips, "
-        "   avia "
+        "   points, "
+        "   avia, "
+        "   crafts "
         "where "
-        "   trips.trip_id = :trip_id and "
-        "   trips.company = avia.kod_ak ";
-    Qry->CreateVariable("trip_id", otInteger, trip_id);
+        "   points.point_id = :point_id and "
+        "   points.airline = avia.kod_ak and "
+        "   points.craft = crafts.code" ;
+    Qry->CreateVariable("point_id", otInteger, trip_id);
     Qry->CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
     Qry->CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
     Qrys.push_back(Qry);
@@ -564,7 +557,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
-        "   pax_grp.target airp_arv, "
+        "   pax_grp.airp_arv, "
         "   airps.lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
         "   airps.latname airp_arv_name_lat, "
@@ -589,7 +582,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   cities "
         "where "
         "   pax_grp.grp_id = :grp_id and "
-        "   pax_grp.target = airps.cod and "
+        "   pax_grp.airp_arv = airps.cod and "
         "   pax_grp.class = classes.id and "
         "   airps.city = cities.cod ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
@@ -814,10 +807,10 @@ string PrintDataParser::parse_tag(int offset, string tag)
 void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select point_id, class from pax_grp where grp_id = :grp_id";
+    Qry.SQLText = "select point_dep AS point_id, class from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     int trip_id = Qry.FieldAsInteger("point_id");
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
@@ -844,7 +837,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     string Pectab, Print;
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
@@ -888,7 +881,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
@@ -984,25 +977,25 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  "
-        "   trips.scd,  "
+        "   points.scd_out scd,  "
         "   null local_date,  "
-        "   trips.company airline,  "
+        "   trips.airline,  "
         "   avia.latkod airline_lat,  "
-        "   trips.flt_no,  "
-        "   pax_grp.target airp_arv,  "
+        "   points.flt_no,  "
+        "   pax_grp.airp_arv,  "
         "   airps.lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
         "   airps.latname airp_arv_name_lat "
         "from  "
         "   pax_grp,  "
-        "   trips,  "
+        "   points,  "
         "   avia,  "
         "   airps  "
         "where  "
         "   pax_grp.grp_id = :grp_id and  "
-        "   pax_grp.point_id = trips.trip_id and  "
-        "   trips.company = avia.kod_ak and  "
-        "   pax_grp.target = airps.cod "
+        "   pax_grp.point_dep = points.point_id and  "
+        "   points.airline = avia.kod_ak and  "
+        "   pax_grp.airp_arv = airps.cod "
         "union  "
         "select  "
         "   null,  "
@@ -1092,7 +1085,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
         "   reg_no ";
     Qry.CreateVariable("GRP_ID", otInteger, grp_id);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");  
+    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     int pax_id = Qry.FieldAsInteger(0);
     Qry.SQLText = "select no, color, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
     Qry.Execute();
@@ -1105,7 +1098,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
-    
+
     while(!Qry.Eof) {
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
@@ -1155,14 +1148,14 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery PaxQry(&OraSession);            
-    PaxQry.SQLText = 
+    TQuery PaxQry(&OraSession);
+    PaxQry.SQLText =
       "SELECT pax_id FROM pax "
       "WHERE pax_id=:pax_id AND tid=:tid ";
     PaxQry.DeclareVariable("pax_id",otInteger);
     PaxQry.DeclareVariable("tid",otInteger);
-    TQuery Qry(&OraSession);  
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "update bp_print set pr_print = 1 where pax_id = :pax_id and time_print = :time_print and pr_print = 0";
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
@@ -1184,8 +1177,8 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "update bag_tags set pr_print = 1 where tag_type = :type and no = :no and "
         "   (color is null and :color is null or color = :color) and pr_print = 0";
     Qry.DeclareVariable("type", otString);

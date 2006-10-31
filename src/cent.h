@@ -10,12 +10,9 @@ class CentInterface : public JxtInterface
 private:
   static void readTripHeader( int point_id, xmlNodePtr dataNode );
 public:
-  CentInterface() : JxtInterface("","cent")
-  {
-  };
+  CentInterface() : JxtInterface("","cent") {};
 
-  static void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
 

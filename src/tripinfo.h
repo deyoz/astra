@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include "oralib.h"
+#include "astra_utils.h"
 #include "JxtInterface.h"
 
 struct TVar {
@@ -24,6 +25,7 @@ class TSQLParams {
     std::vector<TVar> vars;
   public:
     std::string sqlfrom;
+    std::string sqlwhere;
     void addVariable( TVar &var );
     void addVariable( std::string aname, otFieldType atype, std::string avalue );
     void clearVariables( );
@@ -38,7 +40,8 @@ private:
   void createSQLTrips( );
 public:
   TSQL();
-  static void setSQLTrips( TQuery &Qry, const std::string &screen );
+  static void setSQLTripList( TQuery &Qry, TReqInfo &info );
+  static void setSQLTripInfo( TQuery &Qry, TReqInfo &info );
 };
 
 void readTripCounters( int point_id, xmlNodePtr dataNode );
@@ -59,7 +62,9 @@ public:
   };
   void GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+
+  static void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode );
 };
 
 #endif /*_TRIPINFO_H_*/

@@ -128,31 +128,32 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string glob_err = sysCont->read("ChangeOfStatusError");
     sysCont->remove("ChangeOfStatusError");
     if (!glob_err.empty())
-      showErrorMessage(string("Ошибка сервера эл. билетов: ")+glob_err);   
-    
+      showErrorMessage(string("Ошибка сервера эл. билетов: ")+glob_err);
+
 };
 
 bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, int point_id)
 {
   TQuery Qry(&OraSession);
   string sql=
-    "SELECT trips.trip_id AS point_id, trips.company AS oper_carrier, trips.flt_no, trips.scd, trips.act, "
-    "       options.cod AS airp_dep, pax_grp.target AS airp_arv, pax_grp.class, "
+    "SELECT points.point_id, points.airline AS oper_carrier, points.flt_no, "
+    "       points.scd_out AS scd, points.act_out AS act, "
+    "       options.cod AS airp_dep, pax_grp.airp_arv, pax_grp.class, "
     "       pax.ticket_no, pax.coupon_no, "
     "       pax.refuse, pax.pr_brd, "
     "       etickets.point_id AS tick_point_id, "
     "       etickets.airp_dep AS tick_airp_dep, "
     "       etickets.airp_arv AS tick_airp_arv, "
     "       etickets.coupon_status AS coupon_status "
-    "FROM trips,pax_grp,pax,options,etickets "
-    "WHERE trips.trip_id=pax_grp.point_id AND pax_grp.grp_id=pax.grp_id AND "
+    "FROM points,pax_grp,pax,options,etickets "
+    "WHERE points.point_id=pax_grp.point_dep AND pax_grp.grp_id=pax.grp_id AND "
     "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
     "      pax.ticket_no=etickets.ticket_no(+) AND "
     "      pax.coupon_no=etickets.coupon_no(+) AND ";
   switch (area)
   {
     case csaFlt:
-      sql=sql+"pax_grp.point_id=:point_id ";
+      sql=sql+"pax_grp.point_dep=:point_id ";
       Qry.CreateVariable("point_id",otInteger,id);
       break;
     case csaGrp:
@@ -189,19 +190,19 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
   list<Ticket> ltick;
 
   if (!Qry.Eof)
-  {          
+  {
     for(;!Qry.Eof;Qry.Next())
     {
       int point_id=Qry.FieldAsInteger("point_id");
       string airp_dep=Qry.FieldAsString("airp_dep");
       string airp_arv=Qry.FieldAsString("airp_arv");
-        
+
       coupon_status status;
       if (Qry.FieldIsNULL("coupon_status"))
         status=coupon_status(OriginalIssue);
       else
         status=coupon_status(Qry.FieldAsString("coupon_status"),true);
-  
+
       coupon_status real_status;
       if (!Qry.FieldIsNULL("refuse"))
         //разрегистрирован
@@ -219,37 +220,37 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
           else
             real_status=coupon_status(Flown);
         };
-      };      
+      };
       if (status!=real_status)
-      {        
-        ProgTrace(TRACE5,"status=%s real_status=%s",status.dispCode(),real_status.dispCode());        
+      {
+        ProgTrace(TRACE5,"status=%s real_status=%s",status.dispCode(),real_status.dispCode());
         Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
-        //if (area==csaFlt) 
+        //if (area==csaFlt)
         //{
           ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
-                  "",                                  //operating carrier 
-                  Qry.FieldAsInteger("flt_no"),   
+                  "",                                  //operating carrier
+                  Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  scd.time_of_day(),                  
+                  scd.time_of_day(),
                   airp_dep,
                   airp_arv);
-          Coupon cpn(ci,itin);        
+          Coupon cpn(ci,itin);
         //}
-        //else           
-        //  Coupon cpn(ci);                   
-                
+        //else
+        //  Coupon cpn(ci);
+
         list<Coupon> lcpn;
         lcpn.push_back(cpn);
-  
+
         Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
         ltick.push_back(tick);
         ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                          Qry.FieldAsString("ticket_no"),
                          Qry.FieldAsInteger("coupon_no"),
                          real_status.dispCode());
-  
+
       };
       if (Qry.FieldIsNULL("tick_point_id") ||
           point_id!=Qry.FieldAsInteger("tick_point_id") ||
@@ -266,37 +267,37 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     };
   };
 
- 
+
   if (point_id>=0)
-  {    
+  {
     Qry.Clear();
     Qry.SQLText=
       "SELECT etickets.ticket_no,etickets.coupon_no, "
-      "       trips.company AS oper_carrier, trips.flt_no, trips.scd, "
+      "       points.airline AS oper_carrier, points.flt_no, points.scd_out AS scd, "
       "       etickets.airp_dep, etickets.airp_arv "
-      "FROM etickets,trips,pax "
-      "WHERE etickets.point_id=trips.trip_id AND "
+      "FROM etickets,points,pax "
+      "WHERE etickets.point_id=points.point_id AND "
       "      etickets.ticket_no=pax.ticket_no(+) AND "
       "      etickets.coupon_no=pax.coupon_no(+) AND "
       "      etickets.point_id=:point_id AND "
       "      pax.ticket_no IS NULL ";
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();        
+    Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
-    {      
-      Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);      
+    {
+      Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
       ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
-                  "",                                  //operating carrier 
-                  Qry.FieldAsInteger("flt_no"),   
+                  "",                                  //operating carrier
+                  Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  scd.time_of_day(),                  
+                  scd.time_of_day(),
                   Qry.FieldAsString("airp_dep"),
-                  Qry.FieldAsString("airp_arv"));      
+                  Qry.FieldAsString("airp_arv"));
       Coupon cpn(ci,itin);
       list<Coupon> lcpn;
-      lcpn.push_back(cpn);      
+      lcpn.push_back(cpn);
       Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
       ltick.push_back(tick);
       ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",

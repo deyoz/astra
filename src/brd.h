@@ -26,8 +26,9 @@ public:
   void Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  static void Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+
+  static void readTripCounters( int point_id, xmlNodePtr dataNode );
 };
 
 #endif

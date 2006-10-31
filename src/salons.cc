@@ -1,6 +1,6 @@
 #include <stdlib.h>
-#include "setup.h" 
-#define NICKNAME "DJEK" 
+#include "setup.h"
+#define NICKNAME "DJEK"
 #include "test.h"
 #include "salons.h"
 #include "basic.h"
@@ -27,7 +27,7 @@ void TSalons::Clear( )
 {
   FCurrPlaceList = NULL;
   for ( std::vector<TPlaceList*>::iterator i = placelists.begin(); i != placelists.end(); i++ ) {
-    delete *i;  	
+    delete *i;
   }
   placelists.clear();
 }
@@ -56,16 +56,16 @@ void TSalons::SetCurrPlaceList( TPlaceList *newPlaceList )
 
 
 void TSalons::Build( xmlNodePtr salonsNode )
-{  
+{
   for( vector<TPlaceList*>::iterator placeList = placelists.begin();
        placeList != placelists.end(); placeList++ ) {
-    xmlNodePtr placeListNode = NewTextChild( salonsNode, "placelist" );           	
+    xmlNodePtr placeListNode = NewTextChild( salonsNode, "placelist" );
     SetProp( placeListNode, "num", (*placeList)->num );
-    for ( TPlaces::iterator place = (*placeList)->places.begin(); 
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
       if ( !place->visible )
        continue;
-      xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );          	
+      xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );
       NewTextChild( placeNode, "x", place->x );
       NewTextChild( placeNode, "y", place->y );
       NewTextChild( placeNode, "elem_type", place->elem_type );
@@ -74,14 +74,14 @@ void TSalons::Build( xmlNodePtr salonsNode )
       if ( place->xprior != -1 )
         NewTextChild( placeNode, "xprior", place->xprior );
       if ( place->yprior != -1 )
-        NewTextChild( placeNode, "yprior", place->yprior );       
+        NewTextChild( placeNode, "yprior", place->yprior );
       if ( place->agle )
         NewTextChild( placeNode, "agle", place->agle );
       NewTextChild( placeNode, "class", place->clname );
       if ( place->pr_smoke )
         NewTextChild( placeNode, "pr_smoke" );
       if ( place->not_good )
-        NewTextChild( placeNode, "not_good" );         
+        NewTextChild( placeNode, "not_good" );
       NewTextChild( placeNode, "xname", place->xname );
       NewTextChild( placeNode, "yname", place->yname );
       if ( place->status != "FP" )
@@ -96,7 +96,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
         if ( !remsNode ) {
           remsNode = NewTextChild( placeNode, "rems" );
         }
-        remNode = NewTextChild( remsNode, "rem" );               	
+        remNode = NewTextChild( remsNode, "rem" );
         NewTextChild( remNode, "rem", rem->rem );
         if ( rem->pr_denial )
           NewTextChild( remNode, "pr_denial" );
@@ -109,23 +109,23 @@ void TSalons::Write( TReadStyle readStyle )
 {
   if ( readStyle == rTripSalons )
     ProgTrace( TRACE5, "TSalons::Write TripSalons with params trip_id=%d",
-               trip_id );	
+               trip_id );
   else {
     ClName.clear();
     ProgTrace( TRACE5, "TSalons::Write ComponSalons with params comp_id=%d",
-               comp_id );	    
+               comp_id );
   }
   map<string,bool> ispl;
   ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   if ( readStyle == rTripSalons ) {
     Qry.SQLText = "BEGIN "\
-                  " UPDATE trips SET trip_id=trip_id WHERE trip_id=:trip_id; "\
-                  " DELETE trip_comp_rem WHERE trip_id=:trip_id; "\
-                  " DELETE trip_comp_elems WHERE trip_id=:trip_id; "\
+                  " UPDATE points SET point_id=point_id WHERE point_id=:point_id; "\
+                  " DELETE trip_comp_rem WHERE point_id=:point_id; "\
+                  " DELETE trip_comp_elems WHERE point_id=:point_id; "\
                   "END;";
-    Qry.DeclareVariable( "trip_id", otInteger );
-    Qry.SetVariable( "trip_id", trip_id );
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.SetVariable( "point_id", trip_id );
     tst();
   }
   else { /* сохранение компоновки */
@@ -137,7 +137,7 @@ void TSalons::Write( TReadStyle readStyle )
     }
     Qry.Clear();
     switch ( (int)modify ) {
-      case mChange: 
+      case mChange:
          Qry.SQLText = "BEGIN "\
                        " UPDATE comps SET craft=:craft,bort=:bort,descr=:descr, "\
                        "        time_create=sysdate,classes=:classes "\
@@ -152,7 +152,7 @@ void TSalons::Write( TReadStyle readStyle )
          break;
       case mDelete:
          Qry.SQLText = "BEGIN "\
-                       " UPDATE trips SET comp_id=NULL WHERE comp_id=:comp_id; "\
+                       " UPDATE trip_sets SET comp_id=NULL WHERE comp_id=:comp_id; "\
                        " DELETE comp_rem WHERE comp_id=:comp_id; "\
                        " DELETE comp_elems WHERE comp_id=:comp_id; "\
                        " DELETE comps WHERE comp_id=:comp_id; "\
@@ -163,27 +163,27 @@ void TSalons::Write( TReadStyle readStyle )
     Qry.SetVariable( "comp_id", comp_id );
     if ( modify != mDelete ) {
       Qry.DeclareVariable( "craft", otString );
-      Qry.DeclareVariable( "descr", otString );      
-      Qry.DeclareVariable( "bort", otString );    
-      Qry.DeclareVariable( "classes", otString );        
-      Qry.SetVariable( "craft", craft );      
+      Qry.DeclareVariable( "descr", otString );
+      Qry.DeclareVariable( "bort", otString );
+      Qry.DeclareVariable( "classes", otString );
+      Qry.SetVariable( "craft", craft );
       Qry.SetVariable( "bort", bort );
       Qry.SetVariable( "descr", descr );
-      Qry.SetVariable( "classes", classes );      
+      Qry.SetVariable( "classes", classes );
     }
-  } 
+  }
   Qry.Execute();
   tst();
   if ( readStyle == rComponSalons && modify == mDelete )
     return; /* удалили компоновку */
   tst();
 
-  TQuery RQry( &OraSession );    
+  TQuery RQry( &OraSession );
   if ( readStyle == rTripSalons ) {
-    RQry.SQLText = "INSERT INTO trip_comp_rem(trip_id,num,x,y,rem,pr_denial) "\
-                   " VALUES(:trip_id,:num,:x,:y,:rem,:pr_denial)";
-    RQry.DeclareVariable( "trip_id", otInteger );                   
-    RQry.SetVariable( "trip_id", trip_id );    
+    RQry.SQLText = "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "\
+                   " VALUES(:point_id,:num,:x,:y,:rem,:pr_denial)";
+    RQry.DeclareVariable( "point_id", otInteger );
+    RQry.SetVariable( "point_id", trip_id );
   }
   else {
     RQry.SQLText = "INSERT INTO comp_rem(comp_id,num,x,y,rem,pr_denial) "\
@@ -191,13 +191,13 @@ void TSalons::Write( TReadStyle readStyle )
     RQry.DeclareVariable( "comp_id", otInteger );
     RQry.SetVariable( "comp_id", comp_id );
   }
-      
+
   RQry.DeclareVariable( "num", otInteger );
   RQry.DeclareVariable( "x", otInteger );
   RQry.DeclareVariable( "y", otInteger );
   RQry.DeclareVariable( "rem", otString );
   RQry.DeclareVariable( "pr_denial", otInteger );
-  
+
   Qry.Clear();
   if ( readStyle == rTripSalons ) {
     Qry.SQLText = "INSERT INTO trip_comp_elems(trip_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
@@ -207,8 +207,8 @@ void TSalons::Write( TReadStyle readStyle )
     Qry.DeclareVariable( "trip_id", otInteger );
     Qry.DeclareVariable( "status", otString );
     Qry.DeclareVariable( "pr_free", otInteger );
-    Qry.DeclareVariable( "enabled", otInteger );    
-    Qry.SetVariable( "trip_id", trip_id );    
+    Qry.DeclareVariable( "enabled", otInteger );
+    Qry.SetVariable( "trip_id", trip_id );
   }
   else {
     Qry.SQLText = "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
@@ -230,30 +230,30 @@ void TSalons::Write( TReadStyle readStyle )
   Qry.DeclareVariable( "not_good", otInteger );
   Qry.DeclareVariable( "xname", otString );
   Qry.DeclareVariable( "yname", otString );
-    
+
   vector<TPlaceList*>::iterator plist;
   for ( plist = placelists.begin(); plist != placelists.end(); plist++ ) {
-    Qry.SetVariable( "num", (*plist)->num );    	
-    RQry.SetVariable( "num", (*plist)->num );    	      
+    Qry.SetVariable( "num", (*plist)->num );
+    RQry.SetVariable( "num", (*plist)->num );
     for ( TPlaces::iterator place = (*plist)->places.begin(); place != (*plist)->places.end(); place++ ) {
       if ( !place->visible )
        continue;
       Qry.SetVariable( "x", place->x );
-      Qry.SetVariable( "y", place->y );      	
-      Qry.SetVariable( "elem_type", place->elem_type );      	      	
+      Qry.SetVariable( "y", place->y );
+      Qry.SetVariable( "elem_type", place->elem_type );
       if ( place->xprior == -1 )
-        Qry.SetVariable( "xprior", FNull );      	      	
+        Qry.SetVariable( "xprior", FNull );
       else
-        Qry.SetVariable( "xprior", place->xprior );      	      	
+        Qry.SetVariable( "xprior", place->xprior );
       if ( place->yprior == -1 )
-        Qry.SetVariable( "yprior", FNull );      	      	
+        Qry.SetVariable( "yprior", FNull );
       else
-        Qry.SetVariable( "yprior", place->yprior );      	      	
-      Qry.SetVariable( "agle", place->agle );      	      	
+        Qry.SetVariable( "yprior", place->yprior );
+      Qry.SetVariable( "agle", place->agle );
       if ( place->clname.empty() || !ispl[ place->elem_type ] )
-        Qry.SetVariable( "class", FNull );      	      	
+        Qry.SetVariable( "class", FNull );
       else
-        Qry.SetVariable( "class", place->clname );      	      	
+        Qry.SetVariable( "class", place->clname );
       if ( !place->pr_smoke )
         Qry.SetVariable( "pr_smoke", FNull );
       else
@@ -263,22 +263,22 @@ void TSalons::Write( TReadStyle readStyle )
       else
         Qry.SetVariable( "not_good", 1 );
       Qry.SetVariable( "xname", place->xname );
-      Qry.SetVariable( "yname", place->yname );        
+      Qry.SetVariable( "yname", place->yname );
       if ( readStyle == rTripSalons ) {
-        Qry.SetVariable( "status", place->status );                
+        Qry.SetVariable( "status", place->status );
         if ( !place->pr_free )
           Qry.SetVariable( "pr_free", FNull );
         else
           Qry.SetVariable( "pr_free", 1 );
         if ( place->block )
-          Qry.SetVariable( "enabled", FNull );          
-        else 
+          Qry.SetVariable( "enabled", FNull );
+        else
           Qry.SetVariable( "enabled", 1 );
       }
       Qry.Execute();
       if ( !place->rems.empty() ) {
         RQry.SetVariable( "x", place->x );
-        RQry.SetVariable( "y", place->y );        
+        RQry.SetVariable( "y", place->y );
         for( vector<TRem>::iterator rem = place->rems.begin(); rem != place->rems.end(); rem++ ) {
           RQry.SetVariable( "rem", rem->rem );
           if ( !rem->pr_denial )
@@ -296,18 +296,18 @@ void TSalons::Read( TReadStyle readStyle )
 {
   if ( readStyle == rTripSalons )
     ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
-               trip_id, ClName.c_str() );	
+               trip_id, ClName.c_str() );
   else {
     ClName.clear();
     ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
-               comp_id );	    
+               comp_id );
   }
   Clear();
   map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );             
+  ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
-  
+
   if ( readStyle == rTripSalons ) {
     /* ??? :class */
     Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname, "\
@@ -327,29 +327,29 @@ void TSalons::Read( TReadStyle readStyle )
                   "WHERE comp_id=:comp_id "\
                   "ORDER BY num, x desc, y desc ";
     Qry.DeclareVariable( "comp_id", otInteger );
-    Qry.SetVariable( "comp_id", comp_id );  	
-  }  
+    Qry.SetVariable( "comp_id", comp_id );
+  }
   if ( Qry.RowCount() == 0 )
     if ( readStyle == rTripSalons )
-      throw UserException( "На рейс не назначен салон" );	
+      throw UserException( "На рейс не назначен салон" );
     else
-      throw UserException( "Не найдена компоновка" );	
+      throw UserException( "Не найдена компоновка" );
   if ( readStyle == rTripSalons ) {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "\
-                   " WHERE trip_id=:trip_id "\
+                   " WHERE point_id=:point_id "\
                    "ORDER BY num, x desc, y desc ";
-    RQry.DeclareVariable( "trip_id", otInteger );
-    RQry.SetVariable( "trip_id", trip_id );
+    RQry.DeclareVariable( "point_id", otInteger );
+    RQry.SetVariable( "point_id", trip_id );
   }
   else {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM comp_rem "\
                    " WHERE comp_id=:comp_id "\
                    "ORDER BY num, x desc, y desc ";
     RQry.DeclareVariable( "comp_id", otInteger );
-    RQry.SetVariable( "comp_id", comp_id );  	
+    RQry.SetVariable( "comp_id", comp_id );
   }
-  Qry.Execute();  
-  RQry.Execute();   
+  Qry.Execute();
+  RQry.Execute();
   string ClName = ""; /* перечисление всех классов, которые есть в салоне */
   TPlaceList *placeList = NULL;
   int num = -1;
@@ -360,9 +360,9 @@ void TSalons::Read( TReadStyle readStyle )
       }
       else {
         placeList = new TPlaceList();
-        placelists.push_back( placeList );  
+        placelists.push_back( placeList );
       }
-      ClName.clear();        
+      ClName.clear();
       num = Qry.FieldAsInteger( "num" );
       placeList->num = num;
     }
@@ -373,18 +373,18 @@ void TSalons::Read( TReadStyle readStyle )
     place.isplace = ispl[ place.elem_type ];
     if ( Qry.FieldIsNULL( "xprior" ) )
       place.xprior = -1;
-    else  
+    else
       place.xprior = Qry.FieldAsInteger( "xprior" );
     if ( Qry.FieldIsNULL( "yprior" ) )
-      place.yprior = -1;       
-    else 
+      place.yprior = -1;
+    else
       place.yprior = Qry.FieldAsInteger( "yprior" );
     place.agle = Qry.FieldAsInteger( "agle" );
     place.clname = Qry.FieldAsString( "class" );
     place.pr_smoke = Qry.FieldAsInteger( "pr_smoke" );
     if ( Qry.FieldIsNULL( "not_good" ) )
-      place.not_good = 0;         
-    else 
+      place.not_good = 0;
+    else
       place.not_good = Qry.FieldAsInteger( "not_good" );
     place.xname = Qry.FieldAsString( "xname" );
     place.yname = Qry.FieldAsString( "yname" );
@@ -405,11 +405,11 @@ void TSalons::Read( TReadStyle readStyle )
       rem.pr_denial = RQry.FieldAsInteger( "pr_denial" );
       place.rems.push_back( rem );
       RQry.Next();
-    }              
+    }
     place.visible = true;
     placeList->Add( place );
     if ( ClName.find( Qry.FieldAsString( "class" ) ) == string::npos )
-      ClName += Qry.FieldAsString( "class" );       
+      ClName += Qry.FieldAsString( "class" );
     Qry.Next();
   }	/* end while */
   if ( placeList && !ClName.empty() && ClName.find( ClName ) == string::npos ) {
@@ -422,7 +422,7 @@ void TSalons::Read( TReadStyle readStyle )
 void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
 {
   ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
-  TQuery Qry( &OraSession );
+  TQuery Qry( &OraSession ); /*!!!*/
   Qry.SQLText = "SELECT trip||DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
                 "       TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||"\
                 "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
@@ -440,10 +440,10 @@ void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
   Qry.Execute();
   NewTextChild( dataNode, "trip", Qry.FieldAsString( "trip" ) );
   NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
-  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );  
+  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
   /* comp_id>0 - базовый; comp_id=-1 - измененный; comp_id=-2 - не задан */
-  NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );  
-  NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );  
+  NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
+  NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );
 }
 
 void TSalons::GetCompParams( int comp_id, xmlNodePtr dataNode )
@@ -456,9 +456,9 @@ void TSalons::GetCompParams( int comp_id, xmlNodePtr dataNode )
   Qry.Execute();
   NewTextChild( dataNode, "trip" );
   NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
-  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );  
-  NewTextChild( dataNode, "comp_id", comp_id );  
-  NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );  
+  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
+  NewTextChild( dataNode, "comp_id", comp_id );
+  NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );
 }
 
 bool TSalons::InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
@@ -466,15 +466,15 @@ bool TSalons::InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
   TQuery Qry( &OraSession );
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
-               "       point_id=:trip_id AND "\
-               "       pr_wl=0 AND pax.pr_brd IS NOT NULL AND "\
+               "       point_dep=:point_id AND "\
+               "       pax.pr_brd IS NOT NULL AND "\
                "       seats > 0 AND rownum <= 1 ";
  if ( SeatNoIsNull )
   sql += " AND seat_no IS NULL";
  Qry.SQLText = sql;
- Qry.DeclareVariable( "trip_id", otInteger );
- Qry.SetVariable( "trip_id", trip_id );
- Qry.Execute( );	
+ Qry.DeclareVariable( "point_id", otInteger );
+ Qry.SetVariable( "point_id", trip_id );
+ Qry.Execute( );
  return Qry.RowCount();
 }
 
@@ -484,7 +484,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
     return;
   Clear();
   map<string,bool> ispl;
-  ImagesInterface::GetisPlaceMap( ispl );                 
+  ImagesInterface::GetisPlaceMap( ispl );
   xmlNodePtr node;
   node = salonsNode->children;
   xmlNodePtr salonNode = NodeAsNodeFast( "placelist", node );
@@ -498,32 +498,32 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       TPlace place;
       place.x = NodeAsIntegerFast( "x", node );
       place.y = NodeAsIntegerFast( "y", node );
-      place.elem_type = NodeAsStringFast( "elem_type", node );      
+      place.elem_type = NodeAsStringFast( "elem_type", node );
       place.isplace = ispl[ place.elem_type ];
       if ( !GetNodeFast( "xprior", node ) )
         place.xprior = -1;
-      else 
+      else
         place.xprior = NodeAsIntegerFast( "xprior", node );
       if ( !GetNodeFast( "yprior", node ) )
         place.yprior = -1;
-      else  
+      else
         place.yprior = NodeAsIntegerFast( "yprior", node );
       if ( !GetNodeFast( "agle", node ) )
         place.agle = 0;
-      else 
+      else
         place.agle = NodeAsIntegerFast( "agle", node );
-      place.clname = NodeAsStringFast( "class", node );      
+      place.clname = NodeAsStringFast( "class", node );
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
-      place.xname = NodeAsStringFast( "xname", node );      
-      place.yname = NodeAsStringFast( "yname", node );            
+      place.xname = NodeAsStringFast( "xname", node );
+      place.yname = NodeAsStringFast( "yname", node );
       if ( !GetNodeFast( "status", node ) )
         place.status = "FP";
-      else  
+      else
         place.status = NodeAsStringFast( "status", node );
       place.pr_free = !GetNodeFast( "pr_notfree", node );
       place.block = GetNodeFast( "block", node );
-      
+
       xmlNodePtr remNode = GetNodeFast( "rems", node );
       if ( remNode ) {
       	remNode = remNode->children;
@@ -536,7 +536,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
         }
       }
       place.visible = true;
-      placeList->Add( place );      
+      placeList->Add( place );
       placeNode = placeNode->next;
     }
     placelists.push_back( placeList );
@@ -603,14 +603,14 @@ int TPlaceList::GetPlaceIndex( int x, int y )
 
 bool TPlaceList::ValidPlace( TPoint &p )
 {
- return ( p.x < GetXsCount() && p.x >= 0 && p.y < GetYsCount() && p.y >= 0 );	
+ return ( p.x < GetXsCount() && p.x >= 0 && p.y < GetYsCount() && p.y >= 0 );
 }
 
 string TPlaceList::GetPlaceName( TPoint &p )
 {
   if ( !ValidPlace( p ) )
     throw Exception( "Неправильные координаты места" );
-  return ys[ p.y ] + xs[ p.x ];	
+  return ys[ p.y ] + xs[ p.x ];
 }
 
 string TPlaceList::GetXsName( int x )
@@ -625,14 +625,14 @@ string TPlaceList::GetYsName( int y )
 {
   if ( y < 0 || y >= GetYsCount() )
     throw Exception( "Неправильные y координата места" );
-  return ys[ y ];	
+  return ys[ y ];
 }
 
 bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
   if ( !placeName.empty() && placeName[ 0 ] == '0' )
     placeName.erase( 0, 1 );
-  for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ ) 
+  for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
       if ( placeName == *iy + *ix ) {
       	p.x = distance( xs.begin(), ix );
@@ -656,12 +656,12 @@ void TPlaceList::Add( TPlace &pl )
   if ( (int)xs.size()*(int)ys.size() > (int)places.size() ) {
     places.resize( (int)xs.size()*(int)ys.size() );
   }
-  int idx = GetPlaceIndex( pl.x, pl.y );  
+  int idx = GetPlaceIndex( pl.x, pl.y );
   if ( pl.xprior >= 0 && pl.yprior >= 0 ) {
     TPoint p( pl.xprior, pl.yprior );
     place( p )->xnext = pl.x;
     place( p )->ynext = pl.y;
-  }  
+  }
   places[ idx ] = pl;
 }
 

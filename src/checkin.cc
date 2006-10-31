@@ -24,7 +24,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "  reg_no,surname,name,target,last_trfer,class,hall, "
+    "  reg_no,surname,name,airp_arv,last_trfer,class,hall, "
     "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
     "  seats,pers_type,document, "
     "  ckin.get_bagAmount(pax.grp_id,pax.reg_no,rownum) AS bag_amount, "
@@ -36,7 +36,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "FROM pax_grp,pax,v_last_trfer "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
-    "      point_id=:point_id AND pr_brd IS NOT NULL "
+    "      point_dep=:point_id AND pr_brd IS NOT NULL "
     "ORDER BY reg_no";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
@@ -66,20 +66,34 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_id,grp_id,ckin_stage,hall;
-  string cl,airp_arv;
+  int point_dep,point_arv,grp_id,ckin_stage,hall;
+  string cl,airp_dep,airp_arv;
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access(amPartialWrite);
   TQuery Qry(&OraSession);
   //определим, открыт ли рейс для регистрации
 
-  point_id=NodeAsInteger("point_id",reqNode);
+  point_dep=NodeAsInteger("point_dep",reqNode);
   //лочим рейс
   Qry.Clear();
-  Qry.SQLText="SELECT trip_id FROM trips WHERE trip_id=:trip_id FOR UPDATE";
-  Qry.CreateVariable("trip_id",otInteger,point_id);
+  Qry.SQLText=
+    "SELECT airp FROM points "
+    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  airp_dep=Qry.FieldAsString("airp");
+
+  point_arv=NodeAsInteger("point_dep",reqNode);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airp FROM points "
+    "WHERE point_id=:point_id AND pr_del=0";
+  Qry.CreateVariable("point_id",otInteger,point_arv);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  airp_arv=Qry.FieldAsString("airp");
+
 
   //map для норм
   map<int,string> norms;
@@ -90,16 +104,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (node==NULL||NodeIsNULL(node))
   {
     cl=NodeAsString("class",reqNode);
-    airp_arv=NodeAsString("airp_arv",reqNode);
     //новая регистрация
     //проверка наличия свободных мест
     Qry.Clear();
     Qry.SQLText=
       "SELECT free_ok,free_goshow,nooccupy FROM counters2 "
-      "WHERE point_id=:point_id AND class=:class AND airp=:airp_arv ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
+      "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
+    Qry.CreateVariable("point_dep", otInteger, point_dep);
+    Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("class", otString, cl);
-    Qry.CreateVariable("airp_arv", otString, airp_arv);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
     string grp_status(NodeAsString("status",reqNode)),place_status;
@@ -127,10 +140,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       };
       place_status="FP";
     };
-    Qry.Next();
-    if (!Qry.Eof)
-      throw Exception("Duplicate airport or class code in counters (point_id=%d, airp_arv=%s, class=%s)",
-                      point_id,airp_arv.c_str(),cl.c_str());
 
     hall=NodeAsInteger("hall",reqNode);
     Qry.Clear();
@@ -236,7 +245,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
     // начитка салона
     TSalons Salons;
-    Salons.trip_id = point_id;
+    Salons.trip_id = point_dep;
     Salons.ClName = cl;
     Salons.Read( rTripSalons );
     //рассадка
@@ -258,8 +267,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.Clear();
     Qry.SQLText=
       "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
-      "WHERE pax_grp.grp_id=pax.grp_id AND point_id=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_id);
+      "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_dep";
+    Qry.CreateVariable("point_dep",otInteger,point_dep);
     Qry.Execute();
     int reg_no = Qry.FieldAsInteger("reg_no");
     bool pr_with_reg=false;
@@ -268,7 +277,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "SELECT pr_with_reg FROM trip_brd "
       "WHERE point_id=:point_id AND (hall=:hall OR hall IS NULL) "
       "ORDER BY DECODE(hall,NULL,1,0)";
-    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.CreateVariable("hall",otInteger,hall);
     Qry.Execute();
     if (!Qry.Eof) pr_with_reg=Qry.FieldAsInteger("pr_with_reg")!=0;
@@ -277,16 +286,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.SQLText=
       "BEGIN "
       "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
-      "  INSERT INTO pax_grp(grp_id,point_id,target,class,class_bag, "
-      "                      status,excess,pr_wl,hall,pr_refuse,tid) "
-      "  VALUES(:grp_id,:point_id,:target,:class,:class_bag, "
-      "         :status,:excess,0,:hall,0,tid__seq.nextval); "
+      "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
+      "                      status,excess,hall,pr_refuse,tid) "
+      "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
+      "         :status,:excess,:hall,0,tid__seq.nextval); "
       "END;";
     Qry.CreateVariable("grp_id",otInteger,FNull);
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("target",otString,airp_arv);
+    Qry.CreateVariable("point_dep",otInteger,point_dep);
+    Qry.CreateVariable("point_arv",otInteger,point_arv);
+    Qry.CreateVariable("airp_dep",otString,airp_dep);
+    Qry.CreateVariable("airp_arv",otString,airp_arv);
     Qry.CreateVariable("class",otString,cl);
-    Qry.CreateVariable("class_bag",otString,cl);
     Qry.CreateVariable("status",otString,grp_status);
     Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
     Qry.CreateVariable("hall",otInteger,hall);
@@ -377,7 +387,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         //запись информации по пассажиру в лог
         TLogMsg msg;
         msg.ev_type=ASTRA::evtPax;
-        msg.id1=point_id;
+        msg.id1=point_dep;
         msg.id2=reg_no;
         msg.id3=grp_id;
         msg.msg=(string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") зарегистрирован"+
@@ -438,7 +448,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "  salons.seatpass( :point_id, :pax_id, :seat_no, 0 ); "
       "  UPDATE pax SET seat_no=NULL,prev_seat_no=seat_no WHERE pax_id=:pax_id; "
       "END;";
-    SalonQry.CreateVariable("point_id",otInteger,point_id);
+    SalonQry.CreateVariable("point_id",otInteger,point_dep);
     SalonQry.DeclareVariable("pax_id",otInteger);
     SalonQry.DeclareVariable("seat_no",otString);
     node=GetNode("passengers",reqNode);
@@ -490,18 +500,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             if (old_refuse=="")
               reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
                                 "Причина отказа в регистрации: "+refuse+". ",
-                                ASTRA::evtPax,point_id,reg_no,grp_id);
+                                ASTRA::evtPax,point_dep,reg_no,grp_id);
             else
               reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
                                 "Изменена причина отказа в регистрации: "+refuse+". ",
-                                ASTRA::evtPax,point_id,reg_no,grp_id);
+                                ASTRA::evtPax,point_dep,reg_no,grp_id);
           }
           else
           {
             //проверить на PaxUpdatespending!!!
             reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
                               "Изменены данные пассажира.",
-                              ASTRA::evtPax,point_id,reg_no,grp_id);
+                              ASTRA::evtPax,point_dep,reg_no,grp_id);
           };
         }
         else
@@ -521,7 +531,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         string normStr=SavePaxNorms(node,norms);
         if (normStr!="")
           reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
-                            "Баг.нормы: "+normStr,ASTRA::evtPax,point_id,reg_no,grp_id);
+                            "Баг.нормы: "+normStr,ASTRA::evtPax,point_dep,reg_no,grp_id);
       };
     };
 
@@ -559,7 +569,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "  ckin.check_grp(:grp_id); "
       "  ckin.recount(:point_id); "
       "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);
     Qry.Execute();
@@ -583,7 +593,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.SQLText=
       "SELECT pax_grp.grp_id FROM pax_grp,pax "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "point_id=:point_id AND reg_no=:reg_no";
+      "point_dep=:point_id AND reg_no=:reg_no";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("reg_no",otInteger,reg_no);
     Qry.Execute();
@@ -596,10 +606,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT target AS airp_arv,airps.city AS city_arv, "
-    "       class,class_bag,status,hall,pax_grp.tid "
+    "SELECT airp_arv,airps.city AS city_arv, "
+    "       class,status,hall,pax_grp.tid "
     "FROM pax_grp,airps "
-    "WHERE pax_grp.target=airps.cod AND grp_id=:grp_id";
+    "WHERE pax_grp.airp_arv=airps.cod AND grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
@@ -607,7 +617,6 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(resNode,"airp_arv",Qry.FieldAsString("airp_arv"));
   NewTextChild(resNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(resNode,"class",Qry.FieldAsString("class"));
-  NewTextChild(resNode,"class_bag",Qry.FieldAsString("class_bag"));
   NewTextChild(resNode,"status",Qry.FieldAsString("status"));
   NewTextChild(resNode,"hall",Qry.FieldAsInteger("hall"));
   NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
@@ -944,7 +953,7 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
         "  vaircode avia.aircode%TYPE; "
         "BEGIN "
         "  BEGIN "
-        "    SELECT company INTO vairline FROM trips WHERE trip_id=:point_id; "
+        "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id; "
         "    SELECT aircode INTO vaircode FROM avia WHERE kod_ak=vairline; "
         "  EXCEPTION "
         "    WHEN OTHERS THEN vaircode:=NULL; "

@@ -12,6 +12,58 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
+void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
+{
+  ProgTrace(TRACE5, "BrdInterface::readTripCounters" );
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+            "SELECT "
+            "    COUNT(*) AS reg, "
+            "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
+            "FROM "
+            "    pax_grp, "
+            "    pax "
+            "WHERE "
+            "    pax_grp.grp_id=pax.grp_id AND "
+            "    point_dep=:point_id AND "
+            "    pr_brd IS NOT NULL ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if(!Qry.Eof)
+  {
+            xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
+            NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
+            NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
+  };
+};
+
+void BrdInterface::SetCounters(xmlNodePtr dataNode)
+{
+    TQuery Qry(&OraSession);
+    int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+    Qry.SQLText =
+        "SELECT "
+        "    COUNT(*) AS reg, "
+        "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
+        "FROM "
+        "    pax_grp, "
+        "    pax "
+        "WHERE "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    point_dep=:point_id AND "
+        "    pr_brd IS NOT NULL ";
+    Qry.DeclareVariable("point_id", otInteger);
+
+    Qry.SetVariable("point_id", trip_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
+        NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
+        NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
+    }
+}
+
+
 int get_new_tid()
 {
     TQuery *Qry = OraSession.CreateQuery();
@@ -20,12 +72,12 @@ int get_new_tid()
             "select "
             "    tid__seq.nextval tid "
             "from "
-            "    trips "
+            "    points "
             "where "
-            "    trip_id=:trip_id "
+            "    point_id=:point_id "
             "for update";
-        Qry->DeclareVariable("trip_id", otInteger);
-        Qry->SetVariable("trip_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
+        Qry->DeclareVariable("point_id", otInteger);
+        Qry->SetVariable("point_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
         Qry->Execute();
         if(Qry->Eof) throw UserException("Рейс не найден. Обновите данные");
         int result = Qry->FieldAsInteger("tid");
@@ -45,7 +97,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry->SQLText =
             "declare "
             "   cursor cur is "
-            "       select pax_id from pax_grp,pax where pax_grp.grp_id=pax.grp_id and point_id=:trip_id and pr_brd=1; "
+            "       select pax_id from pax_grp,pax where pax_grp.grp_id=pax.grp_id and point_dep=:point_id and pr_brd=1; "
             "   currow       cur%rowtype; "
             "begin "
             "   for currow in cur loop "
@@ -53,10 +105,10 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "       mvd.sync_pax(currow.pax_id,:term); "
             "   end loop; "
             "end; ";
-        Qry->DeclareVariable("trip_id", otInteger);
+        Qry->DeclareVariable("point_id", otInteger);
         Qry->DeclareVariable("term", otString);
         int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
-        Qry->SetVariable("trip_id", trip_id);
+        Qry->SetVariable("point_id", trip_id);
         Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
         Qry->Execute();
         TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, trip_id);
@@ -214,10 +266,10 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     string condition;
     if(strcmp((char *)reqNode->name, "brd_list") == 0) {
         ListType = list;
-        condition = " AND point_id= :point_id AND pr_brd= :pr_brd ";
+        condition = " AND point_dep= :point_id AND pr_brd= :pr_brd ";
     } else if(strcmp((char *)reqNode->name, "search_reg") == 0) {
         ListType = search;
-        condition = " AND point_id= :point_id AND reg_no= :reg_no AND pr_brd IS NOT NULL ";
+        condition = " AND point_dep= :point_id AND reg_no= :reg_no AND pr_brd IS NOT NULL ";
     } else if(strcmp((char *)reqNode->name, "search_bar") == 0) {
         ListType = search;
         condition = " AND pax_id= :pax_id AND pr_brd IS NOT NULL ";
@@ -355,118 +407,5 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     }
 }
 
-void BrdInterface::SetCounters(xmlNodePtr dataNode)
-{
-    TQuery Qry(&OraSession);
-    int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
-    Qry.SQLText =
-        "SELECT "
-        "    COUNT(*) AS reg, "
-        "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
-        "FROM "
-        "    pax_grp, "
-        "    pax "
-        "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    point_id=:trip_id AND "
-        "    pr_brd IS NOT NULL ";
-    Qry.DeclareVariable("trip_id", otInteger);
 
-    Qry.SetVariable("trip_id", trip_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
-        NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
-        NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
-    }
-}
 
-void BrdInterface::Trip(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TQuery *Qry = OraSession.CreateQuery();
-    int trip_id = NodeAsInteger("point_id", reqNode);
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    NewTextChild(dataNode, "point_id", trip_id);
-    if(GetNode("tripheader", reqNode)) {
-        Qry->SQLText =
-            "SELECT "
-            "    trips.trip_id, "
-            "    trips.bc, "
-            "    SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes, "
-            "    SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places, "
-            "    TO_CHAR(gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id),'HH24:MI') AS brd_to, "
-            "    TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff, "
-            "    trips.triptype, "
-            "    trips.litera, "
-            "    stages.brd_stage, "
-            "    trips.remark "
-            "FROM "
-            "    trips, "
-            "    trip_stations, "
-            "    ( "
-            "     SELECT "
-            "        gtimer.get_stage( :trip_id, :brd_stage_type ) as brd_stage "
-            "     FROM dual "
-            "    ) stages "
-            "WHERE "
-            "    trip_stations.trip_id= :trip_id AND "
-            "    trips.act IS NULL AND "
-            "    trip_stations.name= :station AND "
-            "    trip_stations.work_mode='П' AND "
-            "    trips.trip_id= :trip_id AND "
-            "    trips.status=0 AND  "
-            "    stages.brd_stage = :brd_open_stage_id ";
-
-        Qry->CreateVariable("brd_close_stage_id",otInteger,sCloseBoarding);
-        Qry->CreateVariable("brd_stage_type",otInteger,stBoarding);
-        Qry->CreateVariable("brd_open_stage_id",otInteger,sOpenBoarding);
-        Qry->CreateVariable("station",otString,TReqInfo::Instance()->desk.code);
-        Qry->CreateVariable("trip_id",otInteger,trip_id);
-        Qry->Execute();
-        if(!Qry->Eof) {
-            xmlNodePtr fltNode = NewTextChild(dataNode, "tripheader");
-            NewTextChild(fltNode, "trip_id", Qry->FieldAsInteger("trip_id"));
-            NewTextChild(fltNode, "bc", Qry->FieldAsString("bc"));
-            NewTextChild(fltNode, "classes", Qry->FieldAsString("classes"));
-            NewTextChild(fltNode, "places", Qry->FieldAsString("places"));
-            NewTextChild(fltNode, "brd_to", Qry->FieldAsString("brd_to"));
-            NewTextChild(fltNode, "takeoff", Qry->FieldAsString("takeoff"));
-            NewTextChild(fltNode, "triptype", Qry->FieldAsString("triptype"));
-            NewTextChild(fltNode, "litera", Qry->FieldAsString("litera"));
-            NewTextChild(fltNode, "brd_stage",
-              TStagesRules::Instance()->status( stBoarding, (TStage)Qry->FieldAsInteger("brd_stage") ) );
-            NewTextChild(fltNode, "remark", Qry->FieldAsString("remark"));
-        }
-        else showErrorMessage( "Информация о рейсе недоступна" );
-    }
-    Qry->Clear();
-    if(GetNode("counters", reqNode)) {
-        JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", trip_id);
-        Qry->SQLText =
-            "SELECT "
-            "    COUNT(*) AS reg, "
-            "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
-            "FROM "
-            "    pax_grp, "
-            "    pax "
-            "WHERE "
-            "    pax_grp.grp_id=pax.grp_id AND "
-            "    point_id=:trip_id AND "
-            "    pr_brd IS NOT NULL ";
-        Qry->DeclareVariable("trip_id", otInteger);
-
-        Qry->SetVariable("trip_id", trip_id);
-        Qry->Execute();
-        if(!Qry->Eof) {
-            xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
-            NewTextChild(countersNode, "reg", Qry->FieldAsInteger("reg"));
-            NewTextChild(countersNode, "brd", Qry->FieldAsInteger("brd"));
-        }
-    }
-    OraSession.DeleteQuery(*Qry);
-}
-
-void BrdInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-
-}
