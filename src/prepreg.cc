@@ -130,8 +130,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT class FROM trip_classes,classes "\
-    " WHERE trip_classes.class=classes.id AND point_id=:point_id "\
-    "ORDER BY classes.lvl ";
+    " WHERE trip_classes.class=classes.code AND point_id=:point_id "\
+    "ORDER BY classes.priority ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "classes" );

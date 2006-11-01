@@ -203,7 +203,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.Clear();
     sql = string( "SELECT airps.city " ) +
                   "FROM " + COMMON_ORAUSER() + ".aro_airps,airps " +
-                  "WHERE aro_airps.airp=airps.cod AND "
+                  "WHERE aro_airps.airp=airps.code AND "
                   "      airps.city=:city AND aro_airps.aro_id=:user_id AND rownum<2 ";
     Qry.SQLText=sql;
     Qry.CreateVariable("city",otString,desk.city);

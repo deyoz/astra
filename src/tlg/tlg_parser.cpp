@@ -166,10 +166,10 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
   switch(nsi)
   {
     case ntAirlines:
-      Qry.SQLText="SELECT kod_ak AS code FROM avia WHERE :code IN (kod_ak,latkod)";
+      Qry.SQLText="SELECT code FROM airlines WHERE :code IN (code,code_lat)";
       break;
     case ntAirps:
-      Qry.SQLText="SELECT cod AS code FROM airps WHERE :code IN (cod,lat)";
+      Qry.SQLText="SELECT code FROM airps WHERE :code IN (code,code_lat)";
       break;
     case ntSubcls:
       Qry.SQLText="SELECT code FROM subcls WHERE :code IN (code,code_lat)";
@@ -2794,7 +2794,7 @@ int SaveFlt(int tlg_id, TFltInfo& flt)
   {
     Qry.SQLText=
       "BEGIN "
-      "  SELECT trips_id.nextval INTO :point_id FROM dual; "
+      "  SELECT point_id.nextval INTO :point_id FROM dual; "
       "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv) "
       "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv); "
       "END;";
@@ -3387,7 +3387,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.SQLText=
           "BEGIN\
              IF :pax_id IS NULL THEN\
-               SELECT pnl_id.nextval INTO :pax_id FROM dual;\
+               SELECT pax_id.nextval INTO :pax_id FROM dual;\
                INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_no,seat_type,seats,pr_del,last_op,tid)\
                VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_no,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval);\
              ELSE\

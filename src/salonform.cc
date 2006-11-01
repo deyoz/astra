@@ -373,9 +373,9 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   if ( Salons.craft.empty() )
     throw UserException( "Не задан тип ВС" );
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT bc FROM bc_code WHERE bc=:bc";
-  Qry.DeclareVariable( "bc", otString );
-  Qry.SetVariable( "bc", Salons.craft );
+  Qry.SQLText = "SELECT code FROM crafts WHERE code=:craft";
+  Qry.DeclareVariable( "craft", otString );
+  Qry.SetVariable( "craft", Salons.craft );
   Qry.Execute();
   if ( !Qry.RowCount() )
     throw UserException( "Неправильно задан тип ВС" );

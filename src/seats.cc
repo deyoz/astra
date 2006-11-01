@@ -1209,10 +1209,10 @@ void TPassengers::addRemPriority( TPassenger &pass )
   pass.maxRem.clear();
   if ( remarks.empty() ) {
     TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT cod, pr_comp FROM remark WHERE pr_comp IS NOT NULL";
+    Qry.SQLText = "SELECT code, pr_comp FROM rem_types WHERE pr_comp IS NOT NULL";
     Qry.Execute();
     while ( !Qry.Eof ) {
-      remarks[ Qry.FieldAsString( "cod" ) ] = Qry.FieldAsInteger( "pr_comp" );
+      remarks[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_comp" );
       Qry.Next();
     }
   }

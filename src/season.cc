@@ -241,7 +241,7 @@ string GetCityFromAirp( string &airp )
   string city;
   if ( !airp.empty() ) {
     TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT city FROM airps WHERE cod=:airp";
+    Qry.SQLText = "SELECT city FROM airps WHERE code=:airp";
     Qry.DeclareVariable( "airp", otString );
     Qry.SetVariable( "airp", airp );
     Qry.Execute();
@@ -891,11 +891,11 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   VQry.DeclareVariable( "scd_out", otDate );
 
   TQuery PRREG(&OraSession);
-  PRREG.SQLText = "SELECT cod FROM triptypes WHERE pr_reg=1";
+  PRREG.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
   PRREG.Execute();
   vector<string> triptypes;
   while ( !PRREG.Eof ) {
-    triptypes.push_back( PRREG.FieldAsString( "cod" ) );
+    triptypes.push_back( PRREG.FieldAsString( "code" ) );
     PRREG.Next();
   }
 
@@ -1103,7 +1103,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   "        pr_cancel, f, c, y, suffix "\
   "  FROM " + COMMON_ORAUSER() + ".routes, airps, cities, tz_regions "\
   " WHERE routes.move_id=:vmove_id AND "\
-  "       routes.cod=airps.cod AND airps.city=cities.cod AND "\
+  "       routes.cod=airps.code AND airps.city=cities.code AND "\
   "       cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) "
   " ORDER BY move_id,num";
 
@@ -2538,7 +2538,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
     RQry.CreateVariable( "move_id", otInteger, vmove_id );
     sql += "move_id=:move_id AND ";
   }
-  sql += "routes.cod=airps.cod AND airps.city = cities.cod AND "\
+  sql += "routes.cod=airps.code AND airps.city = cities.code AND "\
          "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) "
          "ORDER BY move_id,num";
 

@@ -307,7 +307,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.SQLText=
       "BEGIN "
       "  IF :pax_id IS NULL THEN "
-      "    SELECT pnl_id.nextval INTO :pax_id FROM dual; "
+      "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
       "  END IF; "
       "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_no,seat_type,seats,pr_brd, "
       "                  refuse,reg_no,ticket_no,coupon_no,document,doc_check,subclass,tid) "
@@ -609,7 +609,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "SELECT airp_arv,airps.city AS city_arv, "
     "       class,status,hall,pax_grp.tid "
     "FROM pax_grp,airps "
-    "WHERE pax_grp.airp_arv=airps.cod AND grp_id=:grp_id";
+    "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
@@ -949,12 +949,12 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
       Qry.Clear();
       Qry.SQLText=
         "DECLARE "
-        "  vairline avia.kod_ak%TYPE; "
-        "  vaircode avia.aircode%TYPE; "
+        "  vairline airlines.code%TYPE; "
+        "  vaircode airlines.aircode%TYPE; "
         "BEGIN "
         "  BEGIN "
         "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id; "
-        "    SELECT aircode INTO vaircode FROM avia WHERE kod_ak=vairline; "
+        "    SELECT aircode INTO vaircode FROM airlines WHERE code=vairline; "
         "  EXCEPTION "
         "    WHEN OTHERS THEN vaircode:=NULL; "
         "  END; "

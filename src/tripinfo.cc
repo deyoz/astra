@@ -313,7 +313,7 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.scd_out, "
     "       points.act_out, "
     "       SUBSTR(ckin.get_classes(points.point_id),1,50) AS classes, "
-    "       SUBSTR(ckin.get_places(points.point_id),1,50) AS places, "
+    "       SUBSTR(ckin.get_airps(points.point_id),1,50) AS places, "
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
     "       points.trip_type, "
     "       points.litera, "
@@ -791,12 +791,12 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
                 "       counters2.crs_ok, "\
                 "       counters2.crs_tranzit "\
                 " FROM counters2,classes,trip_classes,points "\
-                " WHERE counters2.class=classes.id AND "\
+                " WHERE counters2.class=classes.code AND "\
                 "       counters2.point_dep=trip_classes.point_id AND "\
                 "       counters2.class=trip_classes.class AND "\
                 "       counters2.point_arv=points.point_id AND "\
                 "       counters2.point_dep=:point_id "\
-                " ORDER BY classes.lvl,points.point_num ";
+                " ORDER BY classes.priority,points.point_num ";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", point_id );
   Qry.Execute();
@@ -998,9 +998,9 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   RQry.SQLText =
-    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(remark.priority,-1) AS priority "\
-    " FROM crs_pax_rem,remark "\
-    "WHERE crs_pax_rem.rem_code=remark.cod(+) AND crs_pax_rem.pax_id=:pax_id "\
+    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(rem_types.priority,-1) AS priority "\
+    " FROM crs_pax_rem,rem_types "\
+    "WHERE crs_pax_rem.rem_code=rem_types.code(+) AND crs_pax_rem.pax_id=:pax_id "\
     "ORDER BY priority DESC,rem_code,rem ";
   RQry.DeclareVariable( "pax_id", otInteger );
 
