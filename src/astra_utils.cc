@@ -119,12 +119,6 @@ void TReqInfo::clear()
   desk.clear();
   user.clear();
   screen.clear();
-
-  opt.airport.clear();
-  opt.airport_lat.clear();
-  opt.city.clear();
-  opt.airport_name.clear();
-  opt.city_name.clear();
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -245,20 +239,6 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.SQLText=sql;
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airps.push_back(Qry.FieldAsString("airp"));
-
-  Qry.Clear();
-  Qry.SQLText = "SELECT airps.cod AS air_cod,airps.lat AS air_cod_lat,airps.name AS air_name, "\
-                "       cities.cod AS city_cod,cities.name AS city_name,SYSDATE "\
-                "FROM options,airps,cities "\
-                "WHERE options.cod=airps.cod AND airps.city=cities.cod";
-  Qry.Execute();
-  if ( Qry.RowCount() ) {
-    opt.airport = Qry.FieldAsString( "AIR_COD" );
-    opt.airport_lat = Qry.FieldAsString( "AIR_COD_LAT" );
-    opt.airport_name = Qry.FieldAsString( "AIR_NAME" );
-    opt.city = Qry.FieldAsString( "CITY_COD" );
-    opt.city_name = Qry.FieldAsString( "CITY_NAME" );
-  }
 }
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
@@ -504,14 +484,6 @@ void showBasicInfo(void)
   };
   node = NewTextChild( resNode, "screen" );
   NewTextChild( node, "version", reqInfo->screen.version );
-
-  node = NewTextChild( resNode, "opt" );
-  NewTextChild( node, "airport", reqInfo->opt.airport );
-  NewTextChild( node,"airport_lat", reqInfo->opt.airport_lat );
-  NewTextChild( node,"city", reqInfo->opt.city );
-  NewTextChild( node,"airport_name", reqInfo->opt.airport_name );
-  NewTextChild( node,"city_name", reqInfo->opt.city_name );
-  NewTextChild( node,"user_id", reqInfo->user.user_id );  /* ???для кассы, а вообще не нужен */
 };
 
 /***************************************************************************************/

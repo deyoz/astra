@@ -423,18 +423,20 @@ void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
 {
   ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
   TQuery Qry( &OraSession ); /*!!!*/
-  Qry.SQLText = "SELECT trip||DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
+  Qry.SQLText = "SELECT airline||TO_CHAR(flt_no)||suffix|| "\
+                "           DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
                 "       TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||"\
                 "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
                 "       TO_CHAR(scd,'(DD)')) AS trip, "\
                 "       DECODE( trips.comp_id, NULL, DECODE( e.pr_comp_id, 0, -2, -1 ), "\
                 "       trips.comp_id ) comp_id, "\
                 "       trips.bc craft, trips.bort bort, comp.descr "\
-                " FROM trips, "\
-                " ( SELECT COUNT(*) pr_comp_id FROM trip_comp_elems "\
-                "    WHERE trip_id=:trip_id AND rownum<2 ) e, "\
-                " ( SELECT comp_id, craft, bort, descr FROM comps ) comp "\
-                "    WHERE trips.trip_id = :trip_id AND trips.comp_id = comp.comp_id(+) ";
+                " FROM points,trip_sets "\
+                "  ( SELECT COUNT(*) pr_comp_id FROM trip_comp_elems "\
+                "    WHERE point_id=:point_id AND rownum<2 ) e, "\
+                "  ( SELECT comp_id, craft, bort, descr FROM comps ) comp "\
+                " WHERE points.point_id=trip_sets.point_id AND "\
+                "       points.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
   Qry.DeclareVariable( "trip_id", otInteger );
   Qry.SetVariable( "trip_id", trip_id );
   Qry.Execute();

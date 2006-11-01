@@ -2644,13 +2644,13 @@ bool bind_tlg(int point_id, TFltInfo &flt, char* own_airp)
     //наш пункт - пункт вылета
     if (flt.pr_utc)
     {
-      //перевод в UTC trips.scd
+      //перевод в UTC points.scd
       TripsQry.SQLText=
-        "SELECT trip_id AS point_id,scd,system.AirpTZRegion(:own_airp) AS region "
-        "FROM trips "
-        "WHERE company=:airline AND flt_no=:flt_no AND "
+        "SELECT point_id,scd_out AS scd,system.AirpTZRegion(:own_airp) AS region "
+        "FROM points "
+        "WHERE airline=:airline AND flt_no=:flt_no AND "
         "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-        "      status=0 ";
+        "      pr_del=0 ";
       TripsQry.CreateVariable("own_airp",otString,own_airp);
     }
     else
@@ -2721,7 +2721,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, char* own_airp)
 void bind_tlg(int point_id)
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText=
+  Qry.SQLText= /*!!!*/
     "SELECT airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,options.cod AS own_airp "
     "FROM tlg_trips,options "
     "WHERE point_id=:point_id";

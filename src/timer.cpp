@@ -153,7 +153,7 @@ void sync_mvd(TDateTime now)
   DecodeTime(now,Hour,Min,Sec);
 
   TQuery Qry(&OraSession);
-  Qry.Clear();
+  Qry.Clear(); /*!!!*/
   Qry.SQLText="SELECT files.dir,files.last_create,airps.lat AS airp_lat\
                FROM files,options,airps\
                WHERE airps.cod=options.cod AND files.name='‹Ž‚„' AND pr_denial=0";

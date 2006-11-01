@@ -25,46 +25,57 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "PrepRegInterface::readTripCounters" );
   TQuery Qry( &OraSession );
+
   Qry.SQLText =
-    "SELECT -100 as num,'Всего' as firstcol, "\
-    "       SUM(DECODE(point_num,1,cfg,0)) as cfg, "\
-    "       SUM(crs_ok) as resa, "\
-    "       SUM(crs_tranzit) as tranzit, "\
-    "       SUM(DECODE(point_num,1,block,0)) as block, "\
-    "       SUM(DECODE(point_num,1,avail,0)) as avail, "\
-    "       SUM(DECODE(point_num,1,prot,0)) as prot "\
-    " FROM counters2,trip_classes "\
-    "WHERE counters2.point_dep=trip_classes.point_id AND "\
-    "      counters2.class=trip_classes.class AND "
-    "      counters2.point_dep=:point_id "
-    "UNION "\
-    "SELECT classes.lvl-10 as num,counters2.class as firstcol, "\
-    "       SUM(DECODE(point_num,1,cfg,0)) as cfg, "\
-    "       SUM(crs_ok) as resa, "\
-    "       SUM(crs_tranzit) as tranzit, "\
-    "       SUM(DECODE(point_num,1,block,0)) as block, "\
-    "       SUM(DECODE(point_num,1,avail,0)) as avail, "\
-    "       SUM(DECODE(point_num,1,prot,0)) as prot "\
-    " FROM counters2,trip_classes,classes "\
-    "WHERE counters2.point_dep=trip_classes.point_id AND "\
-    "      counters2.class=trip_classes.class AND "\
-    "      counters2.class=classes.id AND "\
-    "      counters2.point_dep=:point_id "\
-    " GROUP BY classes.lvl,counters2.class "\
-    "UNION "\
-    "SELECT point_num as num,airp as firstcol, "\
-    "       SUM(cfg) as cfg, "\
-    "       SUM(crs_ok) as resa, "\
-    "       SUM(crs_tranzit) as tranzit, "\
-    "       SUM(block) as block, "\
-    "       SUM(avail) as avail, "\
-    "       SUM(prot) as prot "\
-    " FROM counters2,trip_classes "\
-    "WHERE counters2.point_dep=trip_classes.point_id AND "\
-    "      counters2.class=trip_classes.class AND "\
-    "      counters2.point_dep=:point_id "\
-    "GROUP BY point_num,airp "\
-    "ORDER BY num "; /*!!!*/
+     "SELECT -100 AS num, "
+     "        'Всего' AS firstcol, "
+     "        SUM(cfg) AS cfg, "
+     "        SUM(resa) AS resa, "
+     "        SUM(tranzit) AS tranzit, "
+     "        SUM(block) AS block, "
+     "        SUM(avail) AS avail, "
+     "        SUM(prot) AS prot, "
+     "FROM trip_classes, "
+     "     (SELECT point_dep AS point_id,class, "
+     "             SUM(crs_ok) AS resa, "
+     "             SUM(crs_tranzit) AS tranzit, "
+     "             SUM(avail) AS avail "
+     "      FROM counters2 "
+     "      WHERE counters2.point_dep=:point_id "
+     "      GROUP BY point_dep,class) c "
+     "WHERE c.point_id=trip_classes.point_id AND "
+     "      c.class=trip_classes.class "
+     "UNION "
+     "SELECT classes.priority-10, "
+     "       c.class, "
+     "       MAX(cfg), "
+     "       SUM(crs_ok), "
+     "       SUM(crs_tranzit), "
+     "       MAX(block), "
+     "       MAX(avail), "
+     "       MAX(prot) "
+     "FROM counters2 c,trip_classes,classes "
+     "WHERE c.point_dep=trip_classes.point_id AND "
+     "      c.class=trip_classes.class AND "
+     "      c.class=classes.code AND "
+     "      c.point_dep=:point_id  "
+     "GROUP BY classes.priority,c.class "
+     "UNION "
+     "SELECT points.point_num, "
+     "       points.airp, "
+     "       SUM(cfg), "
+     "       SUM(crs_ok), "
+     "       SUM(crs_tranzit), "
+     "       SUM(block), "
+     "       SUM(avail), "
+     "       SUM(prot)  "
+     "FROM counters2 c,trip_classes,points "
+     "WHERE c.point_dep=trip_classes.point_id AND "
+     "      c.class=trip_classes.class AND "
+     "      c.point_arv=points.point_id AND "
+     "      c.point_dep=:point_id "
+     "GROUP BY points.point_num,points.airp "
+     "ORDER BY 1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
 
@@ -73,7 +84,6 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     xmlNodePtr itemNode = NewTextChild( node, "item" );
     NewTextChild( itemNode, "firstcol", Qry.FieldAsString( "firstcol" ) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
-    NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
     NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
     NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
     NewTextChild( itemNode, "block", Qry.FieldAsInteger( "block" ) );
@@ -89,17 +99,32 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
   xmlNodePtr itemNode;
   TQuery Qry( &OraSession );
+
+  Qry.Clear();
   Qry.SQLText =
-    "SELECT cod,city FROM place "\
-    " WHERE trip_id=:point_id AND num>0 "\
-    " ORDER BY num ";
+    "SELECT airline, flt_no, airp, "
+    "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  xmlNodePtr placesNode = NewTextChild( tripdataNode, "places" );
+  string airline = Qry.FieldAsString( "airline" );
+  int flt_no = Qry.FieldAsInteger( "flt_no" );
+  string airp = Qry.FieldAsString( "airp" );
+  int point_num = Qry.FieldAsInteger( "point_num" );
+  int first_point = Qry.FieldAsInteger( "first_point" );
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airp FROM points "
+    "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+    "ORDER BY point_num ";
+  Qry.CreateVariable( "first_point", otInteger, first_point );
+  Qry.CreateVariable( "point_num", otInteger, point_num );
+  Qry.Execute();
+  xmlNodePtr node;
+  node = NewTextChild( tripdataNode, "airps" );
   while ( !Qry.Eof ) {
-    itemNode = NewTextChild( placesNode, "place" );
-    NewTextChild( itemNode, "cod", Qry.FieldAsString( "cod" ) );
-    NewTextChild( itemNode, "city", Qry.FieldAsString( "city" ) );
+    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
     Qry.Next();
   }
   Qry.Clear();
@@ -109,17 +134,12 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "ORDER BY classes.lvl ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  xmlNodePtr node = NewTextChild( tripdataNode, "classes" );
+  node = NewTextChild( tripdataNode, "classes" );
   while ( !Qry.Eof ) {
     NewTextChild( node, "class", Qry.FieldAsString( "class" ) );
     Qry.Next();
   }
-  Qry.Clear();
-  Qry.SQLText = "SELECT airline, flt_no FROM points WHERE point_id=:point_id";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  string airline = Qry.FieldAsString( "airline" );
-  int flt_no = Qry.FieldAsInteger( "flt_no" );
+
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "\
@@ -127,7 +147,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "END;";
   Qry.CreateVariable( "airline", otString, airline );
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //??? пульт в аэропорту
+  Qry.CreateVariable( "airp", otString, airp );
   Qry.DeclareVariable( "priority", otInteger );
   Qry.Execute();
   bool empty_priority = Qry.VariableIsNULL( "priority" );
@@ -135,7 +155,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   if ( !empty_priority )
     priority = Qry.GetVariableAsInteger( "priority" );
   ProgTrace( TRACE5, "airline=%s, flt_no=%d, airp=%s, empty_priority=%d, priority=%d",
-             airline.c_str(), flt_no, TReqInfo::Instance()->opt.airport.c_str(), empty_priority, priority );
+             airline.c_str(), flt_no, airp.c_str(), empty_priority, priority );
   Qry.Clear();
   Qry.SQLText =
     "SELECT crs2.code,crs2.name,1 AS sort, "\
@@ -168,7 +188,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.CreateVariable( "priority", otInteger, priority );
   Qry.CreateVariable( "airline", otString, airline );
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
-  Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //???
+  Qry.CreateVariable( "airp", otString, airp );
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crs" );
@@ -183,17 +203,20 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   }
   Qry.Clear();
   Qry.SQLText =
-    "SELECT crs, "\
-    "       target, "\
-    "       class, "\
-    "       SUM(resa) AS resa, "\
-    "       SUM(tranzit) AS tranzit "\
-    " FROM crs_data,tlg_binding,place "\
-    "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "\
-    "      crs_data.point_id=place.trip_id(+) AND crs_data.target=place.cod(+) AND "\
-    "      (resa IS NOT NULL OR tranzit IS NOT NULL) "\
-    "GROUP BY crs,place.num,target,class "\
-    "ORDER BY crs,place.num,target ";
+    "SELECT crs, "
+    "       target, "
+    "       class, "
+    "       SUM(resa) AS resa, "
+    "       SUM(tranzit) AS tranzit "
+    " FROM crs_data,tlg_binding, "
+    "      (SELECT MIN(point_num) AS point_num,airp FROM points "
+    "       WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+    "       GROUP BY airp) p "
+    "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "
+    "      crs_data.target=p.airp(+) AND "
+    "      (resa IS NOT NULL OR tranzit IS NOT NULL) "
+    "GROUP BY crs,p.point_num,target,class "
+    "ORDER BY crs,p.point_num,target ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crsdata" );
@@ -249,7 +272,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.CreateVariable( "priority", otInteger, priority );
     Qry.CreateVariable( "airline", otString, airline );
     Qry.CreateVariable( "flt_no", otInteger, flt_no );
-    Qry.CreateVariable( "airp", otString, TReqInfo::Instance()->opt.airport ); //???
+    Qry.CreateVariable( "airp", otString, airp );
     Qry.CreateVariable( "point_id", otInteger, point_id );
   }
   Qry.Execute();

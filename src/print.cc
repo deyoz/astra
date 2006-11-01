@@ -446,25 +446,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         trip_id = Qry.GetVariableAsInteger("point_id");
     }
 
-    TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText =
-        "SELECT "
-        "   airps.cod airp_dep, "
-        "   airps.lat airp_dep_lat, "
-        "   airps.name airp_dep_name, "
-        "   airps.latname airp_dep_name_lat, "
-        "   cities.cod city_dep_cod, "
-        "   cities.lat city_dep_cod_lat, "
-        "   cities.name city_dep_name, "
-        "   cities.latname city_dep_name_lat "
-        "FROM "
-        "   options, "
-        "   airps, "
-        "   cities "
-        "WHERE "
-        "   options.cod=airps.cod AND "
-        "   airps.city=cities.cod";
-    Qrys.push_back(Qry);
+    TQuery *Qry;
 
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
@@ -552,6 +534,28 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax_id = :pax_id and "
         "   pax.pers_type = persons.code";
     Qry->CreateVariable("pax_id", otInteger, pax_id);
+    Qrys.push_back(Qry);
+
+    Qry = OraSession.CreateQuery();
+    Qry->SQLText =
+        "SELECT "
+        "   airps.cod airp_dep, "
+        "   airps.lat airp_dep_lat, "
+        "   airps.name airp_dep_name, "
+        "   airps.latname airp_dep_name_lat, "
+        "   cities.cod city_dep, "
+        "   cities.lat city_dep_lat, "
+        "   cities.name city_dep_name, "
+        "   cities.latname city_dep_name_lat "
+        "FROM "
+        "   pax_grp, "
+        "   airps, "
+        "   cities "
+        "WHERE "
+        "   pax_grp.grp_id = :grp_id AND "
+        "   pax_grp.airp_dep=airps.cod AND "
+        "   airps.city=cities.cod";
+    Qry->CreateVariable("grp_id", otInteger, grp_id);
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
@@ -815,7 +819,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
     Qry.SQLText =
-        "SELECT bp_id, form, prn_form FROM trip_bp tb, bp_forms bf "
+        "SELECT bp_id, form, data FROM trip_bp tb, bp_forms bf "
         "WHERE bp_id = id and "
         "point_id=:point_id AND (class IS NULL OR class=:class) AND tb.pr_ier=:prn_type "
         "ORDER BY class ";
@@ -825,7 +829,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Qry.Execute();
     if(Qry.Eof) throw UserException("На рейс не назначен бланк посадочных талонов");
     Pectab = Qry.FieldAsString("form");
-    Print = Qry.FieldAsString("prn_form");
+    Print = Qry.FieldAsString("data");
     if(Print.empty()) throw Exception("print form is empty for bp_id " + IntToString(Qry.FieldAsInteger("bp_id")));
 }
 
@@ -931,16 +935,16 @@ void get_bt_forms(string tag_type, xmlNodePtr pectabsNode, vector<string> &prn_f
 {
     prn_forms.clear();
     TQuery FormsQry(&OraSession);
-    FormsQry.SQLText = "select id, num, form, prn_form from bt_forms where tag_type = :tag_type order by id, num";
+    FormsQry.SQLText = "select id, num, form, data from bt_forms where tag_type = :tag_type order by id, num";
     FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
     FormsQry.Execute();
     if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
     while(!FormsQry.Eof) {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
-        if(FormsQry.FieldIsNULL("prn_form"))
+        if(FormsQry.FieldIsNULL("data"))
             throw Exception("print form is empty for id " + IntToString(FormsQry.FieldAsInteger("id")) +
                     ", num " + IntToString(FormsQry.FieldAsInteger("num")));
-        prn_forms.push_back(FormsQry.FieldAsString("prn_form"));
+        prn_forms.push_back(FormsQry.FieldAsString("data"));
         FormsQry.Next();
     }
 }

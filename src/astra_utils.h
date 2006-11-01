@@ -93,15 +93,6 @@ class TScreen {
     void clear();
 };
 
-class TOpt {
-  public:
-    std::string airport;
-    std::string airport_lat;
-    std::string city;
-    std::string airport_name;
-    std::string city_name;
-};
-
 class TReqInfo
 {
   public:
@@ -111,7 +102,6 @@ class TReqInfo
     TUser user;
     TDesk desk;
     TScreen screen;
-    TOpt opt;
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      bool checkUserLogon );

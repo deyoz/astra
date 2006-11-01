@@ -446,10 +446,10 @@ void scan_tlg(void)
   {
     InsQry.Clear();
     InsQry.SQLText=
-       "INSERT INTO tlgs_in(id,num,type,point_id,addr,heading,body,ending,\
+       "INSERT INTO tlgs_in(id,num,type,addr,heading,body,ending,\
                            merge_key,time_create,time_receive,time_parse)\
         VALUES(NVL(:id,tlg_in_out__seq.nextval),\
-               :part_no,:tlg_type,NULL,:addr,:heading,:body,:ending,\
+               :part_no,:tlg_type,:addr,:heading,:body,:ending,\
                :merge_key,:time_create,SYSDATE,NULL)";
     InsQry.DeclareVariable("id",otInteger);
     InsQry.DeclareVariable("part_no",otInteger);
