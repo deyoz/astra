@@ -291,6 +291,9 @@ bool TCacheTable::refreshData()
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
     for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
     {
+    	TParams::iterator prms = SQLParams.find( *v );
+    	if ( prms == SQLParams.end() )
+    		throw Exception("Variable '" + *v + "' not found in cache params");
     	otFieldType vtype;
     	switch( SQLParams[ *v ].DataType ) {
     	  case ctInteger: vtype = otInteger;
