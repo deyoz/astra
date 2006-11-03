@@ -459,6 +459,7 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"user");
     NewTextChild(node, "login",reqInfo->user.login);
+    NewTextChild(node, "type",reqInfo->user.user_type);
     xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
     node = NewTextChild(accessNode, "rights");
@@ -570,3 +571,14 @@ TDateTime ClientToUTC(TDateTime d, string region)
       throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
+
+bool is_dst(TDateTime d, string region)
+{
+	if (region.empty()) throw Exception("Region not specified",region.c_str());
+	ptime	utcd = DateTimeToBoost( d );
+  tz_database &tz_db = get_tz_database();
+  time_zone_ptr tz = tz_db.time_zone_from_region( region );
+  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
+  return ( tz->has_dst() && ld.is_dst() );
+}
