@@ -6,30 +6,153 @@
 #define NICKNAME "DENIS"
 #include "test.h"
 #include "str_utils.h"
+#include "astra_utils.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace BASIC;
+using namespace ASTRA;
 
-void RunBMTrfer(xmlNodePtr formDataNode)
+string vsHow(int nmb, int range)
 {
+    static const char* sotni[] = {
+        "сто ",
+        "двести ",
+        "триста ",
+        "четыреста ",
+        "пятьсот ",
+        "шестьсот ",
+        "семьсот ",
+        "восемьсот ",
+        "девятьсот "
+    };
+    static const char* teen[] = {
+        "десять ",
+        "одиннадцать ",
+        "двенадцать ",
+        "тринадцать ",
+        "четырнадцать ",
+        "пятнадцать ",
+        "шестнадцать ",
+        "семнадцать ",
+        "восемнадцать ",
+        "девятнадцать "
+    };
+    static const char* desatki[] = {
+        "двадцать ",
+        "тридцать ",
+        "сорок ",
+        "пятьдесят ",
+        "шестьдесят ",
+        "семьдесят ",
+        "восемьдесят ",
+        "девяносто "
+    };
+    static const char* stuki_m[] = {
+        "",
+        "одно ",
+        "два ",
+        "три ",
+        "четыре ",
+        "пять ",
+        "шесть ",
+        "семь ",
+        "восемь ",
+        "девять "
+    };
+    static const char* stuki_g[] = {
+        "",
+        "одна ",
+        "две ",
+        "три ",
+        "четыре ",
+        "пять ",
+        "шесть ",
+        "семь ",
+        "восемь ",
+        "девять "
+    };
+    static const char* dtext[2][3] = {
+        {"", "", ""},
+        {"тысяча ", "тысячи ", "тысяч "}
+    };
+
+    string out;
+    if(nmb == 0) return out;
+    int tmp = nmb / 100;
+    if(tmp > 0) out += sotni[tmp - 1];
+    tmp = nmb % 100;
+    if(tmp >= 10 && tmp < 20) out += teen[tmp - 10];
+    else {
+        tmp /= 10;
+        if(tmp > 1) out += desatki[tmp - 2];
+        tmp = (nmb % 100) % 10;
+        switch(range) {
+            case 0:
+            case 1:
+            case 2:
+            case 4:
+                out += stuki_m[tmp];
+                break;
+            case 3:
+            case 5:
+                out += stuki_g[tmp];
+                break;
+            default:
+                throw Exception("vsHow: unknown range: " + IntToString(range));
+        }
+    }
+    switch(tmp) {
+        case 1:
+            out += dtext[range][0];
+            break;
+        case 2:
+        case 3:
+        case 4:
+            out += dtext[range][1];
+            break;
+        default:
+            out += dtext[range][2];
+            break;
+    }
+    return out;
+}
+
+string vs_number(int number)
+{
+    string result;
+    int i = number / 1000;
+    result += vsHow(i, 1);
+    i = number % 1000;
+    result += vsHow(i, 0);
+    return result;
+}
+
+void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    string target = NodeAsString("target", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    int pr_vip = NodeAsInteger("pr_lat", reqNode);
+
     TQuery Qry(&OraSession);        
     Qry.SQLText = 
         "SELECT "
-        "  pr_vip, "
-        "  pr_trfer, "
-        "  DECODE(0,0,last_target,last_target_lat) AS last_target, "
-        "  class, "
-        "  lvl, "
-        "  tag_type, "
-        "  DECODE(0,0,color_name,color_name_lat) AS color, "
-        "  birk_range, "
-        "  num, "
-        "  NULL null_val, "
-        "  DECODE(0,0,class_name,class_name_lat) AS class_name, "
-        "  amount, "
-        "  weight "
+        "   pr_vip, "
+        "   pr_trfer, "
+        "   DECODE(0,0,last_target,last_target_lat) AS last_target, "
+        "   class, "
+        "   lvl, "
+        "   tag_type, "
+        "   DECODE(0,0,color_name,color_name_lat) AS color, "
+        "   birk_range, "
+        "   num, "
+        "   NULL null_val, "
+        "   DECODE(0,0,class_name,class_name_lat) AS class_name, "
+        "   amount, "
+        "   weight "
         "FROM v_bm_trfer "
-        "WHERE trip_id=7938 AND target='МИР' AND pr_vip=0 "
+        "WHERE trip_id=:point_id AND target=:target AND pr_vip=:pr_vip "
         "ORDER BY "
         "   pr_vip, "
         "   pr_trfer, "
@@ -39,10 +162,22 @@ void RunBMTrfer(xmlNodePtr formDataNode)
         "   tag_type, "
         "   color_name, "
         "   birk_range ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("target", otString, target);
+    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm_trfer");
+    string last_target, lvl;
     while(!Qry.Eof) {
+        string tmp_last_target = Qry.FieldAsString("last_target");
+        string tmp_lvl = Qry.FieldAsString("lvl");
+        int weight = 0;
+        if(tmp_last_target != last_target || tmp_lvl != lvl) {
+            last_target = tmp_last_target;
+            lvl = tmp_lvl;
+            weight = Qry.FieldAsInteger("weight");
+        }
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "pr_vip", Qry.FieldAsString("pr_vip"));
         NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
@@ -56,9 +191,126 @@ void RunBMTrfer(xmlNodePtr formDataNode)
         NewTextChild(rowNode, "null_val", Qry.FieldAsString("null_val"));
         NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
         NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
-        NewTextChild(rowNode, "weight", Qry.FieldAsInteger("weight"));
+        NewTextChild(rowNode, "weight", weight);
         Qry.Next();
     }
+    // Теперь переменные отчета
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    Qry.Clear();
+    Qry.SQLText = 
+        "select "
+        "   'АЭРОПОРТ '||airps.name airp_name, "
+        "   airps.name_lat||' AIRPORT' airp_name_lat, "
+        "   airps.name airp_dep_name, "
+        "   airps.name_lat airp_dep_name_lat, "
+        "   airlines.name airline_name, "
+        "   airlines.name_lat airline_name_lat, "
+        "   points.airline||points.flt_no||points.suffix flt, "
+        "   airlines.code_lat||points.flt_no||points.suffix flt_lat, "
+        "   points.bort, "
+        "   crafts.name craft, "
+        "   crafts.name_lat craft_lat, "
+        "   points.park_out park, "
+        "   to_char(points.scd_out, 'dd.mm') scd_date, "
+        "   to_char(points.scd_out, 'hh24:mi') scd_time "
+        "from "
+        "   points, "
+        "   airps, "
+        "   airlines, "
+        "   crafts "
+        "where "
+        "   points.point_id = :point_id and "
+        "   points.airp = airps.code and "
+        "   points.airline = airlines.code and "
+        "   points.craft = crafts.code ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
+    NewTextChild(variablesNode, "own_airp_name", Qry.FieldAsString("airp_name"));
+    NewTextChild(variablesNode, "own_airp_name_lat", Qry.FieldAsString("airp_name_lat"));
+    NewTextChild(variablesNode, "airp_dep_name", Qry.FieldAsString("airp_dep_name"));
+    NewTextChild(variablesNode, "airp_dep_name_lat", Qry.FieldAsString("airp_dep_name_lat"));
+    NewTextChild(variablesNode, "airline_name", Qry.FieldAsString("airline_name"));
+    NewTextChild(variablesNode, "airline_name_lat", Qry.FieldAsString("airline_name_lat"));
+    NewTextChild(variablesNode, "flt", Qry.FieldAsString("flt"));
+    NewTextChild(variablesNode, "flt_lat", Qry.FieldAsString("flt_lat"));
+    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "craft", Qry.FieldAsString("craft"));
+    NewTextChild(variablesNode, "craft_lat", Qry.FieldAsString("craft_lat"));
+    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    NewTextChild(variablesNode, "scd_date", Qry.FieldAsString("scd_date"));
+    NewTextChild(variablesNode, "scd_time", Qry.FieldAsString("scd_time"));
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   name, "
+        "   name_lat "
+        "from "
+        "   airps "
+        "where "
+        "   code = :target";
+    Qry.CreateVariable("target", otString, target);
+    Qry.Execute();
+    NewTextChild(variablesNode, "airp_arv_name", Qry.FieldAsString("name"));
+    NewTextChild(variablesNode, "airp_arv_name_lat", Qry.FieldAsString("name_lat"));
+
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT amount,weight,tags FROM unaccomp_bag WHERE point_dep=:point_id AND airp_arv=:target ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("target", otString, target);
+    Qry.Execute();
+
+    int TotAmount = 0;
+    int TotWeight = 0;
+    string Tags;
+
+    while(!Qry.Eof) {
+        TotAmount += Qry.FieldAsInteger("amount");
+        TotWeight += Qry.FieldAsInteger("weight");
+        if(Tags.size()) Tags += ", ";
+        Tags += Qry.FieldAsString("tags");
+        Qry.Next();
+    }
+
+    if(!(Tags.empty() && TotAmount == 0 && TotWeight == 0)) {
+        NewTextChild(variablesNode, "DosKwit", Tags);
+        NewTextChild(variablesNode, "DosPcs", TotAmount);
+        NewTextChild(variablesNode, "DosWeight", TotWeight);
+    } else {
+        NewTextChild(variablesNode, "DosKwit");
+        NewTextChild(variablesNode, "DosPcs");
+        NewTextChild(variablesNode, "DosWeight");
+    }
+
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT NVL(SUM(amount),0) AS amount, "
+        "       NVL(SUM(weight),0) AS weight "
+        "FROM pax_grp,bag2,halls2 "
+        "WHERE pax_grp.grp_id=bag2.grp_id AND "
+        "      pax_grp.hall=halls2.id AND "
+        "      halls2.pr_vip=:pr_vip AND "
+        "      pax_grp.point_dep=:point_id AND "
+        "      pax_grp.airp_arv=:target AND "
+        "      pax_grp.pr_refuse=0 AND "
+        "      bag2.pr_cabin=0 ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("target", otString, target);
+    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    Qry.Execute();
+    if(Qry.RowCount() > 0) {
+        TotAmount += Qry.FieldAsInteger("amount");
+        TotWeight += Qry.FieldAsInteger("weight");
+    }
+
+    NewTextChild(variablesNode, "TotPcs", TotAmount);
+    NewTextChild(variablesNode, "TotWeight", TotWeight);
+    NewTextChild(variablesNode, "Tot", vs_number(TotAmount));
+
+    //    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    TDateTime issued = Now();
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm", pr_lat));
 }
 
 void RunTest3(xmlNodePtr formDataNode)
@@ -221,7 +473,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "test2") RunTest2(formDataNode);
     // group test
     else if(name == "test3") RunTest3(formDataNode);
-    else if(name == "BMTrfer") RunBMTrfer(formDataNode);
+    else if(name == "BMTrfer") RunBMTrfer(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
@@ -234,20 +486,14 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
     string form = NodeAsString("form", reqNode);
-    Qry.SQLText =
-        "declare "
-        "   aid fr_forms.id%type; "
-        "begin "
-        "   begin "
-        "       select id into aid from fr_forms where name = :name for update; "
-        "       update fr_forms set form = :form where id = aid; "
-        "   exception "
-        "       when no_data_found then "
-        "           insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form); "
-        "   end; "
-        "end;";
+    Qry.SQLText = "update fr_forms set form = :form where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
+    Qry.Execute();
+    if(!Qry.RowsProcessed()) {
+        Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
+        Qry.Execute();
+    }
     Qry.Execute();
 }
 
