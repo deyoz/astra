@@ -140,7 +140,7 @@ void TSalons::Write( TReadStyle readStyle )
       case mChange:
          Qry.SQLText = "BEGIN "\
                        " UPDATE comps SET craft=:craft,bort=:bort,descr=:descr, "\
-                       "        time_create=sysdate,classes=:classes "\
+                       "        time_create=system.UTCSYSDATE,classes=:classes "\
                        "  WHERE comp_id=:comp_id; "\
                        " DELETE comp_rem WHERE comp_id=:comp_id; "\
                        " DELETE comp_elems WHERE comp_id=:comp_id; "\
@@ -148,7 +148,7 @@ void TSalons::Write( TReadStyle readStyle )
          break;
       case mAdd:
          Qry.SQLText = "INSERT INTO comps(comp_id,craft,bort,descr,time_create,classes) "\
-                       " VALUES(:comp_id,:craft,:bort,:descr,sysdate,:classes) ";
+                       " VALUES(:comp_id,:craft,:bort,:descr,system.UTCSYSDATE,:classes) ";
          break;
       case mDelete:
          Qry.SQLText = "BEGIN "\
@@ -200,15 +200,15 @@ void TSalons::Write( TReadStyle readStyle )
 
   Qry.Clear();
   if ( readStyle == rTripSalons ) {
-    Qry.SQLText = "INSERT INTO trip_comp_elems(trip_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
+    Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
                   "                            pr_smoke,not_good,xname,yname,status,pr_free,enabled) "\
-                  " VALUES(:trip_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "\
+                  " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "\
                   "        :pr_smoke,:not_good,:xname,:yname,:status,:pr_free,:enabled)";
-    Qry.DeclareVariable( "trip_id", otInteger );
+    Qry.DeclareVariable( "point_id", otInteger );
     Qry.DeclareVariable( "status", otString );
     Qry.DeclareVariable( "pr_free", otInteger );
     Qry.DeclareVariable( "enabled", otInteger );
-    Qry.SetVariable( "trip_id", trip_id );
+    Qry.SetVariable( "point_id", trip_id );
   }
   else {
     Qry.SQLText = "INSERT INTO comp_elems(comp_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
@@ -313,10 +313,10 @@ void TSalons::Read( TReadStyle readStyle )
     Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname, "\
                   "       status,class,pr_free,enabled "\
                   " FROM trip_comp_elems "\
-                  "WHERE trip_id=:trip_id "\
+                  "WHERE point_id=:point_id "\
                   " ORDER BY num, x desc, y desc ";
-    Qry.DeclareVariable( "trip_id", otInteger );
-    Qry.SetVariable( "trip_id", trip_id );
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.SetVariable( "point_id", trip_id );
     /*Qry.DeclareVariable( "class", otString );
       Qry.SetVariable( "class", ClName );*/
   }
@@ -422,27 +422,55 @@ void TSalons::Read( TReadStyle readStyle )
 void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
 {
   ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
-  TQuery Qry( &OraSession ); /*!!!*/
-  Qry.SQLText = "SELECT airline||TO_CHAR(flt_no)||suffix|| "\
-                "           DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'', "\
-                "       TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||"\
-                "       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'', "\
-                "       TO_CHAR(scd,'(DD)')) AS trip, "\
-                "       DECODE( trips.comp_id, NULL, DECODE( e.pr_comp_id, 0, -2, -1 ), "\
-                "       trips.comp_id ) comp_id, "\
-                "       trips.bc craft, trips.bort bort, comp.descr "\
-                " FROM points,trip_sets "\
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+    "SELECT airp,airline,flt_no,suffix,craft,bort,scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+    "       system.AirpTZRegion(points.airp) AS tz_region "
+    "FROM points "
+    "WHERE point_id=:point_id ";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  tst();
+  Qry.Execute();
+  tst();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+
+  string scd_out,real_out;
+  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
+  scd_out= DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),"dd");
+  real_out=DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),"dd");
+  ostringstream trip;
+  trip << Qry.FieldAsString("airline")
+       << Qry.FieldAsInteger("flt_no")
+       << Qry.FieldAsString("suffix");
+  if (desk_time!=real_out)
+    trip << "/" << real_out;
+  if (scd_out!=real_out)
+    trip << "(" << scd_out << ")";
+  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
+    trip << " " << Qry.FieldAsString("airp");
+
+  NewTextChild( dataNode, "trip", trip.str() );
+  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
+
+  Qry.Clear();
+  Qry.SQLText = "SELECT "\
+                "       DECODE( trip_sets.comp_id, NULL, DECODE( e.pr_comp_id, 0, -2, -1 ), "\
+                "               trip_sets.comp_id ) comp_id, "\
+                "       comp.descr "\
+                " FROM trip_sets, "\
                 "  ( SELECT COUNT(*) pr_comp_id FROM trip_comp_elems "\
                 "    WHERE point_id=:point_id AND rownum<2 ) e, "\
                 "  ( SELECT comp_id, craft, bort, descr FROM comps ) comp "\
-                " WHERE points.point_id=trip_sets.point_id AND "\
-                "       points.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
-  Qry.DeclareVariable( "trip_id", otInteger );
-  Qry.SetVariable( "trip_id", trip_id );
+                " WHERE trip_sets.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  tst();
   Qry.Execute();
-  NewTextChild( dataNode, "trip", Qry.FieldAsString( "trip" ) );
-  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
-  NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
+  tst();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+
   /* comp_id>0 - базовый; comp_id=-1 - измененный; comp_id=-2 - не задан */
   NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
   NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );

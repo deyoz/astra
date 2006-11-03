@@ -26,10 +26,10 @@ static void scan_tlg(int tlg_id=-1);
 int h2h_out(H2H_MSG *h2h_msg);
 
 int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-{  
+{
   try
   {
-    OpenLogFile("logairimp");      
+    OpenLogFile("logairimp");
 
     int SND_PORT;
     const char *port_tcl=Tcl_GetVar(interp,"SND_PORT",TCL_GLOBAL_ONLY);
@@ -49,7 +49,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
     if (bind(sockfd,(struct sockaddr*)&adr,sizeof(adr))==-1)
       throw Exception("'bind' error %d: %s",errno,strerror(errno));
-      
+
     time_t scan_time=0;
     char buf[2];
     for (;;)
@@ -63,18 +63,18 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       {
         scan_tlg();
         scan_time=time(NULL);
-      };  
+      };
     }; // end of loop
   }
   catch(EOracleError E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());      
+    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }
   catch(Exception E)
   {
-    ProgError(STDLOG,"Exception: %s",E.what());      
-  }    
-  catch(...) 
+    ProgError(STDLOG,"Exception: %s",E.what());
+  }
+  catch(...)
   {
     ProgError(STDLOG, "Unknown exception");
   };
@@ -85,16 +85,16 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OraSession.Rollback();
     OraSession.LogOff();
   }
-  catch(...) 
+  catch(...)
   {
-    ProgError(STDLOG, "Unknown exception");	
+    ProgError(STDLOG, "Unknown exception");
   };
   return 0;
 };
 
 void scan_tlg(int tlg_id)
 {
-  static TQuery TlgQry(&OraSession);  
+  static TQuery TlgQry(&OraSession);
 
   TQuery Qry(&OraSession);
 
@@ -113,7 +113,7 @@ void scan_tlg(int tlg_id)
   {
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,\
-              SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
+              system.UTCSYSDATE AS now,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND\
              tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND\
@@ -125,7 +125,7 @@ void scan_tlg(int tlg_id)
   {
     TlgQry.SQLText=
       "SELECT tlg_queue.id,tlg_queue.tlg_num,tlg_queue.receiver,\
-            SYSDATE,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
+            system.UTCSYSDATE AS now,tlg_queue.time,ttl,tlgs.tlg_text,ip_address,ip_port\
        FROM tlgs,tlg_queue,rot\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.id=:id AND\
              tlg_queue.receiver=rot.canon_name(+) AND tlg_queue.sender=rot.own_canon_name(+) AND\
@@ -134,12 +134,12 @@ void scan_tlg(int tlg_id)
     TlgQry.CreateVariable("id",otInteger,tlg_id);
   };
   TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
-  
+
   count=0;
   TlgQry.Execute();
   while (!TlgQry.Eof&&count<SCAN_COUNT)
   {
-    tlg_id=TlgQry.FieldAsInteger("id");	    
+    tlg_id=TlgQry.FieldAsInteger("id");
     try
     {
       if (TlgQry.FieldIsNULL("ip_address")||TlgQry.FieldIsNULL("ip_port"))
@@ -160,17 +160,17 @@ void scan_tlg(int tlg_id)
       if (len>(int)sizeof(tlg_out.body)) throw Exception("Telegram too long");
       TlgQry.FieldAsLong("tlg_text",tlg_out.body);
       //проверим TTL
-      ttl=0;      
+      ttl=0;
       if (!TlgQry.FieldIsNULL("ttl")&&
            (ttl=TlgQry.FieldAsInteger("ttl")-
-           (int)((TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60))<=0)
+           (int)((TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60))<=0)
       {
-      	errorTlg(tlg_id,"TTL");        
+      	errorTlg(tlg_id,"TTL");
       }
       else
       {
       	ProgTrace(TRACE5,"ttl=%d",ttl);
-      	ProgTrace(TRACE5,"ttl2=%d",(int)((TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60));
+      	ProgTrace(TRACE5,"ttl2=%d",(int)((TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60));
         //проверим, надо ли лепить h2h
         Qry.Clear();
         Qry.SQLText=
@@ -205,7 +205,7 @@ void scan_tlg(int tlg_id)
     catch(Exception E)
     {
       OraSession.Rollback();
-      errorTlg(tlg_id,"SEND");      
+      errorTlg(tlg_id,"SEND");
       ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),TlgQry.FieldAsInteger("id"));
     };
     count++;

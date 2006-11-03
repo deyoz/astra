@@ -257,7 +257,7 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "INSERT INTO astra.events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "VALUES(:type,SYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+        "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
     Qry->DeclareVariable("type", otString);
     Qry->DeclareVariable("msg", otString);
     Qry->DeclareVariable("screen", otString);

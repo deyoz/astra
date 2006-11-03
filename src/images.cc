@@ -44,7 +44,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
   string Def_Elem;
   void *data = NULL;
   try {
-   Qry->SQLText = "SELECT 'Š' AS def_comp_elem,MAX( time_create ) as t FROM comp_elem_types";
+   Qry->SQLText = "SELECT 'Š' AS def_comp_elem,MAX( time_create ) as lastUpdDate FROM comp_elem_types";
    Qry->Execute();
    lastUpdDate = Qry->FieldAsDateTime( "lastUpdDate" );
    SetProp( imagesNode, "default_comp_elem", Qry->FieldAsString( "def_comp_elem" ) );

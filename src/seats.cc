@@ -1752,17 +1752,17 @@ bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, string &n
   int new_tid = Qry.FieldAsInteger( "tid" );
   Qry.Clear();
   Qry.SQLText = "BEGIN "\
-                " salons.seatpass( :trip_id, :pax_id, :placename, :whatdo ); "\
+                " salons.seatpass( :point_id, :pax_id, :placename, :whatdo ); "\
                 " UPDATE pax SET seat_no=:placename,prev_seat_no=:placename,tid=tid__seq.currval "\
                 "  WHERE pax_id=:pax_id; "\
                 " mvd.sync_pax(:pax_id,:term); "\
                 "END; ";
-  Qry.DeclareVariable( "trip_id", otInteger );
+  Qry.DeclareVariable( "point_id", otInteger );
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.DeclareVariable( "placename", otString );
   Qry.DeclareVariable( "whatdo", otInteger );
   Qry.DeclareVariable( "term", otString );
-  Qry.SetVariable( "trip_id", trip_id );
+  Qry.SetVariable( "point_id", trip_id );
   Qry.SetVariable( "pax_id", pax_id );
   Qry.SetVariable( "placename", nplaceName );
   Qry.SetVariable( "whatdo", InUse );

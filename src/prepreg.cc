@@ -34,7 +34,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "        SUM(tranzit) AS tranzit, "
      "        SUM(block) AS block, "
      "        SUM(avail) AS avail, "
-     "        SUM(prot) AS prot, "
+     "        SUM(prot) AS prot "
      "FROM trip_classes, "
      "     (SELECT point_dep AS point_id,class, "
      "             SUM(crs_ok) AS resa, "
@@ -218,6 +218,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "GROUP BY crs,p.point_num,target,class "
     "ORDER BY crs,p.point_num,target ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "first_point", otInteger, first_point );
+  Qry.CreateVariable( "point_num", otInteger, point_num );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crsdata" );
   while ( !Qry.Eof ) {
@@ -237,7 +239,6 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   }
   Qry.Clear();
   if ( empty_priority || !priority ) {
-    tst();
     Qry.SQLText =
       "SELECT target,class, "\
       "       0 AS priority, "\
@@ -254,7 +255,6 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     Qry.SetVariable( "point_id", point_id );
   }
   else {
-    tst();
     Qry.SQLText =
       "SELECT target,class, "\
       "       0 AS priority, "\
@@ -300,46 +300,114 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   int point_id = NodeAsInteger( "point_id", reqNode );
   ProgTrace(TRACE5, "TripInfoInterface::CrsDataApplyUpdates, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amWrite );
-  xmlNodePtr node = GetNode( "crsdata", reqNode );
-  if ( !node || !node->children )
-    return;
-  node = node->children;
   TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "BEGIN "\
-    " UPDATE trip_data SET resa= :resa, tranzit= :tranzit "\
-    "  WHERE point_id=:point_id AND target=:target AND class=:class; "\
-    " IF SQL%NOTFOUND THEN "\
-    "  INSERT INTO trip_data(point_id,target,class,resa,tranzit,avail) "\
-    "   VALUES(:point_id,:target,:class,:resa,:tranzit,NULL); "\
-    " END IF; "\
-    "END; ";
-  Qry.DeclareVariable( "resa", otInteger );
-  Qry.DeclareVariable( "tranzit", otInteger );
-  Qry.DeclareVariable( "class", otString );
-  Qry.DeclareVariable( "target", otString );
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.SetVariable( "point_id", point_id );
-  string target, cl;
-  int resa, tranzit;
-  while ( node ) {
-    xmlNodePtr snode = node->children;
-    target = NodeAsStringFast( "target", snode );
-    cl = NodeAsStringFast( "class", snode );
-    resa = NodeAsIntegerFast( "resa", snode );
-    tranzit = NodeAsIntegerFast( "tranzit", snode );
-    Qry.SetVariable( "target", target );
-    Qry.SetVariable( "class", cl );
-    Qry.SetVariable( "resa", resa );
-    Qry.SetVariable( "tranzit", tranzit );
+  xmlNodePtr node = GetNode( "crsdata", reqNode );
+  if ( node != NULL )
+  {
+    Qry.Clear();
+    Qry.SQLText =
+      "BEGIN "\
+      " UPDATE trip_data SET resa= :resa, tranzit= :tranzit "\
+      "  WHERE point_id=:point_id AND target=:target AND class=:class; "\
+      " IF SQL%NOTFOUND THEN "\
+      "  INSERT INTO trip_data(point_id,target,class,resa,tranzit,avail) "\
+      "   VALUES(:point_id,:target,:class,:resa,:tranzit,NULL); "\
+      " END IF; "\
+      "END; ";
+    Qry.DeclareVariable( "resa", otInteger );
+    Qry.DeclareVariable( "tranzit", otInteger );
+    Qry.DeclareVariable( "class", otString );
+    Qry.DeclareVariable( "target", otString );
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.SetVariable( "point_id", point_id );
+    string target, cl;
+    int resa, tranzit;
+    node = node->children;
+    while ( node !=NULL ) {
+      xmlNodePtr snode = node->children;
+      target = NodeAsStringFast( "target", snode );
+      cl = NodeAsStringFast( "class", snode );
+      resa = NodeAsIntegerFast( "resa", snode );
+      tranzit = NodeAsIntegerFast( "tranzit", snode );
+      Qry.SetVariable( "target", target );
+      Qry.SetVariable( "class", cl );
+      Qry.SetVariable( "resa", resa );
+      Qry.SetVariable( "tranzit", tranzit );
+      Qry.Execute();
+      TReqInfo::Instance()->MsgToLog( string( "Изменены данные по продаже." ) +
+                                      " Центр: , п/н: " + target +
+                                      ", класс: " + cl + ", прод: " +
+                                      IntToString( resa ) + ", трзт: " + IntToString(tranzit),
+                                      evtFlt, point_id );
+      node = node->next;
+    };
+  };
+
+  node = GetNode( "triptranzit", reqNode );
+  if ( node != NULL )
+  {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT point_num,pr_tranzit,first_point "
+      "FROM points WHERE point_id=:point_id AND pr_reg<>0 FOR UPDATE ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    TReqInfo::Instance()->MsgToLog( string( "Изменены данные по продаже." ) +
-                                    " Центр: , п/н: " + target +
-                                    ", класс: " + cl + ", прод: " +
-                                    IntToString( resa ) + ", трзт: " + IntToString(tranzit),
-                                    evtFlt, point_id );
-    node = node->next;
-  }
+    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (!Qry.FieldIsNULL("first_point"))
+    {
+      //рейс tranzitable
+      bool old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+      bool new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
+      bool pr_tranz_reg;
+      if (new_pr_tranzit)
+        pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
+      else
+        pr_tranz_reg=false;
+      int first_point=Qry.FieldAsInteger("first_point");
+      int point_num=Qry.FieldAsInteger("point_num");
+      if (old_pr_tranzit != new_pr_tranzit)
+      {
+        Qry.Clear();
+        if (new_pr_tranzit)
+          Qry.SQLText =
+            "BEGIN "
+            "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+            "  UPDATE points SET first_point=:first_point "
+            "  WHERE first_point=:point_id AND point_num>:point_num; "
+            "END; ";
+        else
+          Qry.SQLText =
+            "BEGIN "
+            "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+            "  UPDATE points SET first_point=:point_id "
+            "  WHERE first_point=:first_point AND point_num>:point_num; "
+            "END; ";
+        Qry.CreateVariable("pr_tranzit",otInteger,(int)new_pr_tranzit);
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.CreateVariable("first_point",otInteger,first_point);
+        Qry.CreateVariable("point_num",otInteger,point_num);
+        Qry.Execute();
+      };
+      Qry.Clear();
+      Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg WHERE point_id=:point_id";
+      Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+
+      TLogMsg msg;
+      msg.msg = "Установлен режим";
+      if ( !pr_tranz_reg ) msg.msg += " без";
+      msg.msg += " перерегистрации транзита для";
+      if ( !new_pr_tranzit )
+        msg.msg += " нетранзитного рейса";
+      else
+        msg.msg += " транзитного рейса";
+      msg.ev_type=evtFlt;
+      msg.id1=point_id;
+      TReqInfo::Instance()->MsgToLog(msg);
+    };
+  };
+
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "\

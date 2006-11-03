@@ -100,7 +100,7 @@ void handle_tlg(void)
   {
     TlgInUpdQry.Clear();
     TlgInUpdQry.SQLText=
-      "UPDATE tlgs_in SET time_parse=SYSDATE "
+      "UPDATE tlgs_in SET time_parse=system.UTCSYSDATE "
       "WHERE id=:id AND time_parse IS NULL";
     TlgInUpdQry.DeclareVariable("id",otInteger);
   };

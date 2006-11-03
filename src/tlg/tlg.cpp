@@ -95,7 +95,7 @@ void sendTlg(const char* receiver,
                 "tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl) "
                 "VALUES"
                 "(tlgs_id.nextval,:sender,tlgs_id.nextval,:receiver,"
-                ":type,'PUT',SYSDATE,:ttl)";
+                ":type,'PUT',system.UTCSYSDATE,:ttl)";
         Qry.CreateVariable("sender",otString,sender);
         Qry.CreateVariable("receiver",otString,receiver);
         Qry.CreateVariable("type",otString,isEdi?"OUTA":"OUTB");
@@ -109,7 +109,7 @@ void sendTlg(const char* receiver,
                 "tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
                 "VALUES"
                 "(tlgs_id.currval,:sender,tlgs_id.currval,:receiver,"
-                ":type,SYSDATE,:text,NULL)";
+                ":type,system.UTCSYSDATE,:text,NULL)";
         Qry.DeclareVariable("text",otLong);
         Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
         Qry.DeleteVariable("ttl");

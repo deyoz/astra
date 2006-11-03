@@ -236,14 +236,14 @@ void process_tlg(void)
             // tlgs
             TlgInsQry.SQLText=
               "INSERT INTO tlgs(id,sender,tlg_num,receiver,type,error,time,tlg_text)\
-               VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,SYSDATE,:tlg_text)";
+               VALUES(tlgs_id.nextval,:sender,:tlg_num,:receiver,:type,NULL,system.UTCSYSDATE,:tlg_text)";
             TlgInsQry.DeclareVariable("tlg_text",otLong);
             TlgInsQry.SetLongVariable("tlg_text",tlg_body,tlg_len);
             TlgInsQry.Execute();
             // tlg_queue
             TlgInsQry.SQLText=
               "INSERT INTO tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl)\
-               VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',SYSDATE,:ttl)";
+               VALUES(tlgs_id.currval,:sender,:tlg_num,:receiver,:type,'PUT',system.UTCSYSDATE,:ttl)";
             if (tlg_in.TTL>0)
               TlgInsQry.CreateVariable("ttl",otInteger,(int)(tlg_in.TTL-(time(NULL)-start_time)));
             else
@@ -411,7 +411,7 @@ void scan_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,SYSDATE,tlg_queue.time,ttl\
+      "SELECT tlg_queue.id,tlgs.tlg_text,system.UTCSYSDATE AS now,tlg_queue.time,ttl\
        FROM tlgs,tlg_queue\
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
              tlg_queue.type='INB' AND tlg_queue.status='PUT'\
@@ -450,7 +450,7 @@ void scan_tlg(void)
                            merge_key,time_create,time_receive,time_parse)\
         VALUES(NVL(:id,tlg_in_out__seq.nextval),\
                :part_no,:tlg_type,:addr,:heading,:body,:ending,\
-               :merge_key,:time_create,SYSDATE,NULL)";
+               :merge_key,:time_create,system.UTCSYSDATE,NULL)";
     InsQry.DeclareVariable("id",otInteger);
     InsQry.DeclareVariable("part_no",otInteger);
     InsQry.DeclareVariable("tlg_type",otString);
@@ -479,7 +479,7 @@ void scan_tlg(void)
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
       if (!TlgQry.FieldIsNULL("ttl")&&
-           (TlgQry.FieldAsDateTime("sysdate")-TlgQry.FieldAsDateTime("time"))*24*60*60>=TlgQry.FieldAsInteger("ttl"))
+           (TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60>=TlgQry.FieldAsInteger("ttl"))
       {
       	errorTlg(tlg_id,"TTL");
       }

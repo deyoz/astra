@@ -15,6 +15,7 @@ using namespace std;
 void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "BrdInterface::readTripCounters" );
+  JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", point_id);
   TQuery Qry( &OraSession );
   Qry.SQLText =
             "SELECT "
@@ -130,7 +131,7 @@ int BrdInterface::PaxUpdate(int pax_id, int &tid, int pr_brd)
         "       p.surname, "
         "       p.reg_no, "
         "       p.grp_id, "
-        "       pg.point_id "
+        "       pg.point_dep "
         "   into "
         "       :name, "
         "       :surname, "
@@ -279,7 +280,7 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "SELECT "
         "    pax_id, "
         "    pax.grp_id, "
-        "    point_id, "
+        "    point_dep AS point_id, "
         "    pr_brd, "
         "    reg_no, "
         "    surname, "

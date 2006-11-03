@@ -499,10 +499,10 @@ void TCacheTable::parse_updates(xmlNodePtr rowsNode)
     }
 }
 
-string TCacheTable::code() 
+string TCacheTable::code()
 {
   if ( Params.find( TAG_CODE ) == Params.end() )
-    throw Exception("cache not inizialize");    
+    throw Exception("cache not inizialize");
   return Params[TAG_CODE].Value;
 }
 
@@ -520,16 +520,15 @@ int TCacheTable::FieldIndex( const string name )
         break;
       };
    };
-  return FieldId;  
+  return FieldId;
 }
 
-void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus UpdateStatus, 
+void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus UpdateStatus,
                  TLogMsg &message )
 {
   string code = cachetable->code();
   if ( code == "TRIP_BP" ||
-       code == "TRIP_BRD" ||
-       code == "TRIP_TRANZIT" ) {
+       code == "TRIP_BRD" ) {
     message.ev_type = evtFlt;
     int FieldIndex;
     int point_id;
@@ -537,14 +536,14 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       TParams p = row.params;
       TParams::iterator ip = p.find( "POINT_ID" );
       if ( ip == p.end() )
-        throw Exception( "Can't find variable point_id" );  
-      point_id = StrToInt( ip->second.Value );      
+        throw Exception( "Can't find variable point_id" );
+      point_id = StrToInt( ip->second.Value );
     }
     else {
       FieldIndex = cachetable->FieldIndex( "point_id" );
       if ( FieldIndex < 0 )
-        throw Exception( "Ошибка при поиске поля point_id" );  
-      ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );    	
+        throw Exception( "Ошибка при поиске поля point_id" );
+      ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
       point_id = StrToInt( row.old_cols[ FieldIndex ] );
     }
     ProgTrace( TRACE5, "point_id=%d", point_id );
@@ -557,10 +556,10 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
         ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         message.msg += row.old_cols[ FieldIndex ] + "' (";
         FieldIndex = cachetable->FieldIndex( "prn_name" );
-        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );        
+        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         message.msg += row.old_cols[ FieldIndex ] + ")";
         FieldIndex = cachetable->FieldIndex( "class" );
-        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );        
+        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         if ( !row.old_cols[ FieldIndex ].empty() )
           message.msg += " для класса " + row.old_cols[ FieldIndex ];
         message.msg += ". ";
@@ -614,32 +613,6 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       }
      return;
     }
-    if ( code == "TRIP_TRANZIT" ) {
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
-        message.msg = "Установлен режим";
-        FieldIndex = cachetable->FieldIndex( "pr_reg" );
-        if ( row.cols[ FieldIndex ] == "0" )
-          message.msg += " без";
-        message.msg += " перерегистрации транзита для";
-        FieldIndex = cachetable->FieldIndex( "pr_tranzit" );
-        if ( row.cols[ FieldIndex ] == "0" )
-          message.msg += " нетранзитного рейса";
-        else
-          message.msg += " транзитного рейса";
-      }
-      if ( UpdateStatus == usDeleted ) {
-        message.msg = "Отменен режим";
-        if ( row.old_cols[ FieldIndex ] == "0" )
-          message.msg += " без";
-        message.msg += " перерегистрации транзита для";
-        FieldIndex = cachetable->FieldIndex( "pr_tranzit" );
-        if ( row.old_cols[ FieldIndex ] == "0" )
-          message.msg += " нетранзитного рейса";
-        else
-          message.msg += " транзитного рейса";
-      }
-      return;
-    }    
   }
 }
 
@@ -855,7 +828,7 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
 }
 
 int TCacheTable::getIfaceVer() {
-  string stid = Params[ TAG_REFRESH_INTERFACE ].Value;	
+  string stid = Params[ TAG_REFRESH_INTERFACE ].Value;
   int res;
   TrimString( stid );
   if ( stid.empty() || StrToInt( stid.c_str(), res ) == EOF )

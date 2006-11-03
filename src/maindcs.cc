@@ -25,7 +25,7 @@ void GetModuleList(xmlNodePtr resNode)
       "WHERE user_roles.role_id=role_rights.role_id AND "
       "      role_rights.right_id=screen_rights.right_id AND "
       "      screen_rights.screen_id=screen.id AND "
-      "      user_roles.user_id=:user_id "
+      "      user_roles.user_id=:user_id AND view_order IS NOT NULL"
       "ORDER BY view_order";
     Qry.SQLText=sql;
     Qry.DeclareVariable("user_id", otInteger);

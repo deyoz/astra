@@ -62,9 +62,10 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                "UNION "\
                "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
                "       comps.descr,1 as pr_comp "\
-               " FROM comps, points "\
-               "WHERE points.craft = comps.craft AND points.point_id = :point_id AND "\
-               "      points.comp_id = comps.comp_id "\
+               " FROM comps, points, trip_sets "\
+               "WHERE points.point_id=trip_sets.point_id AND "\
+               "      points.craft = comps.craft AND points.point_id = :point_id AND "\
+               "      trip_sets.comp_id = comps.comp_id "\
                "UNION "\
                "SELECT -1, craft, bort, "\
                "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
@@ -84,8 +85,8 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                "       trip_sets.comp_id IS NULL "\
                "GROUP BY craft, bort) a "\
                "ORDER BY comp_id, craft, bort, classes, descr";
- Qry.DeclareVariable( "trip_id", otInteger );
- Qry.SetVariable( "trip_id", trip_id );
+ Qry.DeclareVariable( "point_id", otInteger );
+ Qry.SetVariable( "point_id", trip_id );
  tst();
  Qry.Execute();
  tst();
@@ -173,10 +174,10 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     /* инициализация */
     Qry.Clear();
     Qry.SQLText = "BEGIN "\
-                  " salons.initcomp( :trip_id ); "\
+                  " salons.initcomp( :point_id ); "\
                   "END; ";
-    Qry.DeclareVariable( "trip_id", otInteger );
-    Qry.SetVariable( "trip_id", trip_id );
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.SetVariable( "point_id", trip_id );
     Qry.Execute();
     /* запись в лог */
     xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );

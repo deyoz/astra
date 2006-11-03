@@ -6,6 +6,7 @@
 #include "stages.h"
 #include "astra_utils.h"
 #include "basic.h"
+#include "exceptions.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -14,6 +15,7 @@
 
 using namespace std;
 using namespace BASIC;
+using namespace EXCEPTIONS;
 
 struct TTrferItem {
   std::string last_trfer;
@@ -74,11 +76,9 @@ void TSQL::createSQLTrips( ) {
   /* ------------ПОСАДКА-------------- */
   /* задаем текст */
   p.sqlfrom =
-    "points,trip_stations ";
+    "points ";
   p.sqlwhere =
-    "points.point_id=trip_stations.point_id AND "
     "points.act_out IS NULL AND points.pr_del=0 AND "
-    "trip_stations.desk= :desk AND trip_stations.work_mode='П' AND "
     "gtimer.is_final_stage(  points.point_id, :brd_stage_type, :brd_open_stage_id) <> 0 ";
   /* задаем переменные */
   p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
@@ -274,11 +274,19 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out ";
   sql+=
     "FROM " + p.sqlfrom;
+
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+    sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
   if (!info.user.access.airps.empty())
     sql+=",aro_airps";
-  sql+="WHERE " + p.sqlwhere + " AND points.scd_out IS NOT NULL ";
+  sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
+
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+    sql+="AND points.point_id=trip_stations.point_id "
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode='П' ";
+
   if (!info.user.access.airlines.empty())
     sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
@@ -295,8 +303,9 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" )
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
     Qry.CreateVariable( "desk", otString, info.desk.code );
+
 };
 
 void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
@@ -314,11 +323,12 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.act_out, "
     "       SUBSTR(ckin.get_classes(points.point_id),1,50) AS classes, "
     "       SUBSTR(ckin.get_airps(points.point_id),1,50) AS places, "
-    "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+    "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
     "       points.trip_type, "
     "       points.litera, "
     "       points.remark, "
-    "       points.pr_tranzit, ";
+    "       points.pr_tranzit, "
+    "       points.first_point ";
 /*
   if ( info.screen.name == "BRDBUS.EXE" )
     sql+="gtimer.get_stage_time(points.point_id,:brd_close_stage_id) AS brd_to, "
@@ -361,7 +371,12 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     sql+=",aro_airlines";
   if (!info.user.access.airps.empty())
     sql+=",aro_airps";
-  sql+="WHERE " + p.sqlwhere + " AND points.scd_out IS NOT NULL AND points.point_id=:point_id ";
+  sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
+
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+    sql+="AND points.point_id=trip_stations.point_id "
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode='П' ";
+
   if (!info.user.access.airlines.empty())
     sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
@@ -377,14 +392,14 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" )
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
     Qry.CreateVariable( "desk", otString, info.desk.code );
 };
 
 /*******************************************************************************/
 void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  ProgTrace(TRACE5, "TripsInterface::ReadTrips" );
+  ProgTrace(TRACE5, "TripsInterface::GetTripList" );
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -428,24 +443,24 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild( dataNode, "point_id", point_id );
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
-//    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-//      readTripHeader( point_id, dataNode );
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
     if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
       BrdInterface::readTripCounters( point_id, dataNode );
   };
 //    BrdInterface::Trip(ctxt,reqNode,resNode);
   if (reqInfo->screen.name == "CENT.EXE")
   {
-//    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-//      readTripHeader( point_id, dataNode );
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
     if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
       readTripCounters( point_id, dataNode );
   };
 //    CentInterface::ReadTripInfo(ctxt,reqNode,resNode);
   if (reqInfo->screen.name == "PREPREG.EXE")
   {
-//    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-//      readTripHeader( point_id, dataNode );
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
     if ( GetNode( "tripcounters", reqNode ) )
       PrepRegInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "crsdata", reqNode ) )
@@ -485,7 +500,7 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
   NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
-  NewTextChild( node, "real_out", DateTimeToStr(real_out) );
+  NewTextChild( node, "real_out", DateTimeToStr(real_out,"hh:nn") );
   if (!Qry.FieldIsNULL("act_out"))
   {
     act_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
@@ -500,12 +515,8 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "places", Qry.FieldAsString( "places" ) );
   NewTextChild( node, "trip_type", Qry.FieldAsString( "trip_type" ) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
+  NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
-/*  NewTextChild( node, "", Qry.FieldAs( "" ) );
-  NewTextChild( node, "", Qry.FieldAs( "" ) );
-  NewTextChild( node, "", Qry.FieldAs( "" ) );
-  NewTextChild( node, "", Qry.FieldAs( "" ) );
-  NewTextChild( node, "", Qry.FieldAs( "" ) );*/
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -559,21 +570,41 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if ( reqInfo->screen.name == "DOCS.EXE" )
     stage_time = UTCToClient( tripStages.time( sRemovalGangWay ), tz_region );
   if (stage_time!=0)
-    NewTextChild( node, "stage_time", DateTimeToStr(stage_time) );
+    NewTextChild( node, "stage_time", DateTimeToStr(stage_time,"hh:nn") );
 
   //признак назначенного салона
   if ( reqInfo->screen.name == "CENT.EXE" ||
        reqInfo->screen.name == "AIR.EXE" ||
        reqInfo->screen.name == "PREPREG.EXE" )
   {
-    Qry.Clear();
-    Qry.SQLText="SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    NewTextChild( node, "pr_saloninit", (int)(!Qry.Eof) );
+    TQuery Qryh( &OraSession );
+    Qryh.Clear();
+    Qryh.SQLText="SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+    Qryh.CreateVariable( "point_id", otInteger, point_id );
+    Qryh.Execute();
+    NewTextChild( node, "pr_saloninit", (int)(!Qryh.Eof) );
   };
 
+  if (reqInfo->screen.name == "CENT.EXE" )
+  {
+    NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
+  };
 
+  if (reqInfo->screen.name == "PREPREG.EXE" )
+  {
+    NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
+    NewTextChild( node, "tranzitable", (int)(!Qry.FieldIsNULL("first_point")) );
+
+    TQuery Qryh( &OraSession );
+    Qryh.Clear();
+    Qryh.SQLText=
+      "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg "
+      "FROM trip_sets WHERE point_id=:point_id ";
+    Qryh.CreateVariable( "point_id", otInteger, point_id );
+    Qryh.Execute();
+    if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+    NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
+  };
 }
 
 
@@ -818,7 +849,7 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
                 "       a.seats,a.adult,a.child,a.baby,b.foreigner,d.excess, "\
                 "       b.umnr,b.vip,c.bagAmount,c.bagWeight,c.rkWeight "\
                 " FROM halls2, "\
-                "( SELECT class,airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
+                "( SELECT class,pax_grp.airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
                 "         SUM(seats) AS seats, "\
                 "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "\
                 "         SUM(DECODE(pers_type,'РБ',1,0)) AS child, "\
@@ -827,8 +858,8 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
                 "  WHERE pax_grp.grp_id=pax.grp_id AND "\
                 "        pax_grp.grp_id=v_last_trfer.grp_id(+) AND "\
                 "        point_dep=:point_id AND pr_brd IS NOT NULL "\
-                "  GROUP BY class,airp_arv,last_trfer,hall ) a, "\
-                "( SELECT class,airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
+                "  GROUP BY class,pax_grp.airp_arv,last_trfer,hall ) a, "\
+                "( SELECT class,pax_grp.airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
                 "         SUM(DECODE(rem_code,'UMNR',1,0)) AS umnr, "\
                 "         SUM(DECODE(rem_code,'VIP',1,0)) AS vip, "\
                 "         SUM(DECODE(rem_code,'FRGN',1,0)) AS foreigner "\
@@ -839,8 +870,8 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
                 "        pax_grp.grp_id=v_last_trfer.grp_id(+) AND "\
                 "        pax.pax_id=pax_rem.pax_id AND "\
                 "        point_dep=:point_id AND pr_brd IS NOT NULL "\
-                "  GROUP BY class,airp_arv,last_trfer,hall) b, "\
-                "( SELECT class,airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
+                "  GROUP BY class,pax_grp.airp_arv,last_trfer,hall) b, "\
+                "( SELECT class,pax_grp.airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
                 "         SUM(DECODE(pr_cabin,0,amount,0)) AS bagAmount, "\
                 "         SUM(DECODE(pr_cabin,0,weight,0)) AS bagWeight, "\
                 "         SUM(DECODE(pr_cabin,0,0,weight)) AS rkWeight "\
@@ -848,13 +879,13 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
                 "  WHERE pax_grp.grp_id=v_last_trfer.grp_id(+) AND "\
                 "        pax_grp.grp_id=bag2.grp_id AND "\
                 "        point_dep=:point_id AND pr_refuse=0 "\
-                "  GROUP BY class,airp_arv,last_trfer,hall) c, "\
-                "(SELECT class,airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
+                "  GROUP BY class,pax_grp.airp_arv,last_trfer,hall) c, "\
+                "(SELECT class,pax_grp.airp_arv,NVL(last_trfer,' ') AS last_trfer,hall, "\
                 "        SUM(excess) AS excess "\
                 "  FROM pax_grp,v_last_trfer "\
                 " WHERE pax_grp.grp_id=v_last_trfer.grp_id(+) AND "\
                 "       point_dep=:point_id AND pr_refuse=0 "\
-                " GROUP BY class,airp_arv,last_trfer,hall) d "\
+                " GROUP BY class,pax_grp.airp_arv,last_trfer,hall) d "\
                 "WHERE a.hall=halls2.id AND "\
                 "      a.class=b.class(+) AND "\
                 "      a.airp_arv=b.airp_arv(+) AND "\
