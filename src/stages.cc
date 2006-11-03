@@ -9,6 +9,7 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
+#include "xml_unit.h"
 
 using namespace std;
 using namespace BASIC;
@@ -40,6 +41,135 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
     Qry.Next();
   } 
 }
+
+void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
+{
+	ts.clear();
+	node = node->children;
+	xmlNodePtr n,x;
+	while ( node ) {
+		TTripStage  tripStage;
+		n = node->children;
+		x = GetNodeFast( "scd", n );
+		if ( x )
+			tripStage.scd = NodeAsDateTime( x );
+		else
+			tripStage.scd = NoExists;
+		x = GetNodeFast( "est", n );
+		if ( x )
+			tripStage.est = NodeAsDateTime( x );
+		else
+			tripStage.est = NoExists;
+		x = GetNodeFast( "act", n );
+		if ( x )
+			tripStage.act = NodeAsDateTime( x );
+		else
+			tripStage.act = NoExists;
+		x = GetNodeFast( "old_est", n );
+		if ( x )
+			tripStage.old_est = NodeAsDateTime( x );
+		else
+			tripStage.old_est = NoExists;
+		x = GetNodeFast( "old_act", n );
+		if ( x )
+			tripStage.old_act = NodeAsDateTime( x );
+		else
+			tripStage.old_act = NoExists;			
+		ts.insert( make_pair( (TStage)NodeAsIntegerFast( "stage_id", n ), tripStage ) );
+		node = node->next;
+	}
+}
+
+void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
+{
+  TQuery Qry( &OraSession );	
+  Qry.SQLText = 
+   "SELECT tz_regions.region region "\
+   " FROM points,airps,cities,tz_regions "
+    "WHERE points.point_id=:point_id AND points.airp=airps.code AND airps.city=cities.code AND "\
+    "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+)";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  string region = Qry.FieldAsString( "region" );
+  Qry.Clear();
+  Qry.SQLText = 
+   "DECLARE "\
+   "  VACT trip_stages.act%TYPE; "\
+   "  vcur NUMBER; "\
+   "  vi NUMBER; "\
+   "  vexec VARCHAR2(255); "\
+   " BEGIN "\
+   "  VACT:=NULL; "\
+   " BEGIN "\
+   " UPDATE points SET point_id = :point_id WHERE point_id = :point_id; "\
+   "  SELECT act INTO VACT FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
+   " EXCEPTION WHEN NO_DATA_FOUND THEN "\
+   "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
+   "   VALUES(:point_id,:stage_id,NVL(:act,:est),NULL,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)); "\
+   " END; "\
+   " IF ( VACT IS NULL )AND( :act IS NOT NULL ) THEN "\
+   "  vexec := 'begin gtimer.stage'||TO_CHAR( :stage_id )||'('||TO_CHAR( :point_id )||'); end;'; "\
+   "  vcur := dbms_sql.open_cursor; "\
+   "  BEGIN "\
+   "   dbms_sql.parse( vcur, vexec, dbms_sql.native ); "\
+   "   vi := dbms_sql.execute( vcur ); "\
+   "   dbms_sql.close_cursor( vcur ); "\
+   "   EXCEPTION WHEN OTHERS THEN "\
+   "      IF dbms_sql.is_open( vcur ) THEN "
+   "       dbms_sql.close_cursor( vcur ); "\
+   "      END IF; "\
+   "     IF SQLCODE != -6550 THEN RAISE; END IF; "\
+   "  END; "\
+   " END IF; "\
+   " UPDATE trip_stages SET est=:est,act=:act,pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
+   "  WHERE point_id=:point_id AND stage_id=:stage_id; "\
+   "END; ";
+
+   Qry.CreateVariable( "point_id", otInteger, point_id );
+   Qry.DeclareVariable( "stage_id", otInteger );
+   Qry.DeclareVariable( "est", otDate );
+   Qry.DeclareVariable( "act", otDate );
+   Qry.DeclareVariable( "pr_manual", otInteger );
+   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
+   	 Qry.SetVariable( "stage_id", (int)i->first );
+     if ( i->second.est == NoExists )
+       Qry.SetVariable( "est", FNull );
+     else 
+    	 Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+     if ( i->second.act == NoExists )
+       Qry.SetVariable( "act", FNull );
+     else 
+       Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+     int pr_manual;
+     if ( i->second.est == i->second.old_est )
+       pr_manual = -1;
+     else
+       if ( i->second.est == NoExists )
+         pr_manual = 0;
+       else 
+      	  pr_manual = 1;
+     Qry.SetVariable( "pr_manual", pr_manual );
+     Qry.Execute( );   
+     TStagesRules *r = TStagesRules::Instance();
+     string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";		 
+     if ( i->second.old_act == NoExists && i->second.act > NoExists )
+       tolog += " выполнен";
+     if ( i->second.old_act > NoExists && i->second.act == NoExists )
+       tolog += " отменен";
+     tolog += ": расч. время";
+     if ( i->second.est > NoExists )
+       tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy" );
+     else
+       tolog += " не задано";
+     tolog += ", факт. время";
+     if ( i->second.act > NoExists )
+       tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy" );
+     else
+        tolog += " не задано";
+     TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first ); 
+   }   
+}        
+
 
 void TTripStages::LoadStages( int vpoint_id )
 {
@@ -133,6 +263,15 @@ void TStagesRules::Update()
    StageStatuses[ stage_type ].push_back( status );
    Qry.Next();
  }
+
+ Qry.Clear();
+ Qry.SQLText = "SELECT stage_id, name from graph_stages ORDER BY stage_id";
+ Qry.Execute();
+ 
+ while ( !Qry.Eof ) {
+   Graph_Stages[ (TStage)Qry.FieldAsInteger( "stage_id" ) ] = Qry.FieldAsString( "name" );
+   Qry.Next();
+ }
  
  Qry.Clear();
  Qry.SQLText = "SELECT target_stage, level "\
@@ -150,7 +289,48 @@ void TStagesRules::Update()
    GrphLvl.push_back( gl );
    Qry.Next();
  } 	
- 
+}
+
+void TStagesRules::Build( xmlNodePtr dataNode )
+{
+  xmlNodePtr node = NewTextChild( dataNode, "GrphRls" );
+  xmlNodePtr snode;
+  for ( map<TStageStep,TMapRules>::iterator st=GrphRls.begin(); st!=GrphRls.end(); st++ ) {
+    if ( st->first == stPrior )
+      snode = NewTextChild( node, "stagestep", "stPrior" );
+    else
+      snode = NewTextChild( node, "stagestep", "stNext" );
+    for ( map<TStage,vecRules>::iterator r=st->second.begin(); r!=st->second.end(); r++ ) {
+      xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules", r->first );
+      for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
+        xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
+        NewTextChild( ruleNode, "num", v->num );
+        NewTextChild( ruleNode, "cond_stage", v->cond_stage );
+      }
+    }
+  }
+  node = NewTextChild( dataNode, "StageStatuses" );
+  for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
+    snode = NewTextChild( node, "stage_type", m->first );
+    for ( TStage_Statuses::iterator s=m->second.begin(); s!=m->second.end(); s++ ) {
+      xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
+      NewTextChild( stagestatusNode, "stage", (int)s->stage );
+      NewTextChild( stagestatusNode, "status", s->status );
+      NewTextChild( stagestatusNode, "lvl", s->lvl );
+    }
+  }
+  node = NewTextChild( dataNode, "Graph_Stages" );
+  for ( map<TStage,std::string>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
+    snode = NewTextChild( node, "stage" );
+    NewTextChild( snode, "stage_id", (int)i->first );
+    NewTextChild( snode, "name", i->second );
+  }
+  node = NewTextChild( dataNode, "GrphLvl" );
+  for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
+    snode = NewTextChild( node, "stage_level" );
+    NewTextChild( snode, "stage", (int)l->stage );
+    NewTextChild( snode, "level", (int)l->level );
+  }
 }
 
 bool TStagesRules::CanStatus( TStage_Type stage_type, TStage stage )
@@ -197,5 +377,6 @@ void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
     Qry.Next();
   }
 }
+
 
 

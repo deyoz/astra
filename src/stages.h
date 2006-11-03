@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 #include "basic.h"
+#include "astra_consts.h"
+#include <libxml/parser.h>
 
 enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/
@@ -23,10 +25,14 @@ struct TTripStage {
   BASIC::TDateTime scd;
   BASIC::TDateTime est;
   BASIC::TDateTime act;
+  BASIC::TDateTime old_est;
+  BASIC::TDateTime old_act;
   TTripStage() {
-    scd = 0;
-    est = 0;
-    act = 0;
+    scd = ASTRA::NoExists;
+    est = ASTRA::NoExists;
+    act = ASTRA::NoExists;
+    old_est = ASTRA::NoExists;	
+    old_act = ASTRA::NoExists;
   }
 };
 
@@ -39,7 +45,9 @@ class TTripStages {
   public:
     TTripStages( int vpoint_id );  
     void LoadStages( int vpoint_id );    
-    static void LoadStages( int vpoint_id, TMapTripStages &ts );        
+    static void LoadStages( int vpoint_id, TMapTripStages &ts );
+    static void ParseStages( xmlNodePtr tripNode, TMapTripStages &ts );
+    static void WriteStages( int point_id, TMapTripStages &t );        
     BASIC::TDateTime time( TStage stage );    
     TStage getStage( TStage_Type stage_type );
 };
@@ -72,11 +80,13 @@ class TStagesRules {
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
-    TMapStatuses StageStatuses;  
+    TMapStatuses StageStatuses;
+    std::map<TStage,std::string> Graph_Stages;
     TStagesRules();
     void Update();
     bool CanStatus( TStage_Type stage_type, TStage stage );
     std::string TStagesRules::status( TStage_Type stage_type, TStage stage );
+    void Build( xmlNodePtr dataNode );
     static TStagesRules *Instance();
 
 };

@@ -19,11 +19,20 @@ public:
      AddEvent("GetPaxTransfer",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetBagTransfer);
      AddEvent("GetBagTransfer",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteAllPassangers);
+     AddEvent("DeleteAllPassangers",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteTrips);
+     AddEvent("WriteTrips",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadTripInfo);
+     AddEvent("ReadTripInfo",evHandle);     
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);
   void GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

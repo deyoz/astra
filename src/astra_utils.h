@@ -152,6 +152,8 @@ BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region);
+	
+bool is_dst(BASIC::TDateTime d, std::string region);
 
 class SysReqInterface : public JxtInterface
 {
