@@ -1067,5 +1067,23 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   }
 }
 
-
+string GetTripName( TTripInfo &info )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  string scd_out,real_out;
+  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
+  scd_out= DateTimeToStr(UTCToClient(info.scd_out,info.tz_region),"dd");
+  real_out=DateTimeToStr(UTCToClient(info.real_out,info.tz_region),"dd");
+  ostringstream trip;
+  trip << info.airline
+       << info.flt_no
+       << info.suffix;
+  if (desk_time!=real_out)
+    trip << "/" << real_out;
+  if (scd_out!=real_out)
+    trip << "(" << scd_out << ")";
+  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
+    trip << " " << info.airp;
+  return trip.str();
+};
 

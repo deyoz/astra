@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "basic.h"
 #include "oralib.h"
 #include "astra_utils.h"
 #include "JxtInterface.h"
@@ -46,6 +47,16 @@ public:
 
 void readTripCounters( int point_id, xmlNodePtr dataNode );
 void viewPNL( int point_id, xmlNodePtr dataNode );
+
+class TTripInfo
+{
+  public:
+    std::string airline,suffix,airp,tz_region;
+    int flt_no;
+    BASIC::TDateTime scd_out,real_out;
+};
+
+std::string GetTripName( TTripInfo &info );
 
 
 class TripsInterface : public JxtInterface

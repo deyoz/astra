@@ -12,6 +12,7 @@
 #include "oralib.h"
 #include "str_utils.h"
 #include "images.h"
+#include "tripinfo.h"
 
 
 const char LAT_NAME_LINES[27] = "€‚ƒ„…†‡ˆŠ‹ŒŽ‘’“”•–—˜™";
@@ -422,7 +423,7 @@ void TSalons::Read( TReadStyle readStyle )
 void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
 {
   ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
-  TReqInfo *reqInfo = TReqInfo::Instance();
+
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT airp,airline,flt_no,suffix,craft,bort,scd_out, "
@@ -431,27 +432,19 @@ void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
     "FROM points "
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
-  tst();
   Qry.Execute();
-  tst();
   if (Qry.Eof) throw UserException("¥©á ­¥ ­ ©¤¥­. Ž¡­®¢¨â¥ ¤ ­­ë¥");
 
-  string scd_out,real_out;
-  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
-  scd_out= DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),"dd");
-  real_out=DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),"dd");
-  ostringstream trip;
-  trip << Qry.FieldAsString("airline")
-       << Qry.FieldAsInteger("flt_no")
-       << Qry.FieldAsString("suffix");
-  if (desk_time!=real_out)
-    trip << "/" << real_out;
-  if (scd_out!=real_out)
-    trip << "(" << scd_out << ")";
-  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
-    trip << " " << Qry.FieldAsString("airp");
+  TTripInfo info;
+  info.airline=Qry.FieldAsString("airline");
+  info.flt_no=Qry.FieldAsInteger("flt_no");
+  info.suffix=Qry.FieldAsString("suffix");
+  info.airp=Qry.FieldAsString("airp");
+  info.tz_region=Qry.FieldAsString("tz_region");
+  info.scd_out=Qry.FieldAsDateTime("scd_out");
+  info.real_out=Qry.FieldAsDateTime("real_out");
 
-  NewTextChild( dataNode, "trip", trip.str() );
+  NewTextChild( dataNode, "trip", GetTripName(info) );
   NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
