@@ -112,7 +112,7 @@ class TCacheTable {
         bool Forbidden, ReadOnly;
         std::vector<TCacheField2> FFields;
         int clientVerData;
-        int curVerIface; 
+        int curVerIface;
         int clientVerIface;
         TTable table;
         std::vector<std::string> vars;
@@ -125,7 +125,7 @@ class TCacheTable {
         void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
-        void DeclareVariables(const std::vector<std::string> &vars);
+        void DeclareVariables(std::vector<std::string> &vars);
         void SetVariables(TRow &row, const std::vector<std::string> &vars);
         void parse_updates(xmlNodePtr rowsNode);
         int getIfaceVer();

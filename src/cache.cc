@@ -291,9 +291,6 @@ bool TCacheTable::refreshData()
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
     for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
     {
-    	TParams::iterator prms = SQLParams.find( *v );
-    	if ( prms == SQLParams.end() )
-    		throw Exception("Variable '" + *v + "' not found in cache params");
     	otFieldType vtype;
     	switch( SQLParams[ *v ].DataType ) {
     	  case ctInteger: vtype = otInteger;
@@ -785,8 +782,18 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
   }
 }
 
-void TCacheTable::DeclareVariables(const std::vector<string> &vars)
+void TCacheTable::DeclareVariables(std::vector<string> &vars)
 {
+
+  /* задание переменной USER_ID */
+  vector<string>::iterator f;
+  f = find( vars.begin(), vars.end(), "USER_ID" );
+  if ( f != vars.end() ) {
+    Qry->DeclareVariable("user_id", otInteger);
+    Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
+    vars.erase( f );
+  }
+
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
     string VarName;
     for( int i = 0; i < 2; i++ ) {
@@ -794,7 +801,7 @@ void TCacheTable::DeclareVariables(const std::vector<string> &vars)
         VarName = iv->Name;
       else
         VarName = "OLD_" + iv->Name;
-      vector<string>::const_iterator f = find( vars.begin(), vars.end(), VarName );
+      f = find( vars.begin(), vars.end(), VarName );
       if ( f != vars.end()) {
         switch(iv->DataType) {
           case ftSignedNumber:
