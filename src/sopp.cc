@@ -254,15 +254,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   return trip;
 }
 
-void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void internal_ReadData( TTrips &trips, int point_id = NoExists )
 {
-  ProgTrace( TRACE5, "ReadTrips" );
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  if ( GetNode( "CorrectStages", reqNode ) ) {
-  	tst();
-//    TStagesRules::Instance()->Build( dataNode );
-  }
+	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery PointsQry( &OraSession );
   PointsQry.SQLText = pointsSQL;
 
@@ -284,8 +278,6 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   StagesQry.Execute();
   StationsQry.Execute();
   TDests dests;
-  TTrips trips;
-
   int move_id = NoExists;
   bool canUseAirline, canUseAirp;
   while ( !PointsQry.Eof ) {
@@ -398,9 +390,6 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     }
   }
   tst();
-
-  xmlNodePtr tripsNode = NULL;
-
   map<int,string> classesmap;
   map<int,int> regmap;
   map<int,int> resamap;
@@ -422,22 +411,30 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       while ( !ClassesQry.Eof && tr->point_id >= ClassesQry.FieldAsInteger( "point_id" ) ) {
         if ( tr->point_id == ClassesQry.FieldAsInteger( "point_id" ) ) {
           find = true;
-          if ( !tr->classes.empty() )
+          if ( !tr->classes.empty() && point_id == NoExists )
             tr->classes += " ";
-          tr->classes = string(ClassesQry.FieldAsString( "class" )) + string(ClassesQry.FieldAsString( "cfg" ));
+          tr->classes += ClassesQry.FieldAsString( "class" );
+          if ( point_id == NoExists )
+          	tr->classes += string(ClassesQry.FieldAsString( "cfg" ));
         }
         else {
           p_id = ClassesQry.FieldAsInteger( "point_id" );
           string &str_classes = classesmap[ p_id ];
-          if ( !str_classes.empty() )
+          if ( !str_classes.empty() && point_id == NoExists )
             str_classes += " ";
-          str_classes = string(ClassesQry.FieldAsString( "class" )) + string(ClassesQry.FieldAsString( "cfg" ));
+          str_classes += ClassesQry.FieldAsString( "class" );
+          if ( point_id == NoExists )
+          	str_classes += ClassesQry.FieldAsString( "cfg" );
           classesmap[ p_id ] = str_classes;
         }
         ClassesQry.Next();
       }
       if ( !find && classesmap.find( tr->point_id ) != classesmap.end() )
         tr->classes = classesmap[ tr->point_id ];
+        
+      if ( point_id != NoExists )
+      	continue;
+      
       ///////////////////////////// reg /////////////////////////
       find = false;
       while ( !RegQry.Eof && tr->point_id >= RegQry.FieldAsInteger( "point_id" ) ) {
@@ -504,7 +501,6 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         tr->stages = stagesmap[ tr->point_id ];
       ////////////////////////// stations //////////////////////////////
       find = false;
-      tst();
       while ( !StationsQry.Eof && tr->point_id >= StationsQry.FieldAsInteger( "point_id" ) ) {
         TStation station;
         station.name = StationsQry.FieldAsString( "name" );
@@ -519,16 +515,29 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         }
         StationsQry.Next();
       }
-      tst();
       if ( !find && stationsmap.find( tr->point_id ) != stationsmap.end() )
         tr->stations = stationsmap[ tr->point_id ];
       GetToFrom( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
     } // end if (!place_out.empty())
-    else
-      if ( tr->places_in.empty() ) // такой рейс не отображаем
-        continue;
+  }
+}
+
+void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace( TRACE5, "ReadTrips" );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  if ( GetNode( "CorrectStages", reqNode ) ) {
+  	tst();
+//    TStagesRules::Instance()->Build( dataNode );
+  }
+  TTrips trips;
+  internal_ReadData( trips );
+  xmlNodePtr tripsNode = NULL;
+  for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tripsNode )
       tripsNode = NewTextChild( dataNode, "trips" );
+    if ( tr->places_in.empty() && tr->places_out.empty() ) // такой рейс не отображаем
+      continue;
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
@@ -645,7 +654,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
   crsd.displaces_from.clear();
   crsd.displaces_to.clear();
   TQuery Qry(&OraSession);
-  Qry.SQLText =
+  Qry.SQLText = 
     "SELECT point_from,"\
     "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"\
     "       system.AIRPTZREGION( p1.airp ) region_from, "\
@@ -653,10 +662,13 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
     "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"\
     "       system.AIRPTZREGION( p2.airp ) region_to, "\
     "       airp_arv_to,class_to "\
-    " FROM points p1, points p2, crs_displace "\
-    "WHERE p1.point_id=crs_displace.point_from AND "\
-    "      p2.point_id=crs_displace.point_to";
+    " FROM points p1, points p2, crs_displace c "\
+    "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
+    "      p1.point_id=c.point_from AND "\
+    "      p2.point_id=c.point_to";
+  tst();
   Qry.Execute();
+  tst();
   double sd,d1;
   modf( NowUTC(), &sd );
   while ( !Qry.Eof ) {
@@ -665,7 +677,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
     dis.trip = Qry.FieldAsString( "trip_from" );
     modf( UTCToClient( Qry.FieldAsDateTime( "scd_from" ), Qry.FieldAsString( "region_from" ) ), &d1 );
     if ( sd != d1 )
-      dis.trip += DateTimeToStr( d1, "(dd)" );
+      dis.trip += DateTimeToStr( d1, "/dd" );
     dis.airp_arv = Qry.FieldAsString( "airp_arv_from" );
     dis.cl = Qry.FieldAsString( "class_from" );
     crsd.displaces_from[ Qry.FieldAsInteger( "point_to" ) ].push_back( dis );
@@ -673,7 +685,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
     dis.trip = Qry.FieldAsString( "trip_to" );
     modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), Qry.FieldAsString( "region_to" ) ), &d1 );
     if ( sd != d1 )
-      dis.trip += DateTimeToStr( d1, "(dd)" );
+      dis.trip += DateTimeToStr( d1, "/dd" );
     dis.airp_arv = Qry.FieldAsString( "airp_arv_to" );
     dis.cl = Qry.FieldAsString( "class_to" );
     crsd.displaces_to[ Qry.FieldAsInteger( "point_from" ) ].push_back( dis );
@@ -1223,8 +1235,139 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	GetLuggage( point_id, dataNode );
   }
 tst();
+}
 
+void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	int point_id = NodeAsInteger( "point_id", reqNode );
+  TTrips trips;
+  TCRS_Displaces crsd;
+  internal_ReadData( trips, point_id );
+  tst();
+  xmlNodePtr crsdNode = NewTextChild( NewTextChild( resNode, "data" ), "crd_displaces" );
+  NewTextChild( crsdNode, "point_id", point_id );
+	xmlNodePtr tripsNode = NewTextChild( crsdNode, "trips" );
+  string trip;
+  double sd,d1;
+  modf( NowUTC(), &sd );
+  for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
+    if ( tr->places_out.empty() || tr->scd_out == NoExists || tr->act_out > NoExists || tr->flt_no_out == NoExists ) // такой рейс не отображаем
+      continue;
+    xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    NewTextChild( tripNode, "point_id", tr->point_id );
+    trip = tr->airline_out+IntToString(tr->flt_no_out)+tr->suffix_out;
+    modf( UTCToClient( tr->scd_out, tr->region ), &d1 );
+    if ( sd != d1 )
+      trip += DateTimeToStr( d1, "/dd" );    
+    NewTextChild( tripNode, "name", trip );
+    NewTextChild( tripNode, "classes", tr->classes );
+    xmlNodePtr lNode = NULL;
+    for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
+      if ( !lNode )
+        lNode = NewTextChild( tripNode, "places" );
+      NewTextChild( lNode, "airp", *sairp );
+    }    
+	}
+	ProgTrace( TRACE5, "point_from=%d", point_id ); 
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+   "SELECT point_from,"\
+   "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"\
+   "       system.AIRPTZREGION( p1.airp ) region_from, "\
+   "       airp_arv_from,class_from,point_to,"\
+   "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"\
+   "       system.AIRPTZREGION( p2.airp ) region_to, "\
+   "       airp_arv_to,class_to "\
+   " FROM points p1, points p2, crs_displace c "\
+   "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
+   "      p1.point_id=c.point_from AND "\
+   "      p2.point_id=c.point_to AND "\
+   "      c.point_from=:point_from";
+  Qry.CreateVariable( "point_from", otInteger, point_id );
+  Qry.Execute();
+  xmlNodePtr rnode = NULL;
+  while ( !Qry.Eof ) {
+  	if ( !rnode )
+  		rnode = NewTextChild( crsdNode, "displaces" );
+  	tst();
+  	xmlNodePtr snode = NewTextChild( rnode, "displace" );
+		NewTextChild( snode, "point_from", Qry.FieldAsInteger( "point_from" ) );
+    trip = Qry.FieldAsString( "trip_from" );
+    modf( UTCToClient( Qry.FieldAsDateTime( "scd_from" ), Qry.FieldAsString( "region_from" ) ), &d1 );
+    if ( sd != d1 )
+      trip += DateTimeToStr( d1, "/dd" );
+		NewTextChild( snode, "trip_from", trip );
+		NewTextChild( snode, "airp_arv_from", Qry.FieldAsString( "airp_arv_from" ) );
+		NewTextChild( snode, "class_from", Qry.FieldAsString( "class_from" ) );
+		NewTextChild( snode, "point_to", Qry.FieldAsInteger( "point_to" ) );	
+    trip = Qry.FieldAsString( "trip_to" );
+    modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), Qry.FieldAsString( "region_to" ) ), &d1 );
+    if ( sd != d1 )
+      trip += DateTimeToStr( d1, "/dd" );	  
+		NewTextChild( snode, "trip_to", trip );
+		NewTextChild( snode, "airp_arv_to", Qry.FieldAsString( "airp_arv_to" ) );
+		NewTextChild( snode, "class_to", Qry.FieldAsString( "class_to" ) );
+  	Qry.Next();
+  }
+	
+	tst();
+	Qry.Clear();
+	Qry.SQLText =
+	 "SELECT DISTINCT target FROM crs_data, tlg_binding, points "\
+   " WHERE points.point_id=:point_id AND "\
+   "       crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=points.point_id AND "\
+   "       ( resa IS NOT NULL OR "\
+   "         pad IS NOT NULL OR "\
+   "         tranzit IS NOT NULL OR "\
+   "         avail IS NOT NULL ) "\
+   " UNION "\
+   "SELECT DISTINCT target FROM trip_data, points "\
+   " WHERE points.point_id=:point_id AND "\
+   "       points.point_id = trip_data.point_id ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  tst();
+  crsdNode = NewTextChild( crsdNode, "crs_targets" );
+  while ( !Qry.Eof ) {
+  	NewTextChild( crsdNode, "target", Qry.FieldAsString( "target" ) );
+  	Qry.Next();
+  }
+  
+}	
 
-
-
+void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );	
+  TQuery Qry(&OraSession);
+	Qry.SQLText =
+	 "DELETE crs_displace "\
+	 " WHERE point_from=:point_from AND "\
+	 "       (point_from!=point_to OR airp_arv_from!=airp_arv_to OR class_from!=class_to) ";
+  Qry.CreateVariable( "point_from", otInteger, point_id );
+  Qry.Execute();
+  Qry.Clear();
+  Qry.SQLText = 
+   "INSERT INTO crs_displace(point_from,airp_arv_from,class_from,point_to,airp_arv_to,class_to) "\
+   " VALUES(:point_from,:airp_arv_from,:class_from,:point_to,:airp_arv_to,:class_to) "; 
+  Qry.CreateVariable( "point_from", otInteger, point_id );
+  Qry.DeclareVariable( "airp_arv_from", otString );
+  Qry.DeclareVariable( "class_from", otString );
+  Qry.DeclareVariable( "point_to", otInteger );
+  Qry.DeclareVariable( "airp_arv_to", otString );
+  Qry.DeclareVariable( "class_to", otString );
+  xmlNodePtr node = NodeAsNode( "crs_displace", reqNode );
+  xmlNodePtr snode;
+  node = node->children;
+  while ( node ) {
+  	snode = node->children;
+  	Qry.SetVariable( "airp_arv_from", NodeAsStringFast( "airp_arv_from", snode ) );
+  	Qry.SetVariable( "class_from", NodeAsStringFast( "class_from", snode ) );
+  	Qry.SetVariable( "point_to", NodeAsIntegerFast( "point_to", snode ) );
+  	Qry.SetVariable( "airp_arv_to", NodeAsStringFast( "airp_arv_to", snode ) );
+  	Qry.SetVariable( "class_to", NodeAsStringFast( "class_to", snode ) );
+  	Qry.Execute();
+  	tst();
+  	node = node->next;
+  }
+  showMessage( "Данные успешно сохранены" );
 }
