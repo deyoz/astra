@@ -45,7 +45,7 @@ public:
   static void setSQLTripInfo( TQuery &Qry, TReqInfo &info );
 };
 
-void readTripCounters( int point_id, xmlNodePtr dataNode );
+void readPaxLoad( int point_id, xmlNodePtr dataNode );
 void viewPNL( int point_id, xmlNodePtr dataNode );
 
 class TTripInfo

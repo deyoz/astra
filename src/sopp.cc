@@ -1224,7 +1224,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
 	ProgTrace( TRACE5, "point_id=%d", point_id );
   if ( GetNode( "tripcounters", reqNode ) )
-    readTripCounters( point_id, dataNode );
+    readPaxLoad( point_id, dataNode );
   if ( GetNode( "birks", reqNode ) ) {
   	tst();
   	GetBirks( point_id, dataNode );

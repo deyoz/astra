@@ -983,7 +983,7 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "select  "
         "   points.scd_out scd,  "
         "   null local_date,  "
-        "   trips.airline,  "
+        "   points.airline,  "
         "   airlines.code_lat airline_lat,  "
         "   points.flt_no,  "
         "   pax_grp.airp_arv,  "

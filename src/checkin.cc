@@ -8,6 +8,7 @@
 #include "astra_utils.h"
 #include "seats.h"
 #include "stages.h"
+#include "tripinfo.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -20,11 +21,13 @@ using namespace EXCEPTIONS;
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
+  readPaxLoad( point_id, resNode );
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "  reg_no,surname,name,airp_arv,last_trfer,class,hall, "
+    "  reg_no,surname,name,pax_grp.airp_arv,last_trfer,class,hall, "
     "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
     "  seats,pers_type,document, "
     "  ckin.get_bagAmount(pax.grp_id,pax.reg_no,rownum) AS bag_amount, "
@@ -47,7 +50,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger("reg_no"));
     NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
     NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
-    NewTextChild(paxNode,"target",Qry.FieldAsString("target"));
+    NewTextChild(paxNode,"airp_arv",Qry.FieldAsString("airp_arv"));
     NewTextChild(paxNode,"last_trfer",Qry.FieldAsString("last_trfer"));
     NewTextChild(paxNode,"class",Qry.FieldAsString("class"));
     NewTextChild(paxNode,"hall",Qry.FieldAsInteger("hall"));
@@ -74,26 +77,27 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //определим, открыт ли рейс для регистрации
 
   point_dep=NodeAsInteger("point_dep",reqNode);
+  airp_dep=NodeAsString("airp_dep",reqNode);
   //лочим рейс
   Qry.Clear();
   Qry.SQLText=
     "SELECT airp FROM points "
-    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+    "WHERE point_id=:point_id AND airp=:airp AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.CreateVariable("airp",otString,airp_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-  airp_dep=Qry.FieldAsString("airp");
 
-  point_arv=NodeAsInteger("point_dep",reqNode);
+  point_arv=NodeAsInteger("point_arv",reqNode);
+  airp_arv=NodeAsString("airp_arv",reqNode);
   Qry.Clear();
   Qry.SQLText=
     "SELECT airp FROM points "
-    "WHERE point_id=:point_id AND pr_del=0";
+    "WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
   Qry.CreateVariable("point_id",otInteger,point_arv);
+  Qry.CreateVariable("airp",otString,airp_arv);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-  airp_arv=Qry.FieldAsString("airp");
-
 
   //map для норм
   map<int,string> norms;
@@ -576,6 +580,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.Close();
   //пересчитать данные по группе и отправить на клиент
   LoadPax(ctxt,reqNode,resNode);
+  //отправить на клиент счетчики
+  readTripCounters(point_dep,resNode);
 };
 
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -606,7 +612,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airp_arv,airps.city AS city_arv, "
+    "SELECT point_arv,airp_arv,airps.city AS city_arv, "
     "       class,status,hall,pax_grp.tid "
     "FROM pax_grp,airps "
     "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id";
@@ -614,6 +620,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
   NewTextChild(resNode,"grp_id",grp_id);
+  NewTextChild(resNode,"point_arv",Qry.FieldAsInteger("point_arv"));
   NewTextChild(resNode,"airp_arv",Qry.FieldAsString("airp_arv"));
   NewTextChild(resNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(resNode,"class",Qry.FieldAsString("class"));
@@ -919,7 +926,7 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
 {
   if (grpNode==NULL) return;
   xmlNodePtr node,node2;
-  int point_id=NodeAsInteger("point_id",grpNode);
+  int point_id=NodeAsInteger("point_dep",grpNode);
   int grp_id=NodeAsInteger("grp_id",grpNode);
 
   xmlNodePtr valueBagNode=GetNode("value_bags",grpNode);
@@ -1289,7 +1296,7 @@ void CheckInInterface::LoadPaidBag(xmlNodePtr grpNode)
 void CheckInInterface::SaveBagToLog(xmlNodePtr grpNode)
 {
   if (grpNode==NULL) return;
-  int point_id=NodeAsInteger("point_id",grpNode);
+  int point_id=NodeAsInteger("point_dep",grpNode);
   int grp_id=NodeAsInteger("grp_id",grpNode);
   xmlNodePtr paidBagNode=GetNode("paid_bags",grpNode);
   xmlNodePtr bagNode=GetNode("bags",grpNode);
@@ -1419,7 +1426,7 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
 
 void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo* reqInfo = TReqInfo::Instance();
+ // TReqInfo* reqInfo = TReqInfo::Instance();
   NewTextChild(resNode,"LocalDateTime");
   NewTextChild(resNode,"UTCDateTime");
   if (!NodeIsNULL("UTCDateTime",reqNode))
@@ -1453,6 +1460,130 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   };
 };
 
+
+void CheckInInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
+{
+  xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
+  xmlNodePtr itemNode;
+
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+     "SELECT point_arv, class, "
+     "       crs_ok-ok AS noshow, "
+     "       crs_tranzit-tranzit AS trnoshow, "
+     "       tranzit+ok+goshow AS show, "
+     "       free_ok, "
+     "       free_goshow, "
+     "       nooccupy "
+     "FROM counters2 "
+     "WHERE point_dep=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+
+  for(;!Qry.Eof;Qry.Next())
+  {
+    itemNode = NewTextChild( node, "item" );
+    NewTextChild( itemNode, "point_arv", Qry.FieldAsInteger( "point_arv" ) );
+    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
+    NewTextChild( itemNode, "noshow", Qry.FieldAsInteger( "noshow" ) );
+    NewTextChild( itemNode, "trnoshow", Qry.FieldAsInteger( "trnoshow" ) );
+    NewTextChild( itemNode, "show", Qry.FieldAsInteger( "show" ) );
+    NewTextChild( itemNode, "free_ok", Qry.FieldAsInteger( "free_ok" ) );
+    NewTextChild( itemNode, "free_goshow", Qry.FieldAsInteger( "free_goshow" ) );
+    NewTextChild( itemNode, "nooccupy", Qry.FieldAsInteger( "nooccupy" ) );
+  };
+}
+
+void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
+{
+  xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
+  xmlNodePtr itemNode,node;
+
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  int first_point=Qry.FieldAsInteger("first_point");
+  int point_num=Qry.FieldAsInteger("point_num");
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT points.point_id, "
+    "       airps.code AS airp_code, "
+    "       airps.name AS airp_name, "
+    "       cities.code AS city_code, "
+    "       cities.name AS city_name "
+    "FROM points,airps,cities "
+    "WHERE points.first_point=:first_point AND points.point_num>:point_num AND points.pr_del=0 AND "
+    "      points.airp=airps.code AND airps.city=cities.code "
+    "ORDER BY point_num";
+  Qry.CreateVariable("first_point",otInteger,first_point);
+  Qry.CreateVariable("point_num",otInteger,point_num);
+  Qry.Execute();
+  node = NewTextChild( tripdataNode, "airps" );
+  vector<string> airps;
+  vector<string>::iterator i;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    //проверим на дублирование кодов аэропортов в рамках одного рейса
+    for(i=airps.begin();i!=airps.end();i++)
+      if (*i==Qry.FieldAsString( "airp_code" )) break;
+    if (i!=airps.end()) continue;
+
+    itemNode = NewTextChild( node, "airp" );
+    NewTextChild( itemNode, "point_id", Qry.FieldAsInteger( "point_id" ) );
+    NewTextChild( itemNode, "airp_code", Qry.FieldAsString( "airp_code" ) );
+    NewTextChild( itemNode, "airp_name", Qry.FieldAsString( "airp_name" ) );
+    NewTextChild( itemNode, "city_code", Qry.FieldAsString( "city_code" ) );
+    NewTextChild( itemNode, "city_name", Qry.FieldAsString( "city_name" ) );
+    airps.push_back(Qry.FieldAsString( "airp_code" ));
+  };
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT class AS class_code, "
+    "       name AS class_name, "
+    "       cfg "
+    "FROM trip_classes,classes "
+    "WHERE classes.code=trip_classes.class AND point_id= :point_id "
+    "ORDER BY priority";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  node = NewTextChild( tripdataNode, "classes" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    itemNode = NewTextChild( node, "class" );
+    NewTextChild( itemNode, "class_code", Qry.FieldAsString( "class_code" ) );
+    NewTextChild( itemNode, "class_name", Qry.FieldAsString( "class_name" ) );
+    NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
+  };
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT name AS gate_name "
+    "FROM stations,trip_stations "
+    "WHERE stations.desk=trip_stations.desk AND "
+    "      stations.work_mode=trip_stations.work_mode AND "
+    "      trip_stations.point_id=:point_id AND "
+    "      trip_stations.work_mode='П' ";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  node = NewTextChild( tripdataNode, "gates" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    NewTextChild( node, "gate_name", Qry.FieldAsString( "gate_name" ) );
+  };
+}
+
+void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  readTripCounters(point_id,resNode);
+}
 
 
 

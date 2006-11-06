@@ -10,8 +10,9 @@
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
-#include "prepreg.h"
 #include "brd.h"
+#include "checkin.h"
+#include "prepreg.h"
 
 using namespace std;
 using namespace BASIC;
@@ -103,7 +104,6 @@ void TSQL::createSQLTrips( ) {
     "points";
   p.sqlwhere =
     "points.pr_del=0 AND "
-    "(points.act_out IS NULL OR :act_ignore<>0) AND "
     "(gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR "
     " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_close_stage_id)<>0 OR "
     " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_doc_stage_id)<>0) ";
@@ -287,6 +287,15 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     sql+="AND points.point_id=trip_stations.point_id "
          "AND trip_stations.desk= :desk AND trip_stations.work_mode='П' ";
 
+  if ( info.screen.name == "AIR.EXE" )
+  {
+    vector<int>::iterator i;
+    for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
+      if (*i==0320||*i==0330) break;
+    if (i==info.user.access.rights.end())
+      sql+="AND points.act_out IS NULL ";
+  };
+
   if (!info.user.access.airlines.empty())
     sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
@@ -377,6 +386,15 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     sql+="AND points.point_id=trip_stations.point_id "
          "AND trip_stations.desk= :desk AND trip_stations.work_mode='П' ";
 
+  if ( info.screen.name == "AIR.EXE" )
+  {
+    vector<int>::iterator i;
+    for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
+      if (*i==0320||*i==0330) break;
+    if (i==info.user.access.rights.end())
+      sql+="AND points.act_out IS NULL ";
+  };
+
   if (!info.user.access.airlines.empty())
     sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
@@ -448,15 +466,22 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
       BrdInterface::readTripCounters( point_id, dataNode );
   };
-//    BrdInterface::Trip(ctxt,reqNode,resNode);
+  if (reqInfo->screen.name == "AIR.EXE")
+  {
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
+    if ( GetNode( "tripcounters", reqNode ) ) /* Считать заголовок */
+      CheckInInterface::readTripCounters( point_id, dataNode );
+    if ( GetNode( "tripdata", reqNode ) )
+      CheckInInterface::readTripData( point_id, dataNode );
+  };
   if (reqInfo->screen.name == "CENT.EXE")
   {
     if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
       readTripHeader( point_id, dataNode );
     if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
-      readTripCounters( point_id, dataNode );
+      readPaxLoad( point_id, dataNode );
   };
-//    CentInterface::ReadTripInfo(ctxt,reqNode,resNode);
   if (reqInfo->screen.name == "PREPREG.EXE")
   {
     if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
@@ -466,7 +491,6 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "crsdata", reqNode ) )
       PrepRegInterface::readTripData( point_id, dataNode );
   };
-//    PrepRegInterface::ReadTripInfo(ctxt,reqNode,resNode);
 
 };
 
@@ -590,7 +614,8 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
 
-  if (reqInfo->screen.name == "PREPREG.EXE" )
+  if (reqInfo->screen.name == "AIR.EXE" ||
+      reqInfo->screen.name == "PREPREG.EXE")
   {
     NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
     NewTextChild( node, "tranzitable", (int)(!Qry.FieldIsNULL("first_point")) );
@@ -810,7 +835,7 @@ ORDER BY num
 
 */
 
-void readTripCounters( int point_id, xmlNodePtr dataNode )
+void readPaxLoad( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "TripsInterface::readTripCounters" );
   vector<TCounterItem> counters;
@@ -939,6 +964,7 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     Qry.Next();
   }
   /* считаем информацию о досылаемом багаже по п/н рейса */
+  tst();
   Qry.Clear();
   Qry.SQLText = "SELECT airp_arv AS target,SUM(amount) AS amount,SUM(weight) AS weight "\
                 " FROM unaccomp_bag WHERE point_dep=:point_id "\
@@ -969,12 +995,13 @@ void readTripCounters( int point_id, xmlNodePtr dataNode )
     TrferItem.umnr = 0;
     TrferItem.vip = 0;
     TrferItem.rkWeight = 0;
-    TrferItem.bagAmount = Qry.FieldAsInteger( "bagAmount" );
-    TrferItem.bagWeight = Qry.FieldAsInteger( "bagWeight" );
+    TrferItem.bagAmount = Qry.FieldAsInteger( "amount" );
+    TrferItem.bagWeight = Qry.FieldAsInteger( "weight" );
     TrferItem.excess = 0;
     c->trfer.push_back( TrferItem );
     Qry.Next();
   }
+  tst();
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
   xmlNodePtr counterItemNode, TrferNode, TrferItemNode;
   for ( vector<TCounterItem>::iterator c=counters.begin(); c!=counters.end(); c++ ) {
