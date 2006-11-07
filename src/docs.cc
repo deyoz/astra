@@ -13,6 +13,113 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
+class TBaseTable {
+    private:
+        typedef map<string, string> TFields;
+        typedef map<string, TFields> TTable;
+        TTable table;
+    public:
+        virtual char *get_cache_name() = 0;
+        virtual char *get_sql_text() = 0;
+        virtual ~TBaseTable() {};
+        string get(string code, string name, bool pr_lat, bool pr_except = false);
+};
+
+string TBaseTable::get(string code, string name, bool pr_lat, bool pr_except)
+{
+    if(table.empty()) {
+        TQuery Qry(&OraSession);        
+        Qry.SQLText = get_sql_text();
+        Qry.Execute();
+        if(Qry.Eof) throw Exception("TBaseTable::get: table is empty");
+        while(!Qry.Eof) {
+            TFields fields;
+            for(int i = 0; i < Qry.FieldsCount(); i++)
+                fields[Qry.FieldName(i)] = Qry.FieldAsString(i);
+            table[Qry.FieldAsString(0)] = fields;
+            Qry.Next();
+        }
+    }
+    name = upperc(name);
+    TTable::iterator ti = table.find(code);
+    if(ti == table.end())
+        throw Exception((string)"TBaseTable::get data not found in " + get_cache_name() + " for code " + code);
+    TFields::iterator fi = ti->second.find(name);
+    if(fi == ti->second.end())
+        throw Exception("TBaseTable::get: field " + name + " not found for " + get_cache_name());
+    if(pr_lat) {
+        TFields::iterator fi_lat = ti->second.find(name + "_LAT");
+        if(fi_lat != ti->second.end())
+            fi = fi_lat;
+        else if(pr_except)
+            throw Exception("TBaseTable::get: field " + name + "_LAT not found for " + get_cache_name());
+    }
+    return fi->second;
+}
+
+class TAirps: public TBaseTable {
+    char *get_cache_name() { return "airps"; };
+    char *get_sql_text()
+    {
+        return
+            "select "
+            "   code, "
+            "   code_lat, "
+            "   name, "
+            "   name_lat, "
+            "   city "
+            "from "
+            "   airps";
+    };
+};
+
+class TCities: public TBaseTable {
+    char *get_cache_name() { return "cities"; };
+    char *get_sql_text()
+    {
+        return
+            "select "
+            "   code, "
+            "   code_lat, "
+            "   name, "
+            "   name_lat "
+            "from "
+            "   cities";
+    };
+};
+
+class TAirlines: public TBaseTable {
+    char *get_cache_name() { return "airlines"; };
+    char *get_sql_text()
+    {
+        return
+            "select "
+            "   code, "
+            "   code_lat, "
+            "   name, "
+            "   name_lat, "
+            "   short_name, "
+            "   short_name_lat "
+            "from "
+            "   airlines";
+    };
+};
+
+class TCrafts: public TBaseTable {
+    char *get_cache_name() { return "crafts"; };
+    char *get_sql_text()
+    {
+        return
+            "select "
+            "   code, "
+            "   code_lat, "
+            "   name, "
+            "   name_lat "
+            "from "
+            "   crafts";
+    };
+};
+
 string vsHow(int nmb, int range)
 {
     static const char* sotni[] = {
@@ -133,7 +240,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    int pr_vip = NodeAsInteger("pr_lat", reqNode);
+    int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
     TQuery Qry(&OraSession);        
     Qry.SQLText = 
@@ -199,60 +306,48 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Clear();
     Qry.SQLText = 
         "select "
-        "   '€ŽŽ’ '||airps.name airp_name, "
-        "   airps.name_lat||' AIRPORT' airp_name_lat, "
-        "   airps.name airp_dep_name, "
-        "   airps.name_lat airp_dep_name_lat, "
-        "   airlines.name airline_name, "
-        "   airlines.name_lat airline_name_lat, "
-        "   points.airline||points.flt_no||points.suffix flt, "
-        "   airlines.code_lat||points.flt_no||points.suffix flt_lat, "
-        "   points.bort, "
-        "   crafts.name craft, "
-        "   crafts.name_lat craft_lat, "
-        "   points.park_out park, "
-        "   to_char(points.scd_out, 'dd.mm') scd_date, "
-        "   to_char(points.scd_out, 'hh24:mi') scd_time "
+        "   airp, "
+        "   system.AirpTZRegion(airp) AS tz_region, "
+        "   airline, "
+        "   flt_no, "
+        "   suffix, "
+        "   craft, "
+        "   bort, "
+        "   park_out park, "
+        "   scd_out "
         "from "
-        "   points, "
-        "   airps, "
-        "   airlines, "
-        "   crafts "
+        "   points "
         "where "
-        "   points.point_id = :point_id and "
-        "   points.airp = airps.code and "
-        "   points.airline = airlines.code and "
-        "   points.craft = crafts.code ";
+        "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
-    NewTextChild(variablesNode, "own_airp_name", Qry.FieldAsString("airp_name"));
-    NewTextChild(variablesNode, "own_airp_name_lat", Qry.FieldAsString("airp_name_lat"));
-    NewTextChild(variablesNode, "airp_dep_name", Qry.FieldAsString("airp_dep_name"));
-    NewTextChild(variablesNode, "airp_dep_name_lat", Qry.FieldAsString("airp_dep_name_lat"));
-    NewTextChild(variablesNode, "airline_name", Qry.FieldAsString("airline_name"));
-    NewTextChild(variablesNode, "airline_name_lat", Qry.FieldAsString("airline_name_lat"));
-    NewTextChild(variablesNode, "flt", Qry.FieldAsString("flt"));
-    NewTextChild(variablesNode, "flt_lat", Qry.FieldAsString("flt_lat"));
+
+    string airp = Qry.FieldAsString("airp");
+    string airline = Qry.FieldAsString("airline");
+    string craft = Qry.FieldAsString("craft");
+    string tz_region = Qry.FieldAsString("tz_region");
+
+    TAirps airps;
+    TAirlines airlines;
+    TCrafts crafts;
+
+    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps.get(airp, "name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airps.get(airp, "name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlines.get(airline, "name", pr_lat));
+    NewTextChild(variablesNode, "flt",
+            airlines.get(airline, "code", pr_lat) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            Qry.FieldAsString("suffix")
+            );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", Qry.FieldAsString("craft"));
-    NewTextChild(variablesNode, "craft_lat", Qry.FieldAsString("craft_lat"));
+    NewTextChild(variablesNode, "craft", crafts.get(craft, "name", pr_lat));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
-    NewTextChild(variablesNode, "scd_date", Qry.FieldAsString("scd_date"));
-    NewTextChild(variablesNode, "scd_time", Qry.FieldAsString("scd_time"));
-    Qry.Clear();
-    Qry.SQLText =
-        "select "
-        "   name, "
-        "   name_lat "
-        "from "
-        "   airps "
-        "where "
-        "   code = :target";
-    Qry.CreateVariable("target", otString, target);
-    Qry.Execute();
-    NewTextChild(variablesNode, "airp_arv_name", Qry.FieldAsString("name"));
-    NewTextChild(variablesNode, "airp_arv_name_lat", Qry.FieldAsString("name_lat"));
+    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airps.get(target, "name", pr_lat));
 
     Qry.Clear();
     Qry.SQLText =
@@ -306,11 +401,10 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     NewTextChild(variablesNode, "TotPcs", TotAmount);
     NewTextChild(variablesNode, "TotWeight", TotWeight);
-    NewTextChild(variablesNode, "Tot", vs_number(TotAmount));
+    NewTextChild(variablesNode, "Tot", (pr_lat ? "" : vs_number(TotAmount)));
 
-    //    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    TDateTime issued = Now();
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm", pr_lat));
+    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
 }
 
 void RunTest3(xmlNodePtr formDataNode)
