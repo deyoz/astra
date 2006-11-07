@@ -1613,7 +1613,7 @@ tst();
                DateTimeToStr( dest.Land, "dd.mm.yyyy hh:nn:ss" ).c_str() );
             modf( (double)l, &f2 );
             if ( ds.flight_time == NoExists && f2 == 0 ) {
-              ds.flight_time = l;
+              ds.flight_time = dest.Land;
 //              ds.first_dest = (int)ds.dests.size();
             }
           }
@@ -1670,7 +1670,7 @@ tst();
                DateTimeToStr( dest.Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );
             modf( (double)t, &f2 );
             if ( ds.flight_time == NoExists && f2 == 0 ) {
-              ds.flight_time = t;
+              ds.flight_time = dest.Takeoff;
 //              ds.first_dest = (int)ds.dests.size();
             }
           }
@@ -3093,8 +3093,9 @@ tst();
               // а если в этом порту другие правила перехода гп летнее/зимнее расписание ???
               // issummer( TDAteTime, region ) != issummer( utcf, pult.region );
       	      if ( id->Land > NoExists ) {
-   	        f3 = modf( (double)id->Land, &f2 );
+   	            f3 = modf( (double)id->Land, &f2 );
                 f2 = modf( (double)UTCToClient( utcf + f2 + fabs( f3 ), id->region ), &f3 );
+                //ProgTrace( TRACE5, "
                 if ( f3 < utcf )
                   id->Land = f3 - utcf - f2;
                 else
