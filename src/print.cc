@@ -380,7 +380,15 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 buf << TagValue.IntegerVal;
                 break;
             case otDate:
-                buf << DateTimeToStr(TagValue.DateTimeVal, date_format, pr_lat);
+                TDateTime PrintTime = TagValue.DateTimeVal;
+                if(
+                        di->first == "BRD_FROM" ||
+                        di->first == "BRD_TO" ||
+                        di->first == "SCD"
+                  ) {
+                    PrintTime = UTCToLocal(PrintTime, data.find("TZ_REGION")->second.StringVal);
+                }
+                buf << DateTimeToStr(PrintTime, date_format, pr_lat);
                 break;
         }
         if(!len) len = buf.str().size();
@@ -467,7 +475,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   system.transliter(points.BORT, 1) bort_lat, "
         "   points.FLT_NO, "
         "   points.SUFFIX, "
-        "   system.transliter(points.SUFFIX, 1) suffix_lat "
+        "   system.transliter(points.SUFFIX, 1) suffix_lat, "
+        "   system.AirpTZRegion(points.airp) AS tz_region "
         "from "
         "   points, "
         "   airlines, "
