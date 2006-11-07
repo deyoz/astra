@@ -1668,7 +1668,7 @@ tst();
               dest.Takeoff = f3 - first_day + f2;
     ProgTrace( TRACE5, "dest.takeoff=%s",
                DateTimeToStr( dest.Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-
+            modf( (double)t, &f2 );
             if ( ds.flight_time == NoExists && f2 == 0 ) {
               ds.flight_time = t;
 //              ds.first_dest = (int)ds.dests.size();
@@ -3179,7 +3179,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   
   TQuery DQry( &OraSession );
   DQry.SQLText = 
-   "SELECT move_id,num,cod,pr_cancel,land+delta_in,company,trip,bc,litera,triptype,takeoff+delta_out,f,c,y,unitrip,suffix "\
+   "SELECT move_id,num,cod,pr_cancel,land+delta_in land,company,trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix "\
    " FROM drop_routes WHERE move_id=:move_id ORDER BY num";
   DQry.DeclareVariable( "move_id", otInteger );
   
