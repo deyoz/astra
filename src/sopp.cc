@@ -187,7 +187,7 @@ struct TCRS_Displaces {
 };
 
 void GetCRS_Displaces( TCRS_Displaces &crsd );
-void GetToFrom( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to );
+void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to );
 
 TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 {
@@ -402,8 +402,7 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
   ////////////////////////// crs_displaces ///////////////////////////////
   TCRS_Displaces crsd;
   GetCRS_Displaces( crsd ); //пересадки
-  tst();
-
+  
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
       // добор информации
@@ -517,7 +516,7 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
       }
       if ( !find && stationsmap.find( tr->point_id ) != stationsmap.end() )
         tr->stations = stationsmap[ tr->point_id ];
-      GetToFrom( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
+      GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
     } // end if (!place_out.empty())
   }
 }
@@ -693,43 +692,46 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
   }
 }
 
-void GetToFrom( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to )
+void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to )
 {
   TCRS_Displ &v_to = crsd.displaces_to[ point_id ];
+  
   bool ch_class = false;
   bool ch_dest = false;
   for ( TCRS_Displ::iterator to=v_to.begin(); to!=v_to.end(); to++ ) {
-  if ( point_id == to->point_id ) { //в сам себя, тогда
-    TCRS_Displ &v_from = crsd.displaces_from[ point_id ];
-    for ( TCRS_Displ::iterator from=v_from.begin(); from!=v_from.end(); from++ ) {
-      if ( to->cl != from->cl )
-        ch_class = true;
-      if ( to->airp_arv != from->airp_arv )
-        ch_dest = true;
+    if ( point_id == to->point_id ) { //в сам себя, тогда
+      TCRS_Displ &v_from = crsd.displaces_from[ point_id ];
+      for ( TCRS_Displ::iterator from=v_from.begin(); from!=v_from.end(); from++ ) {
+        if ( to->cl != from->cl )
+          ch_class = true;
+        if ( to->airp_arv != from->airp_arv )
+          ch_dest = true;
+      }
     }
-  }
-  else {
-    if ( str_to.find( to->trip ) != string::npos ) {
-      if ( !str_to.empty() )
-        str_to += " ";
+    else {
+      ProgTrace( TRACE5, "to->trip=%s", to->trip.c_str() );
+      if ( str_to.find( to->trip ) == string::npos ) {
+        if ( !str_to.empty() )
+          str_to += " ";
         str_to += to->trip;
       }
     }
-  }
+   }
   TCRS_Displ &v_from = crsd.displaces_from[ point_id ];
   for ( TCRS_Displ::iterator from=v_from.begin(); from!=v_from.end(); from++ ) {
     if ( point_id == from->point_id )
       continue;
-    if ( str_from.find( from->trip ) != string::npos ) {
+    if ( str_from.find( from->trip ) == string::npos ) {
       if ( !str_from.empty() )
         str_from += " ";
       str_from += from->trip;
     }
   }
   if ( ch_class )
-    str_from = "Изм. класса " + str_from;
+    str_to = "Изм. класса " + str_from;
   if ( ch_dest )
-    str_from = "Изм. пункта " + str_from;
+    str_to = "Изм. пункта " + str_from;
+    
 }
 
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
@@ -1369,5 +1371,12 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	tst();
   	node = node->next;
   }
+/*  TCRS_Displaces crsd;
+  GetCRS_Displaces( crsd );
+  string crs_disp_from, crs_disp_to;
+  GetFromTo( point_id, crsd, crs_disp_from, crs_disp_to );
+  xmlNodePtr node = NewTextChild( resNode, "data" );
+  NewTextChild( node, "crs_disp_from", crs_disp_from );
+  NewTextChild( node, "crs_disp_to", crs_disp_to );*/
   showMessage( "Данные успешно сохранены" );
 }
