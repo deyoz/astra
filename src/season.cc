@@ -1579,8 +1579,8 @@ tst();
     if ( node )
       period.ref = NodeAsString( node );
     node = GetNodeFast( "dests", curNode );
-    double f1, f2, f3;
-    modf( (double)period.first, &f1 );
+    double first_day, f2, f3;
+    modf( (double)period.first, &first_day );
     if ( node ) {
 tst();
       ds.dests.clear();
@@ -1603,11 +1603,11 @@ tst();
           TDateTime l = NodeAsDateTime( node );
           f3 = modf( (double)l, &f2 );
           try {
-            f2 = modf( (double)ClientToUTC( f1 + f2 + fabs( f3 ), dest.region ), &f3 );
-            if ( f3 < f1 )
-              dest.Land = f3 - f1 - f2;
+            f2 = modf( (double)ClientToUTC( first_day + f2 + fabs( f3 ), dest.region ), &f3 );
+            if ( f3 < first_day )
+              dest.Land = f3 - first_day - f2;
             else
-              dest.Land = f3 - f1 + f2;
+              dest.Land = f3 - first_day + f2;
 
     ProgTrace( TRACE5, "land=%s",
                DateTimeToStr( dest.Land, "dd.mm.yyyy hh:nn:ss" ).c_str() );
@@ -1661,11 +1661,11 @@ tst();
           f3 = modf( (double)t, &f2 );
           try {
 //!!!!
-            f2 = modf( (double)ClientToUTC( f1 + f2 + fabs( f3 ), dest.region ), &f3 );
-            if ( f3 < f1 )
-              dest.Takeoff = f3 - f1 - f2;
+            f2 = modf( (double)ClientToUTC( first_day + f2 + fabs( f3 ), dest.region ), &f3 );
+            if ( f3 < first_day )
+              dest.Takeoff = f3 - first_day - f2;
             else
-              dest.Takeoff = f3 - f1 + f2;
+              dest.Takeoff = f3 - first_day + f2;
     ProgTrace( TRACE5, "dest.takeoff=%s",
                DateTimeToStr( dest.Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );
 
@@ -1755,22 +1755,22 @@ tst();
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                period.days.c_str() );
 
-    modf( (double)period.first, &f1 );
+    modf( (double)period.first, &first_day );
     period.first = ClientToUTC( period.first, filter.region );
     f3 = modf( (double)period.first, &f2 );
-    if ( f1 != f2 ) {
-      period.days = AddDays( period.days, (int)f2 - (int)f1 );
+    if ( first_day != f2 ) {
+      period.days = AddDays( period.days, (int)f2 - (int)first_day );
       // также необходимо из времен в маршруте вычесть разницу в днях
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
         if ( id->Land > NoExists )
-          id->Land += f2 - f1;
+          id->Land += f2 - first_day;
         if ( id->Takeoff > NoExists )
-          id->Takeoff += f2 - f1;
+          id->Takeoff += f2 - first_day;
       }
     }
-    period.last += f2 - f1;
-    modf( (double)period.last, &f1 );
-    period.last = f1 + f3;
+    period.last += f2 - first_day;
+    modf( (double)period.last, &first_day );
+    period.last = first_day + f3;
     ProgTrace( TRACE5, "period.first=%s, period.last=%s, period.days=%s",
                DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
@@ -3022,7 +3022,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
     int ptz = SQry.FieldAsInteger( idx_tz );
-    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
 
     if ( vtrip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       canTrips = true;
@@ -3055,9 +3054,6 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       double utcf;
       double f2, f3;
       modf( (double)first, &utcf );
-
-      first += hours;
-      last += hours;
 
 
   ProgTrace( TRACE5, "first=%s, last=%s",
@@ -3100,9 +3096,9 @@ tst();
    	        f3 = modf( (double)id->Land, &f2 );
                 f2 = modf( (double)UTCToClient( utcf + f2 + fabs( f3 ), id->region ), &f3 );
                 if ( f3 < utcf )
-                  id->Land = f3 - utcf - f2 - hours;
+                  id->Land = f3 - utcf - f2;
                 else
-                  id->Land = f3 - utcf + f2 + hours;
+                  id->Land = f3 - utcf + f2;
       	        NewTextChild( destNode, "land", DateTimeToStr( id->Land ) ); //???
               }
       	      if ( !id->company.empty() )
@@ -3119,9 +3115,9 @@ tst();
                 f3 = modf( (double)id->Takeoff, &f2 );
                 f2 = modf( (double)UTCToClient( utcf + f2 + fabs( f3 ), id->region ), &f3 );
                 if ( f3 < utcf )
-                  id->Takeoff = f3 - utcf - f2 - hours;
+                  id->Takeoff = f3 - utcf - f2;
                 else
-                  id->Takeoff = f3 - utcf + f2 + hours;
+                  id->Takeoff = f3 - utcf + f2;
       	        NewTextChild( destNode, "takeoff", DateTimeToStr( id->Takeoff ) );
               }
       	      if ( id->f )
@@ -3172,9 +3168,96 @@ void SeasonInterface::Edit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 }
 
+void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	//TReqInfo::Instance()->user.desk.tz_region =
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
+   "SELECT * FROM drop_sched_days ORDER BY trip_id,move_id,num";
+  Qry.Execute();
+  tst();
+  
+  TQuery DQry( &OraSession );
+  DQry.SQLText = 
+   "SELECT move_id,num,cod,pr_cancel,land+delta_in,company,trip,bc,litera,triptype,takeoff+delta_out,f,c,y,unitrip,suffix "\
+   " FROM drop_routes WHERE move_id=:move_id ORDER BY num";
+  DQry.DeclareVariable( "move_id", otInteger );
+  
+  int trip_id = NoExists, move_id = NoExists;
+  xmlNodePtr reqn = NewTextChild( resNode, "data" );
+  xmlNodePtr node;
+  while ( !Qry.Eof ) {
+  	if ( trip_id != Qry.FieldAsInteger( "trip_id" ) ) {
+  		if ( trip_id > NoExists ) {
+  			// определить текущий сезон
+  			//xmlNodePtr fnode = NewTextChild( reqn, "filter" );
+  			
+  			Write( ctxt, reqn, resNode );
+        xmlUnlinkNode( node );
+        xmlFreeNode( node );
+  			
+  		}
+  		trip_id = Qry.FieldAsInteger( "trip_id" );
+  		node = NewTextChild( reqn, "SubrangeList" );
+  	}
+  	xmlNodePtr rangeNode = NewTextChild( node, "range" );
+  		NewTextChild( rangeNode, "modify", "finsert" );
+  		NewTextChild( rangeNode, "move_id", Qry.FieldAsInteger( "move_id" ) );
+  		NewTextChild( rangeNode, "first", DateTimeToStr( Qry.FieldAsDateTime( "first_day" ) ) );
+  		NewTextChild( rangeNode, "last", DateTimeToStr( Qry.FieldAsDateTime( "last_day" ) ) );
+  		NewTextChild( rangeNode, "days", Qry.FieldAsString( "days" ) );
+  		NewTextChild( rangeNode, "tlg", Qry.FieldAsString( "tlg" ) );
+  		NewTextChild( rangeNode, "ref", Qry.FieldAsString( "reference" ) );
+  		if ( move_id != Qry.FieldAsInteger( "move_id" ) ) {
+  			move_id = Qry.FieldAsInteger( "move_id" );
+  			xmlNodePtr dnode = NewTextChild( rangeNode, "dests" );
+  			DQry.SetVariable( "move_id", move_id );
+  			DQry.Execute();
+  			tst();
+  			while (!DQry.Eof) {
+  			 xmlNodePtr d = NewTextChild( dnode, "dest" );
+  			 NewTextChild( d, "cod", DQry.FieldAsString( "cod" ) );
+  			 NewTextChild( d, "cancel", DQry.FieldAsInteger( "pr_cancel" ) );
+  			 if ( !DQry.FieldIsNULL( "land" ) )
+  			 	NewTextChild( d, "land", DateTimeToStr( DQry.FieldAsDateTime( "land" ) ) );
+  			 if ( !DQry.FieldIsNULL( "company" ) )
+  			 	NewTextChild( d, "company", DQry.FieldAsString( "company" ) );
+  			 if ( !DQry.FieldIsNULL( "trip" ) )
+  			 	NewTextChild( d, "trip", DQry.FieldAsInteger( "trip" ) );
+  			 if ( !DQry.FieldIsNULL( "bc" ) )
+  			 	NewTextChild( d, "bc", DQry.FieldAsString( "bc" ) );
+  			 if ( !DQry.FieldIsNULL( "litera" ) )
+  			 	NewTextChild( d, "litera", DQry.FieldAsString( "litera" ) );
+  			 if ( !DQry.FieldIsNULL( "triptype" ) )
+  			 	NewTextChild( d, "triptype", DQry.FieldAsString( "triptype" ) );
+  			 if ( !DQry.FieldIsNULL( "takeoff" ) )
+  			 	NewTextChild( d, "takeoff", DateTimeToStr( DQry.FieldAsDateTime( "takeoff" ) ) );
+  			 if ( DQry.FieldAsInteger( "f" ) )
+  			 	NewTextChild( d, "f", DQry.FieldAsInteger( "f" ) );	
+  			 if ( DQry.FieldAsInteger( "c" ) )
+  			 	NewTextChild( d, "c", DQry.FieldAsInteger( "c" ) );	
+  			 if ( DQry.FieldAsInteger( "y" ) )
+  			 	NewTextChild( d, "y", DQry.FieldAsInteger( "y" ) );	
+  			 if ( !DQry.FieldIsNULL( "unitrip" ) )
+  			 	NewTextChild( d, "unitrip", DQry.FieldAsString( "unitrip" ) );
+  			 if ( !DQry.FieldIsNULL( "suffix" ) )
+  			 	NewTextChild( d, "suffix", DQry.FieldAsString( "suffix" ) );
+  				DQry.Next();
+  			}
+  		}
+  	
+  	Qry.Next();
+  }
+ if ( trip_id > NoExists ) {
+  	Write( ctxt, reqn, resNode );
+  			
+ } 
+  	
+}	
+
+
 void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-
 }
 
 
