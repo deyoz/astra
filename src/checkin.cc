@@ -1502,13 +1502,14 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "SELECT airp, point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
   int first_point=Qry.FieldAsInteger("first_point");
   int point_num=Qry.FieldAsInteger("point_num");
+  string airp_dep=Qry.FieldAsString("airp");
 
   Qry.Clear();
   Qry.SQLText =
@@ -1557,8 +1558,8 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   for(;!Qry.Eof;Qry.Next())
   {
     itemNode = NewTextChild( node, "class" );
-    NewTextChild( itemNode, "class_code", Qry.FieldAsString( "class_code" ) );
-    NewTextChild( itemNode, "class_name", Qry.FieldAsString( "class_name" ) );
+    NewTextChild( itemNode, "code", Qry.FieldAsString( "class_code" ) );
+    NewTextChild( itemNode, "name", Qry.FieldAsString( "class_name" ) );
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
   };
 
@@ -1576,6 +1577,19 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   for(;!Qry.Eof;Qry.Next())
   {
     NewTextChild( node, "gate_name", Qry.FieldAsString( "gate_name" ) );
+  };
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
+  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.Execute();
+  node = NewTextChild( tripdataNode, "halls" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    itemNode = NewTextChild( node, "hall" );
+    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
+    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
   };
 }
 
