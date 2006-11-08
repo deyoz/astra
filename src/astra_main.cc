@@ -12,6 +12,13 @@
 
 using namespace ServerFramework;
 
+namespace ServerFramework{
+inline QueryRunner AstraQueryRunner()
+{
+    return QueryRunner ( EdiHelpManager::sharedPtr<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG,MSG_ANSW_ANSWER));
+}
+}
+
 class AstraApplication : public ApplicationCallbacks
 {
   public:
@@ -28,7 +35,7 @@ class AstraApplication : public ApplicationCallbacks
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,
                  char **res, int len)
     {
-        ServerFramework::QueryRunner query_runner (ServerFramework::JxtQueryRunner());
+        ServerFramework::QueryRunner query_runner (ServerFramework::AstraQueryRunner());
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
 
