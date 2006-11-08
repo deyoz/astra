@@ -1613,7 +1613,7 @@ tst();
                DateTimeToStr( dest.Land, "dd.mm.yyyy hh:nn:ss" ).c_str() );
             modf( (double)l, &f2 );
             if ( ds.flight_time == NoExists && f2 == 0 ) {
-              ds.flight_time = dest.Land;
+              ds.flight_time = l;
 //              ds.first_dest = (int)ds.dests.size();
             }
           }
@@ -1670,7 +1670,7 @@ tst();
                DateTimeToStr( dest.Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );
             modf( (double)t, &f2 );
             if ( ds.flight_time == NoExists && f2 == 0 ) {
-              ds.flight_time = dest.Takeoff;
+              ds.flight_time = t;
 //              ds.first_dest = (int)ds.dests.size();
             }
           }
@@ -2385,7 +2385,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, TDateTime first_day, TDest
           }
           else
             p = tr.ports_out.size();
-//          bold_end = tr.ports_out.size();
+          bold_end = tr.ports_out.size();
         }
         else
           if ( own_date == 1 ) {
@@ -2424,7 +2424,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, TDateTime first_day, TDest
           }
           else
             p = tr.ports_out.size();
-//          bold_end = tr.ports_out.size();
+          bold_end = tr.ports_out.size();
         }
         else
           if ( own_date == 1 ) {
@@ -2463,8 +2463,9 @@ bool createAirlineTrip( int trip_id, TFilter &filter, TDateTime first_day, TDest
   }
   while ( NDest != &dests.back() );
 
-  if ( own_date == 1 && bold_begin == 0 ) {
-    tr.ports_out = str_dests;
+  if ( !bold_end || own_date == 1 ) {
+  	if ( !bold_begin )
+      tr.ports_out = str_dests;
     bold_end = tr.ports_out.size();
   }
 
@@ -2852,6 +2853,7 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
         string tlg = SQry.FieldAsString( idx_tlg );
         TDateTime ffirst = first;
         /* получим правила перехода(вывода) времен в рейсе */
+
         int ptz = SQry.FieldAsInteger( idx_tz );
         TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
         first += hours; //???
@@ -3022,6 +3024,9 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
     int ptz = SQry.FieldAsInteger( idx_tz );
+/*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
+    first += hours; //???
+    last += hours;*/
 
     if ( vtrip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       canTrips = true;
@@ -3063,7 +3068,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
 
       /* фильтр по диапазонам, дням и временам вылета, если пользователь портовой */
       /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
-      if ( ConvertPeriodToLocal( first, last, days, filter.region ) ) {
+      if ( ConvertPeriodToLocal( first, last, days, filter.region ) ) { // ptz
 tst();
         xmlNodePtr range = NewTextChild( node, "range" );
         NewTextChild( range, "move_id", move_id );
@@ -3094,12 +3099,15 @@ tst();
               // issummer( TDAteTime, region ) != issummer( utcf, pult.region );
       	      if ( id->Land > NoExists ) {
    	            f3 = modf( (double)id->Land, &f2 );
+   	            
                 f2 = modf( (double)UTCToClient( utcf + f2 + fabs( f3 ), id->region ), &f3 );
+
                 //ProgTrace( TRACE5, "
                 if ( f3 < utcf )
                   id->Land = f3 - utcf - f2;
                 else
                   id->Land = f3 - utcf + f2;
+                  
       	        NewTextChild( destNode, "land", DateTimeToStr( id->Land ) ); //???
               }
       	      if ( !id->company.empty() )
