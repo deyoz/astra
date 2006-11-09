@@ -115,6 +115,7 @@ struct TDestList {
   TDateTime flight_time;
   TDateTime last_day;
   int tz;
+  string region;
   TDests dests;
   vector<trip> trips;
 };

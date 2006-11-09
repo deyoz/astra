@@ -580,7 +580,7 @@ string prepareKickText()
     const char *handle= sysCont->readC("HANDLE","");
     const char *oper  = sysCont->readC("OPR","");
 
-    string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
+    string text("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
             "<term>");
     text = text + "<query handle=\"" + handle + "\" id=\"" +iface+
             "\" ver=\"0\" opr=\""+ oper +"\" screen=\""+reqInfo->screen.name+"\">"

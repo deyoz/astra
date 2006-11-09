@@ -153,11 +153,9 @@ public:
     OrigOfRequest(const TReqInfo &req)
     : BaseOrigOfRequest(
                         "Y1",
-                        "ASTRA",
-                        //req.opt.airport_lat, /*!!!*/
+                        "ŒŽ‚",
                         "","",//ppr,agn
-                        "ASTRA",
-                        //req.opt.airport_lat, /*!!!*/
+                        req.desk.city,
                         'Y',
                         req.desk.code,
                         "",

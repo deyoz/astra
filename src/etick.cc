@@ -137,7 +137,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
   TQuery Qry(&OraSession);
   string sql=
     "SELECT points.point_id, points.airline AS oper_carrier, points.flt_no, "
-    "       points.scd_out AS scd, points.act_out AS act, "
+    "       points.scd_out AS scd, points.act_out AS act, system.AirpTZRegion( points.airp ) AS region,"
     "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
     "       pax.ticket_no, pax.coupon_no, "
     "       pax.refuse, pax.pr_brd, "
@@ -227,7 +227,8 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
         Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
         //if (area==csaFlt)
         //{
-          ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
+          TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
+          ptime scd(DateTimeToBoost(scd_local));
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
                   Qry.FieldAsInteger("flt_no"),
@@ -274,6 +275,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     Qry.SQLText=
       "SELECT etickets.ticket_no,etickets.coupon_no, "
       "       points.airline AS oper_carrier, points.flt_no, points.scd_out AS scd, "
+      "       system.AirpTZRegion( points.airp ) AS region, "
       "       etickets.airp_dep, etickets.airp_arv "
       "FROM etickets,points,pax "
       "WHERE etickets.point_id=points.point_id AND "
@@ -286,7 +288,8 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     for(;!Qry.Eof;Qry.Next())
     {
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
-      ptime scd(DateTimeToBoost(Qry.FieldAsDateTime("scd")));
+      TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
+      ptime scd(DateTimeToBoost(scd_local));
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
                   Qry.FieldAsInteger("flt_no"),

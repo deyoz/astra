@@ -198,7 +198,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_ALL")==0)  user.time_form = tfLocalAll;
 
   //если служащий порта - проверим пульт с которого он заходит
-  if (user.user_type==utAirport)
+  /*if (user.user_type==utAirport)
   {
     Qry.Clear();
     sql = string( "SELECT airps.city " ) +
@@ -211,7 +211,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     Qry.Execute();
     if (Qry.Eof)
       throw UserException( "Пользователю отказано в доступе с пульта %s", desk.code.c_str() );
-  };
+  };*/
 
   Qry.Clear();
   sql = string( "SELECT DISTINCT screen_rights.right_id " ) +

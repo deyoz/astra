@@ -2626,94 +2626,125 @@ TTlgParts GetParts(char* tlg_p)
   return parts;
 };
 
-bool bind_tlg(int point_id, TFltInfo &flt, char* own_airp)
+void bind_tlg(int point_id_tlg, int point_id_spp)
 {
-  bool res=false;
-  if (strcmp(flt.airp_dep,own_airp)!=0&&strcmp(flt.airp_arv,own_airp)!=0) return res;
   TQuery BindQry(&OraSession);
   BindQry.SQLText=
     "INSERT INTO tlg_binding(point_id_tlg,point_id_spp) VALUES(:point_id_tlg,:point_id_spp)";
-  BindQry.CreateVariable("point_id_tlg",otInteger,point_id);
-  BindQry.DeclareVariable("point_id_spp",otInteger);
+  BindQry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
+  BindQry.CreateVariable("point_id_spp",otInteger,point_id_spp);
+  try
+  {
+    BindQry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if (E.Code!=1) throw;
+  };
+};
+
+bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
+{
+  bool res=false;
+  if (*flt.airp_dep==0) return res;
   TQuery TripsQry(&OraSession);
   TripsQry.CreateVariable("airline",otString,flt.airline);
   TripsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
   TripsQry.CreateVariable("suffix",otString,flt.suffix);
-  if (strcmp(flt.airp_dep,own_airp)==0)
+  TripsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
+
+  if (!flt.pr_utc)
   {
-    //наш пункт - пункт вылета
-    if (flt.pr_utc)
-    {
-      //перевод в UTC points.scd
-      TripsQry.SQLText=
-        "SELECT point_id,scd_out AS scd,system.AirpTZRegion(:own_airp) AS region "
-        "FROM points "
-        "WHERE airline=:airline AND flt_no=:flt_no AND "
-        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-        "      pr_del=0 ";
-      TripsQry.CreateVariable("own_airp",otString,own_airp);
-    }
-    else
-    {
-      TripsQry.SQLText=
-        "SELECT trip_id AS point_id "
-        "FROM trips "
-        "WHERE company=:airline AND flt_no=:flt_no AND "
-        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-        "      TRUNC(scd)= :scd AND status=0 ";
-      TripsQry.CreateVariable("scd",otDate,flt.scd);
-    };
+    //перевод UTCToLocal(points.scd)
+    TripsQry.SQLText=
+      "SELECT point_id,scd_out AS scd,system.AirpTZRegion(:airp_dep,0) AS region, "
+      "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+      "FROM points "
+      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      pr_del=0 ";
   }
   else
   {
-    //наш пункт - пункт прилета
-    if (*flt.airp_dep==0) return res; //не можем привязать так как не можем определить scd
-    TripsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
-    if (flt.pr_utc)
-    {
-      //перевод в UTC trips.scd
-      TripsQry.SQLText=
-        "SELECT trips_in.trip_id AS point_id,takeoff_scd AS scd, "
-        "       system.AirpTZRegion(place_in.cod) AS region "
-        "FROM trips_in,place_in "
-        "WHERE trips_in.trip_id=place_in.trip_id AND "
-        "      company=:airline AND flt_no=:flt_no AND "
-        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-        "      place_in.cod=:airp_dep AND status=0 ";
-    }
-    else
-    {
-      TripsQry.SQLText=
-        "SELECT trips_in.trip_id AS point_id "
-        "FROM trips_in,place_in "
-        "WHERE trips_in.trip_id=place_in.trip_id AND "
-        "      company=:airline AND flt_no=:flt_no AND "
-        "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-        "      TRUNC(takeoff_scd)= :scd AND place_in.cod=:airp_dep AND status=0 ";
-      TripsQry.CreateVariable("scd",otDate,flt.scd);
-    };
+    TripsQry.SQLText=
+      "SELECT point_id, "
+      "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+      "FROM points "
+      "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
+      "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      TRUNC(scd)= :scd AND pr_del=0 ";
+    TripsQry.CreateVariable("scd",otDate,flt.scd);
   };
   TripsQry.Execute();
   TDateTime scd;
   for(;!TripsQry.Eof;TripsQry.Next())
   {
-    if (flt.pr_utc)
+    if (!flt.pr_utc)
     {
       scd=TripsQry.FieldAsDateTime("scd");
-      LocalToUTC(scd,TripsQry.FieldAsString("region"));
+      if (TripsQry.FieldIsNULL("region")) continue;
+      UTCToLocal(scd,TripsQry.FieldAsString("region"));
       modf(scd,&scd);
       if (scd!=flt.scd) continue;
     };
-    BindQry.SetVariable("point_id_spp",TripsQry.FieldAsInteger("point_id"));
-    try
+    switch (bind_type)
     {
-      BindQry.Execute();
-    }
-    catch(EOracleError E)
-    {
-      if (E.Code!=1) throw;
+      case btFirstSeg:
+        bind_tlg(point_id,TripsQry.FieldAsInteger("point_id"));
+        res=true;
+        break;
+      case btLastSeg:
+      case btAllSeg:
+        {
+          TQuery SegQry(&OraSession);
+          SegQry.Clear();
+          SegQry.CreateVariable("first_point",otInteger,TripsQry.FieldAsInteger("first_point"));
+          SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
+          if (!(*flt.airp_arv==0))
+          {
+            SegQry.SQLText=
+              "SELECT MIN(point_num) AS last_point_num FROM points "
+              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 AND "
+              "      airp=:airp_arv ";
+            SegQry.CreateVariable("airp_arv",otInteger,flt.airp_arv);
+          }
+          else
+          {
+            SegQry.SQLText=
+              "SELECT MAX(point_num) AS last_point_num FROM points "
+              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ";
+          };
+          SegQry.Execute();
+          if (SegQry.FieldIsNULL("last_point_num"))
+          {
+            if (bind_type==btAllSeg)
+            {
+              bind_tlg(point_id,TripsQry.FieldAsInteger("point_id"));
+              res=true;
+            };
+            break;
+          };
+
+          int last_point_num = SegQry.FieldAsInteger("last_point_num");
+          SegQry.Clear();
+          SegQry.SQLText=
+            "SELECT point_id FROM points "
+            "WHERE first_point=:first_point AND "
+            "      point_num>=:point_num AND "
+            "      point_num<:last_point_num AND pr_del=0 "
+            "ORDER BY point_num DESC";
+          SegQry.CreateVariable("first_point",otInteger,TripsQry.FieldAsInteger("first_point"));
+          SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
+          SegQry.CreateVariable("last_point_num",otInteger,last_point_num);
+          SegQry.Execute();
+          for(;!SegQry.Eof;SegQry.Next())
+          {
+            bind_tlg(point_id,SegQry.FieldAsInteger("point_id"));
+            res=true;
+            if (bind_type==btLastSeg) break;
+          };
+        };
     };
-    res=true;
   };
   return res;
 };
@@ -2721,15 +2752,14 @@ bool bind_tlg(int point_id, TFltInfo &flt, char* own_airp)
 void bind_tlg(int point_id)
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText= /*!!!*/
-    "SELECT airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,options.cod AS own_airp "
-    "FROM tlg_trips,options "
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
+    "FROM tlg_trips "
     "WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) return;
   TFltInfo flt;
-  char own_airp[4];
   strcpy(flt.airline,Qry.FieldAsString("airline"));
   flt.flt_no=Qry.FieldAsInteger("flt_no");
   strcpy(flt.suffix,Qry.FieldAsString("suffix"));
@@ -2738,8 +2768,16 @@ void bind_tlg(int point_id)
   flt.pr_utc=Qry.FieldAsInteger("pr_utc")!=0;
   strcpy(flt.airp_dep,Qry.FieldAsString("airp_dep"));
   strcpy(flt.airp_arv,Qry.FieldAsString("airp_arv"));
-  strcpy(own_airp,Qry.FieldAsString("own_airp"));
-  if (bind_tlg(point_id,flt,own_airp)) return;
+  TBindType bind_type;
+  switch (Qry.FieldAsInteger("bind_type"))
+  {
+    case 0: bind_type=btFirstSeg;
+            break;
+    case 1: bind_type=btLastSeg;
+            break;
+   default: bind_type=btAllSeg;
+  };
+  if (bind_tlg(point_id,flt,bind_type)) return;
   //не склалось привязать к рейсу на прямую - привяжем через таблицу CRS_CODE_SHARE
   bool res=false;
   Qry.Clear();
@@ -2765,13 +2803,13 @@ void bind_tlg(int point_id)
       strcpy(flt.airline,Qry.FieldAsString("airline"));
       if (!Qry.FieldIsNULL("flt_no"))
         flt.flt_no=Qry.FieldAsInteger("flt_no");
-      if (bind_tlg(point_id,flt,own_airp)) res=true;
+      if (bind_tlg(point_id,flt,bind_type)) res=true;
     };
     break;
   };
 };
 
-int SaveFlt(int tlg_id, TFltInfo& flt)
+int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
 {
   int point_id;
   TQuery Qry(&OraSession);
@@ -2781,7 +2819,8 @@ int SaveFlt(int tlg_id, TFltInfo& flt)
     "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
     "      scd=:scd AND pr_utc=:pr_utc AND "
     "      (airp_dep IS NULL AND :airp_dep IS NULL OR airp_dep=:airp_dep) AND "
-    "      (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv)";
+    "      (airp_arv IS NULL AND :airp_arv IS NULL OR airp_arv=:airp_arv) AND "
+    "      bind_type=:bind_type";
   Qry.CreateVariable("airline",otString,flt.airline);
   Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
   Qry.CreateVariable("suffix",otString,flt.suffix);
@@ -2789,14 +2828,15 @@ int SaveFlt(int tlg_id, TFltInfo& flt)
   Qry.CreateVariable("pr_utc",otInteger,(int)flt.pr_utc);
   Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
   Qry.CreateVariable("airp_arv",otString,flt.airp_arv);
+  Qry.CreateVariable("bind_type",otInteger,(int)bind_type);
   Qry.Execute();
   if (Qry.Eof)
   {
     Qry.SQLText=
       "BEGIN "
       "  SELECT point_id.nextval INTO :point_id FROM dual; "
-      "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv) "
-      "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv); "
+      "  INSERT INTO tlg_trips(point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type) "
+      "  VALUES(:point_id,:airline,:flt_no,:suffix,:scd,:pr_utc,:airp_dep,:airp_arv,:bind_type); "
       "END;";
     Qry.DeclareVariable("point_id",otInteger);
     Qry.Execute();
@@ -2911,13 +2951,13 @@ void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con)
 
   for(iIn=con.Transfer.begin();iIn!=con.Transfer.end();iIn++)
   {
-    point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(iIn->InFlt));
+    point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(iIn->InFlt),btLastSeg);
     if (!DeletePTMBTMContent(point_id_in,info)) continue;
     TrferQry.SetVariable("point_id_in",point_id_in);
     TrferQry.SetVariable("subcl_in",iIn->InFlt.subcl);
     for(iOut=iIn->OutFlt.begin();iOut!=iIn->OutFlt.end();iOut++)
     {
-      point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut));
+      point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
       TrferQry.SetVariable("point_id_out",point_id_out);
       TrferQry.SetVariable("subcl_out",iOut->subcl);
       TrferQry.Execute();
@@ -2972,7 +3012,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   vector<string>::iterator i;
   int point_id_in,point_id_out;
 
-  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt));
+  point_id_in=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(con.InFlt),btLastSeg);
   if (!DeletePTMBTMContent(point_id_in,info)) return;
 
   TQuery TrferQry(&OraSession);
@@ -3002,7 +3042,7 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
 
   for(iOut=con.OutFlt.begin();iOut!=con.OutFlt.end();iOut++)
   {
-    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut));
+    point_id_out=SaveFlt(tlg_id,dynamic_cast<TFltInfo&>(*iOut),btFirstSeg);
     TrferQry.SetVariable("point_id_out",point_id_out);
     TrferQry.SetVariable("subcl_out",iOut->subcl);
     TrferQry.Execute();
@@ -3055,7 +3095,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
   if (info.time_create==0) throw ETlgError("Creation time not defined");
 
-  int point_id=SaveFlt(tlg_id,con.flt);
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
 
   //идентифицируем систему бронирования
   strcpy(crs,info.sender);

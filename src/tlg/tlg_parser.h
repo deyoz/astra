@@ -500,7 +500,10 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
 void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
-int SaveFlt(int tlg_id, TFltInfo& flt);
+
+enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
+int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
+void bind_tlg(int point_id);
 
 #endif
 

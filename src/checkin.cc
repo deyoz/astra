@@ -550,9 +550,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     //проверим дублирование билетов
     Qry.Clear();
     Qry.SQLText=
-      "SELECT COUNT(*),ticket_no FROM pax "
+      "SELECT COUNT(*),ticket_no,coupon_no FROM pax "
       "WHERE ticket_no IS NOT NULL AND coupon_no IS NOT NULL "
-      "GROUP BY ticket_no HAVING COUNT(*)>1";
+      "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -562,7 +562,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         node2=node->children;
         if (!NodeIsNULLFast("coupon_no",node2) &&
             strcmp(Qry.FieldAsString("ticket_no"),NodeAsStringFast("ticket_no",node2))==0)
-          throw UserException("Эл. билет №%s дублируется",NodeAsStringFast("ticket_no",node2));
+          throw UserException("Эл. билет №%s/%s дублируется",
+                              NodeAsStringFast("ticket_no",node2),
+                              NodeAsStringFast("coupon_no",node2));
       };
     };
     //обновление counters
