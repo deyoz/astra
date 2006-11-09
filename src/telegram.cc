@@ -241,3 +241,47 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   };
 };
 
+void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  string addrs;
+  TQuery AddrQry(&OraSession);
+  AddrQry.SQLText=
+  "SELECT addr FROM tlg_addrs "
+  "WHERE (tlg_type=:tlg_type OR tlg_type IS NULL) AND "
+  "      (airline=:airline OR airline IS NULL) AND "
+  "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+  "      (airp_dep=:airp_dep OR airp_dep IS NULL) AND "
+  "      (airp_arv=:airp_arv OR airp_arv IS NULL OR :airp_arv IS NULL) AND "
+  "      (crs=:crs OR crs IS NULL OR :crs IS NULL) AND "
+  "      (pr_auto=0 OR pr_auto IS NULL) AND "
+  "       pr_lat=:pr_lat AND pr_numeric=:pr_numeric AND pr_cancel=0 ";
+
+  if (point_id!=-1)
+  {
+    TQuery Qry(&OraSession);
+    Qry.SQLText="SELECT airline,flt_no,airp FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    AddrQry.CreateVariable("airline",otString,Qry.FieldAsString("airline"));
+    AddrQry.CreateVariable("flt_no",otInteger,Qry.FieldAsInteger("flt_no"));
+    AddrQry.CreateVariable("airp_dep",otString,Qry.FieldAsString("airp"));
+    AddrQry.CreateVariable("tlg_type",otString,NodeAsString( "tlg_type", reqNode));
+    AddrQry.CreateVariable("airp_arv",otString,NodeAsString( "airp_arv", reqNode));
+    AddrQry.CreateVariable("crs",otString,NodeAsString( "crs", reqNode));
+    AddrQry.CreateVariable("pr_lat",otInteger,(int)(NodeAsInteger( "pr_lat", reqNode)!=0));
+    AddrQry.CreateVariable("pr_numeric",otInteger,(int)(NodeAsInteger( "pr_numeric", reqNode)!=0));
+    AddrQry.Execute();
+
+    for(;!AddrQry.Eof;AddrQry.Next())
+    {
+      addrs=addrs+AddrQry.FieldAsString("addr")+" ";
+    };
+  };
+
+  NewTextChild(resNode,"addrs",addrs);
+  return;
+};
+
+
