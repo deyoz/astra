@@ -105,7 +105,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild( node, "heading", Qry.FieldAsString("heading") );
       NewTextChild( node, "ending", Qry.FieldAsString("ending") );
       TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
-      NewTextChild( node, "time_receive", time_receive );
+      NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
 
       len=Qry.GetSizeLongField("body")+1;
       if (len>bufLen)
@@ -200,12 +200,12 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
 
       TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
-      NewTextChild( node, "time_create", time_create );
+      NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
 
       if (!Qry.FieldIsNULL("time_send_scd"))
       {
         TDateTime time_send_scd = UTCToClient( Qry.FieldAsDateTime("time_send_scd"), tz_region );
-        NewTextChild( node, "time_send_scd", time_send_scd );
+        NewTextChild( node, "time_send_scd", DateTimeToStr( time_send_scd ) );
       }
       else
         NewTextChild( node, "time_send_scd" );
@@ -213,7 +213,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       if (!Qry.FieldIsNULL("time_send_act"))
       {
         TDateTime time_send_act = UTCToClient( Qry.FieldAsDateTime("time_send_act"), tz_region );
-        NewTextChild( node, "time_send_act", time_send_act );
+        NewTextChild( node, "time_send_act", DateTimeToStr( time_send_act ) );
       }
       else
         NewTextChild( node, "time_send_act" );

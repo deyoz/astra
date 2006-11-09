@@ -2145,6 +2145,7 @@ string GetTextTime( TDateTime Fact, TDateTime VDate )
 bool createAirportTrip( string airp, int trip_id, TFilter filter, TDateTime first_day,
                         TDests &dests, int offset, vector<trip> &trips, TDateTime vdate )
 {
+	
   if ( dests.empty() )
     return false;
   bool createTrip = false;
