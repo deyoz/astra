@@ -13,8 +13,14 @@ if [ "" == "$AWK" ] ; then
     exit 1
 fi
 
-for i in astra.log  daemon.log  logairimp.log  monitor.log  system.log  tclmon.log ; do
-	mv $i `basename $i .log`.moved	
+if [ -z "$1" ]; then 
+	LOGLIST="astra.log  daemon.log  logairimp.log  monitor.log  system.log  tclmon.log";
+else
+	LOGLIST="$@"
+fi
+ 
+for i in $LOGLIST ; do
+ 	mv $i `basename $i .log`.moved	
 done
 
 PS | $AWK '/monitor|logger|astra/ {print $2}' | xargs kill -USR1
