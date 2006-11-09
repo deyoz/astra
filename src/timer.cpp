@@ -104,10 +104,10 @@ void ETCheckStatusFlt(void)
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
-    Qry.SQLText= /*!!!*/
-      "SELECT point_id,options.cod FROM trips,options "
-      "WHERE act IS NOT NULL AND "
-      "      NVL(pr_etstatus,0)=0";
+    Qry.SQLText=
+      "SELECT points.point_id FROM points,trip_sets "
+      "WHERE points.point_id=trip_sets.point_id AND "
+      "      act_out IS NOT NULL AND pr_etstatus=0 ";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
@@ -115,8 +115,8 @@ void ETCheckStatusFlt(void)
       {
       	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
       	OrigOfRequest org("Y1",
-      	                  Qry.FieldAsString("cod"),
-      	                  Qry.FieldAsString("cod"),
+      	                  "ŒŽ‚",
+      	                  "ŒŽ‚",
                           'Y',
                           "SYSTEM",
                           "",
