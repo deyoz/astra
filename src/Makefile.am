@@ -19,7 +19,7 @@ astra_SOURCES = \
 	astra_consts.cc          cache.cc        locale.cc                seats.cc   xml_unit.cc \
 	astra_main.cc            cent.cc         maindcs.cc               sopp.cc    print.cc \
 	astra_tick_read_edi.cpp  checkin.cc      prepreg.cc               stages.cc  docs.cc \
-	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc
+	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc    telegram.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
