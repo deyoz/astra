@@ -6,17 +6,19 @@
 #include "cache.h"
 #include "brd.h"
 #include "season.h"
-#include "etick.h" 
-#include "images.h" 
-#include "tripinfo.h" 
-#include "cent.h" 
-#include "prepreg.h" 
-#include "salonform.h" 
-#include "sopp.h" 
-#include "stat.h" 
-#include "print.h" 
+#include "etick.h"
+#include "images.h"
+#include "tripinfo.h"
+#include "cent.h"
+#include "prepreg.h"
+#include "salonform.h"
+#include "sopp.h"
+#include "stat.h"
+#include "print.h"
 #include "checkin.h"
 #include "docs.h"
+#include "telegram.h"
+
 #include "astra_utils.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -38,7 +40,7 @@ void AstraJxtCallbacks::InitInterfaces()
     ProgTrace(TRACE3, "AstraJxtCallbacks::InitInterfaces");
     new SysReqInterface();
     new MainDCSInterface();
-    new AdmInterface();    
+    new AdmInterface();
     new CacheInterface();
     new BrdInterface();
     new SeasonInterface();
@@ -46,14 +48,15 @@ void AstraJxtCallbacks::InitInterfaces()
     new ETStatusInterface();
     new ImagesInterface();
     new CheckInInterface();
-    new TripsInterface();        
-    new SalonsInterface();        
-    new CentInterface();           
-    new PrepRegInterface();          
-    new SoppInterface();            
-    new StatInterface();            
-    new PrintInterface();            
-    new DocsInterface();            
+    new TripsInterface();
+    new SalonsInterface();
+    new CentInterface();
+    new PrepRegInterface();
+    new SoppInterface();
+    new StatInterface();
+    new PrintInterface();
+    new DocsInterface();
+    new TelegramInterface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,

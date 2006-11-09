@@ -13,6 +13,7 @@
 #include "brd.h"
 #include "checkin.h"
 #include "prepreg.h"
+#include "telegram.h"
 
 using namespace std;
 using namespace BASIC;
@@ -303,7 +304,9 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     if ( info.screen.name != "TLG.EXE" )
       sql+="AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     else
-      sql+="AND aro_airps.airp IN (points.airp,ckin.get_airp_arv(points.move_id,points.point_num)) AND "
+      sql+="AND aro_airps.airp IN "
+           "     (points.airp,ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point), "
+           "                                 points.point_num)) AND "
            "aro_airps.aro_id=:user_id ";
   };
   sql+="ORDER BY real_out";
@@ -402,7 +405,9 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     if ( info.screen.name != "TLG.EXE" )
       sql+="AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     else
-      sql+="AND aro_airps.airp IN (points.airp,ckin.get_airp_arv(points.move_id,points.point_num)) AND "
+      sql+="AND aro_airps.airp IN "
+           "     (points.airp,ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point), "
+           "                                 points.point_num)) AND "
            "aro_airps.aro_id=:user_id ";
   };
   Qry.SQLText = sql;
@@ -422,9 +427,17 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   //reqInfo->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr tripsNode = NewTextChild( dataNode, "trips" );
+  xmlNodePtr tripNode;
   //если по компаниям и портам полномочий нет - пустой список рейсов
   if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
       reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
+
+  if (reqInfo->screen.name=="TLG.EXE")
+  {
+    tripNode = NewTextChild( tripsNode, "trip" );
+    NewTextChild( tripNode, "trip_id", -1 );
+    NewTextChild( tripNode, "str", "Непривязанные" );
+  };
 
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
@@ -433,7 +446,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
   for(;!Qry.Eof;Qry.Next())
   {
-    xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    tripNode = NewTextChild( tripsNode, "trip" );
     scd_out= DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),"dd");
     real_out=DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),"dd");
     ostringstream trip;
@@ -491,6 +504,13 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "crsdata", reqNode ) )
       PrepRegInterface::readTripData( point_id, dataNode );
   };
+  if (reqInfo->screen.name == "TLG.EXE")
+  {
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
+    if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
+      TelegramInterface::readTripData( point_id, dataNode );
+  };
 
 };
 
@@ -503,6 +523,12 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
       reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
 
+  if (reqInfo->screen.name=="TLG.EXE" && point_id==-1)
+  {
+    xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
+    NewTextChild( node, "point_id", -1 );
+    return;
+  };
   TQuery Qry( &OraSession );
   TSQL::setSQLTripInfo( Qry, *reqInfo );
   Qry.CreateVariable( "point_id", otInteger, point_id );
