@@ -1,10 +1,11 @@
 #!/bin/ksh -x
 
 LOGFILEBASENAMES="astra  daemon  logairimp  monitor  system  tclmon "
-LASTLOG=2
+LOG2MOVE=""
+LASTLOG=3
 ARCHDIR=$HOME/archive/oldlog
 ARCHLOGTTL=3 
-
+MAXLOGSIZE=5000 #in kbytes
 for i in /usr/local/bin/gzip /bin/gzip /usr/bin/gzip ; do
         if [ -f $i ] ; then
                 GZIP=$i
@@ -23,9 +24,20 @@ export PATH=$PATH:./
 
 dat=`date +\%y\%m\%d-\%H\%M\%S`
 
-./logkilltcl
+for Log in $LOGFILEBASENAMES ; do 
+	if [ -f $Log.log ]; then
+		Sz=`du -k $Log.log| awk '{print $1}'`
+	fi
+	if [ $Sz -gt $MAXLOGSIZE ]; then
+		LOG2MOVE="$LOG2MOVE $Log";
+	fi
+done
 
-for iLOG in $LOGFILEBASENAMES ; do
+
+./logkilltcl $LOG2MOVE
+
+
+for iLOG in $LOG2MOVE ; do
  mv ${iLOG}.moved ${iLOG}.${dat}.log
  nLOGS=`ls -l ${iLOG}.??????-??????.log | wc -l`;
  if [ $nLOGS -ge $LASTLOG ] ; then
