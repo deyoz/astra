@@ -64,6 +64,7 @@ const char* ERR_CANON_NAME();
 bool deleteTlg(int tlg_id);
 bool errorTlg(int tlg_id, std::string err);
 void sendTlg(const char* receiver, const char* sender, bool isEdi, int ttl, const std::string &text);
+void loadTlg(const std::string &text);
 void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...);
 
 void sendCmd(const char* receiver, const char* cmd);

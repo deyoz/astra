@@ -506,7 +506,6 @@ void scan_tlg(void)
           if (parts.body.p-parts.heading.p>100) throw ETlgError("Header too long");
           if (parts.ending.p!=NULL&&strlen(parts.ending.p)>20) throw ETlgError("End of message too long");
 
-
           if ((HeadingInfo->tlg_cat==tcDCS||
                HeadingInfo->tlg_cat==tcBSM)&&
                HeadingInfo->time_create!=0)
@@ -634,7 +633,7 @@ void scan_tlg(void)
                   if (HeadingInfo->tlg_cat==tcDCS)
                     part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
                   else
-                    part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+                    part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
                   if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
                   {
                     InsQry.SetVariable("id",FNull);

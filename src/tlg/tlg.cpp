@@ -123,10 +123,51 @@ void sendTlg(const char* receiver,
     }
     catch(...)
     {
-        ProgError(STDLOG, "sendTlg: UnknERR error while trying to send tlg");
+        ProgError(STDLOG, "sendTlg: Unknown error while trying to send tlg");
         throw;
     };
 }
+
+void loadTlg(const std::string &text)
+{
+    try
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlg_queue(id,sender,tlg_num,receiver,type,status,time,ttl) "
+                "VALUES"
+                "(tlgs_id.nextval,:sender,tlgs_id.nextval,:receiver,"
+                ":type,'PUT',system.UTCSYSDATE,:ttl)";
+        Qry.CreateVariable("sender",otString,OWN_CANON_NAME());
+        Qry.CreateVariable("receiver",otString,OWN_CANON_NAME());
+        Qry.CreateVariable("type",otString,"INB");
+        Qry.CreateVariable("ttl",otInteger,FNull);
+        Qry.Execute();
+        Qry.SQLText=
+                "INSERT INTO "
+                "tlgs(id,sender,tlg_num,receiver,type,time,tlg_text,error) "
+                "VALUES"
+                "(tlgs_id.currval,:sender,tlgs_id.currval,:receiver,"
+                ":type,system.UTCSYSDATE,:text,NULL)";
+        Qry.DeclareVariable("text",otLong);
+        Qry.SetLongVariable("text",(void *)text.c_str(),text.size());
+        Qry.DeleteVariable("ttl");
+        Qry.Execute();
+        Qry.Close();
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "sendTlg: Unknown error while trying to load tlg");
+        throw;
+    };
+};
+
 void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...)
 {
   try

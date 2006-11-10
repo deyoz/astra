@@ -2706,7 +2706,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
               "SELECT MIN(point_num) AS last_point_num FROM points "
               "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 AND "
               "      airp=:airp_arv ";
-            SegQry.CreateVariable("airp_arv",otInteger,flt.airp_arv);
+            SegQry.CreateVariable("airp_arv",otString,flt.airp_arv);
           }
           else
           {
