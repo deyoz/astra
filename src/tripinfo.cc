@@ -495,6 +495,11 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
       readPaxLoad( point_id, dataNode );
   };
+  if (reqInfo->screen.name == "DOCS.EXE")
+  {
+    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
+      readTripHeader( point_id, dataNode );
+  };
   if (reqInfo->screen.name == "PREPREG.EXE")
   {
     if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
@@ -641,10 +646,15 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   };
 
   if (reqInfo->screen.name == "AIR.EXE" ||
+      reqInfo->screen.name == "DOCS.EXE" ||
       reqInfo->screen.name == "PREPREG.EXE")
   {
-    NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
-    NewTextChild( node, "tranzitable", (int)(!Qry.FieldIsNULL("first_point")) );
+    if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "PREPREG.EXE")
+    {
+      NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
+      NewTextChild( node, "tranzitable", (int)(!Qry.FieldIsNULL("first_point")) );
+    };
 
     TQuery Qryh( &OraSession );
     Qryh.Clear();

@@ -1,13 +1,16 @@
 #include <vector>
 #define NICKNAME "VLAD"
 #include "setup.h"
+#include "logger.h"
 #include "telegram.h"
 #include "xml_unit.h"
 #include "oralib.h"
 #include "exceptions.h"
 #include "astra_utils.h"
+#include "tlg/tlg.h"
 
 using namespace std;
+using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
@@ -282,6 +285,174 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   NewTextChild(resNode,"addrs",addrs);
   return;
+};
+
+void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  TQuery TlgQry(&OraSession);
+  TlgQry.SQLText=
+    "BEGIN "
+    "  :id:=tlg.create_tlg(:type,:point_id,:pr_dep,:scd_local,:airp_arv,:crs, "
+    "                      :pr_lat,:pr_numeric,:addrs,:time_send); "
+    "END; ";
+  TlgQry.DeclareVariable("id",otInteger);
+  if (point_id!=-1)
+  {
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "SELECT scd_out,system.AirpTZRegion(airp) AS tz_region "
+      "FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    TlgQry.CreateVariable("point_id",otInteger,point_id);
+    TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
+    TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), Qry.FieldAsString("tz_region") );
+    TlgQry.CreateVariable("scd_local",otDate,scd_local);
+  }
+  else
+  {
+    TlgQry.CreateVariable("point_id",otInteger,FNull);
+    TlgQry.CreateVariable("pr_dep",otInteger,FNull);
+    TlgQry.CreateVariable("scd_local",otDate,FNull);
+  };
+  TlgQry.CreateVariable("type",otString,NodeAsString( "tlg_type", reqNode));
+  TlgQry.CreateVariable("airp_arv",otString,NodeAsString( "airp_arv", reqNode));
+  TlgQry.CreateVariable("crs",otString,NodeAsString( "crs", reqNode));
+  TlgQry.CreateVariable("pr_lat",otInteger,(int)(NodeAsInteger( "pr_lat", reqNode)!=0));
+  TlgQry.CreateVariable("pr_numeric",otInteger,(int)(NodeAsInteger( "pr_numeric", reqNode)!=0));
+  TlgQry.CreateVariable("addrs",otString,NodeAsString( "addrs", reqNode));
+  TlgQry.CreateVariable("time_send",otDate,FNull);
+  try
+  {
+    TlgQry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if ( E.Code > 20000 )
+      throw UserException(E.what());
+    else
+      throw;
+  };
+  if (TlgQry.VariableIsNULL("id")) throw Exception("tlg.create_tlg without result");
+  int tlg_id=TlgQry.GetVariableAsInteger("id");
+  ostringstream msg;
+  msg << "Телеграмма " << TlgQry.GetVariableAsString("type")
+      << " (ид=" << tlg_id << ") сформирована: ";
+  if (!TlgQry.VariableIsNULL("airp_arv"))
+    msg << "а/п: " << TlgQry.GetVariableAsString("airp_arv") << ", ";
+  if (!TlgQry.VariableIsNULL("crs"))
+    msg << "центр: " << TlgQry.GetVariableAsString("crs") << ", ";
+  msg << "адреса: " << TlgQry.GetVariableAsString("addrs") << ", "
+      << "лат.: " << (TlgQry.GetVariableAsInteger("pr_lat")==0?"нет":"да") << ", "
+      << "цифр.: " << (TlgQry.GetVariableAsInteger("pr_numeric")==0?"нет":"да");
+  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+  NewTextChild( resNode, "tlg_id", tlg_id);
+};
+
+void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string text = NodeAsString("tlg_text",reqNode);
+    if (text.empty()) throw UserException("Телеграмма пуста");
+    loadTlg(text);
+    showMessage("Телеграмма загружена");
+};
+
+void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int tlg_id = NodeAsInteger( "tlg_id", reqNode );
+  string tlg_body = NodeAsString( "tlg_body", reqNode );
+  if (tlg_body.size()>2000)
+    throw UserException("Общая длина телеграммы не может превышать 2000 символов");
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT type,point_id FROM tlg_out WHERE id=:id AND num=1 FOR UPDATE";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+  string tlg_type=Qry.FieldAsString("type");
+  int point_id=Qry.FieldAsInteger("point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  DELETE FROM tlg_out WHERE id=:id AND num<>1; "
+    "  UPDATE tlg_out SET body=:body WHERE id=:id AND num=1; "
+    "END;";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  Qry.CreateVariable( "body", otString, tlg_body );
+  Qry.Execute();
+
+  ostringstream msg;
+  msg << "Телеграмма " << tlg_type << " (ид=" << tlg_id << ") изменена";
+  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+  showMessage("Телеграмма успешно сохранена");
+};
+
+void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int tlg_id = NodeAsInteger( "tlg_id", reqNode );
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT type,point_id FROM tlg_out WHERE id=:id AND num=1 FOR UPDATE ";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+  string tlg_type=Qry.FieldAsString("type");
+  int point_id=Qry.FieldAsInteger("point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  tlg.send_tlg(:id); "
+    "END;";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  try
+  {
+    Qry.Execute();
+  }
+  catch(EOracleError E)
+  {
+    if ( E.Code > 20000 )
+      throw UserException(E.what());
+    else
+      throw;
+  };
+
+  ostringstream msg;
+  msg << "Телеграмма " << tlg_type << " (ид=" << tlg_id << ") отправлена";
+  TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+  showMessage("Телеграмма отправлена");
+}
+
+void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int tlg_id = NodeAsInteger( "tlg_id", reqNode );
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT type,point_id FROM tlg_out WHERE id=:id AND num=1 FOR UPDATE ";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+  string tlg_type=Qry.FieldAsString("type");
+  int point_id=Qry.FieldAsInteger("point_id");
+
+  Qry.Clear();
+  Qry.SQLText=
+    "DELETE FROM tlg_out WHERE id=:id AND time_send_act IS NULL ";
+  Qry.CreateVariable( "id", otInteger, tlg_id);
+  Qry.Execute();
+  if (Qry.RowsProcessed()>0)
+  {
+    ostringstream msg;
+    msg << "Телеграмма " << tlg_type << " (ид=" << tlg_id << ") удалена";
+    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+    showMessage("Телеграмма удалена");
+  };
 };
 
 
