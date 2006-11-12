@@ -130,6 +130,7 @@ struct TRangeList {
 };
 
 struct TViewTrip {
+	int trip_id;
 	int move_id;
 	string name;
 	string crafts;
@@ -3239,9 +3240,24 @@ tst();
     SQry.Next();
   }
 
-  xmlNodePtr tripsNode = NULL;
+  vector<TViewPeriod> viewp;
+  TViewPeriod p;
   for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
-    for ( vector<trip>::iterator t=im->second.trips.begin(); t!=im->second.trips.end(); t++ ) {
+    for ( vector<trip>::iterator t=im->second.trips.begin(); t!=im->second.trips.end(); t++ ) {    	
+    	p.trips.clear();
+    	TViewTrip vt;
+    	vt.trip_id = t->trip_id;
+    	vt.move_id = im->first;
+    	vt.name = t->name;
+    	p.trips.push_back( vt ); 
+    	viewp.push_back( p );
+    }
+  }
+  sort( viewp.begin(), viewp.end(), ComparePeriod );
+ 
+  xmlNodePtr tripsNode = NULL;
+  for ( vector<TViewPeriod>::iterator p=viewp.begin(); p!=viewp.end(); p++ ) {
+    for ( vector<TViewTrip>::iterator t=p->trips.begin(); t!=p->trips.end(); t++ ) {
       if ( !tripsNode )
         tripsNode = NewTextChild( dataNode, "trips" );
       xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
