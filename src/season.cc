@@ -129,6 +129,22 @@ struct TRangeList {
   vector<TPeriod> periods;
 };
 
+struct TViewTrip {
+	int move_id;
+	string name;
+	string crafts;
+	string ports;
+	TDateTime land;
+	TDateTime takeoff;
+};
+
+struct TViewPeriod {
+	int trip_id;
+	string exec;
+	string noexec;
+	vector<TViewTrip> trips;
+};
+
 class TFilter {
   private:
   public:
@@ -2772,6 +2788,27 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
 //  ProgError( STDLOG, ">>>> error GetTZTimeDiff not found" );
 }
 
+bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
+{
+	if ( !t1.trips.empty() && !t2.trips.empty() ) {
+		if ( t1.trips.begin()->name.size() < t2.trips.begin()->name.size() )
+			return true;
+		else
+			if ( t1.trips.begin()->name.size() > t2.trips.begin()->name.size() )
+				return false;
+			else
+		    if ( t1.trips.begin()->name < t2.trips.begin()->name )
+		      return true;
+        else
+        	if ( t1.trips.begin()->name > t2.trips.begin()->name )
+        		return false;
+        	else
+   		      if ( t1.trips.begin()->move_id < t2.trips.begin()->move_id )
+  	  		    return true;
+  }
+  return false;
+}
+
 void internalRead( TFilter &filter, xmlNodePtr dataNode )
 {
   TDateTime last_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
@@ -2807,27 +2844,36 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
   // может нам надо получить все сразу маршруты
   GetDests( mapds, filter );
   /* теперь перейдем к выборке и фильтрации диапазонов */
+  TViewPeriod viewperiod;
   xmlNodePtr rangeListNode;
-  int trip_id = NoExists;
+  viewperiod.trip_id = NoExists;
   int move_id = NoExists;
   TDestList ds;
   string s;
-  string exec, noexec;
+//  string exec, noexec;
   bool canRange;
   bool rangeListEmpty = false;
+  vector<TViewPeriod> viewp;
   while ( !SQry.Eof ) {
-    if ( trip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
+    if ( viewperiod.trip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       if ( !rangeListEmpty ) {
-        if ( trip_id > NoExists ) {
-          NewTextChild( rangeListNode, "trip_id", trip_id );
+        if ( viewperiod.trip_id > NoExists ) {
+//        	viewperiod.trip_id = trip_id;
+          tst();
+        	viewp.push_back( viewperiod );
+/*          NewTextChild( rangeListNode, "trip_id", trip_id );
           NewTextChild( rangeListNode, "exec", exec );
-          NewTextChild( rangeListNode, "noexec", noexec );
+          NewTextChild( rangeListNode, "noexec", noexec );*/
         }
-        rangeListNode = NewTextChild(dataNode, "rangeList");
+/*        rangeListNode = NewTextChild(dataNode, "rangeList"); */
       }
-      trip_id = SQry.FieldAsInteger( idx_trip_id );
-      exec.clear();
-      noexec.clear();
+/*      trip_id = SQry.FieldAsInteger( idx_trip_id );*/
+/*      exec.clear();
+      noexec.clear();*/
+      viewperiod.trips.clear();
+      viewperiod.exec.clear();
+      viewperiod.noexec.clear();            
+      viewperiod.trip_id = SQry.FieldAsInteger( idx_trip_id );
       rangeListEmpty = true;
     }
     if ( move_id != SQry.FieldAsInteger( idx_smove_id ) ) {
@@ -2872,9 +2918,9 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
              CommonDays( days, filter.range.days ) && /* !!! в df.intersects надо посмотреть есть ли дни выполнения */
             ( ds.dests.empty() ||
               TReqInfo::Instance()->user.user_type == utAirport &&
-              createAirportTrip( trip_id, filter, GetTZOffSet( first, ptz, v ), ds ) /*??? isfiltered */ ||
+              createAirportTrip( viewperiod.trip_id, filter, GetTZOffSet( first, ptz, v ), ds ) /*??? isfiltered */ ||
               TReqInfo::Instance()->user.user_type != utAirport &&
-      	      createAirlineTrip( trip_id, filter, GetTZOffSet( utc_first, ptz, v ), ds ) ) ) {
+      	      createAirlineTrip( viewperiod.trip_id, filter, GetTZOffSet( utc_first, ptz, v ), ds ) ) ) {
           rangeListEmpty = false;
           TDateTime delta_out = NoExists; // переход через сутки по вылету
 /*          for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
@@ -2899,25 +2945,34 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
             delta_out = 0.0;
 /*          } */
           if ( pr_cancel )
-            AddRefPeriod( noexec, first, last, (int)delta_out, days, tlg );
+            AddRefPeriod( viewperiod.noexec, first, last, (int)delta_out, days, tlg );
           else
-            AddRefPeriod( exec, first, last, (int)delta_out, days, tlg );
-          xmlNodePtr tripsNode = NULL;
+            AddRefPeriod( viewperiod.exec, first, last, (int)delta_out, days, tlg );
+//          xmlNodePtr tripsNode = NULL;
           for ( vector<trip>::iterator tr=ds.trips.begin(); tr!=ds.trips.end(); tr++ ) {
-            if ( !tripsNode )
-              tripsNode = NewTextChild( rangeListNode, "trips" );
-            xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
-            NewTextChild( tripNode, "move_id", move_id );
-            NewTextChild( tripNode, "name", tr->name );
-            NewTextChild( tripNode, "crafts", tr->crafts );
+//            if ( !tripsNode )
+//              tripsNode = NewTextChild( rangeListNode, "trips" );
+            TViewTrip vt;
+//            xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+            vt.move_id = move_id;
+            //NewTextChild( tripNode, "move_id", move_id );
+            vt.name = tr->name;
+            //NewTextChild( tripNode, "name", tr->name );
+            //NewTextChild( tripNode, "crafts", tr->crafts );
+            vt.crafts = tr->crafts;
             if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
-              NewTextChild( tripNode, "ports", tr->ports_in + "/" + tr->ports_out );
+              //NewTextChild( tripNode, "ports", tr->ports_in + "/" + tr->ports_out );
+              vt.ports = tr->ports_in + "/" + tr->ports_out;
             else
-              NewTextChild( tripNode, "ports", tr->ports_in + tr->ports_out );
-            if ( tr->land > NoExists )
-              NewTextChild( tripNode, "land", DateTimeToStr( tr->land ) );
-            if ( tr->takeoff > NoExists )
-              NewTextChild( tripNode, "takeoff", DateTimeToStr( tr->takeoff ) );
+              //NewTextChild( tripNode, "ports", tr->ports_in + tr->ports_out );
+              vt.ports = tr->ports_in + tr->ports_out;
+            vt.land = tr->land;
+//            if ( tr->land > NoExists )
+              //NewTextChild( tripNode, "land", DateTimeToStr( tr->land ) );
+            vt.takeoff = tr->takeoff;
+//            if ( tr->takeoff > NoExists )
+              //NewTextChild( tripNode, "takeoff", DateTimeToStr( tr->takeoff ) );
+            viewperiod.trips.push_back( vt );
           }
           mapds[ move_id ].dests.clear(); /* уже использовали маршрут */
           mapds[ move_id ].trips.clear();
@@ -2929,16 +2984,39 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
     SQry.Next();
   }
   if ( rangeListEmpty ) {
-   ProgTrace( TRACE5, "drop rangelist trip_id=%d, move_id=%d", trip_id,move_id );
+   ProgTrace( TRACE5, "drop rangelist trip_id=%d, move_id=%d", viewperiod.trip_id,move_id );
    /* удаляем ноду */
-   xmlUnlinkNode( rangeListNode );
-   xmlFreeNode( rangeListNode );
+/*   xmlUnlinkNode( rangeListNode );
+   xmlFreeNode( rangeListNode );*/
   }
   else {
-    if ( trip_id > NoExists ) {
-      NewTextChild( rangeListNode, "trip_id", trip_id );
+    if ( viewperiod.trip_id > NoExists ) {
+    	viewp.push_back( viewperiod );
+/*      NewTextChild( rangeListNode, "trip_id", trip_id );
       NewTextChild( rangeListNode, "exec", exec );
-      NewTextChild( rangeListNode, "noexec", noexec );
+      NewTextChild( rangeListNode, "noexec", noexec );*/
+    }
+  }
+  sort( viewp.begin(), viewp.end(), ComparePeriod ); 
+  for ( vector<TViewPeriod>::iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
+  	tst();
+  	rangeListNode = NewTextChild(dataNode, "rangeList");
+    NewTextChild( rangeListNode, "trip_id", i->trip_id );
+    NewTextChild( rangeListNode, "exec", i->exec );
+    NewTextChild( rangeListNode, "noexec", i->noexec );
+    for ( vector<TViewTrip>::iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
+    	xmlNodePtr tripsNode = NULL;
+    	if ( !tripsNode )
+        tripsNode = NewTextChild( rangeListNode, "trips" );
+      xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+      NewTextChild( tripNode, "move_id", j->move_id );
+      NewTextChild( tripNode, "name", j->name );
+      NewTextChild( tripNode, "crafts", j->crafts );
+      NewTextChild( tripNode, "ports", j->ports );
+      if ( j->land > NoExists )
+        NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
+      if ( j->takeoff > NoExists )
+        NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );
     }
   }
 }
