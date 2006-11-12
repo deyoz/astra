@@ -3196,6 +3196,9 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
              DateTimeToStr( first ).c_str(),
              DateTimeToStr( last ).c_str() );
 
+      double first_day;
+      modf( (double)UTCToClient( first, pregion ), &first_day );
+      ProgTrace( TRACE5, "local first_day=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );   
 
       /* фильтр по диапазонам, дням и временам вылета, если пользователь портовой */
       /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
@@ -3218,9 +3221,6 @@ tst();
         else {*/
           /* передаем данные для экрана редактирования */
           if ( !mapds[ move_id ].dests.empty() ) {
-          	double first_day;
-          	modf( (double)UTCToClient( first, pregion ), &first_day );
-          	ProgTrace( TRACE5, "local first_day=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );   
             xmlNodePtr destsNode = NewTextChild( range, "dests" );
             for ( TDests::iterator id=mapds[ move_id ].dests.begin(); id!=mapds[ move_id ].dests.end(); id++ ) {
               xmlNodePtr destNode = NewTextChild( destsNode, "dest" );
