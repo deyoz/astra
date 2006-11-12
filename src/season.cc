@@ -1392,6 +1392,47 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
    }
 }
 
+bool CompareAirlineTrip( trip t1, trip t2 )
+{
+  if ( t1.name.size() < t2.name.size() )
+	  return true;
+	else
+		if ( t1.name.size() > t2.name.size() )
+			return false;
+		else
+		  if ( t1.name < t2.name )
+		    return true;
+      else
+        if ( t1.name > t2.name )
+        	return false;
+        else
+   		    if ( t1.trip_id < t2.trip_id )
+  	  		  return true;		
+  	  		else
+  	  		  return false;
+};
+
+bool CompareAirpTrip( trip t1, trip t2 )
+{
+	TDateTime f1, f2;
+	if ( t1.takeoff > NoExists )
+		f1 = t1.takeoff;
+	else
+		f1 = t1.land;
+	if ( t2.takeoff > NoExists )
+		f2 = t2.takeoff;
+	else
+		f2 = t2.land;			
+	if ( f1 < f2 )
+		return true;
+	else
+		if ( f1 > f2 )
+			return false;
+	  else
+	  	return CompareAirlineTrip( t1, t2 );
+	
+}
+
 void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   vector<TStageTimes> stagetimes;
@@ -1404,8 +1445,8 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   else {
     NewTextChild( dataNode, "mode", "airline" );
   }
-  xmlNodePtr tripsSPP = NULL;
   TSpp spp;
+  vector<trip> ViewTrips;
   TDateTime vdate;
   modf( (double)NodeAsDateTime( "date", reqNode ), &vdate );
   createSPP( vdate, spp, stagetimes, true );
@@ -1417,41 +1458,49 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  im->first,
                  (int)im->second.trips.size() );
       for ( vector<trip>::iterator tr=im->second.trips.begin(); tr!=im->second.trips.end(); tr++ ) {
-        tst();
-        if ( !tripsSPP )
-          tripsSPP = NewTextChild( dataNode, "tripsSPP" );
-        xmlNodePtr tripNode = NewTextChild( tripsSPP, "trip" );
-        NewTextChild( tripNode, "trip", tr->name );
-        if ( reqInfo->user.user_type != utAirport  )
-          NewTextChild( tripNode, "craft", tr->crafts );
-        else
-          NewTextChild( tripNode, "craft", tr->ownbc );
-        NewTextChild( tripNode, "triptype", tr->triptype );
-        if ( reqInfo->user.user_type == utAirport  ) {
-          NewTextChild( tripNode, "ports", tr->ports_in );
-          NewTextChild( tripNode, "ports_out", tr->ports_out );
-        }
-        else {
-          if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
-            NewTextChild( tripNode, "ports_out", tr->ports_in + "/" + tr->ports_out );
-          else
-            NewTextChild( tripNode, "ports_out", tr->ports_in + tr->ports_out );
-        }
-        if ( !tr->bold_ports.empty() )
-          NewTextChild( tripNode, "bold_ports", tr->bold_ports );
-        if ( tr->land > NoExists )
-          NewTextChild( tripNode, "land", DateTimeToStr( tr->land ) );
-        if ( tr->takeoff > NoExists ) {
-          NewTextChild( tripNode, "takeoff", DateTimeToStr( tr->takeoff ) );
-          NewTextChild( tripNode, "trap", DateTimeToStr( tr->trap ) );
-        }
-        if ( tr->cancel )
-          NewTextChild( tripNode, "ref", "Žâ¬¥­ " );
+        ViewTrips.push_back( *tr );
       }
       im->second.trips.clear();
     }
   }
   tst();
+  if ( reqInfo->user.user_type != utAirport )
+  	sort( ViewTrips.begin(), ViewTrips.end(), CompareAirlineTrip );
+  else
+  	sort( ViewTrips.begin(), ViewTrips.end(), CompareAirpTrip );
+  
+  xmlNodePtr tripsSPP = NULL;
+  for ( vector<trip>::iterator tr=ViewTrips.begin(); tr!=ViewTrips.end(); tr++ ) {
+    if ( !tripsSPP )
+      tripsSPP = NewTextChild( dataNode, "tripsSPP" );
+    xmlNodePtr tripNode = NewTextChild( tripsSPP, "trip" );
+    NewTextChild( tripNode, "trip", tr->name );
+    if ( reqInfo->user.user_type != utAirport  )
+      NewTextChild( tripNode, "craft", tr->crafts );
+    else
+      NewTextChild( tripNode, "craft", tr->ownbc );
+    NewTextChild( tripNode, "triptype", tr->triptype );
+    if ( reqInfo->user.user_type == utAirport  ) {
+      NewTextChild( tripNode, "ports", tr->ports_in );
+      NewTextChild( tripNode, "ports_out", tr->ports_out );
+    }
+    else {
+      if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
+        NewTextChild( tripNode, "ports_out", tr->ports_in + "/" + tr->ports_out );
+      else
+        NewTextChild( tripNode, "ports_out", tr->ports_in + tr->ports_out );
+    }
+    if ( !tr->bold_ports.empty() )
+      NewTextChild( tripNode, "bold_ports", tr->bold_ports );
+    if ( tr->land > NoExists )
+      NewTextChild( tripNode, "land", DateTimeToStr( tr->land ) );
+    if ( tr->takeoff > NoExists ) {
+      NewTextChild( tripNode, "takeoff", DateTimeToStr( tr->takeoff ) );
+      NewTextChild( tripNode, "trap", DateTimeToStr( tr->trap ) );
+    }
+    if ( tr->cancel )
+      NewTextChild( tripNode, "ref", "Žâ¬¥­ " );
+  }  
 }
 
 void VerifyRangeList( TRangeList &rangeList, map<int,TDestList> &mapds )
