@@ -30,7 +30,7 @@ class TBaseTable {
 string TBaseTable::get(string code, string name, bool pr_lat, bool pr_except)
 {
     if(table.empty()) {
-        TQuery Qry(&OraSession);        
+        TQuery Qry(&OraSession);
         Qry.SQLText = get_sql_text();
         Qry.Execute();
         if(Qry.Eof) throw Exception("TBaseTable::get: table is empty");
@@ -261,7 +261,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     string status = NodeAsString("status", reqNode);
 
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     string SQLText =
         "SELECT  "
         "    TRIP_ID, "
@@ -348,7 +348,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     if(name == "PMTrfer") {
         Qry.Clear();
-        Qry.SQLText = 
+        Qry.SQLText =
             "SELECT  "
             "    POINT_ID, "
             "    TARGET, "
@@ -404,7 +404,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     Qry.Clear();
-    Qry.SQLText = 
+    Qry.SQLText =
         "select "
         "   airp, "
         "   system.AirpTZRegion(airp) AS tz_region, "
@@ -460,8 +460,8 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "SELECT "
         "  lvl, "
         "  birk_range, "
@@ -511,7 +511,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     Qry.Clear();
-    Qry.SQLText = 
+    Qry.SQLText =
         "select "
         "   airp, "
         "   system.AirpTZRegion(airp) AS tz_region, "
@@ -621,8 +621,8 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "SELECT "
         "   pr_vip, "
         "   pr_trfer, "
@@ -686,7 +686,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     Qry.Clear();
-    Qry.SQLText = 
+    Qry.SQLText =
         "select "
         "   airp, "
         "   system.AirpTZRegion(airp) AS tz_region, "
@@ -791,8 +791,8 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 void RunTest3(xmlNodePtr formDataNode)
 {
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "select "
         "    trips.trip, "
         "    pax.grp_id, "
@@ -885,7 +885,7 @@ void RunTest2(xmlNodePtr formDataNode)
 void RunTest1(xmlNodePtr formDataNode)
 {
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = "select kod_ak, ak_name from avia order by kod_ak, ak_name";
     Qry.Execute();
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "avia");
@@ -959,7 +959,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     if(NodeIsNULL("name", reqNode))
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
@@ -986,7 +986,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 void  DocsInterface::LoadForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int id = NodeAsInteger("id", reqNode);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = "select form from fr_forms where id = :id";
     Qry.CreateVariable("id", otInteger, id);
     Qry.Execute();
@@ -1010,7 +1010,7 @@ void  DocsInterface::SaveForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     string form = NodeAsString("form", reqNode);
     ProgTrace(TRACE5, "%s", form.c_str());
     int id = NodeAsInteger("id", reqNode);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText =
 //        "insert into fr_forms(id, form) values(id__seq.nextval, :form)";
         "update fr_forms set form = :form where id = :id";
@@ -1019,7 +1019,41 @@ void  DocsInterface::SaveForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Execute();
 }
 
-void DocsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT "
+    "  point_id, "
+    "  airline||TO_CHAR(flt_no)||suffix AS trip, "
+    "  scd_out, "
+    "  airline,flt_no,suffix,airp, "
+    "  craft, "
+    "  bort, "
+    "  trip_type, "
+    "  ckin.get_pr_tranz_reg(point_id,pr_tranzit) AS pr_tranz_reg, "
+    "  park_out, "
+    "  system.AirpTZRegion(points.airp) AS tz_region "
+    "FROM  points "
+    "WHERE point_id= :point_id AND pr_del=0";
+  Qry.CreateVariable("point_id",otInteger,NodeAsInteger("point_id",reqNode));
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  NewTextChild(resNode,"point_id",Qry.FieldAsInteger("point_id"));
+  NewTextChild(resNode,"trip",Qry.FieldAsString("trip"));
+  NewTextChild(resNode,"airline",Qry.FieldAsString("airline"));
+  NewTextChild(resNode,"flt_no",Qry.FieldAsInteger("flt_no"));
+  NewTextChild(resNode,"suffix",Qry.FieldAsString("suffix"));
+  NewTextChild(resNode,"airp",Qry.FieldAsString("airp"));
+  NewTextChild(resNode,"craft",Qry.FieldAsString("craft"));
+  NewTextChild(resNode,"bort",Qry.FieldAsString("bort"));
+  NewTextChild(resNode,"trip_type",Qry.FieldAsString("trip_type"));
+  NewTextChild(resNode,"pr_tranz_reg",(int)(Qry.FieldAsInteger("pr_tranz_reg")!=0));
+  NewTextChild(resNode,"park_out",Qry.FieldAsString("park_out"));
 
-}
+  TDateTime scd_out;
+  char *tz_region=Qry.FieldAsString("tz_region");
+  scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
+  NewTextChild( resNode, "scd_out", DateTimeToStr(scd_out) );
+};
+

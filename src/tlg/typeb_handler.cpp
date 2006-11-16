@@ -115,7 +115,6 @@ void handle_tlg(void)
   THeadingInfo *HeadingInfo=NULL;
   TEndingInfo *EndingInfo=NULL;
 
-  TDateTime local_date=NowLocal();
   TDateTime utc_date=NowUTC();
   TDateTime trunc_utc_date;
   modf(utc_date,&trunc_utc_date);
@@ -160,7 +159,7 @@ void handle_tlg(void)
              !EndingInfo->pr_final_part)
         {
           //не все еще части собраны
-          if (local_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
+          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
             throw ETlgError("Some parts not received");
           else
             continue;
@@ -196,7 +195,7 @@ void handle_tlg(void)
         if (pr_out_mem)
         {
           // нехватка памяти
-          if (local_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440) //5 минут
+          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440) //5 минут
             throw ETlgError("Out of memory");
           else
             continue;
@@ -204,7 +203,7 @@ void handle_tlg(void)
         if (!TlgInQry.Eof||tlg_num>0)
         {
           //не все еще части собраны
-          if (local_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
+          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
             throw ETlgError("Some parts not received");
           else
             continue;
@@ -228,7 +227,7 @@ void handle_tlg(void)
               ParsePNLADLContent(part,info,con);
               //принудительно разобрать после 5 минут после получения
               //(это будет работать только для ADL)
-              forcibly=local_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
+              forcibly=utc_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
               if (SavePNLADLContent(tlg_id,info,con,forcibly))
               {
                 TlgInUpdQry.Execute();
@@ -238,7 +237,7 @@ void handle_tlg(void)
               else
               {
                 OraSession.Rollback();
-                if (forcibly&&info.flt.scd<=local_date-10)
+                if (forcibly&&info.flt.scd<=utc_date-10)
                   //если телеграммы не хотят принудительно разбираться
                   //по истечении 10 дней со дня выполнения рейса - записать в просроченные
                   throw ETlgError("Time limit reached");

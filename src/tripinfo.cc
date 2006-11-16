@@ -341,6 +341,7 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.remark, "
     "       points.pr_tranzit, "
     "       points.first_point ";
+
 /*
   if ( info.screen.name == "BRDBUS.EXE" )
     sql+="gtimer.get_stage_time(points.point_id,:brd_close_stage_id) AS brd_to, "
