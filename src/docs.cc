@@ -254,7 +254,7 @@ string vs_number(int number)
 
 enum TState {PMTrfer, PM};
 
-void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
@@ -262,7 +262,7 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string status = NodeAsString("status", reqNode);
 
     TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    string SQLText =
         "SELECT  "
         "    TRIP_ID, "
         "    TARGET, "
@@ -289,11 +289,16 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    TRIP_ID = :point_id AND "
         "    TARGET = :target AND "
         "    STATUS = :status "
-        "ORDER BY "
-        "    PR_TRFER ASC, "
-        "    LAST_TARGET ASC, "
+        "ORDER BY ";
+    if(name == "PMTrfer")
+        SQLText +=
+            "    PR_TRFER ASC, "
+            "    LAST_TARGET ASC, ";
+    SQLText +=
         "    LVL ASC, "
         "    REG_NO ASC ";
+
+    Qry.SQLText = SQLText;
 
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
@@ -328,7 +333,7 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         else if(pers_type == "РМ")
             NewTextChild(rowNode, "pers_type", "INF");
         else
-            throw Exception("RunPMTrfer: unknown pers_type: " + pers_type);
+            throw Exception("RunPM: unknown pers_type: " + pers_type);
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
@@ -341,57 +346,59 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
 
 
-    Qry.Clear();
-    Qry.SQLText = 
-        "SELECT  "
-        "    POINT_ID, "
-        "    TARGET, "
-        "    PR_TRFER, "
-        "    STATUS, "
-        "    CLASS, "
-        "    LVL, "
-        "    SEATS, "
-        "    ADL, "
-        "    CHD, "
-        "    INF, "
-        "    RK_WEIGHT, "
-        "    BAG_AMOUNT, "
-        "    BAG_WEIGHT, "
-        "    EXCESS "
-        "FROM "
-        "    V_PM_TRFER_TOTAL "
-        "WHERE "
-        "    POINT_ID = :point_id AND "
-        "    TARGET = :target AND "
-        "    STATUS = :status "
-        "ORDER BY "
-        "    PR_TRFER, "
-        "    LVL ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("status", otString, status);
-    Qry.Execute();
-    dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
-    while(!Qry.Eof) {
-        string cls = Qry.FieldAsString("class");
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+    if(name == "PMTrfer") {
+        Qry.Clear();
+        Qry.SQLText = 
+            "SELECT  "
+            "    POINT_ID, "
+            "    TARGET, "
+            "    PR_TRFER, "
+            "    STATUS, "
+            "    CLASS, "
+            "    LVL, "
+            "    SEATS, "
+            "    ADL, "
+            "    CHD, "
+            "    INF, "
+            "    RK_WEIGHT, "
+            "    BAG_AMOUNT, "
+            "    BAG_WEIGHT, "
+            "    EXCESS "
+            "FROM "
+            "    V_PM_TRFER_TOTAL "
+            "WHERE "
+            "    POINT_ID = :point_id AND "
+            "    TARGET = :target AND "
+            "    STATUS = :status "
+            "ORDER BY "
+            "    PR_TRFER, "
+            "    LVL ";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.CreateVariable("target", otString, target);
+        Qry.CreateVariable("status", otString, status);
+        Qry.Execute();
+        dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
+        while(!Qry.Eof) {
+            string cls = Qry.FieldAsString("class");
+            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
-        NewTextChild(rowNode, "target", Qry.FieldAsString("TARGET"));
-        NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
-        NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
-        NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
-        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
-        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
-        NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
-        NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
-        NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
-        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
-        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
-        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
-        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+            NewTextChild(rowNode, "target", Qry.FieldAsString("TARGET"));
+            NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
+            NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
+            NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
+            NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
+            NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
+            NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
+            NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
+            NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
+            NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
+            NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
+            NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
+            NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
 
-        Qry.Next();
+            Qry.Next();
+        }
     }
 
     // Теперь переменные отчета
@@ -944,7 +951,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "test3") RunTest3(formDataNode);
     else if(name == "BMTrfer") RunBMTrfer(reqNode, formDataNode);
     else if(name == "BM") RunBM(reqNode, formDataNode);
-    else if(name == "PMTrfer") RunPMTrfer(reqNode, formDataNode);
+    else if(name == "PMTrfer" || name == "PM") RunPM(name, reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
@@ -960,7 +967,8 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     if(
             name == "BMTrfer" ||
             name == "BM" ||
-            name == "PMTrfer"
+            name == "PMTrfer" ||
+            name == "PM"
             )
         throw UserException("Запись " + name + " запрещена");
 
