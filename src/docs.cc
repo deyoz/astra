@@ -261,174 +261,139 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     string status = NodeAsString("status", reqNode);
 
-    TState State = PMTrfer;
-    string SQLText =
-#ifdef SALEK
-    "SELECT "
-    "  reg_no,DECODE(:pr_lat,0,full_name,full_name_lat),NULL, "
-    "  DECODE(pers_type,'РБ','X',NULL), "
-    "  DECODE(pers_type,'РМ','X',NULL), "
-    "  DECODE(:pr_lat,0,class,class_lat), "
-    "  seat_no,document, "
-    "  DECODE(bag_amount,0,NULL,bag_amount), "
-    "  DECODE(bag_weight,0,NULL,bag_weight), "
-    "  DECODE(rk_weight,0,NULL,rk_weight), "
-    "  DECODE(excess,0,NULL,excess), "
-    "  DECODE(:pr_lat,0,tags,tags_lat), ";
-    if(State == PMTrfer)
-        SQLText += "  DECODE(:pr_lat,0,last_target,last_target_lat) AS last_target, ";
-    SQLText += "  grp_id ";
-#endif
-#ifdef CHITA
-    "SELECT "
-    "  reg_no,DECODE(:pr_lat,0,full_name,full_name_lat),NULL, "
-    "  DECODE(pers_type,''ВЗ'',''X'',NULL), "
-    "  DECODE(pers_type,''РБ'',''X'',NULL), "
-    "  DECODE(pers_type,''РМ'',''X'',NULL), "
-    "  DECODE(:pr_lat,0,class,class_lat), "
-    "  seat_no,document, "
-    "  DECODE(rk_weight,0,NULL,rk_weight), "
-    "  DECODE(bag_amount,0,NULL,bag_amount), "
-    "  DECODE(bag_weight,0,NULL,bag_weight), "
-    "  DECODE(excess,0,NULL,excess), "
-    "  DECODE(:pr_lat,0,tags,tags_lat), ";
-    if State=PMTrfer then
-        SQLText += "  DECODE(:pr_lat,0,last_target,last_target_lat) AS last_target, ";
-    SQLText += "  grp_id ";
-#endif
-#ifdef CHEL
-    "SELECT "
-    "  reg_no,DECODE(:pr_lat,0,full_name,full_name_lat),NULL, "
-    "  DECODE(:pr_lat,0,class,class_lat), "
-    "  DECODE(pers_type,''РБ'',''CHD '',''РМ'',''INF '',NULL)||remarks, "
-    "  document,seat_no, "
-    "  DECODE(rk_weight,0,NULL,rk_weight), "
-    "  DECODE(bag_amount,0,NULL,bag_amount), "
-    "  DECODE(bag_weight,0,NULL,bag_weight), "
-    "  DECODE(rk_weight+bag_weight,0,NULL,rk_weight+bag_weight), "
-    "  DECODE(excess,0,NULL,excess), "
-    "  DECODE(:pr_lat,0,tags,tags_lat), ";
-    if State=PMTrfer then
-        SQLText += "  DECODE(:pr_lat,0,last_target,last_target_lat) AS last_target, ";
-    SQLText += "  grp_id ";
-#endif
-    if(State == PM) {
-        SQLText += 
-            "FROM v_pm "
-            "WHERE trip_id=:trip_id AND status=:status AND target=:target "
-            "ORDER BY lvl,reg_no ";
-    } else {
-        SQLText += 
-            "FROM v_pm_trfer "
-            "WHERE trip_id=:trip_id AND status=:status AND target=:target "
-            "ORDER BY pr_trfer,last_target,lvl,reg_no ";
-    }
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = SQLText;
-    Qry.DeclareVariable("trip_id",otInteger);
-    Qry.DeclareVariable("target",otString);
-    Qry.DeclareVariable("pr_lat",otInteger);
-    Qry.DeclareVariable("status",otString);
-    Qry.SetVariable("trip_id", point_id);
-    Qry.SetVariable("target", target);
-    Qry.SetVariable("pr_lat", pr_lat);
-    Qry.SetVariable("status", status);
-
-    Qry.Execute();
-
-    Qry.Clear();
-    Qry.SQLText =
-#ifdef SALEK
-    "SELECT NVL(SUM(seats),0), "
-    "       NVL(SUM(adl),0),NVL(SUM(chd),0), "
-    "       NVL(SUM(inf),0), "
-    "       NVL(SUM(bag_amount),0),NVL(SUM(bag_weight),0), "
-    "       NVL(SUM(rk_weight),0),NVL(SUM(excess),0) "
-#endif
-#ifdef CHITA
-    "SELECT NVL(SUM(seats),0), "
-    "       NVL(SUM(adl),0),NVL(SUM(chd),0), "
-    "       NVL(SUM(inf),0), "
-    "       NVL(SUM(bag_amount),0),NVL(SUM(bag_weight),0), "
-    "       NVL(SUM(rk_weight),0),NVL(SUM(excess),0) "
-#endif
-#ifdef CHEL
-    "SELECT NVL(SUM(adl),0),NVL(SUM(chd),0), "
-    "       NVL(SUM(inf),0),NVL(SUM(rk_weight),0), "
-    "       NVL(SUM(bag_amount),0),NVL(SUM(bag_weight),0), "
-    "       NVL(SUM(excess),0) "
-#endif
-    "FROM v_pm_trfer_total "
-    "WHERE point_id=:trip_id AND target=:target AND status=:status ";
-
-    Qry.DeclareVariable("trip_id",otInteger);
-    Qry.DeclareVariable("target",otString);
-    Qry.DeclareVariable("status",otString);
-    Qry.SetVariable("trip_id", point_id);
-    Qry.SetVariable("target", target);
-    Qry.SetVariable("status", status);
-
-    Qry.Execute();
-
-
-
-
-
-
-    /*
-    int point_id = NodeAsInteger("point_id", reqNode);
-    string target = NodeAsString("target", reqNode);
-    int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    int pr_vip = NodeAsInteger("pr_vip", reqNode);
-
     TQuery Qry(&OraSession);        
     Qry.SQLText = 
-        "SELECT "
-        "  lvl, "
-        "  birk_range, "
-        "  DECODE(:pr_lat,0,color_name,color_name_lat) AS color, "
-        "  num,NULL, "
-        "  pr_vip, "
-        "  class, "
-        "  amount,weight "
-        "FROM v_bm "
-#ifdef SALEK
-        "WHERE trip_id=:point_id AND target=:target AND pr_vip=:pr_vip "
-        "ORDER BY pr_vip,lvl,tag_type,color_name,birk_range ";
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
-#else
-        "WHERE trip_id=:point_id AND target=:target "
-        "ORDER BY lvl,tag_type,color_name,birk_range ";
-#endif
+        "SELECT  "
+        "    TRIP_ID, "
+        "    TARGET, "
+        "    PR_TRFER, "
+        "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, "
+        "    CLASS, "
+        "    LVL, "
+        "    STATUS, "
+        "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
+        "    PERS_TYPE, "
+        "    SEAT_NO, "
+        "    SEATS, "
+        "    DOCUMENT, "
+        "    RK_WEIGHT, "
+        "    BAG_AMOUNT, "
+        "    BAG_WEIGHT, "
+        "    EXCESS, "
+        "    decode(:pr_lat, 0, tags, tags_lat) tags, "
+        "    REG_NO, "
+        "    GRP_ID "
+        "FROM "
+        "    V_PM_TRFER "
+        "WHERE "
+        "    TRIP_ID = :point_id AND "
+        "    TARGET = :target AND "
+        "    STATUS = :status "
+        "ORDER BY "
+        "    PR_TRFER ASC, "
+        "    LAST_TARGET ASC, "
+        "    LVL ASC, "
+        "    REG_NO ASC ";
+
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+    Qry.CreateVariable("status", otString, status);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+
     Qry.Execute();
+
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
     TClasses classes;
-    string lvl;
     while(!Qry.Eof) {
         string cls = Qry.FieldAsString("class");
-
-        string tmp_lvl = Qry.FieldAsString("lvl");
-        int weight = 0;
-        if(tmp_lvl != lvl) {
-            lvl = tmp_lvl;
-            weight = Qry.FieldAsInteger("weight");
-        }
-
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "birk_range", Qry.FieldAsString("birk_range"));
-        NewTextChild(rowNode, "color", Qry.FieldAsString("color"));
-        NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
-        NewTextChild(rowNode, "pr_vip", Qry.FieldAsInteger("pr_vip"));
-        NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
+        NewTextChild(rowNode, "full_name", Qry.FieldAsString("full_name"));
+        NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("lvl"));
         NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
-        NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
-        NewTextChild(rowNode, "weight", weight);
+        NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        string pers_type = Qry.FieldAsString("pers_type");
+        if(pers_type == "ВЗ")
+            NewTextChild(rowNode, "pers_type", "ADL");
+        else if(pers_type == "РБ")
+            NewTextChild(rowNode, "pers_type", "CHD");
+        else if(pers_type == "РМ")
+            NewTextChild(rowNode, "pers_type", "INF");
+        else
+            throw Exception("RunPMTrfer: unknown pers_type: " + pers_type);
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         Qry.Next();
     }
+
+
+    Qry.Clear();
+    Qry.SQLText = 
+        "SELECT  "
+        "    POINT_ID, "
+        "    TARGET, "
+        "    PR_TRFER, "
+        "    STATUS, "
+        "    CLASS, "
+        "    LVL, "
+        "    SEATS, "
+        "    ADL, "
+        "    CHD, "
+        "    INF, "
+        "    RK_WEIGHT, "
+        "    BAG_AMOUNT, "
+        "    BAG_WEIGHT, "
+        "    EXCESS "
+        "FROM "
+        "    V_PM_TRFER_TOTAL "
+        "WHERE "
+        "    POINT_ID = :point_id AND "
+        "    TARGET = :target AND "
+        "    STATUS = :status "
+        "ORDER BY "
+        "    PR_TRFER, "
+        "    LVL ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("target", otString, target);
+    Qry.CreateVariable("status", otString, status);
+    Qry.Execute();
+    dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
+    while(!Qry.Eof) {
+        string cls = Qry.FieldAsString("class");
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+        NewTextChild(rowNode, "target", Qry.FieldAsString("TARGET"));
+        NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
+        NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
+        NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
+        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
+        NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
+        NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
+        NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
+
+        Qry.Next();
+    }
+
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     Qry.Clear();
@@ -477,63 +442,8 @@ void RunPMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
     NewTextChild(variablesNode, "airp_arv_name", airps.get(target, "name", pr_lat));
 
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT amount,weight,tags FROM unaccomp_bag WHERE point_dep=:point_id AND airp_arv=:target ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.Execute();
-
-    int TotAmount = 0;
-    int TotWeight = 0;
-    string Tags;
-
-    while(!Qry.Eof) {
-        TotAmount += Qry.FieldAsInteger("amount");
-        TotWeight += Qry.FieldAsInteger("weight");
-        if(Tags.size()) Tags += ", ";
-        Tags += Qry.FieldAsString("tags");
-        Qry.Next();
-    }
-
-    if(!(Tags.empty() && TotAmount == 0 && TotWeight == 0)) {
-        NewTextChild(variablesNode, "DosKwit", Tags);
-        NewTextChild(variablesNode, "DosPcs", TotAmount);
-        NewTextChild(variablesNode, "DosWeight", TotWeight);
-    } else {
-        NewTextChild(variablesNode, "DosKwit");
-        NewTextChild(variablesNode, "DosPcs");
-        NewTextChild(variablesNode, "DosWeight");
-    }
-
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT NVL(SUM(amount),0) AS amount, "
-        "       NVL(SUM(weight),0) AS weight "
-        "FROM pax_grp,bag2,halls2 "
-        "WHERE pax_grp.grp_id=bag2.grp_id AND "
-        "      pax_grp.hall=halls2.id AND "
-        "      halls2.pr_vip=:pr_vip AND "
-        "      pax_grp.point_dep=:point_id AND "
-        "      pax_grp.airp_arv=:target AND "
-        "      pax_grp.pr_refuse=0 AND "
-        "      bag2.pr_cabin=0 ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
-    Qry.Execute();
-    if(Qry.RowCount() > 0) {
-        TotAmount += Qry.FieldAsInteger("amount");
-        TotWeight += Qry.FieldAsInteger("weight");
-    }
-
-    NewTextChild(variablesNode, "TotPcs", TotAmount);
-    NewTextChild(variablesNode, "TotWeight", TotWeight);
-    NewTextChild(variablesNode, "Tot", (pr_lat ? "" : vs_number(TotAmount)));
-
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
-    */
 }
 
 void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1047,7 +957,12 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
 
-    if(name == "BMTrfer" || name == "BM") throw UserException("Запись " + name + " запрещена");
+    if(
+            name == "BMTrfer" ||
+            name == "BM" ||
+            name == "PMTrfer"
+            )
+        throw UserException("Запись " + name + " запрещена");
 
     string form = NodeAsString("form", reqNode);
     Qry.SQLText = "update fr_forms set form = :form where name = :name";
