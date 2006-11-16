@@ -29,6 +29,10 @@ public:
      AddEvent("ReadCRS_Displaces",evHandle);   
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteCRS_Displaces);
      AddEvent("WriteCRS_Displaces",evHandle);            
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadDests);
+     AddEvent("ReadDests",evHandle);                 
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteDests);
+     AddEvent("WriteDests",evHandle);                      
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);
@@ -39,6 +43,8 @@ public:
   void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

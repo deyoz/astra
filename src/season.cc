@@ -152,7 +152,6 @@ class TFilter {
     int dst_offset;
     int tz;
     vector<TSeason> periods; //периоды летнего и зимнего расписания
-    map<string,string> regions;
     string region; // регион относительно которого расчитvвается периодv расписания
     int season_idx; // текущее расписание
     TRange range; // диапазон дат в фильтре, когда не задан - диапазон расписания с временами
@@ -199,6 +198,44 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 
 void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer );
 
+string GetCityFromAirp( string &airp )
+{
+  tst();
+  string city;
+  if ( !airp.empty() ) {
+    TQuery Qry( &OraSession );
+    Qry.SQLText = "SELECT city FROM airps WHERE code=:airp";
+    Qry.DeclareVariable( "airp", otString );
+    Qry.SetVariable( "airp", airp );
+    Qry.Execute();
+    city = Qry.FieldAsString( "city" );
+  }
+  return city;
+}
+
+string GetTZRegion( string &city, map<string,string> &regions, bool vexcept )
+{    
+  string res;
+  if ( city.empty() )
+    return res;
+  if ( regions.find( city ) != regions.end() )
+    return regions[ city ];
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT system.CityTZRegion(:city,0) as region FROM dual";
+  Qry.DeclareVariable( "city", otString );
+  Qry.SetVariable( "city", city );
+  Qry.Execute();
+  if ( Qry.FieldIsNULL( "region" ) ) {
+    if ( vexcept )
+      throw UserException( "Для выбранного города %s не задан регион", city.c_str() );
+    return res;
+  }
+  res = Qry.FieldAsString( "region" );
+  regions[ city ] = res;
+  return res;
+}
+
+
 TFilter::TFilter()
 {
   Clear();
@@ -225,43 +262,6 @@ void TFilter::Clear()
   triptype.clear();
   periods.clear();
   dst_offset = 0;
-}
-
-string TFilter::CityTZRegion( string &city, bool vexcept )
-{
-  string res;
-  if ( city.empty() )
-    return res;
-  if ( regions.find( city ) != regions.end() )
-    return regions[ city ];
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT system.CityTZRegion(:city,0) as region FROM dual";
-  Qry.DeclareVariable( "city", otString );
-  Qry.SetVariable( "city", city );
-  Qry.Execute();
-  if ( Qry.FieldIsNULL( "region" ) ) {
-    if ( vexcept )
-      throw UserException( "Для выбранного города %s не задан регион", city.c_str() );
-    return res;
-  }
-  res = Qry.FieldAsString( "region" );
-  regions[ city ] = res;
-  return res;
-}
-
-string GetCityFromAirp( string &airp )
-{
-  tst();
-  string city;
-  if ( !airp.empty() ) {
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT city FROM airps WHERE code=:airp";
-    Qry.DeclareVariable( "airp", otString );
-    Qry.SetVariable( "airp", airp );
-    Qry.Execute();
-    city = Qry.FieldAsString( "city" );
-  }
-  return city;
 }
 
 void TFilter::GetSeason()
@@ -1589,9 +1589,10 @@ tst();
 }
 
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
-void ParseRangeList( xmlNodePtr rangelistNode, TFilter &filter, TRangeList &rangeList, map<int,TDestList> &mapds )
+void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, string &filter_region )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  map<string,string> regions;
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
   if ( reqInfo->user.user_type == utSupport ) {
    /* все права - все рейсы доступны если не указаны конкретные ак и ап*/
@@ -1656,7 +1657,7 @@ tst();
         curNode = destNode->children;
         dest.cod = NodeAsStringFast( "cod", curNode );
         dest.city = GetCityFromAirp( dest.cod );
-        dest.region = filter.CityTZRegion( dest.city ); //filter нужен в этой функции только здесь!!!
+        dest.region = GetTZRegion( dest.city, regions ); 
         node = GetNodeFast( "cancel", curNode );
         if ( node )
           dest.pr_cancel = NodeAsInteger( node );
@@ -1769,7 +1770,7 @@ tst();
                DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                period.days.c_str() );
-    period.first = ClientToUTC( (double)period.first, filter.region );
+    period.first = ClientToUTC( (double)period.first, filter_region );
     double utcFirst;
     f3 = modf( (double)period.first, &utcFirst );
     if ( first_day != utcFirst ) {
@@ -1856,7 +1857,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   TRangeList rangeList;
   map<int,TDestList> mapds;
   xmlNodePtr rangelistNode = GetNode( "SubrangeList", reqNode );
-  ParseRangeList( rangelistNode, filter, rangeList, mapds );
+  ParseRangeList( rangelistNode, rangeList, mapds, filter.region );
   VerifyRangeList( rangeList, mapds );
   vector<TPeriod> nperiods, speriods;
 

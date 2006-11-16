@@ -2,6 +2,8 @@
 #define _SEASON_H_
 
 #include <libxml/tree.h>
+#include <string>
+#include <map>
 #include "JxtInterface.h"
 
 class SeasonInterface : public JxtInterface
@@ -41,5 +43,8 @@ public:
   void convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
+
+std::string GetCityFromAirp( std::string &airp );
+std::string GetTZRegion( std::string &city, std::map<std::string,std::string> &regions, bool vexcept=1 );
 
 #endif
