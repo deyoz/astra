@@ -740,7 +740,7 @@ void CheckInInterface::LoadPaxNorms(xmlNodePtr paxNode)
   NormQry.Clear();
   NormQry.SQLText=
     "SELECT norm_id,pax_norms.bag_type,norm_type,amount,weight,per_unit "
-    "FROM pax_norms,astra.bag_norms "
+    "FROM pax_norms,bag_norms "
     "WHERE pax_norms.norm_id=bag_norms.id(+) AND pax_norms.pax_id=:pax_id ";
   NormQry.CreateVariable("pax_id",otInteger,pax_id);
   NormQry.Execute();
@@ -800,7 +800,7 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
         int norm_id=NodeAsIntegerFast("norm_id",node2);
         TQuery Qry(&OraSession);
         Qry.Clear();
-        Qry.SQLText="SELECT norm_type,amount,weight,per_unit FROM astra.bag_norms WHERE id=:norm_id";
+        Qry.SQLText="SELECT norm_type,amount,weight,per_unit FROM bag_norms WHERE id=:norm_id";
         Qry.CreateVariable("norm_id",otInteger,norm_id);
         Qry.Execute();
         if (Qry.Eof) throw Exception("Baggage norm not found (norm_id=%d)",norm_id);
@@ -1272,7 +1272,7 @@ void CheckInInterface::LoadPaidBag(xmlNodePtr grpNode)
   BagQry.SQLText=
     "SELECT NVL(paid_bag.bag_type,-1) AS bag_type,paid_bag.weight, "
     "       NVL(rate_id,-1) AS rate_id,rate,rate_cur "
-    "FROM paid_bag,astra.bag_rates "
+    "FROM paid_bag,bag_rates "
     "WHERE paid_bag.rate_id=bag_rates.id(+) AND grp_id=:grp_id";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
