@@ -947,13 +947,19 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
     for(node=tagNode->children;node!=NULL;node=node->next,tagCount++);
 
   ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
-  bool pr_tag_print=tagNode!=NULL&&GetNode("@type",tagNode)!=NULL;
+  bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
   TQuery Qry(&OraSession);
   if (bagAmount!=tagCount)
   {
     if (pr_tag_print && tagCount<bagAmount )
     {
-      const char* tag_type=NodeAsString("@type",tagNode);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException("На рейс не назначен бланк печатаемой багажной бирки");
+      string tag_type = Qry.FieldAsString("tag_type");
       //получим номера печатаемых бирок
       Qry.Clear();
       Qry.SQLText=
@@ -970,7 +976,7 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
         "  ckin.get__tag_no(:desk,vaircode,:tag_count,:first_no,:last_no); "
         "END;";
       Qry.CreateVariable("point_id",otInteger,point_id);
-      Qry.CreateVariable("desk",otString,point_id);
+      Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
       Qry.CreateVariable("tag_count",otInteger,bagAmount-tagCount);
       Qry.DeclareVariable("first_no",otInteger);
       Qry.DeclareVariable("last_no",otInteger);
@@ -1193,7 +1199,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
   node=NewTextChild(grpNode,"tags");
   BagQry.Clear();
   BagQry.SQLText=
-    "SELECT num,tag_type,no_len,no,color,bag_num,prn_type,pr_print "
+    "SELECT num,tag_type,no_len,no,color,bag_num,printable,pr_print "
     "FROM bag_tags,tag_types "
     "WHERE bag_tags.tag_type=tag_types.code AND grp_id=:grp_id "
     "ORDER BY num";
@@ -1211,7 +1217,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
       NewTextChild(tagNode,"bag_num",BagQry.FieldAsInteger("bag_num"));
     else
       NewTextChild(tagNode,"bag_num");
-    NewTextChild(tagNode,"printable",(int)(!BagQry.FieldIsNULL("prn_type")));
+    NewTextChild(tagNode,"printable",(int)(BagQry.FieldAsInteger("printable")!=0));
     NewTextChild(tagNode,"pr_print",(int)(BagQry.FieldAsInteger("pr_print")!=0));
   };
   BagQry.Close();
@@ -1393,13 +1399,13 @@ void CheckInInterface::SaveTagPacks(xmlNodePtr node)
     "BEGIN "
     "  IF :no IS NULL THEN "
     "    DELETE FROM tag_packs "
-    "    WHERE term=:desk AND airline=:airline AND target=:target; "
+    "    WHERE desk=:desk AND airline=:airline AND target=:target; "
     "  ELSE "
     "    UPDATE tag_packs "
     "    SET tag_type=:tag_type, color=:color, no=:no "
-    "    WHERE term=:desk AND airline=:airline AND target=:target; "
+    "    WHERE desk=:desk AND airline=:airline AND target=:target; "
     "    IF SQL%NOTFOUND THEN "
-    "      INSERT INTO tag_packs(term,airline,target,tag_type,color,no) "
+    "      INSERT INTO tag_packs(desk,airline,target,tag_type,color,no) "
     "      VALUES (:desk,:airline,:target,:tag_type,:color,:no); "
     "    END IF; "
     "  END IF;   "

@@ -828,18 +828,28 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
     Qry.SQLText =
-        "SELECT bp_id, form, data FROM trip_bp tb, bp_forms bf "
-        "WHERE bp_id = id and "
-        "point_id=:point_id AND (class IS NULL OR class=:class) AND tb.pr_ier=:prn_type "
+        "SELECT bp_type FROM trip_bp "
+        "WHERE point_id=:point_id AND (class IS NULL OR class=:class) "
         "ORDER BY class ";
     Qry.CreateVariable("point_id", otInteger, trip_id);
     Qry.CreateVariable("class", otString, cl);
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
+    string bp_type = Qry.FieldAsString("bp_type");
+
+    Qry.Clear();
+    Qry.SQLText =
+     "SELECT form,data FROM bp_forms "
+     "WHERE bp_type=:bp_type AND prn_type=:prn_type";
+    Qry.CreateVariable("bp_type", otString, bp_type);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("На рейс не назначен бланк посадочных талонов");
+
+    if(Qry.Eof||Qry.FieldIsNULL("data"))
+      throw UserException("Печать пос. талона на выбранный принтер не производится");
+
     Pectab = Qry.FieldAsString("form");
     Print = Qry.FieldAsString("data");
-    if(Print.empty()) throw Exception("print form is empty for bp_id " + IntToString(Qry.FieldAsInteger("bp_id")));
 }
 
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
@@ -940,22 +950,27 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
-void get_bt_forms(string tag_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
+void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
     prn_forms.clear();
     TQuery FormsQry(&OraSession);
-    FormsQry.SQLText = "select id, num, form, data from bt_forms where tag_type = :tag_type order by id, num";
-    FormsQry.CreateVariable("TAG_TYPE", otString, tag_type);
+    FormsQry.SQLText =
+      "SELECT num, form, data FROM bt_forms "
+      "WHERE tag_type = :tag_type AND prn_type=:prn_type "
+      "ORDER BY num";
+    FormsQry.CreateVariable("tag_type", otString, tag_type);
+    FormsQry.CreateVariable("prn_type", otInteger, prn_type);
     FormsQry.Execute();
-    if(FormsQry.Eof) throw Exception("bt_id not found (tag_type = " + tag_type);
-    while(!FormsQry.Eof) {
+    if(FormsQry.Eof)
+      throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+    while(!FormsQry.Eof)
+    {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
-        if(FormsQry.FieldIsNULL("data"))
-            throw Exception("print form is empty for id " + IntToString(FormsQry.FieldAsInteger("id")) +
-                    ", num " + IntToString(FormsQry.FieldAsInteger("num")));
+        if (FormsQry.FieldIsNULL("data"))
+          throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
         prn_forms.push_back(FormsQry.FieldAsString("data"));
         FormsQry.Next();
-    }
+    };
 }
 
 struct TBTRouteItem {
@@ -1079,7 +1094,7 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
     }
 }
 
-void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
+void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
 {
     vector<TBTRouteItem> route;
     get_route(grp_id, route);
@@ -1100,7 +1115,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
     Qry.Execute();
     if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     int pax_id = Qry.FieldAsInteger(0);
-    Qry.SQLText = "select no, color, tag_type from bag_tags where grp_id = :grp_id and pr_print = 0 order by tag_type, num";
+    Qry.SQLText =
+      "SELECT no, color, tag_type FROM bag_tags, tag_types "
+      "WHERE bag_tags.tag_type=tag_types.code AND grp_id = :grp_id AND "
+      "      pr_print = 0 AND printable <> 0"
+      "ORDER BY tag_type, num";
     Qry.Execute();
     if (Qry.Eof) return;
     string tag_type;
@@ -1116,7 +1135,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            get_bt_forms(tag_type, pectabsNode, prn_forms);
+            get_bt_forms(tag_type, prn_type, pectabsNode, prn_forms);
         }
 
         u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
@@ -1156,7 +1175,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat)
 void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    GetPrintDataBT(dataNode, NodeAsInteger("grp_id", reqNode), NodeAsInteger("pr_lat", reqNode));
+    GetPrintDataBT(dataNode,
+                   NodeAsInteger("grp_id", reqNode),
+                   NodeAsInteger("prn_type", reqNode),
+                   NodeAsInteger("pr_lat", reqNode)
+                  );
 }
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -551,10 +551,7 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
         message.msg += string( "Отменен бланк пос. талона '" );
         FieldIndex = cachetable->FieldIndex( "bp_name" );
         ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
-        message.msg += row.old_cols[ FieldIndex ] + "' (";
-        FieldIndex = cachetable->FieldIndex( "prn_name" );
-        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
-        message.msg += row.old_cols[ FieldIndex ] + ")";
+        message.msg += row.old_cols[ FieldIndex ] + "'";
         FieldIndex = cachetable->FieldIndex( "class" );
         ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         if ( !row.old_cols[ FieldIndex ].empty() )
@@ -564,9 +561,7 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
         message.msg += "Установлен бланк пос. талона '";
         FieldIndex = cachetable->FieldIndex( "bp_name" );
-        message.msg += row.cols[ FieldIndex ] + "' (";
-        FieldIndex = cachetable->FieldIndex( "prn_name" );
-        message.msg += row.cols[ FieldIndex ] + ")";
+        message.msg += row.cols[ FieldIndex ] + "'";
         FieldIndex = cachetable->FieldIndex( "class" );
         if ( !row.cols[ FieldIndex ].empty() )
           message.msg += " для класса " + row.cols[ FieldIndex ];
