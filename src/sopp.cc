@@ -1635,8 +1635,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool existsTrip = false;
   
   try {
-    int notDel = (int)dests.size();
-    if ( notDel < 2 )
+    int notCancel = (int)dests.size();
+    if ( notCancel < 2 )
     	throw UserException( "Маршрут должен содержать не менее двух аэропортов" );
     // проверки
     // если это работник аэропорта, то в маршруте должен быть этот порт,
@@ -1659,8 +1659,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                  ) == reqInfo->user.access.airlines.end() ) {
           throw UserException( "Заданная авиакомпания запрещена для использования текущему пользователю" );
         }
-        if ( id->pr_del == 1 )
-        	notDel--;
       }
       if ( !canDo )
       	if ( reqInfo->user.access.airps.size() == 1 )
@@ -1675,12 +1673,21 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
       	}
     }
+    // проверка на отмену
+    for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {    
+      if ( id->pr_del == 1 ) {
+        notCancel--;
+      }
+    }
   
     // отменяем все п.п., т.к. в маршруте всего один не отмененный
-    if ( notDel == 1 ) {
+    if ( notCancel == 1 ) {
+    	tst();
       for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-       	if ( !id->pr_del )
+       	if ( !id->pr_del ) {       		
       		id->pr_del = 1;
+      		id->modify = true;      		
+        }
       }   	
     }
     // проверка упорядоченности времен + дублирование рейса, если move_id == NoExists
@@ -2012,12 +2019,12 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
   	Qry.Execute();
   	tst();
+  	Qry.Clear();
+  	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
+  	Qry.CreateVariable( "point_id", otInteger, id->point_id );
+  	tst();
+  	Qry.Execute();  	
   	if ( !id->delays.empty() ) {
-  		Qry.Clear();
-  		Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
-  		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		tst();
-  		Qry.Execute();
   		Qry.Clear();
   		Qry.SQLText = 
   		 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\

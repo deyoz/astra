@@ -171,8 +171,7 @@ class TFilter {
                              vector<TPeriod> &speriods, vector<TPeriod> &nperiods, TPeriod p );
     bool isFilteredTime( TDateTime first_day, TDateTime Land, TDateTime Takeoff,
                          int dst_offset, string region );
-    bool isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime Land, TDateTime Takeoff,
-                            int dst_offset );
+    bool isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_time, int dst_offset );
     bool isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land, TDateTime Takeoff,
                          int dst_offset, string vregion );
 
@@ -499,8 +498,7 @@ ProgTrace( TRACE5, "first=%s, last=%s",
   nperiods.push_back( p );
 };
 
-bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime Land, TDateTime Takeoff,
-                                 int dst_offset )
+bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_time, int dst_offset )
 {
   if ( firstTime == NoExists || region.empty() )
     return true;
@@ -534,34 +532,21 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime Land, 
 
   f -= (double)1000/(double)MSecsPerDay;
   l +=  (double)1000/(double)MSecsPerDay;
-  if ( Land == NoExists )
+  if ( dest_time == NoExists )
     f1 = NoExists;
   else {
-    f1 = modf( (double)Land, &f2 );
+    f1 = modf( (double)dest_time, &f2 );
     if ( f1 < 0 )
       f1 = fabs( f1 );
     else
       f1 += 1.0;
   }
-  if ( Takeoff == NoExists )
-    f2 = NoExists;
-  else {
-    f2 = modf( (double)Takeoff, &f3 );
-    if ( f2 < 0 )
-      f2 = fabs( f2 );
-    else
-      f2 += 1.0;
-  }
-
 
   //учет перехода времени
   TDateTime diff = getDiff( dst_offset, isSummer( first ), isSummer( vd ) );
   f1 += diff;
-  f2 += diff;
 
-
-  ProgTrace( TRACE5, "f=%f,l=%f, f1=%f, f2=%f", f, l, f1, f2 );
-  return ( f1 >= f && f1 <= l || f2 >= f && f2 <= l );
+  return ( f1 >= f && f1 <= l );
 }
 
 
@@ -1131,7 +1116,6 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   double f1;
   while ( !Qry.Eof ) {
     TDest d;
-    bool candate = false;
     d.num = Qry.FieldAsInteger( "num" );
     d.cod = Qry.FieldAsString( "cod" );
     d.city = Qry.FieldAsString( "city" );
@@ -1143,8 +1127,13 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     else {
       d.Land = Qry.FieldAsDateTime( "land" );
       modf( (double)d.Land, &f1 );
-      if ( f1 == da )
-        candate = true;
+      if ( f1 == da ) {
+        candests = candests || filter.isFilteredUTCTime( da, first_day, d.Land, offset );
+      	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,land=%s	, res=%d",
+      	           DateTimeToStr( filter.firstTime, "dd hh:nn" ).c_str(),
+      	           DateTimeToStr( filter.lastTime, "dd hh:nn" ).c_str(),
+      	           DateTimeToStr( d.Land, "dd hh:nn" ).c_str(), candests );        
+      }
     }
     d.company = Qry.FieldAsString( "company" );
 
@@ -1161,8 +1150,13 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     else {
       d.Takeoff = Qry.FieldAsDateTime( "takeoff" );
       modf( (double)d.Takeoff, &f1 );
-      if ( f1 == da )
-        candate = true;
+      if ( f1 == da ) {
+        candests = candests || filter.isFilteredUTCTime( da, first_day, d.Takeoff, offset );
+      	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, d,takeoff=%s, res=%d",
+      	           DateTimeToStr( filter.firstTime, "dd hh:nn" ).c_str(),
+      	           DateTimeToStr( filter.lastTime, "dd hh:nn" ).c_str(),
+      	           DateTimeToStr( d.Takeoff, "dd hh:nn" ).c_str(), candests );                
+      }
     }
     d.f = Qry.FieldAsInteger( "f" );
     d.c = Qry.FieldAsInteger( "c" );
@@ -1182,18 +1176,13 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
              ) != reqInfo->user.access.airlines.end() )
       canUseAirline = true;
     // фильтр по временам прилета/вылета в каждом п.п.
-    tst();
-    candests = candests || candate && filter.isFilteredUTCTime( da, first_day, d.Land, d.Takeoff, offset );
-    tst();
     ds.dests.push_back( d );
     Qry.Next();
-  }
-  if ( !canUseAirline || !canUseAirp || !candests )
+  } // end while 
+  if ( !canUseAirline || !canUseAirp || !candests ) {
     ds.dests.clear();
-
-             ProgTrace( TRACE5, "first_day=%s",
-                      DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
-
+    ProgTrace( TRACE5, "clear dests move_id=%d, date=%s", move_id, DateTimeToStr( da, "dd.hh:nn" ).c_str() );
+  }
   return !ds.dests.empty();
 }
 
@@ -1311,9 +1300,8 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
        filter.firstTime = 0.0;
        filter.lastTime = f4;
      }
-     ProgTrace( TRACE5, "filter.firstTime=%s, filter.lastTime=%s",
-                DateTimeToStr( filter.firstTime, "dd.mm.yy  hh:nn" ).c_str(),
-                DateTimeToStr( filter.lastTime, "dd.mm.yy  hh:nn" ).c_str() );
+     ProgTrace( TRACE5, "date=%s",
+                DateTimeToStr( d, "dd.mm.yy  hh:nn" ).c_str() );
      Qry.SetVariable( "vd", d );
      Qry.Execute();
      tst();
@@ -1354,18 +1342,12 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
 
                  createTrips( d, localdate, filter, offset, stagetimes, ds );
 
-
-             ProgTrace( TRACE5, "first_day=%s, move_id=%d",
-                        DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
-                        vmove_id );
-
-
                  ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
                }
                else
                  ds.trips = spp[ *vd ][ vmove_id ].trips;
                spp[ *vd ][ vmove_id ] = ds;
-           }
+           } // end insert
            ProgTrace( TRACE5, "first_day=%s, move_id=%d",
                       DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
                       vmove_id );
