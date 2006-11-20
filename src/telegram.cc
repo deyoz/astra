@@ -1,5 +1,8 @@
 #include <vector>
+#include <boost/date_time/local_time/local_time.hpp>
 #define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "test.h"
 #include "setup.h"
 #include "logger.h"
 #include "telegram.h"
@@ -13,6 +16,7 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace boost::local_time;
 
 void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
@@ -294,9 +298,10 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TlgQry.SQLText=
     "BEGIN "
     "  :id:=tlg.create_tlg(:type,:point_id,:pr_dep,:scd_local,:airp_arv,:crs, "
-    "                      :pr_lat,:pr_numeric,:addrs,:time_send); "
+    "                      :pr_lat,:pr_numeric,:addrs,:sender,:pr_summer,:time_send); "
     "END; ";
   TlgQry.DeclareVariable("id",otInteger);
+  bool pr_summer=false;
   if (point_id!=-1)
   {
     TQuery Qry(&OraSession);
@@ -306,10 +311,21 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    string tz_region=Qry.FieldAsString("tz_region");
+
     TlgQry.CreateVariable("point_id",otInteger,point_id);
     TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
-    TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), Qry.FieldAsString("tz_region") );
+    TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
     TlgQry.CreateVariable("scd_local",otDate,scd_local);
+    //вычисляем признак летней/зимней навигации
+    tz_database &tz_db = get_tz_database();
+    time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
+    if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
+    if (tz->has_dst())
+    {
+      local_date_time ld(DateTimeToBoost(Qry.FieldAsDateTime("scd_out")),tz);
+      pr_summer=ld.is_dst();
+    };
   }
   else
   {
@@ -323,6 +339,9 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TlgQry.CreateVariable("pr_lat",otInteger,(int)(NodeAsInteger( "pr_lat", reqNode)!=0));
   TlgQry.CreateVariable("pr_numeric",otInteger,(int)(NodeAsInteger( "pr_numeric", reqNode)!=0));
   TlgQry.CreateVariable("addrs",otString,NodeAsString( "addrs", reqNode));
+  TlgQry.CreateVariable("sender",otString,OWN_SITA_ADDR());
+  TlgQry.CreateVariable("pr_summer",otInteger,(int)pr_summer);
+  ProgTrace(TRACE5,"pr_summer=%d",(int)pr_summer);
   TlgQry.CreateVariable("time_send",otDate,FNull);
   try
   {
@@ -407,8 +426,9 @@ void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
-    "  tlg.send_tlg(:id); "
+    "  tlg.send_tlg(:own_canon_name,:id); "
     "END;";
+  Qry.CreateVariable( "own_canon_name", otString, OWN_CANON_NAME());
   Qry.CreateVariable( "id", otInteger, tlg_id);
   try
   {

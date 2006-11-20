@@ -18,6 +18,348 @@ using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  readTripCounters(point_id,resNode);
+
+  xmlNodePtr node;
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  string sql;
+  string select_sql=
+    "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+    "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+    "       crs_pax.seat_no,crs_pax.seat_type,crs_pax.seats, "
+    "       crs_pnr.pnr_id, "
+    "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
+    "       report.get_PSPT(crs_pax.pax_id) AS document ";
+  if (GetNode("pnr_id",reqNode)==NULL)
+  {
+    char status = DecodeStatus(NodeAsString("status",reqNode));
+    int nPax = NodeAsInteger("count",reqNode);
+
+    for(int i=0;i<2;i++)
+    {
+      string surnames;
+      char surname[5];
+      surname[4]=0;
+      node=NodeAsNode("surnames",reqNode)->children;
+      for(;node!=NULL;node=node->next)
+      {
+        if (!surnames.empty()) surnames+=" OR ";
+        strncpy(surname,NodeAsString(node),i==0?4:1);
+        surnames+=(string)"crs_pax.surname LIKE '"+surname+"%'";
+      };
+
+      //обычный поиск
+      sql = select_sql +
+            "FROM tlg_trips,crs_pnr,crs_pax,pax, ";
+      if (nPax>1)
+        sql+=
+            "  (SELECT DISTINCT crs_pnr.pnr_id ";
+      else
+        sql+=
+            "  (SELECT DISTINCT crs_pax.pax_id ";
+
+      if (status=='K')
+      {
+        sql+=
+            "   FROM crs_pnr,tlg_binding,crs_pax "
+            "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+            "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
+            "         tlg_binding.point_id_spp= :point_id AND "
+            "         crs_pnr.target= :airp_arv AND "
+            "         crs_pnr.class= :class AND "
+            "         crs_pnr.wl_priority IS NULL AND"
+            "         crs_pax.pr_del=0 AND "
+            "         ("+surnames+") "
+            "   UNION ";
+        if (nPax>1)
+          sql+=
+            "   SELECT DISTINCT crs_pnr.pnr_id ";
+        else
+          sql+=
+            "   SELECT DISTINCT crs_pax.pax_id ";
+      };
+
+      sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax "
+            "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+            "         tlg_binding.point_id_spp=crs_displace.point_from AND "
+            "         crs_pnr.target=crs_displace.airp_arv_from AND "
+            "         crs_pnr.class=crs_displace.class_from AND "
+            "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
+            "         crs_displace.point_to= :point_id AND "
+            "         crs_displace.airp_arv_to= :airp_arv AND "
+            "         crs_displace.class_to= :class AND "
+            "         crs_displace.pr_goshow= :pr_goshow AND "
+            "         crs_pnr.wl_priority IS NULL AND "
+            "         crs_pax.pr_del=0 AND "
+            "         ("+surnames+")) ids "
+            "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+            "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+            "      crs_pax.pax_id=pax.pax_id(+) AND ";
+      if (nPax>1)
+        sql+=
+            "      ids.pnr_id=crs_pnr.pnr_id AND ";
+      else
+        sql+=
+            "      ids.pax_id=crs_pax.pax_id AND ";
+
+      sql+= "      crs_pax.pr_del=0 AND "
+            "      pax.pax_id IS NULL "
+            "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+
+      PaxQry.SQLText = sql;
+      PaxQry.CreateVariable("point_id",otInteger,point_id);
+      PaxQry.CreateVariable("airp_arv",otString,NodeAsString("airp_arv",reqNode));
+      PaxQry.CreateVariable("class",otString,NodeAsString("class",reqNode));
+      PaxQry.CreateVariable("pr_goshow",otInteger,(int)(status=='P'));
+      tst();
+      PaxQry.Execute();
+      tst();
+      if (!PaxQry.Eof) break;
+    };
+  }
+  else
+  {
+    //поиск большой группы
+    sql+= select_sql +
+      "FROM tlg_trips,crs_pnr,crs_pax,pax "
+      "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      crs_pnr.pnr_id=:pnr_id AND "
+      "      crs_pax.pr_del=0 AND "
+      "      pax.pax_id IS NULL "
+      "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+    PaxQry.SQLText = sql;
+    PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
+    tst();
+    PaxQry.Execute();
+    tst();
+  };
+
+  TQuery TrferQry(&OraSession);
+  TrferQry.SQLText =
+    "SELECT transfer_num,airline,flt_no,suffix, "
+    "       local_date,airp_arv,subclass "
+    "FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num>0";
+  TrferQry.DeclareVariable("pnr_id",otInteger);
+
+  TQuery PnrAddrQry(&OraSession);
+  PnrAddrQry.SQLText =
+    "SELECT airline,addr FROM pnr_addrs WHERE pnr_id=:pnr_id";
+  PnrAddrQry.DeclareVariable("pnr_id",otInteger);
+
+  TQuery RemQry(&OraSession);
+  RemQry.SQLText =
+    "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id";
+  RemQry.DeclareVariable("pax_id",otInteger);
+
+  point_id=-1;
+  int pnr_id=-1, pax_id;
+  xmlNodePtr tripNode,pnrNode,paxNode;
+  string airp_dep="",airp_dep_lat="";
+
+  tripNode=NewTextChild(resNode,"trips");
+  for(;!PaxQry.Eof;PaxQry.Next())
+  {
+    tst();
+    if (PaxQry.FieldAsInteger("point_id")!=point_id)
+    {
+      node=NewTextChild(tripNode,"trip");
+      point_id=PaxQry.FieldAsInteger("point_id");
+      NewTextChild(node,"point_id",point_id);
+      NewTextChild(node,"airline",PaxQry.FieldAsString("airline"));
+      NewTextChild(node,"flt_no",PaxQry.FieldAsInteger("flt_no"));
+      NewTextChild(node,"scd",DateTimeToStr(PaxQry.FieldAsDateTime("scd")));
+      NewTextChild(node,"airp_dep",PaxQry.FieldAsString("airp_dep"));
+      pnrNode=NewTextChild(node,"groups");
+
+      TQuery Qry(&OraSession);
+      Qry.SQLText =
+        "SELECT code,code_lat FROM airps WHERE :code IN (code,code_lat)";
+      Qry.CreateVariable("code",otString,PaxQry.FieldAsString("airp_dep"));
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        airp_dep=Qry.FieldAsString("code");
+        airp_dep_lat=Qry.FieldAsString("code_lat");
+      }
+      else
+      {
+        airp_dep="";
+        airp_dep_lat="";
+      };
+    };
+    tst();
+    if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
+    {
+      node=NewTextChild(pnrNode,"pnr");
+      pnr_id=PaxQry.FieldAsInteger("pnr_id");
+      NewTextChild(node,"pnr_id",pnr_id);
+      NewTextChild(node,"airp_arv",PaxQry.FieldAsString("target"));
+      NewTextChild(node,"subclass",PaxQry.FieldAsString("subclass"));
+      NewTextChild(node,"class",PaxQry.FieldAsString("class"));
+      paxNode=NewTextChild(node,"passengers");
+
+      tst();
+      TrferQry.SetVariable("pnr_id",pnr_id);
+      TrferQry.Execute();
+      tst();
+      if (!TrferQry.Eof)
+      {
+        string airp_arv;
+        xmlNodePtr trferNode=NewTextChild(node,"transfer");
+        for(;!TrferQry.Eof;TrferQry.Next())
+        {
+          airp_arv=TrferQry.FieldAsString("airp_arv");
+          if (!airp_arv.empty() &&
+              (airp_arv==airp_dep || airp_arv==airp_dep_lat)) break;
+          xmlNodePtr node2=NewTextChild(trferNode,"segment");
+          NewTextChild(node2,"num",TrferQry.FieldAsInteger("transfer_num"));
+          NewTextChild(node2,"airline",TrferQry.FieldAsString("airline"));
+          NewTextChild(node2,"flt_no",TrferQry.FieldAsInteger("flt_no"));
+          NewTextChild(node2,"suffix",TrferQry.FieldAsString("suffix"),"");
+          NewTextChild(node2,"local_date",TrferQry.FieldAsInteger("local_date"));
+          NewTextChild(node2,"airp_arv",TrferQry.FieldAsString("airp_arv"));
+          NewTextChild(node2,"subclass",TrferQry.FieldAsString("subclass"));
+        };
+      };
+
+      tst();
+      PnrAddrQry.SetVariable("pnr_id",pnr_id);
+      PnrAddrQry.Execute();
+      tst();
+      if (!PnrAddrQry.Eof)
+      {
+        string airline=PnrAddrQry.FieldAsString("airline");
+        string addr=PnrAddrQry.FieldAsString("addr");
+        PnrAddrQry.Next();
+
+        xmlNodePtr pnrAddrNode,node2;
+        if (!PnrAddrQry.Eof)
+          pnrAddrNode=NewTextChild(node,"pnr_addrs");
+        else
+          pnrAddrNode=node;
+        if (!PnrAddrQry.Eof||airline!=PaxQry.FieldAsString("airline"))
+        {
+          node2=NewTextChild(pnrAddrNode,"pnr_addr");
+          NewTextChild(node2,"airline",airline);
+          NewTextChild(node2,"addr",addr);
+        }
+        else
+          NewTextChild(pnrAddrNode,"pnr_addr",addr);
+
+        for(;!PnrAddrQry.Eof;PnrAddrQry.Next())
+        {
+          node2=NewTextChild(pnrAddrNode,"pnr_addr");
+          NewTextChild(node2,"airline",PnrAddrQry.FieldAsString("airline"));
+          NewTextChild(node2,"addr",PnrAddrQry.FieldAsString("addr"));
+        };
+      };
+    };
+    node=NewTextChild(paxNode,"pax");
+    pax_id=PaxQry.FieldAsInteger("pax_id");
+    NewTextChild(node,"pax_id",pax_id);
+    NewTextChild(node,"surname",PaxQry.FieldAsString("surname"));
+    NewTextChild(node,"name",PaxQry.FieldAsString("name"),"");
+    NewTextChild(node,"pers_type",PaxQry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
+    NewTextChild(node,"seat_no",PaxQry.FieldAsString("seat_no"),"");
+    NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
+    NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
+    NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
+
+    tst();
+    RemQry.SetVariable("pax_id",pax_id);
+    RemQry.Execute();
+    tst();
+    if (!RemQry.Eof)
+    {
+      xmlNodePtr remNode=NewTextChild(node,"rems");
+      for(;!RemQry.Eof;RemQry.Next())
+      {
+        xmlNodePtr node2=NewTextChild(remNode,"rem");
+        NewTextChild(node2,"rem_code",RemQry.FieldAsString("rem_code"),"");
+        NewTextChild(node2,"rem_text",RemQry.FieldAsString("rem"));
+      };
+    };
+  };
+
+  if (GetNode("pnr_id",reqNode)==NULL)
+  {
+    tst();
+    xmlNodePtr foundPnr=NULL,foundTrip=NULL;
+    int nPax = NodeAsInteger("count",reqNode);
+    if (nPax==1) return;
+    //построим вектор обрезанных фамилий поискового запроса
+    vector<string> surnames;
+    vector<string>::iterator i;
+    char surname[5];
+    surname[4]=0;
+    node=NodeAsNode("surnames",reqNode)->children;
+    for(;node!=NULL;node=node->next)
+    {
+      strncpy(surname,NodeAsString(node),4);
+      surnames.push_back(surname);
+    };
+    tst();
+    tripNode=NodeAsNode("trips",resNode)->children;
+    for(;tripNode!=NULL;tripNode=tripNode->next)
+    {
+      pnrNode=NodeAsNode("groups",tripNode)->children;
+      //цикл по PNR
+      for(;pnrNode!=NULL;pnrNode=pnrNode->next)
+      {
+        //проверим на кол-во человек в группе
+        int n=0;
+        paxNode=NodeAsNode("passengers",pnrNode)->children;
+        for(node=paxNode;node!=NULL;node=node->next) n++;
+        if (n!=nPax) continue;
+
+        //проверим на то чтобы все фамилии присутствовали в группе
+        for(i=surnames.begin();i!=surnames.end();i++)
+        {
+          for(node=paxNode;node!=NULL;node=node->next)
+          {
+            xmlNodePtr node2 = node->children;
+            if (i->size()<3)
+              if (strcmp(i->c_str(),NodeAsStringFast("surname",node2))==0) break;
+            else
+              if (strncmp(i->c_str(),NodeAsStringFast("surname",node2),i->size())==0) break;
+          };
+          if (node==NULL) break; //не найдена фамилия
+        };
+        if (i==surnames.end())
+        {
+          //все фамилии найдены
+          if (foundPnr!=NULL) return; // минимум 2 подходящих группы
+          foundPnr=pnrNode;
+          foundTrip=tripNode;
+        };
+      };
+    };
+    tst();
+    if (foundPnr==NULL||foundTrip==NULL) return;
+    tst();
+    xmlUnlinkNode(foundTrip);
+    tripNode=NodeAsNode("trips",resNode);
+    xmlUnlinkNode(tripNode);
+    xmlFreeNode(tripNode);
+    tripNode=NewTextChild(resNode,"trips");
+    xmlAddChild(tripNode,foundTrip);
+
+    xmlUnlinkNode(foundPnr);
+    pnrNode=NodeAsNode("groups",foundTrip);
+    xmlUnlinkNode(pnrNode);
+    xmlFreeNode(pnrNode);
+    pnrNode=NewTextChild(foundTrip,"groups");
+    xmlAddChild(pnrNode,foundPnr);
+  };
+
+};
+
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);

@@ -73,6 +73,20 @@ const char* ERR_CANON_NAME()
   return ERRNAME.c_str();
 }
 
+const char* OWN_SITA_ADDR()
+{
+  static string OWNADDR;
+  if ( OWNADDR.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "OWN_SITA_ADDR", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param OWN_SITA_ADDR" );
+    OWNADDR = r;
+    ProgTrace( TRACE5, "OWN_SITA_ADDR=%s", OWNADDR.c_str() );
+  }
+  return OWNADDR.c_str();
+}
+
 namespace
 {
         void sendCmdTlgSnd()
