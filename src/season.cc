@@ -91,8 +91,10 @@ struct TDest {
 struct trip {
   int trip_id;
   string name;
+  string print_name;
   string crafts;
   string ownbc;
+  string ownport;
   string ports_in;
   string ports_out;
   string bold_ports;
@@ -165,7 +167,7 @@ class TFilter {
     void Parse( xmlNodePtr filterNode );
     void Build( xmlNodePtr filterNode );
     void GetSeason();
-    string CityTZRegion( string &city, bool vexcept=1 );
+//    string CityTZRegion( string &city, bool vexcept=1 );
     bool isSummer( TDateTime pfirst );
     void InsertSectsPeriods( map<int,TDestList> &mapds,
                              vector<TPeriod> &speriods, vector<TPeriod> &nperiods, TPeriod p );
@@ -196,6 +198,38 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode );
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode );
 
 void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer );
+
+
+string GetPrintName( TDest *PDest, TDest *NDest )
+{
+	string res;
+  if ( !PDest || NDest->trip > NoExists && abs( PDest->trip - NDest->trip ) <= 1 && PDest->company == NDest->company ) {
+    res = NDest->company;
+    while ( res.size() < 3 ) {
+    	res += " ";
+    }
+    	res += IntToString( NDest->trip );
+  }
+  else {
+    res = PDest->company;
+    while ( res.size() < 3 ) {
+    	res += " ";
+    }
+    res += IntToString( PDest->trip );
+    if ( NDest->trip > NoExists ) {
+    	res += "/";
+    	if ( PDest->company != NDest->company ) {
+    		string comp = NDest->company;
+      	while ( comp.size() < 3 ) {
+      	  comp += " ";
+       	}
+       	res += comp;
+      }
+    	res += IntToString( NDest->trip );
+    }
+  }
+	return res;
+}
 
 string GetCityFromAirp( string &airp )
 {
@@ -868,9 +902,9 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   showMessage( "Рейс удален");
 }
 
-void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+
+void CreateSPP( BASIC::TDateTime localdate )
 {
-//TReqInfo::Instance()->user.check_access( amWrite );
   map<int,TTimeDiff> v;
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
@@ -935,12 +969,10 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   TQry.DeclareVariable( "f", otInteger );
   TQry.DeclareVariable( "c", otInteger );
   TQry.DeclareVariable( "y", otInteger );
-
-  TDateTime localdate;
-  modf( (double)NodeAsDateTime( "date", reqNode ), &localdate );
   vector<TStageTimes> stagetimes;
   TSpp spp;
   createSPP( localdate, spp, stagetimes, false );
+
   tst();
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
@@ -1072,6 +1104,15 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
       tst();
     }
   }
+  TReqInfo::Instance()->MsgToLog( string( "Получение СПП за " ) + DateTimeToStr( localdate, "dd.mm.yy" ), evtSeason );
+}
+
+void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+//TReqInfo::Instance()->user.check_access( amWrite );
+  TDateTime localdate;
+  modf( (double)NodeAsDateTime( "date", reqNode ), &localdate );
+  CreateSPP( localdate );
   showMessage("Данные успешно сохранены");
 }
 
@@ -1457,10 +1498,13 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       tripsSPP = NewTextChild( dataNode, "tripsSPP" );
     xmlNodePtr tripNode = NewTextChild( tripsSPP, "trip" );
     NewTextChild( tripNode, "trip", tr->name );
+    NewTextChild( tripNode, "print_name", tr->print_name );
     if ( reqInfo->user.user_type != utAirport  )
       NewTextChild( tripNode, "craft", tr->crafts );
-    else
+    else {
       NewTextChild( tripNode, "craft", tr->ownbc );
+      NewTextChild( tripNode, "ownport", tr->ownport );
+    }
     NewTextChild( tripNode, "triptype", tr->triptype );
     if ( reqInfo->user.user_type == utAirport  ) {
       NewTextChild( tripNode, "ports", tr->ports_in );
@@ -2280,7 +2324,9 @@ tst();
         trip tr;
         tr.trip_id = trip_id;
         tr.name = GetTrip( PriorDest, OwnDest );
+        tr.print_name = GetPrintName( PriorDest, OwnDest );
         ProgTrace( TRACE5, "tr.name=%s", tr.name.c_str() );
+        tr.ownport = airp;
         tr.crafts = crafts;
         tr.ports_in = portsFrom;
         tr.ports_out = portsTo;
@@ -2504,6 +2550,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
       if ( NDest == &ds.dests.back() && tr.name.empty() ) {
         tr.name = PDest->company + IntToString( PDest->trip ) + PDest->suffix;
       }
+    tr.print_name = GetPrintName( PDest, NDest );
     i++;
     PDest = NDest;
   }

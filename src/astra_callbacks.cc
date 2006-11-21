@@ -115,7 +115,14 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     if (orae)
     {
         ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
-        showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+        switch( orae->Code ) {
+        	case 4061:
+        	case 4068:
+        		showErrorMessage("Версия системы была обновлена. Повторите действие");
+        		break;
+        	default:
+            showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");    		
+        }
         //		addXmlBM(*ctxt);
         return;
     };

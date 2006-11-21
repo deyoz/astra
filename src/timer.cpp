@@ -11,12 +11,14 @@
 #include "exceptions.h"
 #include "etick.h"
 #include "astra_ticket.h"
+#include "season.h"
+#include "stages.h"
 #include "tlg/tlg.h"
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "test.h"
 #include <daemon.h>
-const int sleepsec = 30;
+const int sleepsec = 5;
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -39,7 +41,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       try
       {
-        now=Now();
+/*        now=Now();
         int Hour,Min,Sec;
         DecodeTime(now,Hour,Min,Sec);
         if (Min!=PrevMin)
@@ -53,8 +55,11 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
           if (Min%15==0)
           {
           //  sync_mvd(now);
+          // createSPP( );
           };
-        };
+        };*/
+        exec_tasks();
+        tst();
       }
       catch( std::exception E ) {
         ProgError( STDLOG, "Exception: %s", E.what() );
@@ -75,25 +80,80 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 }
 #endif
 
-void astra_timer(void)
+void exec_tasks( void )
 {
-  TQuery Qry(&OraSession);
-  try
-  {
-    Qry.SQLText=
-      "BEGIN\
-         timer.exec;\
-       END;";
-    Qry.Execute();
-    Qry.Close();
-    OraSession.Commit();
-  }
-  catch(...)
-  {
-    try { OraSession.Rollback( ); } catch( ... ) { };
-    throw;
-  };
-};
+	TDateTime VTime = 0.0, utcdate = NowUTC();
+	int Hour, Min, Sec;
+	DecodeTime( utcdate, Hour, Min, Sec );
+	modf( (double)utcdate, &utcdate );
+	EncodeTime( Hour, Min, 0, VTime );
+	utcdate += VTime;
+			ProgTrace( TRACE5, "task utcdate=%s", 
+			           DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str() );
+
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	 "SELECT name,last_exec,interval FROM tasks "\
+	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate ";
+	Qry.CreateVariable( "utcdate", otDate, utcdate );
+	Qry.Execute();
+	TQuery UQry(&OraSession);
+	UQry.SQLText = 
+	 "UPDATE tasks SET last_exec=:utcdate,next_exec=NVL(next_exec,:utcdate)+interval/1440 "\
+	 " WHERE name=:name";
+	UQry.CreateVariable( "utcdate", otDate, utcdate );
+	UQry.DeclareVariable( "name", otString );
+	string name;
+	while ( !Qry.Eof ) {
+		try {
+			tst();
+			name = Qry.FieldAsString( "name" );
+			ProgTrace( TRACE5, "task name=%s, utcdate=%s", 
+			           name.c_str(),
+			           DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str() );
+			UQry.SetVariable( "name", name );
+			UQry.Execute();
+			
+	    if ( name == "astra_timer" )
+	    	astra_timer( utcdate );
+	    else
+	    	if ( name == "createSPP" )
+	    		createSPP( utcdate );		
+	    	else
+	    		if ( name == "ETCheckStatusFlt" )
+	    			ETCheckStatusFlt();
+	    tst();
+			UQry.SetVariable( "name", name );
+			UQry.Execute();	 //???   
+			tst();
+			OraSession.Commit();
+		}
+    catch( Exception E ) {
+    	try { OraSession.Rollback(); } catch(...){};
+      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
+    }
+    catch( ... ) {
+    	try { OraSession.Rollback(); } catch(...){};
+      ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
+    };
+		Qry.Next();
+	}
+}
+
+void createSPP( TDateTime utcdate )
+{
+	map<string,string> regions;
+	string city = "МОВ";
+	tst();
+	utcdate += 1; //  на следующий день
+	TReqInfo *reqInfo = TReqInfo::Instance();
+	reqInfo->clear();
+	reqInfo->user.time_form = tfUTC;
+	reqInfo->user.user_type = utSupport;
+	reqInfo->desk.tz_region = GetTZRegion( city, regions, true );
+	CreateSPP( utcdate );
+	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
+}
 
 void ETCheckStatusFlt(void)
 {

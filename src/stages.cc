@@ -379,4 +379,165 @@ void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
 }
 
 
+void astra_timer( TDateTime utcdate )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	 "SELECT trip_stages.point_id point_id , trip_stages.stage_id stage_id"\
+   " FROM points, trip_stages "\
+   "WHERE points.point_id = trip_stages.point_id AND "\
+   "      points.act_out IS NULL AND "\
+   "      points.pr_del = 0 AND "\
+   "      trip_stages.pr_auto = 1 AND "\
+   "      trip_stages.act IS NULL AND "\
+   "      NVL( trip_stages.est, trip_stages.scd ) <= :now "\
+   " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
+  Qry.CreateVariable( "now", otDate, utcdate );
+  TQuery QCanStage(&OraSession);
+  QCanStage.SQLText = 
+   "DECLARE msg VARCHAR2(255); "\
+   "BEGIN "\
+   " :canstage := gtimer.CanStage(:point_id,:stage_id); "\
+   " IF :canstage != 0 THEN "\
+   "  UPDATE points SET point_id = point_id WHERE point_id = :point_id; "\
+   "  UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "\
+   "   WHERE point_id = :point_id AND stage_id = :stage_id; "\
+   "  IF SQL%FOUND THEN "\
+   "    SELECT 'Этап '''||name||''' выполнен: факт. время='||TO_CHAR(:now,'HH24:MI DD.MM.YY') "\
+   "    INTO msg "\
+   "    FROM graph_stages WHERE stage_id=:stage_id; "\
+   "    system.MsgToLog(msg,system.evtGraph,:point_id,:stage_id); "\
+   "  END IF; "\
+   " END IF; "\
+   "END; ";
+  QCanStage.DeclareVariable( "point_id", otInteger );
+  QCanStage.DeclareVariable( "stage_id", otInteger );
+  QCanStage.DeclareVariable( "canstage", otInteger );
+  QCanStage.CreateVariable( "now", otDate, utcdate );
+  bool pr_exit = false;
+  while ( !pr_exit ) {
+  	pr_exit = true;
+  	Qry.Execute();
+  	tst();
+  	while ( !Qry.Eof ) {
+  		tst();
+  		int point_id = Qry.FieldAsInteger( "point_id" );
+  		int stage_id = Qry.FieldAsInteger( "stage_id" );
+  		QCanStage.SetVariable( "point_id", point_id );
+  		QCanStage.SetVariable( "stage_id", stage_id );
+  		QCanStage.Execute();
+  		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
+  			tst();
+  			try {
+  				switch( (TStage)stage_id ) {
+  					case sNoActive:
+  						  /*не активен*/
+  						  break;
+            case sPrepCheckIn:
+            	 /*Подготовка к регистрации*/
+            	 PrepCheckIn( point_id );
+            	 break;
+            case sOpenCheckIn:
+            	/*Открытие регистрации*/
+            	OpenCheckIn( point_id );
+            	break;
+            case sCloseCheckIn:
+            	/*Закрытие регистрации*/
+            	break;
+            case sOpenBoarding:
+            	/*Начало посадки*/
+            	break;
+            case sCloseBoarding:
+            	/*Окончание посадки*/
+            	break;
+            case sRegDoc:
+            	/*Оформление документации*/
+            	break;
+            case sRemovalGangWay:
+            	/*Уборка трапа*/
+            	break;
+            case sTakeoff:
+            	/*Вылетел*/
+            	break;
+  				}
+  				pr_exit = false;
+  			}
+        catch( Exception E ) {
+        	tst();
+        	try { OraSession.Rollback( ); } catch(...) { };
+          ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
+                     E.what(),
+                     DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
+                     point_id, stage_id );        	
+        }
+  			catch( ... ) {
+  				try { OraSession.Rollback( ); } catch(...) { };
+  			}
+  			OraSession.Commit();
+  		}
+  		Qry.Next();
+  	}
+  }
+  tst();
+}
+
+void PrepCheckIn( int point_id )
+{
+	TQuery Qry(&OraSession);	
+	Qry.SQLText = 
+	 "DECLARE "\
+	 "ve NUMBER; "\
+	 "vcraft  points.craft%TYPE; "\
+   "vbort   points.bort%TYPE; "\
+   "vairp   points.airp%TYPE; "\
+   "BEGIN "\
+   "SELECT craft, b.bort, airp INTO vcraft, vbort, vairp FROM points, "\
+   "( SELECT points.bort, points.point_id FROM comps, points "\
+   "  WHERE points.point_id = :point_id AND "\
+   "        points.craft = comps.craft AND "\
+   "        points.bort IS NOT NULL AND "\
+   "        points.bort = comps.bort AND "\
+   "        rownum < 2 ) b "\
+   "WHERE points.point_id = :point_id AND "
+   "      points.point_id = b.point_id(+); "\
+   "IF vbort IS NOT NULL OR vairp != 'СОЧ' THEN "\
+   " SELECT COUNT(*) INTO ve FROM trip_comp_elems "\
+   "  WHERE point_id = :point_id AND rownum<2; "\
+   " IF ve = 0 THEN "\
+   "  ve := salons.setcraft( :point_id, vcraft ); "\
+   "    IF ve < 0 THEN "\
+   "      system.MsgToLog('Подходящая для рейса компоновка '||vcraft||' не найдена',system.evtFlt,:point_id); "\
+   "    END IF; "\
+   " END IF; "\
+   "END IF; "\
+   "END; ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+}
+
+void OpenCheckIn( int point_id )
+{
+  TQuery Qry(&OraSession);	
+	Qry.SQLText = 	
+	 "DECLARE "\
+	 "ve NUMBER; "\
+   "vc NUMBER; "\
+   "vcraft  points.craft%TYPE; "\
+   "vairp   points.airp%TYPE; "\
+   " BEGIN "\
+   "  SELECT craft, airp INTO vcraft, vairp FROM points WHERE point_id=:point_id; "\
+   "  IF vairp = 'СОЧ' THEN "\
+   "   SELECT COUNT(*) INTO vc FROM trip_comp_elems "\
+   "    WHERE point_id = :point_id AND rownum<2; "\
+   "   IF vc = 0 THEN  "\
+   "    ve := salons.setcraft( :point_id, vcraft ); "\
+   "    IF ve < 0 THEN "\
+   "      system.MsgToLog('Подходящая для рейса компоновка '||vcraft||' не найдена',system.evtFlt,:point_id); "\
+   "    END IF; "\
+   "   END IF; "\
+   "  END IF; "\
+   " END; ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();   
+}
 

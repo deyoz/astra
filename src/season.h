@@ -4,7 +4,11 @@
 #include <libxml/tree.h>
 #include <string>
 #include <map>
+#include "basic.h"
 #include "JxtInterface.h"
+
+void CreateSPP( BASIC::TDateTime localdate );
+
 
 class SeasonInterface : public JxtInterface
 {
