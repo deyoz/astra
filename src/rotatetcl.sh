@@ -34,7 +34,10 @@ for Log in $LOGFILEBASENAMES ; do
 done
 
 
-./logkilltcl $LOG2MOVE
+if [ ! -z "$LOG2MOVE" ] ; then 
+ 	./logkilltcl $LOG2MOVE
+fi
+
 
 
 for iLOG in $LOG2MOVE ; do
