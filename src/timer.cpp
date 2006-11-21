@@ -59,7 +59,6 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
           };
         };*/
         exec_tasks();
-        tst();
       }
       catch( std::exception E ) {
         ProgError( STDLOG, "Exception: %s", E.what() );
@@ -106,7 +105,6 @@ void exec_tasks( void )
 	string name;
 	while ( !Qry.Eof ) {
 		try {
-			tst();
 			name = Qry.FieldAsString( "name" );
 			ProgTrace( TRACE5, "task name=%s, utcdate=%s", 
 			           name.c_str(),
@@ -122,10 +120,8 @@ void exec_tasks( void )
 	    	else
 	    		if ( name == "ETCheckStatusFlt" )
 	    			ETCheckStatusFlt();
-	    tst();
 			UQry.SetVariable( "name", name );
 			UQry.Execute();	 //???   
-			tst();
 			OraSession.Commit();
 		}
     catch( Exception E ) {
@@ -144,7 +140,6 @@ void createSPP( TDateTime utcdate )
 {
 	map<string,string> regions;
 	string city = "МОВ";
-	tst();
 	utcdate += 1; //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->clear();

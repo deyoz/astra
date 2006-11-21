@@ -418,16 +418,13 @@ void astra_timer( TDateTime utcdate )
   while ( !pr_exit ) {
   	pr_exit = true;
   	Qry.Execute();
-  	tst();
   	while ( !Qry.Eof ) {
-  		tst();
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
   		QCanStage.Execute();
   		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
-  			tst();
   			try {
   				switch( (TStage)stage_id ) {
   					case sNoActive:
@@ -463,7 +460,6 @@ void astra_timer( TDateTime utcdate )
   				pr_exit = false;
   			}
         catch( Exception E ) {
-        	tst();
         	try { OraSession.Rollback( ); } catch(...) { };
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),
@@ -478,7 +474,6 @@ void astra_timer( TDateTime utcdate )
   		Qry.Next();
   	}
   }
-  tst();
 }
 
 void PrepCheckIn( int point_id )
