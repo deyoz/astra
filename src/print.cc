@@ -1013,7 +1013,8 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   pax_grp.airp_arv,  "
         "   airps.code_lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
-        "   airps.name_lat airp_arv_name_lat "
+        "   airps.name_lat airp_arv_name_lat, "
+        "   0 transfer_num "
         "from  "
         "   pax_grp,  "
         "   points,  "
@@ -1034,7 +1035,8 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   transfer.airp_arv,  "
         "   airps.code_lat airp_arv_lat,  "
         "   airps.name airp_arv_name, "
-        "   airps.name_lat airp_arv_name_lat "
+        "   airps.name_lat airp_arv_name_lat, "
+        "   transfer.transfer_num "
         "from  "
         "   transfer,  "
         "   airlines,  "
@@ -1042,7 +1044,9 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "where  "
         "   transfer.grp_id = :grp_id and  "
         "   transfer.airline = airlines.code and  "
-        "   transfer.airp_arv = airps.code ";
+        "   transfer.airp_arv = airps.code "
+        "order by "
+        "   transfer_num ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
     int Year, Month, Day;
