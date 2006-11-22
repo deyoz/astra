@@ -185,6 +185,7 @@ struct tcrs_displ {
   string trip;
   string airp_arv;
   string cl;
+  int go_show;
 };
 
 typedef vector<tcrs_displ> TCRS_Displ;
@@ -677,7 +678,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
     "       airp_arv_from,class_from,point_to,"\
     "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"\
     "       system.AIRPTZREGION( p2.airp ) region_to, "\
-    "       airp_arv_to,class_to "\
+    "       airp_arv_to,class_to,pr_goshow go_show"\
     " FROM points p1, points p2, crs_displace c "\
     "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
     "      p1.point_id=c.point_from AND "\
@@ -704,6 +705,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
       dis.trip += DateTimeToStr( d1, "/dd" );
     dis.airp_arv = Qry.FieldAsString( "airp_arv_to" );
     dis.cl = Qry.FieldAsString( "class_to" );
+    dis.go_show = Qry.FieldAsInteger( "go_show" );
     crsd.displaces_to[ Qry.FieldAsInteger( "point_from" ) ].push_back( dis );
     Qry.Next();
   }
@@ -1296,7 +1298,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
    "       airp_arv_from,class_from,point_to,"\
    "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"\
    "       system.AIRPTZREGION( p2.airp ) region_to, "\
-   "       airp_arv_to,class_to "\
+   "       airp_arv_to,class_to,pr_goshow go_show "\
    " FROM points p1, points p2, crs_displace c "\
    "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
    "      p1.point_id=c.point_from AND "\
@@ -1326,6 +1328,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( snode, "trip_to", trip );
 		NewTextChild( snode, "airp_arv_to", Qry.FieldAsString( "airp_arv_to" ) );
 		NewTextChild( snode, "class_to", Qry.FieldAsString( "class_to" ) );
+		NewTextChild( snode, "go_show", Qry.FieldAsInteger( "go_show" ) );
   	Qry.Next();
   }
 	
@@ -1366,14 +1369,15 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.Execute();
   Qry.Clear();
   Qry.SQLText = 
-   "INSERT INTO crs_displace(point_from,airp_arv_from,class_from,point_to,airp_arv_to,class_to) "\
-   " VALUES(:point_from,:airp_arv_from,:class_from,:point_to,:airp_arv_to,:class_to) "; 
+   "INSERT INTO crs_displace(point_from,airp_arv_from,class_from,point_to,airp_arv_to,class_to,pr_goshow) "\
+   " VALUES(:point_from,:airp_arv_from,:class_from,:point_to,:airp_arv_to,:class_to,:go_show) "; 
   Qry.CreateVariable( "point_from", otInteger, point_id );
   Qry.DeclareVariable( "airp_arv_from", otString );
   Qry.DeclareVariable( "class_from", otString );
   Qry.DeclareVariable( "point_to", otInteger );
   Qry.DeclareVariable( "airp_arv_to", otString );
   Qry.DeclareVariable( "class_to", otString );
+  Qry.DeclareVariable( "go_show", otInteger );
   xmlNodePtr node = NodeAsNode( "crs_displace", reqNode );
   xmlNodePtr snode;
   node = node->children;
@@ -1384,6 +1388,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	Qry.SetVariable( "point_to", NodeAsIntegerFast( "point_to", snode ) );
   	Qry.SetVariable( "airp_arv_to", NodeAsStringFast( "airp_arv_to", snode ) );
   	Qry.SetVariable( "class_to", NodeAsStringFast( "class_to", snode ) );
+  	Qry.SetVariable( "go_show", NodeAsIntegerFast( "go_show", snode ) );
   	Qry.Execute();
   	tst();
   	node = node->next;
