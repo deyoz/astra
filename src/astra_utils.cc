@@ -140,8 +140,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   string sql;
 
   Qry.Clear();
-  sql = string( "SELECT id,version FROM " ) + COMMON_ORAUSER() + ".screen WHERE exe = :exe";
-  Qry.SQLText = sql;
+  Qry.SQLText = "SELECT id,version FROM screen WHERE exe = :exe";
   Qry.DeclareVariable( "exe", otString );
   Qry.SetVariable( "exe", screen.name );
   Qry.Execute();
@@ -151,11 +150,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   screen.version = Qry.FieldAsInteger( "version" );
 
   Qry.Clear();
-  sql = string("SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region FROM ") +COMMON_ORAUSER()+ ".desks," +
-        COMMON_ORAUSER() + ".sale_points " +
-        " WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
-
-  Qry.SQLText = sql;
+  Qry.SQLText =
+    "SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region "
+    "FROM desks,sale_points "
+    "WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
   Qry.Execute();
@@ -168,9 +166,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
 
   Qry.Clear();
-  sql = "SELECT user_id, login, descr, type, pr_denial, time_form FROM " + COMMON_ORAUSER() + ".users2 "+
-        " WHERE desk = UPPER(:pult) ";
-  Qry.SQLText = sql;
+  Qry.SQLText =
+    "SELECT user_id, login, descr, type, pr_denial, time_form "
+    "FROM users2 "
+    "WHERE desk = UPPER(:pult) ";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
   Qry.Execute();
@@ -180,11 +179,11 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     if (!checkUserLogon)
      	return;
     else
-      throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+      throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
   };
   if ( !vopr.empty() )
     if ( vopr != Qry.FieldAsString( "login" ) )
-      throw UserException( "Пользователь не вошел в систему. Используйте главный модуль." );
+      throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
 
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
       throw UserException( "Пользователю отказано в доступе" );
@@ -214,14 +213,12 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   };*/
 
   Qry.Clear();
-  sql = string( "SELECT DISTINCT screen_rights.right_id " ) +
-                "FROM " + COMMON_ORAUSER() + ".user_roles, " +
-                          COMMON_ORAUSER() + ".role_rights, " +
-                          COMMON_ORAUSER() + ".screen_rights "+
-                "WHERE user_roles.role_id=role_rights.role_id AND "
-                "      role_rights.right_id=screen_rights.right_id AND "
-                "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";
-  Qry.SQLText=sql;
+  Qry.SQLText=
+    "SELECT DISTINCT screen_rights.right_id "
+    "FROM user_roles,role_rights,screen_rights "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      role_rights.right_id=screen_rights.right_id AND "
+    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";
   Qry.DeclareVariable( "user_id",otInteger );
   Qry.DeclareVariable( "screen_id", otInteger );
   Qry.SetVariable( "user_id", user.user_id );
@@ -231,12 +228,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     user.access.rights.push_back(Qry.FieldAsInteger("right_id"));
   Qry.Clear();
   Qry.CreateVariable( "user_id", otInteger, user.user_id );
-  sql = string("SELECT airline FROM ") + COMMON_ORAUSER() + ".aro_airlines WHERE aro_id=:user_id";
-  Qry.SQLText=sql;
+  Qry.SQLText="SELECT airline FROM aro_airlines WHERE aro_id=:user_id";
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airlines.push_back(Qry.FieldAsString("airline"));
-  sql = string("SELECT airp FROM ") + COMMON_ORAUSER() + ".aro_airps WHERE aro_id=:user_id";
-  Qry.SQLText=sql;
+  Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airps.push_back(Qry.FieldAsString("airp"));
 }
@@ -254,43 +249,36 @@ void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id
 
 void TReqInfo::MsgToLog(TLogMsg &msg)
 {
-    TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText =
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
         "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
-    Qry->DeclareVariable("type", otString);
-    Qry->DeclareVariable("msg", otString);
-    Qry->DeclareVariable("screen", otString);
-    Qry->DeclareVariable("ev_user", otString);
-    Qry->DeclareVariable("station", otString);
-    Qry->DeclareVariable("id1", otInteger);
-    Qry->DeclareVariable("id2", otInteger);
-    Qry->DeclareVariable("id3", otInteger);
-    Qry->SetVariable("type", EncodeEventType(msg.ev_type));
-    Qry->SetVariable("msg", msg.msg);
-    Qry->SetVariable("screen", screen.name);
-    Qry->SetVariable("ev_user", user.descr);
-    Qry->SetVariable("station", desk.code);
+    Qry.DeclareVariable("type", otString);
+    Qry.DeclareVariable("msg", otString);
+    Qry.DeclareVariable("screen", otString);
+    Qry.DeclareVariable("ev_user", otString);
+    Qry.DeclareVariable("station", otString);
+    Qry.DeclareVariable("id1", otInteger);
+    Qry.DeclareVariable("id2", otInteger);
+    Qry.DeclareVariable("id3", otInteger);
+    Qry.SetVariable("type", EncodeEventType(msg.ev_type));
+    Qry.SetVariable("msg", msg.msg);
+    Qry.SetVariable("screen", screen.name);
+    Qry.SetVariable("ev_user", user.descr);
+    Qry.SetVariable("station", desk.code);
     if(msg.id1)
-        Qry->SetVariable("id1", msg.id1);
+        Qry.SetVariable("id1", msg.id1);
     else
-        Qry->SetVariable("id1", FNull);
+        Qry.SetVariable("id1", FNull);
     if(msg.id2)
-        Qry->SetVariable("id2", msg.id2);
+        Qry.SetVariable("id2", msg.id2);
     else
-        Qry->SetVariable("id2", FNull);
+        Qry.SetVariable("id2", FNull);
     if(msg.id3)
-        Qry->SetVariable("id3", msg.id3);
+        Qry.SetVariable("id3", msg.id3);
     else
-        Qry->SetVariable("id3", FNull);
-    try {
-      Qry->Execute();
-    }
-    catch( ... ) {
-      OraSession.DeleteQuery(*Qry);
-      throw;
-    }
-    OraSession.DeleteQuery(*Qry);
+        Qry.SetVariable("id3", FNull);
+    Qry.Execute();
 }
 
 
@@ -407,7 +395,7 @@ void showProgError(const std::string &message )
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
 };
 
-void showError(const std::string &message, int code = 0 )
+void showError(const std::string &message, int code)
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);

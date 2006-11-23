@@ -72,7 +72,22 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) == NULL &&
         GetNode( "/term/query/ClientError", xmlRC->reqDoc ) == NULL;
 
-    reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, checkUserLogon );
+    try
+    {
+      reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, checkUserLogon );
+    }
+    catch(EXCEPTIONS::UserException)
+    {
+      if (GetNode( "/term/query/UserLogoff", xmlRC->reqDoc ) != NULL)
+      {
+        reqInfo->user.clear();
+        reqInfo->desk.clear();
+        showBasicInfo();
+        throw UserException2();
+      }
+      else
+        throw;
+    };
     if ( xmlRC->opr.empty() )
     { /* оператор пришел пустой - отправляем инфу по оператору */
         showBasicInfo();
@@ -118,12 +133,11 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
         switch( orae->Code ) {
         	case 4061:
         	case 4068:
-        		showErrorMessage("Версия системы была обновлена. Повторите действие");
+        		showError("Версия системы была обновлена. Повторите действие");
         		break;
         	default:
-            showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");    		
+            showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
         }
-        //		addXmlBM(*ctxt);
         return;
     };
     EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
@@ -131,7 +145,6 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     {
         ProgTrace( TRACE5, "UserException: %s", ue->what() );
         showError(ue->what(), ue->Code());
-        //addXmlBM(*ctxt);
         return;
     }
     std::logic_error *exp = dynamic_cast<std::logic_error*>(e);

@@ -132,7 +132,7 @@ char *EncodeSeatNo( char *Value, bool pr_latseat );
 char *DecodeSeatNo( char *Value );
 
 void showProgError(const std::string &message );
-void showError(const std::string &message, int code );
+void showError(const std::string &message, int code = 0 );
 void showErrorMessage( const std::string &message );
 void showMessage( const std::string &message );
 void showErrorMessageAndRollback(const std::string &message );
@@ -152,7 +152,7 @@ BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region);
-	
+
 bool is_dst(BASIC::TDateTime d, std::string region);
 
 class SysReqInterface : public JxtInterface

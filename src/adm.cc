@@ -56,6 +56,31 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   Qry.Close();
 };
 
+void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo=TReqInfo::Instance();
+  //reqInfo->user.check_access( amWrite );
+  TQuery Qry(&OraSession);
+  int user_id = NodeAsInteger( "user_id", reqNode );
+  Qry.SQLText =
+    "UPDATE users2 SET passwd='ПАРОЛЬ' WHERE user_id=:user_id";
+  Qry.DeclareVariable( "user_id", otInteger );
+  Qry.SetVariable( "user_id", user_id );
+  Qry.Execute();
+  if ( Qry.RowsProcessed() == 0 )
+    throw Exception( "Невозможно сбросить пароль" );
+  SetProp( resNode, "handle", "1" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT descr FROM users2 WHERE user_id=:user_id";
+  Qry.DeclareVariable( "user_id", otInteger );
+  Qry.SetVariable( "user_id", user_id );
+  Qry.Execute();
+  reqInfo->MsgToLog( string( "Сброшен пароль пользователя " ) +
+                                  Qry.FieldAsString( "descr" ), evtAccess );
+  showMessage( string( "Пользователю " ) + Qry.FieldAsString( "descr" ) +
+                        " назначен пароль по умолчанию 'ПАРОЛЬ'" );
+}
 
 
 
