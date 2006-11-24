@@ -267,6 +267,133 @@ string vs_number(int number)
 
 enum TState {PMTrfer, PM};
 
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
+{
+    TQuery Qry(&OraSession);        
+    Qry.SQLText =
+        "select "
+        "   airp, "
+        "   system.AirpTZRegion(airp) AS tz_region, "
+        "   airline, "
+        "   flt_no, "
+        "   suffix, "
+        "   craft, "
+        "   bort, "
+        "   park_out park, "
+        "   scd_out "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("PaxListVars: variables fetch failed for point_id " + IntToString(point_id));
+
+    string airp = Qry.FieldAsString("airp");
+    string airline = Qry.FieldAsString("airline");
+    string craft = Qry.FieldAsString("craft");
+    string tz_region = Qry.FieldAsString("tz_region");
+
+    TAirlines airlines;
+
+    NewTextChild(variablesNode, "trip",
+            airlines.get(airline, "code", pr_lat) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            Qry.FieldAsString("suffix")
+            );
+    TDateTime scd_out;
+    scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
+    NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy", pr_lat));
+    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+}
+void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "select  "
+        "    point_id, "
+        "    reg_no, "
+        "    decode(:pr_lat, 0, family, family_lat) family, "
+        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
+        "    seat_no, "
+        "    info "
+        "from "
+        "    v_rem "
+        "where "
+        "    point_id = :point_id and "
+        "    info is not null "
+        "order by "
+        "    reg_no ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
+    TPersTypes pers_types;
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "info", Qry.FieldAsString("info"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void RunRef(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "select  "
+        "    point_id, "
+        "    reg_no, "
+        "    decode(:pr_lat, 0, family, family_lat) family, "
+        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
+        "    ticket_no, "
+        "    decode(:pr_lat, 0, refuse, refuse_lat) refuse, "
+        "    decode(:pr_lat, 0, tags, tags_lat) tags "
+        "from "
+        "    v_ref "
+        "where "
+        "    point_id = :point_id "
+        "order by "
+        "    reg_no ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_ref");
+    TPersTypes pers_types;
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(rowNode, "refuse", Qry.FieldAsString("refuse"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
 void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
@@ -310,44 +437,7 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
 
     // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    Qry.Clear();
-    Qry.SQLText =
-        "select "
-        "   airp, "
-        "   system.AirpTZRegion(airp) AS tz_region, "
-        "   airline, "
-        "   flt_no, "
-        "   suffix, "
-        "   craft, "
-        "   bort, "
-        "   park_out park, "
-        "   scd_out "
-        "from "
-        "   points "
-        "where "
-        "   point_id = :point_id ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
-
-    string airp = Qry.FieldAsString("airp");
-    string airline = Qry.FieldAsString("airline");
-    string craft = Qry.FieldAsString("craft");
-    string tz_region = Qry.FieldAsString("tz_region");
-
-    TAirlines airlines;
-
-    NewTextChild(variablesNode, "trip",
-            airlines.get(airline, "code", pr_lat) +
-            IntToString(Qry.FieldAsInteger("flt_no")) +
-            Qry.FieldAsString("suffix")
-            );
-    TDateTime scd_out;
-    scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
-    NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy", pr_lat));
-    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
-    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
 void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1049,6 +1139,8 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "BM") RunBM(reqNode, formDataNode);
     else if(name == "PMTrfer" || name == "PM") RunPM(name, reqNode, formDataNode);
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
+    else if(name == "ref") RunRef(reqNode, formDataNode);
+    else if(name == "rem") RunRem(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
@@ -1066,7 +1158,9 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             name == "BM" ||
             name == "PMTrfer" ||
             name == "PM" ||
-            name == "notpres"
+            name == "notpres" ||
+            name == "ref" ||
+            name == "rem"
             )
         throw UserException("Запись " + name + " запрещена");
 
