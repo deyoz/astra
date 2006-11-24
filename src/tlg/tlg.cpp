@@ -73,6 +73,21 @@ const char* ERR_CANON_NAME()
   return ERRNAME.c_str();
 }
 
+const char* DEF_CANON_NAME()
+{
+  static bool init=false;
+  static string DEFNAME;
+  if ( !init ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "DEF_CANON_NAME", r, sizeof( r ) ) >= 0 )
+      DEFNAME = r;
+    ProgTrace( TRACE5, "DEF_CANON_NAME=%s", DEFNAME.c_str() );
+    init=true;
+  }
+  return DEFNAME.c_str();
+}
+
 const char* OWN_SITA_ADDR()
 {
   static string OWNADDR;
@@ -177,7 +192,7 @@ void loadTlg(const std::string &text)
     }
     catch(...)
     {
-        ProgError(STDLOG, "sendTlg: Unknown error while trying to load tlg");
+        ProgError(STDLOG, "loadTlg: Unknown error while trying to load tlg");
         throw;
     };
 };

@@ -1,7 +1,10 @@
 #ifndef _TELEGRAM_H_
 #define _TELEGRAM_H_
+#include <vector>
+#include <string>
 
 #include "JxtInterface.h"
+
 
 class TelegramInterface : public JxtInterface
 {
@@ -38,6 +41,8 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
+  static void SendTlg( int tlg_id );
+  static void SendTlg( int point_id, std::vector<std::string> &tlg_types );
 };
 
 #endif /*_TELEGRAM_H_*/

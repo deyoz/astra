@@ -60,6 +60,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 const char* ETS_CANON_NAME();
 const char* OWN_CANON_NAME();
 const char* ERR_CANON_NAME();
+const char* DEF_CANON_NAME();
 const char* OWN_SITA_ADDR();
 
 bool deleteTlg(int tlg_id);
