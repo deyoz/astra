@@ -567,6 +567,23 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   }
 }
 
+void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
+{
+  for( vector<TPlaceList*>::iterator placeList = placelists.begin();
+    placeList != placelists.end(); placeList++ ) {
+    for ( TPlaces::iterator place = (*placeList)->places.begin();
+          place != (*placeList)->places.end(); place++ ) {
+      if ( !place->visible || place->clname == class_name )
+       continue;
+      for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
+      	if ( irem->rem == rem_name )
+      		throw UserException( string( "Ремарка " ) + rem_name + " не может быть задана в классе " + place->clname );
+      } 
+    }
+  }
+}
+	
+	
 void TPlace::Assign( TPlace &pl )
 {
   selected = pl.selected;

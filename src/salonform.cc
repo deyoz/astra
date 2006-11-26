@@ -164,6 +164,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.SetVariable( "comp_id", comp_id );
   TSalons Salons;
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
+  Salons.verifyValidRem( "MCLS", "Э"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
@@ -380,6 +381,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   Qry.Execute();
   if ( !Qry.RowCount() )
     throw UserException( "Неправильно задан тип ВС" );
+  Salons.verifyValidRem( "MCLS", "Э" );
   Salons.Write( rComponSalons );
   string msg;
   switch ( Salons.modify ) {
