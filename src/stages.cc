@@ -137,23 +137,21 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      Qry.SetVariable( "pr_manual", pr_manual );
      Qry.Execute( );  
      tst();
-     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага   
-     	 tst();  	
+     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага    	
      	 exec_stage( point_id, (int)i->first );
-   	   UpdQry.SetVariable( "stage_id", (int)i->first );
-       if ( i->second.est == NoExists )
-         UpdQry.SetVariable( "est", FNull );
-       else 
-    	   UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
-       if ( i->second.act == NoExists )
-         UpdQry.SetVariable( "act", FNull );
-       else 
-         UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
-       UpdQry.SetVariable( "pr_manual", pr_manual );     	 
-       UpdQry.Execute();
-       tst();
      }
-      
+   	 UpdQry.SetVariable( "stage_id", (int)i->first );
+     if ( i->second.est == NoExists )
+       UpdQry.SetVariable( "est", FNull );
+     else 
+    	 UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+     if ( i->second.act == NoExists )
+       UpdQry.SetVariable( "act", FNull );
+     else 
+       UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+     UpdQry.SetVariable( "pr_manual", pr_manual );     	 
+     UpdQry.Execute();
+     tst();
      TStagesRules *r = TStagesRules::Instance();
      string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";		 
      if ( i->second.old_act == NoExists && i->second.act > NoExists )
