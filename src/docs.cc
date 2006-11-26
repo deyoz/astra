@@ -131,7 +131,15 @@ class TClasses: public TBaseTable {
             "   name, "
             "   name_lat "
             "from "
-            "   classes";
+            "   classes "
+            "union "
+            "select "
+            "   'М', "
+            "   'M', "
+            "   'КОМФОРТ', "
+            "   'COMFORT' "
+            "from "
+            "   dual";
     };
 };
 
@@ -307,6 +315,67 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
 }
+
+void RunCRS(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "select  "
+        "    point_id, "
+        "    pnr_ref, "
+        "    decode(:pr_lat, 0, family, family_lat) family, "
+        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
+        "    decode(:pr_lat, 0, class, class_lat) class, "
+        "    seat_no, "
+        "    decode(:pr_lat, 0, target, target_lat) target, "
+        "    last_target, "
+        "    ticket_no, "
+        "    document, "
+        "    remarks "
+        "from "
+        "    v_crs "
+        "where "
+        "    point_id = :point_id "
+        "order by "
+        "    family ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
+    TPersTypes pers_types;
+
+    TAirps airps;
+
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
+
+        string last_target = Qry.FieldAsString("last_target");
+        if(last_target.size()) last_target = airps.get(last_target, "code", pr_lat);
+        NewTextChild(rowNode, "last_target", last_target);
+
+        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
@@ -454,8 +523,8 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    TARGET, "
         "    PR_TRFER, "
         "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, "
-        "    CLASS, "
-        "    LVL, "
+        "    decode(points.airline, 'ЮТ', decode((select distinct rem_code from pax_rem where pax_id = v_pm_trfer.pax_id and rem_code = 'MCLS'), null, decode(v_pm_trfer.subclass, 'М', 'М', class), 'М'), class) class, "
+//        "    CLASS, "
         "    STATUS, "
         "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
         "    PERS_TYPE, "
@@ -470,18 +539,20 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    REG_NO, "
         "    GRP_ID "
         "FROM "
-        "    V_PM_TRFER "
+        "    V_PM_TRFER, "
+        "    points "
         "WHERE "
         "    TRIP_ID = :point_id AND "
         "    TARGET = :target AND "
-        "    STATUS = :status "
+        "    STATUS = :status and "
+        "    v_pm_trfer.trip_id = points.point_id "
         "ORDER BY ";
     if(name == "PMTrfer")
         SQLText +=
             "    PR_TRFER ASC, "
             "    LAST_TARGET ASC, ";
     SQLText +=
-        "    LVL ASC, "
+        "    CLASS ASC, "
         "    REG_NO ASC ";
 
     Qry.SQLText = SQLText;
@@ -503,7 +574,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "full_name", Qry.FieldAsString("full_name"));
         NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("lvl"));
         NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
         NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
         NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
@@ -519,7 +589,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         else if(pers_type == "РМ")
             NewTextChild(rowNode, "pers_type", "INF");
         else
-            throw Exception("RunPM: unknown pers_type: " + pers_type);
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
@@ -607,7 +676,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
+    if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
@@ -714,7 +783,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
+    if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(point_id));
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
@@ -1141,6 +1210,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
+    else if(name == "crs") RunCRS(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
@@ -1153,6 +1223,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
 
+    /*
     if(
             name == "BMTrfer" ||
             name == "BM" ||
@@ -1163,6 +1234,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             name == "rem"
             )
         throw UserException("Запись " + name + " запрещена");
+        */
 
     string form = NodeAsString("form", reqNode);
     Qry.SQLText = "update fr_forms set form = :form where name = :name";
