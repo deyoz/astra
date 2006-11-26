@@ -545,7 +545,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "CorrectStages", reqNode ) ) {
   	tst();
-//    TStagesRules::Instance()->Build( dataNode );
+    TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
   }
   TTrips trips;
   internal_ReadData( trips );
@@ -1994,10 +1994,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
   		reqInfo->MsgToLog( string( "Проставление прилета " ) + DateTimeToStr( id->act_in, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 	 
   	}  	
-  	if ( set_act_out ) {
-  	  reqInfo->MsgToLog( string( "Проставление вылета " ) + DateTimeToStr( id->act_out, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 	 	  	   
-  	}
-  	
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -2128,24 +2124,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	}
     if ( set_act_out ) {
     	//!!! еще point_num не записан
-    	Qry.Clear();
-    	Qry.SQLText =
-    	 "BEGIN "\
-       " BEGIN "\
-       "   statist.get_stat( :point_id ); "\
-       "  EXCEPTION WHEN OTHERS THEN "\
-       "   system.ErrorToLog('statist.get_stat: '||SQLERRM,:point_id); "\
-       "  END; "\
-       "  BEGIN "\
-       "   tlg.send_all_tlg( :point_id ); "\
-       "  EXCEPTION WHEN OTHERS THEN "\
-       "   system.ErrorToLog('tlg.send_all_tlg: '||SQLERRM,:point_id); "\
-       "  END; "\
-       "END;";
-      Qry.CreateVariable( "point_id", otInteger, id->point_id );
-      Qry.Execute();
-      tst();
-  	} 
+    	exec_stage( id->point_id, sTakeoff );	
+    	reqInfo->MsgToLog( string( "Проставление вылета " ) + DateTimeToStr( id->act_out, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 
+ 	  } 
   	if ( set_pr_del ) {
   		ch_dests = true;
   		Qry.Clear();

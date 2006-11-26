@@ -337,7 +337,7 @@ proc astra_init_other {} {
      start_obr [ list tlg_srv ]
 #     start_obr [ list typeb_handler ] 
      start_obr [ list edi_handler ]
-#     start_obr [ list timer ]     
+     start_obr [ list timer ]     
 }
 
 proc start_obr1 { a } {

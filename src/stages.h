@@ -100,8 +100,10 @@ struct TStageTimes {
 void GetStageTimes( std::vector<TStageTimes> &stagetimes, TStage stage );
 	
 void astra_timer( BASIC::TDateTime utcdate );
+void exec_stage( int point_id, int stage_id );
 void PrepCheckIn( int point_id );
 void OpenCheckIn( int point_id );
+void Takeoff( int point_id );
 
 
 #endif /*_STAGES_H_*/

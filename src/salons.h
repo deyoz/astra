@@ -117,6 +117,7 @@ class TSalons {
     void Read( TReadStyle readStyle );
     void Write( TReadStyle readStyle );
     void Parse( xmlNodePtr salonsNode );
+    void verifyValidRem( std::string rem_name, std::string class_name );
 };
 
 #endif /*_SALONS_H_*/

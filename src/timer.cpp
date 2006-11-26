@@ -41,23 +41,6 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       try
       {
-/*        now=Now();
-        int Hour,Min,Sec;
-        DecodeTime(now,Hour,Min,Sec);
-        if (Min!=PrevMin)
-        {
-          PrevMin=Min;
-          if (Min%2==0)
-          {
-          //  astra_timer();
-            ETCheckStatusFlt();
-          };
-          if (Min%15==0)
-          {
-          //  sync_mvd(now);
-          // createSPP( );
-          };
-        };*/
         exec_tasks();
       }
       catch( std::exception E ) {
@@ -87,9 +70,6 @@ void exec_tasks( void )
 	modf( (double)utcdate, &utcdate );
 	EncodeTime( Hour, Min, 0, VTime );
 	utcdate += VTime;
-			ProgTrace( TRACE5, "task utcdate=%s", 
-			           DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str() );
-
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "SELECT name,last_exec,interval FROM tasks "\
@@ -106,9 +86,6 @@ void exec_tasks( void )
 	while ( !Qry.Eof ) {
 		try {
 			name = Qry.FieldAsString( "name" );
-			ProgTrace( TRACE5, "task name=%s, utcdate=%s", 
-			           name.c_str(),
-			           DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str() );
 			UQry.SetVariable( "name", name );
 			UQry.Execute();
 			

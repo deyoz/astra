@@ -93,43 +93,29 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   string region = Qry.FieldAsString( "region" );
   Qry.Clear();
   Qry.SQLText = 
-   "DECLARE "\
-   "  VACT trip_stages.act%TYPE; "\
-   "  vcur NUMBER; "\
-   "  vi NUMBER; "\
-   "  vexec VARCHAR2(255); "\
-   " BEGIN "\
-   "  VACT:=NULL; "\
-   " BEGIN "\
+   "BEGIN "\
    " UPDATE points SET point_id = :point_id WHERE point_id = :point_id; "\
-   "  SELECT act INTO VACT FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
+   "  SELECT point_id INTO :point_id FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
    " EXCEPTION WHEN NO_DATA_FOUND THEN "\
    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
    "   VALUES(:point_id,:stage_id,NVL(:act,:est),NULL,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)); "\
-   " END; "\
-   " IF ( VACT IS NULL )AND( :act IS NOT NULL ) THEN "\
-   "  vexec := 'begin gtimer.stage'||TO_CHAR( :stage_id )||'('||TO_CHAR( :point_id )||'); end;'; "\
-   "  vcur := dbms_sql.open_cursor; "\
-   "  BEGIN "\
-   "   dbms_sql.parse( vcur, vexec, dbms_sql.native ); "\
-   "   vi := dbms_sql.execute( vcur ); "\
-   "   dbms_sql.close_cursor( vcur ); "\
-   "   EXCEPTION WHEN OTHERS THEN "\
-   "      IF dbms_sql.is_open( vcur ) THEN "
-   "       dbms_sql.close_cursor( vcur ); "\
-   "      END IF; "\
-   "     IF SQLCODE != -6550 THEN RAISE; END IF; "\
-   "  END; "\
-   " END IF; "\
-   " UPDATE trip_stages SET est=:est,act=:act,pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
-   "  WHERE point_id=:point_id AND stage_id=:stage_id; "\
    "END; ";
-
    Qry.CreateVariable( "point_id", otInteger, point_id );
    Qry.DeclareVariable( "stage_id", otInteger );
    Qry.DeclareVariable( "est", otDate );
    Qry.DeclareVariable( "act", otDate );
    Qry.DeclareVariable( "pr_manual", otInteger );
+
+   TQuery UpdQry( &OraSession );	
+   UpdQry.SQLText = 
+    "UPDATE trip_stages SET est=:est,act=:act,pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
+    "  WHERE point_id=:point_id AND stage_id=:stage_id";
+   UpdQry.CreateVariable( "point_id", otInteger, point_id );
+   UpdQry.DeclareVariable( "stage_id", otInteger );
+   UpdQry.DeclareVariable( "est", otDate );
+   UpdQry.DeclareVariable( "act", otDate );
+   UpdQry.DeclareVariable( "pr_manual", otInteger );
+   
    for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
    	 Qry.SetVariable( "stage_id", (int)i->first );
      if ( i->second.est == NoExists )
@@ -149,7 +135,25 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        else 
       	  pr_manual = 1;
      Qry.SetVariable( "pr_manual", pr_manual );
-     Qry.Execute( );   
+     Qry.Execute( );  
+     tst();
+     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага   
+     	 tst();  	
+     	 exec_stage( point_id, (int)i->first );
+   	   UpdQry.SetVariable( "stage_id", (int)i->first );
+       if ( i->second.est == NoExists )
+         UpdQry.SetVariable( "est", FNull );
+       else 
+    	   UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+       if ( i->second.act == NoExists )
+         UpdQry.SetVariable( "act", FNull );
+       else 
+         UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+       UpdQry.SetVariable( "pr_manual", pr_manual );     	 
+       UpdQry.Execute();
+       tst();
+     }
+      
      TStagesRules *r = TStagesRules::Instance();
      string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";		 
      if ( i->second.old_act == NoExists && i->second.act > NoExists )
@@ -167,6 +171,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      else
         tolog += " не задано";
      TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first ); 
+     	tst();
    }   
 }        
 
@@ -296,12 +301,14 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   xmlNodePtr node = NewTextChild( dataNode, "GrphRls" );
   xmlNodePtr snode;
   for ( map<TStageStep,TMapRules>::iterator st=GrphRls.begin(); st!=GrphRls.end(); st++ ) {
+  	snode = NewTextChild( node, "stagestep" );
     if ( st->first == stPrior )
-      snode = NewTextChild( node, "stagestep", "stPrior" );
+      SetProp( snode, "step", "stPrior" );
     else
-      snode = NewTextChild( node, "stagestep", "stNext" );
+      SetProp( snode, "step", "stNext" );
     for ( map<TStage,vecRules>::iterator r=st->second.begin(); r!=st->second.end(); r++ ) {
-      xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules", r->first );
+      xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules" );
+      SetProp( stagerulesNode, "stage", r->first );
       for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
         xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
         NewTextChild( ruleNode, "num", v->num );
@@ -311,12 +318,13 @@ void TStagesRules::Build( xmlNodePtr dataNode )
   }
   node = NewTextChild( dataNode, "StageStatuses" );
   for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
-    snode = NewTextChild( node, "stage_type", m->first );
+    snode = NewTextChild( node, "stage_type" );
+    SetProp( snode, "type", m->first );
     for ( TStage_Statuses::iterator s=m->second.begin(); s!=m->second.end(); s++ ) {
       xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
       NewTextChild( stagestatusNode, "stage", (int)s->stage );
       NewTextChild( stagestatusNode, "status", s->status );
-      NewTextChild( stagestatusNode, "lvl", s->lvl );
+//      NewTextChild( stagestatusNode, "lvl", s->lvl );
     }
   }
   node = NewTextChild( dataNode, "Graph_Stages" );
@@ -378,6 +386,42 @@ void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
   }
 }
 
+void exec_stage( int point_id, int stage_id )
+{
+  switch( (TStage)stage_id ) {
+  	case sNoActive:
+  				  /*не активен*/
+  				  break;
+    case sPrepCheckIn:
+           /*Подготовка к регистрации*/
+           PrepCheckIn( point_id );
+           break;
+    case sOpenCheckIn:
+           /*Открытие регистрации*/
+           OpenCheckIn( point_id );
+           break;
+    case sCloseCheckIn:
+           /*Закрытие регистрации*/
+           break;
+    case sOpenBoarding:
+           /*Начало посадки*/
+           break;
+    case sCloseBoarding:
+           /*Окончание посадки*/
+           break;
+    case sRegDoc:
+           /*Оформление документации*/
+           break;
+    case sRemovalGangWay:
+           /*Уборка трапа*/
+           break;
+    case sTakeoff:
+           /*Вылетел*/
+           Takeoff( point_id );
+           break;
+  }	
+}
+
 
 void astra_timer( TDateTime utcdate )
 {
@@ -400,14 +444,13 @@ void astra_timer( TDateTime utcdate )
    " :canstage := gtimer.CanStage(:point_id,:stage_id); "\
    " IF :canstage != 0 THEN "\
    "  UPDATE points SET point_id = point_id WHERE point_id = :point_id; "\
-   "  UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "\
-   "   WHERE point_id = :point_id AND stage_id = :stage_id; "\
-   "  IF SQL%FOUND THEN "\
-   "    SELECT 'Этап '''||name||''' выполнен: факт. время='||TO_CHAR(:now,'HH24:MI DD.MM.YY') "\
-   "    INTO msg "\
-   "    FROM graph_stages WHERE stage_id=:stage_id; "\
-   "    system.MsgToLog(msg,system.evtGraph,:point_id,:stage_id); "\
-   "  END IF; "\
+   "  BEGIN "\
+   "   UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "\
+   "    WHERE point_id = :point_id AND stage_id = :stage_id; "\
+   "   EXCEPTION WHEN NO_DATA_FOUND THEN "\
+   "    INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
+   "     VALUES(:point_id,:stage_id,:now,NULL,:now,0,1); "\
+   "  END; "\
    " END IF; "\
    "END; ";
   QCanStage.DeclareVariable( "point_id", otInteger );
@@ -426,37 +469,12 @@ void astra_timer( TDateTime utcdate )
   		QCanStage.Execute();
   		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
   			try {
-  				switch( (TStage)stage_id ) {
-  					case sNoActive:
-  						  /*не активен*/
-  						  break;
-            case sPrepCheckIn:
-            	 /*Подготовка к регистрации*/
-            	 PrepCheckIn( point_id );
-            	 break;
-            case sOpenCheckIn:
-            	/*Открытие регистрации*/
-            	OpenCheckIn( point_id );
-            	break;
-            case sCloseCheckIn:
-            	/*Закрытие регистрации*/
-            	break;
-            case sOpenBoarding:
-            	/*Начало посадки*/
-            	break;
-            case sCloseBoarding:
-            	/*Окончание посадки*/
-            	break;
-            case sRegDoc:
-            	/*Оформление документации*/
-            	break;
-            case sRemovalGangWay:
-            	/*Уборка трапа*/
-            	break;
-            case sTakeoff:
-            	/*Вылетел*/
-            	break;
-  				}
+  				exec_stage( point_id, stage_id );
+          TStagesRules *r = TStagesRules::Instance();
+          string tolog = string( "Этап '" ) + r->Graph_Stages[ (TStage)stage_id ] + "'";		 
+          tolog += " выполнен: факт. время=";
+          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy" );
+          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );   				
   				pr_exit = false;
   			}
         catch( Exception E ) {
@@ -536,3 +554,25 @@ void OpenCheckIn( int point_id )
   Qry.Execute();   
 }
 
+void Takeoff( int point_id )
+{
+	TQuery Qry(&OraSession);	
+  Qry.SQLText =
+   "BEGIN "\
+   " BEGIN "\
+   "   statist.get_stat( :point_id ); "\
+   "  EXCEPTION WHEN OTHERS THEN "\
+   "   system.ErrorToLog('statist.get_stat: '||SQLERRM,:point_id); "\
+   "  END; "\
+   "  BEGIN "\
+   "   tlg.send_all_tlg( :point_id ); "\
+   "  EXCEPTION WHEN OTHERS THEN "\
+   "   system.ErrorToLog('tlg.send_all_tlg: '||SQLERRM,:point_id); "\
+   "  END; "\
+   "END;";
+   Qry.CreateVariable( "point_id", otInteger, point_id );
+   try {
+     Qry.Execute();
+   }
+   catch( ... ) {}; //иначе изменения по рейсу не запишутся
+}
