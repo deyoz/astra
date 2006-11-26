@@ -32,12 +32,14 @@ class PrintDataParser {
                 TData data;
                 void dump_data();
 
+                string class_checked;
                 int pax_id;
                 int pr_lat;
                 typedef vector<TQuery*> TQrys;
                 TQrys Qrys;
                 TQuery *prnQry;
 
+                string check_class(string val);
                 bool printed(TData::iterator di);
 
             public:
@@ -65,6 +67,31 @@ class PrintDataParser {
         void add_tag(string name, string val) { return field_map.add_tag(name, val); };
         void add_tag(string name, TDateTime val) { return field_map.add_tag(name, val); };
 };
+
+string PrintDataParser::t_field_map::check_class(string val)
+{
+    if(class_checked.size()) return class_checked;
+
+    string result = val;
+    TData::iterator di = data.find("AIRLINE");
+    if(di == data.end()) throw Exception("PrintDataParser::t_field_map::check_class: AIRLINE tag not found");
+    if(di->second.StringVal == "ž’") {
+        TQuery Qry(&OraSession);        
+        Qry.SQLText =
+            "select * from pax_rem where pax_id = :pax_id and rem_code = 'MCLS'";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(Qry.Eof) {
+            di = data.find("SUBCLASS");
+            if(di == data.end()) throw Exception("PrintDataParser::t_field_map::check_class: SUBCLASS tag not found");
+            if(di->second.StringVal == "Œ")
+                result = "M";
+        } else
+            result = "M";
+    }
+    class_checked = result;
+    return result;
+}
 
 bool PrintDataParser::t_field_map::printed(TData::iterator di)
 {
@@ -368,6 +395,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             case otChar:
             case otLong:
             case otLongRaw:
+                if(di->first == "CLASS")
+                        TagValue.StringVal = check_class(TagValue.StringVal);
                 buf.fill(' ');
                 buf << TagValue.StringVal;
                 break;
