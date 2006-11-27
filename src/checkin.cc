@@ -728,7 +728,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(node=node->children;node!=NULL;node=node->next)
     {
         node2=node->children;
-        if (NodeAsInteger("seats",node2)==0) continue;
+        if (NodeAsIntegerFast("seats",node2)==0) continue;
 
         TPassenger pas;
         pas.clname=cl;
@@ -747,7 +747,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             node2=remNode->children;
             pas.rems.push_back(NodeAsStringFast("rem_code",node2));
           };
-  };
+        };
         Passengers.Add(pas);
     };
     // начитка салона
