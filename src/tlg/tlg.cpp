@@ -19,7 +19,7 @@
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
-#include "test.h"
+#include "slogger.h"
 
 using namespace edilib;
 using namespace edilib::EdiSess;
@@ -677,6 +677,9 @@ void saveTlgSource(const string &pult, const string &tlg)
 void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
 {
     ostringstream tmp;
+
+    LogTrace(TRACE3) << itin.date1() << " - " << itin.time1() ;
+
     tmp << (itin.date1().is_special()?"":
             HelpCpp::string_cast(itin.date1(), "%d%m%y"))
             << ":" <<

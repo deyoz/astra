@@ -401,6 +401,7 @@ void exec_stage( int point_id, int stage_id )
            break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
+           CloseCheckIn( point_id );
            break;
     case sOpenBoarding:
            /*Начало посадки*/
@@ -555,9 +556,12 @@ void OpenCheckIn( int point_id )
 
 void CloseCheckIn( int point_id )
 {
+  tst();
   vector<string> tlg_types;
   tlg_types.push_back("COM");
+  tst();
   TelegramInterface::SendTlg(point_id,tlg_types);
+  tst();
 };
 
 void Takeoff( int point_id )

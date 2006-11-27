@@ -87,7 +87,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   else
   {
     tz_region =  TReqInfo::Instance()->desk.tz_region;
-    sql+="(SELECT id FROM tlgs_in WHERE time_receive>=TRUNC(sysdate)-15 "
+    sql+="(SELECT id FROM tlgs_in WHERE time_receive>=TRUNC(system.UTCSYSDATE)-2 "
          " MINUS "
          " SELECT tlg_source.tlg_id AS id "
          " FROM tlg_source,tlg_binding "
@@ -165,7 +165,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     }
     else
     {
-      sql+="WHERE point_id IS NULL AND time_create>=TRUNC(sysdate)-15 ";
+      sql+="WHERE point_id IS NULL AND time_create>=TRUNC(system.UTCSYSDATE)-2 ";
     };
 
   };

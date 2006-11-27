@@ -235,7 +235,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
                   Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  time_duration(), // not a date time
+                  time_duration(not_a_date_time), // not a date time
                   airp_dep,
                   airp_arv);
           Coupon cpn(ci,itin);
@@ -298,7 +298,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
                   Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  time_duration(), // not a date time
+                  time_duration(not_a_date_time), // not a date time
                   Qry.FieldAsString("airp_dep"),
                   Qry.FieldAsString("airp_arv"));
       Coupon cpn(ci,itin);
