@@ -532,10 +532,12 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, char
     switch (grp_status)
     {
       case 'T': free=Qry.FieldAsInteger("nooccupy");
+                break;
       case 'K': if (ckin_stage==sOpenCheckIn)
                   free=Qry.FieldAsInteger("free_ok");
                 else
                   free=Qry.FieldAsInteger("nooccupy");
+                break;
       default:  if (ckin_stage==sOpenCheckIn)
                   free=Qry.FieldAsInteger("free_goshow");
                 else
