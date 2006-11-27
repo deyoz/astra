@@ -1321,3 +1321,87 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild( resNode, "scd_out", DateTimeToStr(scd_out) );
 };
 
+void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int get_tranzit = NodeAsInteger("get_tranzit", reqNode);
+    string rpType = NodeAsString("rpType", reqNode);
+
+    TQuery Qry(&OraSession);        
+    Qry.SQLText = 
+        "SELECT airp,point_num, "
+        "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+        "FROM points WHERE point_id=:point_id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные.");
+
+    int first_point = Qry.FieldAsInteger("first_point");
+    int point_num = Qry.FieldAsInteger("point_num");
+    string own_airp = Qry.FieldAsString("airp");
+    string prev_airp, curr_airp;
+
+    xmlNodePtr SegListNode = NewTextChild(resNode, "SegList");
+
+    for(int j = -1; j <= 1; j++) {
+        if(j == 0) {
+            curr_airp = own_airp;
+            continue;
+        }
+        Qry.Clear();
+        string SQLText = "select airp from points ";
+        if(j == -1)
+            SQLText +=
+                "where :first_point in(first_point,point_id) and point_num<:point_num and pr_del=0 "
+                "order by point_num desc ";
+        else
+            SQLText +=
+                "where first_point=:first_point and point_num>:point_num and pr_del=0 "
+                "order by point_num asc ";
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("first_point", otInteger, first_point);
+        Qry.CreateVariable("point_num", otInteger, point_num);
+        Qry.Execute();
+        while(!Qry.Eof) {
+            string airp = Qry.FieldAsString("airp");
+            if(j == -1) {
+                if(get_tranzit) prev_airp = airp;
+                break;
+            }
+
+            for(int pr_vip = 0; pr_vip <= 1; pr_vip++) {
+                if(prev_airp.size()) {
+                    xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+                    NewTextChild(SegNode, "status", "T");
+                    NewTextChild(SegNode, "airp_dep_code", prev_airp);
+                    NewTextChild(SegNode, "airp_arv_code", airp);
+                    NewTextChild(SegNode, "pr_vip", pr_vip);
+#ifdef SALEK
+                    if(rpType == "BM" || rpType == "TBM")
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
+                    else
+#endif
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + " (транзит)");
+                }
+                if(curr_airp.size()) {
+                    xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+                    NewTextChild(SegNode, "status", "N");
+                    NewTextChild(SegNode, "airp_dep_code", curr_airp);
+                    NewTextChild(SegNode, "airp_arv_code", airp);
+                    NewTextChild(SegNode, "pr_vip", pr_vip);
+#ifdef SALEK
+                    if(rpType == "BM" || rpType == "TBM")
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
+                    else
+#endif
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp);
+                }
+#ifdef SALEK
+                if(!(rpType == "BM" || rpType == "TBM"))
+#endif
+                    break;
+            }
+            Qry.Next();
+        }
+    }
+}

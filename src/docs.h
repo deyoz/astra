@@ -20,6 +20,8 @@ public:
      AddEvent("run_report",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetFltInfo);
      AddEvent("GetFltInfo",evHandle);
+     evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetSegList);
+     AddEvent("GetSegList",evHandle);
   };
 
   void SaveForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -27,6 +29,7 @@ public:
   void SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
