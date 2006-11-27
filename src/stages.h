@@ -17,9 +17,9 @@ enum TStage { sNoActive = 0, /*не активен*/
               sRegDoc = 60, /*Оформление документации*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
-              
+
 enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3 };
-enum TStageStep { stPrior, stNext };            
+enum TStageStep { stPrior, stNext };
 
 struct TTripStage {
   BASIC::TDateTime scd;
@@ -31,7 +31,7 @@ struct TTripStage {
     scd = ASTRA::NoExists;
     est = ASTRA::NoExists;
     act = ASTRA::NoExists;
-    old_est = ASTRA::NoExists;	
+    old_est = ASTRA::NoExists;
     old_act = ASTRA::NoExists;
   }
 };
@@ -43,12 +43,12 @@ class TTripStages {
     int point_id;
     TMapTripStages tripstages;
   public:
-    TTripStages( int vpoint_id );  
-    void LoadStages( int vpoint_id );    
+    TTripStages( int vpoint_id );
+    void LoadStages( int vpoint_id );
     static void LoadStages( int vpoint_id, TMapTripStages &ts );
     static void ParseStages( xmlNodePtr tripNode, TMapTripStages &ts );
-    static void WriteStages( int point_id, TMapTripStages &t );        
-    BASIC::TDateTime time( TStage stage );    
+    static void WriteStages( int point_id, TMapTripStages &t );
+    BASIC::TDateTime time( TStage stage );
     TStage getStage( TStage_Type stage_type );
 };
 
@@ -98,11 +98,12 @@ struct TStageTimes {
 };
 
 void GetStageTimes( std::vector<TStageTimes> &stagetimes, TStage stage );
-	
+
 void astra_timer( BASIC::TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );
 void PrepCheckIn( int point_id );
 void OpenCheckIn( int point_id );
+void CloseCheckIn( int point_id );
 void Takeoff( int point_id );
 
 

@@ -13,6 +13,10 @@ public:
   CheckInInterface() : JxtInterface("","CheckIn")
   {
      Handler *evHandle;
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadTagPacks);
+     AddEvent("LoadTagPacks",evHandle);
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchGrp);
+     AddEvent("SearchGrp",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SearchPax);
      AddEvent("SearchPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
@@ -27,6 +31,8 @@ public:
      AddEvent("TestDateTime",evHandle);
   };
 
+  void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -49,6 +55,8 @@ public:
   void LoadTransfer(xmlNodePtr grpNode);
   void LoadBag(xmlNodePtr grpNode);
   void LoadPaidBag(xmlNodePtr grpNode);
+
+  int CheckCounters(int point_dep, int point_arv, char* cl, char grp_status);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );

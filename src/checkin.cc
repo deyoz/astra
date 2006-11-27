@@ -18,10 +18,158 @@ using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT airline,target,tag_type,no,color FROM tag_packs WHERE desk=:desk";
+  Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
+  Qry.Execute();
+  xmlNodePtr node,packNode;
+  packNode=NewTextChild(resNode,"tag_packs");
+  for(;!Qry.Eof;Qry.Next())
+  {
+    node=NewTextChild(packNode,"tag_pack");
+    NewTextChild(node,"airline",Qry.FieldAsString("airline"));
+    NewTextChild(node,"target",Qry.FieldAsString("target"));
+    NewTextChild(node,"tag_type",Qry.FieldAsString("tag_type"));
+    NewTextChild(node,"no",Qry.FieldAsFloat("no"));
+    NewTextChild(node,"color",Qry.FieldAsString("color"));
+  };
+};
+
+void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_dep = NodeAsInteger("point_dep",reqNode);
+  int point_arv = NodeAsInteger("point_arv",reqNode);
+  string cl = NodeAsString("class",reqNode);
+  char grp_status = DecodeStatus(NodeAsString("status",reqNode));
+  int seats_sum = NodeAsInteger("seats",reqNode);
+
+  readTripCounters(point_dep,resNode);
+
+  string airp_arv = NodeAsString("airp_arv",reqNode);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airp FROM points "
+    "WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
+  Qry.CreateVariable("point_id",otInteger,point_arv);
+  Qry.CreateVariable("airp",otString,airp_arv);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+
+  xmlNodePtr node;
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  string sql;
+  string select_sql=
+    "SELECT crs_pnr.pnr_id, "
+    "       MIN(crs_pnr.grp_name) AS grp_name, "
+    "       MIN(DECODE(crs_pax.pers_type,'ВЗ', "
+    "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, "
+    "       COUNT(*) AS seats_all, "
+    "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats ";
+
+  //обычный поиск
+  sql = select_sql +
+    "FROM crs_pnr,crs_pax,pax, "
+    "  (SELECT DISTINCT crs_pnr.pnr_id ";
+
+
+  if (grp_status=='K')
+  {
+    sql+=
+        "   FROM crs_pnr,tlg_binding "
+        "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "         tlg_binding.point_id_spp= :point_id AND "
+        "         crs_pnr.target= :airp_arv AND "
+        "         crs_pnr.class= :class AND "
+        "         crs_pnr.wl_priority IS NULL "
+        "   UNION "
+        "   SELECT DISTINCT crs_pnr.pnr_id ";
+  };
+
+  sql+= "   FROM crs_pnr,tlg_binding,crs_displace "
+        "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "         tlg_binding.point_id_spp=crs_displace.point_from AND "
+        "         crs_pnr.target=crs_displace.airp_arv_from AND "
+        "         crs_pnr.class=crs_displace.class_from AND "
+        "         crs_displace.point_to= :point_id AND "
+        "         crs_displace.airp_arv_to= :airp_arv AND "
+        "         crs_displace.class_to= :class AND "
+        "         NOT(crs_displace.point_to= crs_displace.point_from AND "
+        "             crs_displace.airp_arv_to= crs_displace.airp_arv_from AND "
+        "             crs_displace.class_to= crs_displace.class_from) AND "
+        "         crs_displace.pr_goshow= :pr_goshow AND "
+        "         crs_pnr.wl_priority IS NULL) ids "
+        "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pax.pax_id=pax.pax_id(+) AND "
+        "      ids.pnr_id=crs_pnr.pnr_id AND "
+        "      crs_pax.pr_del=0 AND "
+        "      crs_pax.seats>0 "
+        "GROUP BY crs_pnr.pnr_id "
+        "HAVING COUNT(*)>= :seats ";
+
+  PaxQry.SQLText = sql;
+  PaxQry.CreateVariable("point_id",otInteger,point_dep);
+  PaxQry.CreateVariable("airp_arv",otString,airp_arv);
+  PaxQry.CreateVariable("class",otString,cl);
+  PaxQry.CreateVariable("pr_goshow",otInteger,(int)(grp_status=='P'));
+  PaxQry.CreateVariable("seats",otInteger,seats_sum);
+  PaxQry.Execute();
+
+  TQuery PnrAddrQry(&OraSession);
+  PnrAddrQry.SQLText =
+    "SELECT DECODE(pnr_addrs.airline,tlg_trips.airline,NULL,pnr_addrs.airline) AS airline, "
+    "       pnr_addrs.addr "
+    "FROM tlg_trips,crs_pnr,pnr_addrs "
+    "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+    "      crs_pnr.pnr_id=pnr_addrs.pnr_id AND "
+    "      pnr_addrs.pnr_id=:pnr_id "
+    "ORDER BY DECODE(pnr_addrs.airline,tlg_trips.airline,0,1),pnr_addrs.airline";
+  PnrAddrQry.DeclareVariable("pnr_id",otInteger);
+
+  xmlNodePtr pnrNode=NewTextChild(resNode,"groups");
+  for(;!PaxQry.Eof;PaxQry.Next())
+  {
+    node=NewTextChild(pnrNode,"pnr");
+    NewTextChild(node,"pnr_id",PaxQry.FieldAsInteger("pnr_id"));
+    NewTextChild(node,"pax_name",PaxQry.FieldAsString("pax_name"));
+    NewTextChild(node,"grp_name",PaxQry.FieldAsString("grp_name"));
+    NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"));
+    NewTextChild(node,"seats_all",PaxQry.FieldAsInteger("seats_all"));
+
+    PnrAddrQry.SetVariable("pnr_id",PaxQry.FieldAsInteger("pnr_id"));
+    PnrAddrQry.Execute();
+    if (!PnrAddrQry.Eof)
+    {
+      if (!PnrAddrQry.FieldIsNULL("airline"))
+      {
+        node=NewTextChild(node,"pnr_addr");
+        NewTextChild(node,"airline",PnrAddrQry.FieldAsString("airline"));
+        NewTextChild(node,"addr",PnrAddrQry.FieldAsString("addr"));
+      }
+      else
+        NewTextChild(node,"pnr_addr",PnrAddrQry.FieldAsString("addr"));
+    };
+  };
+
+  int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
+  if (free<seats_sum)
+    showErrorMessage("Доступных мест осталось "+IntToString(free));
+};
+
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_id=NodeAsInteger("point_id",reqNode);
-  readTripCounters(point_id,resNode);
+  int point_dep = NodeAsInteger("point_dep",reqNode);
+  int point_arv = NodeAsInteger("point_arv",reqNode);
+  string cl = NodeAsString("class",reqNode);
+  char grp_status = DecodeStatus(NodeAsString("status",reqNode));
+  int seats_sum = NodeAsInteger("seats",reqNode);
+
+  readTripCounters(point_dep,resNode);
 
   xmlNodePtr node;
   TQuery PaxQry(&OraSession);
@@ -36,8 +184,18 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "       report.get_PSPT(crs_pax.pax_id) AS document ";
   if (GetNode("pnr_id",reqNode)==NULL)
   {
-    char status = DecodeStatus(NodeAsString("status",reqNode));
     int nPax = NodeAsInteger("count",reqNode);
+    string airp_arv = NodeAsString("airp_arv",reqNode);
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT airp FROM points "
+      "WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
+    Qry.CreateVariable("point_id",otInteger,point_arv);
+    Qry.CreateVariable("airp",otString,airp_arv);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
 
     for(int i=0;i<2;i++)
     {
@@ -62,7 +220,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         sql+=
             "  (SELECT DISTINCT crs_pax.pax_id ";
 
-      if (status=='K')
+      if (grp_status=='K')
       {
         sql+=
             "   FROM crs_pnr,tlg_binding,crs_pax "
@@ -92,6 +250,9 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             "         crs_displace.point_to= :point_id AND "
             "         crs_displace.airp_arv_to= :airp_arv AND "
             "         crs_displace.class_to= :class AND "
+            "         NOT(crs_displace.point_to= crs_displace.point_from AND "
+            "             crs_displace.airp_arv_to= crs_displace.airp_arv_from AND "
+            "             crs_displace.class_to= crs_displace.class_from) AND "
             "         crs_displace.pr_goshow= :pr_goshow AND "
             "         crs_pnr.wl_priority IS NULL AND "
             "         crs_pax.pr_del=0 AND "
@@ -111,13 +272,11 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
 
       PaxQry.SQLText = sql;
-      PaxQry.CreateVariable("point_id",otInteger,point_id);
-      PaxQry.CreateVariable("airp_arv",otString,NodeAsString("airp_arv",reqNode));
-      PaxQry.CreateVariable("class",otString,NodeAsString("class",reqNode));
-      PaxQry.CreateVariable("pr_goshow",otInteger,(int)(status=='P'));
-      tst();
+      PaxQry.CreateVariable("point_id",otInteger,point_dep);
+      PaxQry.CreateVariable("airp_arv",otString,airp_arv);
+      PaxQry.CreateVariable("class",otString,cl);
+      PaxQry.CreateVariable("pr_goshow",otInteger,(int)(grp_status=='P'));
       PaxQry.Execute();
-      tst();
       if (!PaxQry.Eof) break;
     };
   }
@@ -135,9 +294,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
-    tst();
     PaxQry.Execute();
-    tst();
   };
 
   TQuery TrferQry(&OraSession);
@@ -157,7 +314,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id";
   RemQry.DeclareVariable("pax_id",otInteger);
 
-  point_id=-1;
+  int point_id=-1;
   int pnr_id=-1, pax_id;
   xmlNodePtr tripNode,pnrNode,paxNode;
   string airp_dep="",airp_dep_lat="";
@@ -165,7 +322,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   tripNode=NewTextChild(resNode,"trips");
   for(;!PaxQry.Eof;PaxQry.Next())
   {
-    tst();
     if (PaxQry.FieldAsInteger("point_id")!=point_id)
     {
       node=NewTextChild(tripNode,"trip");
@@ -193,7 +349,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         airp_dep_lat="";
       };
     };
-    tst();
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
     {
       node=NewTextChild(pnrNode,"pnr");
@@ -204,10 +359,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       NewTextChild(node,"class",PaxQry.FieldAsString("class"));
       paxNode=NewTextChild(node,"passengers");
 
-      tst();
       TrferQry.SetVariable("pnr_id",pnr_id);
       TrferQry.Execute();
-      tst();
       if (!TrferQry.Eof)
       {
         string airp_arv;
@@ -228,10 +381,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         };
       };
 
-      tst();
       PnrAddrQry.SetVariable("pnr_id",pnr_id);
       PnrAddrQry.Execute();
-      tst();
       if (!PnrAddrQry.Eof)
       {
         string airline=PnrAddrQry.FieldAsString("airline");
@@ -271,10 +422,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
 
-    tst();
     RemQry.SetVariable("pax_id",pax_id);
     RemQry.Execute();
-    tst();
     if (!RemQry.Eof)
     {
       xmlNodePtr remNode=NewTextChild(node,"rems");
@@ -287,9 +436,12 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     };
   };
 
+  int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
+  if (free<seats_sum)
+    showErrorMessage("Доступных мест осталось "+IntToString(free));
+
   if (GetNode("pnr_id",reqNode)==NULL)
   {
-    tst();
     xmlNodePtr foundPnr=NULL,foundTrip=NULL;
     int nPax = NodeAsInteger("count",reqNode);
     if (nPax==1) return;
@@ -304,7 +456,6 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       strncpy(surname,NodeAsString(node),4);
       surnames.push_back(surname);
     };
-    tst();
     tripNode=NodeAsNode("trips",resNode)->children;
     for(;tripNode!=NULL;tripNode=tripNode->next)
     {
@@ -325,9 +476,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           {
             xmlNodePtr node2 = node->children;
             if (i->size()<3)
+            {
               if (strcmp(i->c_str(),NodeAsStringFast("surname",node2))==0) break;
+            }
             else
+            {
               if (strncmp(i->c_str(),NodeAsStringFast("surname",node2),i->size())==0) break;
+            };
           };
           if (node==NULL) break; //не найдена фамилия
         };
@@ -340,9 +495,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         };
       };
     };
-    tst();
     if (foundPnr==NULL||foundTrip==NULL) return;
-    tst();
     xmlUnlinkNode(foundTrip);
     tripNode=NodeAsNode("trips",resNode);
     xmlUnlinkNode(tripNode);
@@ -359,6 +512,41 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
 
 };
+
+int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, char grp_status)
+{
+    //проверка наличия свободных мест
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT free_ok,free_goshow,nooccupy FROM counters2 "
+      "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
+    Qry.CreateVariable("point_dep", otInteger, point_dep);
+    Qry.CreateVariable("point_arv", otInteger, point_arv);
+    Qry.CreateVariable("class", otString, cl);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+    TTripStages tripStages( point_dep );
+    TStage ckin_stage =  tripStages.getStage( stCheckIn );
+    int free;
+    switch (grp_status)
+    {
+      case 'T': free=Qry.FieldAsInteger("nooccupy");
+      case 'K': if (ckin_stage==sOpenCheckIn)
+                  free=Qry.FieldAsInteger("free_ok");
+                else
+                  free=Qry.FieldAsInteger("nooccupy");
+      default:  if (ckin_stage==sOpenCheckIn)
+                  free=Qry.FieldAsInteger("free_goshow");
+                else
+                  free=Qry.FieldAsInteger("nooccupy");
+    };
+    if (free>=0)
+      return free;
+    else
+      return 0;
+};
+
 
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -411,7 +599,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_dep,point_arv,grp_id,ckin_stage,hall;
+  int point_dep,point_arv,grp_id,hall;
   string cl,airp_dep,airp_arv;
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access(amPartialWrite);
@@ -452,40 +640,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     cl=NodeAsString("class",reqNode);
     //новая регистрация
     //проверка наличия свободных мест
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT free_ok,free_goshow,nooccupy FROM counters2 "
-      "WHERE point_dep=:point_dep AND point_arv=:point_arv AND class=:class ";
-    Qry.CreateVariable("point_dep", otInteger, point_dep);
-    Qry.CreateVariable("point_arv", otInteger, point_arv);
-    Qry.CreateVariable("class", otString, cl);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-    string grp_status(NodeAsString("status",reqNode)),place_status;
-    int free,seats_sum=0;
-    if (grp_status=="T")
-    {
-      free=Qry.FieldAsInteger("nooccupy");
+    char grp_status=DecodeStatus(NodeAsString("status",reqNode));
+    int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
+    string place_status;
+    if (grp_status=='T')
       place_status="TR";
-    }
     else
-    {
-      if (grp_status=="K")
-      {
-        if (ckin_stage==sOpenCheckIn)
-          free=Qry.FieldAsInteger("free_ok");
-        else
-          free=Qry.FieldAsInteger("nooccupy");
-      }
-      else
-      {
-        if (ckin_stage==sOpenCheckIn)
-          free=Qry.FieldAsInteger("free_goshow");
-        else
-          free=Qry.FieldAsInteger("nooccupy");
-      };
       place_status="FP";
-    };
 
     hall=NodeAsInteger("hall",reqNode);
     Qry.Clear();
@@ -497,7 +658,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     //простановка ремарок VIP,EXST, если нужно
     //подсчет seats
-    int seats;
+    int seats,seats_sum=0;
     string rem_code;
     node=NodeAsNode("passengers",reqNode);
     for(node=node->children;node!=NULL;node=node->next)
@@ -557,17 +718,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       };
     };
     if (free<seats_sum)
-    {
-      if (free<0) free=0;
       throw UserException("Доступных мест осталось %d",free);
-    };
+
     node=NodeAsNode("passengers",reqNode);
     Passengers.Clear();
     //заполним массив для рассадки
     for(node=node->children;node!=NULL;node=node->next)
     {
         node2=node->children;
-        if (NodeAsIntegerFast("seats",node2)==0) continue;
+        if (NodeAsInteger("seats",node2)==0) continue;
 
         TPassenger pas;
         pas.clname=cl;
@@ -586,7 +745,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             node2=remNode->children;
             pas.rems.push_back(NodeAsStringFast("rem_code",node2));
           };
-        };
+  };
         Passengers.Add(pas);
     };
     // начитка салона
@@ -643,7 +802,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("airp_dep",otString,airp_dep);
     Qry.CreateVariable("airp_arv",otString,airp_arv);
     Qry.CreateVariable("class",otString,cl);
-    Qry.CreateVariable("status",otString,grp_status);
+    Qry.CreateVariable("status",otString,NodeAsString("status",reqNode));
     Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
     Qry.CreateVariable("hall",otInteger,hall);
     Qry.Execute();

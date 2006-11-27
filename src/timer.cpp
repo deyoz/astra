@@ -1,9 +1,5 @@
 //---------------------------------------------------------------------------
 #include <stdio.h>
-#ifdef __WIN32__
- #include <dos.h>
- #define sleep(x) _sleep(x)
-#endif
 #include <signal.h>
 #include <fstream>
 #include "timer.h"
@@ -24,8 +20,6 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace Ticketing;
-
-#ifndef __WIN32__
 
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
@@ -60,7 +54,6 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   };
   return 0;
 }
-#endif
 
 void exec_tasks( void )
 {
@@ -77,7 +70,7 @@ void exec_tasks( void )
 	Qry.CreateVariable( "utcdate", otDate, utcdate );
 	Qry.Execute();
 	TQuery UQry(&OraSession);
-	UQry.SQLText = 
+	UQry.SQLText =
 	 "UPDATE tasks SET last_exec=:utcdate,next_exec=NVL(next_exec,:utcdate)+interval/1440 "\
 	 " WHERE name=:name";
 	UQry.CreateVariable( "utcdate", otDate, utcdate );
@@ -88,17 +81,17 @@ void exec_tasks( void )
 			name = Qry.FieldAsString( "name" );
 			UQry.SetVariable( "name", name );
 			UQry.Execute();
-			
+
 	    if ( name == "astra_timer" )
 	    	astra_timer( utcdate );
 	    else
 	    	if ( name == "createSPP" )
-	    		createSPP( utcdate );		
+	    		createSPP( utcdate );
 	    	else
 	    		if ( name == "ETCheckStatusFlt" )
 	    			ETCheckStatusFlt();
 			UQry.SetVariable( "name", name );
-			UQry.Execute();	 //???   
+			UQry.Execute();	 //???
 			OraSession.Commit();
 		}
     catch( Exception E ) {
@@ -172,12 +165,7 @@ void ETCheckStatusFlt(void)
   };
 };
 
-
-#ifdef __WIN32__
-#define ENDL "\n"
-#else
 #define ENDL "\r\n"
-#endif
 
 void sync_mvd(TDateTime now)
 {
