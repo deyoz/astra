@@ -650,7 +650,7 @@ string prepareKickText()
     const char *handle= sysCont->readC("HANDLE","");
     const char *oper  = sysCont->readC("OPR","");
 
-    string text("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
             "<term>");
     text = text + "<query handle=\"" + handle + "\" id=\"" +iface+
             "\" ver=\"0\" opr=\""+ oper +"\" screen=\""+reqInfo->screen.name+"\">"
@@ -772,8 +772,17 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     TQuery Qry(&OraSession);
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) continue;
+      ProgTrace(TRACE5,"ticket=%s error=%s",
+                       currTick->ticknum().c_str(),
+                       chngStatAns.err2Tick(currTick->ticknum()).c_str());
+      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) {
+        continue;
+      }
       if (currTick->getCoupon().empty()) continue;
+
+      ProgTrace(TRACE5,"ticket=%s coupon=%d",
+                       currTick->ticknum().c_str(),
+                       currTick->getCoupon().front().couponInfo().num());
       coupon_status status(currTick->getCoupon().front().couponInfo().status());
       Qry.Clear();
       if (status.codeInt()==Checked ||

@@ -153,6 +153,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
   switch (area)
   {
     case csaFlt:
+      ProgTrace(TRACE5,"point_id=%d",id);
       sql=sql+"pax_grp.point_dep=:point_id ";
       Qry.CreateVariable("point_id",otInteger,id);
       break;
@@ -234,7 +235,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
                   Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  scd.time_of_day(),
+                  time_duration(), // not a date time
                   airp_dep,
                   airp_arv);
           Coupon cpn(ci,itin);
@@ -258,6 +259,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
           airp_dep!=Qry.FieldAsString("tick_airp_dep") ||
           airp_arv!=Qry.FieldAsString("tick_airp_arv"))
       {
+        tst();
         UpdQry.SetVariable("ticket_no",Qry.FieldAsString("ticket_no"));
         UpdQry.SetVariable("coupon_no",Qry.FieldAsInteger("coupon_no"));
         UpdQry.SetVariable("point_id",point_id);
@@ -287,6 +289,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
+      tst();
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
       TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
       ptime scd(DateTimeToBoost(scd_local));
@@ -295,7 +298,7 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
                   Qry.FieldAsInteger("flt_no"),
                   -1,
                   scd.date(),
-                  scd.time_of_day(),
+                  time_duration(), // not a date time
                   Qry.FieldAsString("airp_dep"),
                   Qry.FieldAsString("airp_arv"));
       Coupon cpn(ci,itin);
