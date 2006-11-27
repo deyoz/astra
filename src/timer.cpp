@@ -79,9 +79,6 @@ void exec_tasks( void )
 	while ( !Qry.Eof ) {
 		try {
 			name = Qry.FieldAsString( "name" );
-			UQry.SetVariable( "name", name );
-			UQry.Execute();
-
 	    if ( name == "astra_timer" )
 	    	astra_timer( utcdate );
 	    else
@@ -90,6 +87,7 @@ void exec_tasks( void )
 	    	else
 	    		if ( name == "ETCheckStatusFlt" )
 	    			ETCheckStatusFlt();
+	    			
 			UQry.SetVariable( "name", name );
 			UQry.Execute();	 //???
 			OraSession.Commit();
