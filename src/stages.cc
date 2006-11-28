@@ -556,33 +556,18 @@ void OpenCheckIn( int point_id )
 
 void CloseCheckIn( int point_id )
 {
-  tst();
   vector<string> tlg_types;
   tlg_types.push_back("COM");
-  tst();
   TelegramInterface::SendTlg(point_id,tlg_types);
-  tst();
 };
 
 void Takeoff( int point_id )
 {
-	TQuery Qry(&OraSession);
-  Qry.SQLText =
-   "BEGIN "\
-   " BEGIN "\
-   "   statist.get_stat( :point_id ); "\
-   "  EXCEPTION WHEN OTHERS THEN "\
-   "   system.ErrorToLog('statist.get_stat: '||SQLERRM,:point_id); "\
-   "  END; "\
-   "  BEGIN "\
-   "   tlg.send_all_tlg( :point_id ); "\
-   "  EXCEPTION WHEN OTHERS THEN "\
-   "   system.ErrorToLog('tlg.send_all_tlg: '||SQLERRM,:point_id); "\
-   "  END; "\
-   "END;";
-   Qry.CreateVariable( "point_id", otInteger, point_id );
-   try {
-     Qry.Execute();
-   }
-   catch( ... ) {}; //иначе изменения по рейсу не запишутся
+  vector<string> tlg_types;
+  tlg_types.push_back("PTM");
+  tlg_types.push_back("BTM");
+  tlg_types.push_back("PSM");
+  tlg_types.push_back("PFS");
+  tlg_types.push_back("FTL");
+  TelegramInterface::SendTlg(point_id,tlg_types);
 }
