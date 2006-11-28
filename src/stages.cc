@@ -408,10 +408,11 @@ void exec_stage( int point_id, int stage_id )
            break;
     case sCloseBoarding:
            /*Окончание посадки*/
+           CloseBoarding( point_id );
            break;
     case sRegDoc:
            /*Оформление документации*/
-           RegDoc( point_id );
+           //пока этот шаг не участвует в graph_rules
            break;
     case sRemovalGangWay:
            /*Уборка трапа*/
@@ -562,7 +563,7 @@ void CloseCheckIn( int point_id )
   TelegramInterface::SendTlg(point_id,tlg_types);
 };
 
-void RegDoc( int point_id )
+void CloseBoarding( int point_id )
 {
   vector<string> tlg_types;
   tlg_types.push_back("COM");

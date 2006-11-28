@@ -104,7 +104,7 @@ void exec_stage( int point_id, int stage_id );
 void PrepCheckIn( int point_id );
 void OpenCheckIn( int point_id );
 void CloseCheckIn( int point_id );
-void RegDoc( int point_id );
+void CloseBoarding( int point_id );
 void Takeoff( int point_id );
 
 
