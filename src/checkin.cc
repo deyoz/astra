@@ -613,12 +613,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //лочим рейс
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airp FROM points "
+    "SELECT airline,airp FROM points "
     "WHERE point_id=:point_id AND airp=:airp AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.CreateVariable("airp",otString,airp_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  string airline=Qry.FieldAsString("airline");
 
   point_arv=NodeAsInteger("point_arv",reqNode);
   airp_arv=NodeAsString("airp_arv",reqNode);
@@ -729,7 +730,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
         node2=node->children;
         if (NodeAsIntegerFast("seats",node2)==0) continue;
-
+        const char *subclass=NodeAsStringFast("subclass",node2);
         TPassenger pas;
         pas.clname=cl;
         if (place_status=="FP"&&!NodeIsNULLFast("pax_id",node2))
@@ -740,14 +741,21 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         pas.countPlace=NodeAsIntegerFast("seats",node2);
         pas.placeRem=NodeAsStringFast("seat_type",node2);
         remNode=GetNodeFast("rems",node2);
+        bool flagMCLS=false;
         if (remNode!=NULL)
         {
           for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
           {
             node2=remNode->children;
-            pas.rems.push_back(NodeAsStringFast("rem_code",node2));
+            const char *rem_code=NodeAsStringFast("rem_code",node2);
+            if (airline=="ЮТ" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
+            pas.rems.push_back(rem_code);
           };
         };
+        ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
+        if (airline=="ЮТ" && strcmp(subclass,"М")==0 && !flagMCLS)
+          pas.rems.push_back("MCLS");
+
         Passengers.Add(pas);
     };
     // начитка салона

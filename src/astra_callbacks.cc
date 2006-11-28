@@ -64,21 +64,22 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
 {
     OraSession.ClearQuerys();
     XMLRequestCtxt *xmlRC = getXmlCtxt();
-    std::string screen = NodeAsString("/term/query/@screen", xmlRC->reqDoc);
+    xmlNodePtr node=NodeAsNode("/term/query",xmlRC->reqDoc);
+    std::string screen = NodeAsString("@screen", node);
+    std::string opr = NodeAsString("@opr", node);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    ProgTrace(TRACE3,"Before reqInfo->Initialize");
     bool checkUserLogon =
-        GetNode( "/term/query/CheckUserLogon", xmlRC->reqDoc ) == NULL &&
-        GetNode( "/term/query/UserLogon", xmlRC->reqDoc ) == NULL &&
-        GetNode( "/term/query/ClientError", xmlRC->reqDoc ) == NULL;
+        GetNode( "CheckUserLogon", node ) == NULL &&
+        GetNode( "UserLogon", node ) == NULL &&
+        GetNode( "ClientError", node ) == NULL;
 
     try
     {
-      reqInfo->Initialize( screen, xmlRC->pult, xmlRC->opr, checkUserLogon );
+      reqInfo->Initialize( screen, xmlRC->pult, opr, checkUserLogon );
     }
     catch(EXCEPTIONS::UserException)
     {
-      if (GetNode( "/term/query/UserLogoff", xmlRC->reqDoc ) != NULL)
+      if (GetNode( "UserLogoff", node ) != NULL)
       {
         reqInfo->user.clear();
         reqInfo->desk.clear();
@@ -88,7 +89,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( xmlRC->opr.empty() )
+    if ( opr.empty() )
     { /* оператор пришел пустой - отправляем инфу по оператору */
         showBasicInfo();
     }

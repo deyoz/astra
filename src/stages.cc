@@ -411,6 +411,7 @@ void exec_stage( int point_id, int stage_id )
            break;
     case sRegDoc:
            /*Оформление документации*/
+           RegDoc( point_id );
            break;
     case sRemovalGangWay:
            /*Уборка трапа*/
@@ -555,6 +556,13 @@ void OpenCheckIn( int point_id )
 }
 
 void CloseCheckIn( int point_id )
+{
+  vector<string> tlg_types;
+  tlg_types.push_back("COM");
+  TelegramInterface::SendTlg(point_id,tlg_types);
+};
+
+void RegDoc( int point_id )
 {
   vector<string> tlg_types;
   tlg_types.push_back("COM");
