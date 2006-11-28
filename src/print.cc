@@ -527,6 +527,8 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   system.transliter(pax.SURNAME, 1) surname_lat, "
         "   pax.NAME, "
         "   system.transliter(pax.NAME, 1) name_lat, "
+        "   pax.surname||' '||pax.name fullname, "
+        "   system.transliter(pax.surname||' '||pax.name) fullname_lat, "
         "   pax.pers_type pers_type, "
         "   pers_types.code_lat pers_type_lat, "
         "   pers_types.name pers_type_name, "
