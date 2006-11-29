@@ -554,7 +554,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat, "
-        "   points.FLT_NO, "
+        "   to_char(points.FLT_NO) flt_no, "
         "   points.SUFFIX, "
         "   system.transliter(points.SUFFIX, 1) suffix_lat, "
         "   system.AirpTZRegion(points.airp) AS tz_region "
