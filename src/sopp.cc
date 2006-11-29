@@ -298,18 +298,24 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
   TDests dests;
   int move_id = NoExists;
   bool canUseAirline, canUseAirp;
+  ProgTrace( TRACE5, "canUseAirline=%d, canUseAirp=%d",
+            ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() ),
+            ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() ) );
+
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( "move_id" ) ) {
       if ( move_id > NoExists && canUseAirline && canUseAirp ) {
         //create trips
-//        ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
         for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-          if ( reqInfo->user.user_type != utAirport ||
+          if ( reqInfo->user.user_type == utAirport ||
                find( reqInfo->user.access.airlines.begin(),
                      reqInfo->user.access.airlines.end(),
                      id->airline
                     ) != reqInfo->user.access.airlines.end() ) {
+            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
             trips.push_back( createTrip( move_id, id, dests ) );
+            if ( reqInfo->user.user_type == utAirport )
+            	break;
           }
         }
       }
