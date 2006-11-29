@@ -44,7 +44,7 @@ class PrintDataParser {
 
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
-                string get_field(string name, int len, string align, string date_format);
+                string get_field(string name, int len, string align, string date_format, int field_lat);
                 void add_tag(string name, int val);
                 void add_tag(string name, string val);
                 void add_tag(string name, TDateTime val);
@@ -333,58 +333,86 @@ void PrintDataParser::t_field_map::dump_data()
         ProgTrace(TRACE5, "------MAP DUMP------");
 }
 
-string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format)
+string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
     string result;
-    TData::iterator di, di_ru;
-    while(1) {
-        di = data.find(name);
-        di_ru = di;
-        if(pr_lat && di != data.end()) {
-            TData::iterator di_lat = data.find(name + "_LAT");
-            if(di_lat != data.end()) di = di_lat;
+
+    if(!(*Qrys.begin())->FieldsCount()) {
+        for(TQrys::iterator ti = Qrys.begin(); ti != Qrys.end(); ti++) {
+            (*ti)->Execute();
+            for(int i = 0; i < (*ti)->FieldsCount(); i++) {
+                if(data.find((*ti)->FieldName(i)) != data.end())
+                    throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
+                TTagValue TagValue;
+                TagValue.pr_print = 0;
+                TagValue.null = (*ti)->FieldIsNULL(i);
+                switch((*ti)->FieldType(i)) {
+                    case otString:
+                    case otChar:
+                    case otLong:
+                    case otLongRaw:
+                        TagValue.type = otString;
+                        TagValue.StringVal = (*ti)->FieldAsString(i);
+                        break;
+                    case otFloat:
+                        TagValue.type = otFloat;
+                        TagValue.FloatVal = (*ti)->FieldAsFloat(i);
+                        break;
+                    case otInteger:
+                        TagValue.type = otInteger;
+                        TagValue.IntegerVal = (*ti)->FieldAsInteger(i);
+                        break;
+                    case otDate:
+                        TagValue.type = otDate;
+                        TagValue.DateTimeVal = (*ti)->FieldAsDateTime(i);
+                        break;
+                }
+                data[(*ti)->FieldName(i)] = TagValue;
+            }
         }
-        if(di != data.end()) break;
-        TQrys::iterator ti = Qrys.begin();
-        for(; ti != Qrys.end(); ++ti)
-            if(!(*ti)->FieldsCount()) break;
-        if(ti == Qrys.end())
-//            break;
-            throw Exception("Tag not found " + name);
-        (*ti)->Execute();
-        for(int i = 0; i < (*ti)->FieldsCount(); i++) {
-            if(data.find((*ti)->FieldName(i)) != data.end())
-                throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
+        // Еще некоторые теги
+        {
             TTagValue TagValue;
             TagValue.pr_print = 0;
-            TagValue.null = (*ti)->FieldIsNULL(i);
-            switch((*ti)->FieldType(i)) {
-                case otString:
-                case otChar:
-                case otLong:
-                case otLongRaw:
-                    TagValue.type = otString;
-                    TagValue.StringVal = (*ti)->FieldAsString(i);
-                    break;
-                case otFloat:
-                    TagValue.type = otFloat;
-                    TagValue.FloatVal = (*ti)->FieldAsFloat(i);
-                    break;
-                case otInteger:
-                    TagValue.type = otInteger;
-                    TagValue.IntegerVal = (*ti)->FieldAsInteger(i);
-                    break;
-                case otDate:
-                    TagValue.type = otDate;
-                    TagValue.DateTimeVal = (*ti)->FieldAsDateTime(i);
-                    break;
-            }
-            data[(*ti)->FieldName(i)] = TagValue;
+            TagValue.null = true;
+            TagValue.type = otString;
+
+            TagValue.StringVal =
+                data["CITY_DEP_NAME"].StringVal.substr(0, 7) +
+                "(" + data["AIRP_DEP"].StringVal + ")";
+            data["PLACE_DEP"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_DEP_NAME_LAT"].StringVal.substr(0, 7) +
+                "(" + data["AIRP_DEP_LAT"].StringVal + ")";
+            data["PLACE_DEP_LAT"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_DEP_NAME"].StringVal +
+                " " + data["AIRP_DEP_NAME"].StringVal;
+            data["FULL_PLACE_DEP"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_DEP_NAME_LAT"].StringVal +
+                " " + data["AIRP_DEP_NAME_LAT"].StringVal;
+            data["FULL_PLACE_DEP_LAT"] = TagValue;
         }
     }
 
+    TData::iterator di, di_ru;
+    di = data.find(name);
+    di_ru = di;
+    if(field_lat < 0) field_lat = pr_lat;
+
+    if(field_lat && di != data.end()) {
+        TData::iterator di_lat = data.find(name + "_LAT");
+        if(di_lat != data.end()) di = di_lat;
+    }
+    if(di == data.end()) throw Exception("Tag not found " + name);
+
+
     if(di != data.end()) {
-        if(pr_lat && !di_ru->second.null && di->second.null)
+        if(field_lat && !di_ru->second.null && di->second.null)
             throw Exception("value is empty for " + di->first);
         di_ru->second.pr_print = 1;
         TTagValue TagValue = di->second;
@@ -417,7 +445,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                   ) {
                     PrintTime = UTCToLocal(PrintTime, data.find("TZ_REGION")->second.StringVal);
                 }
-                buf << DateTimeToStr(PrintTime, date_format, pr_lat);
+                buf << DateTimeToStr(PrintTime, date_format, field_lat);
                 break;
         }
         if(!len) len = buf.str().size();
@@ -642,6 +670,7 @@ string PrintDataParser::parse_field(int offset, string field)
     int FieldLen = 0;
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
+    int FieldLat = -1;
 
     string buf;
     string::size_type i = 0;
@@ -687,7 +716,23 @@ string PrintDataParser::parse_field(int offset, string field)
             case '3':
                 if(i == field.size() - 1 && curr_char == ')') {
                     buf = field.substr(VarPos + 1, i - VarPos - 1);
-                    if(buf.size()) DateFormat = buf;
+                    if(buf.size()) {
+                        if(buf.size() >= 2 && buf[buf.size() - 2] == ',') { // ,[E|R]
+                            char lat_code = buf[buf.size() - 1];
+                            switch(lat_code) {
+                                case 'E': 
+                                    FieldLat = 1;
+                                    break;
+                                case 'R': 
+                                    FieldLat = 0;
+                                    break;
+                                default:
+                                    throw Exception("4th param must be one of R or E at " + IntToString(offset + i + 1));
+                            }
+                            buf = buf.substr(0, buf.size() - 3);
+                        }
+                        DateFormat = buf;
+                    }
                     Mode = 'F';
                 }
                 break;
@@ -695,7 +740,7 @@ string PrintDataParser::parse_field(int offset, string field)
     }
     if(Mode != 'L' && Mode != 'F')
             throw Exception("')' not found at " + IntToString(offset + i + 1));
-    return field_map.get_field(FieldName, FieldLen, FieldAlign, DateFormat);
+    return field_map.get_field(FieldName, FieldLen, FieldAlign, DateFormat, FieldLat);
 }
 
 string PrintDataParser::parse(string &form)
