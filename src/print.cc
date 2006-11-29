@@ -396,6 +396,30 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 data["CITY_DEP_NAME_LAT"].StringVal +
                 " " + data["AIRP_DEP_NAME_LAT"].StringVal;
             data["FULL_PLACE_DEP_LAT"] = TagValue;
+
+
+
+
+
+            TagValue.StringVal =
+                data["CITY_ARV_NAME"].StringVal.substr(0, 7) +
+                "(" + data["AIRP_ARV"].StringVal + ")";
+            data["PLACE_ARV"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_ARV_NAME_LAT"].StringVal.substr(0, 7) +
+                "(" + data["AIRP_ARV_LAT"].StringVal + ")";
+            data["PLACE_ARV_LAT"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_ARV_NAME"].StringVal +
+                " " + data["AIRP_ARV_NAME"].StringVal;
+            data["FULL_PLACE_ARV"] = TagValue;
+
+            TagValue.StringVal =
+                data["CITY_ARV_NAME_LAT"].StringVal +
+                " " + data["AIRP_ARV_NAME_LAT"].StringVal;
+            data["FULL_PLACE_ARV_LAT"] = TagValue;
         }
     }
 
