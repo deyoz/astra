@@ -380,6 +380,8 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
                                      :takeoff_stage_id) AS craft_stage "*/
   sql+=
     "FROM " + p.sqlfrom;
+  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+    sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
   if (!info.user.access.airps.empty())

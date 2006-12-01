@@ -108,6 +108,7 @@ void CloseBoarding( int point_id );
 void Takeoff( int point_id );
 
 
+
 #endif /*_STAGES_H_*/
 
 

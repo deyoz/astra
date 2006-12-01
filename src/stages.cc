@@ -1,6 +1,6 @@
 #include <stdlib.h>
-#define NICKNAME "DJEK" 
-#include "setup.h" 
+#define NICKNAME "DJEK"
+#include "setup.h"
 #include "test.h"
 #include "basic.h"
 #include "stages.h"
@@ -10,6 +10,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "telegram.h"
 
 using namespace std;
 using namespace BASIC;
@@ -39,7 +40,7 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
     TStage stage = (TStage)Qry.FieldAsInteger( "stage_id" );
     ts.insert( make_pair( stage, tripStage ) );
     Qry.Next();
-  } 
+  }
 }
 
 void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
@@ -74,7 +75,7 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 		if ( x )
 			tripStage.old_act = NodeAsDateTime( x );
 		else
-			tripStage.old_act = NoExists;			
+			tripStage.old_act = NoExists;
 		ts.insert( make_pair( (TStage)NodeAsIntegerFast( "stage_id", n ), tripStage ) );
 		node = node->next;
 	}
@@ -82,8 +83,8 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
-  TQuery Qry( &OraSession );	
-  Qry.SQLText = 
+  TQuery Qry( &OraSession );
+  Qry.SQLText =
    "SELECT tz_regions.region region "\
    " FROM points,airps,cities,tz_regions "
     "WHERE points.point_id=:point_id AND points.airp=airps.code AND airps.city=cities.code AND "\
@@ -92,7 +93,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   Qry.Execute();
   string region = Qry.FieldAsString( "region" );
   Qry.Clear();
-  Qry.SQLText = 
+  Qry.SQLText =
    "BEGIN "\
    " UPDATE points SET point_id = :point_id WHERE point_id = :point_id; "\
    "  SELECT point_id INTO :point_id FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
@@ -106,8 +107,8 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
    Qry.DeclareVariable( "act", otDate );
    Qry.DeclareVariable( "pr_manual", otInteger );
 
-   TQuery UpdQry( &OraSession );	
-   UpdQry.SQLText = 
+   TQuery UpdQry( &OraSession );
+   UpdQry.SQLText =
     "UPDATE trip_stages SET est=:est,act=:act,pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
     "  WHERE point_id=:point_id AND stage_id=:stage_id";
    UpdQry.CreateVariable( "point_id", otInteger, point_id );
@@ -115,16 +116,16 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
    UpdQry.DeclareVariable( "est", otDate );
    UpdQry.DeclareVariable( "act", otDate );
    UpdQry.DeclareVariable( "pr_manual", otInteger );
-   
+
    for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
    	 Qry.SetVariable( "stage_id", (int)i->first );
      if ( i->second.est == NoExists )
        Qry.SetVariable( "est", FNull );
-     else 
+     else
     	 Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
      if ( i->second.act == NoExists )
        Qry.SetVariable( "act", FNull );
-     else 
+     else
        Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
      int pr_manual;
      if ( i->second.est == i->second.old_est )
@@ -132,28 +133,28 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      else
        if ( i->second.est == NoExists )
          pr_manual = 0;
-       else 
+       else
       	  pr_manual = 1;
      Qry.SetVariable( "pr_manual", pr_manual );
-     Qry.Execute( );  
+     Qry.Execute( );
      tst();
-     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага    	
+     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
      	 exec_stage( point_id, (int)i->first );
      }
    	 UpdQry.SetVariable( "stage_id", (int)i->first );
      if ( i->second.est == NoExists )
        UpdQry.SetVariable( "est", FNull );
-     else 
+     else
     	 UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
      if ( i->second.act == NoExists )
        UpdQry.SetVariable( "act", FNull );
-     else 
+     else
        UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
-     UpdQry.SetVariable( "pr_manual", pr_manual );     	 
+     UpdQry.SetVariable( "pr_manual", pr_manual );
      UpdQry.Execute();
      tst();
      TStagesRules *r = TStagesRules::Instance();
-     string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";		 
+     string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";
      if ( i->second.old_act == NoExists && i->second.act > NoExists )
        tolog += " выполнен";
      if ( i->second.old_act > NoExists && i->second.act == NoExists )
@@ -168,16 +169,16 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy" );
      else
         tolog += " не задано";
-     TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first ); 
+     TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
      	tst();
-   }   
-}        
+   }
+}
 
 
 void TTripStages::LoadStages( int vpoint_id )
 {
-  point_id = vpoint_id;	
-  TTripStages::LoadStages( vpoint_id, tripstages );	
+  point_id = vpoint_id;
+  TTripStages::LoadStages( vpoint_id, tripstages );
 }
 
 TDateTime TTripStages::time( TStage stage )
@@ -195,7 +196,7 @@ TDateTime TTripStages::time( TStage stage )
 }
 
 TStage TTripStages::getStage( TStage_Type stage_type )
-{  
+{
   TStagesRules *sr = TStagesRules::Instance();
   int level = 0;
   int p_level = 0;
@@ -216,7 +217,7 @@ TStage TTripStages::getStage( TStage_Type stage_type )
       level = l->level;
     }
   }
-  return res;  
+  return res;
 }
 /********************************************************************************/
 TStagesRules *TStagesRules::Instance()
@@ -246,13 +247,13 @@ void TStagesRules::Update()
    TStage Stage = (TStage)Qry.FieldAsInteger( "target_stage" );
    if ( Qry.FieldAsInteger( "next" ) )
      Step = stNext;
-   else 
+   else
      Step = stPrior;
    rule.num = Qry.FieldAsInteger( "num" );
    rule.cond_stage = (TStage)Qry.FieldAsInteger( "cond_stage" );
    GrphRls[ Step ][ Stage ].push_back( rule );
    Qry.Next();
- }	
+ }
  /* загрузка статусов */
  Qry.Clear();
  Qry.SQLText = "SELECT stage_id, stage_type, status FROM stage_statuses ORDER BY stage_type";
@@ -270,12 +271,12 @@ void TStagesRules::Update()
  Qry.Clear();
  Qry.SQLText = "SELECT stage_id, name from graph_stages ORDER BY stage_id";
  Qry.Execute();
- 
+
  while ( !Qry.Eof ) {
    Graph_Stages[ (TStage)Qry.FieldAsInteger( "stage_id" ) ] = Qry.FieldAsString( "name" );
    Qry.Next();
  }
- 
+
  Qry.Clear();
  Qry.SQLText = "SELECT target_stage, level "\
                " FROM "\
@@ -286,12 +287,12 @@ void TStagesRules::Update()
                " CONNECT BY PRIOR target_stage = cond_stage";
  Qry.Execute();
  while ( !Qry.Eof ) {
-   TStage_Level gl;	
+   TStage_Level gl;
    gl.stage = (TStage)Qry.FieldAsInteger( "target_stage" );
    gl.level = Qry.FieldAsInteger( "level" );
    GrphLvl.push_back( gl );
    Qry.Next();
- } 	
+ }
 }
 
 void TStagesRules::Build( xmlNodePtr dataNode )
@@ -356,7 +357,7 @@ string TStagesRules::status( TStage_Type stage_type, TStage stage )
     if ( s->stage == stage )
       return s->status;
   }
-  return "";	
+  return "";
 }
 
 void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
@@ -400,12 +401,14 @@ void exec_stage( int point_id, int stage_id )
            break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
+           CloseCheckIn( point_id );
            break;
     case sOpenBoarding:
            /*Начало посадки*/
            break;
     case sCloseBoarding:
            /*Окончание посадки*/
+           CloseBoarding( point_id );
            break;
     case sRegDoc:
            /*Оформление документации*/
@@ -417,7 +420,7 @@ void exec_stage( int point_id, int stage_id )
            /*Вылетел*/
            Takeoff( point_id );
            break;
-  }	
+  }
 }
 
 
@@ -436,7 +439,7 @@ void astra_timer( TDateTime utcdate )
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
   TQuery QCanStage(&OraSession);
-  QCanStage.SQLText = 
+  QCanStage.SQLText =
    "DECLARE msg VARCHAR2(255); "\
    "BEGIN "\
    " :canstage := gtimer.CanStage(:point_id,:stage_id); "\
@@ -474,16 +477,16 @@ void astra_timer( TDateTime utcdate )
             ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                        E.what(),
                        DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
-                       point_id, stage_id );        			
+                       point_id, stage_id );
   				}
   				catch( ... ) {
   					ProgError( STDLOG, "unknown timer error" );
   				}
           TStagesRules *r = TStagesRules::Instance();
-          string tolog = string( "Этап '" ) + r->Graph_Stages[ (TStage)stage_id ] + "'";		 
+          string tolog = string( "Этап '" ) + r->Graph_Stages[ (TStage)stage_id ] + "'";
           tolog += " выполнен: факт. время=";
           tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy" );
-          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );   				
+          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   				pr_exit = false;
   			}
         catch( Exception E ) {
@@ -491,7 +494,7 @@ void astra_timer( TDateTime utcdate )
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),
                      DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
-                     point_id, stage_id );        	
+                     point_id, stage_id );
         }
   			catch( ... ) {
   				try { OraSession.Rollback( ); } catch(...) { };
@@ -505,8 +508,8 @@ void astra_timer( TDateTime utcdate )
 
 void PrepCheckIn( int point_id )
 {
-	TQuery Qry(&OraSession);	
-	Qry.SQLText = 
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
 	 "DECLARE "\
 	 "ve NUMBER; "\
 	 "vcraft  points.craft%TYPE; "\
@@ -539,8 +542,8 @@ void PrepCheckIn( int point_id )
 
 void OpenCheckIn( int point_id )
 {
-  TQuery Qry(&OraSession);	
-	Qry.SQLText = 	
+  TQuery Qry(&OraSession);
+	Qry.SQLText =
 	 "DECLARE "\
 	 "ve NUMBER; "\
    "vc NUMBER; "\
@@ -560,28 +563,31 @@ void OpenCheckIn( int point_id )
    "  END IF; "\
    " END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();   
+  Qry.Execute();
 }
+
+void CloseCheckIn( int point_id )
+{
+  vector<string> tlg_types;
+  tlg_types.push_back("COM");
+  TelegramInterface::SendTlg(point_id,tlg_types);
+};
+
+void CloseBoarding( int point_id )
+{
+  vector<string> tlg_types;
+  tlg_types.push_back("COM");
+  TelegramInterface::SendTlg(point_id,tlg_types);
+};
 
 void Takeoff( int point_id )
 {
-	TQuery Qry(&OraSession);	
-  Qry.SQLText =
-   "BEGIN "\
-   " BEGIN "\
-   "   statist.get_stat( :point_id ); "\
-   "  EXCEPTION WHEN OTHERS THEN "\
-   "   system.ErrorToLog('statist.get_stat: '||SQLERRM,:point_id); "\
-   "  END; "\
-   "  BEGIN "\
-   "   tlg.send_all_tlg( :point_id ); "\
-   "  EXCEPTION WHEN OTHERS THEN "\
-   "   system.ErrorToLog('tlg.send_all_tlg: '||SQLERRM,:point_id); "\
-   "  END; "\
-   "END;";
-   Qry.CreateVariable( "point_id", otInteger, point_id );
-   try {
-     Qry.Execute();
-   }
-   catch( ... ) {}; //иначе изменения по рейсу не запишутся
+  vector<string> tlg_types;
+  tlg_types.push_back("PTM");
+  tlg_types.push_back("BTM");
+  tlg_types.push_back("PSM");
+  tlg_types.push_back("PFS");
+  tlg_types.push_back("FTL");
+  TelegramInterface::SendTlg(point_id,tlg_types);
 }
+
