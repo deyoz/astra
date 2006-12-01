@@ -2114,9 +2114,12 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	if ( init_trip_stages ) {
   		Qry.Clear();
   		Qry.SQLText = 
-  		 "BEGIN "\
-  		 " gtimer.puttrip_stages(:point_id); "\
-  		 "END;";
+       "BEGIN "\
+       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_tranz_reg) "\
+       "  VALUES(:point_id,0,0,0, NULL, 0, NULL);"\
+       " ckin.set_trip_sets(:point_id); "\
+       " gtimer.puttrip_stages(:point_id);"\
+       "END;";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   		tst();
