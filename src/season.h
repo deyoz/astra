@@ -26,8 +26,6 @@ public:
      AddEvent("get_spp",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::DelRangeList);
      AddEvent("del_range_list",evHandle);
-     evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::RemovalGangWayTimes);
-     AddEvent("RemovalGangWayTimes",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Edit);
      AddEvent("edit",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::ViewSPP);
@@ -41,7 +39,6 @@ public:
   void Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void RemovalGangWayTimes(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Edit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

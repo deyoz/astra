@@ -209,7 +209,6 @@ string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string re
 
 TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 {
-	ProgTrace( TRACE5, "id->point_num=%d, id->first_point=%d, id->point_id=%d", id->point_num, id->first_point, id->point_id );
   TTrip trip;
   trip.move_id = move_id;
   trip.point_id = id->point_id;
@@ -222,12 +221,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   TDests::iterator pd = dests.end();
   for ( TDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
   	if ( fd->point_num < id->point_num ) {
-    	ProgTrace( TRACE5, "fd->first_num=%d, first_point=%d, fd->point_id=%d", fd->point_num, first_point, fd->point_id );	
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
-  			tst();
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
           trip.places_in.push_back( fd->airp );
-          ProgTrace( TRACE5, "createTrip move_id=%d, dest=%s", move_id, fd->airp.c_str() );
           pd = fd;
         }
   		}
@@ -301,14 +297,13 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
   StationsQry.Execute();
   TDests dests;
   int move_id = NoExists;
-  bool canUseAirline, canUseAirp;
   ProgTrace( TRACE5, "canUseAirline=%d, canUseAirp=%d",
             ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() ),
             ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() ) );
 
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( "move_id" ) ) {
-      if ( move_id > NoExists /*&& canUseAirline && canUseAirp*/ ) {
+      if ( move_id > NoExists ) {
         //create trips
         string airline;
         for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -332,7 +327,7 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
                       id->airp
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
-            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
+//            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
             trips.push_back( createTrip( move_id, id, dests ) );
           }
         }
@@ -393,44 +388,38 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
     d.pr_del = PointsQry.FieldAsInteger( "pr_del" );
     d.tid = PointsQry.FieldAsInteger( "tid" );
     d.region = PointsQry.FieldAsString( "region" );
-    if ( !canUseAirp &&
-         find( reqInfo->user.access.airps.begin(),
-               reqInfo->user.access.airps.end(),
-               d.airp
-             ) != reqInfo->user.access.airps.end() ) {
-      canUseAirp = true;
-    }
-    if ( !canUseAirline &&
-         find( reqInfo->user.access.airlines.begin(),
-               reqInfo->user.access.airlines.end(),
-               d.airline
-             ) != reqInfo->user.access.airlines.end() ) {
-      canUseAirline = true;
-    }
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
-  if ( move_id > NoExists && canUseAirline && canUseAirp ) {
+  if ( move_id > NoExists ) {
         //create trips
-    tst();
+    string airline;
     for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-      if ( reqInfo->user.user_type == utAirport &&  
-           find( reqInfo->user.access.airps.begin(),
-                 reqInfo->user.access.airps.end(),
-                 id->airp
-                ) != reqInfo->user.access.airps.end() ||
-           reqInfo->user.user_type == utAirline &&      
-           find( reqInfo->user.access.airlines.begin(),
-                 reqInfo->user.access.airlines.end(),
-                 id->airline
-                ) != reqInfo->user.access.airlines.end() ||
-           reqInfo->user.user_type == utSupport ) {
-        ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
-        trips.push_back( createTrip( move_id, id, dests ) );
+      if ( id != dests.end() - 1 )
+        airline = id->airline;
+      else {
+        TDests::iterator f = id;
+        f--;
+        airline = f->airline;
+      }
+      if ( (!reqInfo->user.access.airlines.empty() &&
+             find( reqInfo->user.access.airlines.begin(),
+                   reqInfo->user.access.airlines.end(),
+                   airline
+                 ) != reqInfo->user.access.airlines.end() ||
+             reqInfo->user.access.airlines.empty() && reqInfo->user.user_type != utAirline) &&
+               
+            (!reqInfo->user.access.airps.empty() &&
+             find( reqInfo->user.access.airps.begin(),
+                   reqInfo->user.access.airps.end(),
+                   id->airp
+                 ) != reqInfo->user.access.airps.end() ||
+             reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
+//           ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
+         trips.push_back( createTrip( move_id, id, dests ) );
       }
     }
   }
-  tst();
   map<int,string> classesmap;
   map<int,int> regmap;
   map<int,int> resamap;

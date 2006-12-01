@@ -92,9 +92,11 @@ class TStagesRules {
 };
 
 struct TStageTimes {
+	std::string airp;
   std::string craft;
   std::string trip_type;
   int time;
+  int priority;
 };
 
 void GetStageTimes( std::vector<TStageTimes> &stagetimes, TStage stage );

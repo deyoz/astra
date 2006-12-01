@@ -984,15 +984,15 @@ void CreateSPP( BASIC::TDateTime localdate )
       TDests::iterator p = im->second.dests.end();
       int point_id,first_point;
       // ®¯à¥¤¥«ï¥¬ á¤¢¨£
-      TDateTime diffTime = GetTZTimeDiff( sp->first, im->second.flight_time, im->second.last_day, im->second.tz, v );
-      ProgTrace( TRACE5, "write vdate=%s, first_day=%s, diffTime=%s, move_id=%d",
-                 DateTimeToStr( sp->first, "dd.mm.yy" ).c_str(),
-                 DateTimeToStr( im->second.flight_time, "dd.mm.yy" ).c_str(),
-                 DateTimeToStr( diffTime, "dd.mm.yy hh:nn" ).c_str(),
-                 im->first );
+      //TDateTime diffTime = GetTZTimeDiff( sp->first, im->second.flight_time, im->second.last_day, im->second.tz, v );
+//      ProgTrace( TRACE5, "write vdate=%s, first_day=%s, diffTime=%s, move_id=%d",
+//                 DateTimeToStr( sp->first, "dd.mm.yy" ).c_str(),
+//                 DateTimeToStr( im->second.flight_time, "dd.mm.yy" ).c_str(),
+//                 DateTimeToStr( diffTime, "dd.mm.yy hh:nn" ).c_str(),
+//                 im->first );
 
       // ¯à®å®¤¨¬ ¯® ¢á¥¬ ¯ã­ªâ ¬ ¨ ¯à®áâ ¢«ï¥¬ ¥£®
-      setDestsDiffTime( im->second.dests, diffTime );
+//      setDestsDiffTime( im->second.dests, diffTime );
 
       PQry.SetVariable( "move_id", move_id );
 
@@ -1254,30 +1254,13 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
         ds.trips[ i ].trap = NoExists;
         if ( ds.trips[ i ].takeoff > NoExists ) {
-          int crafttime = NoExists;
-          int triptypetime = NoExists;
-          int defaulttime = NoExists;
           for ( vector<TStageTimes>::iterator st=stagetimes.begin(); st!=stagetimes.end(); st++ ) {
-            if ( st->craft == ds.trips[ i ].ownbc && st->trip_type == ds.trips[ i ].triptype ) {
+          	if ( ( st->airp == *s || st->airp.empty() ) &&
+          		   ( st->craft == ds.trips[ i ].ownbc || st->craft.empty() ) &&
+          		   ( st->trip_type == ds.trips[ i ].triptype || st->trip_type.empty() ) ) {
               ds.trips[ i ].trap = ds.trips[ i ].takeoff - (double)st->time/1440.0;
-              break;
+              break;          		   	
             }
-            if ( st->craft == ds.trips[ i ].ownbc && st->trip_type.empty() )
-              crafttime = st->time;
-            if ( st->trip_type == ds.trips[ i ].triptype && st->craft.empty() )
-              triptypetime = st->time;
-            if ( st->trip_type.empty() && st->craft.empty() )
-              defaulttime = st->time;
-          }
-          if ( ds.trips[ i ].trap == NoExists ) {
-            if ( crafttime > NoExists )
-              ds.trips[ i ].trap = ds.trips[ i ].takeoff - (double)crafttime/1440.0;
-            else
-              if ( triptypetime > NoExists )
-                ds.trips[ i ].trap = ds.trips[ i ].takeoff - (double)triptypetime/1440.0;
-              else {
-                ds.trips[ i ].trap = ds.trips[ i ].takeoff - (double)defaulttime/1440.0;
-              }
           }
         }
       }
@@ -1470,6 +1453,7 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   }
   TSpp spp;
   vector<trip> ViewTrips;
+  map<int,TTimeDiff> v;
   TDateTime vdate;
   modf( (double)NodeAsDateTime( "date", reqNode ), &vdate );
   createSPP( vdate, spp, stagetimes, true );
@@ -1481,6 +1465,12 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  im->first,
                  (int)im->second.trips.size() );
       for ( vector<trip>::iterator tr=im->second.trips.begin(); tr!=im->second.trips.end(); tr++ ) {
+        TDateTime diffTime = GetTZTimeDiff( sp->first, im->second.flight_time, im->second.last_day, im->second.tz, v );
+      	if ( tr->land > NoExists )
+      	  tr->land += diffTime;
+      	if ( tr->takeoff > NoExists )
+      		tr->takeoff += diffTime;
+
         ViewTrips.push_back( *tr );
       }
       im->second.trips.clear();
@@ -2856,7 +2846,7 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
   if ( periodDiff == seasonDiff || periodDiff == NoExists ||  seasonDiff == NoExists )
     return 0.0;
   else {
-/*    ProgTrace( TRACE5, "periodDiff - seasonDiff =%d", periodDiff - seasonDiff );*/
+    ProgTrace( TRACE5, "periodDiff - seasonDiff =%d", periodDiff - seasonDiff );
     return (double)( seasonDiff - periodDiff )*3600000/(double)MSecsPerDay;
   }
  /* €‚ˆ‹Ž!!! ……‚Ž„ˆ’ Ž‘“™…‘’‚‹Ÿ…’‘Ÿ Ž’Ž‘ˆ’…‹œŽ …‚ŽƒŽ „Ÿ ‚›Ž‹…ˆŸ „ˆ€€‡Ž€
@@ -3124,21 +3114,6 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   internalRead( filter, dataNode );
 }
 
-void SeasonInterface::RemovalGangWayTimes(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-//  TReqInfo::Instance()->user.check_access( amRead );
-  vector<TStageTimes> st;
-  GetStageTimes( st, sRemovalGangWay );
-  xmlNodePtr dataNode = NewTextChild(resNode, "data");
-  xmlNodePtr node = NewTextChild(dataNode, "times");
-  xmlNodePtr stnode;
-  for (vector<TStageTimes>::iterator i=st.begin(); i!=st.end(); i++ ) {
-    stnode = NewTextChild( node, "time" );
-    NewTextChild( stnode, "craft", i->craft );
-    NewTextChild( stnode, "trip_type", i->trip_type );
-    NewTextChild( stnode, "time", i->time );
-  }
-}
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode )
 {
   TQuery SQry( &OraSession );

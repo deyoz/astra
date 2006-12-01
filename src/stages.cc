@@ -99,22 +99,25 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
    "  SELECT point_id INTO :point_id FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
    " EXCEPTION WHEN NO_DATA_FOUND THEN "\
    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
-   "   VALUES(:point_id,:stage_id,NVL(:act,:est),NULL,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)); "\
+   "   VALUES(:point_id,:stage_id,NVL(:act,:est),NULL,:act,:pr_auto,DECODE(:pr_manual,-1,0,:pr_manual)); "\
    "END; ";
    Qry.CreateVariable( "point_id", otInteger, point_id );
    Qry.DeclareVariable( "stage_id", otInteger );
    Qry.DeclareVariable( "est", otDate );
    Qry.DeclareVariable( "act", otDate );
+   Qry.CreateVariable( "pr_auto", otInteger, 0 );
    Qry.DeclareVariable( "pr_manual", otInteger );
 
    TQuery UpdQry( &OraSession );
    UpdQry.SQLText =
-    "UPDATE trip_stages SET est=:est,act=:act,pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
+    "UPDATE trip_stages SET est=:est,act=:act,pr_auto=DECODE(:pr_auto,-1,pr_auto,:pr_auto), "
+    "                       pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
     "  WHERE point_id=:point_id AND stage_id=:stage_id";
    UpdQry.CreateVariable( "point_id", otInteger, point_id );
    UpdQry.DeclareVariable( "stage_id", otInteger );
    UpdQry.DeclareVariable( "est", otDate );
    UpdQry.DeclareVariable( "act", otDate );
+   UpdQry.DeclareVariable( "pr_auto", otInteger );
    UpdQry.DeclareVariable( "pr_manual", otInteger );
 
    for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
@@ -139,7 +142,16 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      Qry.Execute( );
      tst();
      if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
-     	 exec_stage( point_id, (int)i->first );
+       try
+       {
+         exec_stage( point_id, (int)i->first );
+       }
+       catch( std::exception E ) {
+         ProgError( STDLOG, "Exception: %s", E.what() );
+       }
+       catch( ... ) {
+         ProgError( STDLOG, "Unknown error" );
+       };
      }
    	 UpdQry.SetVariable( "stage_id", (int)i->first );
      if ( i->second.est == NoExists )
@@ -150,6 +162,10 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        UpdQry.SetVariable( "act", FNull );
      else
        UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+     if ( i->second.old_act > NoExists && i->second.act == NoExists )
+     	UpdQry.SetVariable( "pr_auto", 0 );
+     else
+     	UpdQry.SetVariable( "pr_auto", -1 );       
      UpdQry.SetVariable( "pr_manual", pr_manual );
      UpdQry.Execute();
      tst();
@@ -364,25 +380,29 @@ void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
 {
   stagetimes.clear();
   TQuery Qry( &OraSession );
-  Qry.SQLText  = "SELECT craft, trip_type, time, "\
+  Qry.SQLText  = "SELECT airp, craft, trip_type, time, "\
+                 "       DECODE( airp, NULL, 0, 4 )+ "\
                  "       DECODE( craft, NULL, 0, 2 )+ "\
                  "       DECODE( trip_type, NULL, 0, 1 ) AS priority "\
                  " FROM graph_times "\
                  " WHERE stage_id=:stage "\
                  "UNION "\
-                 "SELECT NULL, NULL, time, -1 FROM graph_stages "\
+                 "SELECT NULL, NULL, NULL, time, -1 FROM graph_stages "\
                  "WHERE stage_id=:stage "\
-                 " ORDER BY priority, craft, trip_type ";
+                 " ORDER BY priority, airp, craft, trip_type ";
   Qry.CreateVariable( "stage", otInteger, stage );
   Qry.Execute();
   while ( !Qry.Eof ) {
     TStageTimes st;
+    st.airp = Qry.FieldAsString( "airp" );
     st.craft = Qry.FieldAsString( "craft" );
     st.trip_type = Qry.FieldAsString( "trip_type" );
     st.time = Qry.FieldAsInteger( "time" );
+    st.priority = Qry.FieldAsInteger( "priority" );
     stagetimes.push_back( st );
     Qry.Next();
   }
+  tst();
 }
 
 void exec_stage( int point_id, int stage_id )
@@ -425,7 +445,7 @@ void astra_timer( TDateTime utcdate )
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT trip_stages.point_id point_id , trip_stages.stage_id stage_id"\
+	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id"\
    " FROM points, trip_stages "\
    "WHERE points.point_id = trip_stages.point_id AND "\
    "      points.act_out IS NULL AND "\
