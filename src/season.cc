@@ -963,6 +963,7 @@ void CreateSPP( BASIC::TDateTime localdate )
    "BEGIN "\
    " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_tranz_reg) "\
    "  VALUES(:point_id,:f,:c,:y, NULL, 0, NULL);"\
+   " ckin.set_trip_sets(:point_id); "\
    " gtimer.puttrip_stages(:point_id);"\
    "END;";
   TQry.DeclareVariable( "point_id", otInteger );
