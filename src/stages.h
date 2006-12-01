@@ -14,7 +14,7 @@ enum TStage { sNoActive = 0, /*не активен*/
               sCloseCheckIn = 30, /*Закрытие регистрации*/
               sOpenBoarding = 40, /*Начало посадки*/
               sCloseBoarding = 50, /*Окончание посадки*/
-              sRegDoc = 60, /*Оформление документации*/
+//              sRegDoc = 60, /*Оформление документации*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 

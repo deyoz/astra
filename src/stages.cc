@@ -407,11 +407,8 @@ void exec_stage( int point_id, int stage_id )
            /*Начало посадки*/
            break;
     case sCloseBoarding:
-           /*Окончание посадки*/
+           /*Окончание посадки (оформление документации)*/
            CloseBoarding( point_id );
-           break;
-    case sRegDoc:
-           /*Оформление документации*/
            break;
     case sRemovalGangWay:
            /*Уборка трапа*/

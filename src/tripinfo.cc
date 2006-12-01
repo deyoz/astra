@@ -111,7 +111,7 @@ void TSQL::createSQLTrips( ) {
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sRegDoc ) );
+  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
   sqltrips[ "AIR.EXE" ] = p;
   p.clearVariables();
 
