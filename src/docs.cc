@@ -97,7 +97,8 @@ class TCities: public TBaseTable {
             "   code, "
             "   code_lat, "
             "   name, "
-            "   name_lat "
+            "   name_lat, "
+            "   country "
             "from "
             "   cities";
     };
@@ -727,7 +728,8 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "  amount,weight "
         "FROM v_bm "
 #ifdef SALEK
-        "WHERE trip_id=:point_id AND target=:target AND pr_vip=:pr_vip "
+        "WHERE trip_id=:point_id AND target=:target AND "
+        "   (:pr_vip = 2 or pr_vip=:pr_vip) "
         "ORDER BY pr_vip,lvl,tag_type,color_name,birk_range ";
     Qry.CreateVariable("pr_vip", otInteger, pr_vip);
 #else
@@ -1343,6 +1345,9 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     xmlNodePtr SegListNode = NewTextChild(resNode, "SegList");
 
+    TAirps airps;
+    TCities cities;
+
     for(int j = -1; j <= 1; j++) {
         if(j == 0) {
             curr_airp = own_airp;
@@ -1369,17 +1374,32 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 break;
             }
 
-            for(int pr_vip = 0; pr_vip <= 1; pr_vip++) {
+            for(int pr_vip = 0; pr_vip <= 2; pr_vip++) {
                 if(prev_airp.size()) {
                     xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
                     NewTextChild(SegNode, "status", "T");
                     NewTextChild(SegNode, "airp_dep_code", prev_airp);
                     NewTextChild(SegNode, "airp_arv_code", airp);
+
+                    string country = cities.get(airps.get(prev_airp, "city", 0), "country", 0);
+                    NewTextChild(SegNode, "airp_dep_country", country);
+                    country = cities.get(airps.get(airp, "city", 0), "country", 0);
+                    NewTextChild(SegNode, "airp_arv_country", country);
+
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", prev_airp + "-" + airp + " (транзит)");
                 }
@@ -1388,11 +1408,26 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "status", "N");
                     NewTextChild(SegNode, "airp_dep_code", curr_airp);
                     NewTextChild(SegNode, "airp_arv_code", airp);
+
+                    string country = cities.get(airps.get(curr_airp, "city", 0), "country", 0);
+                    NewTextChild(SegNode, "airp_dep_country", country);
+                    country = cities.get(airps.get(airp, "city", 0), "country", 0);
+                    NewTextChild(SegNode, "airp_arv_country", country);
+
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp);
                 }
