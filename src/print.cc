@@ -610,6 +610,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   pax.REG_NO, "
         "   pax.TICKET_NO, "
         "   pax.COUPON_NO, "
+        "   decode(pax.coupon_no, null, '', pax.ticket_no) eticket_no, "
         "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
         "   pax.DOCUMENT, "
         "   system.transliter(pax.DOCUMENT, 1) document_lat, "
