@@ -561,6 +561,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    LAST_TARGET ASC, ";
     SQLText +=
         "    CLASS ASC, "
+        "    grp_id, "
         "    REG_NO ASC ";
 
     Qry.SQLText = SQLText;
@@ -1377,7 +1378,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 break;
             }
 
-            for(int pr_vip = 0; pr_vip <= 1; pr_vip++) {
+            for(int pr_vip = 0; pr_vip <= 2; pr_vip++) {
                 if(prev_airp.size()) {
                     xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
                     NewTextChild(SegNode, "status", "T");
@@ -1385,9 +1386,18 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", prev_airp + "-" + airp + " (транзит)");
                 }
@@ -1398,9 +1408,18 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp);
                 }
