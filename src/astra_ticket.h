@@ -152,7 +152,7 @@ class OrigOfRequest : public BaseOrigOfRequest
 public:
     OrigOfRequest(const TReqInfo &req)
     : BaseOrigOfRequest(
-                        "Y1",
+                        "P2",
                         "ŒŽ‚",
                         "","",//ppr,agn
                         req.desk.city,
