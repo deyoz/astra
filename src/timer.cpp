@@ -76,33 +76,34 @@ void exec_tasks( void )
 	UQry.CreateVariable( "utcdate", otDate, utcdate );
 	UQry.DeclareVariable( "name", otString );
 	string name;
-	while ( !Qry.Eof ) {
-		try {
-			name = Qry.FieldAsString( "name" );
-	    if ( name == "astra_timer" )
-	    	astra_timer( utcdate );
+	while ( !Qry.Eof )
+	{
+	  try
+	  {
+	    name = Qry.FieldAsString( "name" );
+	    if ( name == "astra_timer" ) astra_timer( utcdate );
 	    else
-	    	if ( name == "createSPP" )
-	    		createSPP( utcdate );
+	      if ( name == "createSPP" ) createSPP( utcdate );
 	    	else
-	    		if ( name == "ETCheckStatusFlt" )
-	    			ETCheckStatusFlt();
-	    			
-			UQry.SetVariable( "name", name );
-			UQry.Execute();	 //???
-			OraSession.Commit();
-		}
-    catch( Exception E ) {
-    	try { OraSession.Rollback(); } catch(...){};
-      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
-    }
-    catch( ... ) {
-    	try { OraSession.Rollback(); } catch(...){};
-      ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
-    };
-		Qry.Next();
-	}
-}
+	    	  if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
+
+	    UQry.SetVariable( "name", name );
+	    UQry.Execute();	 //???
+	    OraSession.Commit();
+	  }
+          catch( Exception E )
+          {
+    	    try { OraSession.Rollback(); } catch(...) {};
+            ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
+          }
+          catch( ... )
+          {
+    	    try { OraSession.Rollback(); } catch(...) {};
+            ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
+          };
+	  Qry.Next();
+	};
+};
 
 void createSPP( TDateTime utcdate )
 {
@@ -128,9 +129,16 @@ void ETCheckStatusFlt(void)
     UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
     Qry.SQLText=
-      "SELECT points.point_id FROM points,trip_sets "
-      "WHERE points.point_id=trip_sets.point_id AND "
-      "      act_out IS NOT NULL AND pr_etstatus=0 ";
+     "SELECT p.point_id "
+     "FROM points, "
+     "  (SELECT points.point_id,point_num, "
+     "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
+     "   FROM points,trip_sets "
+     "   WHERE points.point_id=trip_sets.point_id AND points.pr_del=0 AND "
+     "         act_out IS NOT NULL AND pr_etstatus=0) p "
+     "WHERE points.first_point=p.first_point AND "
+     "      points.point_num>p.point_num AND points.pr_del=0 AND "
+     "      points.pr_tranzit=0 AND NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
