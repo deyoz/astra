@@ -531,8 +531,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    TARGET, "
         "    PR_TRFER, "
         "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, "
-        "    decode(points.airline, 'ž’', decode((select distinct rem_code from pax_rem where pax_id = v_pm_trfer.pax_id and rem_code = 'MCLS'), null, decode(v_pm_trfer.subclass, 'Œ', 'Œ', class), 'Œ'), class) class, "
-//        "    CLASS, "
+        "    report.get_pax_class(pax_id) class, "
         "    STATUS, "
         "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
         "    PERS_TYPE, "
@@ -547,13 +546,11 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    REG_NO, "
         "    GRP_ID "
         "FROM "
-        "    V_PM_TRFER, "
-        "    points "
+        "    V_PM_TRFER "
         "WHERE "
         "    TRIP_ID = :point_id AND "
         "    TARGET = :target AND "
-        "    STATUS = :status and "
-        "    v_pm_trfer.trip_id = points.point_id "
+        "    STATUS = :status "
         "ORDER BY ";
     if(name == "PMTrfer")
         SQLText +=
