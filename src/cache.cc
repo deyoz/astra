@@ -281,13 +281,14 @@ bool TCacheTable::refreshData()
         vars.erase( f );
       }
     }
-    /* задание переменной USER_ID */
-    f = find( vars.begin(), vars.end(), "USER_ID" );
+    /* задание переменной SYS_USER_ID */
+    f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
     if ( f != vars.end() ) {
-      Qry->DeclareVariable("user_id", otInteger);
-      Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
+      Qry->DeclareVariable("SYS_user_id", otInteger);
+      Qry->SetVariable( "SYS_user_id", TReqInfo::Instance()->user.user_id );
       vars.erase( f );
     }
+
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
     for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
     {
@@ -780,12 +781,12 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
 void TCacheTable::DeclareVariables(std::vector<string> &vars)
 {
 
-  /* задание переменной USER_ID */
+  /* задание переменной SYS_USER_ID */
   vector<string>::iterator f;
-  f = find( vars.begin(), vars.end(), "USER_ID" );
+  f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
   if ( f != vars.end() ) {
-    Qry->DeclareVariable("user_id", otInteger);
-    Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );
+    Qry->DeclareVariable("SYS_user_id", otInteger);
+    Qry->SetVariable( "SYS_user_id", TReqInfo::Instance()->user.user_id );
     vars.erase( f );
   }
 
@@ -848,15 +849,12 @@ void TCacheTable::getPerms( )
     throw Exception("wrong message format");
   string code = Params[TAG_CODE].Value;
   Qry->Clear();
-  string sql;
-  sql=
-    string("SELECT role_rights.right_id ")+
-    "FROM "+COMMON_ORAUSER()+".user_roles, "
-           +COMMON_ORAUSER()+".role_rights "
+  Qry->SQLText=
+    "SELECT role_rights.right_id "
+    "FROM user_roles,role_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      user_roles.user_id=:user_id AND role_rights.right_id=:right_id AND "
     "      rownum<2";
-  Qry->SQLText=sql;
   Qry->DeclareVariable("user_id",otInteger);
   Qry->DeclareVariable("right_id",otString);
   Qry->SetVariable( "user_id", TReqInfo::Instance()->user.user_id );

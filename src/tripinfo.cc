@@ -276,7 +276,8 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   sql+=
     "FROM " + p.sqlfrom;
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
@@ -284,15 +285,16 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     sql+=",aro_airps";
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode='è' ";
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
     for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==0320||*i==0330) break;
+      if (*i==320||*i==330) break;
     if (i==info.user.access.rights.end())
       sql+="AND points.act_out IS NULL ";
   };
@@ -315,8 +317,15 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
+  {
     Qry.CreateVariable( "desk", otString, info.desk.code );
+    if (info.screen.name == "BRDBUS.EXE")
+      Qry.CreateVariable( "work_mode", otString, "è");
+    else
+      Qry.CreateVariable( "work_mode", otString, "ê");
+  };
 
 };
 
@@ -380,7 +389,8 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
                                      :takeoff_stage_id) AS craft_stage "*/
   sql+=
     "FROM " + p.sqlfrom;
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
@@ -388,15 +398,16 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     sql+=",aro_airps";
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode='è' ";
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
     for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==0320||*i==0330) break;
+      if (*i==320||*i==330) break;
     if (i==info.user.access.rights.end())
       sql+="AND points.act_out IS NULL ";
   };
@@ -418,8 +429,15 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
+  {
     Qry.CreateVariable( "desk", otString, info.desk.code );
+    if (info.screen.name == "BRDBUS.EXE")
+      Qry.CreateVariable( "work_mode", otString, "è");
+    else
+      Qry.CreateVariable( "work_mode", otString, "ê");
+  };
 };
 
 /*******************************************************************************/
