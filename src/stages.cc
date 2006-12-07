@@ -34,9 +34,18 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
   Qry.Execute();
   while ( !Qry.Eof ) {
     TTripStage  tripStage;
-    tripStage.scd = Qry.FieldAsDateTime( "scd" );
-    tripStage.est = Qry.FieldAsDateTime( "est" );
-    tripStage.act = Qry.FieldAsDateTime( "act" );
+    if ( Qry.FieldIsNULL( "scd" ) )
+      tripStage.scd = NoExists;
+    else
+      tripStage.scd = Qry.FieldAsDateTime( "scd" );
+    if ( Qry.FieldIsNULL( "est" ) )
+      tripStage.est = NoExists;
+    else
+      tripStage.est = Qry.FieldAsDateTime( "est" );
+    if ( Qry.FieldIsNULL( "act" ) )
+      tripStage.act = NoExists;
+    else
+      tripStage.act = Qry.FieldAsDateTime( "act" );
     TStage stage = (TStage)Qry.FieldAsInteger( "stage_id" );
     ts.insert( make_pair( stage, tripStage ) );
     Qry.Next();
@@ -53,29 +62,29 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 		n = node->children;
 		x = GetNodeFast( "scd", n );
 		if ( x )
-			tripStage.scd = NodeAsDateTime( x );
+		  tripStage.scd = NodeAsDateTime( x );
 		else
-			tripStage.scd = NoExists;
+		  tripStage.scd = NoExists;
 		x = GetNodeFast( "est", n );
 		if ( x )
-			tripStage.est = NodeAsDateTime( x );
+		  tripStage.est = NodeAsDateTime( x );
 		else
-			tripStage.est = NoExists;
+		  tripStage.est = NoExists;
 		x = GetNodeFast( "act", n );
 		if ( x )
-			tripStage.act = NodeAsDateTime( x );
+		  tripStage.act = NodeAsDateTime( x );
 		else
-			tripStage.act = NoExists;
+		  tripStage.act = NoExists;
 		x = GetNodeFast( "old_est", n );
 		if ( x )
-			tripStage.old_est = NodeAsDateTime( x );
+		  tripStage.old_est = NodeAsDateTime( x );
 		else
-			tripStage.old_est = NoExists;
+		  tripStage.old_est = NoExists;
 		x = GetNodeFast( "old_act", n );
 		if ( x )
-			tripStage.old_act = NodeAsDateTime( x );
+		  tripStage.old_act = NodeAsDateTime( x );
 		else
-			tripStage.old_act = NoExists;
+		  tripStage.old_act = NoExists;
 		ts.insert( make_pair( (TStage)NodeAsIntegerFast( "stage_id", n ), tripStage ) );
 		node = node->next;
 	}
@@ -165,7 +174,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      if ( i->second.old_act > NoExists && i->second.act == NoExists )
      	UpdQry.SetVariable( "pr_auto", 0 );
      else
-     	UpdQry.SetVariable( "pr_auto", -1 );       
+     	UpdQry.SetVariable( "pr_auto", -1 );
      UpdQry.SetVariable( "pr_manual", pr_manual );
      UpdQry.Execute();
      tst();
@@ -202,10 +211,10 @@ TDateTime TTripStages::time( TStage stage )
   if ( tripstages.empty() )
     throw Exception( "tripstages is empty" );
   TTripStage tripStage = tripstages[ stage ];
-  if ( tripStage.act > 0 )
+  if ( tripStage.act > NoExists )
     return tripStage.act;
   else
-    if ( tripStage.est > 0 )
+    if ( tripStage.est > NoExists )
       return tripStage.est;
     else
       return tripStage.scd;
@@ -220,7 +229,7 @@ TStage TTripStages::getStage( TStage_Type stage_type )
   for ( TGraph_Level::iterator l=sr->GrphLvl.begin(); l!=sr->GrphLvl.end(); l++ ) {
     if ( p_level > 0 && p_level < l->level ) /* пока не перешли на след. ветку */
       continue;
-    if ( !tripstages[ l->stage ].act ) { /* надо отсечь все низшие вершины */
+    if ( tripstages[ l->stage ].act == NoExists ) { /* надо отсечь все низшие вершины */
       p_level = l->level;
       continue;
     }
@@ -409,8 +418,8 @@ void exec_stage( int point_id, int stage_id )
 {
   switch( (TStage)stage_id ) {
   	case sNoActive:
-  				  /*не активен*/
-  				  break;
+           /*не активен*/
+  	   break;
     case sPrepCheckIn:
            /*Подготовка к регистрации*/
            PrepCheckIn( point_id );
