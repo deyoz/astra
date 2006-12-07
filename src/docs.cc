@@ -537,7 +537,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    PERS_TYPE, "
         "    SEAT_NO, "
         "    SEATS, "
-        "    DOCUMENT, "
+        "    remarks, "
         "    RK_WEIGHT, "
         "    BAG_AMOUNT, "
         "    BAG_WEIGHT, "
@@ -601,7 +601,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
         NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         Qry.Next();
     }
