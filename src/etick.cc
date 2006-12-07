@@ -284,7 +284,8 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
       "      etickets.ticket_no=pax.ticket_no(+) AND "
       "      etickets.coupon_no=pax.coupon_no(+) AND "
       "      etickets.point_id=:point_id AND "
-      "      pax.ticket_no IS NULL ";
+      "      pax.ticket_no IS NULL AND "
+      "      etickets.coupon_status IS NOT NULL";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
