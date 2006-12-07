@@ -463,21 +463,26 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
   Qry.Execute();
-  string scd_out,real_out;
-  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
+  TDateTime scd_out,real_out,desk_time;
+  modf(reqInfo->desk.time,&desk_time);
   for(;!Qry.Eof;Qry.Next())
   {
     tripNode = NewTextChild( tripsNode, "trip" );
-    scd_out= DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),"dd");
-    real_out=DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),"dd");
+    modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),&scd_out);
+    modf(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),&real_out);
     ostringstream trip;
     trip << Qry.FieldAsString("airline")
          << Qry.FieldAsInteger("flt_no")
          << Qry.FieldAsString("suffix");
     if (desk_time!=real_out)
-      trip << "/" << real_out;
+    {
+      if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
+        trip << "/" << DateTimeToStr(real_out,"dd");
+      else
+        trip << "/" << DateTimeToStr(real_out,"dd.mm");
+    };
     if (scd_out!=real_out)
-      trip << "(" << scd_out << ")";
+      trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
     if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||
         reqInfo->screen.name=="TLG.EXE")
       trip << " " << Qry.FieldAsString("airp");
@@ -1154,18 +1159,24 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
 string GetTripName( TTripInfo &info )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  string scd_out,real_out;
-  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
-  scd_out= DateTimeToStr(UTCToClient(info.scd_out,info.tz_region),"dd");
-  real_out=DateTimeToStr(UTCToClient(info.real_out,info.tz_region),"dd");
+  TDateTime scd_out,real_out,desk_time;
+  modf(reqInfo->desk.time,&desk_time);
+  modf(UTCToClient(info.scd_out,info.tz_region),&scd_out);
+  modf(UTCToClient(info.real_out,info.tz_region),&real_out);
   ostringstream trip;
   trip << info.airline
        << info.flt_no
        << info.suffix;
+
   if (desk_time!=real_out)
-    trip << "/" << real_out;
+  {
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
+      trip << "/" << DateTimeToStr(real_out,"dd");
+    else
+      trip << "/" << DateTimeToStr(real_out,"dd.mm");
+  };
   if (scd_out!=real_out)
-    trip << "(" << scd_out << ")";
+    trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
   if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
     trip << " " << info.airp;
   return trip.str();
