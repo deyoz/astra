@@ -242,7 +242,11 @@ void sync_mvd(void)
       for(;!Qry.Eof;Qry.Next())
       {
         TDateTime time_local=UTCToLocal(Qry.FieldAsDateTime("time"),tz_region);
-        TDateTime takeoff_local=UTCToLocal(Qry.FieldAsDateTime("takeoff"),tz_region);
+        TDateTime takeoff_local;
+        if (!Qry.FieldIsNULL("term"))
+          takeoff_local=UTCToLocal(Qry.FieldAsDateTime("takeoff"),tz_region);
+        else
+          takeoff_local=Qry.FieldAsDateTime("takeoff");
 
         f << DateTimeToStr(time_local,"dd.mm.yyyy") << '|'
           << DateTimeToStr(time_local,"hh:nn") << '|'
