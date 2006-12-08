@@ -196,7 +196,7 @@ void sync_mvd(void)
     "       airp_arv, "
     "       bag_weight, "
     "       SUBSTR(pnr,1,12) AS pnr "
-    "FROM rozysk WHERE time>=:now-5 AND time<:now AND airp_dep=:airp ORDER BY time";
+    "FROM rozysk WHERE time>=:now-1 AND time<:now AND airp_dep=:airp ORDER BY time";
   Qry.CreateVariable("now",otDate,now);
   Qry.DeclareVariable("airp",otString);
 
@@ -205,7 +205,7 @@ void sync_mvd(void)
   UpdQry.SQLText=
     "BEGIN "
     "  UPDATE files SET last_create=:now WHERE name='‹Ž‚„' AND airp=:airp; "
-    "/*  DELETE FROM rozysk WHERE time<:now AND airp_dep=:airp;*/ "
+    "  DELETE FROM rozysk WHERE time<:now AND airp_dep=:airp; "
     "END;";
   UpdQry.CreateVariable("now",otDate,now);
   UpdQry.DeclareVariable("airp",otString);
