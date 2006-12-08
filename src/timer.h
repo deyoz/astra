@@ -8,7 +8,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 #endif
 #include "basic.h"
 void ETCheckStatusFlt(void);
-void sync_mvd(BASIC::TDateTime);
+void sync_mvd(void);
 void createSPP( BASIC::TDateTime utcdate );
 void exec_tasks( void );
 

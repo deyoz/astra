@@ -23,8 +23,6 @@ using namespace Ticketing;
 
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
-  TDateTime now;
-  int PrevMin=-1;
   try
   {
     OpenLogFile("log1");
@@ -86,6 +84,8 @@ void exec_tasks( void )
 	      if ( name == "createSPP" ) createSPP( utcdate );
 	    	else
 	    	  if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
+	    	    else
+	    	      if ( name == "sync_mvd" ) sync_mvd();
 
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();	 //???
@@ -124,7 +124,6 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
-    ProgTrace(TRACE5,"ETCheckStatusFlt intrance");
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
@@ -171,99 +170,118 @@ void ETCheckStatusFlt(void)
   };
 };
 
-#define ENDL "\r\n"
-
-void sync_mvd(TDateTime now)
+void sync_mvd(void)
 {
   int Hour,Min,Sec;
+  TDateTime now=NowUTC();
   DecodeTime(now,Hour,Min,Sec);
+  if (Min%15!=0) return;
 
   TQuery Qry(&OraSession);
-  Qry.Clear(); /*!!!*/
-  Qry.SQLText="SELECT files.dir,files.last_create,airps.lat AS airp_lat\
-               FROM files,options,airps\
-               WHERE airps.cod=options.cod AND files.name='ЛОВД' AND pr_denial=0";
-  Qry.Execute();
-  if (Qry.Eof) return;
-  if (!Qry.FieldIsNULL("last_create")&&
-      (now-Qry.FieldAsDateTime("last_create"))<1.0/1440) return;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT time, "
+    "       airline||LPAD(flt_no,GREATEST(3,LENGTH(flt_no)),'0')||suffix AS trip, "
+    "       takeoff, "
+    "       SUBSTR(term,1,6) AS term, "
+    "       seat_no, "
+    "       SUBSTR(surname,1,20) AS surname, "
+    "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name, "
+    "       SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic, "
+    "       SUBSTR(document,1,20) AS document, "
+    "       operation, "
+    "       tags, "
+    "       airline, "
+    "       airp_dep, "
+    "       airp_arv, "
+    "       bag_weight, "
+    "       SUBSTR(pnr,1,12) AS pnr "
+    "FROM rozysk WHERE time>=:now-5 AND time<:now AND airp_dep=:airp ORDER BY time";
+  Qry.CreateVariable("now",otDate,now);
+  Qry.DeclareVariable("airp",otString);
 
-  fstream f;
-  char file_name[64];
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText=
+    "BEGIN "
+    "  UPDATE files SET last_create=:now WHERE name='ЛОВД' AND airp=:airp; "
+    "/*  DELETE FROM rozysk WHERE time<:now AND airp_dep=:airp;*/ "
+    "END;";
+  UpdQry.CreateVariable("now",otDate,now);
+  UpdQry.DeclareVariable("airp",otString);
 
-  sprintf(file_name,"%s%02d%02d.%s",
-          Qry.FieldAsString("dir"),Hour,Min,Qry.FieldAsString("airp_lat"));
-  f.open( file_name , ios_base::out ); //открыть и залочить на чтение и запись !!!
-  if (!f.is_open()) throw Exception((string)"Can't open file '"+file_name+"'");
-  try
+
+  TQuery FilesQry(&OraSession);
+  FilesQry.Clear();
+  FilesQry.SQLText=
+    "SELECT files.dir,files.last_create,files.airp,airps.code_lat AS airp_lat, "
+    "       system.AirpTZRegion(files.airp) AS tz_region "
+    "FROM files,airps "
+    "WHERE airps.code=files.airp AND files.name='ЛОВД' AND pr_denial=0";
+  FilesQry.Execute();
+  for(;!FilesQry.Eof;FilesQry.Next())
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT TO_CHAR(time,'DD.MM.YYYY') AS op_date,\
-              TO_CHAR(time,'HH24:MI') AS op_time,\
-              airline||LPAD(flt_no,GREATEST(3,LENGTH(flt_no)),'0')||suffix AS trip,\
-              TO_CHAR(takeoff,'DD.MM.YYYY') AS takeoff_date,\
-              SUBSTR(term,1,6) AS term,\
-              seat_no,\
-              SUBSTR(surname,1,20) AS surname,\
-              SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',1,INSTR(name||' ',' ')))),1,20) AS name,\
-              SUBSTR(LTRIM(RTRIM(SUBSTR(name||' ',INSTR(name||' ',' ')+1))),1,20) AS patronymic,\
-              SUBSTR(document,1,20) AS document,\
-              operation,\
-              tags,\
-              airline,\
-              airp_dep,\
-              airp_arv,\
-              bag_weight,\
-              TO_CHAR(takeoff,'HH24:MI') AS takeoff_time,\
-              SUBSTR(pnr,1,12) AS pnr\
-       FROM rozysk WHERE time>=:now-1 AND time<:now ORDER BY time";
-    Qry.CreateVariable("now",otDate,now);
-    Qry.Execute();
-    while(!Qry.Eof)
-    {
-      f << Qry.FieldAsString("op_date") << '|'
-        << Qry.FieldAsString("op_time") << '|'
-        << Qry.FieldAsString("trip") << '|'
-        << Qry.FieldAsString("takeoff_date") << '|'
-        << Qry.FieldAsString("term") << '|'
-        << Qry.FieldAsString("seat_no") << '|'
-        << Qry.FieldAsString("surname") << '|'
-        << Qry.FieldAsString("name") << '|'
-        << Qry.FieldAsString("patronymic") << '|'
-        << Qry.FieldAsString("document") << '|'
-        << Qry.FieldAsString("operation") << '|'
-        << Qry.FieldAsString("tags") << '|'
-        << Qry.FieldAsString("airline") << '|' << '|'
-        << Qry.FieldAsString("airp_dep") << '|'
-        << Qry.FieldAsString("airp_arv") << '|'
-        << Qry.FieldAsString("bag_weight") << '|' << '|'
-        << Qry.FieldAsString("takeoff_time") << '|'
-        << Qry.FieldAsString("pnr") << '|' << ENDL;
-      Qry.Next();
-    };
-    f.close();
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN\
-         UPDATE files SET last_create=:now WHERE name='ЛОВД';\
-         DELETE FROM rozysk WHERE time<:now;\
-       END;";
-    Qry.CreateVariable("now",otDate,now);
-    Qry.Execute();
-    Qry.Close();
-    OraSession.Commit();
-  }
-  catch(...)
-  {
-    try { OraSession.Rollback( ); } catch( ... ) { };
-    try { f.close(); } catch( ... ) { };
+    if (!FilesQry.FieldIsNULL("last_create")&&
+       (now-FilesQry.FieldAsDateTime("last_create"))<1.0/1440) continue;
+
+    const char *tz_region=FilesQry.FieldAsString("tz_region");
+    const char *airp=FilesQry.FieldAsString("airp");
+
+    TDateTime local=UTCToLocal(now,tz_region);
+    DecodeTime(local,Hour,Min,Sec);
+    fstream f;
+    char file_name[64];
+    sprintf(file_name,"%s%02d%02d.%s",
+            FilesQry.FieldAsString("dir"),Hour,Min,FilesQry.FieldAsString("airp_lat"));
+    f.open( file_name , ios_base::out ); //открыть и залочить на чтение и запись !!!
+    if (!f.is_open()) throw Exception((string)"Can't open file '"+file_name+"'");
     try
     {
-      f.open( file_name , ios_base::out );
+      Qry.SetVariable("airp",airp);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        TDateTime time_local=UTCToLocal(Qry.FieldAsDateTime("time"),tz_region);
+        TDateTime takeoff_local=UTCToLocal(Qry.FieldAsDateTime("takeoff"),tz_region);
+
+        f << DateTimeToStr(time_local,"dd.mm.yyyy") << '|'
+          << DateTimeToStr(time_local,"hh:nn") << '|'
+          << Qry.FieldAsString("trip") << '|'
+          << DateTimeToStr(takeoff_local,"dd.mm.yyyy") << '|'
+          << Qry.FieldAsString("term") << '|'
+          << Qry.FieldAsString("seat_no") << '|'
+          << Qry.FieldAsString("surname") << '|'
+          << Qry.FieldAsString("name") << '|'
+          << Qry.FieldAsString("patronymic") << '|'
+          << Qry.FieldAsString("document") << '|'
+          << Qry.FieldAsString("operation") << '|'
+          << Qry.FieldAsString("tags") << '|'
+          << Qry.FieldAsString("airline") << '|' << '|'
+          << Qry.FieldAsString("airp_dep") << '|'
+          << Qry.FieldAsString("airp_arv") << '|'
+          << Qry.FieldAsString("bag_weight") << '|' << '|'
+          << DateTimeToStr(takeoff_local,"hh:nn") << '|'
+          << Qry.FieldAsString("pnr") << '|' << endl;
+      };
       f.close();
+      UpdQry.SetVariable("airp",airp);
+      UpdQry.Execute();
+      OraSession.Commit();
     }
-    catch( ... ) { };
-    throw;
+    catch(...)
+    {
+      try { OraSession.Rollback( ); } catch( ... ) { };
+      try { f.close(); } catch( ... ) { };
+      try
+      {
+        f.open( file_name , ios_base::out );
+        f.close();
+      }
+      catch( ... ) { };
+      throw;
+    };
+
+
   };
+
 };
