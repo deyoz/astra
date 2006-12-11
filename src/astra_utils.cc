@@ -152,8 +152,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Clear();
   Qry.SQLText =
     "SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region "
-    "FROM desks,sale_points "
-    "WHERE desks.code = UPPER(:pult) AND desks.point = sale_points.code ";
+    "FROM desks,desk_grp "
+    "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
   Qry.Execute();
