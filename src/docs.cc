@@ -888,20 +888,29 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
 
     Qry.Clear();
-    Qry.SQLText =
+    SQLText =
         "SELECT NVL(SUM(amount),0) AS amount, "
         "       NVL(SUM(weight),0) AS weight "
-        "FROM pax_grp,bag2,halls2 "
-        "WHERE pax_grp.grp_id=bag2.grp_id AND "
-        "      pax_grp.hall=halls2.id AND "
-        "      halls2.pr_vip=:pr_vip AND "
+        "FROM pax_grp,bag2 ";
+    if(pr_vip != 2)
+    SQLText +=
+        "   ,halls2 ";
+    SQLText +=
+        "WHERE pax_grp.grp_id=bag2.grp_id AND ";
+    if(pr_vip != 2) {
+        SQLText +=
+            "      pax_grp.hall=halls2.id AND "
+            "      halls2.pr_vip=:pr_vip AND ";
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    SQLText +=
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.airp_arv=:target AND "
         "      pax_grp.pr_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.Execute();
     if(Qry.RowCount() > 0) {
         TotAmount += Qry.FieldAsInteger("amount");
@@ -1082,20 +1091,29 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
 
     Qry.Clear();
-    Qry.SQLText =
+    SQLText =
         "SELECT NVL(SUM(amount),0) AS amount, "
         "       NVL(SUM(weight),0) AS weight "
-        "FROM pax_grp,bag2,halls2 "
-        "WHERE pax_grp.grp_id=bag2.grp_id AND "
-        "      pax_grp.hall=halls2.id AND "
-        "      halls2.pr_vip=:pr_vip AND "
+        "FROM pax_grp,bag2 ";
+    if(pr_vip != 2)
+    SQLText +=
+        "   ,halls2 ";
+    SQLText +=
+        "WHERE pax_grp.grp_id=bag2.grp_id AND ";
+    if(pr_vip != 2) {
+        SQLText +=
+            "      pax_grp.hall=halls2.id AND "
+            "      halls2.pr_vip=:pr_vip AND ";
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    SQLText +=
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.airp_arv=:target AND "
         "      pax_grp.pr_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.Execute();
     if(Qry.RowCount() > 0) {
         TotAmount += Qry.FieldAsInteger("amount");
