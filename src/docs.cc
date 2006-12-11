@@ -924,9 +924,12 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT "
-        "   pr_vip, "
+    string SQLText =
+        "SELECT ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    pr_vip, ";
+    SQLText +=
         "   pr_trfer, "
         "   DECODE(:pr_lat,0,last_target,last_target_lat) AS last_target, "
         "   class, "
@@ -939,10 +942,24 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   DECODE(0,0,class_name,class_name_lat) AS class_name, "
         "   amount, "
         "   weight "
-        "FROM v_bm_trfer "
-        "WHERE trip_id=:point_id AND target=:target AND pr_vip=:pr_vip "
-        "ORDER BY "
-        "   pr_vip, "
+        "FROM ";
+    if(pr_vip == 2)
+        SQLText +=
+            "    v_bm_trfer_total  ";
+    else
+        SQLText +=
+            "    v_bm_trfer  ";
+    SQLText +=
+        "WHERE trip_id=:point_id AND target=:target ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    and pr_vip = :pr_vip ";
+    SQLText +=
+        "ORDER BY ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    pr_vip, ";
+    SQLText +=
         "   pr_trfer, "
         "   last_target, "
         "   class, "
@@ -950,9 +967,11 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   tag_type, "
         "   color_name, "
         "   birk_range ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    if(pr_vip != 2)
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -970,7 +989,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         }
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-        NewTextChild(rowNode, "pr_vip", Qry.FieldAsString("pr_vip"));
+        NewTextChild(rowNode, "pr_vip", pr_vip);
         NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
         NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
