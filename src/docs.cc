@@ -324,30 +324,44 @@ int GetRPEncoding(string target)
     return cities.get(airps.get(target, "city", 0), "country", 0) != "”";
 }
 
-void RunCRS(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    string SQLText = 
         "select  "
-        "    point_id, "
-        "    pnr_ref, "
-        "    decode(:pr_lat, 0, family, family_lat) family, "
-        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
-        "    decode(:pr_lat, 0, class, class_lat) class, "
-        "    seat_no, "
-        "    decode(:pr_lat, 0, target, target_lat) target, "
-        "    last_target, "
-        "    ticket_no, "
-        "    document, "
-        "    remarks "
-        "from "
-        "    v_crs "
-        "where "
-        "    point_id = :point_id "
-        "order by "
-        "    family ";
+        "    v_crs.point_id, "
+        "    v_crs.pnr_ref, "
+        "    decode(:pr_lat, 0, v_crs.family, v_crs.family_lat) family, "
+        "    decode(:pr_lat, 0, v_crs.pers_type, v_crs.pers_type_lat) pers_type, "
+        "    decode(:pr_lat, 0, v_crs.class, v_crs.class_lat) class, "
+        "    v_crs.seat_no, "
+        "    decode(:pr_lat, 0, v_crs.target, v_crs.target_lat) target, "
+        "    v_crs.last_target, "
+        "    v_crs.ticket_no, "
+        "    v_crs.document, "
+        "    v_crs.remarks ";
+    if(name == "crs")
+        SQLText +=
+            "from "
+            "    v_crs "
+            "where "
+            "    v_crs.point_id = :point_id "
+            "order by "
+            "    v_crs.family ";
+    else
+        SQLText +=
+            "from "
+            "    v_crs, "
+            "    pax "
+            "where "
+            "    v_crs.point_id = :point_id and "
+            "    v_crs.pax_id = pax.pax_id(+) and "
+            "    pax.pax_id is null "
+            "order by "
+            "    v_crs.family ";
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
@@ -1216,7 +1230,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
-    else if(name == "crs") RunCRS(reqNode, formDataNode);
+    else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
