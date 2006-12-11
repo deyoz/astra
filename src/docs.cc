@@ -324,44 +324,30 @@ int GetRPEncoding(string target)
     return cities.get(airps.get(target, "city", 0), "country", 0) != "РФ";
 }
 
-void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
+void RunCRS(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);        
-    string SQLText = 
+    Qry.SQLText = 
         "select  "
-        "    v_crs.point_id, "
-        "    v_crs.pnr_ref, "
-        "    decode(:pr_lat, 0, v_crs.family, v_crs.family_lat) family, "
-        "    decode(:pr_lat, 0, v_crs.pers_type, v_crs.pers_type_lat) pers_type, "
-        "    decode(:pr_lat, 0, v_crs.class, v_crs.class_lat) class, "
-        "    v_crs.seat_no, "
-        "    decode(:pr_lat, 0, v_crs.target, v_crs.target_lat) target, "
-        "    v_crs.last_target, "
-        "    v_crs.ticket_no, "
-        "    v_crs.document, "
-        "    v_crs.remarks ";
-    if(name == "crs")
-        SQLText +=
-            "from "
-            "    v_crs "
-            "where "
-            "    v_crs.point_id = :point_id "
-            "order by "
-            "    v_crs.family ";
-    else
-        SQLText +=
-            "from "
-            "    v_crs, "
-            "    pax "
-            "where "
-            "    v_crs.point_id = :point_id and "
-            "    v_crs.pax_id = pax.pax_id(+) and "
-            "    pax.pax_id is null "
-            "order by "
-            "    v_crs.family ";
-    Qry.SQLText = SQLText;
+        "    point_id, "
+        "    pnr_ref, "
+        "    decode(:pr_lat, 0, family, family_lat) family, "
+        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
+        "    decode(:pr_lat, 0, class, class_lat) class, "
+        "    seat_no, "
+        "    decode(:pr_lat, 0, target, target_lat) target, "
+        "    last_target, "
+        "    ticket_no, "
+        "    document, "
+        "    remarks "
+        "from "
+        "    v_crs "
+        "where "
+        "    point_id = :point_id "
+        "order by "
+        "    family ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
@@ -545,13 +531,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    TARGET, "
         "    PR_TRFER, "
         "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, "
-        "    report.get_pax_class(pax_id) class, "
+        "    decode(points.airline, 'ЮТ', decode((select distinct rem_code from pax_rem where pax_id = v_pm_trfer.pax_id and rem_code = 'MCLS'), null, decode(v_pm_trfer.subclass, 'М', 'М', class), 'М'), class) class, "
+//        "    CLASS, "
         "    STATUS, "
         "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
         "    PERS_TYPE, "
         "    SEAT_NO, "
         "    SEATS, "
-        "    remarks, "
+        "    DOCUMENT, "
         "    RK_WEIGHT, "
         "    BAG_AMOUNT, "
         "    BAG_WEIGHT, "
@@ -560,11 +547,13 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    REG_NO, "
         "    GRP_ID "
         "FROM "
-        "    V_PM_TRFER "
+        "    V_PM_TRFER, "
+        "    points "
         "WHERE "
         "    TRIP_ID = :point_id AND "
         "    TARGET = :target AND "
-        "    STATUS = :status "
+        "    STATUS = :status and "
+        "    v_pm_trfer.trip_id = points.point_id "
         "ORDER BY ";
     if(name == "PMTrfer")
         SQLText +=
@@ -615,7 +604,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
         NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         Qry.Next();
     }
@@ -736,27 +725,54 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT "
-        "  lvl, "
-        "  birk_range, "
+
+    string SQLText =
+        "select  "
+        "    trip_id, "
+        "    target, ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    pr_vip, ";
+    SQLText +=
+        "    amount, "
+        "    weight, "
+        "    class, "
+        "    lvl, "
+        "    tag_type, "
         "  DECODE(:pr_lat,0,color_name,color_name_lat) AS color, "
-        "  num,NULL, "
-        "  pr_vip, "
-        "  class, "
-        "  amount,weight "
-        "FROM v_bm "
-#ifdef SALEK
-        "WHERE trip_id=:point_id AND target=:target AND pr_vip=:pr_vip "
-        "ORDER BY pr_vip,lvl,tag_type,color_name,birk_range ";
-    Qry.CreateVariable("pr_vip", otInteger, pr_vip);
-#else
-        "WHERE trip_id=:point_id AND target=:target "
-        "ORDER BY lvl,tag_type,color_name,birk_range ";
-#endif
+        "    birk_range, "
+        "    num "
+        "from ";
+    if(pr_vip == 2)
+        SQLText +=
+            "    v_bm_total  ";
+    else
+        SQLText +=
+            "    v_bm  ";
+    SQLText +=
+        "where "
+        "    trip_id = :point_id and "
+        "    target = :target ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    and pr_vip = :pr_vip ";
+    SQLText +=
+        "order by ";
+    if(pr_vip != 2)
+        SQLText +=
+            "    pr_vip, ";
+    SQLText +=
+        "    lvl, "
+        "    tag_type, "
+        "    color_name ";
+
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+    if(pr_vip != 2)
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
@@ -776,7 +792,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "birk_range", Qry.FieldAsString("birk_range"));
         NewTextChild(rowNode, "color", Qry.FieldAsString("color"));
         NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
-        NewTextChild(rowNode, "pr_vip", Qry.FieldAsInteger("pr_vip"));
+        NewTextChild(rowNode, "pr_vip", pr_vip);
         NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
         NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
         NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
@@ -1230,7 +1246,7 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
-    else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
+    else if(name == "crs") RunCRS(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
@@ -1389,7 +1405,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 break;
             }
 
-            for(int pr_vip = 0; pr_vip <= 1; pr_vip++) {
+            for(int pr_vip = 0; pr_vip <= 2; pr_vip++) {
                 if(prev_airp.size()) {
                     xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
                     NewTextChild(SegNode, "status", "T");
@@ -1397,9 +1413,18 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", prev_airp + "-" + airp + " (транзит)");
                 }
@@ -1410,9 +1435,18 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM")
-                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + (pr_vip ? " (VIP)" : " (не VIP)"));
-                    else
+                    if(rpType == "BM" || rpType == "TBM") {
+                        string hall;
+                        switch(pr_vip) {
+                            case 0:
+                                hall = " (не VIP)";
+                                break;
+                            case 1:
+                                hall = " (VIP)";
+                                break;
+                        }
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + hall);
+                    } else
 #endif
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp);
                 }
