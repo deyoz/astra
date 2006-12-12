@@ -132,15 +132,7 @@ class TClasses: public TBaseTable {
             "   name, "
             "   name_lat "
             "from "
-            "   classes "
-            "union "
-            "select "
-            "   'å', "
-            "   'M', "
-            "   'äéåîéêí', "
-            "   'COMFORT' "
-            "from "
-            "   dual";
+            "   classes ";
     };
 };
 
@@ -542,10 +534,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string SQLText =
         "SELECT  "
         "    TRIP_ID, "
-        "    TARGET, "
+        "    TARGET, ";
+    if(name == "PMTrfer")
+        SQLText +=
         "    PR_TRFER, "
-        "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, "
-        "    report.get_pax_class(pax_id) class, "
+        "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, ";
+    SQLText +=
+        "    class, "
+        "    DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
         "    STATUS, "
         "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
         "    PERS_TYPE, "
@@ -559,8 +555,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    decode(:pr_lat, 0, tags, tags_lat) tags, "
         "    REG_NO, "
         "    GRP_ID "
-        "FROM "
-        "    V_PM_TRFER "
+        "FROM ";
+    if(name == "PMTrfer")
+        SQLText +=
+            "    V_PM_TRFER ";
+    else
+        SQLText +=
+            "    V_PM ";
+    SQLText +=
         "WHERE "
         "    TRIP_ID = :point_id AND "
         "    TARGET = :target AND "
@@ -586,16 +588,23 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
-    TClasses classes;
     while(!Qry.Eof) {
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
         NewTextChild(rowNode, "full_name", Qry.FieldAsString("full_name"));
-        NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
+        string last_target;
+        int pr_trfer = 0;
+        if(name == "PMTrfer") {
+            last_target = Qry.FieldAsString("last_target");
+            pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        }
+        NewTextChild(rowNode, "last_target", last_target);
+        NewTextChild(rowNode, "pr_trfer", pr_trfer);
+
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
-        NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
         NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
@@ -616,7 +625,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
-        NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         Qry.Next();
     }
 
@@ -630,6 +638,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    PR_TRFER, "
             "    STATUS, "
             "    CLASS, "
+            "    DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
             "    LVL, "
             "    SEATS, "
             "    ADL, "
@@ -651,6 +660,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.CreateVariable("target", otString, target);
         Qry.CreateVariable("status", otString, status);
+        Qry.CreateVariable("pr_lat", otInteger, pr_lat);
         Qry.Execute();
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
         while(!Qry.Eof) {
@@ -661,7 +671,55 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             NewTextChild(rowNode, "target", Qry.FieldAsString("TARGET"));
             NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
             NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
-            NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
+            NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
+            NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
+            NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
+            NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
+            NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
+            NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
+            NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
+            NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
+            NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
+            NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
+
+            Qry.Next();
+        }
+    } else {
+        Qry.Clear();
+        Qry.SQLText =
+            "SELECT  "
+            "    POINT_ID, "
+            "    STATUS, "
+            "    CLASS, "
+            "    DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
+            "    LVL, "
+            "    SEATS, "
+            "    ADL, "
+            "    CHD, "
+            "    INF, "
+            "    RK_WEIGHT, "
+            "    BAG_AMOUNT, "
+            "    BAG_WEIGHT, "
+            "    EXCESS "
+            "FROM "
+            "    V_PM_TOTAL "
+            "WHERE "
+            "    POINT_ID = :point_id AND "
+            "    STATUS = :status "
+            "ORDER BY "
+            "    LVL ";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.CreateVariable("status", otString, status);
+        Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+        Qry.Execute();
+        dataSetNode = NewTextChild(dataSetsNode, "v_pm_total");
+        while(!Qry.Eof) {
+            string cls = Qry.FieldAsString("class");
+            xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+            NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
+            NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
             NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
             NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
             NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
@@ -748,9 +806,10 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    amount, "
         "    weight, "
         "    class, "
+        "    DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
         "    lvl, "
         "    tag_type, "
-        "  DECODE(:pr_lat,0,color_name,color_name_lat) AS color, "
+        "    DECODE(:pr_lat,0,color_name,color_name_lat) AS color, "
         "    birk_range, "
         "    num "
         "from ";
@@ -787,7 +846,6 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
-    TClasses classes;
     string lvl;
     while(!Qry.Eof) {
         string cls = Qry.FieldAsString("class");
@@ -804,8 +862,8 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "color", Qry.FieldAsString("color"));
         NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
         NewTextChild(rowNode, "pr_vip", pr_vip);
-        NewTextChild(rowNode, "class", classes.get(cls, "code", pr_lat));
-        NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
         NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
         NewTextChild(rowNode, "weight", weight);
         Qry.Next();
@@ -942,13 +1000,14 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   pr_trfer, "
         "   DECODE(:pr_lat,0,last_target,last_target_lat) AS last_target, "
         "   class, "
+        "   DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
         "   lvl, "
         "   tag_type, "
         "   DECODE(:pr_lat,0,color_name,color_name_lat) AS color, "
         "   birk_range, "
         "   num, "
         "   NULL null_val, "
-        "   DECODE(0,0,class_name,class_name_lat) AS class_name, "
+        "   DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
         "   amount, "
         "   weight "
         "FROM ";
@@ -986,7 +1045,6 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm_trfer");
     string last_target, lvl;
-    TClasses classes;
     while(!Qry.Eof) {
         string tmp_last_target = Qry.FieldAsString("last_target");
         string tmp_lvl = Qry.FieldAsString("lvl");
@@ -1008,7 +1066,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "birk_range", Qry.FieldAsString("birk_range"));
         NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
         NewTextChild(rowNode, "null_val", Qry.FieldAsString("null_val"));
-        NewTextChild(rowNode, "class_name", classes.get(cls, "name", pr_lat));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
         NewTextChild(rowNode, "amount", Qry.FieldAsInteger("amount"));
         NewTextChild(rowNode, "weight", weight);
         Qry.Next();
