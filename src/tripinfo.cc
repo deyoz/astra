@@ -276,7 +276,8 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   sql+=
     "FROM " + p.sqlfrom;
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
@@ -284,15 +285,16 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     sql+=",aro_airps";
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode='è' ";
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
     for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==0320||*i==0330) break;
+      if (*i==320||*i==330) break;
     if (i==info.user.access.rights.end())
       sql+="AND points.act_out IS NULL ";
   };
@@ -315,8 +317,15 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
+  {
     Qry.CreateVariable( "desk", otString, info.desk.code );
+    if (info.screen.name == "BRDBUS.EXE")
+      Qry.CreateVariable( "work_mode", otString, "è");
+    else
+      Qry.CreateVariable( "work_mode", otString, "ê");
+  };
 
 };
 
@@ -380,7 +389,8 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
                                      :takeoff_stage_id) AS craft_stage "*/
   sql+=
     "FROM " + p.sqlfrom;
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+=",trip_stations";
   if (!info.user.access.airlines.empty())
     sql+=",aro_airlines";
@@ -388,15 +398,16 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     sql+=",aro_airps";
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
 
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
     sql+="AND points.point_id=trip_stations.point_id "
-         "AND trip_stations.desk= :desk AND trip_stations.work_mode='è' ";
+         "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
     for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==0320||*i==0330) break;
+      if (*i==320||*i==330) break;
     if (i==info.user.access.rights.end())
       sql+="AND points.act_out IS NULL ";
   };
@@ -418,8 +429,15 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
-  if ( info.screen.name == "BRDBUS.EXE" && info.user.user_type==utAirport)
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport)
+  {
     Qry.CreateVariable( "desk", otString, info.desk.code );
+    if (info.screen.name == "BRDBUS.EXE")
+      Qry.CreateVariable( "work_mode", otString, "è");
+    else
+      Qry.CreateVariable( "work_mode", otString, "ê");
+  };
 };
 
 /*******************************************************************************/
@@ -445,21 +463,26 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
   Qry.Execute();
-  string scd_out,real_out;
-  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
+  TDateTime scd_out,real_out,desk_time;
+  modf(reqInfo->desk.time,&desk_time);
   for(;!Qry.Eof;Qry.Next())
   {
     tripNode = NewTextChild( tripsNode, "trip" );
-    scd_out= DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),"dd");
-    real_out=DateTimeToStr(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),"dd");
+    modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),&scd_out);
+    modf(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),&real_out);
     ostringstream trip;
     trip << Qry.FieldAsString("airline")
          << Qry.FieldAsInteger("flt_no")
          << Qry.FieldAsString("suffix");
     if (desk_time!=real_out)
-      trip << "/" << real_out;
+    {
+      if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
+        trip << "/" << DateTimeToStr(real_out,"dd");
+      else
+        trip << "/" << DateTimeToStr(real_out,"dd.mm");
+    };
     if (scd_out!=real_out)
-      trip << "(" << scd_out << ")";
+      trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
     if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||
         reqInfo->screen.name=="TLG.EXE")
       trip << " " << Qry.FieldAsString("airp");
@@ -1112,13 +1135,13 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
     NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
     if ( Qry.FieldAsInteger( "seats" ) > 1 )
-      NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ) );
+      NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ) );    
     NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
     NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ) );
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     RQry.Execute();
     string rem, rem_code, rcode, ticket;
-    xmlNodePtr stcrNode = NULL;
+    xmlNodePtr stcrNode = NULL;    
     while ( !RQry.Eof ) {
       rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
       rem_code = RQry.FieldAsString( "rem_code" );
@@ -1137,7 +1160,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "rem", rem );
     NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     NewTextChild( itemNode, "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
-    NewTextChild( itemNode, "tid", Qry.FieldAsInteger( "tid" ) );
+    NewTextChild( itemNode, "tid", Qry.FieldAsInteger( "tid" ) );    
     Qry.Next();
   }
 }
@@ -1145,18 +1168,24 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
 string GetTripName( TTripInfo &info )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  string scd_out,real_out;
-  string desk_time=DateTimeToStr(reqInfo->desk.time,"dd");
-  scd_out= DateTimeToStr(UTCToClient(info.scd_out,info.tz_region),"dd");
-  real_out=DateTimeToStr(UTCToClient(info.real_out,info.tz_region),"dd");
+  TDateTime scd_out,real_out,desk_time;
+  modf(reqInfo->desk.time,&desk_time);
+  modf(UTCToClient(info.scd_out,info.tz_region),&scd_out);
+  modf(UTCToClient(info.real_out,info.tz_region),&real_out);
   ostringstream trip;
   trip << info.airline
        << info.flt_no
        << info.suffix;
+
   if (desk_time!=real_out)
-    trip << "/" << real_out;
+  {
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
+      trip << "/" << DateTimeToStr(real_out,"dd");
+    else
+      trip << "/" << DateTimeToStr(real_out,"dd.mm");
+  };
   if (scd_out!=real_out)
-    trip << "(" << scd_out << ")";
+    trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
   if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
     trip << " " << info.airp;
   return trip.str();
