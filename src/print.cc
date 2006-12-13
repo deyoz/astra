@@ -1337,6 +1337,62 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
 }
 
+void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+    string table;
+
+    switch(doc) {
+        case dtBP:
+            table = "bp_forms ";
+            break;
+        case dtBT:
+            table = "bt_forms ";
+            break;
+        case dtReceipt:
+        case dtFltDoc:
+        case dtArchive:
+        case dtDisp:
+        case dtTlg:
+            throw UserException((string)"DocType " + EncodeDocType(doc) + " not available now");
+        default:
+            throw Exception("Unknown DocType " + IntToString(doc));
+    }
+
+    TQuery Qry(&OraSession);        
+    string SQLText =
+        "select "
+        "   prn_types.code, "
+        "   prn_types.name, "
+        "   prn_types.iface, "
+        "   prn_formats.id format_id, "
+        "   prn_formats.code format "
+        "from "
+        "   prn_types, "
+        "   prn_formats "
+        "where "
+        "   prn_types.code in ( "
+        "       select distinct prn_type from " + table +
+        "   ) and "
+        "   prn_types.format = prn_formats.id(+) "
+        "order by "
+        "   prn_types.name ";
+    Qry.SQLText = SQLText;
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("Принтеры не найдены");
+    xmlNodePtr printersNode = NewTextChild(resNode, "printers");
+    while(!Qry.Eof) {
+        xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
+        NewTextChild(printerNode, "code", Qry.FieldAsInteger("code"));
+        NewTextChild(printerNode, "name", Qry.FieldAsString("name"));
+        NewTextChild(printerNode, "iface", Qry.FieldAsString("iface"));
+        NewTextChild(printerNode, "format_id", Qry.FieldAsInteger("format_id"));
+        NewTextChild(printerNode, "format", Qry.FieldAsString("format"));
+        Qry.Next();
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 
