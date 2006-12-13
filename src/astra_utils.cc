@@ -302,6 +302,21 @@ string EncodeEventType(const TEventType ev_type )
   return s;
 }
 
+TDocType DecodeDocType(char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(TDocTypeS);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
+  if (i<sizeof(TDocTypeS))
+    return (TDocType)i;
+  else
+    return dtUnknown;
+};
+
+char* EncodeDocType(TDocType doc)
+{
+  return (char*)TDocTypeS[doc];
+};
+
 TClass DecodeClass(char* s)
 {
   unsigned int i;

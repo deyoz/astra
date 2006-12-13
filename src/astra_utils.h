@@ -118,6 +118,8 @@ class TReqInfo
     }
 };
 
+ASTRA::TDocType DecodeDocType(char* s);
+char* EncodeDocType(ASTRA::TDocType doc);
 ASTRA::TClass DecodeClass(char* s);
 char* EncodeClass(ASTRA::TClass cl);
 ASTRA::TPerson DecodePerson(char* s);
