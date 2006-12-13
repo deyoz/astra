@@ -16,6 +16,9 @@ enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
 
 extern const char* EventTypeS[evtTypeNum];
 
+typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;
+extern const char* TDocTypeS[8];
+
 typedef enum {F,C,Y,NoClass} TClass;
 extern const char* TClassS[4];
 

@@ -3,6 +3,8 @@
 namespace ASTRA
 {
 
+const char * TDocTypeS[] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
+
 const char * EventTypeS[ evtTypeNum ] =
     {"‘…‡","„ˆ‘","…‰","ƒ”","€‘","‹","ŠŒ","’‹ƒ","„‘’","‘ˆ‘","Š„","„","!","?"};
 
