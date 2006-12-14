@@ -1221,12 +1221,30 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
     if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     int pax_id = Qry.FieldAsInteger(0);
     Qry.SQLText =
-      "SELECT no, color, tag_type FROM bag_tags, tag_types "
-      "WHERE bag_tags.tag_type=tag_types.code AND grp_id = :grp_id AND "
-      "      pr_print = 0 AND printable <> 0"
-      "ORDER BY tag_type, num";
+        "SELECT "
+        "   bag_tags.no, "
+        "   bag_tags.color, "
+        "   bag_tags.tag_type, "
+        "   to_char(bag2.amount) bag_amount, "
+        "   to_char(bag2.weight) bag_weight "
+        "FROM "
+        "   bag_tags, "
+        "   tag_types, "
+        "   bag2 "
+        "WHERE "
+        "   bag_tags.tag_type=tag_types.code AND "
+        "   bag_tags.grp_id = :grp_id AND "
+        "   bag_tags.grp_id = bag2.grp_id(+) and "
+        "   bag_tags.bag_num = bag2.num(+) and "
+        "   bag_tags.pr_print = 0 AND "
+        "   tag_types.printable <> 0"
+        "ORDER BY "
+        "   bag_tags.tag_type, "
+        "   bag_tags.num";
     Qry.Execute();
+    ProgTrace(TRACE5, "grp_id: %d", grp_id);
     if (Qry.Eof) return;
+    tst();
     string tag_type;
     vector<string> prn_forms;
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
@@ -1257,6 +1275,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
         parser.add_tag("issued", issued);
+        parser.add_tag("bt_amount", Qry.FieldAsString("bag_amount"));
+        parser.add_tag("bt_weight", Qry.FieldAsString("bag_weight"));
 
         int VIA_num = prn_forms.size();
         int route_size = route.size();
