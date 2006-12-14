@@ -1146,7 +1146,8 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   transfer.grp_id = :grp_id and  "
         "   (transfer.airline = airlines.code or "
         "   transfer.airline = airlines.code_lat) and  "
-        "   transfer.airp_arv = airps.code "
+        "   (transfer.airp_arv = airps.code or "
+        "   transfer.airp_arv = airps.code_lat) "
         "order by "
         "   transfer_num ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
