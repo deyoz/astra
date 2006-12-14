@@ -1144,7 +1144,8 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   airps  "
         "where  "
         "   transfer.grp_id = :grp_id and  "
-        "   transfer.airline = airlines.code and  "
+        "   (transfer.airline = airlines.code or "
+        "   transfer.airline = airlines.code_lat) and  "
         "   transfer.airp_arv = airps.code "
         "order by "
         "   transfer_num ";
