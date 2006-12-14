@@ -1536,6 +1536,41 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
           NewTextChild(node,"pr_print",(int)false);
         };
       };
+      xmlNodePtr bNode,tNode;
+      int bag_num,bag_amount;
+
+      //пробуем привязать к багажу
+      if (bagNode!=NULL && tagNode!=NULL)
+      {
+        tNode=tagNode->last;
+        for(bNode=bagNode->last;bNode!=NULL;bNode=bNode->prev)
+        {
+          if (tNode==NULL) break;
+          node2=bNode->children;
+          bag_num=NodeAsIntegerFast("num",node2);
+          bag_amount=NodeAsIntegerFast("amount",node2);
+
+          //проверим чтобы на этот багаж не было назначено ни одной бирки
+          for(node=tagNode->children;node!=NULL&&node!=tNode->next;node=node->next)
+          {
+            node2=node->children;
+            if (!NodeIsNULLFast("bag_num",node2) &&
+                bag_num==NodeAsIntegerFast("bag_num",node2)) break;
+          };
+          if (node!=NULL&&node!=tNode->next) break; //выйдем, если на текущий багаж ссылается бирка
+
+          int k=0;
+          for(;k<bag_amount;k++)
+          {
+            if (tNode==NULL) break;
+            node2=tNode->children;
+            if (/*NodeAsIntegerFast("printable",node2)==0 ||*/ !NodeIsNULLFast("bag_num",node2)) break;
+            ReplaceTextChild(tNode,"bag_num",bag_num);
+            tNode=tNode->prev;
+          };
+          if (k<bag_amount) break; //выйдем, если текущая бирка ссылается на багаж или она не печатаемая
+        };
+      };
     }
     else throw UserException(1,"Кол-во бирок и мест багажа не совпадает");
   };
