@@ -252,6 +252,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   int x = NodeAsInteger( "x", reqNode );
   int y = NodeAsInteger( "y", reqNode );
   xmlNodePtr checkinNode = GetNode( "checkin", reqNode );
+  xmlNodePtr setseatNode = GetNode( "reserve", reqNode );
   ProgTrace(TRACE5, "SalonsInterface::Reseat, trip_id=%d, pax_id=%d, tid=%d", trip_id, pax_id, tid );
   TQuery Qry( &OraSession );
   /* лочим рейс */
@@ -260,13 +261,24 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   Qry.SetVariable( "point_id", trip_id );
   Qry.Execute();
   Qry.Clear();
+  TSeatsType seatstype;
   /* проверка на то, что данные по пассажиру не менялись */
-  Qry.SQLText = "SELECT tid,TRIM( surname||' '||name ) name FROM pax WHERE pax_id=:pax_id";
+  if ( setseatNode ) {
+  	seatstype = sreserve;
+  	Qry.SQLText = "SELECT tid,TRIM( surname||' '||name ) name FROM crs_pax WHERE pax_id=:pax_id";
+  }
+  else {
+  	seatstype = sreseats;
+  	Qry.SQLText = "SELECT tid,TRIM( surname||' '||name ) name FROM pax WHERE pax_id=:pax_id";
+  }
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
   string errmsg;
   if ( !Qry.RowCount() )
-    errmsg = "Пересадка невозможна";
+  	if ( setseatNode ) 
+  		errmsg = "Невозможно предварительное назначение данного места";
+    else
+    	errmsg = "Пересадка невозможна";
   if ( errmsg.empty() && Qry.FieldAsInteger( "tid" ) != tid ) {
     if ( checkinNode )
       errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
@@ -276,7 +288,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
                " производились с другой стойки. Данные обновлены";
   }
   string nplaceName;
-  if ( !errmsg.empty() || !SEATS::Reseat( trip_id, pax_id, tid, num, x, y, nplaceName ) ) {
+  if ( !errmsg.empty() || !SEATS::Reseat( seatstype, trip_id, pax_id, tid, num, x, y, nplaceName ) ) {
     /* данные на клиенте устарели, надо обновить их */
     tst();
     TSalons Salons;
@@ -289,11 +301,15 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     tst();
     if ( !checkinNode ) {
       if ( errmsg.empty() )
-        errmsg = "Пересадка невозможна";
-      SEATS::SelectPassengers( &Salons, Passengers );
-      tst();
-      if ( Passengers.existsNoSeats() )
-        Passengers.Build( dataNode );
+      	if ( setseatNode )
+      		errmsg = "Невозможно предварительное назначение данного места";
+      	else {
+          errmsg = "Пересадка невозможна";
+          SEATS::SelectPassengers( &Salons, Passengers );
+          tst();
+          if ( Passengers.existsNoSeats() )
+            Passengers.Build( dataNode );
+        }
     }
     showErrorMessageAndRollback( errmsg );
   }

@@ -1689,18 +1689,29 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
 }
 
 /* пересадка или высадка пассажира возвращает новый tid */
-bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName )
+bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName )
 {
-  ProgTrace( TRACE5, "Reseats, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d",
-             trip_id, pax_id, num, x, y );
+	if ( seatstype == sreseats )
+		ProgTrace( TRACE5, "Reseats, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
+	else
+		ProgTrace( TRACE5, "Reserve, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
   TQuery Qry( &OraSession );
   /* считываем инфу по пассажиру */
-  Qry.SQLText = "SELECT seat_no, prev_seat_no, seats, a.step step, surname, name,"\
-                "       reg_no, grp_id "\
-                " FROM pax,"\
-                "( SELECT COUNT(*) step FROM pax_rem "\
-                "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "\
-                "WHERE pax.pax_id=:pax_id ";
+  if ( seatstype == sreseats )
+    Qry.SQLText = "SELECT seat_no, prev_seat_no, seats, a.step step, surname, name,"\
+                  "       reg_no, grp_id "\
+                  " FROM pax,"\
+                  "( SELECT COUNT(*) step FROM pax_rem "\
+                  "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "\
+                  "WHERE pax.pax_id=:pax_id ";
+  else
+    Qry.SQLText = "SELECT seat_no prev_seat_no, preseat_no seat_no, seats, a.step step, surname, name,"\
+                  "       0 reg_no, pnr_id grp_id "\
+                  " FROM crs_pax,"\
+                  "( SELECT COUNT(*) step FROM crs_pax_rem "\
+                  "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "\
+                  "WHERE crs_pax.pax_id=:pax_id ";
+  	
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.SetVariable( "pax_id", pax_id );
   Qry.Execute();
@@ -1734,9 +1745,16 @@ bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, string &n
   nplaceName = Qry.FieldAsString( "placename" );
   /*??/ определяем было ли старое место */
   Qry.Clear();
-  Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
-                " WHERE point_id=:point_id AND yname||xname=:placename AND "
-                "       pr_free IS NULL AND rownum<=1";
+  if ( seatstype == sreseats ) {
+    Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
+                  " WHERE point_id=:point_id AND yname||xname=:placename AND "
+                  "       pr_free IS NULL AND rownum<=1";
+  }
+  else {
+    Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
+                  " WHERE point_id=:point_id AND yname||xname=:placename AND "
+                  "       pr_free IS NOT NULL AND status='BR' AND rownum<=1";  	
+  }
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.DeclareVariable( "placename", otString );
   Qry.SetVariable( "point_id", trip_id );
@@ -1751,22 +1769,31 @@ bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, string &n
   Qry.Execute();
   int new_tid = Qry.FieldAsInteger( "tid" );
   Qry.Clear();
-  Qry.SQLText = "BEGIN "\
-                " salons.seatpass( :point_id, :pax_id, :placename, :whatdo ); "\
-                " UPDATE pax SET seat_no=:placename,prev_seat_no=:placename,tid=tid__seq.currval "\
-                "  WHERE pax_id=:pax_id; "\
-                " mvd.sync_pax(:pax_id,:term); "\
-                "END; ";
+  if ( seatstype == sreseats ) {
+    Qry.SQLText = "BEGIN "\
+                  " salons.seatpass( :point_id, :pax_id, :placename, :whatdo ); "\
+                  " UPDATE pax SET seat_no=:placename,prev_seat_no=:placename,tid=tid__seq.currval "\
+                  "  WHERE pax_id=:pax_id; "\
+                  " mvd.sync_pax(:pax_id,:term); "\
+                  "END; ";
+    Qry.DeclareVariable( "term", otString );                  
+    Qry.SetVariable( "term", reqinfo->desk.code );
+  }
+  else {
+    Qry.SQLText = "BEGIN "\
+                  " salons.reserve( :point_id, :pax_id, :placename, :whatdo ); "\
+                  " UPDATE crs_pax SET preseat_no=:placename,tid=tid__seq.currval "\
+                  "  WHERE pax_id=:pax_id; "\
+                  "END; ";  	
+  }
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.DeclareVariable( "pax_id", otInteger );
   Qry.DeclareVariable( "placename", otString );
   Qry.DeclareVariable( "whatdo", otInteger );
-  Qry.DeclareVariable( "term", otString );
   Qry.SetVariable( "point_id", trip_id );
   Qry.SetVariable( "pax_id", pax_id );
   Qry.SetVariable( "placename", nplaceName );
   Qry.SetVariable( "whatdo", InUse );
-  Qry.SetVariable( "term", reqinfo->desk.code );
   try {
     Qry.Execute();
   }
@@ -1777,9 +1804,16 @@ bool Reseat( int trip_id, int pax_id, int &tid, int num, int x, int y, string &n
     }
     else throw;
   }
-  reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                     " пересажен. Новое место: " + nplaceName,
-                     evtPax, trip_id, reg_no, grp_id );
+  if ( seatstype == sreseats ) {
+    reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+                       " пересажен. Новое место: " + nplaceName,
+                       evtPax, trip_id, reg_no, grp_id );
+  }
+  else {
+    reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                       " предварительно назначено место. Новое место: " + nplaceName,
+                       evtPax, trip_id, reg_no, grp_id );  	
+  }
   tid = new_tid;
   return true;
 }
