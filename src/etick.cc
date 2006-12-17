@@ -259,7 +259,6 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
           airp_dep!=Qry.FieldAsString("tick_airp_dep") ||
           airp_arv!=Qry.FieldAsString("tick_airp_arv"))
       {
-        tst();
         UpdQry.SetVariable("ticket_no",Qry.FieldAsString("ticket_no"));
         UpdQry.SetVariable("coupon_no",Qry.FieldAsInteger("coupon_no"));
         UpdQry.SetVariable("point_id",point_id);
@@ -290,7 +289,6 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      tst();
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
       TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
       ptime scd(DateTimeToBoost(scd_local));
