@@ -375,28 +375,75 @@ bool TFilter::isSummer( TDateTime pfirst )
   return false;
 }
 
-inline void setDestsDiffTime( TDests &dests, TDateTime diff )
+inline TDateTime getDiff( int dst_offset, bool ssummer, bool psummer )
 {
+  TDateTime diff;
+  if ( ssummer == psummer )
+    diff = 0.0;
+  else
+    if ( ssummer )
+      diff = (double)dst_offset*3600000/(double)MSecsPerDay;
+    else {
+      diff = 0.0 - (double)dst_offset*3600000/(double)MSecsPerDay;
+      ProgTrace( TRACE5, "diff=%f", diff );
+    }
+  return diff;
+}
+
+inline void setDestsDiffTime( TFilter *filter, TDests &dests, int dst_offset, TDateTime f1, TDateTime f2 )
+{
+	TDateTime diff;
+  double utcfirst1, utcfirst2;
+  modf((double)f1, &utcfirst1 );
+  modf((double)f2, &utcfirst2 );
+  
   for ( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     if ( id->Land > NoExists ) {
+    	if ( id->Land >= 0 ) {
+    	  f1 = utcfirst1 + id->Land;
+    	  f2 = utcfirst2 + id->Land;
+      }
+      else {
+      	double f3 = fabs( modf( (double)id->Land, &f1 ) );
+      	f2 = f1 + utcfirst2 + f3;
+      	f1 += utcfirst1 + f3;
+      }
+    	diff = getDiff( dst_offset, filter->isSummer( f1 ), filter->isSummer( f2 ) );
       if ( id->Land >= 0 )
         id->Land += diff;
       else
         id->Land -= diff;
     }
     if ( id->Takeoff > NoExists ) {
-      if ( id->Takeoff >= 0 )
+    	if ( id->Takeoff >= 0 ) {
+    	  f1 = utcfirst1 + id->Takeoff;
+    	  f2 = utcfirst2 + id->Takeoff;
+      }
+      else {
+      	double f3 = fabs( modf( (double)id->Takeoff, &f1 ) );
+      	f2 = f1 + utcfirst2 + f3;
+      	f1 += utcfirst1 + f3;
+      }
+      
+    	diff = getDiff( dst_offset, filter->isSummer( f1 ), filter->isSummer( f2 ) );
+    ProgTrace( TRACE5, "takeoff=%s, takeoff=%f",
+               DateTimeToStr( id->Takeoff,"dd.mm.yyyy hh:nn" ).c_str(), id->Takeoff );
+       
+      if ( id->Takeoff >= 0 ) 
         id->Takeoff += diff;
       else
-        id->Takeoff -= diff;
+      	id->Takeoff -= diff;
+    ProgTrace( TRACE5, "takeoff=%s, takeoff=%f",
+               DateTimeToStr( id->Takeoff,"dd.mm.yyyy hh:nn" ).c_str(), id->Takeoff );
+      	
     }
   }
 }
 
-inline int calcDestsProp( map<int,TDestList> &mapds, TDateTime diff, int old_move_id )
+inline int calcDestsProp( TFilter *filter, map<int,TDestList> &mapds, int dst_offset, int old_move_id, TDateTime f1, TDateTime f2 )
 {
   TDestList ds = mapds[ old_move_id ];
-  setDestsDiffTime( ds.dests, diff );
+  setDestsDiffTime( filter, ds.dests, dst_offset, f1, f2 );
   int new_move_id=0;
   for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
     if ( im->first < new_move_id )
@@ -407,27 +454,14 @@ inline int calcDestsProp( map<int,TDestList> &mapds, TDateTime diff, int old_mov
   return new_move_id;
 }
 
-inline TDateTime getDiff( int dst_offset, bool ssummer, bool psummer )
-{
-  TDateTime diff;
-  if ( ssummer == psummer )
-    diff = 0.0;
-  else
-    if ( ssummer )
-      diff = (double)dst_offset*3600000/(double)MSecsPerDay;
-    else
-      diff = 0 - (double)dst_offset*3600000/(double)MSecsPerDay;
-  return diff;
-}
-
 /* на все неизмененные диапазоны накладываем измененный и пересечения сохраняем */
 /* speriods содержит все периоды с которыми надо пересекать */
 /* nperiods - содержит множество пересеченных периодов */
 void TFilter::InsertSectsPeriods( map<int,TDestList> &mapds,
                                   vector<TPeriod> &speriods, vector<TPeriod> &nperiods, TPeriod p )
 {
+	TDateTime diff;
   TPeriod np;
-  TDateTime diff;
   double f1, f2;
   bool issummer;
   bool psummer = isSummer( p.first );
@@ -441,14 +475,14 @@ void TFilter::InsertSectsPeriods( map<int,TDestList> &mapds,
 
 ProgTrace( TRACE5, "p.move_id=%d, ip->move_id=%d, psummer=%d, issummer=%d",
            p.move_id, ip->move_id, psummer, issummer );
-    if ( p.move_id == ip->move_id && psummer != issummer ) {
+    if ( p.move_id == ip->move_id && psummer != issummer ) { 
         //имеется ссылка на один и тот же маршрут, а периоды принадлежат разным сезонам - разбить к чертовой матери!!!
       tst();
       diff = getDiff( dst_offset, issummer, psummer );
-      ProgTrace( TRACE5, "IsSummer(p.first)=%d, issummer=%d, diff=%s",
-                 isSummer( p.first ), issummer, DateTimeToStr( diff, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+      ProgTrace( TRACE5, "IsSummer(p.first)=%d, issummer=%d, diff=%f",
+                 isSummer( p.first ), issummer, diff );
       p.modify = finsert;
-      p.move_id = calcDestsProp( mapds, diff, p.move_id );
+      p.move_id = calcDestsProp( this, mapds, dst_offset, p.move_id, ip->first, p.first );
     }
 
 ProgTrace( TRACE5, "ip first=%s, last=%s",
@@ -494,7 +528,7 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
       if ( diff ) {
         /* надо рассматривать данный период как отдельный а не расширение */
         np.modify = finsert;
-        np.move_id = calcDestsProp( mapds, diff, np.move_id );
+        np.move_id = calcDestsProp( this, mapds, dst_offset, np.move_id, ip->first, np.first );
       }
       nperiods.push_back( np );
     }
@@ -517,7 +551,7 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
         if ( diff ) {
           /* надо рассматривать данный период как отдельный а не расширение */
           np.modify = finsert;
-          np.move_id = calcDestsProp( mapds, diff, np.move_id );
+          np.move_id = calcDestsProp( this, mapds, dst_offset, np.move_id, ip->first, np.first );
         }
         nperiods.push_back( np );
       }
@@ -984,16 +1018,6 @@ void CreateSPP( BASIC::TDateTime localdate )
       int move_id = MIDQry.GetVariableAsInteger( "move_id" );
       TDests::iterator p = im->second.dests.end();
       int point_id,first_point;
-      // определяем сдвиг
-      //TDateTime diffTime = GetTZTimeDiff( sp->first, im->second.flight_time, im->second.last_day, im->second.tz, v );
-//      ProgTrace( TRACE5, "write vdate=%s, first_day=%s, diffTime=%s, move_id=%d",
-//                 DateTimeToStr( sp->first, "dd.mm.yy" ).c_str(),
-//                 DateTimeToStr( im->second.flight_time, "dd.mm.yy" ).c_str(),
-//                 DateTimeToStr( diffTime, "dd.mm.yy hh:nn" ).c_str(),
-//                 im->first );
-
-      // проходим по всем пунктам и проставляем его
-//      setDestsDiffTime( im->second.dests, diffTime );
 
       PQry.SetVariable( "move_id", move_id );
 
@@ -1663,7 +1687,8 @@ tst();
     node = GetNodeFast( "dests", curNode );
     double first_day, f2, f3;
     modf( (double)period.first, &first_day );
-    if ( node ) {
+    bool newdests = node;
+    if ( newdests ) {
 tst();
       ds.dests.clear();
       ds.flight_time = NoExists;
@@ -1797,68 +1822,70 @@ tst();
     ProgTrace( TRACE5, "local first=%s",DateTimeToStr( first_day, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
     ProgTrace( TRACE5, "utc first=%s",DateTimeToStr( utcFirst, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
     
-    
-    // перевод времен в маршруте в локальные
-    for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
-    	if ( id->Land > NoExists ) {
-    		f2 = modf( (double)id->Land, &f3 );
-    		f3 += first_day + fabs( f2 );
-        ProgTrace( TRACE5, "local land=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
-    		try {
-    	    f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
-    	  }
-        catch( boost::local_time::ambiguous_result ) {
-          throw UserException( "Время прилета рейса в пункте %s не определено однозначно %s",
-                               id->cod.c_str(),
-                               DateTimeToStr( first_day, "dd.mm" ).c_str() );
+    if ( newdests ) {
+      // перевод времен в маршруте в локальные
+      for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
+      	if ( id->Land > NoExists ) {
+      		f2 = modf( (double)id->Land, &f3 );
+      		f3 += first_day + fabs( f2 );
+          ProgTrace( TRACE5, "local land=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
+      		try {
+      	    f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
+      	  }
+          catch( boost::local_time::ambiguous_result ) {
+            throw UserException( "Время прилета рейса в пункте %s не определено однозначно %s",
+                                 id->cod.c_str(),
+                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );
+          }
+          catch( boost::local_time::time_label_invalid ) {
+            throw UserException( "Время прилета рейса в пункте %s не существует %s",
+                                 id->cod.c_str(),
+                                 DateTimeToStr( period.first, "dd.mm" ).c_str() );
+          }
+          ProgTrace( TRACE5, "trunc(land)=%s, time=%s",
+                     DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
+                     DateTimeToStr( f2, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+         
+    	    if ( f3 < utcFirst )
+            id->Land = f3 - utcFirst - f2;
+          else
+            id->Land = f3 - utcFirst + f2;
+          ProgTrace( TRACE5, "utc land=%s", DateTimeToStr( id->Land, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
         }
-        catch( boost::local_time::time_label_invalid ) {
-          throw UserException( "Время прилета рейса в пункте %s не существует %s",
-                               id->cod.c_str(),
-                               DateTimeToStr( period.first, "dd.mm" ).c_str() );
+    	  if ( id->Takeoff > NoExists ) {
+      		f2 = modf( (double)id->Takeoff, &f3 );
+      		f3 += first_day + fabs( f2 );    		
+          ProgTrace( TRACE5, "local takeoff=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
+    	  	try {
+    	      f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
+    	    }
+          catch( boost::local_time::ambiguous_result ) {
+            throw UserException( "Время вылета рейса в пункте %s не определено однозначно %s",
+                                 id->cod.c_str(),
+                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );
+          }
+          catch( boost::local_time::time_label_invalid ) {
+            throw UserException( "Время вылета рейса в пункте %s не существует %s",
+                                 id->cod.c_str(),
+                                 DateTimeToStr( period.first, "dd.mm" ).c_str() );
+          }
+          ProgTrace( TRACE5, "trunc(takeoff)=%s, time=%s",
+                     DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
+                     DateTimeToStr( f2, "dd.mm.yyyy hh:nn:ss" ).c_str() );            	  
+    	    if ( f3 < utcFirst )
+            id->Takeoff = f3 - utcFirst - f2;
+          else
+            id->Takeoff = f3 - utcFirst + f2;
+          ProgTrace( TRACE5, "utc takeoff=%s",DateTimeToStr( id->Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
         }
-        ProgTrace( TRACE5, "trunc(land)=%s, time=%s",
-                   DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-                   DateTimeToStr( f2, "dd.mm.yyyy hh:nn:ss" ).c_str() );
-        
-    	  if ( f3 < utcFirst )
-          id->Land = f3 - utcFirst - f2;
-        else
-          id->Land = f3 - utcFirst + f2;
-        ProgTrace( TRACE5, "utc land=%s", DateTimeToStr( id->Land, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
-      }
-    	if ( id->Takeoff > NoExists ) {
-    		f2 = modf( (double)id->Takeoff, &f3 );
-    		f3 += first_day + fabs( f2 );    		
-        ProgTrace( TRACE5, "local takeoff=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
-    		try {
-    	    f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
-    	  }
-        catch( boost::local_time::ambiguous_result ) {
-          throw UserException( "Время вылета рейса в пункте %s не определено однозначно %s",
-                               id->cod.c_str(),
-                               DateTimeToStr( first_day, "dd.mm" ).c_str() );
-        }
-        catch( boost::local_time::time_label_invalid ) {
-          throw UserException( "Время вылета рейса в пункте %s не существует %s",
-                               id->cod.c_str(),
-                               DateTimeToStr( period.first, "dd.mm" ).c_str() );
-        }
-        ProgTrace( TRACE5, "trunc(takeoff)=%s, time=%s",
-                   DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-                   DateTimeToStr( f2, "dd.mm.yyyy hh:nn:ss" ).c_str() );            	  
-    	  if ( f3 < utcFirst )
-          id->Takeoff = f3 - utcFirst - f2;
-        else
-          id->Takeoff = f3 - utcFirst + f2;
-        ProgTrace( TRACE5, "utc takeoff=%s",DateTimeToStr( id->Takeoff, "dd.mm.yyyy hh:nn:ss" ).c_str() );          
-      }
+      } // end for
+      mapds[ period.move_id ] = ds;
     }
-    mapds[ period.move_id ] = ds;
-    ProgTrace( TRACE5, "period.first=%s, period.last=%s, period.days=%s",
+    ProgTrace( TRACE5, "period.first=%s, period.last=%s, period.days=%s, move_id=%d",
                DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-               period.days.c_str() );
+               period.days.c_str(),
+               period.move_id );
     rangeList.periods.push_back( period );
     rangeNode = rangeNode->next;
   } // END WHILE
@@ -1926,6 +1953,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   for ( vector<TPeriod>::iterator ip=rangeList.periods.begin(); ip!=rangeList.periods.end(); ip++ ) {
     nperiods.clear();
     if ( ip->modify != fnochange ) {
+    	ProgTrace( TRACE5, "before InsertSectsPeriods ip->move_id=%d", ip->move_id );
       filter.InsertSectsPeriods( mapds, speriods, nperiods, *ip );
       for ( vector<TPeriod>::iterator yp=nperiods.begin(); yp!=nperiods.end(); yp++ ) {
         if ( yp->modify == fdelete )
@@ -1945,10 +1973,11 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if ( yp->modify == fdelete )
       continue;
 
-   ProgTrace( TRACE5, "result first=%s, last=%s, days=%s",
+   ProgTrace( TRACE5, "result first=%s, last=%s, days=%s, move_id=%d",
               DateTimeToStr( yp->first,"dd.mm.yy hh:nn:ss" ).c_str(),
               DateTimeToStr( yp->last,"dd.mm.yy hh:nn:ss" ).c_str(),
-              yp->days.c_str() );
+              yp->days.c_str(),
+              yp->move_id );
   }
 
   // теперь внимание среди периодов есть, те которые удалены
