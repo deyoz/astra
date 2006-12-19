@@ -1361,7 +1361,29 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+
+    TQuery Qry(&OraSession);        
+    xmlNodePtr printersNode = NewTextChild(resNode, "printers");
+    /*
+    Qry.SQLText =
+        "select 1 from desks, prn_drv where "
+        "   desks.code = :desk and "
+        "   desks.grp_id = prn_drv.desk_grp and "
+        "   prn_drv.doc_type = :doc ";
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    Qry.CreateVariable("desk", otString, reqInfo->desk.code);
+    Qry.CreateVariable("doc", otInteger, doc);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        NewTextChild(printersNode, "drv");
+        return;
+    }
+
+    Qry.Clear();
+    */
+
     string table;
 
     switch(doc) {
@@ -1376,12 +1398,12 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         case dtArchive:
         case dtDisp:
         case dtTlg:
-            throw UserException((string)"DocType " + EncodeDocType(doc) + " not available now");
+            NewTextChild(printersNode, "drv");
+            return;
         default:
             throw Exception("Unknown DocType " + IntToString(doc));
     }
 
-    TQuery Qry(&OraSession);        
     string SQLText =
         "select "
         "   prn_types.code, "
@@ -1402,7 +1424,6 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.SQLText = SQLText;
     Qry.Execute();
     if(Qry.Eof) throw UserException("Принтеры не найдены");
-    xmlNodePtr printersNode = NewTextChild(resNode, "printers");
     while(!Qry.Eof) {
         xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
         NewTextChild(printerNode, "code", Qry.FieldAsInteger("code"));
