@@ -1201,10 +1201,16 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
     }
 }
 
-void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
+struct TTagKey {
+    int grp_id, prn_type, pr_lat, no;
+    string type, color;
+    TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1) {};
+};
+
+void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
 {
     vector<TBTRouteItem> route;
-    get_route(grp_id, route);
+    get_route(tag_key.grp_id, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -1218,11 +1224,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
         "   decode(seats, 0, 1, 0), "
         "   decode(pers_type, 'ВЗ', 0, 'РБ', 1, 2), "
         "   reg_no ";
-    Qry.CreateVariable("GRP_ID", otInteger, grp_id);
+    Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
     Qry.Execute();
     if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     int pax_id = Qry.FieldAsInteger(0);
-    Qry.SQLText =
+    string SQLText =
         "SELECT "
         "   bag_tags.no, "
         "   bag_tags.color, "
@@ -1237,16 +1243,26 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
         "   bag_tags.tag_type=tag_types.code AND "
         "   bag_tags.grp_id = :grp_id AND "
         "   bag_tags.grp_id = bag2.grp_id(+) and "
-        "   bag_tags.bag_num = bag2.num(+) and "
-        "   bag_tags.pr_print = 0 AND "
+        "   bag_tags.bag_num = bag2.num(+) and ";
+    if(tag_key.no >= 0) {
+        SQLText +=
+            "   bag_tags.tag_type = :tag_type and "
+            "   nvl(bag_tags.color, '') = :color and "
+            "   bag_tags.no = :no and ";
+        Qry.CreateVariable("tag_type", otString, tag_key.type);
+        Qry.CreateVariable("color", otString, tag_key.color);
+        Qry.CreateVariable("no", otInteger, tag_key.no);
+    } else
+        SQLText +=
+            "   bag_tags.pr_print = 0 AND ";
+    SQLText +=
         "   tag_types.printable <> 0"
         "ORDER BY "
         "   bag_tags.tag_type, "
         "   bag_tags.num";
+    Qry.SQLText = SQLText;
     Qry.Execute();
-    ProgTrace(TRACE5, "grp_id: %d", grp_id);
     if (Qry.Eof) return;
-    tst();
     string tag_type;
     vector<string> prn_forms;
     xmlNodePtr printBTNode = NewTextChild(dataNode, "printBT");
@@ -1260,7 +1276,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            get_bt_forms(tag_type, prn_type, pectabsNode, prn_forms);
+            get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
         }
 
         u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
@@ -1272,7 +1288,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
         SetProp(tagNode, "type", tag_type);
         SetProp(tagNode, "no", tag_no);
 
-        PrintDataParser parser(pax_id, pr_lat, NULL);
+        PrintDataParser parser(pax_id, tag_key.pr_lat, NULL);
 
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
@@ -1299,14 +1315,27 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat)
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
+void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    TTagKey tag_key;
+    tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    tag_key.type = NodeAsString("type", reqNode);
+    tag_key.color = NodeAsString("color", reqNode);
+    tag_key.no = NodeAsInteger("no", reqNode);
+    GetPrintDataBT(dataNode, tag_key);
+}
+
 void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    GetPrintDataBT(dataNode,
-                   NodeAsInteger("grp_id", reqNode),
-                   NodeAsInteger("prn_type", reqNode),
-                   NodeAsInteger("pr_lat", reqNode)
-                  );
+    TTagKey tag_key;
+    tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    GetPrintDataBT(dataNode, tag_key);
 }
 
 void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
