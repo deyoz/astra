@@ -553,7 +553,7 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, char
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
-  readPaxLoad( point_id, resNode );
+  readPaxLoad( point_id, reqNode, resNode );
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -802,9 +802,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "BEGIN "
       "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
       "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-      "                      status,excess,hall,pr_refuse,tid) "
+      "                      status,excess,hall,pr_refuse,user_id,tid) "
       "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-      "         :status,:excess,:hall,0,tid__seq.nextval); "
+      "         :status,:excess,:hall,0,:user_id,tid__seq.nextval); "
       "END;";
     Qry.CreateVariable("grp_id",otInteger,FNull);
     Qry.CreateVariable("point_dep",otInteger,point_dep);
@@ -815,6 +815,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("status",otString,NodeAsString("status",reqNode));
     Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
     Qry.CreateVariable("hall",otInteger,hall);
+    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
     grp_id=Qry.GetVariableAsInteger("grp_id");
     ReplaceTextChild(reqNode,"grp_id",grp_id);
@@ -943,6 +944,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                    "    ticket_no=:ticket_no, "
                    "    coupon_no=:coupon_no, "
                    "    document=:document, "
+                   "    subclass=:subclass, "
                    "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
                    "    tid=tid__seq.currval "
                    "WHERE pax_id=:pax_id AND tid=:tid";
@@ -955,6 +957,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     PaxQry.DeclareVariable("ticket_no",otString);
     PaxQry.DeclareVariable("coupon_no",otInteger);
     PaxQry.DeclareVariable("document",otString);
+    PaxQry.DeclareVariable("subclass",otString);
 
     TQuery SalonQry(&OraSession);
     SalonQry.Clear();
@@ -1004,6 +1007,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           else
             PaxQry.SetVariable("coupon_no",FNull);
           PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
+          PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
           PaxQry.Execute();
           if (PaxQry.RowsProcessed()<=0)
             throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
@@ -1058,39 +1062,145 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SaveBagToLog(reqNode);
   SaveTagPacks(reqNode);
 
-    //проверим дублирование билетов
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT COUNT(*),ticket_no,coupon_no FROM pax "
-      "WHERE ticket_no IS NOT NULL AND coupon_no IS NOT NULL "
-      "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+  //проверим дублирование билетов
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT COUNT(*),ticket_no,coupon_no FROM pax "
+    "WHERE ticket_no IS NOT NULL AND coupon_no IS NOT NULL "
+    "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    node=NodeAsNode("passengers",reqNode);
+    for(node=node->children;node!=NULL;node=node->next)
     {
-      node=NodeAsNode("passengers",reqNode);
-      for(node=node->children;node!=NULL;node=node->next)
-      {
-        node2=node->children;
-        if (!NodeIsNULLFast("coupon_no",node2) &&
-            strcmp(Qry.FieldAsString("ticket_no"),NodeAsStringFast("ticket_no",node2))==0)
-          throw UserException("Эл. билет №%s/%s дублируется",
-                              NodeAsStringFast("ticket_no",node2),
-                              NodeAsStringFast("coupon_no",node2));
-      };
+      node2=node->children;
+      if (!NodeIsNULLFast("coupon_no",node2) &&
+          strcmp(Qry.FieldAsString("ticket_no"),NodeAsStringFast("ticket_no",node2))==0)
+        throw UserException("Эл. билет №%s/%s дублируется",
+                            NodeAsStringFast("ticket_no",node2),
+                            NodeAsStringFast("coupon_no",node2));
     };
-    //обновление counters
+  };
+  //обновление counters
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  mvd.sync_pax_grp(:grp_id,:desk); "
+    "  ckin.check_grp(:grp_id); "
+    "  ckin.recount(:point_id); "
+    "END;";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+  Qry.Execute();
+  Qry.Close();
+
+  //посчитаем индекс группы подклассов
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  PaxQry.SQLText=
+    "SELECT subclass,class FROM pax_grp,pax "
+    "WHERE pax_grp.grp_id=pax.grp_id AND pax.grp_id=:grp_id "
+    "ORDER BY reg_no";
+  PaxQry.CreateVariable("grp_id",otInteger,grp_id);
+  PaxQry.Execute();
+  if (!PaxQry.Eof)
+  {
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN "
-      "  mvd.sync_pax_grp(:grp_id,:desk); "
-      "  ckin.check_grp(:grp_id); "
-      "  ckin.recount(:point_id); "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+      "SELECT MAX(DECODE(airline,NULL,0,4)+ "
+      "           DECODE(airp,NULL,0,2)) AS priority "
+      "FROM cls_grp "
+      "WHERE (airline IS NULL OR airline=:airline) AND "
+      "      (airp IS NULL OR airp=:airp) AND "
+      "      pr_del=0";
+    Qry.CreateVariable("airline",otString,airline);
+    Qry.CreateVariable("airp",otString,airp_dep);
     Qry.Execute();
-    Qry.Close();
+    if (Qry.Eof||Qry.FieldIsNULL("priority"))
+    {
+      ProgError(STDLOG,"Class group not found (airline=%s, airp=%s)",airline.c_str(),airp_dep.c_str());
+      throw UserException("На данный рейс регистрация ни в одном из классов не производится");
+
+    };
+    int priority=Qry.FieldAsInteger("priority");
+
+
+    int class_grp=-1;
+    for(;!PaxQry.Eof;PaxQry.Next())
+    {
+      if (!PaxQry.FieldIsNULL("subclass"))
+      {
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT cls_grp.id "
+          "FROM cls_grp,subcls_grp "
+          "WHERE cls_grp.id=subcls_grp.id AND "
+          "      (airline IS NULL OR airline=:airline) AND "
+          "      (airp IS NULL OR airp=:airp) AND "
+          "      DECODE(airline,NULL,0,4)+ "
+          "      DECODE(airp,NULL,0,2) = :priority AND "
+          "      subcls_grp.subclass=:subclass AND "
+          "      cls_grp.pr_del=0";
+        Qry.CreateVariable("airline",otString,airline);
+        Qry.CreateVariable("airp",otString,airp_dep);
+        Qry.CreateVariable("priority",otInteger,priority);
+        Qry.CreateVariable("subclass",otString,PaxQry.FieldAsString("subclass"));
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
+          else
+            if (class_grp!=Qry.FieldAsInteger("id"))
+              throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+          Qry.Next();
+          if (!Qry.Eof)
+            throw Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
+                            airline.c_str(),airp_dep.c_str(),PaxQry.FieldAsString("subclass"));
+          continue;
+        };
+      };
+
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT cls_grp.id "
+        "FROM cls_grp "
+        "WHERE (airline IS NULL OR airline=:airline) AND "
+        "      (airp IS NULL OR airp=:airp) AND "
+        "      DECODE(airline,NULL,0,4)+ "
+        "      DECODE(airp,NULL,0,2) = :priority AND "
+        "      class=:class AND pr_del=0";
+      Qry.CreateVariable("airline",otString,airline);
+      Qry.CreateVariable("airp",otString,airp_dep);
+      Qry.CreateVariable("priority",otInteger,priority);
+      Qry.CreateVariable("class",otString,PaxQry.FieldAsString("class"));
+      Qry.Execute();
+      if (Qry.Eof)
+      {
+        if (!PaxQry.FieldIsNULL("subclass"))
+          throw UserException("На данный рейс регистрация в подклассе %s не производится",
+                              PaxQry.FieldAsString("subclass"));
+        else
+          throw UserException("На данный рейс регистрация в классе %s не производится",
+                              PaxQry.FieldAsString("class"));
+      };
+      if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
+      else
+        if (class_grp!=Qry.FieldAsInteger("id"))
+          throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+      Qry.Next();
+      if (!Qry.Eof)
+        throw Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
+                        airline.c_str(),airp_dep.c_str(),PaxQry.FieldAsString("class"));
+    };
+    Qry.Clear();
+    Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.CreateVariable("class_grp",otInteger,class_grp);
+    Qry.Execute();
+  };
+
   //пересчитать данные по группе и отправить на клиент
   LoadPax(ctxt,reqNode,resNode);
   //отправить на клиент счетчики
@@ -2151,7 +2261,47 @@ void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 {
   int point_id=NodeAsInteger("point_id",reqNode);
   readTripCounters(point_id,resNode);
-}
+};
+
+void CheckInInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT msg, time, id1 AS point_id, "
+    "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+    "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+    "       ev_user, station, ev_order "
+    "FROM events "
+    "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+    "      events.id1=:point_id";
+  Qry.CreateVariable("point_id",otInteger,NodeAsInteger("point_id",reqNode));
+  Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+  Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
+  Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+  Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+  Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+  Qry.Execute();
+
+  for(;!Qry.Eof;Qry.Next())
+  {
+    xmlNodePtr rowNode=NewTextChild(resNode,"row");
+    NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
+    NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
+    NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
+
+    if (reqInfo->user.time_form==tfUTC)
+      NewTextChild(rowNode,"time",DateTimeToStr(Qry.FieldAsDateTime("time")));
+    else
+      NewTextChild(rowNode,"time",DateTimeToStr(UTCToLocal(Qry.FieldAsDateTime("time"),
+                                                reqInfo->desk.tz_region)));
+    NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger("grp_id"));
+    NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger("reg_no"));
+    NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
+    NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
+  };
+};
 
 
 
