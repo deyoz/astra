@@ -1247,7 +1247,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     if(tag_key.no >= 0) {
         SQLText +=
             "   bag_tags.tag_type = :tag_type and "
-            "   nvl(bag_tags.color, '') = :color and "
+            "   nvl(bag_tags.color, ' ') = nvl(:color, ' ') and "
             "   bag_tags.no = :no and ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
         Qry.CreateVariable("color", otString, tag_key.color);
@@ -1262,6 +1262,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         "   bag_tags.num";
     Qry.SQLText = SQLText;
     Qry.Execute();
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     if (Qry.Eof) return;
     string tag_type;
     vector<string> prn_forms;
