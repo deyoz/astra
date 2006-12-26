@@ -16,6 +16,7 @@
 #include "stat.h"
 #include "print.h"
 #include "checkin.h"
+#include "events.h"
 #include "docs.h"
 #include "telegram.h"
 
@@ -48,6 +49,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new ETStatusInterface();
     new ImagesInterface();
     new CheckInInterface();
+    new EventsInterface();
     new TripsInterface();
     new SalonsInterface();
     new CentInterface();
