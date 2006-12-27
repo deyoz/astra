@@ -553,21 +553,25 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, char
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
-  readPaxLoad( point_id, reqNode/*, resNode !!!*/ );
+  readPaxLoad( point_id, reqNode, resNode );
 
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "  reg_no,surname,name,pax_grp.airp_arv,last_trfer,class,hall, "
+    "  reg_no,surname,name,pax_grp.airp_arv,last_trfer,class, "
     "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
     "  seats,pers_type,document, "
+    "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.reg_no,rownum) AS bag_amount, "
     "  ckin.get_bagWeight(pax.grp_id,pax.reg_no,rownum) AS bag_weight, "
     "  ckin.get_rkWeight(pax.grp_id,pax.reg_no,rownum) AS rk_weight, "
     "  ckin.get_excess(pax.grp_id,pax.reg_no) AS excess, "
     "  ckin.get_birks(pax.grp_id,pax.reg_no) AS tags, "
-    "  pax.grp_id "
+    "  report.get_remarks(pax_id,0) AS rems, "
+    "  pax.grp_id, "
+    "  pax_grp.class_grp AS cl_grp_id,pax_grp.hall AS hall_id, "
+    "  pax_grp.point_arv,pax_grp.user_id "
     "FROM pax_grp,pax,v_last_trfer "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
@@ -583,18 +587,26 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
     NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
     NewTextChild(paxNode,"airp_arv",Qry.FieldAsString("airp_arv"));
-    NewTextChild(paxNode,"last_trfer",Qry.FieldAsString("last_trfer"));
+    NewTextChild(paxNode,"last_trfer",
+                 convertLastTrfer(Qry.FieldAsString("last_trfer")),"");
     NewTextChild(paxNode,"class",Qry.FieldAsString("class"));
-    NewTextChild(paxNode,"hall",Qry.FieldAsInteger("hall"));
+
     NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
     NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
-    NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"));
-    NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"));
-    NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"));
-    NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"));
-    NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"));
+    NewTextChild(paxNode,"ticket_no",Qry.FieldAsString("ticket_no"),"");
+    NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
+    NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
+    NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
+    NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
+    NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
+    NewTextChild(paxNode,"rems",Qry.FieldAsString("rems"),"");
+    //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
+    NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger("cl_grp_id"));
+    NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
+    NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
+    NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
   };
   Qry.Close();
 };

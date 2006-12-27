@@ -76,7 +76,7 @@ string PrintDataParser::t_field_map::check_class(string val)
     TData::iterator di = data.find("AIRLINE");
     if(di == data.end()) throw Exception("PrintDataParser::t_field_map::check_class: AIRLINE tag not found");
     if(di->second.StringVal == "ž’") {
-        TQuery Qry(&OraSession);        
+        TQuery Qry(&OraSession);
         Qry.SQLText =
             "select * from pax_rem where pax_id = :pax_id and rem_code = 'MCLS'";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
@@ -745,10 +745,10 @@ string PrintDataParser::parse_field(int offset, string field)
                         if(buf.size() >= 2 && buf[buf.size() - 2] == ',') { // ,[E|R]
                             char lat_code = buf[buf.size() - 1];
                             switch(lat_code) {
-                                case 'E': 
+                                case 'E':
                                     FieldLat = 1;
                                     break;
-                                case 'R': 
+                                case 'R':
                                     FieldLat = 0;
                                     break;
                                 default:
@@ -1202,9 +1202,10 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
 }
 
 struct TTagKey {
-    int grp_id, prn_type, pr_lat, no;
+    int grp_id, prn_type, pr_lat;
+    double no; //no = Float!
     string type, color;
-    TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1) {};
+    TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1.0) {};
 };
 
 void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
@@ -1244,14 +1245,14 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         "   bag_tags.grp_id = :grp_id AND "
         "   bag_tags.grp_id = bag2.grp_id(+) and "
         "   bag_tags.bag_num = bag2.num(+) and ";
-    if(tag_key.no >= 0) {
+    if(tag_key.no >= 0.0) {
         SQLText +=
             "   bag_tags.tag_type = :tag_type and "
             "   nvl(bag_tags.color, ' ') = nvl(:color, ' ') and "
             "   bag_tags.no = :no and ";
         Qry.CreateVariable("tag_type", otString, tag_key.type);
         Qry.CreateVariable("color", otString, tag_key.color);
-        Qry.CreateVariable("no", otInteger, tag_key.no);
+        Qry.CreateVariable("no", otFloat, tag_key.no);
     } else
         SQLText +=
             "   bag_tags.pr_print = 0 AND ";
@@ -1325,7 +1326,7 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);
-    tag_key.no = NodeAsInteger("no", reqNode);
+    tag_key.no = NodeAsFloat("no", reqNode);
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -1394,7 +1395,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
 
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     xmlNodePtr printersNode = NewTextChild(resNode, "printers");
     /*
     Qry.SQLText =

@@ -320,14 +320,14 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
                       airline
                     ) != reqInfo->user.access.airlines.end() ||
                 reqInfo->user.access.airlines.empty() && reqInfo->user.user_type != utAirline) &&
-                
+
                (!reqInfo->user.access.airps.empty() &&
                 find( reqInfo->user.access.airps.begin(),
                       reqInfo->user.access.airps.end(),
                       id->airp
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
-//            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
+//            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
             trips.push_back( createTrip( move_id, id, dests ) );
           }
         }
@@ -408,14 +408,14 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
                    airline
                  ) != reqInfo->user.access.airlines.end() ||
              reqInfo->user.access.airlines.empty() && reqInfo->user.user_type != utAirline) &&
-               
+
             (!reqInfo->user.access.airps.empty() &&
              find( reqInfo->user.access.airps.begin(),
                    reqInfo->user.access.airps.end(),
                    id->airp
                  ) != reqInfo->user.access.airps.end() ||
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
-//           ProgTrace( TRACE5, "create trips with move_id=%d", move_id );                    	
+//           ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
          trips.push_back( createTrip( move_id, id, dests ) );
       }
     }
@@ -432,7 +432,7 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
   ////////////////////////// crs_displaces ///////////////////////////////
   TCRS_Displaces crsd;
   GetCRS_Displaces( crsd ); //пересадки
-  
+
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
       // добор информации
@@ -460,10 +460,10 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
       }
       if ( !find && classesmap.find( tr->point_id ) != classesmap.end() )
         tr->classes = classesmap[ tr->point_id ];
-        
+
       if ( point_id != NoExists )
       	continue;
-      
+
       ///////////////////////////// reg /////////////////////////
       find = false;
       while ( !RegQry.Eof && tr->point_id >= RegQry.FieldAsInteger( "point_id" ) ) {
@@ -683,7 +683,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
   crsd.displaces_from.clear();
   crsd.displaces_to.clear();
   TQuery Qry(&OraSession);
-  Qry.SQLText = 
+  Qry.SQLText =
     "SELECT point_from,"\
     "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"\
     "       system.AIRPTZREGION( p1.airp ) region_from, "\
@@ -726,7 +726,7 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
 void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to )
 {
   TCRS_Displ &v_to = crsd.displaces_to[ point_id ];
-  
+
   bool ch_class = false;
   bool ch_dest = false;
   for ( TCRS_Displ::iterator to=v_to.begin(); to!=v_to.end(); to++ ) {
@@ -762,7 +762,7 @@ void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &st
     str_to = "Изм. класса " + str_from;
   if ( ch_dest )
     str_to = "Изм. пункта " + str_from;
-    
+
 }
 
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
@@ -1257,7 +1257,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
 	ProgTrace( TRACE5, "point_id=%d", point_id );
   if ( GetNode( "tripcounters", reqNode ) )
-    readPaxLoad( point_id, dataNode );
+    readPaxLoad( point_id, reqNode, dataNode );
   if ( GetNode( "birks", reqNode ) ) {
   	tst();
   	GetBirks( point_id, dataNode );
@@ -1291,7 +1291,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     trip = tr->airline_out+IntToString(tr->flt_no_out)+tr->suffix_out;
     modf( UTCToClient( tr->scd_out, tr->region ), &d1 );
     if ( sd != d1 )
-      trip += DateTimeToStr( d1, "/dd" );    
+      trip += DateTimeToStr( d1, "/dd" );
     NewTextChild( tripNode, "name", trip );
     NewTextChild( tripNode, "classes", tr->classes );
     xmlNodePtr lNode = NULL;
@@ -1299,9 +1299,9 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places" );
       NewTextChild( lNode, "airp", *sairp );
-    }    
+    }
 	}
-	ProgTrace( TRACE5, "point_from=%d", point_id ); 
+	ProgTrace( TRACE5, "point_from=%d", point_id );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
    "SELECT point_from,"\
@@ -1332,18 +1332,18 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( snode, "trip_from", trip );
 		NewTextChild( snode, "airp_arv_from", Qry.FieldAsString( "airp_arv_from" ) );
 		NewTextChild( snode, "class_from", Qry.FieldAsString( "class_from" ) );
-		NewTextChild( snode, "point_to", Qry.FieldAsInteger( "point_to" ) );	
+		NewTextChild( snode, "point_to", Qry.FieldAsInteger( "point_to" ) );
     trip = Qry.FieldAsString( "trip_to" );
     modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), Qry.FieldAsString( "region_to" ) ), &d1 );
     if ( sd != d1 )
-      trip += DateTimeToStr( d1, "/dd" );	  
+      trip += DateTimeToStr( d1, "/dd" );
 		NewTextChild( snode, "trip_to", trip );
 		NewTextChild( snode, "airp_arv_to", Qry.FieldAsString( "airp_arv_to" ) );
 		NewTextChild( snode, "class_to", Qry.FieldAsString( "class_to" ) );
 		NewTextChild( snode, "go_show", Qry.FieldAsInteger( "go_show" ) );
   	Qry.Next();
   }
-	
+
 	tst();
 	Qry.Clear();
 	Qry.SQLText =
@@ -1366,12 +1366,12 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	NewTextChild( crsdNode, "target", Qry.FieldAsString( "target" ) );
   	Qry.Next();
   }
-  
-}	
+
+}
 
 void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );	
+  int point_id = NodeAsInteger( "point_id", reqNode );
   TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "DELETE crs_displace "\
@@ -1380,9 +1380,9 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "point_from", otInteger, point_id );
   Qry.Execute();
   Qry.Clear();
-  Qry.SQLText = 
+  Qry.SQLText =
    "INSERT INTO crs_displace(point_from,airp_arv_from,class_from,point_to,airp_arv_to,class_to,pr_goshow) "\
-   " VALUES(:point_from,:airp_arv_from,:class_from,:point_to,:airp_arv_to,:class_to,:go_show) "; 
+   " VALUES(:point_from,:airp_arv_from,:class_from,:point_to,:airp_arv_to,:class_to,:go_show) ";
   Qry.CreateVariable( "point_from", otInteger, point_id );
   Qry.DeclareVariable( "airp_arv_from", otString );
   Qry.DeclareVariable( "class_from", otString );
@@ -1419,7 +1419,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
 	tst();
   xmlNodePtr node = NewTextChild( resNode, "data" );
-	int move_id = NodeAsInteger( "move_id", reqNode );	
+	int move_id = NodeAsInteger( "move_id", reqNode );
 	NewTextChild( node, "move_id", move_id );
   TQuery Qry(&OraSession);
   Qry.SQLText =
@@ -1427,8 +1427,8 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
   if ( Qry.RowCount() && !Qry.FieldIsNULL( "reference" ) )
-  	NewTextChild( node, "reference", Qry.FieldAsString( "reference" ) );  
-  node = NewTextChild( node, "dests" );  	
+  	NewTextChild( node, "reference", Qry.FieldAsString( "reference" ) );
+  node = NewTextChild( node, "dests" );
   Qry.Clear();
 	Qry.SQLText =
     "SELECT point_id,point_num,first_point,airp,city,airline,flt_no,suffix,craft,bort,"\
@@ -1442,8 +1442,8 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     "ORDER BY point_num ";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
-  TQuery DQry(&OraSession); 
-  DQry.SQLText = 
+  TQuery DQry(&OraSession);
+  DQry.SQLText =
     "SELECT points.point_id,point_num,delay_num,delay_code,time "\
     " FROM trip_delays,points "\
     "WHERE points.move_id=:move_id AND points.point_id=trip_delays.point_id "\
@@ -1490,8 +1490,8 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		NewTextChild( fnode, "delay_code", DQry.FieldAsString( "delay_code" ) );
   		NewTextChild( fnode, "time", DateTimeToStr( UTCToClient( DQry.FieldAsDateTime( "time" ), region ), ServerFormatDateTimeAsString ) );
   		DQry.Next();
-    }  
-  	  
+    }
+
   	if ( !Qry.FieldIsNULL( "trip_type" ) )
   	  NewTextChild( snode, "trip_type", Qry.FieldAsString( "trip_type" ) );
   	if ( !Qry.FieldIsNULL( "litera" ) )
@@ -1508,7 +1508,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	NewTextChild( snode, "pr_del", Qry.FieldAsInteger( "pr_del" ) );
   	Qry.Next();
   }
-	
+
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1523,7 +1523,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	if ( snode )
 		reference = NodeAsString( snode );
 	ProgTrace( TRACE5, "write dests move_id=%d, reference=%s", move_id, reference.c_str() );
-	
+
 	TDests dests;
 	TDest2 d;
 	node = GetNode( "dests", node );
@@ -1555,7 +1555,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			d.first_point = NoExists;
 		d.airp = NodeAsStringFast( "airp", snode );
 		city = GetCityFromAirp( d.airp );
-		region = GetTZRegion( city, regions ); 
+		region = GetTZRegion( city, regions );
 		fnode = GetNodeFast( "airline", snode );
 		if ( fnode )
 			d.airline = NodeAsString( fnode );
@@ -1565,7 +1565,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	  if ( fnode )
 	  	d.flt_no = NodeAsInteger( fnode );
 	  else
-	  	d.flt_no = NoExists; 
+	  	d.flt_no = NoExists;
 		fnode = GetNodeFast( "suffix", snode );
 		if ( fnode )
 			d.suffix = NodeAsString( fnode );
@@ -1653,15 +1653,15 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		if ( fnode )
 			d.pr_del = NodeAsInteger( fnode );
 		else
-			d.pr_del = 0;	
+			d.pr_del = 0;
 		dests.push_back( d );
 		node = node->next;
   }
-  
+
   TReqInfo *reqInfo = TReqInfo::Instance();
-    
+
   bool existsTrip = false;
-  
+
   try {
     int notCancel = (int)dests.size();
     if ( notCancel < 2 )
@@ -1679,7 +1679,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                  ) != reqInfo->user.access.airps.end() ) {
           canDo = true;
         }
-        if ( reqInfo->user.user_type == utAirline &&    	   
+        if ( reqInfo->user.user_type == utAirline &&
         	   id != dests.end() - 1 &&
              find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
@@ -1702,21 +1702,21 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	}
     }
     // проверка на отмену
-    for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {    
+    for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       if ( id->pr_del == 1 ) {
         notCancel--;
       }
     }
-  
+
     // отменяем все п.п., т.к. в маршруте всего один не отмененный
     if ( notCancel == 1 ) {
     	tst();
       for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-       	if ( !id->pr_del ) {       		
+       	if ( !id->pr_del ) {
       		id->pr_del = 1;
-      		id->modify = true;      		
+      		id->modify = true;
         }
-      }   	
+      }
     }
     // проверка упорядоченности времен + дублирование рейса, если move_id == NoExists
     Qry.Clear();
@@ -1741,10 +1741,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       if ( id->scd_out > NoExists && id->act_out == NoExists ) {
       	oldtime = curtime;
-  	  	curtime = id->scd_out;    	
+  	  	curtime = id->scd_out;
   	  	if ( oldtime > NoExists && oldtime > curtime ) {
   	  		throw UserException( string("Времена вылета/прилета в маршруте не упорядочены") );
-  	  	}  			
+  	  	}
       }
       if ( !existsTrip && id != dests.end() - 1 ) {
         Qry.SetVariable( "name", id->airline + IntToString( id->flt_no ) + id->suffix + id->triptype );
@@ -1761,7 +1761,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         tst();
         existsTrip = Qry.FieldAsInteger( "c" );
       }
-  	
+
     }
   }
   catch( UserException e ) {
@@ -1771,10 +1771,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		return;
     }
   }
-  
+
   if ( existsTrip )
     throw UserException( "Дублирование рейсов. Рейс уже существует" );
-  Qry.Clear();  
+  Qry.Clear();
   Qry.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
   Qry.Execute();
   vector<string> triptypes;
@@ -1782,18 +1782,18 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     triptypes.push_back( Qry.FieldAsString( "code" ) );
     Qry.Next();
   }
-  
+
   // задание параметров pr_tranzit, pr_reg, first_point
 /* !!! for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	if ( id != dests.begin() ) {
   		TDests::iterator p=id;
   			p--;
       id->pr_tranzit=( p->airline + IntToString( p->flt_no ) + p->suffix + p->triptype ==
-                       id->airline + IntToString( id->flt_no ) + id->suffix + id->triptype );  			
+                       id->airline + IntToString( id->flt_no ) + id->suffix + id->triptype );
   	}
   	else
   		id->pr_tranzit = 0;
-  		
+
     id->pr_reg = ( id->scd_out > NoExists && id->act_out == NoExists &&
                    find( triptypes.begin(), triptypes.end(), id->triptype ) != triptypes.end() &&
                    !id->pr_del && id != dests.end() - 1 );
@@ -1810,11 +1810,11 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     // first_point после того как получим point_id
   }
   */
-  Qry.Clear();  	
+  Qry.Clear();
   bool insert = ( move_id == NoExists );
   if ( insert ) {
   /* необходимо сделать проверку на не существование рейса !!!*/
-    Qry.SQLText = 
+    Qry.SQLText =
      "BEGIN "\
      " SELECT move_id.nextval INTO :move_id from dual; "\
      " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, :reference FROM dual; "\
@@ -1823,21 +1823,21 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable( "reference", otString, reference );
     Qry.Execute();
     move_id = Qry.GetVariableAsInteger( "move_id" );
-    reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );    
+    reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );
   }
   else {
-    Qry.SQLText = 
+    Qry.SQLText =
      "BEGIN "\
      " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "\
      " UPDATE move_ref SET reference=:reference WHERE move_id=:move_id; "\
      "END;";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.CreateVariable( "reference", otString, reference );
-    Qry.Execute();  
-    reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );    
+    Qry.Execute();
+    reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
   }
   TDest2 old_dest;
-  bool ch_dests = false;  
+  bool ch_dests = false;
   int new_tid;
   bool init_trip_stages;
   bool set_act_out;
@@ -1850,13 +1850,13 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		point_num++;
   		continue;
   	}
-  	Qry.Clear();	
+  	Qry.Clear();
   	Qry.SQLText =
   	 "SELECT tid__seq.nextval n FROM dual ";
   	tst();
   	Qry.Execute();
   	new_tid = Qry.FieldAsInteger( "n" );
-  	
+
     bool insert_point = id->point_id == NoExists;
   	if ( insert_point ) { //insert
   		if ( !insert )
@@ -1874,9 +1874,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if ( !id->pr_tranzit )
           first_point = id->point_id;
       id->first_point = first_point;    */
-      reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id );  
+      reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id );
       Qry.Clear();
-      Qry.SQLText = 
+      Qry.SQLText =
        "INSERT INTO points(move_id,point_id,point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,"\
        "                   craft,bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"\
        "                   park_in,park_out,pr_del,tid,remark,pr_reg) "\
@@ -1958,40 +1958,40 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  }
   	  else
   	  	init_trip_stages = false;
-  	  	
+
   	  id->remark = old_dest.remark;
   	  ProgTrace( TRACE5, "id->remark=%s", id->remark.c_str() );
 /*  	  if ( id->act_out == NoExists && id->est_out > NoExists && id->est_out != old_dest.est_out ) { //задержка
   	  	string::size_type idx = id->remark.find( "задержка до " );
   	  	if ( idx != string::npos )
-  	  		id->remark.replace( idx, string( "задержка до dd hh:nn" ).size(), 
+  	  		id->remark.replace( idx, string( "задержка до dd hh:nn" ).size(),
   	  		                        string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) );
         else
         	id->remark = string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) + id->remark;
-        reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 	
+        reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
   	  }*/
-  	  
+
   	  if ( id->craft != old_dest.craft ) {
   	  	if ( !old_dest.craft.empty() ) {
   	  	  id->remark += " изм. типа ВС с " + old_dest.craft;
-  	  	  reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft, evtDisp, move_id, id->point_id ); 	
+  	  	  reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft, evtDisp, move_id, id->point_id );
   	  	}
   	  	else {
-  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft, evtDisp, move_id, id->point_id ); 	
+  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft, evtDisp, move_id, id->point_id );
   	  	}
   	  }
   	  if ( id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
   	  	  id->remark += " изм. борта с " + old_dest.bort;
-  	  	  reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort, evtDisp, move_id, id->point_id ); 	
+  	  	  reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort, evtDisp, move_id, id->point_id );
   	  	}
   	  	else {
-  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort, evtDisp, move_id, id->point_id ); 	
+  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort, evtDisp, move_id, id->point_id );
   	  	}
   	  }
-  	    	  	
+
   	  Qry.Clear();
-      Qry.SQLText = 
+      Qry.SQLText =
        "UPDATE points "
        " SET point_num=:point_num,airp=:airp,pr_tranzit=:pr_tranzit,"\
        "     first_point=:first_point,airline=:airline,flt_no=:flt_no,suffix=:suffix,"\
@@ -2004,8 +2004,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	set_pr_del = ( !old_dest.pr_del && id->pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление прилета " ) + DateTimeToStr( id->act_in, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 	 
-  	}  	
+  		reqInfo->MsgToLog( string( "Проставление прилета " ) + DateTimeToStr( id->act_in, "dd hh:nn" ), evtDisp, move_id, id->point_id );
+  	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	Qry.CreateVariable( "move_id", otInteger, move_id );
@@ -2018,7 +2018,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	Qry.CreateVariable( "pr_tranzit", otInteger, id->pr_tranzit );
   	if ( id->first_point == NoExists )
   		Qry.CreateVariable( "first_point", otInteger, FNull );
-  	else	
+  	else
   	  Qry.CreateVariable( "first_point", otInteger, id->first_point );
   	if ( id->airline.empty() )
   		Qry.CreateVariable( "airline", otString, FNull );
@@ -2091,10 +2091,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
   	Qry.CreateVariable( "point_id", otInteger, id->point_id );
   	tst();
-  	Qry.Execute();  	
+  	Qry.Execute();
   	if ( !id->delays.empty() ) {
   		Qry.Clear();
-  		Qry.SQLText = 
+  		Qry.SQLText =
   		 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
   		 " VALUES(:point_id,:delay_num,:delay_code,:time) ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
@@ -2113,7 +2113,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	}
   	if ( init_trip_stages ) {
   		Qry.Clear();
-  		Qry.SQLText = 
+  		Qry.SQLText =
        "BEGIN "\
        " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_tranz_reg) "\
        "  VALUES(:point_id,0,0,0, NULL, 0, NULL);"\
@@ -2132,20 +2132,20 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.CreateVariable( "vscd", otDate, id->scd_out );
   		Qry.CreateVariable( "vest", otDate, id->est_out );
-  		Qry.Execute();  
-  		reqInfo->MsgToLog( string( "Изменение времен технологического графика %s" ) + 
-  		                   DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str(), evtDisp, move_id, id->point_id ); 	
-  		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );		 
+  		Qry.Execute();
+  		reqInfo->MsgToLog( string( "Изменение времен технологического графика %s" ) +
+  		                   DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
+  		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
     	//!!! еще point_num не записан
-    	exec_stage( id->point_id, sTakeoff );	
-    	reqInfo->MsgToLog( string( "Проставление вылета " ) + DateTimeToStr( id->act_out, "dd hh:nn" ), evtDisp, move_id, id->point_id ); 
- 	  } 
+    	exec_stage( id->point_id, sTakeoff );
+    	reqInfo->MsgToLog( string( "Проставление вылета " ) + DateTimeToStr( id->act_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
+ 	  }
   	if ( set_pr_del ) {
   		ch_dests = true;
   		Qry.Clear();
-  		Qry.SQLText = 
+  		Qry.SQLText =
   		"SELECT COUNT(*) c FROM pax_grp,points "\
   		" WHERE points.point_id=:point_id AND "\
   		"       point_dep=:point_id AND pr_refuse = 0 ";
@@ -2158,22 +2158,22 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   				throw UserException( string( "Нельзя отменить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
   		if ( id->pr_del == -1 ) {
   			Qry.Clear();
-  			Qry.SQLText = 
+  			Qry.SQLText =
   			 "UPDATE tlgs_in SET point_id=NULL,time_parse=NULL WHERE point_id=:point_id "; //!!! Влад ау!!!???
   			Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  			Qry.Execute(); 
+  			Qry.Execute();
 
   		}
   	}
 /*  	if ( ch_dests ) {
   		Qry.Clear();
-  		Qry.SQLText = 
+  		Qry.SQLText =
   		"BEGIN "\
   		" UPDATE points SET remark=:remark WHERE point_id=:point_id; "\
   		" ckin.recount(:point_id); "\
   		"END ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		Qry.Execute();  		
+  		Qry.Execute();
   	}	*/
   	point_num++;
   } // end for
@@ -2190,10 +2190,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	tst();
     }
   }
-  
+
  NewTextChild( reqNode, "move_id", move_id );
  ReadDests( ctxt, reqNode, resNode );
- showMessage( "Данные успешно сохранены" );	
+ showMessage( "Данные успешно сохранены" );
 /*   "BEGIN "\
    " SELECT move_id.nextval INTO :move_id from dual; "\
    " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
@@ -2201,4 +2201,4 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 }
 
-  
+

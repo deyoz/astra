@@ -45,7 +45,8 @@ public:
   static void setSQLTripInfo( TQuery &Qry, TReqInfo &info );
 };
 
-void readPaxLoad( int point_id, xmlNodePtr dataNode );
+std::string convertLastTrfer(std::string s);
+void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewPNL( int point_id, xmlNodePtr dataNode );
 
 class TTripInfo
