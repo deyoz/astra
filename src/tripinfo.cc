@@ -519,8 +519,9 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
       readTripHeader( point_id, dataNode );
-    if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
-      readPaxLoad( point_id, reqNode, resNode );
+    if ( GetNode( "tripcounters", reqNode ) ) { /* Считать заголовок */
+      readPaxLoad( point_id, reqNode, dataNode ); //djek
+    }
   };
   if (reqInfo->screen.name == "DOCS.EXE")
   {
