@@ -178,7 +178,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string select_sql=
     "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
     "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-    "       crs_pax.seat_no,crs_pax.seat_type,crs_pax.seats, "
+    "       NVL(crs_pax.preseat_no,crs_pax.seat_no) AS seat_no, "
+    "       crs_pax.seat_type,crs_pax.seats, "
     "       crs_pnr.pnr_id, "
     "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
     "       report.get_PSPT(crs_pax.pax_id) AS document ";
