@@ -1374,7 +1374,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "update bag_tags set pr_print = 1 where tag_type = :type and no = :no and "
-        "   (color is null and :color is null or color = :color) and pr_print = 0";
+        "   (color is null and :color is null or color = :color)";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("no", otFloat);
     Qry.DeclareVariable("color", otString);
