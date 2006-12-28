@@ -560,7 +560,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=
     "SELECT "
-    "  reg_no,surname,name,pax_grp.airp_arv,last_trfer,class, "
+    "  reg_no,surname,name,pax_grp.airp_arv,last_trfer,class,pax.subclass, "
     "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
@@ -591,7 +591,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"last_trfer",
                  convertLastTrfer(Qry.FieldAsString("last_trfer")),"");
     NewTextChild(paxNode,"class",Qry.FieldAsString("class"));
-
+    NewTextChild(paxNode,"subclass",Qry.FieldAsString("subclass"),"");
     NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
     NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
