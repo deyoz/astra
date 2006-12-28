@@ -716,6 +716,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ ) {
         if ( iv->status != status )
           continue;
+
         SetVariables( *iv, vars );
         try {
           Qry->Execute();
@@ -751,6 +752,13 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
 void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
 {
+
+
+  for( map<std::string, TParam>::iterator r=row.params.begin(); r!=row.params.end(); r++ ) {
+    ProgTrace( TRACE5, "SetVariable11111 name=%s, value=%s",
+              (char*)r->first.c_str(),(char *)r->second.Value.c_str() );
+  }
+
   string value;
   int Idx=0;
   for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
@@ -769,6 +777,8 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
       }
     }
   }
+
+
   /* задаем переменные, которые дополнительно пришли
      после вызова на клиенте OnSetVariable */
   for( map<std::string, TParam>::iterator iv=row.params.begin(); iv!=row.params.end(); iv++ ) {
@@ -776,6 +786,7 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
     ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
               (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
   }
+  tst();
 }
 
 void TCacheTable::DeclareVariables(std::vector<string> &vars)
@@ -824,10 +835,33 @@ void TCacheTable::DeclareVariables(std::vector<string> &vars)
                 ProgTrace( TRACE5, "variable name=%s, iv->VarIdx[i]=%d, i=%d",
                            VarName.c_str(), iv->VarIdx[i], i );
       }
-      else
+      else {
         iv->VarIdx[i] = -1;
+      }
     }
-   }
+  }
+  for ( vector<string>::iterator r=vars.begin(); r!=vars.end(); r++ ) {
+    if ( Qry->Variables->FindVariable( r->c_str() ) == -1 ) {
+      map<std::string, TParam>::iterator ip = SQLParams.find( *r );
+      if ( ip != SQLParams.end() ) {
+        ProgTrace( TRACE5, "DEclare Variable from SQLParams r->c_str()=%s", r->c_str() );
+        switch( ip->second.DataType ) {
+          case ctInteger:
+            Qry->DeclareVariable( *r, otInteger );
+            break;
+          case ctDouble:
+            Qry->DeclareVariable( *r, otFloat );
+            break;
+          case ctDateTime:
+            Qry->DeclareVariable( *r, otDate );
+            break;
+          case ctString:
+            Qry->DeclareVariable( *r, otString );
+            break;
+        }
+      }
+    }
+  }
 }
 
 int TCacheTable::getIfaceVer() {
