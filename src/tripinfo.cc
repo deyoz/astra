@@ -1070,11 +1070,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   if (!pr_rems)
   {
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_class)
+   /* if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_class)
       sql << ",NVL(b.bag_amount,0)+NVL(d.bag_amount,0) AS bag_amount" << endl
           << ",NVL(b.bag_weight,0)+NVL(d.bag_weight,0) AS bag_weight" << endl
           << ",b.rk_weight,e.excess" << endl;
-    else
+    else*/
       sql << ",b.bag_amount,b.bag_weight,b.rk_weight,e.excess" << endl;
 
     if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
@@ -1164,7 +1164,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           << "  WHERE point_dep=:point_id " << endl
           << "  GROUP BY " << group_by.str().erase(0,1) << ") c" << endl;
 
-      if (!pr_class)
+    /*  if (!pr_class)
       {
         //запрос по досылаемому багажу
         sql << ",(SELECT SUM(amount) AS bag_amount, " << endl
@@ -1173,7 +1173,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
             << "  FROM unaccomp_bag " << endl
             << "  WHERE point_dep=:point_id " << endl
             << "  GROUP BY " << group_by.str().erase(0,1) << ") d" << endl;
-      };
+      };*/
 
       if (!pr_airp_arv)
       {
@@ -1214,7 +1214,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       if (pr_class)    where << " AND a.class=c.class(+)" << endl;
       if (pr_airp_arv) where << " AND a.point_arv=c.point_arv(+)" << endl;
-      if (!pr_class)    where << " AND a.point_arv=d.point_arv(+)" << endl;
+      /*if (!pr_class)    where << " AND a.point_arv=d.point_arv(+)" << endl;*/
       if (!pr_airp_arv) where << " AND a.class=f.class(+)" << endl;
     };
   };
@@ -1297,7 +1297,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
   };
 
-  if (!pr_rems && !pr_airp_arv)
+  if (!pr_rems)
   {
     //отдельная строка по досылаемому багажу
     Qry.Clear();
@@ -1327,7 +1327,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "SELECT pnr_ref, "\
     "       RTRIM(surname||' '||name) full_name, "\
     "       pers_type, "\
-    "       class, "\
+    "       class,crs_pnr.subclass, "\
     "       NVL(preseat_no,seat_no) seat_no, "\
     "       crs_pax.seats seats, "\
     "       target, "\
@@ -1358,6 +1358,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "full_name", Qry.FieldAsString( "full_name" ) );
     NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ) );
     NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
+    NewTextChild( itemNode, "subclass", Qry.FieldAsString( "subclass" ) );
     NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
     if ( Qry.FieldAsInteger( "seats" ) > 1 )
       NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ) );
