@@ -2133,8 +2133,13 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		Qry.CreateVariable( "vscd", otDate, id->scd_out );
   		Qry.CreateVariable( "vest", otDate, id->est_out );
   		Qry.Execute();
-  		reqInfo->MsgToLog( string( "Изменение времен технологического графика %s" ) +
-  		                   DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
+  		if ( id->est_out > id->scd_out )
+  		  reqInfo->MsgToLog( string( "Задержка выполнения технологического графика на " ) +
+  		                     DateTimeToStr( id->est_out - id->scd_out, "hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
+  		else
+  		  reqInfo->MsgToLog( string( "Опережение выполнения технологического графика на " ) +
+  		                     DateTimeToStr( id->scd_out - id->est_out, "hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
+  			
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
