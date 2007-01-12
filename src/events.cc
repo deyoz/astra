@@ -24,7 +24,8 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
     "       ev_user, station, ev_order "
     "FROM events "
-    "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id";
+    "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
+    " ORDER BY ev_order";
     //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
   Qry.CreateVariable("point_id",otInteger,NodeAsInteger("point_id",reqNode));
   Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
