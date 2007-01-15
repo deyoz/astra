@@ -2004,7 +2004,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	set_pr_del = ( !old_dest.pr_del && id->pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление прилета " ) + DateTimeToStr( id->act_in, "dd hh:nn" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy" ), evtDisp, move_id, id->point_id );
   	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
@@ -2133,19 +2133,31 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		Qry.CreateVariable( "vscd", otDate, id->scd_out );
   		Qry.CreateVariable( "vest", otDate, id->est_out );
   		Qry.Execute();
-  		if ( id->est_out > id->scd_out )
-  		  reqInfo->MsgToLog( string( "Задержка выполнения технологического графика на " ) +
-  		                     DateTimeToStr( id->est_out - id->scd_out, "hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
-  		else
-  		  reqInfo->MsgToLog( string( "Опережение выполнения технологического графика на " ) +
-  		                     DateTimeToStr( id->scd_out - id->est_out, "hh:nn" ).c_str(), evtDisp, move_id, id->point_id );
-  			
+  		string tolog;
+  	  double f;
+  		if ( id->est_out > id->scd_out ) {
+  			modf( id->est_out - id->scd_out, &f );
+  			tolog = "Задержка выполнения технологического графика на ";
+  			if ( f )
+  				tolog += IntToString( (int)f ) + " ";
+  			tolog += DateTimeToStr( id->est_out - id->scd_out, "hh:nn" );
+  		  
+  		}
+  		else {
+  			modf( id->scd_out - id->est_out, &f );
+  			tolog = "Опережение выполнения технологического графика на ";  			
+  		  if ( f )
+  		    tolog += IntToString( (int)f ) + " ";  				
+  		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );  
+  		}
+  		  
+  		reqInfo->MsgToLog( tolog, evtDisp, move_id, id->point_id );	
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
     	//!!! еще point_num не записан
     	exec_stage( id->point_id, sTakeoff );
-    	reqInfo->MsgToLog( string( "Проставление вылета " ) + DateTimeToStr( id->act_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
+    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy" ), evtDisp, move_id, id->point_id );
  	  }
   	if ( set_pr_del ) {
   		ch_dests = true;
