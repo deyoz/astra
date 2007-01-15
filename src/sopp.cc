@@ -2004,7 +2004,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	set_pr_del = ( !old_dest.pr_del && id->pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
   	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
@@ -2155,9 +2155,21 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
+    	tst();
     	//!!! еще point_num не записан
-    	exec_stage( id->point_id, sTakeoff );
-    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy" ), evtDisp, move_id, id->point_id );
+       try
+       {
+         exec_stage( id->point_id, sTakeoff );
+       }
+       catch( std::exception E ) {
+         ProgError( STDLOG, "Exception: %s", E.what() );
+       }
+       catch( ... ) {
+         ProgError( STDLOG, "Unknown error" );
+       };    	
+    	tst();
+    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+    	tst();
  	  }
   	if ( set_pr_del ) {
   		ch_dests = true;

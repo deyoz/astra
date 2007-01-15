@@ -186,12 +186,12 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        tolog += " отменен";
      tolog += ": расч. время";
      if ( i->second.est > NoExists )
-       tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy" );
+       tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy (UTC)" );
      else
        tolog += " не задано";
      tolog += ", факт. время";
      if ( i->second.act > NoExists )
-       tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy" );
+       tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy (UTC)" );
      else
         tolog += " не задано";
      TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
@@ -511,7 +511,7 @@ void astra_timer( TDateTime utcdate )
           TStagesRules *r = TStagesRules::Instance();
           string tolog = string( "Этап '" ) + r->Graph_Stages[ (TStage)stage_id ] + "'";
           tolog += " выполнен: факт. время=";
-          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy" );
+          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
           TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   				pr_exit = false;
   			}
