@@ -1169,7 +1169,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   "  FROM " + COMMON_ORAUSER() + ".routes, airps, cities, tz_regions "\
   " WHERE routes.move_id=:vmove_id AND "\
   "       routes.cod=airps.code AND airps.city=cities.code AND "\
-  "       cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) "
+  "       cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) " 
   " ORDER BY move_id,num";
 
   Qry.SQLText = sql;
@@ -1295,8 +1295,29 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
   filter.lastTime = lastTime;
 }
 
+string GetRegionFromTZ( int ptz, map<int,string> &mapreg )
+{
+  string res;
+  if ( mapreg.find( ptz ) != mapreg.end() )
+    return mapreg[ ptz ];
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT region FROM tz_regions WHERE tz=:ptz AND country='РФ' ";
+  Qry.CreateVariable( "ptz", otInteger, ptz );
+  Qry.Execute();
+  if ( !Qry.RowCount() ) {
+  	Qry.Clear();
+  	Qry.SQLText = "SELECT country FROM tz_regions WHERE tz=:ptz";
+    Qry.CreateVariable( "ptz", otInteger, ptz );
+    Qry.Execute(); 
+  }
+  res = Qry.FieldAsString( "region" );
+  mapreg[ ptz ] = res;
+  return res;
+}
+
 void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer )
 {
+	map<int,string> mapreg;
   map<int,TTimeDiff> v;
   TFilter filter;
   filter.GetSeason();
@@ -1310,9 +1331,10 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
              DateTimeToStr( d1, "dd.mm.yy hh:nn" ).c_str(),
              DateTimeToStr( d2, "dd.mm.yy hh:nn" ).c_str() );
   // для начала надо получить список периодов, которые выполняются в эту дату, пока без учета времени
+  //!!!
   string sql = (string)
-  " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_cancel,d.tz tz,region "
-  "  FROM tz_regions, "\
+  " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_cancel,d.tz tz "
+  "  FROM "\
   "  ( SELECT routes.move_id as move_id,"\
   "           TO_NUMBER(delta_in) as delta,"\
   "           sched_days.pr_cancel as pr_cancel,"
@@ -1332,7 +1354,6 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
   "         TRUNC(first_day) + delta_out <= :vd AND "\
   "         TRUNC(last_day) + delta_out >= :vd AND "\
   "         INSTR( days, TO_CHAR( :vd - delta_out, 'D' ) ) != 0 ) d "\
-  " WHERE tz_regions.tz=d.tz "\
   " ORDER BY move_id, qdate";
    Qry.SQLText = sql;
    Qry.DeclareVariable( "vd", otDate );
@@ -1410,7 +1431,8 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
         break;
        vmove_id = Qry.FieldAsInteger( "move_id" );
        ptz = Qry.FieldAsInteger( "tz" );
-       pregion = Qry.FieldAsString( "region" );
+//       pregion = Qry.FieldAsString( "region" );
+       pregion = GetRegionFromTZ( ptz, mapreg );
        first_day = Qry.FieldAsDateTime( "first_day" );
        last_day = Qry.FieldAsDateTime( "last_day" );
 
@@ -2640,7 +2662,7 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   tm.Init();
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery RQry( &OraSession );
-  string sql;
+  string sql; 
   sql = "SELECT move_id,num,routes.cod cod,airps.city city,tz_regions.region as region, "\
         "       pr_cancel,land+delta_in land,company,"\
         "       trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix ";
@@ -2912,15 +2934,16 @@ bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
 void internalRead( TFilter &filter, xmlNodePtr dataNode )
 {
   TDateTime last_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
+  map<int,string> mapreg;
   map<int,TTimeDiff> v;
   map<int,TDestList> mapds;
   TQuery SQry( &OraSession );
   string sql;
-  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,region,sched_days.tz tz ";
+  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,tz ";
   sql += " FROM ";
   sql += COMMON_ORAUSER();
-  sql += ".sched_days, tz_regions ";
-  sql += "WHERE sched_days.tz=tz_regions.tz AND last_day>=:begin_date_season ";
+  sql += ".sched_days ";
+  sql += "WHERE last_day>=:begin_date_season ";
   sql += "ORDER BY trip_id,move_id,num";
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   SQry.SQLText = sql;
@@ -2936,7 +2959,7 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
   int idx_days = SQry.FieldIndex("days");
   int idx_scancel = SQry.FieldIndex("pr_cancel");
   int idx_tlg = SQry.FieldIndex("tlg");
-  int idx_region = SQry.FieldIndex("region");
+//  int idx_region = SQry.FieldIndex("region");
   int idx_ptz = SQry.FieldIndex("tz");
   
   if ( !SQry.RowCount() )
@@ -2998,8 +3021,9 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
         TDateTime utc_first = first;
         /* получим правила перехода(вывода) времен в рейсе */
 
-        string pregion = SQry.FieldAsString( idx_region );
+//        string pregion = SQry.FieldAsString( idx_region );
         int ptz = SQry.FieldAsInteger( idx_ptz );
+        string pregion = GetRegionFromTZ( ptz, mapreg );
         
 /*        TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
         first += hours; //???
@@ -3150,11 +3174,11 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   string sql;
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
   // выбираем для редактирования все периоды, которые больше или равны текущей дате
-  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference,region,sched_days.tz tz ";
+  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference,tz ";
   sql += " FROM ";
   sql += COMMON_ORAUSER();
-  sql += ".sched_days, tz_regions ";
-  sql += " WHERE sched_days.tz=tz_regions.tz AND last_day>=:begin_date_season ";
+  sql += ".sched_days ";
+  sql += " WHERE last_day>=:begin_date_season ";
   sql += "ORDER BY trip_id,move_id,num";
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   SQry.SQLText = sql;
@@ -3169,10 +3193,11 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   int idx_cancel = SQry.FieldIndex("pr_cancel");
   int idx_tlg = SQry.FieldIndex("tlg");
   int idx_reference = SQry.FieldIndex( "reference" );
-  int idx_region = SQry.FieldIndex("region");
+//  int idx_region = SQry.FieldIndex("region");
   int idx_tz = SQry.FieldIndex("tz");
 
   // может нам надо получить все сразу маршруты
+  map<int,string> mapreg;
   map<int,TTimeDiff> v;
   map<int,TDestList> mapds;
   GetDests( mapds, filter );
@@ -3189,7 +3214,8 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
     int ptz = SQry.FieldAsInteger( idx_tz );
-    string pregion = SQry.FieldAsString( idx_region );
+//    string pregion = SQry.FieldAsString( idx_region );
+    string pregion = GetRegionFromTZ( ptz, mapreg );
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/
