@@ -601,7 +601,7 @@ inline pair<date,date> GetValidDates (EDI_REAL_MES_STRUCT *pMes)
 }
 
 
-//TVL++BER+TJM+P2+OPEN:Y'
+//TVL++BER+TJM+UT+OPEN:Y'
 Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
 {
     //Маршрут/Itinerary

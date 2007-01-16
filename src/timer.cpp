@@ -144,7 +144,7 @@ void ETCheckStatusFlt(void)
       try
       {
       	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
-      	OrigOfRequest org("P2",
+      	OrigOfRequest org("UT",
       	                  "ŒŽ‚",
       	                  "ŒŽ‚",
                           'Y',

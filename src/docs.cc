@@ -135,7 +135,7 @@ enum TState {PMTrfer, PM};
 
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
         "   airp, "
@@ -185,8 +185,8 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    TQuery Qry(&OraSession);        
-    string SQLText = 
+    TQuery Qry(&OraSession);
+    string SQLText =
         "select  "
         "    v_crs.point_id, "
         "    v_crs.pnr_ref, "
@@ -241,7 +241,7 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
 
         string last_target = Qry.FieldAsString("last_target");
-        if(last_target.size()) last_target = airps.get(last_target, "code", pr_lat);
+     //   if(last_target.size()) last_target = airps.get(last_target, "code", pr_lat);
         NewTextChild(rowNode, "last_target", last_target);
 
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
@@ -259,8 +259,8 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "select  "
         "    point_id, "
         "    reg_no, "
@@ -302,8 +302,8 @@ void RunRef(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "select  "
         "    point_id, "
         "    reg_no, "
@@ -346,8 +346,8 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "select  "
         "   point_id, "
         "   reg_no, "
@@ -1334,8 +1334,8 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int get_tranzit = NodeAsInteger("get_tranzit", reqNode);
     string rpType = NodeAsString("rpType", reqNode);
 
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "SELECT airp,point_num, "
         "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
         "FROM points WHERE point_id=:point_id ";
