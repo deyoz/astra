@@ -209,6 +209,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     /* перечитываение компоновки из БД */
     Salons.Read(  rTripSalons );
   }
+  Passengers.Clear();
   if ( TSalons::InternalExistsRegPassenger( trip_id, false ) ) { /* есть зарегистрированные пассажиры */
     /* рассаживаем, записываем */
     SEATS::ReSeatsPassengers( &Salons, !pr_initcomp, false ); /* при старой компоновке удаляем занятые места */
