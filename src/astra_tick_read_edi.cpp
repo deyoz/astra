@@ -612,7 +612,7 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
     // Date/Time
     PushEdiPointG(pMes);
     date Date1;
-    time_duration Time1;
+    time_duration Time1(not_a_date_time);
     bool open=false;
     if(SetEdiPointToCompositeG(pMes, "C310")) {
         Date1 = GetDBNumCast  <date> (EdiCast::DateCast("%d%m%y","INV_DATE"),
@@ -647,7 +647,7 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
     if(!open){
         Flightnum = GetDBNumCast <int> (EdiDigitCast<int>("INV_FL_NUM"),
                                         pMes, 9908,0, "INV_FL_NUM");
-    } 
+    }
     //Reservation Booking Designator
     int Class = GetDBNumCast <int> (EdiCast::RBDCast("INV_RBD"),
                                     pMes, 7037,0, "INV_RBD");

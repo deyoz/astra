@@ -350,7 +350,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     // дата вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_date",
-               itin.date1().is_special()?"------":
+               itin.date1().is_special()?ItinStatus::itin_status::Open:
                HelpCpp::string_cast(itin.date1(), "%d%m%y",Lang::ENGLISH)),
                 "index",col_num++);
     // время вылета
