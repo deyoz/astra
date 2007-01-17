@@ -347,11 +347,17 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     int col_num=0;
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"num",n+1),"index",col_num++); // номер сегмента
+
+    // дата вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_date",
+               itin.date1().is_special()?"------":
                HelpCpp::string_cast(itin.date1(), "%d%m%y",Lang::ENGLISH)),
-                "index",col_num++); // дата вылета
+                "index",col_num++);
+    // время вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_time",
-               HelpCpp::string_cast(itin.time1(), "%H%M")),"index",col_num++); // время вылета
+               itin.time1().is_special()?"----":
+               HelpCpp::string_cast(itin.time1(), "%H%M")),"index",col_num++);
+
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep",
                itin.depPointCode()),"index",col_num++); // откуда
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"arr",
@@ -362,7 +368,15 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
                        (string(":")+itin.operAirCode()):"")),
             "index",col_num++); // компания
 
-    xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",itin.flightnum()),"index",col_num++); // номер рейса
+    // номер рейса
+    if(itin.flightnum()){
+        xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",
+                   itin.flightnum()),"index",col_num++);
+    } else {
+        xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",
+                   ItinStatus::itin_status::Open),"index",col_num++);
+    }
+
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"cls",itin.classCode((Lang::Language)currLang())),"index",col_num++); // класс бронирования
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"seg_status",itin.rpistat().code()),"index",col_num++); // статус сегмента
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"fare_basis",itin.fareBasis()),"index",col_num++); // Тариф
