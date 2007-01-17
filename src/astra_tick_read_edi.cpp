@@ -647,13 +647,7 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
     if(!open){
         Flightnum = GetDBNumCast <int> (EdiDigitCast<int>("INV_FL_NUM"),
                                         pMes, 9908,0, "INV_FL_NUM");
-    } else {
-        if(GetDBNum(pMes, 9908,0, "INV_FL_NUM") != "OPEN")
-        {
-            ProgError(STDLOG,"Open date segment and flight is not 'OPEN', flight is '%s'", GetDBNum(pMes, 9908));
-            throw Exception("Open date segment and flight is not 'OPEN'");
-        }
-    }
+    } 
     //Reservation Booking Designator
     int Class = GetDBNumCast <int> (EdiCast::RBDCast("INV_RBD"),
                                     pMes, 7037,0, "INV_RBD");
