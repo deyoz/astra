@@ -143,7 +143,7 @@ namespace SEATS {
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
-bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName );
+bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
 void SeatsPassengers( TSalons *Salons );
 void SavePlaces( );

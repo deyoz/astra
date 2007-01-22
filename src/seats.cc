@@ -1696,7 +1696,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
 }
 
 /* пересадка или высадка пассажира возвращает новый tid */
-bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName )
+bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName, bool pr_cancel )
 {
 	if ( seatstype == sreseats )
 		ProgTrace( TRACE5, "Reseats, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
@@ -1733,42 +1733,52 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
     Step = sRight;
   int reg_no = Qry.FieldAsInteger( "reg_no" );
   int grp_id = Qry.FieldAsInteger( "grp_id" );
-  /* считываем инфу по новому месту */
-  Qry.Clear();
-  Qry.SQLText = "SELECT yname||xname placename FROM trip_comp_elems "\
-                " WHERE point_id=:point_id AND num=:num AND x=:x AND y=:y AND pr_free IS NOT NULL";
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.DeclareVariable( "num", otInteger );
-  Qry.DeclareVariable( "x", otInteger );
-  Qry.DeclareVariable( "y", otInteger );
-  Qry.SetVariable( "point_id", trip_id );
-  Qry.SetVariable( "num", num );
-  Qry.SetVariable( "x", x );
-  Qry.SetVariable( "y", y );
-  Qry.Execute();
-  tst();
-  if ( !Qry.RowCount() )
-    return false;
-  nplaceName = Qry.FieldAsString( "placename" );
-  /*??/ определяем было ли старое место */
-  Qry.Clear();
-  if ( seatstype == sreseats ) {
-    Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
-                  " WHERE point_id=:point_id AND yname||xname=:placename AND "
-                  "       pr_free IS NULL AND rownum<=1";
-  }
+  if ( pr_cancel )
+  	nplaceName.clear();
   else {
-    Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
-                  " WHERE point_id=:point_id AND yname||xname=:placename AND "
-                  "       pr_free IS NOT NULL AND status='BR' AND rownum<=1";
+    /* считываем инфу по новому месту */
+    Qry.Clear();
+    Qry.SQLText = "SELECT yname||xname placename FROM trip_comp_elems "\
+                  " WHERE point_id=:point_id AND num=:num AND x=:x AND y=:y AND pr_free IS NOT NULL";
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.DeclareVariable( "num", otInteger );
+    Qry.DeclareVariable( "x", otInteger );
+    Qry.DeclareVariable( "y", otInteger );
+    Qry.SetVariable( "point_id", trip_id );
+    Qry.SetVariable( "num", num );
+    Qry.SetVariable( "x", x );
+    Qry.SetVariable( "y", y );
+    Qry.Execute();
+    tst();
+    if ( !Qry.RowCount() )
+      return false;
+    nplaceName = Qry.FieldAsString( "placename" );
   }
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.DeclareVariable( "placename", otString );
-  Qry.SetVariable( "point_id", trip_id );
-  Qry.SetVariable( "placename", placeName );
-  Qry.Execute();
-  int InUse = Qry.FieldAsInteger( "c" ) + 1; /* 1-посадка,2-пересадка */
-  ProgTrace( TRACE5, "InUSe=%d, oldplace=%s, newplace=%s 1-seats, 2-reseats",
+  /*??/ определяем было ли старое место */
+  int InUse;
+  if ( pr_cancel )
+  	InUse = 0;
+  else {
+    Qry.Clear();
+    if ( seatstype == sreseats ) {
+      Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
+                    " WHERE point_id=:point_id AND yname||xname=:placename AND "
+                    "       pr_free IS NULL AND rownum<=1";
+    }
+    else {
+      Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
+                    " WHERE point_id=:point_id AND yname||xname=:placename AND "
+                    "       pr_free IS NOT NULL AND status='BR' AND rownum<=1";
+    }
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.DeclareVariable( "placename", otString );
+    Qry.SetVariable( "point_id", trip_id );
+    Qry.SetVariable( "placename", placeName );
+    Qry.Execute();
+    InUse = Qry.FieldAsInteger( "c" ) + 1; /* 1-посадка,2-пересадка */
+  }
+    	
+  ProgTrace( TRACE5, "InUSe=%d, oldplace=%s, newplace=%s 0 -delete, 1-seats, 2-reseats",
              InUse, placeName.c_str(), nplaceName.c_str() );
   TReqInfo *reqinfo = TReqInfo::Instance();
   Qry.Clear();
@@ -1817,9 +1827,14 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
                        evtPax, trip_id, reg_no, grp_id );
   }
   else {
-    reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                       " предварительно назначено место. Новое место: " + nplaceName,
-                       evtPax, trip_id, reg_no, grp_id );
+  	if ( pr_cancel )
+      reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                         " отменено предварительно назначенное место: " + placeName,
+                         evtPax, trip_id, reg_no, grp_id );  	                         
+    else
+      reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                         " предварительно назначено место. Новое место: " + nplaceName,
+                         evtPax, trip_id, reg_no, grp_id );
   }
   tid = new_tid;
   return true;
