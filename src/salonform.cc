@@ -211,6 +211,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
   else {
     /* инициализация */
+    tst();
     Qry.Clear();
     Qry.SQLText = "BEGIN "\
                   " salons.initcomp( :point_id, 0 ); "\
@@ -221,6 +222,8 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
     string msg = string( "Изменена компоновка рейса. Классы: " ) +
                  NodeAsString( "ref", refcompNode );     	
+    msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
+    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );                 
   }
   Passengers.Clear();
   if ( TSalons::InternalExistsRegPassenger( trip_id, false ) ) { /* есть зарегистрированные пассажиры */
