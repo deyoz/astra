@@ -209,6 +209,19 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     /* перечитываение компоновки из БД */
     Salons.Read(  rTripSalons );
   }
+  else {
+    /* инициализация */
+    Qry.Clear();
+    Qry.SQLText = "BEGIN "\
+                  " salons.initcomp( :point_id, 0 ); "\
+                  "END; ";
+    Qry.DeclareVariable( "point_id", otInteger );
+    Qry.SetVariable( "point_id", trip_id );
+    Qry.Execute(); 
+    xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
+    string msg = string( "Изменена компоновка рейса. Классы: " ) +
+                 NodeAsString( "ref", refcompNode );     	
+  }
   Passengers.Clear();
   if ( TSalons::InternalExistsRegPassenger( trip_id, false ) ) { /* есть зарегистрированные пассажиры */
     /* рассаживаем, записываем */
