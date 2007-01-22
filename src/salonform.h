@@ -23,7 +23,9 @@ public:
      AddEvent("ExistsRegPassenger",evHandle);                    
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::Reseat);
      AddEvent("Reseat",evHandle);                         
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::AutoReseatsPassengers);
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::DeleteReserveSeat);
+     AddEvent("DeleteReserveSeat",evHandle);                         
+     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::AutoReseatsPassengers);     	
      AddEvent("AutoReseatsPassengers",evHandle);                              
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::BaseComponFormShow);
      AddEvent("BaseComponFormShow",evHandle);                                   
@@ -40,6 +42,8 @@ public:
   void SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ExistsRegPassenger(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
   void AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   

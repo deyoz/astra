@@ -243,6 +243,70 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
 }
 
+void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "trip_id", reqNode );
+  int pax_id = NodeAsInteger( "pax_id", reqNode );
+  int tid = NodeAsInteger( "tid", reqNode );
+  string placeName = NodeAsString( "placename", reqNode );
+	ProgTrace(TRACE5, "SalonsInterface::DeleteReserveSeat, point_id=%d, pax_id=%d, tid=%d", point_id, pax_id, tid );
+  TQuery Qry( &OraSession );
+  /* лочим рейс */
+  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  Qry.DeclareVariable( "point_id", otInteger );
+  Qry.SetVariable( "point_id", point_id );
+  Qry.Execute();
+  Qry.Clear();
+  /* проверка на то, что данные по пассажиру не менялись */
+  Qry.SQLText = "SELECT tid,TRIM( surname||' '||name ) name FROM crs_pax WHERE pax_id=:pax_id";
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  Qry.Execute();
+  string errmsg;
+  if ( !Qry.RowCount() )
+  	errmsg = "Пассажир не найден";
+  if ( errmsg.empty() && Qry.FieldAsInteger( "tid" ) != tid ) {
+    errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
+             " производились с другой стойки. Обновите данные";
+  }
+  int num, x, y;
+  
+  Qry.Clear();
+  Qry.SQLText = "SELECT num, x, y FROM trip_comp_elems "\
+                " WHERE point_id=:point_id AND yname||xname=:placename";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "placename", otInteger, placeName );
+  Qry.Execute();
+  if ( !Qry.RowCount() )
+  	errmsg = string( "Исходное место не найдено" );
+  num = Qry.FieldAsInteger( "num" );
+  x = Qry.FieldAsInteger( "x" );
+  y = Qry.FieldAsInteger( "y" );
+  
+  string nplaceName;
+  if ( !errmsg.empty() || !SEATS::Reseat( sreserve, point_id, pax_id, tid, num, x, y, nplaceName ) ) {
+    /* данные на клиенте устарели, надо обновить их */
+    tst();
+    TSalons Salons;
+    Salons.trip_id = point_id;
+    Salons.Read( rTripSalons );
+    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
+    TSalons::GetTripParams( point_id, dataNode );
+    Salons.Build( salonsNode );
+    tst();
+    if ( errmsg.empty() ) {
+      errmsg = "Невозможно отменить назначенное место";
+    }
+    showErrorMessageAndRollback( errmsg );
+  }
+  else {
+    /* надо передать назад новый tid */
+    xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    NewTextChild( dataNode, "tid", tid );
+  }
+  
+}
+
 void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
@@ -277,16 +341,16 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   string errmsg;
   if ( !Qry.RowCount() )
   	if ( setseatNode ) 
-  		errmsg = "Невозможно предварительное назначение данного места";
+  		errmsg = "Пассажир не найден";
     else
-    	errmsg = "Пересадка невозможна";
+    	errmsg = "Пассажир не найден. Пересадка невозможна";
   if ( errmsg.empty() && Qry.FieldAsInteger( "tid" ) != tid ) {
     if ( checkinNode )
       errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
                " производились с другой стойки. Обновите данные";
     else
       errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
-               " производились с другой стойки. Данные обновлены";
+               " производились с другой стойки. Обновите данные";
   }
   string nplaceName;
   if ( !errmsg.empty() || !SEATS::Reseat( seatstype, trip_id, pax_id, tid, num, x, y, nplaceName ) ) {
