@@ -283,7 +283,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   y = Qry.FieldAsInteger( "y" );
   
   string nplaceName;
-  if ( !errmsg.empty() || !SEATS::Reseat( sreserve, point_id, pax_id, tid, num, x, y, nplaceName ) ) {
+  if ( !errmsg.empty() || !SEATS::Reseat( sreserve, point_id, pax_id, tid, num, x, y, nplaceName, true ) ) {
     /* данные на клиенте устарели, надо обновить их */
     tst();
     TSalons Salons;
