@@ -274,7 +274,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   Qry.SQLText = "SELECT num, x, y FROM trip_comp_elems "\
                 " WHERE point_id=:point_id AND yname||xname=:placename";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "placename", otInteger, placeName );
+  Qry.CreateVariable( "placename", otString, placeName );
   Qry.Execute();
   if ( !Qry.RowCount() )
   	errmsg = string( "Исходное место не найдено" );
