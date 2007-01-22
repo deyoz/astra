@@ -223,7 +223,9 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     string msg = string( "Изменена компоновка рейса. Классы: " ) +
                  NodeAsString( "ref", refcompNode );     	
     msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
-    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );                 
+    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );   
+    /* перечитываение компоновки из БД */	
+    Salons.Read(  rTripSalons );              
   }
   Passengers.Clear();
   if ( TSalons::InternalExistsRegPassenger( trip_id, false ) ) { /* есть зарегистрированные пассажиры */
