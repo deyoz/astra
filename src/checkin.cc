@@ -1995,16 +1995,21 @@ void CheckInInterface::SaveBagToLog(xmlNodePtr grpNode)
       "       NVL(ckin.get_bagWeight(grp_id,NULL),0) AS bagWeight, "
       "       NVL(ckin.get_rkAmount(grp_id,NULL),0) AS rkAmount, "
       "       NVL(ckin.get_rkWeight(grp_id,NULL),0) AS rkWeight, "
-      "       ckin.get_birks(grp_id,NULL) AS tags "
+      "       ckin.get_birks(grp_id,NULL) AS tags, "
+      "       excess "
       "FROM pax_grp where grp_id=:grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if (!Qry.Eof)
     {
-      msg.msg=(string)"Багаж: "+Qry.FieldAsString("bagAmount")+"/"+Qry.FieldAsString("bagWeight")+", "+
-                      "р/кладь: "+Qry.FieldAsString("rkAmount")+"/"+Qry.FieldAsString("rkWeight")+". ";
+      ostringstream msgh;
+      msgh << "Багаж: " << Qry.FieldAsInteger("bagAmount") << "/" << Qry.FieldAsInteger("bagWeight") << ", "
+           << "р/кладь: " << Qry.FieldAsInteger("rkAmount") << "/" << Qry.FieldAsInteger("rkWeight") << ". ";
+      if (Qry.FieldAsInteger("excess")!=0)
+        msgh << "Опл. вес: " << Qry.FieldAsInteger("excess") << " кг. ";
       if (!Qry.FieldIsNULL("tags"))
-        msg.msg=msg.msg+"Бирки: "+Qry.FieldAsString("tags")+". ";
+        msgh << "Бирки: " << Qry.FieldAsString("tags") << ". ";
+      msg.msg=msgh.str();
       reqInfo->MsgToLog(msg);
     };
   };
@@ -2022,35 +2027,37 @@ void CheckInInterface::SaveBagToLog(xmlNodePtr grpNode)
       "      NVL(paid_bag.bag_type,-1)=NVL(bag2.bag_type(+),-1) AND  "
       "      paid_bag.grp_id=:grp_id "
       "GROUP BY paid_bag.bag_type "
-      "ORDER BY paid_bag.bag_type ";
+      "ORDER BY DECODE(paid_bag.bag_type,NULL,0,1),paid_bag.bag_type ";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
-    msg.msg.clear();
+    ostringstream msgh1,msgh2;
     for(;!Qry.Eof;Qry.Next())
     {
       if (Qry.FieldAsInteger("bag_amount")==0 &&
           Qry.FieldAsInteger("bag_weight")==0 &&
           Qry.FieldAsInteger("paid_weight")==0) continue;
-      if (!Qry.FieldIsNULL("bag_type"))
+      if (Qry.FieldIsNULL("bag_type"))
       {
-        if (!msg.msg.empty()) msg.msg+=", ";
-        msg.msg=msg.msg+Qry.FieldAsString("bag_type")+": "+
-                        Qry.FieldAsString("bag_amount")+"/"+
-                        Qry.FieldAsString("bag_weight")+"/"+
-                        Qry.FieldAsString("paid_weight");
+        msgh1 << ", "
+              << Qry.FieldAsInteger("bag_amount") << "/"
+              << Qry.FieldAsInteger("bag_weight") << "/"
+              << Qry.FieldAsInteger("paid_weight");
       }
       else
       {
-        if (!msg.msg.empty()) msg.msg=", "+msg.msg;
-        msg.msg=(string)Qry.FieldAsString("bag_amount")+"/"+
-                        Qry.FieldAsString("bag_weight")+"/"+
-                        Qry.FieldAsString("paid_weight")+msg.msg;
+        msgh2 << ", "
+              << Qry.FieldAsInteger("bag_type") << ": "
+              << Qry.FieldAsInteger("bag_amount") << "/"
+              << Qry.FieldAsInteger("bag_weight") << "/"
+              << Qry.FieldAsInteger("paid_weight");
       };
     };
-    if (!msg.msg.empty())
+    if (!msgh2.str().empty())
     {
-      msg.msg="Багаж по типам (мест/вес/опл): "+msg.msg;
+      msgh1 << msgh2.str();
+      msg.msg="Багаж по типам (мест/вес/опл): "+msgh1.str().substr(2);
       reqInfo->MsgToLog(msg);
+
     };
   };
   Qry.Close();
