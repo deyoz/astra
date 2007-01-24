@@ -4,6 +4,8 @@
 #include <libxml/tree.h>
 #include "JxtInterface.h"
 
+void RunRpt(std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
+
 class DocsInterface : public JxtInterface
 {
 public:

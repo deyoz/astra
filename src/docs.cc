@@ -170,8 +170,10 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
     TDateTime scd_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
     NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy", pr_lat));
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy", pr_lat));
 }
 
 int GetRPEncoding(string target)
@@ -253,6 +255,74 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     // Теперь переменные отчета
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT events.type type, msg, time, id1 AS point_id, "
+        "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+        "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM events "
+        "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
+        " ORDER BY ev_order";
+    //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
+    int point_id = NodeAsInteger("point_id",reqNode);
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
+    xmlNodePtr etNode = GetNode( "EventsTypes", reqNode );
+    vector<string> eventsTypes;
+    if ( etNode ) {
+        etNode = etNode->children;
+        while ( etNode ) {
+            eventsTypes.push_back( NodeAsString( etNode->children ) );
+            etNode = etNode->next;
+        }
+    }
+
+    /*  Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+        Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
+        Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+        Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+        Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));*/
+    Qry.Execute();
+
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "events_log");
+
+    for(;!Qry.Eof;Qry.Next())
+    {
+        if ( !eventsTypes.empty() &&
+                find( eventsTypes.begin(), eventsTypes.end(), Qry.FieldAsString( "type" ) ) == eventsTypes.end() )
+            continue;
+
+        xmlNodePtr rowNode=NewTextChild(dataSetNode,"row");
+        NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
+        NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
+
+        TDateTime time;
+        if (reqInfo->user.time_form==tfUTC)
+            time = Qry.FieldAsDateTime("time");
+        else
+            time = UTCToLocal(Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region);
+
+        NewTextChild(rowNode,"time",DateTimeToStr(time));
+        NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
+        NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger("grp_id"),-1);
+        NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger("reg_no"),-1);
+        NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
+        NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
+    };
+
+    // Теперь переменные отчета
+    PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1180,11 +1250,8 @@ void RunTest1(xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "hello", "Hello world!!!");
 }
 
-void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void get_report_form(const string name, string &form)
 {
-    if(NodeIsNULL("name", reqNode))
-        throw UserException("Form name can't be null");
-    string name = NodeAsString("name", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
@@ -1197,13 +1264,21 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         throw Exception("DocsInterface::RunReport malloc failed");
     try {
         Qry.FieldAsLong("form", data);
-        string form((char *)data, len);
-        NewTextChild(resNode, "form", form);
+        form.clear();
+        form.append((char *)data, len);
     } catch(...) {
         free(data);
     }
     free(data);
+}
 
+void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string form;
+
+    get_report_form(name, form);
+    NewTextChild(resNode, "form", form);
+    
     // теперь положим данные для отчета
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     if(name == "test1") RunTest1(formDataNode);
@@ -1213,14 +1288,23 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     else if(name == "test3") RunTest3(formDataNode);
     else if(name == "BMTrfer") RunBMTrfer(reqNode, formDataNode);
     else if(name == "BM") RunBM(reqNode, formDataNode);
-    else if(name == "PMTrfer" || name == "PM") RunPM(name, reqNode, formDataNode);
+    else if(name == "PMTrfer" || name == "PM" || name == "PMDMD") RunPM(name, reqNode, formDataNode);
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
     else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
+    else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
+}
+
+void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    if(NodeIsNULL("name", reqNode))
+        throw UserException("Form name can't be null");
+    string name = NodeAsString("name", reqNode);
+    RunRpt(name, reqNode, resNode);
 }
 
 void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1238,7 +1322,9 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             name == "PM" ||
             name == "notpres" ||
             name == "ref" ||
-            name == "rem"
+            name == "rem" ||
+            name == "crs" ||
+            name == "crsUnreg"
             )
         throw UserException("Запись " + name + " запрещена");
         */
