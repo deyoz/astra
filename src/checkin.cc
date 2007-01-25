@@ -1672,6 +1672,7 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
           node2=bNode->children;
           bag_num=NodeAsIntegerFast("num",node2);
           bag_amount=NodeAsIntegerFast("amount",node2);
+          if (NodeAsIntegerFast("pr_cabin",node2)!=0) continue;
 
           //проверим чтобы на этот багаж не было назначено ни одной бирки
           for(node=tagNode->children;node!=NULL&&node!=tNode->next;node=node->next)
