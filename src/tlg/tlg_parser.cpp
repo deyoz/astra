@@ -2178,43 +2178,6 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         strcmp(rem_code,"INF")==0||
         strcmp(rem_code,"VIP")==0) strcpy(iRemItem->code,rem_code);
 
-    if (strcmp(rem_code,"INF")==0)
-    {
-          //отдельный массив для INF ne.inf
-      TInfItem InfItem;
-      InfItem.surname=ne.surname;
-      vector<TInfItem> inf(num,InfItem);
-      vector<TInfItem>::iterator iInfItem;
-      if (p==NULL) continue;
-      pr_parse=false;
-      do
-      {
-        //поискать фамилию/имя внутри ремарки
-        res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-        if (res==0)
-          res=sscanf(p,"%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-        if (res!=2) continue;
-        InfItem.surname=lexh;
-        iInfItem=inf.begin();
-        do
-        {
-          lexh[0]=0;
-          res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
-          if (res<1) break;
-          if (lexh[0]!=0)
-          {
-            iInfItem->surname=InfItem.surname;
-            iInfItem->name=lexh;
-            pr_parse=true;
-            iInfItem++;
-          };
-        }
-        while(iInfItem!=inf.end()&&res==2);
-      }
-      while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
-      ne.inf.insert(ne.inf.end(),inf.begin(),inf.end());
-      continue;
-    };
   };
   //попробовать привязать ремарки к конкретным пассажирам
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
@@ -2397,6 +2360,44 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         iPaxItem->pers_type=child;
         continue;
       };
+
+      if (strcmp(rem_code,"INF")==0)
+      {
+            //отдельный массив для INF ne.inf
+        TInfItem InfItem;
+        InfItem.surname=ne.surname;
+        vector<TInfItem> inf(num,InfItem);
+        vector<TInfItem>::iterator iInfItem;
+        if (p==NULL) continue;
+        pr_parse=false;
+        do
+        {
+          //поискать фамилию/имя внутри ремарки
+          res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
+          if (res==0)
+            res=sscanf(p,"%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
+          if (res!=2) continue;
+          InfItem.surname=lexh;
+          iInfItem=inf.begin();
+          do
+          {
+            lexh[0]=0;
+            res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
+            if (res<1) break;
+            if (lexh[0]!=0)
+            {
+              iInfItem->surname=InfItem.surname;
+              iInfItem->name=lexh;
+              pr_parse=true;
+              iInfItem++;
+            };
+          }
+          while(iInfItem!=inf.end()&&res==2);
+        }
+        while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
+        iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
+        continue;
+      };
     };
   };
 
@@ -2540,6 +2541,43 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         }
         while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
       };
+      continue;
+    };
+    if (strcmp(rem_code,"INF")==0)
+    {
+          //отдельный массив для INF ne.inf
+      TInfItem InfItem;
+      InfItem.surname=ne.surname;
+      vector<TInfItem> inf(num,InfItem);
+      vector<TInfItem>::iterator iInfItem;
+      if (p==NULL) continue;
+      pr_parse=false;
+      do
+      {
+        //поискать фамилию/имя внутри ремарки
+        res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
+        if (res==0)
+          res=sscanf(p,"%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
+        if (res!=2) continue;
+        InfItem.surname=lexh;
+        iInfItem=inf.begin();
+        do
+        {
+          lexh[0]=0;
+          res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
+          if (res<1) break;
+          if (lexh[0]!=0)
+          {
+            iInfItem->surname=InfItem.surname;
+            iInfItem->name=lexh;
+            pr_parse=true;
+            iInfItem++;
+          };
+        }
+        while(iInfItem!=inf.end()&&res==2);
+      }
+      while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
+      ne.inf.insert(ne.inf.end(),inf.begin(),inf.end());
       continue;
     };
   };
@@ -3649,10 +3687,10 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
               TNameElement& ne=*iNameElement;
               CrsPaxQry.SetVariable("surname",ne.surname);
               CrsPaxQry.SetVariable("seats",1);
-              CrsPaxInsQry.SetVariable("surname",ne.surname);
               for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
               {
                 CrsPaxInsQry.SetVariable("pax_id",FNull);
+                CrsPaxInsQry.SetVariable("surname",ne.surname);
                 if (ne.indicator==ADD||ne.indicator==CHG||ne.indicator==DEL)
                 {
                   CrsPaxQry.SetVariable("name",iPaxItem->name);
@@ -3702,9 +3740,23 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 CrsPaxInsQry.SetVariable("last_op",info.time_create);
                 CrsPaxInsQry.Execute();
                 pax_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
-                //ремарки
                 if (ne.indicator==CHG||ne.indicator==DEL)
                 {
+                  //младенцы без мест
+                  Qry.Clear();
+                  Qry.SQLText=
+                    "DECLARE "
+                    "  CURSOR cur IS "
+                    "    SELECT inf_id FROM crs_inf WHERE pax_id=:pax_id FOR UPDATE; "
+                    "BEGIN "
+                    "  FOR curRow IN cur LOOP "
+                    "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
+                    "  END LOOP; "
+                    "END;";
+                  Qry.CreateVariable("pax_id",otInteger,pax_id);
+                  Qry.Execute();
+                  //ремарки
                   //удаляем все ремарки этого пассажира
                   Qry.Clear();
                   Qry.SQLText="DELETE FROM crs_pax_rem WHERE pax_id= :pax_id";
@@ -3713,6 +3765,46 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 };
                 if (ne.indicator!=DEL)
                 {
+                  //обработка младенцев
+                  int inf_id;
+                  Qry.Clear();
+                  Qry.SQLText=
+                    "INSERT INTO crs_inf(inf_id,pax_id) VALUES(:inf_id,:pax_id)";
+                  Qry.CreateVariable("pax_id",otInteger,pax_id);
+                  Qry.DeclareVariable("inf_id",otInteger);
+
+                  CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
+                  CrsPaxInsQry.SetVariable("seat_no",FNull);
+                  CrsPaxInsQry.SetVariable("seat_type",FNull);
+                  CrsPaxInsQry.SetVariable("seats",0);
+                  CrsPaxInsQry.SetVariable("pr_del",0);
+                  CrsPaxInsQry.SetVariable("last_op",info.time_create);
+                  //младенцы пассажира
+                  for(iInfItem=iPaxItem->inf.begin();iInfItem!=iPaxItem->inf.end();iInfItem++)
+                  {
+                    CrsPaxInsQry.SetVariable("pax_id",FNull);
+                    CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
+                    CrsPaxInsQry.SetVariable("name",iInfItem->name);
+                    CrsPaxInsQry.Execute();
+                    inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
+                    Qry.SetVariable("inf_id",inf_id);
+                    Qry.Execute();
+                  };
+                  //младенцы, не привязанные к пассажиру - привязываем к первому в NameElement
+                  if (iPaxItem==ne.pax.begin())
+                  {
+                    for(iInfItem=ne.inf.begin();iInfItem!=ne.inf.end();iInfItem++)
+                    {
+                      CrsPaxInsQry.SetVariable("pax_id",FNull);
+                      CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
+                      CrsPaxInsQry.SetVariable("name",iInfItem->name);
+                      CrsPaxInsQry.Execute();
+                      inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
+                      Qry.SetVariable("inf_id",inf_id);
+                      Qry.Execute();
+                    };
+                  };
+                  //ремарки пассажира
                   CrsPaxRemQry.SetVariable("pax_id",pax_id);
                   for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
                   {
@@ -3722,6 +3814,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
                     CrsPaxRemQry.Execute();
                   };
+                  //ремарки, не привязанные к пассажиру
                   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
                   {
                     if (iRemItem->text.empty()) continue;
@@ -3731,49 +3824,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     CrsPaxRemQry.Execute();
                   };
                 };
-
-                if (!pr_sync_pnr)
-                {
-                  //делаем синхронизацию пассажира с розыском
-                  Qry.Clear();
-                  Qry.SQLText=
-                    "BEGIN\
-                       mvd.sync_crs_pax(:pax_id);\
-                     END;";
-                  Qry.CreateVariable("pax_id",otInteger,pax_id);
-                  Qry.Execute();
-                };
-              };
-              //запишем детей
-              CrsPaxQry.SetVariable("seats",0);
-              for(iInfItem=ne.inf.begin();iInfItem!=ne.inf.end();iInfItem++)
-              {
-                CrsPaxInsQry.SetVariable("pax_id",FNull);
-                if (ne.indicator==CHG||ne.indicator==DEL)
-                {
-                  CrsPaxQry.SetVariable("surname",iInfItem->name);
-                  CrsPaxQry.SetVariable("name",iInfItem->name);
-                  CrsPaxQry.Execute();
-                  if (CrsPaxQry.RowCount()>0)
-                  {
-                    pax_id=CrsPaxQry.FieldAsInteger("pax_id");
-                    CrsPaxInsQry.SetVariable("pax_id",pax_id);
-                    if (info.time_create<CrsPaxQry.FieldAsDateTime("last_op")) continue;
-                  };
-                };
-
-                CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
-                CrsPaxInsQry.SetVariable("name",iInfItem->name);
-                CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
-                CrsPaxInsQry.SetVariable("seat_no",FNull);
-                CrsPaxInsQry.SetVariable("seat_type",FNull);
-                CrsPaxInsQry.SetVariable("seats",0);
-                if (ne.indicator==DEL)
-                  CrsPaxInsQry.SetVariable("pr_del",1);
-                else
-                  CrsPaxInsQry.SetVariable("pr_del",0);
-                CrsPaxInsQry.SetVariable("last_op",info.time_create);
-                CrsPaxInsQry.Execute();
 
                 if (!pr_sync_pnr)
                 {

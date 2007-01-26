@@ -141,13 +141,16 @@ void handle_tlg(void)
         part.line=1;
         ParseEnding(part,HeadingInfo,EndingInfo);
       }
-      catch(EXCEPTIONS::Exception E)
+      catch(EXCEPTIONS::Exception &E)
       {
+        count++;
+        EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      	if (orae!=NULL&&
+      	    (orae->Code==4061||orae->Code==4068)) continue;
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
         sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
-        count++;
         continue;
       };
 
@@ -291,14 +294,17 @@ void handle_tlg(void)
           };
         };
       }
-      catch(EXCEPTIONS::Exception E)
+      catch(EXCEPTIONS::Exception &E)
       {
+        count++;
       	OraSession.Rollback();
+      	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      	if (orae!=NULL&&
+      	    (orae->Code==4061||orae->Code==4068)) continue;
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
         sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
-        count++;
       };
     };
     if (HeadingInfo!=NULL) delete HeadingInfo;

@@ -470,11 +470,10 @@ void scan_tlg(void)
   TTlgParts parts;
   THeadingInfo *HeadingInfo=NULL;
   TEndingInfo *EndingInfo=NULL;
-  count=0;
   TlgQry.Execute();
   try
   {
-    while (!TlgQry.Eof&&count<SCAN_COUNT)
+    for (count=0;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
     {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
@@ -656,18 +655,19 @@ void scan_tlg(void)
             else throw;
           };
         }
-        catch(EXCEPTIONS::Exception E)
+        catch(EXCEPTIONS::Exception &E)
         {
+          OraSession.Rollback();
+          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      	  if (orae!=NULL&&
+      	      (orae->Code==4061||orae->Code==4068)) continue;
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
                        E.what(),TlgQry.FieldAsInteger("id"));
           sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s (tlgs.id=%d)",
                   E.what(),TlgQry.FieldAsInteger("id"));
           errorTlg(tlg_id,"PARS");
         };
-      count++;
-      TlgQry.Next();
     };
-    OraSession.Commit();
     if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","HELLO WORLD");
     if (HeadingInfo!=NULL) delete HeadingInfo;
     if (EndingInfo!=NULL) delete EndingInfo;

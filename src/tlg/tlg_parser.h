@@ -238,6 +238,12 @@ class TRemItem
     };
 };
 
+class TInfItem
+{
+  public:
+    std::string surname,name;
+};
+
 class TPaxItem
 {
   public:
@@ -245,18 +251,13 @@ class TPaxItem
     ASTRA::TPerson pers_type;
     long seats;
     TSeat seat;
+    std::vector<TInfItem> inf;
     std::vector<TRemItem> rem;
     TPaxItem()
     {
       pers_type=ASTRA::adult;
       seats=1;
     };
-};
-
-class TInfItem
-{
-  public:
-    std::string surname,name;
 };
 
 class TTransferItem : public TFltInfo

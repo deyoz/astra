@@ -135,9 +135,8 @@ void scan_tlg(int tlg_id)
   };
   TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
 
-  count=0;
   TlgQry.Execute();
-  while (!TlgQry.Eof&&count<SCAN_COUNT)
+  for(count=0;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
   {
     tlg_id=TlgQry.FieldAsInteger("id");
     try
@@ -202,16 +201,16 @@ void scan_tlg(int tlg_id)
         ProgTrace(TRACE0,"Attempt send telegram (tlg_num=%lu)", ntohl(tlg_out.num));
       };
     }
-    catch(Exception E)
+    catch(EXCEPTIONS::Exception &E)
     {
       OraSession.Rollback();
+      EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+      if (orae!=NULL&&
+          (orae->Code==4061||orae->Code==4068)) continue;
       errorTlg(tlg_id,"SEND");
       ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),TlgQry.FieldAsInteger("id"));
     };
-    count++;
-    TlgQry.Next();
   };
-  OraSession.Commit();
   return;
 };
 
