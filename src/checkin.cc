@@ -178,7 +178,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string select_sql=
     "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
     "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-    "       NVL(crs_pax.preseat_no,crs_pax.seat_no) AS seat_no, "
+    "       crs_pax.seat_no,crs_pax.preseat_no, "
     "       crs_pax.seat_type,crs_pax.seats, "
     "       crs_pnr.pnr_id, "
     "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
@@ -198,7 +198,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
 
-    for(int i=0;i<2;i++)
+    for(int i=0;i<2f;i++)
     {
       string surnames;
       char surname[5];
@@ -419,6 +419,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild(node,"name",PaxQry.FieldAsString("name"),"");
     NewTextChild(node,"pers_type",PaxQry.FieldAsString("pers_type"),EncodePerson(ASTRA::adult));
     NewTextChild(node,"seat_no",PaxQry.FieldAsString("seat_no"),"");
+    NewTextChild(node,"preseat_no",PaxQry.FieldAsString("preseat_no"),"");
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
@@ -751,6 +752,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         else
           pas.placeStatus=place_status;
         pas.placeName=NodeAsStringFast("seat_no",node2);
+        pas.preseat=NodeAsStringFast("preseat_no",node2);
         pas.countPlace=NodeAsIntegerFast("seats",node2);
         pas.placeRem=NodeAsStringFast("seat_type",node2);
         remNode=GetNodeFast("rems",node2);
