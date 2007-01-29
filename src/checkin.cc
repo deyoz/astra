@@ -198,7 +198,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
 
-    for(int i=0;i<2f;i++)
+    for(int i=0;i<2;i++)
     {
       string surnames;
       char surname[5];
@@ -789,6 +789,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         node2=node->children;
         if (NodeAsIntegerFast("seats",node2)==0) continue;
         if (Passengers.Get(i).placeName=="") throw Exception("SeatsPassengers: empty placeName");
+        string seat_no=NodeAsStringFast("seat_no",node2);
+        if (seat_no!=""&&seat_no!=Passengers.Get(i).placeName)
+          showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
         ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
         i++;
     };
