@@ -393,8 +393,11 @@ void TCacheTable::refresh()
     }
     else
         pr_irefresh = false;
-    if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh )
+    if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh ) {
         pr_drefresh = refreshData();
+        if ( pr_irefresh )
+          clientVerData = -1;
+    }
     else
         pr_drefresh = false;
 }
