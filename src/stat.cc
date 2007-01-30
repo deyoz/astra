@@ -6,6 +6,7 @@
 #include "xml_unit.h"
 #include "exceptions.h"
 #include "stl_utils.h"
+#include "docs.h"
 #include <fstream>
 
 using namespace std;
@@ -1229,6 +1230,170 @@ void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(rowNode, "avg", avg);
         Qry.Next();
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string form;
+    string name = NodeAsString("stat_mode", reqNode);
+    get_report_form(name, form);
+    NewTextChild(resNode, "form", form);
+
+    string ak = Trim(NodeAsString("ak", reqNode));
+    string ap = Trim(NodeAsString("ap", reqNode));
+    TQuery Qry(&OraSession);        
+    string SQLText = 
+
+        "select "
+        "    airp, "
+        "    airline, "
+        "    flt_no, "
+        "    scd_out, "
+        "    point_id, "
+        "    places, "
+        "    adult + child + baby pax_amount, "
+        "    sum(seats) seats, "
+        "    sum(adult) adult, "
+        "    sum(child) child, "
+        "    sum(baby) baby, "
+        "    sum(bag_amount) bag_amount,  "
+        "    sum(bag_weight) bag_weight,  "
+        "    sum(rk_weight) rk_weight, "
+        "    sum(excess) excess "
+        "from "
+        "( "
+        "SELECT  "
+        "    points.airp, "
+        "    points.airline, "
+        "    points.flt_no, "
+        "    points.scd_out, "
+        "    points.point_id, "
+        "    SUBSTR(ckin.get_airps(points.point_id),1,50) AS places, "
+        "    nvl(a.seats, 0) seats, "
+        "    nvl(a.adult, 0) adult, "
+        "    nvl(a.child, 0) child, "
+        "    nvl(a.baby, 0) baby, "
+        "    nvl(b.bag_amount, 0)+nvl(d.bag_amount, 0) AS bag_amount,  "
+        "    nvl(b.bag_weight, 0)+nvl(d.bag_weight, 0) AS bag_weight,  "
+        "    nvl(b.rk_weight, 0) rk_weight, "
+        "    nvl(e.excess, 0) excess "
+        "FROM  "
+        " points, "
+        " (SELECT point_dep, "
+        "         NVL(SUM(seats),0) AS seats,  "
+        "         NVL(SUM(DECODE(pers_type,'ВЗ',1,0)),0) AS adult,  "
+        "         NVL(SUM(DECODE(pers_type,'РБ',1,0)),0) AS child,  "
+        "         NVL(SUM(DECODE(pers_type,'РМ',1,0)),0) AS baby  "
+        "  FROM pax_grp,pax  "
+        "  WHERE pax_grp.grp_id=pax.grp_id AND  "
+        "        pr_brd IS NOT NULL "
+        "  group by point_dep "
+        "        ) a,  "
+        " (SELECT point_dep, "
+        "         NVL(SUM(DECODE(pr_cabin,0,amount,0)),0) AS bag_amount,  "
+        "         NVL(SUM(DECODE(pr_cabin,0,weight,0)),0) AS bag_weight,  "
+        "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight  "
+        "  FROM pax_grp,bag2  "
+        "  WHERE pax_grp.grp_id=bag2.grp_id AND  "
+        "        pr_refuse=0 "
+        "  group by point_dep "
+        "        ) b,  "
+        " (SELECT point_dep, "
+        "         NVL(SUM(amount),0) AS bag_amount,  "
+        "         NVL(SUM(weight),0) AS bag_weight  "
+        "  FROM unaccomp_bag  "
+        "  group by point_dep "
+        "        ) d,  "
+        " (SELECT point_dep, "
+        "         NVL(SUM(excess),0) AS excess  "
+        "  FROM pax_grp  "
+        "  WHERE pr_refuse=0 "
+        "  group by point_dep "
+        "        ) e "
+        "where "
+        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND "
+        " a.point_dep(+) = points.point_id and "
+        " b.point_dep(+) = points.point_id and "
+        " d.point_dep(+) = points.point_id and "
+        " e.point_dep(+) = points.point_id "
+        ") "
+        "group by "
+        "    airp, "
+        "    airline, "
+        "    flt_no, "
+        "    scd_out, "
+        "    point_id, "
+        "    places, "
+        "    adult + child + baby "
+        "order by ";
+    if(ap.size())
+        SQLText +=
+        "    airp, "
+        "    airline, ";
+    else
+        SQLText +=
+        "    airline, "
+        "    airp, ";
+    SQLText +=
+        "    flt_no, "
+        "    scd_out, "
+        "    point_id, "
+        "    places ";
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.Execute();
+
+    if(!Qry.Eof) {
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+    if(ap.size()) {
+        NewTextChild(headerNode, "col", "Код а/п");
+        NewTextChild(headerNode, "col", "Код а/к");
+    } else {
+        NewTextChild(headerNode, "col", "Код а/к");
+        NewTextChild(headerNode, "col", "Код а/п");
+    }
+        NewTextChild(headerNode, "col", "Номер рейса");
+        NewTextChild(headerNode, "col", "Дата");
+        NewTextChild(headerNode, "col", "Напр.");
+        NewTextChild(headerNode, "col", "Кол-во пасс.");
+        NewTextChild(headerNode, "col", "ВЗ");
+        NewTextChild(headerNode, "col", "РБ");
+        NewTextChild(headerNode, "col", "РМ");
+        NewTextChild(headerNode, "col", "Р/кладь (вес)");
+        NewTextChild(headerNode, "col", "Багаж (мест/вес)");
+        NewTextChild(headerNode, "col", "Платн. (вес)");
+        NewTextChild(headerNode, "col", "point_id");
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        while(!Qry.Eof) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+    if(ap.size()) {
+            NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+    } else {
+            NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+    }
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
+            NewTextChild(rowNode, "col", DateTimeToStr(Qry.FieldAsDateTime("scd_out"), "dd.mm.yy"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("adult"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("child"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("baby"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("rk_weight"));
+            NewTextChild(rowNode, "col",
+                    IntToString(Qry.FieldAsInteger("bag_amount")) + "/" + IntToString(Qry.FieldAsInteger("bag_weight")));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("excess"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("point_id"));
+            Qry.Next();
+        }
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void StatInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

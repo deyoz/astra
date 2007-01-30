@@ -1294,6 +1294,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "rem") RunRem(reqNode, formDataNode);
     else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
     else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
+    else if(name == "FullStat") ;
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());

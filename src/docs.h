@@ -5,6 +5,7 @@
 #include "JxtInterface.h"
 
 void RunRpt(std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
+void get_report_form(const std::string name, std::string &form);
 
 class DocsInterface : public JxtInterface
 {
