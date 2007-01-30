@@ -8,6 +8,7 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "tlg/tlg.h"
 #define TAG_REFRESH_DATA        "DATA_VER"
 #define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
 #define TAG_CODE                "CODE"
@@ -246,6 +247,27 @@ void TCacheTable::initFields()
     }
 }
 
+void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
+{
+    vector<string>::iterator f;
+
+    // задание переменной SYS_user_id
+    f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_user_id", otInteger);
+      Qry->SetVariable( "SYS_user_id", TReqInfo::Instance()->user.user_id );
+      vars.erase( f );
+    }
+
+    // задание переменной SYS_canon_name
+    f = find( vars.begin(), vars.end(), "SYS_CANON_NAME" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_canon_name", otString);
+      Qry->SetVariable( "SYS_canon_name", OWN_CANON_NAME() );
+      vars.erase( f );
+    }
+};
+
 bool TCacheTable::refreshData()
 {
     Clear();
@@ -281,13 +303,8 @@ bool TCacheTable::refreshData()
         vars.erase( f );
       }
     }
-    /* задание переменной SYS_USER_ID */
-    f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
-    if ( f != vars.end() ) {
-      Qry->DeclareVariable("SYS_user_id", otInteger);
-      Qry->SetVariable( "SYS_user_id", TReqInfo::Instance()->user.user_id );
-      vars.erase( f );
-    }
+
+    DeclareSysVariables(vars,Qry);
 
     /* пробег по переменным в запросе, лишние переменные, которые пришли не учитываем */
     for(vector<string>::iterator v = vars.begin(); v != vars.end(); v++ )
@@ -369,11 +386,14 @@ bool TCacheTable::refreshData()
 
 void TCacheTable::refresh()
 {
-    if(Params.find(TAG_REFRESH_INTERFACE) != Params.end())
+    if(Params.find(TAG_REFRESH_INTERFACE) != Params.end()) {
         pr_irefresh = refreshInterface();
+        if ( pr_irefresh )
+          Params[ TAG_REFRESH_DATA ].Value.clear();
+    }
     else
         pr_irefresh = false;
-    if(Params.find(TAG_REFRESH_DATA) != Params.end())
+    if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh )
         pr_drefresh = refreshData();
     else
         pr_drefresh = false;
@@ -792,15 +812,9 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
 void TCacheTable::DeclareVariables(std::vector<string> &vars)
 {
 
-  /* задание переменной SYS_USER_ID */
-  vector<string>::iterator f;
-  f = find( vars.begin(), vars.end(), "SYS_USER_ID" );
-  if ( f != vars.end() ) {
-    Qry->DeclareVariable("SYS_user_id", otInteger);
-    Qry->SetVariable( "SYS_user_id", TReqInfo::Instance()->user.user_id );
-    vars.erase( f );
-  }
+  DeclareSysVariables(vars,Qry);
 
+  vector<string>::iterator f;
   for( vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++ ) {
     string VarName;
     for( int i = 0; i < 2; i++ ) {
