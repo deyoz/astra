@@ -53,6 +53,7 @@ struct TPassenger {
   std::string placeStatus;
   int priority;
   int tid;
+  bool preseat;
   /*выход*/
   TPlaceList *placeList; /* салон */
   TPoint Pos; /* указывает место */
@@ -67,6 +68,7 @@ struct TPassenger {
     Pos.y = 0;
     InUse = false;  	
     tid = -1;
+    preseat = false;
   }
 };
 
