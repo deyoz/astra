@@ -1234,15 +1234,11 @@ void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string form;
-    string name = NodeAsString("stat_mode", reqNode);
-    get_report_form(name, form);
-    NewTextChild(resNode, "form", form);
-
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
+
     TQuery Qry(&OraSession);        
     string SQLText = 
 
@@ -1313,12 +1309,24 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         "  group by point_dep "
         "        ) e "
         "where "
-        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND "
+        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
+    if(ap.size()) {
+        SQLText += 
+            " points.airp = :ap and ";
+        Qry.CreateVariable("ap", otString, ap);
+    } else if(ak.size()) {
+        SQLText += 
+            " points.airline = :ak and ";
+        Qry.CreateVariable("ak", otString, ak);
+    }
+        SQLText += 
         " a.point_dep(+) = points.point_id and "
         " b.point_dep(+) = points.point_id and "
         " d.point_dep(+) = points.point_id and "
         " e.point_dep(+) = points.point_id "
         ") "
+        "where "
+        "    adult + child + baby <> 0 "
         "group by "
         "    airp, "
         "    airline, "
@@ -1330,12 +1338,12 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         "order by ";
     if(ap.size())
         SQLText +=
-        "    airp, "
-        "    airline, ";
+            "    airp, "
+            "    airline, ";
     else
         SQLText +=
-        "    airline, "
-        "    airp, ";
+            "    airline, "
+            "    airp, ";
     SQLText +=
         "    flt_no, "
         "    scd_out, "
@@ -1350,34 +1358,33 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if(!Qry.Eof) {
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
-    if(ap.size()) {
-        NewTextChild(headerNode, "col", "Код а/п");
-        NewTextChild(headerNode, "col", "Код а/к");
-    } else {
-        NewTextChild(headerNode, "col", "Код а/к");
-        NewTextChild(headerNode, "col", "Код а/п");
-    }
-        NewTextChild(headerNode, "col", "Номер рейса");
-        NewTextChild(headerNode, "col", "Дата");
-        NewTextChild(headerNode, "col", "Напр.");
-        NewTextChild(headerNode, "col", "Кол-во пасс.");
-        NewTextChild(headerNode, "col", "ВЗ");
-        NewTextChild(headerNode, "col", "РБ");
-        NewTextChild(headerNode, "col", "РМ");
-        NewTextChild(headerNode, "col", "Р/кладь (вес)");
-        NewTextChild(headerNode, "col", "Багаж (мест/вес)");
-        NewTextChild(headerNode, "col", "Платн. (вес)");
-        NewTextChild(headerNode, "col", "point_id");
+        if(ap.size()) {
+            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+        } else {
+            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+        }
+        SetProp(NewTextChild(headerNode, "col", "Номер рейса"), "width", 75);
+        SetProp(NewTextChild(headerNode, "col", "Дата"), "width", 50);
+        SetProp(NewTextChild(headerNode, "col", "Напр."), "width", 60);
+        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 75);
+        SetProp(NewTextChild(headerNode, "col", "ВЗ"), "width", 30);
+        SetProp(NewTextChild(headerNode, "col", "РБ"), "width", 30);
+        SetProp(NewTextChild(headerNode, "col", "РМ"), "width", 30);
+        SetProp(NewTextChild(headerNode, "col", "Р/кладь (вес)"), "width", 80);
+        SetProp(NewTextChild(headerNode, "col", "Багаж (мест/вес)"), "width", 100);
+        SetProp(NewTextChild(headerNode, "col", "Платн. (вес)"), "width", 70);
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-    if(ap.size()) {
-            NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
-            NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
-    } else {
-            NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
-            NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
-    }
+            if(ap.size()) {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+            } else {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+            }
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
             NewTextChild(rowNode, "col", DateTimeToStr(Qry.FieldAsDateTime("scd_out"), "dd.mm.yy"));
             NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
@@ -1389,10 +1396,203 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
             NewTextChild(rowNode, "col",
                     IntToString(Qry.FieldAsInteger("bag_amount")) + "/" + IntToString(Qry.FieldAsInteger("bag_weight")));
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("excess"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("point_id"));
             Qry.Next();
         }
     }
+}
+
+void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string ak = Trim(NodeAsString("ak", reqNode));
+    string ap = Trim(NodeAsString("ap", reqNode));
+
+    TQuery Qry(&OraSession);        
+    string SQLText = 
+        "select  ";
+    if(ap.size())
+        SQLText += 
+        "    airp,  ";
+    else
+        SQLText += 
+        "    airline,  ";
+    SQLText += 
+        "    count(*) flt_amount, "
+        "    sum(pax_amount) pax_amount  "
+        "from  "
+        "(  "
+        "SELECT   "
+        "    points.airp,  "
+        "    points.airline,  "
+        "    nvl(a.pax_amount, 0) pax_amount  "
+        "FROM   "
+        " points,  "
+        " (SELECT point_dep,  "
+        "         NVL(count(surname),0) pax_amount   "
+        "  FROM pax_grp,pax   "
+        "  WHERE pax_grp.grp_id=pax.grp_id AND   "
+        "        pr_brd IS NOT NULL  "
+        "  group by point_dep  "
+        "        ) a   "
+        "where  "
+        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
+    if(ap.size()) {
+        SQLText += 
+            " points.airp = :ap and ";
+        Qry.CreateVariable("ap", otString, ap);
+    } else if(ak.size()) {
+        SQLText += 
+            " points.airline = :ak and ";
+        Qry.CreateVariable("ak", otString, ak);
+    }
+        SQLText += 
+        " a.point_dep(+) = points.point_id  "
+        ")  "
+        "group by  ";
+    if(ap.size())
+        SQLText += 
+        "    airp ";
+    else
+        SQLText += 
+        "    airline ";
+    SQLText += 
+        "order by  ";
+    if(ap.size())
+        SQLText += 
+        "    airp ";
+    else
+        SQLText += 
+        "    airline ";
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.Execute();
+
+    if(!Qry.Eof) {
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        if(ap.size()) {
+            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+        } else {
+            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+        }
+        SetProp(NewTextChild(headerNode, "col", "Кол-во рейсов"), "width", 85);
+        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 85);
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        while(!Qry.Eof) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            if(ap.size()) {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+            } else {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+            }
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_amount"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
+            Qry.Next();
+        }
+    }
+}
+
+void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string ak = Trim(NodeAsString("ak", reqNode));
+    string ap = Trim(NodeAsString("ap", reqNode));
+
+    TQuery Qry(&OraSession);        
+    string SQLText = 
+        "select  "
+        "    airp,  "
+        "    airline,  "
+        "    count(*) flt_amount, "
+        "    sum(pax_amount) pax_amount  "
+        "from  "
+        "(  "
+        "SELECT   "
+        "    points.airp,  "
+        "    points.airline,  "
+        "    nvl(a.pax_amount, 0) pax_amount  "
+        "FROM   "
+        " points,  "
+        " (SELECT point_dep,  "
+        "         NVL(count(surname),0) pax_amount   "
+        "  FROM pax_grp,pax   "
+        "  WHERE pax_grp.grp_id=pax.grp_id AND   "
+        "        pr_brd IS NOT NULL  "
+        "  group by point_dep  "
+        "        ) a   "
+        "where  "
+        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
+    if(ap.size()) {
+        SQLText += 
+            " points.airp = :ap and ";
+        Qry.CreateVariable("ap", otString, ap);
+    } else if(ak.size()) {
+        SQLText += 
+            " points.airline = :ak and ";
+        Qry.CreateVariable("ak", otString, ak);
+    }
+        SQLText += 
+        " a.point_dep(+) = points.point_id  "
+        ")  "
+        "group by  "
+        "    airp, "
+        "    airline "
+        "order by  ";
+    if(ap.size())
+        SQLText += 
+        "    airp, "
+        "    airline ";
+    else
+        SQLText += 
+        "    airline, "
+        "    airp ";
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.Execute();
+
+    if(!Qry.Eof) {
+        xmlNodePtr grdNode = NewTextChild(resNode, "grd");
+        xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        if(ap.size()) {
+            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+        } else {
+            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+        }
+        SetProp(NewTextChild(headerNode, "col", "Кол-во рейсов"), "width", 85);
+        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 85);
+        xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        while(!Qry.Eof) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            if(ap.size()) {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+            } else {
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+            }
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_amount"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
+            Qry.Next();
+        }
+    }
+}
+
+void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    string form;
+    string name = NodeAsString("stat_mode", reqNode);
+    get_report_form(name, form);
+    NewTextChild(resNode, "form", form);
+
+    if(name == "FullStat") RunFullStat(reqNode, resNode);
+    else if(name == "ShortStat") RunShortStat(reqNode, resNode);
+    else if(name == "DetailStat") RunDetailStat(reqNode, resNode);
+    else throw Exception("Unknown stat mode " + name);
+
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 

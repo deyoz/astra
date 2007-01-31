@@ -698,7 +698,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TAirps airps;
     TAirlines airlines;
-    TCrafts crafts;
+//    TCrafts crafts;
 
     NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps.get(airp, "name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
@@ -710,7 +710,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             Qry.FieldAsString("suffix")
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", crafts.get(craft, "name", pr_lat));
+    NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -1295,6 +1295,8 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
     else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
     else if(name == "FullStat") ;
+    else if(name == "ShortStat") ;
+    else if(name == "DetailStat") ;
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
