@@ -832,7 +832,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TAirps airps;
     TAirlines airlines;
-    TCrafts crafts;
+//    TCrafts crafts;
 
     NewTextChild(variablesNode, "own_airp_name", "Äùêéèéêí " + airps.get(airp, "name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
@@ -844,7 +844,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             Qry.FieldAsString("suffix")
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", crafts.get(craft, "name", pr_lat));
+    NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -1035,7 +1035,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TAirps airps;
     TAirlines airlines;
-    TCrafts crafts;
+//    TCrafts crafts;
 
     NewTextChild(variablesNode, "own_airp_name", "Äùêéèéêí " + airps.get(airp, "name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
@@ -1047,7 +1047,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             Qry.FieldAsString("suffix")
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", crafts.get(craft, "name", pr_lat));
+    NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
