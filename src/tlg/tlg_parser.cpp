@@ -2767,7 +2767,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
           SegQry.Clear();
           SegQry.SQLText=
             "SELECT point_id FROM points "
-            "WHERE first_point=:first_point AND "
+            "WHERE DECODE(pr_tranzit,0,point_id,first_point)=:first_point AND "
             "      point_num>=:point_num AND "
             "      point_num<:last_point_num AND pr_del=0 "
             "ORDER BY point_num DESC";
