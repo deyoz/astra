@@ -25,14 +25,21 @@ using namespace ASTRA;
 using namespace boost::local_time;
 
 const char* pointsSQL =
-    "SELECT move_id,point_id,point_num,airp,city,first_point,airline,flt_no,suffix,craft,bort,"\
-    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"\
-    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "\
-    "       tz_regions.region region "\
-    " FROM points,airps,cities,tz_regions "
-    "WHERE points.airp=airps.code AND airps.city=cities.code AND "\
-    "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) AND "\
-    "      points.pr_del!=-1 "\
+    "SELECT points.move_id,point_id,point_num,airp,city,first_point,airline,flt_no,suffix,craft,bort,"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "
+    "       tz_regions.region region "
+    " FROM points, "
+    " (SELECT DISTINCT move_id FROM points "
+    "   WHERE points.pr_del!=-1 AND "
+    "         ( :first_date IS NULL OR "
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p, "    
+    " airps,cities,tz_regions "
+    "WHERE points.move_id = p.move_id AND "
+    "      points.airp=airps.code AND airps.city=cities.code AND "
+    "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) AND "
+    "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char* classesSQL =
     "SELECT point_id,class,cfg "\
@@ -264,7 +271,11 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.triptype_out = id->triptype;
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
-    trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
+    try {
+      trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
+    }
+    catch(...) { ProgTrace( TRACE5, "id->point_id=%d", id->point_id ); };
+
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
   }
@@ -272,11 +283,19 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   return trip;
 }
 
-void internal_ReadData( TTrips &trips, int point_id = NoExists )
+void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, int point_id = NoExists )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery PointsQry( &OraSession );
   PointsQry.SQLText = pointsSQL;
+  if ( first_date != NoExists ) {
+    PointsQry.CreateVariable( "first_date", otDate, first_date );
+    PointsQry.CreateVariable( "next_date", otDate, next_date );
+  }
+  else {
+  	PointsQry.CreateVariable( "first_date", otDate, FNull );
+  	PointsQry.CreateVariable( "next_date", otDate, FNull );
+  }
 
   TQuery ClassesQry( &OraSession );
   ClassesQry.SQLText = classesSQL;
@@ -391,6 +410,7 @@ void internal_ReadData( TTrips &trips, int point_id = NoExists )
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
+  tst();
   if ( move_id > NoExists ) {
         //create trips
     string airline;
@@ -556,16 +576,30 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "CorrectStages", reqNode ) ) {
-  	tst();
     TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
   }
+  TDateTime vdate, first_date, next_date;
+  xmlNodePtr dNode = GetNode( "flight_date", reqNode );
+  if ( dNode ) {
+  	double f;
+  	vdate = NodeAsDateTime( dNode );  	
+  	NewTextChild( dataNode, "flight_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
+  	modf( (double)vdate, &f );
+  	first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
+  	next_date = first_date + 1; // добавляем сутки
+  }
+  else {
+    first_date = NoExists;  
+    next_date = NoExists;
+  }
   TTrips trips;
-  internal_ReadData( trips );
+  internal_ReadData( trips, first_date, next_date );
+  tst();
   xmlNodePtr tripsNode = NULL;
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tripsNode )
       tripsNode = NewTextChild( dataNode, "trips" );
-    if ( tr->places_in.empty() && tr->places_out.empty() ) // такой рейс не отображаем
+    if ( tr->places_in.empty() && tr->places_out.empty() || tr->region.empty() ) // такой рейс не отображаем
       continue;
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
@@ -1275,7 +1309,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	int point_id = NodeAsInteger( "point_id", reqNode );
   TTrips trips;
   TCRS_Displaces crsd;
-  internal_ReadData( trips, point_id );
+  internal_ReadData( trips, NoExists, NoExists, point_id );
   tst();
   xmlNodePtr crsdNode = NewTextChild( NewTextChild( resNode, "data" ), "crd_displaces" );
   NewTextChild( crsdNode, "point_id", point_id );

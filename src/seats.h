@@ -53,7 +53,7 @@ struct TPassenger {
   std::string placeStatus;
   int priority;
   int tid;
-  bool preseat;
+  std::string preseat;
   /*выход*/
   TPlaceList *placeList; /* салон */
   TPoint Pos; /* указывает место */
@@ -68,7 +68,6 @@ struct TPassenger {
     Pos.y = 0;
     InUse = false;  	
     tid = -1;
-    preseat = false;
   }
 };
 
@@ -147,7 +146,7 @@ namespace SEATS {
 void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
 bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
-void SeatsPassengers( TSalons *Salons );
+void SeatsPassengers( TSalons *Salons, bool FUse_BR=false );
 void SavePlaces( );
 }
 extern TPassengers Passengers;

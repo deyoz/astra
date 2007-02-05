@@ -261,6 +261,15 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   }
 }
 
+bool Checkin( int pax_id )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText = "SELECT pax_id FROM pax where pax_id=:pax_id";
+	Qry.CreateVariable( "pax_id", otInteger, pax_id );
+	Qry.Execute();
+	return Qry.RowCount();
+}
+
 void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "trip_id", reqNode );
@@ -282,6 +291,8 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   string errmsg;
   if ( !Qry.RowCount() )
   	errmsg = "Пассажир не найден";
+  if ( errmsg.empty() && Checkin( pax_id ) )
+  	throw UserException( "Пассажир зарегистрирован"	);
   if ( errmsg.empty() && Qry.FieldAsInteger( "tid" ) != tid ) {
     errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
              " производились с другой стойки. Обновите данные";
@@ -290,7 +301,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   
   Qry.Clear();
   Qry.SQLText = "SELECT num, x, y FROM trip_comp_elems "\
-                " WHERE point_id=:point_id AND yname||xname=:placename";
+                " WHERE point_id=:point_id AND yname||xname=DECODE( INSTR( :placename, '0' ), 1, SUBSTR( :placename, 2 ), :placename )";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "placename", otString, placeName );
   Qry.Execute();
@@ -370,6 +381,9 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
       errmsg = string( "Изменения по пассажиру " ) + Qry.FieldAsString( "name" ) +
                " производились с другой стойки. Обновите данные";
   }
+  if ( errmsg.empty() && setseatNode && Checkin( pax_id ) )
+  	throw UserException( "Пассажир зарегистрирован"	);
+  
   string nplaceName;
   if ( !errmsg.empty() || !SEATS::Reseat( seatstype, trip_id, pax_id, tid, num, x, y, nplaceName ) ) {
     /* данные на клиенте устарели, надо обновить их */
@@ -394,6 +408,9 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
             Passengers.Build( dataNode );
         }
     }
+    else
+    	if ( errmsg.empty() )
+    		errmsg = "Пересадка невозможна";
     showErrorMessageAndRollback( errmsg );
   }
   else {

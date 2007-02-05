@@ -747,10 +747,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         const char *subclass=NodeAsStringFast("subclass",node2);
         TPassenger pas;
         pas.clname=cl;
-        if (place_status=="FP"&&!NodeIsNULLFast("pax_id",node2))
+        if (place_status=="FP"&&!NodeIsNULLFast("pax_id",node2)) {
           pas.placeStatus="BR";
-        else
+          pas.pax_id = NodeAsIntegerFast( "pax_id", node2 );
+        }
+        else {
           pas.placeStatus=place_status;
+          pas.pax_id = 0;
+        }
         pas.placeName=NodeAsStringFast("seat_no",node2);
         pas.preseat=NodeAsStringFast("preseat_no",node2);
         pas.countPlace=NodeAsIntegerFast("seats",node2);
@@ -779,7 +783,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Salons.ClName = cl;
     Salons.Read( rTripSalons );
     //рассадка
-    SEATS::SeatsPassengers( &Salons );
+    SEATS::SeatsPassengers( &Salons /*!!! иногда True - возможна рассажка на забронированные места, когда */
+    	                              /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */ );
     SEATS::SavePlaces( );
     //заполним номера мест после рассадки
     node=NodeAsNode("passengers",reqNode);

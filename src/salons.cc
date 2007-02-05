@@ -62,6 +62,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
        placeList != placelists.end(); placeList++ ) {
     xmlNodePtr placeListNode = NewTextChild( salonsNode, "placelist" );
     SetProp( placeListNode, "num", (*placeList)->num );
+    int xcount=0, ycount=0;
     for ( TPlaces::iterator place = (*placeList)->places.begin();
           place != (*placeList)->places.end(); place++ ) {
       if ( !place->visible )
@@ -69,6 +70,10 @@ void TSalons::Build( xmlNodePtr salonsNode )
       xmlNodePtr placeNode = NewTextChild( placeListNode, "place" );
       NewTextChild( placeNode, "x", place->x );
       NewTextChild( placeNode, "y", place->y );
+      if ( place->x > xcount )
+      	xcount = place->x;
+      if ( place->y > ycount )	
+      	ycount = place->y;
       NewTextChild( placeNode, "elem_type", place->elem_type );
       if ( !place->isplace )
         NewTextChild( placeNode, "isnotplace" );
@@ -103,6 +108,8 @@ void TSalons::Build( xmlNodePtr salonsNode )
           NewTextChild( remNode, "pr_denial" );
       }
     }
+    SetProp( placeListNode, "xcount", xcount + 1 );
+    SetProp( placeListNode, "ycount", ycount + 1 );
   }
 }
 

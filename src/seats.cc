@@ -1139,14 +1139,17 @@ bool TSeatPlaces::SeatsPassengers( )
   Passengers.copyTo( npass );
   try {
     for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
+    	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
       if ( ipass->InUse || PlaceStatus == "BR" && !CanUse_BR &&
-      	                   ( ipass->placeStatus != PlaceStatus || !ipass->preseat ) )
+      	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
         continue;
       Passengers.Clear();
       ipass->placeList = NULL;
       Passengers.Add( *ipass );
       if ( SeatGrpOnBasePlace( ) ||
-           ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse  ) && CanUse_BR && SeatsGrp( ) ) {
+           ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse  ) && 
+           ( PlaceStatus == "BR" && CanUse_BR || PlaceStatus != "BR" ) && SeatsGrp( ) ) {
+        tst();
         if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
           throw Exception( "Недопустимое значение направления рассадки" );
         ipass->placeList = seatplaces.begin()->placeList;
@@ -1253,6 +1256,7 @@ void TPassengers::Add( TPassenger &pass )
 {
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
+      
 //  ProgTrace(TRACE5, "pass.countPlace=%d", pass.countPlace );
 //  for ( vector<string>::iterator i=pass.rems.begin(); i!=pass.rems.end(); i++ )
 //    ProgTrace(TRACE5, "pass.rem=%s", i->c_str() );
@@ -1532,7 +1536,7 @@ bool ExistsBasePlace( TPassenger &pass, int lang )
 
 namespace SEATS {
 /* рассадка пассажиров */
-void SeatsPassengers( TSalons *Salons )
+void SeatsPassengers( TSalons *Salons, bool FUse_BR )
 {
   if ( !Passengers.getCount() )
     return;
@@ -1540,7 +1544,7 @@ void SeatsPassengers( TSalons *Salons )
   CurrSalon = Salons;
   vector<string> Statuses;
   CanUseStatus = true;
-	CanUse_BR = false;  
+	CanUse_BR = FUse_BR;  
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   CanUseElem_Type = false; /* пока не будем работать с типами мест */
   GET_LINE_ARRAY( );
@@ -1550,7 +1554,8 @@ void SeatsPassengers( TSalons *Salons )
   /* определение есть ли в группе пассажир с предварительной рассадкой */
   bool Status_preseat=false;
   for ( int i=0; i<Passengers.getCount(); i++ ) {
-  	if ( Passengers.Get( i ).placeStatus == "BR" && Passengers.Get( i ).preseat ) {
+  	TPassenger &pass = Passengers.Get( i );
+  	if ( pass.placeStatus == "BR" && !pass.preseat.empty() && pass.preseat == pass.placeName ) {
   		Status_preseat = true;
   		break;
   	}
@@ -1801,16 +1806,19 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   int new_tid = Qry.FieldAsInteger( "tid" );
   Qry.Clear();
   if ( seatstype == sreseats ) {
-  	if ( InUse == 2 && CanUse_BR ) { // пересадка, надо посмотреть, чтобы пассажир не мог сесть на новое место, предназначенное для другого
+  	if ( InUse == 2 && !CanUse_BR ) { // пересадка, надо посмотреть, чтобы пассажир не мог сесть на новое место, предназначенное для другого
+  		tst();
   		Qry.SQLText = "SELECT status FROM trip_comp_elems "
   		              " WHERE point_id=:point_id AND yname||xname=:nplacename";
   		Qry.CreateVariable( "point_id", otInteger, trip_id );
-  		Qry.CreateVariable( "placename", otString, nplaceName );
+  		Qry.CreateVariable( "nplacename", otString, nplaceName );
   		Qry.Execute();
-  		if ( Qry.FieldAsString( "status" ) == "BR" ) {
+  		ProgTrace( TRACE5, "status=%s", Qry.FieldAsString( "status" ) );
+  		if ( Qry.FieldAsString( "status" ) == string( "BR" ) ) {
   			return false;
   		}
   		Qry.Clear();
+  		tst();
   	}
     Qry.SQLText = "BEGIN "\
                   " salons.seatpass( :point_id, :pax_id, :placename, :whatdo ); "\
@@ -2038,38 +2046,93 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
 void SavePlaces( )
 {
   TQuery Qry( &OraSession );
-  Qry.SQLText = "UPDATE trip_comp_elems SET pr_free=NULL "\
-                " WHERE point_id=:point_id AND num=:num AND x=:x AND y=:y AND pr_free IS NOT NULL ";
+  TQuery RQry( &OraSession ); //удаление забронированных мест в салоне
+  RQry.SQLText = 
+    "DECLARE "
+    " vpreseat crs_pax.preseat_no%TYPE; "    
+    "BEGIN "
+    " :x := -1; :y := -1; :num := -1; "
+    " BEGIN "
+    "  SELECT preseat_no INTO vpreseat "
+    "  FROM crs_pax "
+    "  WHERE pax_id=:pax_id; "
+    "  SELECT x, y, num INTO :x, :y, :num "
+    "  FROM  trip_comp_elems "
+    "  WHERE point_id = :point_id AND "
+    "        yname||xname=DECODE( INSTR( vpreseat, '0' ), 1, SUBSTR( vpreseat, 2 ), vpreseat ) AND "
+    "        status='BR'; "
+    "  EXCEPTION WHEN NO_DATA_FOUND THEN NULL; "
+    " END; "
+    "END;";  
+  RQry.CreateVariable( "point_id", otInteger, CurrSalon->trip_id );
+  RQry.DeclareVariable( "pax_id", otInteger );
+  RQry.DeclareVariable( "x", otInteger );  
+  RQry.DeclareVariable( "y", otInteger );  
+  RQry.DeclareVariable( "num", otInteger );  
+// занятие мест и освобождение забронированных мест, если такие есть  
+  Qry.SQLText = 
+    "BEGIN "
+    " UPDATE trip_comp_elems SET pr_free=NULL "
+    "  WHERE point_id=:point_id AND num=:num AND x=:x AND y=:y AND pr_free IS NOT NULL; "
+    " IF :bnum != -1 THEN "
+    "  UPDATE trip_comp_elems "
+    "    SET status='FP' "
+    "  WHERE pr_free IS NOT NULL AND enabled IS NOT NULL AND "
+    "        status = 'BR' AND " 
+    "        elem_type IN ( SELECT code FROM comp_elem_types WHERE pr_seat <> 0 ) AND "
+    "        point_id = :point_id AND num = :bnum AND "
+    "        x = :bx AND y = :by; "
+    " END IF; "
+    "END;";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.DeclareVariable( "num", otInteger );
   Qry.DeclareVariable( "x", otInteger );
   Qry.DeclareVariable( "y", otInteger );
+  Qry.DeclareVariable( "bnum", otInteger );
+  Qry.DeclareVariable( "bx", otInteger );
+  Qry.DeclareVariable( "by", otInteger );  
   Qry.SetVariable( "point_id", CurrSalon->trip_id );
-  TPoint p;
+  TPoint p, bp;
   for ( int i=0; i<Passengers.getCount(); i++ ) {
     TPassenger &pass = Passengers.Get( i );
+    RQry.SetVariable( "pax_id", pass.pax_id );
+    tst();
+    RQry.Execute();
     Qry.SetVariable( "num", pass.placeList->num );
+    Qry.SetVariable( "bnum", RQry.GetVariableAsInteger( "num" ) );
+    bp.x = RQry.GetVariableAsInteger( "x" );
+    bp.y = RQry.GetVariableAsInteger( "y" );
+    ProgTrace( TRACE5, "bnum=%d, bx=%d, by=%d", 
+               RQry.GetVariableAsInteger( "num" ),
+               RQry.GetVariableAsInteger( "x" ),
+               RQry.GetVariableAsInteger( "y" ) );    
     p = pass.Pos;
     for ( int j=0; j<pass.countPlace; j++ ) {
       Qry.SetVariable( "x", p.x );
       Qry.SetVariable( "y", p.y );
+      Qry.SetVariable( "bx", bp.x );
+      Qry.SetVariable( "by", bp.y );      
       switch ( pass.Step ) {
         case sLeft:
           p.x--;
+          bp.x--;
           break;
         case sRight:
           p.x++;
+          bp.x++;
           break;
        case sUp:
          p.y--;
+         bp.y--;
          break;
        case sDown:
          p.y++;
+         bp.y++;
          break;
       }
+      tst();
       Qry.Execute();
-      if ( !Qry.RowCount() ) /*??? */
-       throw Exception( "Повторное использование занятого места при рассадке" );
+      tst();
     }
   }
 }
