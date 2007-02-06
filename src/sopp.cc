@@ -583,10 +583,11 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if ( dNode ) {
   	double f;
   	vdate = NodeAsDateTime( dNode );  	
-  	NewTextChild( dataNode, "flight_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
   	modf( (double)vdate, &f );
-  	first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region ) - 1;
-  	next_date = first_date + 2; // добавляем сутки
+  	first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
+  	next_date = first_date + 1; // добавляем сутки
+  	NewTextChild( dataNode, "flight_date_first", DateTimeToStr( first_date, ServerFormatDateTimeAsString ) );  	
+  	NewTextChild( dataNode, "flight_date_next", DateTimeToStr( next_date, ServerFormatDateTimeAsString ) );  	
   }
   else {
     first_date = NoExists;  
