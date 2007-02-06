@@ -217,14 +217,15 @@ bool ChckSt(int pax_id, string seat_no)
     bool Result = true;
     TQuery *Qry = OraSession.CreateQuery();
     Qry->SQLText =
-        "SELECT seat_no FROM bp_print, "
+        "SELECT LPAD(seat_no,3,'0') AS seat_no1, LPAD(:seat_no,3,'0') AS seat_no2 FROM bp_print, "
         "  (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
         "WHERE pax_id=:pax_id AND bp_print.time_print=a.time_print ";
-    Qry->DeclareVariable("pax_id", otInteger);
-    Qry->SetVariable("pax_id", pax_id);
+    Qry->CreateVariable("pax_id", otInteger, pax_id);
+    Qry->CreateVariable("seat_no", otString, seat_no);
     Qry->Execute();
     while(!Qry->Eof) {
-        if(seat_no != Qry->FieldAsString("seat_no")) break;
+        if(!Qry->FieldIsNULL("seat_no1") &&
+                strcmp(Qry->FieldAsString("seat_no1"), Qry->FieldAsString("seat_no2"))!=0) break;
         Qry->Next();
     }
     if(!Qry->Eof)
@@ -367,7 +368,8 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             else
                 throw UserException(1, "Пассажир с указанным номером не прошел посадку");
         }
-        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no_str))
+        ProgTrace(TRACE5, "seat_no: %s", Pax->seat_no.c_str());
+        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no))
         {
             NewTextChild(dataNode, "failed");
         }
