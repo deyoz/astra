@@ -1234,6 +1234,24 @@ void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void set_variables(xmlNodePtr resNode)
+{
+
+    xmlNodePtr formDataNode = GetNode("form_data", resNode);
+    if(!formDataNode)
+        formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = GetNode("variables", formDataNode);
+    if(!variablesNode)
+        variablesNode = NewTextChild(formDataNode, "variables");
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
+
+    NewTextChild(variablesNode, "print_date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss"));
+    NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
+    NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
+}
+
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -1399,6 +1417,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
     }
+    set_variables(resNode);
 }
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1491,6 +1510,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
     }
+    set_variables(resNode);
 }
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1579,6 +1599,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
     }
+    set_variables(resNode);
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
