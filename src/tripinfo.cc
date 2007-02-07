@@ -312,7 +312,7 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
            "                                 points.point_num)) AND "
            "aro_airps.aro_id=:user_id ";
   };
-  sql+="ORDER BY real_out";
+  sql+="ORDER BY real_out DESC";
   Qry.SQLText = sql;
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   p.setVariables( Qry );
