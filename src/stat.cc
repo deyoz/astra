@@ -1254,6 +1254,10 @@ void set_variables(xmlNodePtr resNode)
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    string form;
+    get_report_form("FullStat", form);
+    NewTextChild(resNode, "form", form);
+
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
@@ -1422,6 +1426,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    string form;
+    get_report_form("ShortStat", form);
+    NewTextChild(resNode, "form", form);
+
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
@@ -1515,6 +1523,10 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    string form;
+    get_report_form("DetailStat", form);
+    NewTextChild(resNode, "form", form);
+
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
@@ -1604,14 +1616,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string form;
     string name = NodeAsString("stat_mode", reqNode);
-    get_report_form(name, form);
-    NewTextChild(resNode, "form", form);
 
-    if(name == "FullStat") RunFullStat(reqNode, resNode);
-    else if(name == "ShortStat") RunShortStat(reqNode, resNode);
-    else if(name == "DetailStat") RunDetailStat(reqNode, resNode);
+    if(name == "Подробная") RunFullStat(reqNode, resNode);
+    else if(name == "Общая") RunShortStat(reqNode, resNode);
+    else if(name == "Детализированная") RunDetailStat(reqNode, resNode);
     else throw Exception("Unknown stat mode " + name);
 
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
