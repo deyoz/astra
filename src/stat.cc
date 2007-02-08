@@ -1380,23 +1380,64 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(!Qry.Eof) {
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
         if(ap.size()) {
-            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
-            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
+
+            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         } else {
-            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
-            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
+
+            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         }
-        SetProp(NewTextChild(headerNode, "col", "Номер рейса"), "width", 75);
-        SetProp(NewTextChild(headerNode, "col", "Дата"), "width", 50);
-        SetProp(NewTextChild(headerNode, "col", "Напр."), "width", 60);
-        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 75);
-        SetProp(NewTextChild(headerNode, "col", "ВЗ"), "width", 30);
-        SetProp(NewTextChild(headerNode, "col", "РБ"), "width", 30);
-        SetProp(NewTextChild(headerNode, "col", "РМ"), "width", 30);
-        SetProp(NewTextChild(headerNode, "col", "Р/кладь (вес)"), "width", 80);
-        SetProp(NewTextChild(headerNode, "col", "Багаж (мест/вес)"), "width", 100);
-        SetProp(NewTextChild(headerNode, "col", "Платн. (вес)"), "width", 70);
+        colNode = NewTextChild(headerNode, "col", "Номер рейса");
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", 1);
+        
+        colNode = NewTextChild(headerNode, "col", "Дата");
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", 0);
+
+        colNode = NewTextChild(headerNode, "col", "Напр.");
+        SetProp(colNode, "width", 60);
+        SetProp(colNode, "align", 0);
+
+        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        SetProp(colNode, "width", 75);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "ВЗ");
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "РБ");
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "РМ");
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "Р/кладь (вес)");
+        SetProp(colNode, "width", 80);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "Багаж (мест/вес)");
+        SetProp(colNode, "width", 100);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "Платн. (вес)");
+        SetProp(colNode, "width", 70);
+        SetProp(colNode, "align", 1);
+
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
@@ -1498,13 +1539,24 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(!Qry.Eof) {
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
         if(ap.size()) {
-            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         } else {
-            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         }
-        SetProp(NewTextChild(headerNode, "col", "Кол-во рейсов"), "width", 85);
-        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 85);
+        colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", 1);
+
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
@@ -1587,15 +1639,32 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(!Qry.Eof) {
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
+        xmlNodePtr colNode;
         if(ap.size()) {
-            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
-            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
+
+            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         } else {
-            SetProp(NewTextChild(headerNode, "col", "Код а/к"), "width", 50);
-            SetProp(NewTextChild(headerNode, "col", "Код а/п"), "width", 50);
+            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
+
+            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            SetProp(colNode, "width", 50);
+            SetProp(colNode, "align", 0);
         }
-        SetProp(NewTextChild(headerNode, "col", "Кол-во рейсов"), "width", 85);
-        SetProp(NewTextChild(headerNode, "col", "Кол-во пасс."), "width", 85);
+        colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", 1);
+
+        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        SetProp(colNode, "width", 85);
+        SetProp(colNode, "align", 1);
+
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
