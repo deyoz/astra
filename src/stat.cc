@@ -1502,6 +1502,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  group by point_dep  "
         "        ) a   "
         "where  "
+        " nvl(a.pax_amount, 0) <> 0 and "
         " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
     if(ap.size()) {
         SQLText += 
@@ -1605,6 +1606,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  group by point_dep  "
         "        ) a   "
         "where  "
+        " nvl(a.pax_amount, 0) <> 0 and  "
         " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
     if(ap.size()) {
         SQLText += 
