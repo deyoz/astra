@@ -50,13 +50,21 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));*/
     Qry.Execute();
 
+    {
+        string form;
+        get_report_form("EventsLog", form);
+        NewTextChild(resNode, "form", form);
+    }
+
+    xmlNodePtr logNode = NewTextChild(resNode, "events_log");
+
     for(;!Qry.Eof;Qry.Next())
     {
         if ( !eventsTypes.empty() &&
                 find( eventsTypes.begin(), eventsTypes.end(), Qry.FieldAsString( "type" ) ) == eventsTypes.end() )
             continue;
 
-        xmlNodePtr rowNode=NewTextChild(resNode,"row");
+        xmlNodePtr rowNode=NewTextChild(logNode,"row");
         NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
         NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
@@ -74,4 +82,6 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
         NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
     };
+    logNode = NewTextChild(resNode, "variables");
+    PaxListVars(point_id, 0, logNode);
 };
