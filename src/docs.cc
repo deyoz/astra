@@ -162,8 +162,11 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
 
     TAirlines airlines;
 
+    if(airline.size())
+        airline = airlines.get(airline, "code", pr_lat);
+
     NewTextChild(variablesNode, "trip",
-            airlines.get(airline, "code", pr_lat) +
+            airline +
             IntToString(Qry.FieldAsInteger("flt_no")) +
             Qry.FieldAsString("suffix")
             );
