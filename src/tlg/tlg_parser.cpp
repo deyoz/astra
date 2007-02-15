@@ -2721,7 +2721,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
     {
       scd=TripsQry.FieldAsDateTime("scd");
       if (TripsQry.FieldIsNULL("region")) continue;
-      UTCToLocal(scd,TripsQry.FieldAsString("region"));
+      scd=UTCToLocal(scd,TripsQry.FieldAsString("region"));
       modf(scd,&scd);
       if (scd!=flt.scd) continue;
     };
@@ -2740,6 +2740,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
           SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
           if (!(*flt.airp_arv==0))
           {
+            //ищем point_num первого попавшегося в маршруте airp_arv
             SegQry.SQLText=
               "SELECT MIN(point_num) AS last_point_num FROM points "
               "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 AND "
@@ -2748,13 +2749,15 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
           }
           else
           {
+            //ищем point_num последнего пункта в маршруте
             SegQry.SQLText=
               "SELECT MAX(point_num) AS last_point_num FROM points "
               "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ";
           };
           SegQry.Execute();
-          if (SegQry.FieldIsNULL("last_point_num"))
+          if (SegQry.Eof||SegQry.FieldIsNULL("last_point_num"))
           {
+            //если ничего не нашли
             if (bind_type==btAllSeg)
             {
               bind_tlg(point_id,TripsQry.FieldAsInteger("point_id"));
@@ -2775,10 +2778,13 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
           SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
           SegQry.CreateVariable("last_point_num",otInteger,last_point_num);
           SegQry.Execute();
+          //пробежимся по пунктам посадки в обратном порядке начиная с
+          //пункта перед last_point_num
           for(;!SegQry.Eof;SegQry.Next())
           {
             bind_tlg(point_id,SegQry.FieldAsInteger("point_id"));
             res=true;
+            //если btLastSeg - привяжем только последний сегмент
             if (bind_type==btLastSeg) break;
           };
         };
