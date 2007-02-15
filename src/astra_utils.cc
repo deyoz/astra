@@ -266,15 +266,15 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     Qry.SetVariable("screen", screen.name);
     Qry.SetVariable("ev_user", user.descr);
     Qry.SetVariable("station", desk.code);
-    if(msg.id1)
+    if(msg.id1!=0)
         Qry.SetVariable("id1", msg.id1);
     else
         Qry.SetVariable("id1", FNull);
-    if(msg.id2)
+    if(msg.id2!=0)
         Qry.SetVariable("id2", msg.id2);
     else
         Qry.SetVariable("id2", FNull);
-    if(msg.id3)
+    if(msg.id3!=0)
         Qry.SetVariable("id3", msg.id3);
     else
         Qry.SetVariable("id3", FNull);

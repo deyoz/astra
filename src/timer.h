@@ -11,5 +11,6 @@ void ETCheckStatusFlt(void);
 void sync_mvd(void);
 void createSPP( BASIC::TDateTime utcdate );
 void exec_tasks( void );
+void arx_daily( BASIC::TDateTime utcdate );
 
 #endif

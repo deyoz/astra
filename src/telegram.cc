@@ -174,81 +174,58 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   Qry.SQLText=sql;
   Qry.Execute();
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-  int len,bufLen=0;
-  char *ph,*buf=NULL;
-  try
+
+  if (!Qry.Eof)
   {
-    if (!Qry.Eof)
+    if (!Qry.FieldIsNULL("point_id"))
     {
-      if (!Qry.FieldIsNULL("point_id"))
-      {
-        point_id = Qry.FieldAsInteger("point_id");
-        TQuery RegionQry(&OraSession);
-        RegionQry.SQLText="SELECT system.AirpTZRegion(airp) AS tz_region FROM points WHERE point_id=:point_id";
-        RegionQry.CreateVariable("point_id",otInteger,point_id);
-        RegionQry.Execute();
-        if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
-        tz_region = RegionQry.FieldAsString("tz_region");
-      }
-      else
-      {
-        point_id = -1;
-        tz_region =  TReqInfo::Instance()->desk.tz_region;
-      };
-    };
-    for(;!Qry.Eof;Qry.Next())
+      point_id = Qry.FieldAsInteger("point_id");
+      TQuery RegionQry(&OraSession);
+      RegionQry.SQLText="SELECT system.AirpTZRegion(airp) AS tz_region FROM points WHERE point_id=:point_id";
+      RegionQry.CreateVariable("point_id",otInteger,point_id);
+      RegionQry.Execute();
+      if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
+      tz_region = RegionQry.FieldAsString("tz_region");
+    }
+    else
     {
-      node = NewTextChild( tlgsNode, "tlg" );
-      NewTextChild( node, "id", Qry.FieldAsInteger("id") );
-      NewTextChild( node, "num", Qry.FieldAsInteger("num") );
-      NewTextChild( node, "type", Qry.FieldAsString("type") );
-      NewTextChild( node, "airp", Qry.FieldAsString("airp") );
-      NewTextChild( node, "crs", Qry.FieldAsString("crs") );
-      NewTextChild( node, "addr", Qry.FieldAsString("addr") );
-      NewTextChild( node, "heading", Qry.FieldAsString("heading") );
-      NewTextChild( node, "ending", Qry.FieldAsString("ending") );
-      NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
-
-      TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
-      NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
-
-      if (!Qry.FieldIsNULL("time_send_scd"))
-      {
-        TDateTime time_send_scd = UTCToClient( Qry.FieldAsDateTime("time_send_scd"), tz_region );
-        NewTextChild( node, "time_send_scd", DateTimeToStr( time_send_scd ) );
-      }
-      else
-        NewTextChild( node, "time_send_scd" );
-
-      if (!Qry.FieldIsNULL("time_send_act"))
-      {
-        TDateTime time_send_act = UTCToClient( Qry.FieldAsDateTime("time_send_act"), tz_region );
-        NewTextChild( node, "time_send_act", DateTimeToStr( time_send_act ) );
-      }
-      else
-        NewTextChild( node, "time_send_act" );
-
-      len=Qry.GetSizeLongField("body")+1;
-      if (len>bufLen)
-      {
-        if (buf==NULL)
-          ph=(char*)malloc(len);
-        else
-          ph=(char*)realloc(buf,len);
-        if (ph==NULL) throw EMemoryError("Out of memory");
-        buf=ph;
-        bufLen=len;
-      };
-      Qry.FieldAsLong("body",buf);
-      buf[len-1]=0;
-      NewTextChild( node, "body", buf);
+      point_id = -1;
+      tz_region =  TReqInfo::Instance()->desk.tz_region;
     };
-    if (buf!=NULL) free(buf);
-  }
-  catch(...)
+  };
+  for(;!Qry.Eof;Qry.Next())
   {
-    if (buf!=NULL) free(buf);
-    throw;
+    node = NewTextChild( tlgsNode, "tlg" );
+    NewTextChild( node, "id", Qry.FieldAsInteger("id") );
+    NewTextChild( node, "num", Qry.FieldAsInteger("num") );
+    NewTextChild( node, "type", Qry.FieldAsString("type") );
+    NewTextChild( node, "airp", Qry.FieldAsString("airp") );
+    NewTextChild( node, "crs", Qry.FieldAsString("crs") );
+    NewTextChild( node, "addr", Qry.FieldAsString("addr") );
+    NewTextChild( node, "heading", Qry.FieldAsString("heading") );
+    NewTextChild( node, "ending", Qry.FieldAsString("ending") );
+    NewTextChild( node, "pr_lat", (int)(Qry.FieldAsInteger("pr_lat")!=0) );
+
+    TDateTime time_create = UTCToClient( Qry.FieldAsDateTime("time_create"), tz_region );
+    NewTextChild( node, "time_create", DateTimeToStr( time_create ) );
+
+    if (!Qry.FieldIsNULL("time_send_scd"))
+    {
+      TDateTime time_send_scd = UTCToClient( Qry.FieldAsDateTime("time_send_scd"), tz_region );
+      NewTextChild( node, "time_send_scd", DateTimeToStr( time_send_scd ) );
+    }
+    else
+      NewTextChild( node, "time_send_scd" );
+
+    if (!Qry.FieldIsNULL("time_send_act"))
+    {
+      TDateTime time_send_act = UTCToClient( Qry.FieldAsDateTime("time_send_act"), tz_region );
+      NewTextChild( node, "time_send_act", DateTimeToStr( time_send_act ) );
+    }
+    else
+      NewTextChild( node, "time_send_act" );
+
+    NewTextChild( node, "body", Qry.FieldAsString("body") );
   };
 };
 
@@ -466,98 +443,73 @@ void TelegramInterface::SendTlg(int tlg_id)
   vector<string>::iterator i;
   TTlgParser tlg;
   char *addrs,*line_p;
-  int len,bufLen=0;
-  char *ph,*buf=NULL;
-  try
+
+  for(;!TlgQry.Eof;TlgQry.Next())
   {
-    for(;!TlgQry.Eof;TlgQry.Next())
+    if (TlgQry.FieldAsString("addr")!=old_addrs)
     {
-      if (TlgQry.FieldAsString("addr")!=old_addrs)
+      recvs.clear();
+      line_p=TlgQry.FieldAsString("addr");
+      try
       {
-        recvs.clear();
-        line_p=TlgQry.FieldAsString("addr");
-        try
+        do
         {
-          do
+          addrs=tlg.GetLexeme(line_p);
+          while (addrs!=NULL)
           {
-            addrs=tlg.GetLexeme(line_p);
-            while (addrs!=NULL)
+            if (strlen(tlg.lex)!=7)
+              throw UserException("Неверно указан SITA-адрес |%s|",tlg.lex);
+            for(char *p=tlg.lex;*p!=0;p++)
+              if (!(IsUpperLetter(*p)&&*p>='A'&&*p<='Z'||IsDigit(*p)))
+                throw UserException("Неверно указан SITA-адрес |%s||",tlg.lex);
+            char addr[8];
+            strcpy(addr,tlg.lex);
+            Qry.SetVariable("addr",addr);
+            Qry.Execute();
+            if (!Qry.Eof) canon_name=Qry.FieldAsString("canon_name");
+            else
             {
-              if (strlen(tlg.lex)!=7)
-                throw UserException("Неверно указан SITA-адрес |%s|",tlg.lex);
-              for(char *p=tlg.lex;*p!=0;p++)
-                if (!(IsUpperLetter(*p)&&*p>='A'&&*p<='Z'||IsDigit(*p)))
-                  throw UserException("Неверно указан SITA-адрес |%s||",tlg.lex);
-              char addr[8];
-              strcpy(addr,tlg.lex);
+              addr[5]=0; //обрезаем до 5-ти символов
               Qry.SetVariable("addr",addr);
               Qry.Execute();
               if (!Qry.Eof) canon_name=Qry.FieldAsString("canon_name");
               else
               {
-                addr[5]=0; //обрезаем до 5-ти символов
-                Qry.SetVariable("addr",addr);
-                Qry.Execute();
-                if (!Qry.Eof) canon_name=Qry.FieldAsString("canon_name");
+                if (*(DEF_CANON_NAME())!=0)
+                  canon_name=DEF_CANON_NAME();
                 else
-                {
-                  if (*(DEF_CANON_NAME())!=0)
-                    canon_name=DEF_CANON_NAME();
-                  else
-                    throw UserException("Не определен канонический адрес для SITA-адреса %s",tlg.lex);
-                };
+                  throw UserException("Не определен канонический адрес для SITA-адреса %s",tlg.lex);
               };
-              for(i=recvs.begin();i!=recvs.end();i++)
-                if (*i==canon_name) break;
-              if (i==recvs.end()) recvs.push_back(canon_name);
-
-              addrs=tlg.GetLexeme(addrs);
             };
-          }
-          while ((line_p=tlg.NextLine(line_p))!=NULL);
+            for(i=recvs.begin();i!=recvs.end();i++)
+              if (*i==canon_name) break;
+            if (i==recvs.end()) recvs.push_back(canon_name);
+
+            addrs=tlg.GetLexeme(addrs);
+          };
         }
-        catch(ETlgError)
-        {
-          throw UserException("Неверный формат адресной строки");
-        };
-        old_addrs=TlgQry.FieldAsString("addr");
-      };
-      if (recvs.empty()) throw UserException("Не указаны адреса получателей телеграммы");
-
-      //формируем телеграмму
-
-      len=TlgQry.GetSizeLongField("body")+1;
-      if (len>bufLen)
+        while ((line_p=tlg.NextLine(line_p))!=NULL);
+      }
+      catch(ETlgError)
       {
-        if (buf==NULL)
-          ph=(char*)malloc(len);
-        else
-          ph=(char*)realloc(buf,len);
-        if (ph==NULL) throw EMemoryError("Out of memory");
-        buf=ph;
-        bufLen=len;
+        throw UserException("Неверный формат адресной строки");
       };
-      TlgQry.FieldAsLong("body",buf);
-      buf[len-1]=0;
-
-      tlg_text=(string)TlgQry.FieldAsString("addr")+TlgQry.FieldAsString("heading")+
-               buf+TlgQry.FieldAsString("ending");
-
-      for(i=recvs.begin();i!=recvs.end();i++)
-      {
-        if (OWN_CANON_NAME()==*i)
-          /* сразу помещаем во входную очередь */
-          loadTlg(tlg_text);
-        else
-          sendTlg(i->c_str(),OWN_CANON_NAME(),false,0,tlg_text);
-      };
+      old_addrs=TlgQry.FieldAsString("addr");
     };
-    if (buf!=NULL) free(buf);
-  }
-  catch(...)
-  {
-    if (buf!=NULL) free(buf);
-    throw;
+    if (recvs.empty()) throw UserException("Не указаны адреса получателей телеграммы");
+
+    //формируем телеграмму
+    tlg_text=(string)TlgQry.FieldAsString("addr")+TlgQry.FieldAsString("heading")+
+             TlgQry.FieldAsString("body")+TlgQry.FieldAsString("ending");
+
+    for(i=recvs.begin();i!=recvs.end();i++)
+    {
+      if (OWN_CANON_NAME()==*i)
+        /* сразу помещаем во входную очередь */
+        loadTlg(tlg_text);
+      else
+        sendTlg(i->c_str(),OWN_CANON_NAME(),false,0,tlg_text);
+    };
   };
 
   TlgQry.Clear();
