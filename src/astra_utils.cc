@@ -463,6 +463,7 @@ void showBasicInfo(void)
     node = NewTextChild(resNode,"user");
     NewTextChild(node, "login",reqInfo->user.login);
     NewTextChild(node, "type",reqInfo->user.user_type);
+    NewTextChild(node, "time_form",reqInfo->user.time_form);
     xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
     node = NewTextChild(accessNode, "rights");
