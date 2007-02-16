@@ -1439,8 +1439,17 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "align", 1);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        int total_pax_amount = 0;
+        int total_adult = 0;
+        int total_child = 0;
+        int total_baby = 0;
+        int total_rk_weight = 0;
+        int total_bag_amount = 0;
+        int total_bag_weight = 0;
+        int total_excess = 0;
         while(!Qry.Eof) {
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            rowNode = NewTextChild(rowsNode, "row");
             if(ap.size()) {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
@@ -1448,19 +1457,50 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
             }
+
+            int pax_amount = Qry.FieldAsInteger("pax_amount");
+            int adult = Qry.FieldAsInteger("adult");
+            int child = Qry.FieldAsInteger("child");
+            int baby = Qry.FieldAsInteger("baby");
+            int rk_weight = Qry.FieldAsInteger("rk_weight");
+            int bag_amount = Qry.FieldAsInteger("bag_amount");
+            int bag_weight = Qry.FieldAsInteger("bag_weight");
+            int excess = Qry.FieldAsInteger("excess");
+
+            total_pax_amount += pax_amount;
+            total_adult += adult;
+            total_child += child;
+            total_baby += baby;
+            total_rk_weight += rk_weight;
+            total_bag_amount += bag_amount;
+            total_bag_weight += bag_weight;
+            total_excess += excess;
+
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
             NewTextChild(rowNode, "col", DateTimeToStr(Qry.FieldAsDateTime("scd_out"), "dd.mm.yy"));
             NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("adult"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("child"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("baby"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("rk_weight"));
-            NewTextChild(rowNode, "col",
-                    IntToString(Qry.FieldAsInteger("bag_amount")) + "/" + IntToString(Qry.FieldAsInteger("bag_weight")));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("excess"));
+            NewTextChild(rowNode, "col", pax_amount);
+            NewTextChild(rowNode, "col", adult);
+            NewTextChild(rowNode, "col", child);
+            NewTextChild(rowNode, "col", baby);
+            NewTextChild(rowNode, "col", rk_weight);
+            NewTextChild(rowNode, "col", IntToString(bag_amount) + "/" + IntToString(bag_weight));
+            NewTextChild(rowNode, "col", excess);
             Qry.Next();
         }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", total_adult);
+        NewTextChild(rowNode, "col", total_child);
+        NewTextChild(rowNode, "col", total_baby);
+        NewTextChild(rowNode, "col", total_rk_weight);
+        NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
+        NewTextChild(rowNode, "col", total_excess);
     }
     set_variables(resNode);
 }
@@ -1559,17 +1599,31 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "align", 1);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        int total_flt_amount = 0;
+        int total_pax_amount = 0;
         while(!Qry.Eof) {
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            rowNode = NewTextChild(rowsNode, "row");
             if(ap.size()) {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
             } else {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
             }
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_amount"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
+
+            int flt_amount = Qry.FieldAsInteger("flt_amount");
+            int pax_amount = Qry.FieldAsInteger("pax_amount");
+
+            total_flt_amount += flt_amount;
+            total_pax_amount += pax_amount;
+
+            NewTextChild(rowNode, "col", flt_amount);
+            NewTextChild(rowNode, "col", pax_amount);
             Qry.Next();
         }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", total_flt_amount);
+        NewTextChild(rowNode, "col", total_pax_amount);
     }
     set_variables(resNode);
 }
@@ -1668,8 +1722,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "align", 1);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
+        xmlNodePtr rowNode;
+        int total_flt_amount = 0;
+        int total_pax_amount = 0;
         while(!Qry.Eof) {
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            rowNode = NewTextChild(rowsNode, "row");
             if(ap.size()) {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
@@ -1677,10 +1734,22 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
             }
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_amount"));
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("pax_amount"));
+
+            int flt_amount = Qry.FieldAsInteger("flt_amount");
+            int pax_amount = Qry.FieldAsInteger("pax_amount");
+
+            total_flt_amount += flt_amount;
+            total_pax_amount += pax_amount;
+
+            NewTextChild(rowNode, "col", flt_amount);
+            NewTextChild(rowNode, "col", pax_amount);
             Qry.Next();
         }
+        rowNode = NewTextChild(rowsNode, "row");
+        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col");
+        NewTextChild(rowNode, "col", total_flt_amount);
+        NewTextChild(rowNode, "col", total_pax_amount);
     }
     set_variables(resNode);
 }
