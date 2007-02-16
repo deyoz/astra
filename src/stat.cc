@@ -1269,6 +1269,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airline, "
         "    flt_no, "
         "    scd_out, "
+        "    system.AirpTzRegion(airp) AS tz_region, "
         "    point_id, "
         "    places, "
         "    adult + child + baby pax_amount, "
@@ -1373,8 +1374,9 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    places ";
 
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
-    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
     Qry.Execute();
 
     if(!Qry.Eof) {
@@ -1477,7 +1479,9 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             total_excess += excess;
 
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
-            NewTextChild(rowNode, "col", DateTimeToStr(Qry.FieldAsDateTime("scd_out"), "dd.mm.yy"));
+            NewTextChild(rowNode, "col", DateTimeToStr(
+                        UTCToClient(Qry.FieldAsDateTime("scd_out"), Qry.FieldAsString("tz_region")), "dd.mm.yy")
+                        );
             NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
             NewTextChild(rowNode, "col", pax_amount);
             NewTextChild(rowNode, "col", adult);
