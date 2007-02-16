@@ -69,11 +69,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
         NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
 
-        TDateTime time;
-        if (reqInfo->user.time_form==tfUTC)
-            time = Qry.FieldAsDateTime("time");
-        else
-            time = UTCToLocal(Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region);
+        TDateTime time = UTCToClient(Qry.FieldAsDateTime("time"),reqInfo->desk.tz_region);
 
         NewTextChild(rowNode,"time",DateTimeToStr(time));
         NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
