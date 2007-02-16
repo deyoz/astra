@@ -1301,6 +1301,45 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points.flt_no, "
         "  points.scd_out, "
         "  stat.point_id "
+        "union "
+        "select "
+        "  arx_points.airp, "
+        "  arx_points.airline, "
+        "  arx_points.flt_no, "
+        "  arx_points.scd_out, "
+        "  system.AirpTzRegion(airp) AS tz_region, "
+        "  arx_stat.point_id, "
+        "  substr(arch.get_airps(arx_stat.point_id),1,50) places, "
+        "  sum(adult + child + baby) pax_amount, "
+        "  sum(adult) adult, "
+        "  sum(child) child, "
+        "  sum(baby) baby, "
+        "  sum(unchecked) rk_weight, "
+        "  sum(pcs) bag_amount, "
+        "  sum(weight) bag_weight, "
+        "  sum(excess) excess "
+        "from "
+        "  arx_points, "
+        "  arx_stat "
+        "where "
+        "  arx_points.point_id = arx_stat.point_id and "
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate ";
+    if(ap.size()) {
+        SQLText += 
+            " and arx_points.airp = :ap ";
+        Qry.CreateVariable("ap", otString, ap);
+    } else if(ak.size()) {
+        SQLText += 
+            " and arx_points.airline = :ak ";
+        Qry.CreateVariable("ak", otString, ak);
+    }
+        SQLText += 
+        "group by "
+        "  arx_points.airp, "
+        "  arx_points.airline, "
+        "  arx_points.flt_no, "
+        "  arx_points.scd_out, "
+        "  arx_stat.point_id "
         "order by ";
     if(ap.size())
         SQLText +=
