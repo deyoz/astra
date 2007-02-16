@@ -1406,8 +1406,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", 0);
 
-        colNode = NewTextChild(headerNode, "col", "Напр.");
-        SetProp(colNode, "width", 60);
+        colNode = NewTextChild(headerNode, "col", "Направление");
+        SetProp(colNode, "width", 90);
         SetProp(colNode, "align", 0);
 
         colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
