@@ -1284,18 +1284,22 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  stat "
         "where "
         "  points.point_id = stat.point_id and "
-        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
+        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " points.airp = :ap ";
+            " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " points.airline = :ak ";
+            " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
         "group by "
+        "  points.airp, "
+        "  points.airline, "
+        "  points.flt_no, "
+        "  points.scd_out, "
         "  stat.point_id "
         "order by ";
     if(ap.size())
@@ -1311,6 +1315,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    scd_out, "
         "    point_id, "
         "    places ";
+
+    ProgTrace(TRACE5, "%s", SQLText.c_str());
 
     Qry.SQLText = SQLText;
     TReqInfo *reqInfo = TReqInfo::Instance();
