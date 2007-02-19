@@ -1323,7 +1323,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate ";
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and ";
+        "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = :ap ";
@@ -1627,44 +1628,56 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TQuery Qry(&OraSession);        
     string SQLText = 
-        "select  "
-        "    airp,  "
-        "    airline,  "
-        "    count(*) flt_amount, "
-        "    sum(pax_amount) pax_amount  "
-        "from  "
-        "(  "
-        "SELECT   "
-        "    points.airp,  "
-        "    points.airline,  "
-        "    nvl(a.pax_amount, 0) pax_amount  "
-        "FROM   "
-        " points,  "
-        " (SELECT point_dep,  "
-        "         NVL(count(surname),0) pax_amount   "
-        "  FROM pax_grp,pax   "
-        "  WHERE pax_grp.grp_id=pax.grp_id AND   "
-        "        pr_brd IS NOT NULL  "
-        "  group by point_dep  "
-        "        ) a   "
-        "where  "
-        " nvl(a.pax_amount, 0) <> 0 and  "
-        " points.scd_out >= :FirstDate AND points.scd_out < :LastDate AND ";
+        "select "
+        "  points.airp, "
+        "  points.airline, "
+        "  count(*) flt_amount, "
+        "  sum(adult + child + baby) pax_amount "
+        "from "
+        "  points, "
+        "  stat "
+        "where "
+        "  points.point_id = stat.point_id and "
+        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " points.airp = :ap and ";
+            " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " points.airline = :ak and ";
+            " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
-        " a.point_dep(+) = points.point_id  "
-        ")  "
-        "group by  "
-        "    airp, "
-        "    airline "
+        "group by "
+        "  points.airp, "
+        "  points.airline "
+        "union "
+        "select "
+        "  arx_points.airp, "
+        "  arx_points.airline, "
+        "  count(*) flt_amount, "
+        "  sum(adult + child + baby) pax_amount "
+        "from "
+        "  arx_points, "
+        "  arx_stat "
+        "where "
+        "  arx_points.point_id = arx_stat.point_id and "
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "  arx_stat.part_key >= :FirstDate ";
+    if(ap.size()) {
+        SQLText += 
+            " and arx_points.airp = :ap ";
+        Qry.CreateVariable("ap", otString, ap);
+    } else if(ak.size()) {
+        SQLText += 
+            " and arx_points.airline = :ak ";
+        Qry.CreateVariable("ak", otString, ak);
+    }
+        SQLText += 
+        "group by "
+        "  arx_points.airp, "
+        "  arx_points.airline "
         "order by  ";
     if(ap.size())
         SQLText += 
