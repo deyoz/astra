@@ -1583,6 +1583,8 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SQLText += 
         "    arx_points.airline ";
 
+    ProgTrace(TRACE5, "%s", SQLText.c_str());
+
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
