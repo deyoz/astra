@@ -1578,10 +1578,10 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "order by  ";
     if(ap.size())
         SQLText += 
-        "    arx_points.airp ";
+        "    airp ";
     else
         SQLText += 
-        "    arx_points.airline ";
+        "    airline ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
 
