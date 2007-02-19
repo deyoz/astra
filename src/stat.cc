@@ -1513,7 +1513,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SQLText += 
         "    points.airline,  ";
     SQLText += 
-        "    count(*) flt_amount, "
+        "    count(distinct stat.point_id) flt_amount, "
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  points, "
@@ -1548,7 +1548,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SQLText += 
         "    arx_points.airline,  ";
     SQLText += 
-        "    count(*) flt_amount, "
+        "    count(distinct arx_stat.point_id) flt_amount, "
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  arx_points, "
@@ -1655,7 +1655,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "select "
         "  points.airp, "
         "  points.airline, "
-        "  count(*) flt_amount, "
+        "  count(distinct stat.point_id) flt_amount, "
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  points, "
@@ -1680,7 +1680,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "select "
         "  arx_points.airp, "
         "  arx_points.airline, "
-        "  count(*) flt_amount, "
+        "  count(distinct arx_stat.point_id) flt_amount, "
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  arx_points, "
