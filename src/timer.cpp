@@ -348,7 +348,7 @@ const int ARX_MIN_DAYS()
     r[0]=0;
     if ( get_param( "ARX_MIN_DAYS", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param ARX_MIN_DAYS" );
-    if (StrToInt(r,VAR)==EOF||r<2)
+    if (StrToInt(r,VAR)==EOF||VAR<2)
       throw EXCEPTIONS::Exception("Wrong param ARX_MIN_DAYS");
     init=true;
     ProgTrace( TRACE5, "ARX_MIN_DAYS=%d", VAR );
@@ -365,7 +365,7 @@ const int ARX_MAX_DAYS()
     r[0]=0;
     if ( get_param( "ARX_MAX_DAYS", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param ARX_MAX_DAYS" );
-    if (StrToInt(r,VAR)==EOF||r<2)
+    if (StrToInt(r,VAR)==EOF||VAR<2)
       throw EXCEPTIONS::Exception("Wrong param ARX_MAX_DAYS");
     init=true;
     ProgTrace( TRACE5, "ARX_MAX_DAYS=%d", VAR );
@@ -742,7 +742,7 @@ void sync_countries(void)
   };
 
 
-    
+
 };  */
 
 
