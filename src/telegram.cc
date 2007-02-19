@@ -368,13 +368,16 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   msg << "Телеграмма " << TlgQry.GetVariableAsString("tlg_type")
       << " (ид=" << tlg_id << ") сформирована: ";
   msg << "адреса: " << TlgQry.GetVariableAsString("addrs") << ", ";
-  if (!TlgQry.VariableIsNULL("airp_arv"))
+  if (!TlgQry.VariableIsNULL("airp_arv") &&
+      *TlgQry.GetVariableAsString("airp_arv")!=0)
     msg << "а/п: " << TlgQry.GetVariableAsString("airp_arv") << ", ";
-  if (!TlgQry.VariableIsNULL("crs"))
+  if (!TlgQry.VariableIsNULL("crs") &&
+      *TlgQry.GetVariableAsString("crs")!=0)
     msg << "центр: " << TlgQry.GetVariableAsString("crs") << ", ";
   if (!TlgQry.VariableIsNULL("pr_numeric"))
     msg << "цифр.: " << (TlgQry.GetVariableAsInteger("pr_numeric")==0?"нет":"да") << ", ";
   msg << "лат.: " << (TlgQry.GetVariableAsInteger("pr_lat")==0?"нет":"да");
+  if (point_id==-1) point_id=0;
   TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
   NewTextChild( resNode, "tlg_id", tlg_id);
 ///  GetTlgOut(ctxt,resNode,resNode);
@@ -438,9 +441,17 @@ void TelegramInterface::SendTlg(int tlg_id)
   Qry.SQLText="SELECT canon_name FROM addrs WHERE addr=:addr";
   Qry.DeclareVariable("addr",otString);
 
+  TQuery AddrQry(&OraSession);
+  AddrQry.Clear();
+  AddrQry.SQLText=
+    "BEGIN "
+    "  tlg.format_addr_line(:addrs); "
+    "END;";
+  AddrQry.DeclareVariable("addrs",otString);
+
   string old_addrs,canon_name,tlg_text;
-  vector<string> recvs;
-  vector<string>::iterator i;
+  map<string,string> recvs;
+  map<string,string>::iterator i;
   TTlgParser tlg;
   char *addrs,*line_p;
 
@@ -458,10 +469,10 @@ void TelegramInterface::SendTlg(int tlg_id)
           while (addrs!=NULL)
           {
             if (strlen(tlg.lex)!=7)
-              throw UserException("Неверно указан SITA-адрес |%s|",tlg.lex);
+              throw UserException("Неверно указан SITA-адрес %s",tlg.lex);
             for(char *p=tlg.lex;*p!=0;p++)
               if (!(IsUpperLetter(*p)&&*p>='A'&&*p<='Z'||IsDigit(*p)))
-                throw UserException("Неверно указан SITA-адрес |%s||",tlg.lex);
+                throw UserException("Неверно указан SITA-адрес %s",tlg.lex);
             char addr[8];
             strcpy(addr,tlg.lex);
             Qry.SetVariable("addr",addr);
@@ -481,9 +492,10 @@ void TelegramInterface::SendTlg(int tlg_id)
                   throw UserException("Не определен канонический адрес для SITA-адреса %s",tlg.lex);
               };
             };
-            for(i=recvs.begin();i!=recvs.end();i++)
-              if (*i==canon_name) break;
-            if (i==recvs.end()) recvs.push_back(canon_name);
+            if (recvs.find(canon_name)==recvs.end())
+            	recvs[canon_name]=tlg.lex;
+            else
+            	recvs[canon_name]=recvs[canon_name]+' '+tlg.lex;
 
             addrs=tlg.GetLexeme(addrs);
           };
@@ -499,16 +511,19 @@ void TelegramInterface::SendTlg(int tlg_id)
     if (recvs.empty()) throw UserException("Не указаны адреса получателей телеграммы");
 
     //формируем телеграмму
-    tlg_text=(string)TlgQry.FieldAsString("addr")+TlgQry.FieldAsString("heading")+
+    tlg_text=(string)TlgQry.FieldAsString("heading")+
              TlgQry.FieldAsString("body")+TlgQry.FieldAsString("ending");
 
     for(i=recvs.begin();i!=recvs.end();i++)
     {
-      if (OWN_CANON_NAME()==*i)
+    	AddrQry.SetVariable("addrs",i->second); //преобразуем
+    	AddrQry.Execute();
+      if (OWN_CANON_NAME()==i->first)
         /* сразу помещаем во входную очередь */
-        loadTlg(tlg_text);
+        loadTlg(AddrQry.GetVariableAsString("addrs")+tlg_text);
       else
-        sendTlg(i->c_str(),OWN_CANON_NAME(),false,0,tlg_text);
+        sendTlg(i->first.c_str(),OWN_CANON_NAME(),false,0,
+                AddrQry.GetVariableAsString("addrs")+tlg_text);
     };
   };
 
@@ -769,9 +784,11 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               msg << "Телеграмма " << TlgQry.GetVariableAsString("tlg_type")
                   << " (ид=" << tlg_id << ") сформирована: ";
               msg << "адреса: " << TlgQry.GetVariableAsString("addrs") << ", ";
-              if (!TlgQry.VariableIsNULL("airp_arv"))
+              if (!TlgQry.VariableIsNULL("airp_arv") &&
+                  *TlgQry.GetVariableAsString("airp_arv")!=0)
                 msg << "а/п: " << TlgQry.GetVariableAsString("airp_arv") << ", ";
-              if (!TlgQry.VariableIsNULL("crs"))
+              if (!TlgQry.VariableIsNULL("crs") &&
+                  *TlgQry.GetVariableAsString("crs")!=0)
                 msg << "центр: " << TlgQry.GetVariableAsString("crs") << ", ";
               if (!TlgQry.VariableIsNULL("pr_numeric"))
                 msg << "цифр.: " << (TlgQry.GetVariableAsInteger("pr_numeric")==0?"нет":"да") << ", ";

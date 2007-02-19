@@ -90,7 +90,7 @@ void exec_tasks( void )
 	    	    else
 	    	      if ( name == "sync_mvd" ) sync_mvd();
 	    	      	else
-	    	      		if ( name == "arx_daily" ) arx_daily( NowUTC()-60 );
+	    	      		if ( name == "arx_daily" ) arx_daily( utcdate );
 
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();	 //???
@@ -348,7 +348,7 @@ const int ARX_MIN_DAYS()
     r[0]=0;
     if ( get_param( "ARX_MIN_DAYS", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param ARX_MIN_DAYS" );
-    if (StrToInt(r,VAR)==EOF||r<=0)
+    if (StrToInt(r,VAR)==EOF||r<2)
       throw EXCEPTIONS::Exception("Wrong param ARX_MIN_DAYS");
     init=true;
     ProgTrace( TRACE5, "ARX_MIN_DAYS=%d", VAR );
@@ -365,7 +365,7 @@ const int ARX_MAX_DAYS()
     r[0]=0;
     if ( get_param( "ARX_MAX_DAYS", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param ARX_MAX_DAYS" );
-    if (StrToInt(r,VAR)==EOF||r<=0)
+    if (StrToInt(r,VAR)==EOF||r<2)
       throw EXCEPTIONS::Exception("Wrong param ARX_MAX_DAYS");
     init=true;
     ProgTrace( TRACE5, "ARX_MAX_DAYS=%d", VAR );
@@ -386,11 +386,15 @@ void arx_move(int move_id, TDateTime part_key)
   else
   	Qry.CreateVariable("part_key",otDate,FNull);
   Qry.Execute();
+  OraSession.Commit();
 };
 
 void arx_daily(TDateTime utcdate)
 {
+	ProgTrace(TRACE5,"arx_daily started");
+
 	//соберем статистику для тех, кто не вылетел
+	ProgTrace(TRACE5,"arx_daily: statist.get_full_stat(:point_id)");
 	TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
@@ -403,7 +407,7 @@ void arx_daily(TDateTime utcdate)
 	TQuery PointsQry(&OraSession);
   PointsQry.Clear();
   PointsQry.SQLText =
-    "SELECT point_id FROM points,trip_sets "
+    "SELECT points.point_id FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND "
     "      points.pr_del=0 AND trip_sets.pr_stat=0 AND "
     "      NVL(act_out,NVL(est_out,scd_out))<:stat_date";
@@ -416,9 +420,8 @@ void arx_daily(TDateTime utcdate)
   };
   OraSession.Commit();
 
-
   //сначала ищем рейсы из СПП которые можно переместить в архив
-
+  ProgTrace(TRACE5,"arx_daily: arch.move(:move_id,:part_key)");
   Qry.Clear();
   Qry.SQLText =
     "SELECT move_id "
@@ -434,7 +437,7 @@ void arx_daily(TDateTime utcdate)
   PointsQry.SQLText =
     "SELECT act_out,act_in,pr_del, "
     "       NVL(act_out,NVL(est_out,scd_out)) AS time_out, "
-    "       NVL(act_in,NVL(est_in,scd_in)) AS time_in, "
+    "       NVL(act_in,NVL(est_in,scd_in)) AS time_in "
     "FROM points "
     "WHERE move_id=:move_id AND pr_del<>-1"
     "ORDER BY point_num";
@@ -458,23 +461,23 @@ void arx_daily(TDateTime utcdate)
         else
           prior_time_out=NoExists;
 
-        Qry.Next();
+        PointsQry.Next();
 
-        if (Qry.Eof) break;
+        if (PointsQry.Eof) break;
 
         //анализируем предыдущий time_out,act_out
         if (prior_time_out!=NoExists &&
             (last_date==NoExists || last_date<prior_time_out))
           last_date=prior_time_out;
 
-        if (!Qry.FieldIsNULL("time_in") &&
-            (last_date==NoExists || last_date<Qry.FieldAsDateTime("time_in")))
-          last_date=Qry.FieldAsDateTime("time_in");
+        if (!PointsQry.FieldIsNULL("time_in") &&
+            (last_date==NoExists || last_date<PointsQry.FieldAsDateTime("time_in")))
+          last_date=PointsQry.FieldAsDateTime("time_in");
 
-        if (Qry.FieldAsInteger("pr_del")==0)
+        if (PointsQry.FieldAsInteger("pr_del")==0)
         {
-       	  if (!Qry.FieldIsNULL("act_in"))
-            final_act_in=Qry.FieldAsDateTime("act_in");
+       	  if (!PointsQry.FieldIsNULL("act_in"))
+            final_act_in=PointsQry.FieldAsDateTime("act_in");
           else
             final_act_in=NoExists;
         };
@@ -497,8 +500,8 @@ void arx_daily(TDateTime utcdate)
     };
   };
 
-
   //переместим разные данные, не привязанные к рейсам
+  ProgTrace(TRACE5,"arx_daily: arch.move(:arx_date)");
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -506,9 +509,10 @@ void arx_daily(TDateTime utcdate)
     "END;";
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
   Qry.Execute();
-
+  OraSession.Commit();
 
   //далее ищем разобранные данные телеграмм которые можно удалить
+  ProgTrace(TRACE5,"arx_daily: arch.tlg_trip(:point_id)");
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -533,10 +537,12 @@ void arx_daily(TDateTime utcdate)
     {
       Qry.SetVariable("point_id",point_id);
       Qry.Execute();
+      OraSession.Commit();
     };
   };
 
   //далее перемещаем в архив телеграммы из tlgs_in
+  ProgTrace(TRACE5,"arx_daily: tlgs_in -> arx_tlgs_in");
   TQuery TlgQry(&OraSession);
   TlgQry.Clear();
   TlgQry.SQLText=
@@ -567,6 +573,11 @@ void arx_daily(TDateTime utcdate)
   InsQry.DeclareVariable("page_no",otInteger);
   InsQry.DeclareVariable("body",otString);
 
+  TQuery DelQry(&OraSession);
+  DelQry.Clear();
+  DelQry.SQLText="DELETE FROM tlgs_in WHERE id=:id";
+  DelQry.DeclareVariable("id",otInteger);
+
   int len,bufLen=0;
   char *ph,*buf=NULL;
   try
@@ -576,6 +587,7 @@ void arx_daily(TDateTime utcdate)
     {
       int id=TlgQry.FieldAsInteger("id");
       InsQry.SetVariable("id",id);
+      DelQry.SetVariable("id",id);
       Qry.SetVariable("id",id);
       Qry.Execute();
       for(;!Qry.Eof;Qry.Next())
@@ -614,6 +626,8 @@ void arx_daily(TDateTime utcdate)
           };
         };
       };
+      DelQry.Execute();
+      OraSession.Commit();
     };
     if (buf!=NULL) free(buf);
   }
@@ -622,8 +636,10 @@ void arx_daily(TDateTime utcdate)
     if (buf!=NULL) free(buf);
     throw;
   };
+  OraSession.Commit();
 
   //далее перемещаем в архив нормы, тарифы и т.п.
+  ProgTrace(TRACE5,"arx_daily: arch.norms_rates_etc(:arx_date)");
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -631,12 +647,102 @@ void arx_daily(TDateTime utcdate)
     "END;";
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS()-15);
   Qry.Execute();
+  OraSession.Commit();
 
   //и наконец чистим tlgs
+  ProgTrace(TRACE5,"arx_daily: clear tlgs");
   Qry.Clear();
   Qry.SQLText=
     "DELETE FROM tlgs WHERE time<:arx_date";
   Qry.CreateVariable("arx_date",otDate,utcdate-30); //30 дней
   Qry.Execute();
+  OraSession.Commit();
+
+  ProgTrace(TRACE5,"arx_daily stopped");
 };
+/*
+void sync_countries(void)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT ida, "
+    "       UPPER(TRIM(rcodeg)) AS rcode, "
+    "       REPLACE(UPPER(TRIM(lcodeg)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lcode, "
+    "       UPPER(TRIM(rname)) AS rname, "
+    "       REPLACE(UPPER(TRIM(lname)),'АВСЕНКМОРТХ','ABCEHKMOPTX') AS lname "
+    "FROM gos WHERE close=0";
+
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText=
+    "DECLARE "
+    "  row2	countries%ROWTYPE; "
+    "  row3     countries%ROWTYPE; "
+    "BEGIN "
+    "  row2.code:=NULL; "
+    "  row2.code_lat:=NULL; "
+    "  row2.name:=NULL; "
+    "  row2.name_lat:=NULL; "
+
+
+
+
+    "  IF :rcode IS NOT NULL AND "
+    "     LENGTH(:rcode)=2 AND "
+    "     system.is_upp_let(:rcode)<>0 THEN row2.code:=:rcode; END IF; "
+    "  IF :lcode IS NOT NULL AND "
+    "     LENGTH(:lcode)=2 AND "
+    "     system.is_upp_let(:lcode,1)<>0 THEN row2.code_lat:=:lcode; END IF; "
+    "  IF :rname IS NOT NULL AND "
+    "     system.is_name(:rname)<>0 THEN row2.name:=:rname; END IF; "
+    "  IF :lname IS NOT NULL AND "
+    "     system.is_name(:lname,1)<>0 THEN row2.name_lat:=:lname; END IF; "
+
+
+    "  IF
+
+
+    "  SELECT * INTO row3 FROM "
+
+
+    "  IF :tid IS NULL THEN "
+    "    SELECT tid__seq.nextval INTO :tid FROM dual; "
+    "  END IF; "
+    "  UPDATE countries "
+    "  SET code_lat=DECODE(:code_lat,NULL,code_lat,:code_lat), "
+    "      name=DECODE(:name,NULL,name,:name), "
+    "      name_lat=DECODE(:name_lat,NULL,name_lat,:name_lat), "
+    "      pr_del=0,tid=:tid "
+    "  WHERE code=:code; "
+    "  IF SQL%NOTFOUND THEN "
+    "    INSERT INTO countries(id,code,code_lat,name,name_lat,pr_del,tid) "
+    "    VALUES(id__seq.nextval,:code,:code_lat,:name,:name_lat,0,:tid); "
+    "  END IF; "
+    "END;";
+  UpdQry.DeclareVariable("code",otString);
+  UpdQry.DeclareVariable("code_lat",otString);
+  UpdQry.DeclareVariable("name",otString);
+  UpdQry.DeclareVariable("name_lat",otString);
+  UpdQry.CreateVariable("tid",otInteger,FNull);
+
+
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    UpdQry.SetVariable("code",FNull);
+    UpdQry.SetVariable("code_lat",FNull);
+    UpdQry.SetVariable("name",FNull);
+    UpdQry.SetVariable("name_lat",FNull);
+
+    if (!Qry.FieldIsNULL("rcode") &&
+        strlen(Qry.FieldAsString("rcode"))==2 &&
+
+
+  };
+
+
+    
+};  */
+
 
