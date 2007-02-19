@@ -1323,7 +1323,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and ";
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
