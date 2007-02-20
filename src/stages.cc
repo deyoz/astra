@@ -186,12 +186,12 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        tolog += " отменен";
      tolog += ": расч. время";
      if ( i->second.est > NoExists )
-       tolog += DateTimeToStr( i->second.est, "=hh:nn dd.mm.yy (UTC)" );
+       tolog += DateTimeToStr( ClientToUTC( i->second.est, region ), "=hh:nn dd.mm.yy (UTC)" );
      else
        tolog += " не задано";
      tolog += ", факт. время";
      if ( i->second.act > NoExists )
-       tolog += DateTimeToStr( i->second.act, "=hh:nn dd.mm.yy (UTC)" );
+       tolog += DateTimeToStr( ClientToUTC( i->second.act, region ), "=hh:nn dd.mm.yy (UTC)" );
      else
         tolog += " не задано";
      TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
