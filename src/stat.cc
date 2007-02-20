@@ -1250,8 +1250,8 @@ void set_variables(xmlNodePtr resNode)
     if(reqInfo->user.time_form = tfUTC)
         tz = "(GMT)";
     else if(
-            reqInfo->user.time_form = tfLocalDesk ||
-            reqInfo->user.time_form = tfLocalAll
+            reqInfo->user.time_form == tfLocalDesk ||
+            reqInfo->user.time_form == tfLocalAll
            )
         tz = "(" + reqInfo->desk.city + ")";
 
