@@ -1246,8 +1246,17 @@ void set_variables(xmlNodePtr resNode)
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
+    string tz;
+    if(reqInfo->user.time_form = tfUTC)
+        tz = "(GMT)";
+    else if(
+            reqInfo->user.time_form = tfLocalDesk ||
+            reqInfo->user.time_form = tfLocalAll
+           )
+        tz = "(" + reqInfo->desk.city + ")";
 
-    NewTextChild(variablesNode, "print_date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss"));
+    NewTextChild(variablesNode, "print_date",
+            DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
 }
