@@ -13,20 +13,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-enum TScreenState {DepStat, BagTagStat, PaxList, FltLog, SystemLog, PaxSrc, TScreenStateNum};
-const char *ScreenStateS[] = {"DepStat", "BagTagStat", "PaxList", "FltLog", "SystemLog", "PaxSrc"};
-
-TScreenState DecodeScreenState(const string val)
-{
-    int i;
-    for(i = 0; i < TScreenStateNum; i++)
-        if(val == ScreenStateS[i])
-            break;
-    if(i == TScreenStateNum)
-        throw Exception((string)"DecodeScreenState: unknown ScreenState " + val);
-    else
-        return TScreenState(i);
-}
+enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
 
 const int depends_len = 3;
 struct TCBox {
