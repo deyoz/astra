@@ -1247,7 +1247,7 @@ void set_variables(xmlNodePtr resNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
     string tz;
-    if(reqInfo->user.time_form = tfUTC)
+    if(reqInfo->user.time_form == tfUTC)
         tz = "(GMT)";
     else if(
             reqInfo->user.time_form == tfLocalDesk ||
