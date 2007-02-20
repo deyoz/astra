@@ -28,34 +28,49 @@ struct TCategory {
 };
 
 TCategory Category[] = {
+    {},
+    {},
+    {},
+    {},
     {
         DepStat,
         {
             {
                 "Flt",
 
-                "SELECT trips.trip "
-                "FROM astra.trips,astra.place, astra.pax_grp "
-                "WHERE trips.trip_id=place.trip_id AND "
-                "      trips.trip_id = pax_grp.point_id(+) and "
-                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:dest IS NULL OR place.city= :dest) and "
-                "      (:class is null or pax_grp.class = :class) "
-                "UNION "
-                "SELECT trips.trip "
-                "FROM arx.trips,arx.place,arx.pax_grp "
+                "SELECT "
+                "    points.point_id, "
+                "    points.airp, "
+                "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
+                "    points.airline, "
+                "    points.flt_no, "
+                "    points.suffix, "
+                "    points.scd_out, "
+                "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+                "FROM "
+                "    points "
                 "WHERE "
-                "      trips.trip_id = pax_grp.point_id(+) and "
-                "      trips.part_key=place.part_key AND trips.trip_id=place.trip_id AND "
-                "      place.part_key >= :FirstDate AND place.part_key < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:dest IS NULL OR place.city= :dest) and "
-                "      (:class is null or pax_grp.class = :class) "
-                "ORDER BY trip  ",
-
+                "    points.pr_del >= 0 and "
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+                "union "
+                "SELECT "
+                "    arx_points.point_id, "
+                "    arx_points.airp, "
+                "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
+                "    arx_points.airline, "
+                "    arx_points.flt_no, "
+                "    arx_points.suffix, "
+                "    arx_points.scd_out, "
+                "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+                "FROM "
+                "    arx_points "
+                "WHERE "
+                "    arx_points.pr_del >= 0 and "
+                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                "    arx_points.part_key >= :FirstDate "
+                "ORDER BY "
+                "    real_out DESC ",
+                
                 {"Dest", "Awk", "Class"}
             },
             {
@@ -419,7 +434,8 @@ TCategory Category[] = {
                 {"Awk",    "Flt"}
             }
         }
-    }
+    },
+    {}
 };
 
 const int CategorySize = sizeof(Category)/sizeof(Category[0]);
@@ -427,7 +443,7 @@ const int CategorySize = sizeof(Category)/sizeof(Category[0]);
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
-    TScreenState scr = DecodeScreenState(NodeAsString("ScreenState", reqNode));
+    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TCategory *Ctg = &Category[scr];
     int i = 0;
     for(; i < cboxes_len; i++)
@@ -436,9 +452,9 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     TCBox *cbox_data = &Ctg->cboxes[i];
     TQuery Qry(&OraSession);        
     Qry.SQLText = cbox_data->qry;
-    TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(&Qry);
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
     if(scr == FltLog) {
         Qry.CreateVariable("evtFlt", otString, EncodeEventType(evtFlt));
         Qry.CreateVariable("evtGraph", otString, EncodeEventType(evtGraph));
@@ -447,12 +463,36 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         Qry.CreateVariable("evtPay", otString, EncodeEventType(evtPay));
     }
     Qry.Execute();
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr cboxNode = NewTextChild(dataNode, "cbox");
-    while(!Qry.Eof) {
-        NewTextChild(cboxNode, "f", Qry.FieldAsString(0));
-        Qry.Next();
-    }
+    xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
+    if(cbox_data->cbox == "Flt") {
+        TDateTime scd_out,real_out,desk_time;
+        modf(reqInfo->desk.time,&desk_time);
+        while(!Qry.Eof) {
+            modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),&scd_out);
+            modf(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),&real_out);
+            ostringstream trip;
+            trip << Qry.FieldAsString("airline")
+                << Qry.FieldAsInteger("flt_no")
+                << Qry.FieldAsString("suffix");
+
+            if (desk_time!=real_out)
+            {
+                if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
+                    trip << "/" << DateTimeToStr(real_out,"dd");
+                else
+                    trip << "/" << DateTimeToStr(real_out,"dd.mm");
+            };
+            if (scd_out!=real_out)
+                trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
+
+            NewTextChild(cboxNode, "f", trip.str());
+            Qry.Next();
+        }
+    } else
+        while(!Qry.Eof) {
+            NewTextChild(cboxNode, "f", Qry.FieldAsString(0));
+            Qry.Next();
+        }
 }
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
