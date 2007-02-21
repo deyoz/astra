@@ -1750,17 +1750,26 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  points, "
-        "  stat "
+        "  stat ";
+    if(ap.size())
+        SQLText += 
+        "  ,airps ";
+    else
+        SQLText += 
+        "  ,airlines ";
+    SQLText += 
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " and points.airp = :ap ";
+            " and points.airp = airps.code "
+            " and (airps.code = :ap or airps.code_lat = ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and points.airline = :ak ";
+            " and points.airline = airlines.code(+) "
+            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1775,18 +1784,27 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  arx_points, "
-        "  arx_stat "
+        "  arx_stat ";
+    if(ap.size())
+        SQLText += 
+        "  ,airps ";
+    else
+        SQLText += 
+        "  ,airlines ";
+    SQLText += 
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
-            " and arx_points.airp = :ap ";
+            " and arx_points.airp = airps.code "
+            " and (airps.code = :ap or airps.code_lat = ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and arx_points.airline = :ak ";
+            " and arx_points.airline = airlines.code(+) "
+            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
