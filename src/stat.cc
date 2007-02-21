@@ -1689,6 +1689,13 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);        
     string SQLText = 
         "select "
+        "    airp, "
+        "    airline, "
+        "    sum(flt_amount) flt_amount, "
+        "    sum(pax_amount) pax_amount "
+        "from "
+        "( "
+        "select "
         "  points.airp, "
         "  points.airline, "
         "  count(distinct stat.point_id) flt_amount, "
@@ -1738,6 +1745,10 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "group by "
         "  arx_points.airp, "
         "  arx_points.airline "
+        ") "
+        "group by "
+        "    airp, "
+        "    airline "
         "order by  ";
     if(ap.size())
         SQLText += 
@@ -1786,11 +1797,15 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr rowNode;
         int total_flt_amount = 0;
         int total_pax_amount = 0;
+        TAirps airps;
+        TAirlines airlines;
         while(!Qry.Eof) {
             rowNode = NewTextChild(rowsNode, "row");
+            string airp = Qry.FieldAsString("airp");
+            string airline = Qry.FieldAsString("airline");
             if(ap.size()) {
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+                NewTextChild(rowNode, "col", airp);
+                NewTextChild(rowNode, "col", airline);
             } else {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
