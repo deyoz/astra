@@ -7,6 +7,7 @@
 #include "exceptions.h"
 #include "stl_utils.h"
 #include "docs.h"
+#include "base_tables.h"
 #include <fstream>
 
 using namespace std;
