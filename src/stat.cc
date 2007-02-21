@@ -1545,6 +1545,18 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "select  ";
     if(ap.size())
         SQLText += 
+        "    airp,  ";
+    else
+        SQLText += 
+        "    airline,  ";
+    SQLText += 
+        "    sum(flt_amount) flt_amount, "
+        "    sum(pax_amount) pax_amount "
+        "from  "
+        "( "
+        "select  ";
+    if(ap.size())
+        SQLText += 
         "    points.airp,  ";
     else
         SQLText += 
@@ -1611,6 +1623,14 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     else
         SQLText += 
         "    arx_points.airline ";
+        SQLText += 
+        ") group by  ";
+    if(ap.size())
+        SQLText += 
+        "    airp ";
+    else
+        SQLText += 
+        "    airline ";
     SQLText += 
         "order by  ";
     if(ap.size())
