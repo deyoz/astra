@@ -1324,7 +1324,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
   Qry.SQLText =
-    "SELECT pnr_ref, "\
+    "SELECT ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "\
     "       RTRIM(surname||' '||name) full_name, "\
     "       pers_type, "\
     "       class,crs_pnr.subclass, "\
