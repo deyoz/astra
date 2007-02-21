@@ -1350,7 +1350,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
@@ -1399,7 +1399,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
@@ -1625,7 +1625,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
@@ -1670,7 +1670,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
@@ -1800,7 +1800,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
@@ -1835,7 +1835,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = ap) ";
+            " and (airps.code = :ap or airps.code_lat = :ap) ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
