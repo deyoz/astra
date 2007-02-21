@@ -1754,7 +1754,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size())
         SQLText += 
         "  ,airps ";
-    else
+    else if(ak.size())
         SQLText += 
         "  ,airlines ";
     SQLText += 
@@ -1788,7 +1788,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if(ap.size())
         SQLText += 
         "  ,airps ";
-    else
+    else if(ak.size())
         SQLText += 
         "  ,airlines ";
     SQLText += 
