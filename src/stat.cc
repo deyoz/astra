@@ -1683,19 +1683,19 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         if(ap.size()) {
             colNode = NewTextChild(headerNode, "col", "Код а/п");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         } else {
             colNode = NewTextChild(headerNode, "col", "Код а/к");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
@@ -1822,27 +1822,27 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         if(ap.size()) {
             colNode = NewTextChild(headerNode, "col", "Код а/п");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
 
             colNode = NewTextChild(headerNode, "col", "Код а/к");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         } else {
             colNode = NewTextChild(headerNode, "col", "Код а/к");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
 
             colNode = NewTextChild(headerNode, "col", "Код а/п");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
         SetProp(colNode, "width", 85);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
