@@ -1436,51 +1436,51 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         if(ap.size()) {
             colNode = NewTextChild(headerNode, "col", "Код а/п");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
 
             colNode = NewTextChild(headerNode, "col", "Код а/к");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         } else {
             colNode = NewTextChild(headerNode, "col", "Код а/к");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
 
             colNode = NewTextChild(headerNode, "col", "Код а/п");
             SetProp(colNode, "width", 50);
-            SetProp(colNode, "align", 0);
+            SetProp(colNode, "align", taLeftJustify);
         }
         colNode = NewTextChild(headerNode, "col", "Номер рейса");
         SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
         
         colNode = NewTextChild(headerNode, "col", "Дата");
         SetProp(colNode, "width", 50);
-        SetProp(colNode, "align", 0);
+        SetProp(colNode, "align", taLeftJustify);
 
         colNode = NewTextChild(headerNode, "col", "Направление");
         SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", 0);
+        SetProp(colNode, "align", taLeftJustify);
 
         colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
         SetProp(colNode, "width", 75);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "ВЗ");
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "РБ");
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "РМ");
         SetProp(colNode, "width", 30);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "Р/кладь (вес)");
         SetProp(colNode, "width", 80);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", "Багаж (мест/вес)");
         SetProp(colNode, "width", 100);
@@ -1488,7 +1488,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         colNode = NewTextChild(headerNode, "col", "Платн. (вес)");
         SetProp(colNode, "width", 70);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taRightJustify);
 
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
