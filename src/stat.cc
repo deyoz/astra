@@ -1336,26 +1336,17 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  points, "
-        "  stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1384,27 +1375,19 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  arx_points, "
-        "  arx_stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
-            " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and arx_points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1501,7 +1484,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
         colNode = NewTextChild(headerNode, "col", "Багаж (мест/вес)");
         SetProp(colNode, "width", 100);
-        SetProp(colNode, "align", 1);
+        SetProp(colNode, "align", taCenter);
 
         colNode = NewTextChild(headerNode, "col", "Платн. (вес)");
         SetProp(colNode, "width", 70);
@@ -1611,26 +1594,17 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  points, "
-        "  stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1655,27 +1629,19 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  arx_points, "
-        "  arx_stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
-            " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and arx_points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1786,26 +1752,17 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  points, "
-        "  stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if(ap.size()) {
         SQLText += 
-            " and points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1820,27 +1777,19 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  arx_points, "
-        "  arx_stat ";
-    if(ap.size())
-        SQLText += 
-        "  ,airps ";
-    else if(ak.size())
-        SQLText += 
-        "  ,airlines ";
-    SQLText += 
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
     if(ap.size()) {
         SQLText += 
-            " and arx_points.airp = airps.code "
-            " and (airps.code = :ap or airps.code_lat = :ap) ";
+            " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText += 
-            " and arx_points.airline = airlines.code(+) "
-            " and (airlines.code = :ak or airlines.code_lat = :ak) ";
+            " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText += 
@@ -1936,10 +1885,17 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 {
     string name = NodeAsString("stat_mode", reqNode);
 
-    if(name == "Подробная") RunFullStat(reqNode, resNode);
-    else if(name == "Общая") RunShortStat(reqNode, resNode);
-    else if(name == "Детализированная") RunDetailStat(reqNode, resNode);
-    else throw Exception("Unknown stat mode " + name);
+    try {
+        if(name == "Подробная") RunFullStat(reqNode, resNode);
+        else if(name == "Общая") RunShortStat(reqNode, resNode);
+        else if(name == "Детализированная") RunDetailStat(reqNode, resNode);
+        else throw Exception("Unknown stat mode " + name);
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+        else
+            throw;
+    }
 
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
