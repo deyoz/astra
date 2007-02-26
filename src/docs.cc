@@ -160,10 +160,10 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = Qry.FieldAsString("tz_region");
 
-    TAirlines airlines;
+    TBaseTable *airlines = base_tables.get_base_table("AIRLINES");
 
     if(airline.size())
-        airline = airlines.get(airline, "code", pr_lat);
+        airline = airlines->get(airline, "code", pr_lat);
 
     NewTextChild(variablesNode, "trip",
             airline +
@@ -181,9 +181,9 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
 
 int GetRPEncoding(string target)
 {
-    TAirps airps;
-    TCities cities;
-    return cities.get(airps.get(target, "city", 0), "country", 0) != "”";
+    TBaseTable *airps = base_tables.get_base_table("AIRPS");
+    TBaseTable *cities = base_tables.get_base_table("CITIES");
+    return cities->get(airps->get(target, "city", 0), "country", 0) != "”";
 }
 
 void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -229,9 +229,6 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
-    TPersTypes pers_types;
-
-    TAirps airps;
 
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -246,7 +243,6 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
 
         string last_target = Qry.FieldAsString("last_target");
-     //   if(last_target.size()) last_target = airps.get(last_target, "code", pr_lat);
         NewTextChild(rowNode, "last_target", last_target);
 
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
@@ -353,7 +349,6 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
-    TPersTypes pers_types;
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
@@ -396,7 +391,6 @@ void RunRef(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_ref");
-    TPersTypes pers_types;
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
@@ -441,14 +435,14 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
-    TPersTypes pers_types;
+    TBaseTable *pers_types = base_tables.get_base_table("PERS_TYPES");
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
         NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
-        NewTextChild(rowNode, "pers_type", pers_types.get(Qry.FieldAsString("pers_type"), "code", pr_lat));
+        NewTextChild(rowNode, "pers_type", pers_types->get(Qry.FieldAsString("pers_type"), "code", pr_lat));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
         NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));
@@ -699,16 +693,16 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = Qry.FieldAsString("tz_region");
 
-    TAirps airps;
-    TAirlines airlines;
+    TBaseTable *airps = base_tables.get_base_table("AIRPS");
+    TBaseTable *airlines = base_tables.get_base_table("AIRLINES");
 //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps.get(airp, "name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airps.get(airp, "name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlines.get(airline, "name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps->get(airp, "name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airps->get(airp, "name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airps->get(airp, "name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlines->get(airline, "name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            airlines.get(airline, "code", pr_lat) +
+            airlines->get(airline, "code", pr_lat) +
             IntToString(Qry.FieldAsInteger("flt_no")) +
             Qry.FieldAsString("suffix")
             );
@@ -718,7 +712,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", airps.get(target, "name", pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airps->get(target, "name", pr_lat));
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
@@ -833,16 +827,16 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = Qry.FieldAsString("tz_region");
 
-    TAirps airps;
-    TAirlines airlines;
+    TBaseTable *airps = base_tables.get_base_table("AIRPS");
+    TBaseTable *airlines = base_tables.get_base_table("AIRLINES");
 //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps.get(airp, "name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airps.get(airp, "name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlines.get(airline, "name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps->get(airp, "name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airps->get(airp, "name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airps->get(airp, "name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlines->get(airline, "name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            airlines.get(airline, "code", pr_lat) +
+            airlines->get(airline, "code", pr_lat) +
             IntToString(Qry.FieldAsInteger("flt_no")) +
             Qry.FieldAsString("suffix")
             );
@@ -852,7 +846,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", airps.get(target, "name", pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airps->get(target, "name", pr_lat));
 
     Qry.Clear();
     Qry.SQLText =
@@ -1036,16 +1030,16 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = Qry.FieldAsString("tz_region");
 
-    TAirps airps;
-    TAirlines airlines;
+    TBaseTable *airps = base_tables.get_base_table("AIRPS");
+    TBaseTable *airlines = base_tables.get_base_table("AIRLINES");
 //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps.get(airp, "name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airps.get(airp, "name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airps.get(airp, "name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlines.get(airline, "name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€ŽŽ’ " + airps->get(airp, "name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airps->get(airp, "name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airps->get(airp, "name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlines->get(airline, "name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            airlines.get(airline, "code", pr_lat) +
+            airlines->get(airline, "code", pr_lat) +
             IntToString(Qry.FieldAsInteger("flt_no")) +
             Qry.FieldAsString("suffix")
             );
@@ -1055,7 +1049,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", airps.get(target, "name", pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airps->get(target, "name", pr_lat));
 
     Qry.Clear();
     Qry.SQLText =

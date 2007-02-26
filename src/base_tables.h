@@ -15,6 +15,16 @@ class TBaseTable {
         std::string get(std::string code, std::string name, bool pr_lat, bool pr_except = false);
 };
 
+class TBaseTables {
+    private:
+        typedef std::map<std::string, TBaseTable *> TTables;
+        TTables base_tables;
+    public:
+        TBaseTable *get_base_table(std::string name);
+        void Clear();
+        ~TBaseTables() { Clear(); };
+};
+
 class TAirps: public TBaseTable {
     char *get_cache_name() { return "airps"; };
     char *get_sql_text()
@@ -106,6 +116,8 @@ class TCrafts: public TBaseTable {
             "   crafts";
     };
 };
+
+extern TBaseTables base_tables;
 
 
 #endif

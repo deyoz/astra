@@ -32,6 +32,7 @@
 #include "ocilocal.h"
 #include "xml_unit.h"
 #include "perfom.h"
+#include "base_tables.h"
 
 using namespace jxtlib;
 using namespace BASIC;
@@ -101,6 +102,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
 
 void AstraJxtCallbacks::UserAfter()
 {
+    base_tables.Clear();
     PerfomTest( 2007 );
 }
 

@@ -8,6 +8,36 @@
 using namespace std;
 using namespace EXCEPTIONS;
 
+void TBaseTables::Clear()
+{
+    for(TTables::iterator ti = base_tables.begin(); ti != base_tables.end(); ti++)
+        delete ti->second;
+    base_tables.clear();
+}
+
+TBaseTable *TBaseTables::get_base_table(string name)
+{
+    name = upperc(name);
+    TTables::iterator ti = base_tables.find(name);
+    if(ti == base_tables.end()) {
+        if(name == "AIRPS")
+            base_tables[name] = new TAirps();
+        else if(name == "PERS_TYPES")
+            base_tables[name] = new TPersTypes();
+        else if(name == "CITIES")
+            base_tables[name] = new TCities();
+        else if(name == "AIRLINES")
+            base_tables[name] = new TAirlines();
+        else if(name == "CLASSES")
+            base_tables[name] = new TClasses();
+        else if(name == "CRAFTS")
+            base_tables[name] = new TCrafts();
+        else
+            throw Exception("TBaseTables::get_base_table: " + name + " not found");
+    }
+    return base_tables[name];
+}
+
 string TBaseTable::get(string code, string name, bool pr_lat, bool pr_except)
 {
     if(table.empty()) {
@@ -40,3 +70,4 @@ string TBaseTable::get(string code, string name, bool pr_lat, bool pr_except)
     return fi->second;
 }
 
+TBaseTables base_tables;
