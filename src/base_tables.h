@@ -8,9 +8,9 @@ class TBaseTable {
         typedef std::map<std::string, std::string> TFields;
         typedef std::map<std::string, TFields> TTable;
         TTable table;
-    public:
         virtual char *get_cache_name() = 0;
         virtual char *get_sql_text() = 0;
+    public:
         virtual ~TBaseTable() {};
         std::string get(std::string code, std::string name, bool pr_lat, bool pr_except = false);
 };
@@ -20,7 +20,7 @@ class TBaseTables {
         typedef std::map<std::string, TBaseTable *> TTables;
         TTables base_tables;
     public:
-        TBaseTable *get_base_table(std::string name);
+        TBaseTable &get(std::string name);
         void Clear();
         ~TBaseTables() { Clear(); };
 };

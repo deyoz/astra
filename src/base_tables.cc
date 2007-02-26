@@ -15,7 +15,7 @@ void TBaseTables::Clear()
     base_tables.clear();
 }
 
-TBaseTable *TBaseTables::get_base_table(string name)
+TBaseTable &TBaseTables::get(string name)
 {
     name = upperc(name);
     TTables::iterator ti = base_tables.find(name);
@@ -35,7 +35,7 @@ TBaseTable *TBaseTables::get_base_table(string name)
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
-    return base_tables[name];
+    return *(base_tables[name]);
 }
 
 string TBaseTable::get(string code, string name, bool pr_lat, bool pr_except)
