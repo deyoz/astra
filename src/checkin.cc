@@ -613,6 +613,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Close();
 };
 
+bool GetUsePS()
+{
+	return false; //!!!
+}
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_dep,point_arv,grp_id,hall;
@@ -783,7 +788,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Salons.ClName = cl;
     Salons.Read( rTripSalons );
     //рассадка
-    SEATS::SeatsPassengers( &Salons /*!!! иногда True - возможна рассажка на забронированные места, когда */
+    SEATS::SeatsPassengers( &Salons, GetUsePS()/*!!! иногда True - возможна рассажка на забронированные места, когда */
     	                              /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */ );
     SEATS::SavePlaces( );
     //заполним номера мест после рассадки
@@ -986,11 +991,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     SalonQry.Clear();
     SalonQry.SQLText=
       "BEGIN "
-      "  salons.seatpass( :point_id, :pax_id, :seat_no, 0 ); "
+      "  salons.seatpass( :point_id, :pax_id, :seat_no, 0,:agent_error ); "
       "  UPDATE pax SET seat_no=NULL,prev_seat_no=seat_no WHERE pax_id=:pax_id; "
       "END;";
     SalonQry.CreateVariable("point_id",otInteger,point_dep);
     SalonQry.DeclareVariable("pax_id",otInteger);
+    SalonQry.DeclareVariable("agent_error",otInteger); //???
     SalonQry.DeclareVariable("seat_no",otString);
     node=GetNode("passengers",reqNode);
     if (node!=NULL)
@@ -1012,7 +1018,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           //были изменения в информации по пассажиру
           if (!NodeIsNULLFast("refuse",node2)&&!Qry.FieldIsNULL("seat_no"))
           {
+          	ProgTrace( TRACE5, "!!!refuse=%s, %s", NodeAsStringFast("refuse",node2), "А" );
             SalonQry.SetVariable("pax_id",pax_id);
+            if ( !strcmp( NodeAsStringFast("refuse",node2), "А" ) ) //???
+              SalonQry.SetVariable("agent_error", 1 );
+            else
+            	SalonQry.SetVariable("agent_error", 0 );  
             SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
             SalonQry.Execute();
           };
