@@ -530,9 +530,9 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         qry =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM astra.events "
+            "FROM events "
             "WHERE type IN (:evtPax,:evtPay) AND "
-            "      id1=:trip_id AND "
+            "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) "
             "UNION "
@@ -632,14 +632,11 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     } else
         throw Exception((string)"PaxLog: unknown tag " + tag);
     Qry.SQLText = qry;
-    TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(&Qry);
     try {
         Qry.Execute();
     } catch (EOracleError E) {
         if(E.Code == 376)
-            throw UserException(376);
+            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
         else
             throw;
     }
