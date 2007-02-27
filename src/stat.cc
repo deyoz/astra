@@ -218,16 +218,38 @@ TCategory Category[] = {
             {
                 "Flt",
 
-                "SELECT trips.trip "
-                "FROM astra.trips "
+                "SELECT "
+                "    points.point_id, "
+                "    points.airp, "
+                "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
+                "    points.airline, "
+                "    points.flt_no, "
+                "    points.suffix, "
+                "    points.scd_out, "
+                "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+                "FROM "
+                "    points "
                 "WHERE "
-                "      trips.scd >= :FirstDate AND trips.scd < :LastDate "
-                "UNION "
-                "SELECT trips.trip "
-                "FROM arx.trips "
+                "    points.pr_del >= 0 and "
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+                "union "
+                "SELECT "
+                "    arx_points.point_id, "
+                "    arx_points.airp, "
+                "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
+                "    arx_points.airline, "
+                "    arx_points.flt_no, "
+                "    arx_points.suffix, "
+                "    arx_points.scd_out, "
+                "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+                "FROM "
+                "    arx_points "
                 "WHERE "
-                "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate "
-                "ORDER BY trip  "
+                "    arx_points.pr_del >= 0 and "
+                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                "    arx_points.part_key >= :FirstDate "
+                "ORDER BY "
+                "    real_out DESC "
             }
         }
     },
@@ -498,9 +520,10 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TQuery Qry(&OraSession);        
     string tag = (char *)reqNode->name;
     char *qry = NULL;
-    if(tag == "LogRun")
+    if(tag == "LogRun") {
         qry =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
@@ -512,13 +535,15 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "UNION "
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
-            "FROM arx.events "
+            "FROM arx_events "
             "WHERE part_key=:part_key AND "
             "      type IN (:evtPax,:evtPay) AND "
             "      id1=:trip_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
-    else if(tag == "FltLogRun")
+        Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+        Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+    } else if(tag == "FltLogRun") {
         qry =
             "SELECT msg, time, id1 AS point_id, "
             "       nvl(screen.name, events.screen) screen, "
@@ -546,7 +571,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "      events.screen = screen.exe(+) and "
             "      events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
             "      events.id1=trips.trip_id ";
-    else if(tag == "SystemLogRun")
+    } else if(tag == "SystemLogRun") {
         qry =
             "SELECT msg, time, id1 AS point_id, "
             "  nvl(screen.name, events.screen) screen, "
@@ -597,9 +622,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "    :evtCodif, "
             "    :evtPeriod "
             "  ) ";
-    else
+    } else
         throw Exception((string)"PaxLog: unknown tag " + tag);
-    TQuery Qry(&OraSession);        
     Qry.SQLText = qry;
     TParams1 SQLParams;
     SQLParams.getParams(GetNode("sqlparams", reqNode));
@@ -1848,8 +1872,6 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr rowNode;
         int total_flt_amount = 0;
         int total_pax_amount = 0;
-        TAirps airps;
-        TAirlines airlines;
         while(!Qry.Eof) {
             rowNode = NewTextChild(rowsNode, "row");
             string airp = Qry.FieldAsString("airp");
