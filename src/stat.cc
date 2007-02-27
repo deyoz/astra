@@ -508,7 +508,9 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             if (scd_out!=real_out)
                 trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
 
-            NewTextChild(cboxNode, "f", trip.str());
+            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+            NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
+            NewTextChild(fNode, "value", trip.str());
             Qry.Next();
         }
     } else
@@ -523,6 +525,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     TQuery Qry(&OraSession);        
     string tag = (char *)reqNode->name;
     char *qry = NULL;
+    TReqInfo *reqInfo = TReqInfo::Instance();
     if(tag == "LogRun") {
         qry =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -536,13 +539,17 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
             "FROM arx_events "
-            "WHERE part_key=:part_key AND "
+            "WHERE part_key >= :part_key AND "
             "      type IN (:evtPax,:evtPay) AND "
-            "      id1=:trip_id AND "
+            "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
         Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
         Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+        Qry.CreateVariable("part_key", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
+        Qry.CreateVariable("reg_no", otInteger, NodeAsInteger("reg_no", reqNode));
+        Qry.CreateVariable("grp_id", otInteger, NodeAsInteger("grp_id", reqNode));
     } else if(tag == "FltLogRun") {
         qry =
             "SELECT msg, time, id1 AS point_id, "
@@ -636,20 +643,26 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         else
             throw;
     }
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr PaxLogNode = NewTextChild(dataNode, "PaxLog");
+    xmlNodePtr PaxLogNode = NewTextChild(resNode, "PaxLog");
     while(!Qry.Eof) {
         xmlNodePtr rowNode = NewTextChild(PaxLogNode, "row");
 
-        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "idf", Qry.FieldAsString("ev_user"));
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "ev_user", Qry.FieldAsString("ev_user"));
         NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
-        NewTextChild(rowNode, "time", DateTimeToStr(Qry.FieldAsDateTime("time")));
+
+        NewTextChild( rowNode, "time",
+                DateTimeToStr(
+                    UTCToClient( Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region),
+                    ServerFormatDateTimeAsString
+                    )
+                );
+
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "txt", Qry.FieldAsString("msg"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "msg", Qry.FieldAsString("msg"));
         NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
-        NewTextChild(rowNode, "module", Qry.FieldAsString("screen"));
+        NewTextChild(rowNode, "screen", Qry.FieldAsString("screen"));
 
         Qry.Next();
     }
@@ -681,6 +694,166 @@ void THalls::Init()
 
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    {
+    TQuery Qry(&OraSession);        
+    string SQLText =
+        "SELECT "
+        "   pax_grp.point_dep point_id, "
+        "   points.airline, "
+        "   points.flt_no, "
+        "   points.suffix, "
+        "   points.scd_out, "
+        "   pax.reg_no, "
+        "   pax_grp.airp_arv, "
+        "   pax.surname||' '||pax.name full_name, "
+        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.reg_no),0) bag_amount, "
+        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.reg_no),0) bag_weight, "
+        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.reg_no),0) rk_weight, "
+        "   NVL(ckin.get_excess(pax.grp_id,pax.reg_no),0) excess, "
+        "   pax_grp.grp_id, "
+        "   ckin.get_birks(pax.grp_id,pax.reg_no,0) tags, "
+        "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, "
+        "   classes.code class, "
+        "   LPAD(seat_no,3,'0')|| "
+        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+        "   pax_grp.hall hall, "
+        "   pax.document, "
+        "   pax.ticket_no "
+        "FROM  pax_grp,pax, points, "
+        "( "
+        "  select  "
+        "     code,  "
+        "     code_lat,  "
+        "     name,  "
+        "     name_lat, "
+        "     priority "
+        "  from  "
+        "     classes  "
+        "  union  "
+        "  select "
+        "     'Œ',  "
+        "     'M',  "
+        "     'ŠŽŒ”Ž’',  "
+        "     'COMFORT' , "
+        "     4 "
+        "  from  "
+        "     dual "
+        ") classes "
+        "WHERE "
+        "   points.point_id = :point_id and "
+        "   points.point_id = pax_grp.point_dep and "
+        "   pax_grp.grp_id=pax.grp_id AND "
+        "   report.get_grp_class(pax_grp.grp_id)=classes.code AND "
+        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
+        "   pr_brd IS NOT NULL "
+        "union "
+        "SELECT "
+        "   arx_pax_grp.point_dep point_id, "
+        "   arx_points.airline, "
+        "   arx_points.flt_no, "
+        "   arx_points.suffix, "
+        "   arx_points.scd_out, "
+        "   arx_pax.reg_no, "
+        "   arx_pax_grp.airp_arv, "
+        "   arx_pax.surname||' '||arx_pax.name full_name, "
+        "   NVL(arch.get_bagAmount(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) bag_amount, "
+        "   NVL(arch.get_bagWeight(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) bag_weight, "
+        "   NVL(arch.get_rkWeight(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) rk_weight, "
+        "   NVL(arch.get_excess(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) excess, "
+        "   arx_pax_grp.grp_id, "
+        "   arch.get_birks(arx_pax.grp_id,arx_pax.reg_no,:FirstDate,0) tags, "
+        "   DECODE(arx_pax_grp.status, 'T', arx_pax_grp.status, 'N') status, "
+        "   classes.code class, "
+        "   LPAD(seat_no,3,'0')|| "
+        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+        "   arx_pax_grp.hall hall, "
+        "   arx_pax.document, "
+        "   arx_pax.ticket_no "
+        "FROM  arx_pax_grp,arx_pax, arx_points, "
+        "( "
+        "  select  "
+        "     code,  "
+        "     code_lat,  "
+        "     name,  "
+        "     name_lat, "
+        "     priority "
+        "  from  "
+        "     classes  "
+        "  union  "
+        "  select "
+        "     'Œ',  "
+        "     'M',  "
+        "     'ŠŽŒ”Ž’',  "
+        "     'COMFORT' , "
+        "     4 "
+        "  from  "
+        "     dual "
+        ") classes "
+        "WHERE "
+        "   arx_points.point_id = :point_id and "
+        "   arx_points.point_id = arx_pax_grp.point_dep and "
+        "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
+        "   arch.get_grp_class(arx_pax_grp.grp_id,:FirstDate)=classes.code AND "
+        "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "   arx_points.part_key >= :FirstDate and "
+        "   arx_pax_grp.part_key >= :FirstDate and "
+        "   arx_pax.part_key >= :FirstDate and "
+        "   pr_brd IS NOT NULL ";
+
+    Qry.SQLText = SQLText;
+
+    TReqInfo *reqInfo = TReqInfo::Instance();
+
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+    Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
+
+    Qry.Execute();
+    xmlNodePtr paxListNode = NewTextChild(resNode, "paxList");
+    while(!Qry.Eof) {
+        xmlNodePtr paxNode = NewTextChild(paxListNode, "pax");
+
+        NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
+        NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger("flt_no"));
+        NewTextChild(paxNode, "suffix", Qry.FieldAsString("suffix"));
+
+        NewTextChild( paxNode, "scd_out",
+                DateTimeToStr(
+                    UTCToClient( Qry.FieldAsDateTime("scd_out"), reqInfo->desk.tz_region),
+                    ServerFormatDateTimeAsString
+                    )
+                );
+
+        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
+        NewTextChild(paxNode, "full_name", Qry.FieldAsString("full_name"));
+        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(paxNode, "status", Qry.FieldAsString("status"));
+        NewTextChild(paxNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(paxNode, "hall", Qry.FieldAsInteger("hall"));
+        NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+
+        Qry.Next();
+    }
+
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+
+    return;
+    }
+    ////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
     string tag = (char *)reqNode->name;
     xmlNodePtr paramsNode = GetNode("sqlparams", reqNode);
     string grp_id, grp, arx_grp_id, arx_grp;
@@ -753,7 +926,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  pax_grp.class, "
         "  LPAD(pax.seat_no,3,'0')|| "
         "           DECODE(SIGN(1-pax.seats),-1,'+'||TO_CHAR(pax.seats-1),'') AS seat_no, "
-        "  pax_grp.hall AS hall, "
         "  pax.document, "
         "  pax.ticket_no "
         "FROM astra.trips,astra.pax_grp,astra.pax " +
