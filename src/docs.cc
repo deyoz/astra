@@ -133,10 +133,10 @@ string vs_number(int number)
 
 enum TState {PMTrfer, PM};
 
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f = NoExists)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    string SQLText =
         "select "
         "   airp, "
         "   system.AirpTZRegion(airp) AS tz_region, "
@@ -147,10 +147,21 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode)
         "   bort, "
         "   park_out park, "
         "   scd_out "
-        "from "
+        "from ";
+    if(f == NoExists)
+        SQLText +=
         "   points "
         "where "
         "   point_id = :point_id ";
+    else {
+        SQLText +=
+        "   arx_points "
+        "where "
+        "   part_key >= :f and "
+        "   point_id = :point_id ";
+        Qry.CreateVariable("f", otDate, f);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof) throw Exception("PaxListVars: variables fetch failed for point_id " + IntToString(point_id));

@@ -6,7 +6,7 @@
 
 void RunRpt(std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_report_form(const std::string name, std::string &form);
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode);
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f);
 
 class DocsInterface : public JxtInterface
 {
