@@ -1018,7 +1018,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           //были изменения в информации по пассажиру
           if (!NodeIsNULLFast("refuse",node2)&&!Qry.FieldIsNULL("seat_no"))
           {
-          	ProgTrace( TRACE5, "!!!refuse=%s, %s", NodeAsStringFast("refuse",node2), "А" );
             SalonQry.SetVariable("pax_id",pax_id);
             if ( !strcmp( NodeAsStringFast("refuse",node2), "А" ) ) //???
               SalonQry.SetVariable("agent_error", 1 );
