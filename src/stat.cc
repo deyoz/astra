@@ -324,7 +324,7 @@ TCategory Category[] = {
                 "  (:station is null or :station = 'Система') and "
                 "  (:module is null or :module = 'Система') "
                 "union "
-                "select ev_user agent from astra.events, astra.screen "
+                "select ev_user agent from events, screen "
                 "where "
                 "    time >= :FirstDate and "
                 "    time < :LastDate and "
@@ -332,13 +332,14 @@ TCategory Category[] = {
                 "    events.screen = screen.exe(+) and "
                 "    (:module is null or nvl(screen.name, events.screen) = :module) "
                 "union "
-                "select ev_user agent from arx.events, astra.screen "
+                "select ev_user agent from arx_events, screen "
                 "where "
+                "    part_key >= :FirstDate and "
                 "    time >= :FirstDate and "
                 "    time < :LastDate and "
                 "    (:station is null or station = :station) and "
-                "    events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, events.screen) = :module) "
+                "    arx_events.screen = screen.exe(+) and "
+                "    (:module is null or nvl(screen.name, arx_events.screen) = :module) "
                 "order by "
                 "    agent ",
 
@@ -351,7 +352,7 @@ TCategory Category[] = {
                 "  (:agent is null or :agent = 'Система') and "
                 "  (:module is null or :module = 'Система') "
                 "union "
-                "select station from astra.events, astra.screen "
+                "select station from events, screen "
                 "where "
                 "    time >= :FirstDate and "
                 "    time < :LastDate and "
@@ -360,14 +361,15 @@ TCategory Category[] = {
                 "    events.screen = screen.exe(+) and "
                 "    (:module is null or nvl(screen.name, events.screen) = :module) "
                 "union "
-                "select station from arx.events, astra.screen "
+                "select station from arx_events, screen "
                 "where "
+                "    part_key >= :FirstDate and "
                 "    time >= :FirstDate and "
                 "    time < :LastDate and "
                 "    station is not null and "
                 "    (:agent is null or ev_user = :agent) and "
-                "    events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, events.screen) = :module) "
+                "    arx_events.screen = screen.exe(+) and "
+                "    (:module is null or nvl(screen.name, arx_events.screen) = :module) "
                 "order by "
                 "    station ",
 
@@ -380,7 +382,7 @@ TCategory Category[] = {
                 "  (:agent is null or :agent = 'Система') and "
                 "  (:station is null or :station = 'Система') "
                 "union " 
-                "select nvl(screen.name, events.screen) module from astra.events, astra.screen where "
+                "select nvl(screen.name, events.screen) module from events, screen where "
                 "    events.time >= :FirstDate and "
                 "    events.time < :LastDate and "
                 "    (:station is null or station = :station) and "
@@ -388,13 +390,14 @@ TCategory Category[] = {
                 "    events.screen is not null and "
                 "    events.screen = screen.exe(+) "
                 "union "
-                "select nvl(screen.name, events.screen) module from arx.events, astra.screen where "
-                "    events.part_key >= :FirstDate and "
-                "    events.part_key < :LastDate and "
+                "select nvl(screen.name, arx_events.screen) module from arx_events, screen where "
+                "    part_key >= :FirstDate and "
+                "    time >= :FirstDate and "
+                "    time < :LastDate and "
                 "    (:station is null or station = :station) and "
                 "    (:agent is null or ev_user = :agent) and "
-                "    events.screen is not null and "
-                "    events.screen = screen.exe(+) "
+                "    arx_events.screen is not null and "
+                "    arx_events.screen = screen.exe(+) "
                 "order by "
                 "    module ",
 
@@ -504,7 +507,22 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         Qry.CreateVariable("evtPax", otString, EncodeEventType(evtPax));
         Qry.CreateVariable("evtPay", otString, EncodeEventType(evtPay));
     }
-    Qry.Execute();
+    xmlNodePtr dependNode = GetNode("depends", reqNode);
+    if(dependNode) {
+        dependNode = dependNode->children;
+        while(dependNode) {
+            Qry.CreateVariable((char *)dependNode->name, otString, NodeAsString(dependNode));
+            dependNode = dependNode->next;
+        }
+    }
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+        else
+            throw;
+    }
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
     if(cbox_data->cbox == "Flt") {
         TDateTime scd_out,real_out,desk_time;
@@ -534,7 +552,9 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         }
     } else
         while(!Qry.Eof) {
-            NewTextChild(cboxNode, "f", Qry.FieldAsString(0));
+            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+            NewTextChild(fNode, "key", 0);
+            NewTextChild(fNode, "value", Qry.FieldAsString(0));
             Qry.Next();
         }
 }
@@ -616,7 +636,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  DECODE(type,:evtPax,id2,id2,NULL) AS reg_no, "
             "  DECODE(type,:evtPax,id3,id3,NULL) AS grp_id, "
             "  ev_user, station, ev_order "
-            "FROM astra.events, astra.screen "
+            "FROM events, screen "
             "WHERE "
             "  events.time >= :FirstDate and "
             "  events.time < :LastDate and "
@@ -637,19 +657,19 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  ) "
             "UNION "
             "SELECT msg, time, id1 AS point_id, "
-            "  nvl(screen.name, events.screen) screen, "
+            "  nvl(screen.name, arx_events.screen) screen, "
             "  DECODE(type,:evtPax,id2,NULL) AS reg_no, "
             "  DECODE(type,:evtPax,id3,NULL) AS grp_id, "
             "  ev_user, station, ev_order "
-            "FROM arx.events, astra.screen "
+            "FROM arx_events, screen "
             "WHERE "
-            "  events.part_key >= :FirstDate and "
-            "  events.part_key < :LastDate and "
-            "  events.screen = screen.exe(+) and "
+            "  arx_events.part_key >= :FirstDate and "
+            "  arx_events.part_key < :LastDate and "
+            "  arx_events.screen = screen.exe(+) and "
             "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
             "  (:module is null or nvl(screen.name, 'Система') = :module) and "
             "  (:station is null or nvl(station, 'Система') = :station) and "
-            "  events.type IN ( "
+            "  arx_events.type IN ( "
             "    :evtFlt, "
             "    :evtPax, "
             "    :evtGraph, "
@@ -660,6 +680,22 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "    :evtCodif, "
             "    :evtPeriod "
             "  ) ";
+
+        Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
+        Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+        Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
+        Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
+        Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
+        Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
+        Qry.CreateVariable("evtSystem", otString, NodeAsString("evtSystem", reqNode));
+        Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
+        Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
+
+        Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("agent", otString, NodeAsString("agent", reqNode));
+        Qry.CreateVariable("station", otString, NodeAsString("station", reqNode));
+        Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
     } else
         throw Exception((string)"PaxLog: unknown tag " + tag);
     Qry.SQLText = qry;
