@@ -6,6 +6,7 @@
 #include "xml_unit.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_consts.h"
 #include "docs.h"
 
 #define NICKNAME "DJEK"
@@ -13,20 +14,38 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace ASTRA;
 
 void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
+    xmlNodePtr arx_date = ( GetNode( "arx_date", reqNode ) );
     Qry.Clear();
-    Qry.SQLText=
-        "SELECT events.type type, msg, time, id1 AS point_id, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM events "
-        "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
-        " ORDER BY ev_order";
+    double f=NoExists;
+    if ( arx_date ) {
+      Qry.SQLText=
+          "SELECT arx_events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM arx_events "
+          "WHERE part_key>=:arx_date AND DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id "
+          " ORDER BY ev_order";    	
+  	  modf( (double)NodeAsDateTime( arx_date ), &f );
+  	  f=f-2;
+  	  Qry.CreateVariable( "arx_date", otDate, f );
+          
+    }
+    else
+      Qry.SQLText=
+          "SELECT events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM events "
+          "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
+          " ORDER BY ev_order";
     //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
     int point_id = NodeAsInteger("point_id",reqNode);
     Qry.CreateVariable("point_id",otInteger,point_id);
@@ -52,7 +71,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     {
         string form;
-        get_report_form("EventsLog", form);
+        get_report_form("EventsLog", form );
         NewTextChild(resNode, "form", form);
     }
 
@@ -79,5 +98,5 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
     };
     logNode = NewTextChild(resNode, "variables");
-    PaxListVars(point_id, 0, logNode);
+    PaxListVars(point_id, 0, logNode, f);
 };
