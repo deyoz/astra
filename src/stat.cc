@@ -1551,9 +1551,7 @@ void set_variables(xmlNodePtr resNode)
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string form;
-    get_report_form("FullStat", form);
-    NewTextChild(resNode, "form", form);
+    get_report_form("FullStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
@@ -1821,9 +1819,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string form;
-    get_report_form("ShortStat", form);
-    NewTextChild(resNode, "form", form);
+    get_report_form("ShortStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
@@ -1989,9 +1985,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string form;
-    get_report_form("DetailStat", form);
-    NewTextChild(resNode, "form", form);
+    get_report_form("DetailStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));

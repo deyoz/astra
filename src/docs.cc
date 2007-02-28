@@ -1258,8 +1258,9 @@ void RunTest1(xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "hello", "Hello world!!!");
 }
 
-void get_report_form(const string name, string &form)
+void get_report_form(const string name, xmlNodePtr node)
 {
+    string form;
     TQuery Qry(&OraSession);
     Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
@@ -1278,13 +1279,14 @@ void get_report_form(const string name, string &form)
         free(data);
     }
     free(data);
+    SetProp(ReplaceTextChild(node, "form", form), "name", name);
 }
 
 void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string form;
 
-    get_report_form(name, form);
+    get_report_form(name, resNode);
     NewTextChild(resNode, "form", form);
     
     // теперь положим данные для отчета

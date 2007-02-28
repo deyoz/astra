@@ -69,11 +69,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));*/
     Qry.Execute();
 
-    {
-        string form;
-        get_report_form("EventsLog", form );
-        NewTextChild(resNode, "form", form);
-    }
+    get_report_form("EventsLog", resNode);
 
     xmlNodePtr logNode = NewTextChild(resNode, "events_log");
 
