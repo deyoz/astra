@@ -881,15 +881,68 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
         xmlNodePtr colNode;
 
+        colNode = NewTextChild(headerNode, "col", "Рейс");
+        SetProp(colNode, "width", 53);
+        SetProp(colNode, "align", taLeftJustify);
 
+        colNode = NewTextChild(headerNode, "col", "Дата");
+        SetProp(colNode, "width", 61);
+        SetProp(colNode, "align", taLeftJustify);
 
+        colNode = NewTextChild(headerNode, "col", "№");
+        SetProp(colNode, "width", 25);
+        SetProp(colNode, "align", taRightJustify);
 
+        colNode = NewTextChild(headerNode, "col", "Фамилия");
+        SetProp(colNode, "width", 173);
+        SetProp(colNode, "align", taLeftJustify);
 
+        colNode = NewTextChild(headerNode, "col", "П/Н");
+        SetProp(colNode, "width", 32);
+        SetProp(colNode, "align", taLeftJustify);
 
+        colNode = NewTextChild(headerNode, "col", "Мест");
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
 
+        colNode = NewTextChild(headerNode, "col", "Вес");
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Код а/п");
-        SetProp(colNode, "width", 50);
+        colNode = NewTextChild(headerNode, "col", "Р/к");
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Плат");
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Бирки");
+        SetProp(colNode, "width", 163);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Статус");
+        SetProp(colNode, "width", 93);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Кл.");
+        SetProp(colNode, "width", 25);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "№ м");
+        SetProp(colNode, "width", 40);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Зал");
+        SetProp(colNode, "width", 78);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Документ");
+        SetProp(colNode, "width", 114);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "№ билета");
+        SetProp(colNode, "width", 101);
         SetProp(colNode, "align", taLeftJustify);
 
         while(!Qry.Eof) {
