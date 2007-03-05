@@ -713,6 +713,31 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
         xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
         xmlNodePtr colNode;
+
+
+        colNode = NewTextChild(headerNode, "col", "Агент");
+        SetProp(colNode, "width", 73);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Стойка");
+        SetProp(colNode, "width", 60);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Время");
+        SetProp(colNode, "width", 90);
+        SetProp(colNode, "align", taLeftJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Рег №");
+        SetProp(colNode, "width", 45);
+        SetProp(colNode, "align", taRightJustify);
+
+        colNode = NewTextChild(headerNode, "col", "Операция");
+        SetProp(colNode, "width", 750);
+        SetProp(colNode, "align", taLeftJustify);
+
+
+
+
         xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
         while(!Qry.Eof) {
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
