@@ -709,28 +709,33 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         else
             throw;
     }
-    xmlNodePtr PaxLogNode = NewTextChild(resNode, "PaxLog");
-    while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(PaxLogNode, "row");
+    if(!Qry.Eof) {
+        xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+        xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+        xmlNodePtr colNode;
+        xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+        while(!Qry.Eof) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
 
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "ev_user", Qry.FieldAsString("ev_user"));
-        NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+            NewTextChild(rowNode, "ev_user", Qry.FieldAsString("ev_user"));
+            NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
 
-        NewTextChild( rowNode, "time",
-                DateTimeToStr(
-                    UTCToClient( Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region),
-                    ServerFormatDateTimeAsString
-                    )
-                );
+            NewTextChild( rowNode, "time",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
 
-        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "msg", Qry.FieldAsString("msg"));
-        NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
-        NewTextChild(rowNode, "screen", Qry.FieldAsString("screen"));
+            NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+            NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+            NewTextChild(rowNode, "msg", Qry.FieldAsString("msg"));
+            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
+            NewTextChild(rowNode, "screen", Qry.FieldAsString("screen"));
 
-        Qry.Next();
+            Qry.Next();
+        }
     }
 }
 
@@ -945,8 +950,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         SetProp(colNode, "width", 101);
         SetProp(colNode, "align", taLeftJustify);
 
+        xmlNodePtr rowsNode = NewTextChild(paxListNode, "rows");
         while(!Qry.Eof) {
-            xmlNodePtr paxNode = NewTextChild(paxListNode, "pax");
+            xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
             NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
             NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
