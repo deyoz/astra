@@ -1307,6 +1307,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "FullStat") ;
     else if(name == "ShortStat") ;
     else if(name == "DetailStat") ;
+    else if(name == "ArxPaxList") ;
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
