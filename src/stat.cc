@@ -14,6 +14,8 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void set_variables(xmlNodePtr resNode);
+
 enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
 
 const int depends_len = 3;
@@ -758,6 +760,7 @@ void THalls::Init()
 
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    get_report_form("ArxPaxList", resNode);
     {
     TQuery Qry(&OraSession);        
     string SQLText =
@@ -873,41 +876,58 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
 
     Qry.Execute();
-    xmlNodePtr paxListNode = NewTextChild(resNode, "paxList");
-    while(!Qry.Eof) {
-        xmlNodePtr paxNode = NewTextChild(paxListNode, "pax");
+    if(!Qry.Eof) {
+        xmlNodePtr paxListNode = NewTextChild(resNode, "paxList");
+        xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
+        xmlNodePtr colNode;
 
-        NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
-        NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger("flt_no"));
-        NewTextChild(paxNode, "suffix", Qry.FieldAsString("suffix"));
 
-        NewTextChild( paxNode, "scd_out",
-                DateTimeToStr(
-                    UTCToClient( Qry.FieldAsDateTime("scd_out"), reqInfo->desk.tz_region),
-                    ServerFormatDateTimeAsString
-                    )
-                );
 
-        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
-        NewTextChild(paxNode, "full_name", Qry.FieldAsString("full_name"));
-        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-        NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
-        NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(paxNode, "status", Qry.FieldAsString("status"));
-        NewTextChild(paxNode, "class", Qry.FieldAsString("class"));
-        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-        NewTextChild(paxNode, "hall", Qry.FieldAsInteger("hall"));
-        NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
-        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
 
-        Qry.Next();
+
+
+
+
+        colNode = NewTextChild(headerNode, "col", "Код а/п");
+        SetProp(colNode, "width", 50);
+        SetProp(colNode, "align", taLeftJustify);
+
+        while(!Qry.Eof) {
+            xmlNodePtr paxNode = NewTextChild(paxListNode, "pax");
+
+            NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
+            NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
+            NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger("flt_no"));
+            NewTextChild(paxNode, "suffix", Qry.FieldAsString("suffix"));
+
+            NewTextChild( paxNode, "scd_out",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime("scd_out"), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
+
+            NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+            NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
+            NewTextChild(paxNode, "full_name", Qry.FieldAsString("full_name"));
+            NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+            NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+            NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+            NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
+            NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+            NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+            NewTextChild(paxNode, "status", Qry.FieldAsString("status"));
+            NewTextChild(paxNode, "class", Qry.FieldAsString("class"));
+            NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+            NewTextChild(paxNode, "hall", Qry.FieldAsInteger("hall"));
+            NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
+            NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+
+            Qry.Next();
+        }
     }
 
+    set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 
     return;
@@ -1622,7 +1642,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points.scd_out, "
         "  system.AirpTzRegion(airp) AS tz_region, "
         "  arx_stat.point_id, "
-        "  substr(arch.get_airps(arx_stat.point_id),1,50) places, "
+        "  substr(arch.get_airps(arx_stat.point_id, :FirstDate),1,50) places, "
         "  sum(adult + child + baby) pax_amount, "
         "  sum(adult) adult, "
         "  sum(child) child, "
