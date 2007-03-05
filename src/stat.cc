@@ -563,6 +563,8 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    get_report_form("ArxPaxLog", resNode);
+    set_variables(resNode);
     TQuery Qry(&OraSession);        
     string tag = (char *)reqNode->name;
     char *qry = NULL;
