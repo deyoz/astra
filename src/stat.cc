@@ -569,7 +569,10 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     string tag = (char *)reqNode->name;
     char *qry = NULL;
     TReqInfo *reqInfo = TReqInfo::Instance();
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    xmlNodePtr reportTitleNode = NewTextChild(variablesNode, "report_title");
     if(tag == "LogRun") {
+        NodeSetContent(reportTitleNode, "Операции по пассажиру");
         qry =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
             "       ev_user, station, ev_order "
@@ -594,6 +597,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.CreateVariable("reg_no", otInteger, NodeAsInteger("reg_no", reqNode));
         Qry.CreateVariable("grp_id", otInteger, NodeAsInteger("grp_id", reqNode));
     } else if(tag == "FltLogRun") {
+        NodeSetContent(reportTitleNode, "Журнал операций рейса");
         qry =
             "SELECT msg, time, id1 AS point_id, "
             "       nvl(screen.name, events.screen) screen, "
@@ -634,6 +638,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
         Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
     } else if(tag == "SystemLogRun") {
+        NodeSetContent(reportTitleNode, "Операции в системе");
         qry =
             "SELECT msg, time, id1 AS point_id, "
             "  nvl(screen.name, events.screen) screen, "
