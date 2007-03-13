@@ -13,6 +13,7 @@
 #include "astra_utils.h"
 #include "tlg/tlg.h"
 #include "tlg/tlg_parser.h"
+#include "base_tables.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -383,12 +384,91 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 ///  GetTlgOut(ctxt,resNode,resNode);
 };
 
+#include "base_tables.h"
+
 void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string text = NodeAsString("tlg_text",reqNode);
-    if (text.empty()) throw UserException("Телеграмма пуста");
-    loadTlg(text);
-    showMessage("Телеграмма загружена");
+/*  TBaseTable &airlines=base_tables.get("aIrLiNeS");
+  tst();
+  TBaseTableRow &row1=airlines.get_row("coDe_lat","UT");
+  tst();
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s short_name=%s "
+                   "short_name_lat=%s",
+                   row1.AsInteger("Id"),
+                   row1.AsString("cOde").c_str(),row1.AsString("codE",true).c_str(),
+                   row1.AsString("naMe",false).c_str(),row1.AsString("nAme",true).c_str(),
+                   row1.AsString("shoRt_name",false).c_str(),row1.AsString("short_naMe",true).c_str());
+  TAirlinesRow &row2=(TAirlinesRow&)airlines.get_row("codE","ЮТ");
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s short_name=%s "
+                   "short_name_lat=%s",
+                   row2.id,
+                   row2.code.c_str(),row2.code_lat.c_str(),row2.name.c_str(),row2.name_lat.c_str(),
+                   row2.short_name.c_str(),row2.short_name_lat.c_str());
+  TAirlinesRow &row3=(TAirlinesRow&)airlines.get_row("Id",226);
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s short_name=%s "
+                   "short_name_lat=%s",
+                   row3.id,
+                   row3.code.c_str(),row3.code_lat.c_str(),row3.name.c_str(),row3.name_lat.c_str(),
+                   row3.short_name.c_str(),row3.short_name_lat.c_str());
+
+  TBaseTable &airps=base_tables.get("aIrPs");
+  tst();
+  TBaseTableRow &row4=airps.get_row("coDe_lat","DME");
+  tst();
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s city=%s "
+                   "city=%s",
+                   row4.AsInteger("Id"),
+                   row4.AsString("cOde").c_str(),row4.AsString("codE",true).c_str(),
+                   row4.AsString("naMe",false).c_str(),row4.AsString("nAme",true).c_str(),
+                   row4.AsString("City",false).c_str(),row4.AsString("ciTy",true).c_str());
+  TAirpsRow &row5=(TAirpsRow&)airps.get_row("codE","ДМД");
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s city=%s "
+                   "city=%s",
+                   row5.id,
+                   row5.code.c_str(),row5.code_lat.c_str(),row5.name.c_str(),row5.name_lat.c_str(),
+                   row5.city.c_str(),row5.city.c_str());
+
+  TBaseTable &cities=base_tables.get("CiTiEs");
+  tst();
+  TBaseTableRow &row6=cities.get_row("coDe_lat","MOW");
+  tst();
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s country=%s region=%s "
+                   "tz=%d",
+                   row6.AsInteger("Id"),
+                   row6.AsString("cOde").c_str(),row6.AsString("codE",true).c_str(),
+                   row6.AsString("naMe",false).c_str(),row6.AsString("nAme",true).c_str(),
+                   row6.AsString("Country").c_str(),row6.AsString("reGion").c_str(),
+                   row6.AsInteger("tZ"));
+  TCitiesRow &row7=(TCitiesRow&)cities.get_row("codE","ТНП",true);
+  ProgTrace(TRACE5,"id=%d code=%s code_lat=%s name=%s name_lat=%s country=%s region=%s "
+                   "tz=%d",
+                   row7.id,
+                   row7.code.c_str(),row7.code_lat.c_str(),row7.name.c_str(),row7.name_lat.c_str(),
+                   row7.country.c_str(),row7.region.c_str(),row7.tz);
+
+  TBaseTable &classes=base_tables.get("cLAsses");
+  tst();
+  TBaseTableRow &row8=classes.get_row("coDe_lat","Y");
+  tst();
+  ProgTrace(TRACE5,"code=%s code_lat=%s name=%s name_lat=%s priority=%d ",
+                   row8.AsString("cOde").c_str(),row8.AsString("codE",true).c_str(),
+                   row8.AsString("naMe",false).c_str(),row8.AsString("nAme",true).c_str(),
+                   row8.AsInteger("priOrity"));
+  TClassesRow &row9=(TClassesRow&)classes.get_row("codE","Б");
+  ProgTrace(TRACE5,"code=%s code_lat=%s name=%s name_lat=%s priority=%d ",
+                   row9.code.c_str(),row9.code_lat.c_str(),row9.name.c_str(),row9.name_lat.c_str(),
+                   row9.priority);
+
+  TBaseTable& tab=base_tables.get("perS_types");
+  TBaseTableRow& row10=tab.get_row("coDe_lat","CHD");
+
+  row10=base_tables.get("craftS").get_row("Code","ТУ5");*/
+
+
+  string text = NodeAsString("tlg_text",reqNode);
+  if (text.empty()) throw UserException("Телеграмма пуста");
+  loadTlg(text);
+  showMessage("Телеграмма загружена");
 };
 
 void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -812,6 +892,128 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
   };
 
+};
+
+void TelegramInterface::GetBSMContent(int grp_id, TBSMContent& con)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out, "
+    "       airp_arv,class "
+    "FROM points,pax_grp "
+    "WHERE point_id=point_dep AND grp_id=:grp_id AND pr_refuse=0";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  strcpy(con.OutFlt.airline,Qry.FieldAsString("airline"));
+  con.OutFlt.flt_no=Qry.FieldAsInteger("flt_no");
+  strcpy(con.OutFlt.suffix,Qry.FieldAsString("suffix"));
+  strcpy(con.OutFlt.airp_dep,Qry.FieldAsString("airp"));
+  strcpy(con.OutFlt.airp_arv,Qry.FieldAsString("airp_arv"));
+  strcpy(con.OutFlt.subcl,Qry.FieldAsString("class"));
+  con.OutFlt.scd=UTCToLocal(Qry.FieldAsDateTime("scd_out"),AirpTZRegion(con.OutFlt.airp_dep));
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp_arv,local_date,subclass "
+    "FROM transfer "
+    "WHERE grp_id=:grp_id "
+    "ORDER BY transfer_num";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  TBaseTable &airlines=base_tables.get("airlines");
+  TBaseTable &airps=base_tables.get("airps");
+  TBaseTable &subcls=base_tables.get("subcls");
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TTransferItem flt;
+
+    strcpy(flt.airline,Qry.FieldAsString("airline"));
+    string airline=airlines.get_row("code/code_lat",flt.airline).AsString("code");
+    strcpy(flt.airline,airline.c_str());
+
+    flt.flt_no=Qry.FieldAsInteger("flt_no");
+    strcpy(flt.suffix,Qry.FieldAsString("suffix"));
+
+    strcpy(flt.airp_dep,Qry.FieldAsString("airline"));
+    string airp=airps.get_row("code/code_lat",flt.airp_dep).AsString("code");
+    strcpy(flt.airp_dep,airp.c_str());
+
+    strcpy(flt.subcl,Qry.FieldAsString("subclass"));
+    string subcl=subcls.get_row("code/code_lat",flt.subcl).AsString("code");
+    strcpy(flt.subcl,subcl.c_str());
+
+    con.OnwardFlt.push_back(flt);
+  };
+};
+
+
+class TTlgFltInfo
+{
+  public:
+    std::string airline,suffix,airp,tz_region;
+    int flt_no;
+    BASIC::TDateTime scd_out;
+};
+
+TTlgFltInfo& GetFltInfo(int point_id, TTlgFltInfo &info)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp, "
+    "       system.AirpTZRegion(points.airp) AS tz_region, "
+    "       scd_out "
+    "FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) ; //???
+  info.airline=Qry.FieldAsString("airline");
+  info.flt_no=Qry.FieldAsInteger("flt_no");
+  info.suffix=Qry.FieldAsString("suffix");
+  info.airp=Qry.FieldAsString("airp");
+  info.tz_region=Qry.FieldAsString("tz_region");
+  info.scd_out=Qry.FieldAsDateTime("scd_out");
+  return info;
+};
+
+void TelegramInterface::CreateBSMBody(int grp_id, bool pr_lat)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_dep,airp_arv,class FROM pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) ; //???
+  TTlgFltInfo flt;
+  GetFltInfo(Qry.FieldAsInteger("point_dep"),flt);
+  ostringstream line;
+  line << ".F/"
+       << base_tables.get("airlines").get_row("code",flt.airline).AsString("code",pr_lat)
+       << setw(3) << setfill('0') << flt.flt_no << flt.suffix << '/'
+       << DateTimeToStr( UTCToLocal(flt.scd_out,flt.tz_region), "ddmmm", pr_lat) << '/'
+       << base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv")).AsString("code",pr_lat);
+
+  ostringstream body;
+  body << line << endl;
+
+  TQuery TrferQry(&OraSession);
+  TrferQry.Clear();
+  TrferQry.SQLText=
+    "SELECT airline,flt_no,suffix,local_date,airp_arv,subclass "
+    "FROM transfer WHERE grp_id=:grp_id ORDER BY transfer_num";
+  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
+
+  TQuery TagQry(&OraSession);
+  TagQry.Clear();
+  TagQry.SQLText=
+    "SELECT no FROM bag_tags WHERE grp_id=:grp_id ORDER BY no";
+  TagQry.CreateVariable("grp_id",otInteger,grp_id);
+
+
+  //Qry
 };
 
 

@@ -275,7 +275,7 @@ void sync_mvd(void)
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "UPDATE files SET last_create=:now WHERE code=:code AND "
+    "UPDATE file_sets SET last_create=:now WHERE code=:code AND "
     "                 (airp=:airp OR airp IS NULL AND :airp IS NULL)";
   Qry.DeclareVariable("code",otString);
   Qry.DeclareVariable("airp",otString);
@@ -286,7 +286,7 @@ void sync_mvd(void)
   FilesQry.SQLText=
     "SELECT name,dir,last_create,airp, "
     "       DECODE(airp,NULL,NULL,system.AirpTZRegion(airp)) AS tz_region "
-    "FROM files "
+    "FROM file_sets "
     "WHERE code=:code AND pr_denial=0";
   FilesQry.DeclareVariable("code",otString);
 

@@ -81,7 +81,7 @@ TSalons *CurrSalon;
 
 bool CanUseStatus; /* поиск по статусу места */
 string PlaceStatus; /* сам статус */
-bool CanUse_BR; /* можно ли использовать статус бронирования для пассажиров с другими статусами */
+bool CanUse_PS; /* можно ли использовать статус предвю рассадки для пассажиров с другими статусами */
 bool CanUseSmoke; /* поиск курящих мест */
 bool CanUseElem_Type; /* поиск мест по типу (табуретка) */
 string PlaceElem_Type; /* сам тип места */
@@ -896,7 +896,8 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       } /* конец пробега по местам */
     } /* конец пробега по ремаркам пассажира */
     TPlaceList *placeList = isp->placeList;
-    if ( pass.placeName == placeList->GetPlaceName( isp->Pos ) )
+    if ( pass.placeName == placeList->GetPlaceName( isp->Pos ) || 
+    	   !pass.preseat.empty() && pass.preseat == placeList->GetPlaceName( isp->Pos ) )
       EqualQ += PR_EQUAL_N_PLACE;
     if ( pass.placeRem.find( "SW" ) == 2  &&
         ( isp->Pos.x == 0 || isp->Pos.x == placeList->GetXsCount() - 1 ) ||
@@ -935,7 +936,6 @@ void TSeatPlaces::PlacesToPassengers()
     pass.Step = seatPlace.Step;
     pass.placeName = seatPlace.placeList->GetPlaceName( seatPlace.Pos );
   }
-  Passengers.sortByIndex();
 }
 
 /* рассадка всей группы начиная с позиции FP */
@@ -1053,6 +1053,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
            SeatsPassenger_OnBasePlace( pass.placeName, pass.Step ) && /* нашли базовое место */
            LSD( G3, G2, G, V3, V2, sEveryWhere ) )
         return true;
+        
       RollBack( );
       Passengers.SetCountersForPass( pass );
       if ( !Remarks.empty() ) { /* есть ремарка */
@@ -1140,16 +1141,18 @@ bool TSeatPlaces::SeatsPassengers( )
   try {
     for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
     	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
-      if ( ipass->InUse || PlaceStatus == "BR" && !CanUse_BR &&
+      if ( ipass->InUse || PlaceStatus == "PS" && !CanUse_PS &&
       	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
         continue;
       Passengers.Clear();
       ipass->placeList = NULL;
+      int old_index = ipass->index;
       Passengers.Add( *ipass );
+      ipass->index = old_index;
+
       if ( SeatGrpOnBasePlace( ) ||
            ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse  ) && 
-           ( PlaceStatus == "BR" && CanUse_BR || PlaceStatus != "BR" ) && SeatsGrp( ) ) {
-        tst();
+           ( PlaceStatus == "PS" && CanUse_PS || PlaceStatus != "PS" ) && SeatsGrp( ) ) {
         if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
           throw Exception( "Недопустимое значение направления рассадки" );
         ipass->placeList = seatplaces.begin()->placeList;
@@ -1233,7 +1236,7 @@ void TPassengers::addRemPriority( TPassenger &pass )
 void TPassengers::Calc_Priority( TPassenger &pass)
 {
   pass.priority = 0;
-  if ( !pass.placeName.empty() )
+  if ( !pass.placeName.empty() || !pass.preseat.empty() )
     pass.priority = PR_N_PLACE;
   if ( !pass.placeRem.empty() )
     pass.priority += PR_REMPLACE;
@@ -1256,7 +1259,10 @@ void TPassengers::Add( TPassenger &pass )
 {
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
-      
+  ProgTrace( TRACE5, "pass.placeStatus=%s, pass.preseat=%s", pass.placeStatus.c_str(), pass.preseat.c_str() );
+  if ( pass.placeStatus == "BR" && !pass.preseat.empty() && pass.preseat == pass.placeName )
+  	pass.placeStatus = "PS";
+  	
 //  ProgTrace(TRACE5, "pass.countPlace=%d", pass.countPlace );
 //  for ( vector<string>::iterator i=pass.rems.begin(); i!=pass.rems.end(); i++ )
 //    ProgTrace(TRACE5, "pass.rem=%s", i->c_str() );
@@ -1402,7 +1408,7 @@ void GET_LINE_ARRAY( )
   }
 }
 
-void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_BR )
+void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_PS )
 {
   Statuses.clear();
   if ( status == "TR" )
@@ -1413,8 +1419,9 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
     }
     else {
       Statuses.push_back( "RZ" );
-    	if ( use_BR )
-        Statuses.push_back( "BR" );      
+      Statuses.push_back( "BR" ); 
+    	if ( use_PS )
+        Statuses.push_back( "PS" );      
     }
   else
     if ( status == "RZ" )
@@ -1424,31 +1431,47 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
       }
       else {
         Statuses.push_back( "NG" );
-        if ( use_BR )
-          Statuses.push_back( "BR" );
+        Statuses.push_back( "BR" );
+        if ( use_PS )
+          Statuses.push_back( "PS" );
       }
     else
       if ( status == "FP" )
         if ( First ) {
           Statuses.push_back( "FP" );
           Statuses.push_back( "NG" );
-          if ( use_BR )
-            Statuses.push_back( "BR" );
+          Statuses.push_back( "BR" );
         }
         else {
           Statuses.push_back( "RZ" );
+          if ( use_PS )
+            Statuses.push_back( "PS" );          
         }
       else
         if ( status == "BR" )
           if ( First ) {
-            if ( use_BR )
-              Statuses.push_back( "BR" );
+          	Statuses.push_back( "BR" );
             Statuses.push_back( "FP" );
             Statuses.push_back( "NG" );
           }
-        else {
-          Statuses.push_back( "RZ" );
-        }
+          else {
+            Statuses.push_back( "RZ" );
+            if ( use_PS )
+              Statuses.push_back( "PS" );          
+          }
+        else
+        	if ( status == "PS" ) {
+        		if ( First ) {
+        			if ( use_PS )
+          	    Statuses.push_back( "PS" );
+              Statuses.push_back( "FP" );
+              Statuses.push_back( "NG" );        			
+        		}
+        		else {
+        			Statuses.push_back( "RZ" );
+        			Statuses.push_back( "BR" );
+        		}
+        	}
 }
 
 /*///////////////////////////END CLASS TPASSENGERS/////////////////////////*/
@@ -1536,7 +1559,7 @@ bool ExistsBasePlace( TPassenger &pass, int lang )
 
 namespace SEATS {
 /* рассадка пассажиров */
-void SeatsPassengers( TSalons *Salons, bool FUse_BR )
+void SeatsPassengers( TSalons *Salons, bool FUse_PS )
 {
   if ( !Passengers.getCount() )
     return;
@@ -1544,20 +1567,22 @@ void SeatsPassengers( TSalons *Salons, bool FUse_BR )
   CurrSalon = Salons;
   vector<string> Statuses;
   CanUseStatus = true;
-	CanUse_BR = FUse_BR;  
+	CanUse_PS = FUse_PS;  
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
   CanUseElem_Type = false; /* пока не будем работать с типами мест */
+  bool Status_preseat = FUse_PS;//!!!false;
   GET_LINE_ARRAY( );
   tst();
   SeatAlg = sSeatGrpOnBasePlace;
   
+  /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
+  
   /* определение есть ли в группе пассажир с предварительной рассадкой */
-  bool Status_preseat=false;
+  bool Status_seat_no_BR=false;
   for ( int i=0; i<Passengers.getCount(); i++ ) {
   	TPassenger &pass = Passengers.Get( i );
-  	if ( pass.placeStatus == "BR" && !pass.preseat.empty() && pass.preseat == pass.placeName ) {
+  	if ( pass.placeStatus == "PS" ) {
   		Status_preseat = true;
-  		break;
   	}
   }
   
@@ -1565,7 +1590,7 @@ void SeatsPassengers( TSalons *Salons, bool FUse_BR )
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
      SeatAlg = (TSeatAlg)FSeatAlg;
      /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
-     if ( Status_preseat && SeatAlg != sSeatPassengers )
+     if ( ( Status_preseat || Status_seat_no_BR ) && SeatAlg != sSeatPassengers )
      	 continue;
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
         CanUseRems = (TUseRem)FCanUseRems;
@@ -1653,6 +1678,9 @@ void SeatsPassengers( TSalons *Salons, bool FUse_BR )
     /* распределение полученных мест по пассажирам, только для SeatPlaces.SeatGrpOnBasePlace */
     if ( SeatAlg != sSeatPassengers )
       SeatPlaces.PlacesToPassengers( );
+          
+    Passengers.sortByIndex();  
+          
     SeatPlaces.RollBack( );
     return;
   }
@@ -1716,7 +1744,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
 /* пересадка или высадка пассажира возвращает новый tid */
 bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName, bool pr_cancel )
 {
-	CanUse_BR = false; //!!!
+	CanUse_PS = false; //!!!
 	if ( seatstype == sreseats )
 		ProgTrace( TRACE5, "Reseats, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
 	else
@@ -1787,7 +1815,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
     else {
       Qry.SQLText = "SELECT COUNT(*) c FROM trip_comp_elems "\
                     " WHERE point_id=:point_id AND yname||xname=:placename AND "
-                    "       pr_free IS NOT NULL AND status='BR' AND rownum<=1";
+                    "       pr_free IS NOT NULL AND status='PS' AND rownum<=1";
     }
     Qry.DeclareVariable( "point_id", otInteger );
     Qry.DeclareVariable( "placename", otString );
@@ -1806,7 +1834,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   int new_tid = Qry.FieldAsInteger( "tid" );
   Qry.Clear();
   if ( seatstype == sreseats ) {
-  	if ( InUse == 2 && !CanUse_BR ) { // пересадка, надо посмотреть, чтобы пассажир не мог сесть на новое место, предназначенное для другого
+  	if ( InUse == 2 && !CanUse_PS ) { // пересадка, надо посмотреть, чтобы пассажир не мог сесть на новое место, предназначенное для другого
   		tst();
   		Qry.SQLText = "SELECT status FROM trip_comp_elems "
   		              " WHERE point_id=:point_id AND yname||xname=:nplacename";
@@ -1814,7 +1842,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   		Qry.CreateVariable( "nplacename", otString, nplaceName );
   		Qry.Execute();
   		ProgTrace( TRACE5, "status=%s", Qry.FieldAsString( "status" ) );
-  		if ( Qry.FieldAsString( "status" ) == string( "BR" ) ) {
+  		if ( Qry.FieldAsString( "status" ) == string( "PS" ) ) {
   			return false;
   		}
   		Qry.Clear();
@@ -1831,7 +1859,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   }
   else {
     Qry.SQLText = "BEGIN "\
-                  " salons.reserve( :point_id, :pax_id, :placename, :whatdo ); "\
+                  " salons.reserve( :point_id, :pax_id, :placename, 'PS', :whatdo ); "\
                   " UPDATE crs_pax SET preseat_no=:placename,tid=tid__seq.currval "\
                   "  WHERE pax_id=:pax_id; "\
                   "END; ";
@@ -1885,7 +1913,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
   CurrSalon = Salons;
   SeatAlg = sSeatPassengers;
   CanUseStatus = false; /* не учитываем статус мест */
-  CanUse_BR = true;
+  CanUse_PS = true;
   CanUseSmoke = false;
   CanUseElem_Type = false;
   CanUseGood = false;
@@ -2060,7 +2088,7 @@ void SavePlaces( )
     "  FROM  trip_comp_elems "
     "  WHERE point_id = :point_id AND "
     "        yname||xname=DECODE( INSTR( vpreseat, '0' ), 1, SUBSTR( vpreseat, 2 ), vpreseat ) AND "
-    "        status='BR'; "
+    "        status='PS'; "
     "  EXCEPTION WHEN NO_DATA_FOUND THEN NULL; "
     " END; "
     "END;";  
@@ -2078,7 +2106,7 @@ void SavePlaces( )
     "  UPDATE trip_comp_elems "
     "    SET status='FP' "
     "  WHERE pr_free IS NOT NULL AND enabled IS NOT NULL AND "
-    "        status = 'BR' AND " 
+    "        status = 'PS' AND " 
     "        elem_type IN ( SELECT code FROM comp_elem_types WHERE pr_seat <> 0 ) AND "
     "        point_id = :point_id AND num = :bnum AND "
     "        x = :bx AND y = :by; "

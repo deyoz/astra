@@ -14,6 +14,8 @@
 #include "xml_unit.h"
 #include "monitor_ctl.h"
 #include "cfgproc.h"
+#include "misc.h"
+#include "base_tables.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -129,9 +131,21 @@ TReqInfo *TReqInfo::Instance()
   return instance_;
 };
 
+void TReqInfo::setPerform()
+{
+  execute_time = microsec_clock::universal_time();
+}
+
+void TReqInfo::clearPerform()
+{
+	execute_time = ptime( not_a_date_time );
+}
+
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
                            const std::string &vopr, bool checkUserLogon )
 {
+	if ( execute_time.is_not_a_date_time() )
+		setPerform();
   clear();
   TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
@@ -234,6 +248,13 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airps.push_back(Qry.FieldAsString("airp"));
+}
+
+long TReqInfo::getExecuteMSec()
+{
+	ptime t( microsec_clock::universal_time() );
+	time_duration pt = t - execute_time;
+	return pt.total_milliseconds();
 }
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
@@ -447,7 +468,7 @@ bool get_enable_fr_design()
     if(!obj)
         result = false;
     else {
-      static char buf[200];    
+      static char buf[200];
       buf[199]=0;
       strcpy(buf,Tcl_GetString(obj));
       int ENABLE_FR_DESIGN;
@@ -545,6 +566,21 @@ tz_database &get_tz_database()
   return tz_db;
 }
 
+string AirpTZRegion(string airp)
+{
+  if (airp.empty()) throw Exception("Airport not specified");
+  TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
+  return CityTZRegion(row.city);
+};
+
+string CityTZRegion(string city)
+{
+  if (city.empty()) throw Exception("City not specified");
+  TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
+  if (row.region.empty()) throw UserException("„«ï £®à®¤  %s ­¥ § ¤ ­ à¥£¨®­",city.c_str());
+  return row.region;
+};
+
 TDateTime UTCToLocal(TDateTime d, string region)
 {
   if (region.empty()) throw Exception("Region not specified",region.c_str());
@@ -557,7 +593,7 @@ TDateTime UTCToLocal(TDateTime d, string region)
 
 TDateTime LocalToUTC(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified",region.c_str());
+  if (region.empty()) throw Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
@@ -600,7 +636,7 @@ TDateTime ClientToUTC(TDateTime d, string region)
 
 bool is_dst(TDateTime d, string region)
 {
-	if (region.empty()) throw Exception("Region not specified",region.c_str());
+	if (region.empty()) throw Exception("Region not specified");
 	ptime	utcd = DateTimeToBoost( d );
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
@@ -608,3 +644,84 @@ bool is_dst(TDateTime d, string region)
   local_date_time ld( utcd, tz ); /* ®¯à¥¤¥«ï¥¬ â¥ªãé¥¥ ¢à¥¬ï «®ª «ì­®¥ */
   return ( tz->has_dst() && ld.is_dst() );
 }
+
+const char rus_pnr[]="0123456789‚ƒ„Š‹Œ‘’”•–†˜";
+const char lat_pnr[]="0123456789BVGDKLMNPRSTFXCZW";
+
+const char rus_suffix[]="€‚‘„…”†•ˆ‰Š‹ŒŸ‘’“˜œ›‡";
+const char lat_suffix[]="ABCDPEFGHIJKLMNOQRSTUVWXYZ";
+
+
+
+char ToLatPnr(char c)
+{
+  if ((unsigned char)c>=0x80)
+  {
+    ByteReplace(&c,1,rus_pnr,lat_pnr);
+    if ((unsigned char)c>=0x80) c='?';
+  };
+  return c;
+};
+
+char ToLatSuffix(char c)
+{
+  if ((unsigned char)c>=0x80)
+  {
+    ByteReplace(&c,1,rus_suffix,lat_suffix);
+    if ((unsigned char)c>=0x80) c=0x00;
+  };
+  return c;
+};
+
+string transliter(const string &value)
+{
+    string result;
+    for(u_int i = 0; i < value.size(); i++) {
+        if(!(value[i] >= 'A' && value[i] <= 'z')) {
+            string c;
+            switch(ToUpper(value[i])) {
+                case '€': c = "A"; break;
+                case '': c = "B"; break;
+                case '‚': c = "V"; break;
+                case 'ƒ': c = "G"; break;
+                case '„': c = "D"; break;
+                case '…': c = "E"; break;
+                case 'ğ': c = "IO"; break;
+                case '†': c = "ZH"; break;
+                case '‡': c = "Z"; break;
+                case 'ˆ': c = "I"; break;
+                case '‰': c = "I"; break;
+                case 'Š': c = "K"; break;
+                case '‹': c = "L"; break;
+                case 'Œ': c = "M"; break;
+                case '': c = "N"; break;
+                case '': c = "O"; break;
+                case '': c = "P"; break;
+                case '': c = "R"; break;
+                case '‘': c = "S"; break;
+                case '’': c = "T"; break;
+                case '“': c = "U"; break;
+                case '”': c = "F"; break;
+                case '•': c = "KH"; break;
+                case '–': c = "TS"; break;
+                case '—': c = "CH"; break;
+                case '˜': c = "SH"; break;
+                case '™': c = "SHCH"; break;
+                case 'š': c = ""; break;
+                case '›': c = "Y"; break;
+                case 'œ': c = ""; break;
+                case '': c = "E"; break;
+                case '': c = "IU"; break;
+                case 'Ÿ': c = "IA"; break;
+                default:  c = "?";
+            }
+            if(ToUpper(value[i]) != value[i]) c = lowerc(c);
+            result += c;
+        } else
+            result += value[i];
+    }
+    return result;
+}
+
+
+

@@ -1,6 +1,6 @@
 #include "etick.h"
 #include <string>
-#include <daemon.h>
+#include "query_runner.h"
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "test.h"

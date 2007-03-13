@@ -4,6 +4,30 @@
 #include <string>
 
 #include "JxtInterface.h"
+#include "tlg/tlg_parser.h"
+
+class TBSMTagItem
+{
+  public:
+    double no;
+    int bag_amount,bag_weight,rk_weight;
+};
+
+class TBSMPaxItem
+{
+  public:
+    std::string surname,name,seat_no,pnr_addr;
+    int reg_no;
+};
+
+class TBSMContent
+{
+  public:
+    TTransferItem OutFlt;
+    std::vector<TTransferItem> OnwardFlt;
+    std::vector<TBtmTagItem> tags;
+    TBSMPaxItem pax;
+};
 
 
 class TelegramInterface : public JxtInterface
@@ -39,6 +63,9 @@ public:
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+
+  void GetBSMContent(int grp_id, TBSMContent& con);
+  void CreateBSMBody(int grp_id, bool pr_lat);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );

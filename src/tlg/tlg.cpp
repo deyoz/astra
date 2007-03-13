@@ -14,7 +14,7 @@
 #include "jxt_cont.h"
 #include "cont_tools.h"
 #include "oralib.h"
-#include <daemon.h>
+#include "query_runner.h"
 #include "cfgproc.h"
 
 #define NICKNAME "ROMAN"

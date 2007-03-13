@@ -6,7 +6,7 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "daemon.h"
+#include "query_runner.h"
 #include "edi_tlg.h"
 #include "edi_msg.h"
 #include "posthooks.h"

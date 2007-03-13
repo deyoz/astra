@@ -1,4 +1,4 @@
-#include <daemon.h>
+#include "query_runner.h"
 #include "setup.h"
 #include "astra_callbacks.h"
 #include "maindcs.h"
@@ -65,12 +65,14 @@ void AstraJxtCallbacks::InitInterfaces()
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         int hlen, char **res, int len)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+	  reqInfo->setPerform();
+	  base_tables.Invalidate();
     OraSession.ClearQuerys();
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     xmlNodePtr node=NodeAsNode("/term/query",xmlRC->reqDoc);
     std::string screen = NodeAsString("@screen", node);
     std::string opr = NodeAsString("@opr", node);
-    TReqInfo *reqInfo = TReqInfo::Instance();
     bool checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
@@ -102,8 +104,11 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
 
 void AstraJxtCallbacks::UserAfter()
 {
-    base_tables.Clear();
+    base_tables.Invalidate();
     PerfomTest( 2007 );
+	  XMLRequestCtxt *xmlRC = getXmlCtxt();
+	  xmlNodePtr node=NodeAsNode("/term/answer",xmlRC->resDoc);
+	  SetProp(node, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
 }
 
 

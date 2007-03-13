@@ -382,7 +382,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
                " производились с другой стойки. Обновите данные";
   }
   if ( errmsg.empty() && setseatNode && Checkin( pax_id ) )
-  	throw UserException( "Пассажир зарегистрирован"	);
+  	errmsg = string( "Пассажир зарегистрирован"	);
   
   string nplaceName;
   if ( !errmsg.empty() || !SEATS::Reseat( seatstype, trip_id, pax_id, tid, num, x, y, nplaceName ) ) {

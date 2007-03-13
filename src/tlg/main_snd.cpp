@@ -7,7 +7,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include "daemon.h"
+#include "query_runner.h"
 
 #define NICKNAME "VLAD"
 #include "test.h"

@@ -95,6 +95,8 @@ class TScreen {
 
 class TReqInfo
 {
+	private:
+		boost::posix_time::ptime execute_time;
   public:
     void clear();
     TReqInfo();
@@ -116,6 +118,9 @@ class TReqInfo
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2) {
       MsgToLog(msg, ev_type,id1,id2,0);
     }
+    void setPerform();
+    void clearPerform();
+    long getExecuteMSec();
 };
 
 ASTRA::TDocType DecodeDocType(char* s);
@@ -149,6 +154,9 @@ void MsgToLog(TLogMsg &msg);
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
+std::string AirpTZRegion(std::string airp);
+std::string CityTZRegion(std::string city);
+
 boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
 BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
@@ -179,5 +187,7 @@ class UserException2:public EXCEPTIONS::UserException
   public:
     UserException2(): UserException(""){};
 };
+
+std::string transliter(const std::string &value);
 
 #endif /*_ASTRA_UTILS_H_*/
