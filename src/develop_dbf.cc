@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <vector>
 #include <map>
+#include <algorithm>
 
 #include "exceptions.h"
 #include "basic.h"
@@ -30,8 +31,6 @@ Develop_dbf::Develop_dbf( )
   version = 0x03;
   rowCount = 0;
   headerLen = 32;
-  descriptorFieldsLen = 0;
-  recLen = 0;
 }
 
 void Develop_dbf::setVersion( unsigned char v )
@@ -62,9 +61,10 @@ void Develop_dbf::BuildHeader()
 	// следующие 3 байта содержат шестнадцатиричную дату последнего обновления в формате ГГММДД
 	int Year, Month, Day;
 	DecodeDate( NowUTC(), Year, Month, Day );
-	putbinary_tostream( header, Year, 2 );
-	putbinary_tostream( header, Month, 2 );
-	putbinary_tostream( header, Day, 2 );
+	Year = Year % 100;
+	putbinary_tostream( header, Year, 1 );
+	putbinary_tostream( header, Month, 1 );
+	putbinary_tostream( header, Day, 1 );
 	// далее 4 байта - кол-во строк
 	putbinary_tostream( header, rowCount, 4 );
 	// далее 2 байта - совокупный размер заголовка и дескрипторов полей - указатель на данные
@@ -111,20 +111,29 @@ void Develop_dbf::BuildFields()
    // подключение тега MDX в dBase4
    putbinary_tostream( descrField, tmp_zero, 1 );
   }
+  c = 13;
+  descrField << c;
   descriptorFieldsLen = (int)descrField.str().size();
   ProgTrace( TRACE5, "descripterFields=|%s|", descrField.str().c_str() );
 };
 
 void Develop_dbf::BuildData()
 {
+	recLen = 1;
 	data.clear();
 	for ( vector<TRow>::iterator i=rows.begin(); i!=rows.end(); i++ ) {
 		if ( i->pr_del )
 			data << '*';
 		else
 			data << ' ';
+	  vector<TField>::iterator f=fields.begin();			
 		for ( vector<string>::iterator j=i->data.begin(); j!=i->data.end(); j++ ) {
-		  data<<*j;
+      if ( f->type != 'N' && f->type != 'F' )
+ 		    data << std::left;
+      else
+        data << std::right;
+      data << setw( f->len ) <<  *j;
+		  f++;		  	
 		}
 		if ( i == rows.begin() )
 			recLen = (int)data.str().size();
@@ -137,7 +146,7 @@ void Develop_dbf::BuildData()
 
 void Develop_dbf::Build()
 {
-	BuildFields();
+	BuildData();
 	BuildFields();
 	BuildHeader();
 }
@@ -165,7 +174,8 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
      case 'C': /* символьное */
      case 'L': /* логическое */
      case 'N': /* числовое */
-     case 'M': /* типа memo */
+     case 'D': /* дата */
+     //case 'M': /* типа memo */
      case 'F': /* с плавающей точкой */
      //case 'P': /* шаблон */
                field.type = type;
@@ -182,32 +192,44 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
   fields.push_back( field );
 }	
 
-void Develop_dbf::AddRow( TRow &row )
+void Develop_dbf::AddField( std::string name, char type, int len )
 {
-/*	if ( row.data.size() >= fields.size() )
-		throw Exception( "Invalid format data" );		*/
-/*	if ( !rows.empty() ) {
-		vector<TRow>::iterator p = rows.end()--;
-		if ( p->data.size() != fields.size() )
-			throw Exception( "Invalid format data" );
-	}
-	TRow row;
-	row.pr_del = false;
-	row.init = false;
-	rows.push_back( row );*/
+	AddField( name, type, len, len );
 }
 
-void Develop_dbf::AddData( string name, string value )
+void Develop_dbf::AddRow( TRow &row )
 {
-	if ( rows.empty() )
-		throw Exception( "Not avalable row" );
-	vector<TRow>::iterator p = rows.end()--;
-/*	if ( !p->init )
-		p->*/
-	name = upperc( name );
-/*	for (vector<TField>::iterator f=fields.begin(); f!=fields.end(); f++ ) {
-		if ( i->name == name ) {
-			
+	if ( row.data.size() != fields.size() )
+		throw Exception( "Invalid format data" );		
+	vector<string>::iterator r=row.data.begin();
+	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end(); f++ ) {
+		if ( (int)r->size() > f->len )
+			throw Exception( "Invalid format data" );
+		switch ( f->type ) {
+			case 'C': break;
+			case 'L': if ( *r == "Y" || *r == "y" || 
+	                   *r == "T" || *r == "t" ||
+	                   *r == "N" || *r == "n" ||
+	                   *r == "F" || *r == "f" )
+	                break;
+	              throw Exception( "Invalid format data" );
+      case 'N': size_t t = r->find( "." );
+      	        if ( t == string::npos || f->precision == f->len || 
+      	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
+      	        	break;
+      	        throw Exception( "Invalid format data" );
+      case 'D': TDateTime v;
+      	        if ( StrToDateTime( r->c_str(), "yyyymmdd", v ) != EOF )
+      	        	break;
+      	        throw Exception( "Invalid format data" );
+      case 'F': double d;
+      	        if ( StrToFloat( r->c_str(), d ) != EOF )
+      	        	break;
+      	        throw Exception( "Invalid format data" );      	        	
 		}
-	}*/
+		r++;
+	}
+	rows.push_back( row );
+	rowCount++;
 }
+

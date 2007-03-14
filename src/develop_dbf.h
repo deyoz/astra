@@ -13,9 +13,11 @@ struct TField {
 };
 
 struct TRow {
-	bool init;
 	bool pr_del;
 	std::vector<std::string> data;
+	TRow( ) {
+		pr_del = 0;
+  }
 };
 
 class Develop_dbf
@@ -36,8 +38,8 @@ public:
 	Develop_dbf( );
 	void setVersion( unsigned char v );
 	void AddField( std::string name, char type, int len, int precision );
+	void AddField( std::string name, char type, int len );
 	void AddRow(  TRow &row );
-	void AddData( std::string name, std::string value );
 	void Build( );
 	std::string Result( );
 };
