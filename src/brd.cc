@@ -7,6 +7,7 @@
 #include "cache.h"
 #include "astra_utils.h"
 #include "stages.h"
+#include "tripinfo.h"
 
 
 using namespace EXCEPTIONS;
@@ -14,266 +15,236 @@ using namespace std;
 
 void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
-  ProgTrace(TRACE5, "BrdInterface::readTripCounters" );
-  JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", point_id);
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    JxtContext::getJxtContHandler()->currContext()->write("TRIP_ID", point_id);
+  else
+    JxtContext::getJxtContHandler()->currContext()->write("EXAM_TRIP_ID", point_id);
+  SetCounters(dataNode);
+};
+
+void BrdInterface::SetCounters(xmlNodePtr dataNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  int point_id;
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+  else
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("EXAM_TRIP_ID");
+
+  TQuery Qry(&OraSession);
+  string sql=
             "SELECT "
-            "    COUNT(*) AS reg, "
-            "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
-            "FROM "
+            "    COUNT(*) AS reg, ";
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    sql+=   "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd ";
+  else
+    sql+=   "    NVL(SUM(DECODE(pr_exam,0,0,1)),0) AS brd ";
+  sql+=     "FROM "
             "    pax_grp, "
             "    pax "
             "WHERE "
             "    pax_grp.grp_id=pax.grp_id AND "
             "    point_dep=:point_id AND "
             "    pr_brd IS NOT NULL ";
+  Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if(!Qry.Eof)
   {
-            xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
-            NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
-            NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
-  };
-};
-
-void BrdInterface::SetCounters(xmlNodePtr dataNode)
-{
-    TQuery Qry(&OraSession);
-    int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
-    Qry.SQLText =
-        "SELECT "
-        "    COUNT(*) AS reg, "
-        "    NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd "
-        "FROM "
-        "    pax_grp, "
-        "    pax "
-        "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    point_dep=:point_id AND "
-        "    pr_brd IS NOT NULL ";
-    Qry.DeclareVariable("point_id", otInteger);
-
-    Qry.SetVariable("point_id", trip_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
-        NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
-        NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
-    }
+      xmlNodePtr countersNode = NewTextChild(dataNode, "counters");
+      NewTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
+      NewTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
+  }
 }
 
 
-int get_new_tid()
+int get_new_tid(int point_id)
 {
-    TQuery *Qry = OraSession.CreateQuery();
-    try {
-        Qry->SQLText =
-            "select "
-            "    tid__seq.nextval tid "
-            "from "
-            "    points "
-            "where "
-            "    point_id=:point_id "
-            "for update";
-        Qry->DeclareVariable("point_id", otInteger);
-        Qry->SetVariable("point_id", JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"));
-        Qry->Execute();
-        if(Qry->Eof) throw UserException("Рейс не найден. Обновите данные");
-        int result = Qry->FieldAsInteger("tid");
-        OraSession.DeleteQuery(*Qry);
-        return result;
-    } catch(...) {
-        OraSession.DeleteQuery(*Qry);
-        throw;
-    }
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM points WHERE point_id=:point_id FOR UPDATE";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  return Qry.FieldAsInteger("tid");
 }
 
 void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery *Qry = OraSession.CreateQuery();
-    try {
-        get_new_tid();
-        Qry->SQLText =
-            "declare "
-            "   cursor cur is "
-            "       select pax_id from pax_grp,pax where pax_grp.grp_id=pax.grp_id and point_dep=:point_id and pr_brd=1; "
-            "   currow       cur%rowtype; "
-            "begin "
-            "   for currow in cur loop "
-            "       update pax set pr_brd=0,tid=tid__seq.currval where pax_id=currow.pax_id and pr_brd=1; "
-            "       mvd.sync_pax(currow.pax_id,:term); "
-            "   end loop; "
-            "end; ";
-        Qry->DeclareVariable("point_id", otInteger);
-        Qry->DeclareVariable("term", otString);
-        int trip_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
-        Qry->SetVariable("point_id", trip_id);
-        Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-        Qry->Execute();
-        TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, trip_id);
-        OraSession.DeleteQuery(*Qry);
-    } catch(...) {
-        OraSession.DeleteQuery(*Qry);
-        throw;
-    }
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  int point_id;
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+  else
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("EXAM_TRIP_ID");
+
+  get_new_tid(point_id);
+
+  TQuery Qry(&OraSession);
+  string sql=
+            "DECLARE "
+            "  CURSOR cur IS "
+            "    SELECT pax_id FROM pax_grp,pax "
+            "    WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND ";
+
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    sql+=   "          pr_brd=1; ";
+  else
+    sql+=   "          pr_exam=1; ";
+
+  sql+=     "curRow       cur%ROWTYPE; "
+            "BEGIN "
+            "  FOR curRow IN cur LOOP ";
+
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+  {
+    sql+=   "    UPDATE pax SET pr_brd=0,tid=tid__seq.currval "
+            "    WHERE pax_id=curRow.pax_id AND pr_brd=1; "
+            "    IF SQL%FOUND THEN "
+            "      mvd.sync_pax(curRow.pax_id,:term); "
+            "    END IF; ";
+    Qry.CreateVariable( "term", otString, reqInfo->desk.code );
+  }
+  else
+    sql+=   "    UPDATE pax SET pr_exam=0,tid=tid__seq.currval "
+            "    WHERE pax_id=curRow.pax_id AND pr_exam=1; ";
+
+  sql+=     "  END LOOP; "
+            "END; ";
+  Qry.SQLText=sql;
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    TReqInfo::Instance()->MsgToLog("Все пассажиры высажены", evtPax, point_id);
+  else
+    TReqInfo::Instance()->MsgToLog("Все пассажиры возвращены на досмотр", evtPax, point_id);
 }
 
-int BrdInterface::PaxUpdate(int pax_id, int &tid, int pr_brd)
+bool BrdInterface::PaxUpdate(int pax_id, int &tid, bool mark)
 {
-    TQuery *Qry = OraSession.CreateQuery();
-    int new_tid = get_new_tid();
-    Qry->SQLText =
-        "begin "
-        "   select "
-        "       p.name, "
-        "       p.surname, "
-        "       p.reg_no, "
-        "       p.grp_id, "
-        "       pg.point_dep "
-        "   into "
-        "       :name, "
-        "       :surname, "
-        "       :regno, "
-        "       :grp_id, "
-        "       :point_id "
-        "   from "
-        "       pax p, "
-        "       pax_grp pg "
-        "   where "
-        "       p.pax_id = :pax_id and "
-        "       pg.grp_id=p.grp_id; "
-        "   UPDATE pax SET "
-        "       pr_brd=:pr_brd, "
-        "       tid=tid__seq.currval "
-        "   WHERE "
-        "       pax_id= :pax_id AND "
-        "       tid=:tid; "
-        "   if SQL%ROWCOUNT > 0 then "
-        "       mvd.sync_pax(:pax_id, :term); "
-        "   else "
-        "       :pr_brd := -1; "
-        "   end if; "
-        "end;";
+  TReqInfo *reqInfo = TReqInfo::Instance();
 
-    Qry->DeclareVariable("term", otString);
-    Qry->DeclareVariable("pax_id", otInteger);
-    Qry->DeclareVariable("tid", otInteger);
-    Qry->DeclareVariable("pr_brd", otInteger);
-    Qry->DeclareVariable("name", otString);
-    Qry->DeclareVariable("surname", otString);
-    Qry->DeclareVariable("point_id", otInteger);
-    Qry->DeclareVariable("regno", otInteger);
-    Qry->DeclareVariable("grp_id", otInteger);
+  int point_id;
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+  else
+    point_id = JxtContext::getJxtContHandler()->currContext()->readInt("EXAM_TRIP_ID");
 
-    Qry->SetVariable("term", JxtContext::getJxtContHandler()->currContext()->read("STATION"));
-    Qry->SetVariable("pax_id", pax_id);
-    Qry->SetVariable("tid", tid);
-    Qry->SetVariable("pr_brd", pr_brd);
+  int new_tid = get_new_tid(point_id);
 
-    Qry->Execute();
+  TQuery Qry(&OraSession);
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+    Qry.SQLText=
+      "UPDATE pax SET pr_brd=:mark, tid=tid__seq.currval "
+      "WHERE pax_id=:pax_id AND tid=:tid";
+  else
+    Qry.SQLText=
+      "UPDATE pax SET pr_exam=:mark, tid=tid__seq.currval "
+      "WHERE pax_id=:pax_id AND tid=:tid";
+  Qry.CreateVariable("pax_id", otInteger, pax_id);
+  Qry.CreateVariable("tid", otInteger, tid);
+  Qry.CreateVariable("mark", otInteger, (int)mark);
+  Qry.Execute();
+  if (Qry.RowsProcessed()>0)
+  {
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+    {
+      Qry.Clear();
+      Qry.SQLText=
+        "BEGIN "
+        "  mvd.sync_pax(:pax_id, :term); "
+        "END;";
+      Qry.CreateVariable("pax_id", otInteger, pax_id);
+      Qry.CreateVariable("term", otString, reqInfo->desk.code);
+      Qry.Execute();
+    };
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT surname,name,reg_no,grp_id FROM pax WHERE pax_id=:pax_id";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      string msg = (string)
+                  "Пассажир " + Qry.FieldAsString("surname") + " " +
+                  Qry.FieldAsString("name");
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+        msg+=     (mark ? " прошел посадку" : " высажен");
+      else
+        msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
 
-    pr_brd = Qry->GetVariableAsInteger("pr_brd");
-    tid = new_tid;
-
-    if(pr_brd >= 0) {
-        /*
-        throw UserException((string)
-                Qry->GetVariableAsString("point_id") + " " +
-                Qry->GetVariableAsString("regno") + " " +
-                Qry->GetVariableAsString("pr_brd") + " " +
-                Qry->GetVariableAsString("grp_id")
-                );
-                */
-        string msg = (string)
-                "Пассажир " + Qry->GetVariableAsString("surname") + " " +
-                Qry->GetVariableAsString("name") +
-                (pr_brd ? " прошел посадку" : " высажен");
-        TReqInfo::Instance()->MsgToLog(msg, evtPax,
-                                       Qry->GetVariableAsInteger("point_id"),
-                                       Qry->GetVariableAsInteger("regno"),
-                                       Qry->GetVariableAsInteger("grp_id"));
-    }
-    OraSession.DeleteQuery(*Qry);
-    return pr_brd;
+      TReqInfo::Instance()->MsgToLog(msg, evtPax,
+                                     point_id,
+                                     Qry.FieldAsInteger("reg_no"),
+                                     Qry.FieldAsInteger("grp_id"));
+    };
+    tid=new_tid;
+    return true;
+  }
+  else return false;
 }
 
 void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int pax_id = NodeAsInteger("pax_id", reqNode);
     int tid = NodeAsInteger("tid", reqNode);
-    int pr_brd = NodeAsInteger("pr_brd", reqNode);
-    pr_brd = PaxUpdate(pax_id, tid, pr_brd);
-
+    bool mark = NodeAsInteger("pr_brd", reqNode)!=0;
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    if(pr_brd < 0) SetCounters(dataNode);
-    NewTextChild(dataNode, "pr_brd", pr_brd);
+    if (PaxUpdate(pax_id, tid, mark))
+      NewTextChild(dataNode, "pr_brd", (int)mark);
+    else
+    {
+      NewTextChild(dataNode, "pr_brd", -1);
+      showErrorMessage("Изменения по пассажиру производились с другой стойки. Обновите данные");
+    };
     NewTextChild(dataNode, "new_tid", tid);
+    SetCounters(dataNode);
 }
 
 bool ChckSt(int pax_id, string seat_no)
 {
-    bool Result = true;
-    TQuery *Qry = OraSession.CreateQuery();
-    Qry->SQLText =
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
         "SELECT LPAD(seat_no,3,'0') AS seat_no1, LPAD(:seat_no,3,'0') AS seat_no2 FROM bp_print, "
         "  (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
         "WHERE pax_id=:pax_id AND bp_print.time_print=a.time_print ";
-    Qry->CreateVariable("pax_id", otInteger, pax_id);
-    Qry->CreateVariable("seat_no", otString, seat_no);
-    Qry->Execute();
-    while(!Qry->Eof) {
-        if(!Qry->FieldIsNULL("seat_no1") &&
-                strcmp(Qry->FieldAsString("seat_no1"), Qry->FieldAsString("seat_no2"))!=0) break;
-        Qry->Next();
-    }
-    if(!Qry->Eof)
-        Result = false;
-    OraSession.DeleteQuery(*Qry);
-    return Result;
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("seat_no", otString, seat_no);
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (!Qry.FieldIsNULL("seat_no1") &&
+          strcmp(Qry.FieldAsString("seat_no1"), Qry.FieldAsString("seat_no2"))!=0)
+        return false;
+    };
+    return true;
 }
-
-struct TPax {
-    int pax_id;
-    int grp_id;
-    int point_id;
-    int pr_brd;
-    int old_pr_brd;
-    int reg_no;
-    string surname;
-    string name;
-    string pers_type;
-    string seat_no;
-    int seats;
-    int doc_check;
-    int tid;
-    string seat_no_str;
-    string remarks;
-    int rk_amount;
-    int rk_weight;
-    int excess;
-    int value_bag_count;
-    string tags;
-    int pr_payment;
-};
-typedef vector<TPax> TPaxList;
 
 void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    enum {search, list} ListType;
+    TReqInfo *reqInfo = TReqInfo::Instance();
 
-    TQuery *Qry = OraSession.CreateQuery();
+    int point_id;
+    if (reqInfo->screen.name == "BRDBUS.EXE")
+      point_id = JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID");
+    else
+      point_id = JxtContext::getJxtContHandler()->currContext()->readInt("EXAM_TRIP_ID");
 
+    bool pr_list;
     string condition;
     if(strcmp((char *)reqNode->name, "brd_list") == 0) {
-        ListType = list;
-        condition = " AND point_dep= :point_id AND pr_brd= :pr_brd ";
+        pr_list=true;
+        if (reqInfo->screen.name == "BRDBUS.EXE")
+          condition = " AND point_dep= :point_id AND pr_brd= :pr_brd ";
+        else
+          condition = " AND point_dep= :point_id AND pr_exam= :pr_brd ";
     } else if(strcmp((char *)reqNode->name, "search_reg") == 0) {
-        ListType = search;
+        pr_list=false;
         condition = " AND point_dep= :point_id AND reg_no= :reg_no AND pr_brd IS NOT NULL ";
     } else if(strcmp((char *)reqNode->name, "search_bar") == 0) {
-        ListType = search;
+        pr_list=false;
         condition = " AND pax_id= :pax_id AND pr_brd IS NOT NULL ";
     } else throw Exception("BrdInterface::BrdList: Unknown command tag %s", reqNode->name);
 
@@ -282,20 +253,22 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "    pax_id, "
         "    pax.grp_id, "
         "    point_dep AS point_id, "
+        "    airp_dep, "
         "    pr_brd, "
+        "    pr_exam, "
+        "    doc_check, "
         "    reg_no, "
         "    surname, "
         "    name, "
         "    pers_type, "
         "    seat_no, "
         "    seats, "
-        "    doc_check, "
         "    pax.tid, "
         "    LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no_str, "
         "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
         "    NVL(ckin.get_rkAmount(pax_grp.grp_id,NULL,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
-        "    /*  NVL(ckin.get_excess(pax_grp.grp_id,NULL),0) AS excess,*/ NVL(pax_grp.excess,0) AS excess, "
+        "    NVL(pax_grp.excess,0) AS excess, "
         "    NVL(value_bag.count,0) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment  "
@@ -316,99 +289,136 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         "    pax_grp.grp_id=value_bag.grp_id(+)  " +
         condition +
         "ORDER BY reg_no ";
-    Qry->SQLText = sqlText;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = sqlText;
     TParams1 SQLParams;
-    SQLParams.getParams(GetNode("sqlparams", reqNode));
-    SQLParams.setSQL(Qry);
-    Qry->Execute();
-    if(ListType == search && Qry->Eof)
-        throw UserException(1, "Пассажир не зарегистрирован");
-    TPaxList PaxList;
-    while(!Qry->Eof) {
-        TPax Pax;
-        Pax.pax_id          = Qry->FieldAsInteger("pax_id");
-        Pax.grp_id          = Qry->FieldAsInteger("grp_id");
-        Pax.point_id        = Qry->FieldAsInteger("point_id");
-        Pax.pr_brd          = Qry->FieldAsInteger("pr_brd");
-        Pax.old_pr_brd      = Pax.pr_brd;
-        Pax.reg_no          = Qry->FieldAsInteger("reg_no");
-        Pax.surname         = Qry->FieldAsString("surname");
-        Pax.name            = Qry->FieldAsString("name");
-        Pax.pers_type       = Qry->FieldAsString("pers_type");
-        Pax.seat_no         = Qry->FieldAsString("seat_no");
-        Pax.seats           = Qry->FieldAsInteger("seats");
-        Pax.doc_check       = Qry->FieldAsInteger("doc_check");
-        Pax.tid             = Qry->FieldAsInteger("tid");
-        Pax.seat_no_str     = Qry->FieldAsString("seat_no_str");
-        Pax.remarks         = Qry->FieldAsString("remarks");
-        Pax.rk_amount       = Qry->FieldAsInteger("rk_amount");
-        Pax.rk_weight       = Qry->FieldAsInteger("rk_weight");
-        Pax.excess          = Qry->FieldAsInteger("excess");
-        Pax.value_bag_count = Qry->FieldAsInteger("value_bag_count");
-        Pax.tags            = Qry->FieldAsString("tags");
-        Pax.pr_payment      = Qry->FieldAsInteger("pr_payment");
-        PaxList.push_back(Pax);
-        Qry->Next();
-    }
+    SQLParams.getParams(GetNode("sqlparams", reqNode)); //???
+    SQLParams.setSQL(&Qry);
+    Qry.Execute();
+    if (!pr_list && Qry.Eof)
+      throw UserException(1, "Пассажир не зарегистрирован");
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    switch(ListType) {
-        case search:
-            break;
-        case list:
-            break;
-    }
-    if(ListType == search) {
-        TPaxList::iterator Pax = PaxList.begin();
-        if(Pax->point_id != JxtContext::getJxtContHandler()->currContext()->readInt("TRIP_ID"))
-            throw UserException(1, "Пассажир относится к другому рейсу");
-        int boarding = NodeAsInteger("boarding", reqNode);
-        if(!boarding && !Pax->pr_brd || boarding && Pax->pr_brd) {
-            if(Pax->pr_brd)
-                throw UserException(1, "Пассажир с указанным номером уже прошел посадку");
-            else
-                throw UserException(1, "Пассажир с указанным номером не прошел посадку");
-        }
-        ProgTrace(TRACE5, "seat_no: %s", Pax->seat_no.c_str());
-        if(!Pax->pr_brd && !ChckSt(Pax->pax_id, Pax->seat_no))
-        {
-            NewTextChild(dataNode, "failed");
-        }
-        else {
-            // update
-            Pax->pr_brd = !Pax->pr_brd;
-            int Result = PaxUpdate(Pax->pax_id, Pax->tid, Pax->pr_brd);
-            Pax->old_pr_brd = Pax->pr_brd;
-            NewTextChild(dataNode, "pr_brd", Result);
-        }
-    }
-    OraSession.DeleteQuery(*Qry);
-
     xmlNodePtr listNode = NewTextChild(dataNode, "brd_list");
-    for(TPaxList::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
-        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
-        NewTextChild(paxNode, "pax_id", iv->pax_id);
-        NewTextChild(paxNode, "grp_id", iv->grp_id);
-        NewTextChild(paxNode, "point_id", iv->point_id);
-        NewTextChild(paxNode, "pr_brd", iv->pr_brd);
-        NewTextChild(paxNode, "old_pr_brd", iv->old_pr_brd);
-        NewTextChild(paxNode, "reg_no", iv->reg_no);
-        NewTextChild(paxNode, "surname", iv->surname);
-        NewTextChild(paxNode, "name", iv->name);
-        NewTextChild(paxNode, "pers_type", iv->pers_type);
-        NewTextChild(paxNode, "seat_no", iv->seat_no);
-        NewTextChild(paxNode, "seats", iv->seats);
-        NewTextChild(paxNode, "doc_check", iv->doc_check);
-        NewTextChild(paxNode, "tid", iv->tid);
-        NewTextChild(paxNode, "seat_no_str", iv->seat_no_str);
-        NewTextChild(paxNode, "remarks", iv->remarks);
-        NewTextChild(paxNode, "rk_amount", iv->rk_amount);
-        NewTextChild(paxNode, "rk_weight", iv->rk_weight);
-        NewTextChild(paxNode, "excess", iv->excess);
-        NewTextChild(paxNode, "value_bag_count", iv->value_bag_count);
-        NewTextChild(paxNode, "tags", iv->tags);
-        NewTextChild(paxNode, "pr_payment", iv->pr_payment);
-    }
-}
+    for(;!Qry.Eof;Qry.Next())
+    {
+      int pax_id=Qry.FieldAsInteger("pax_id");
+      int mark;
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+        mark=Qry.FieldAsInteger("pr_brd");
+      else
+        mark=Qry.FieldAsInteger("pr_exam");
+      int tid=Qry.FieldAsInteger("tid");
+      if (!pr_list)
+      {
+        if (point_id!=Qry.FieldAsInteger("point_id"))
+        {
+          TQuery FltQry(&OraSession);
+          FltQry.Clear();
+          FltQry.SQLText=
+            "SELECT airline,flt_no,suffix,airp,scd_out, "
+            "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+            "FROM points WHERE point_id=:point_id";
+          FltQry.CreateVariable("point_id",otInteger,Qry.FieldAsInteger("point_id"));
+          FltQry.Execute();
+          if (!FltQry.Eof)
+          {
+            TTripInfo info;
+            info.airline=FltQry.FieldAsString("airline");
+            info.flt_no=FltQry.FieldAsInteger("flt_no");
+            info.suffix=FltQry.FieldAsString("suffix");
+            info.airp=FltQry.FieldAsString("airp");
+            info.scd_out=FltQry.FieldAsDateTime("scd_out");
+            info.real_out=FltQry.FieldAsDateTime("real_out");
+            throw UserException(1, "Пассажир с рейса " + GetTripName(info));
+          }
+          else
+            throw UserException(1, "Пассажир с другого рейса");
+        };
+        bool boarding = NodeAsInteger("boarding", reqNode)!=0;
+        if(!boarding && !mark || boarding && mark)
+        {
+          if (reqInfo->screen.name == "BRDBUS.EXE")
+          {
+            if (mark)
+              throw UserException(1, "Пассажир с указанным номером уже прошел посадку");
+            else
+              throw UserException(1, "Пассажир с указанным номером не прошел посадку");
+          }
+          else
+          {
+            if (mark)
+              throw UserException(1, "Пассажир с указанным номером уже прошел досмотр");
+            else
+              throw UserException(1, "Пассажир с указанным номером не прошел досмотр");
+          };
+        };
+
+        if (reqInfo->screen.name == "BRDBUS.EXE" &&
+            boarding && Qry.FieldAsInteger("pr_exam")==0 &&
+            strcmp(Qry.FieldAsString("airp_dep"),"СУР")==0)
+        {
+          showErrorMessage("Пассажир не прошел досмотр");
+        }
+        else
+        {
+          if(reqInfo->screen.name == "BRDBUS.EXE" &&
+             !mark &&
+             !ChckSt(pax_id, Qry.FieldAsString("seat_no")))
+          {
+              NewTextChild(dataNode, "failed");
+          }
+          else
+          {
+              // update
+              if (PaxUpdate(pax_id,tid,!mark))
+              {
+                mark = !mark;
+                NewTextChild(dataNode, "pr_brd", (int)mark);
+              }
+              else
+              {
+                NewTextChild(dataNode, "pr_brd", -1); //???
+                showErrorMessage("Изменения по пассажиру производились с другой стойки. Обновите данные");
+              };
+              NewTextChild(dataNode, "new_tid", tid);
+          };
+        };
+      };
+
+      xmlNodePtr paxNode = NewTextChild(listNode, "pax");
+      NewTextChild(paxNode, "pax_id", pax_id);
+      NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+      NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+      {
+        NewTextChild(paxNode, "pr_brd",  mark);
+        //удалить потом нафиг:
+        NewTextChild(paxNode, "old_pr_brd", mark); //???
+      }
+      else
+        NewTextChild(paxNode, "pr_brd",  Qry.FieldAsInteger("pr_brd"));
+      NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam"));
+      NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+      NewTextChild(paxNode, "surname", Qry.FieldAsString("surname"));
+      NewTextChild(paxNode, "name", Qry.FieldAsString("name"));
+      NewTextChild(paxNode, "pers_type", Qry.FieldAsString("pers_type"));
+      NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"));
+      NewTextChild(paxNode, "doc_check", Qry.FieldAsInteger("doc_check"));
+      NewTextChild(paxNode, "tid", tid);
+      NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
+      NewTextChild(paxNode, "seat_no_str", Qry.FieldAsString("seat_no_str"));
+      NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"));
+      NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"));
+      NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+      NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
+      NewTextChild(paxNode, "value_bag_count", Qry.FieldAsInteger("value_bag_count"));
+      NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
+      NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment"));
+      if (!pr_list) break;
+    };
+
+    SetCounters(dataNode);
+};
 
 
 

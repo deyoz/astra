@@ -7,8 +7,8 @@
 class BrdInterface : public JxtInterface
 {
 private:
-    void SetCounters(xmlNodePtr dataNode);
-    int PaxUpdate(int pax_id, int &tid, int pr_brd);
+    static void SetCounters(xmlNodePtr dataNode);
+    bool PaxUpdate(int pax_id, int &tid, bool mark);
 public:
   BrdInterface() : JxtInterface("123","brd")
   {
