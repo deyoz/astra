@@ -28,6 +28,8 @@ class PrintInterface: public JxtInterface
             AddEvent("ConfirmPrintBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrinterList);
             AddEvent("GetPrinterList",evHandle);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBR);
+            AddEvent("GetPrintDataBR",evHandle);
         }
 
         void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -37,6 +39,7 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
 };
 

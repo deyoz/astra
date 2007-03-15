@@ -7,6 +7,8 @@
 #include "astra_utils.h"
 #include "misc.h"
 #include "stages.h"
+#include "str_utils.h"
+#include <fstream>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -16,6 +18,8 @@ using namespace ASTRA;
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
+    public:
+        enum TMapType {mtBTBP, mtMSO};
     private:
         class t_field_map {
             private:
@@ -39,11 +43,13 @@ class PrintDataParser {
                 TQrys Qrys;
                 TQuery *prnQry;
 
+                void fillBTBPMap();
+                void fillMSOMap();
                 string check_class(string val);
                 bool printed(TData::iterator di);
 
             public:
-                t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode);
+                t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 string get_field(string name, int len, string align, string date_format, int field_lat);
                 void add_tag(string name, int val);
                 void add_tag(string name, string val);
@@ -57,7 +63,8 @@ class PrintDataParser {
         string parse_field(int offset, string field);
         string parse_tag(int offset, string tag);
     public:
-        PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode): field_map(pax_id, pr_lat, tagsNode)
+        PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
+            field_map(pax_id, pr_lat, tagsNode, map_type)
         {
             this->pr_lat = pr_lat;
         };
@@ -484,29 +491,8 @@ PrintDataParser::t_field_map::~t_field_map()
     for(TQrys::iterator iv = Qrys.begin(); iv != Qrys.end(); ++iv) OraSession.DeleteQuery(**iv);
 }
 
-PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode)
+void PrintDataParser::t_field_map::fillBTBPMap()
 {
-    this->pax_id = pax_id;
-    this->pr_lat = pr_lat;
-    if(tagsNode) {
-        // Положим в мэп теги из клиентского запроса
-        xmlNodePtr curNode = tagsNode->children;
-        while(curNode) {
-            string name = (char *)curNode->name;
-            name = upperc(name);
-            TTagValue TagValue;
-            TagValue.null = false;
-            TagValue.type = otString;
-            TagValue.StringVal = NodeAsString(curNode);
-            if(data.find(name) != data.end())
-                throw Exception("Duplicate tag found in client data " + name);
-            data[name] = TagValue;
-            TagValue.StringVal = transliter(TagValue.StringVal);
-            data[name + "_LAT"] = TagValue;
-            curNode = curNode->next;
-        }
-    }
-
     int grp_id;
     int trip_id;
     {
@@ -686,6 +672,89 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
         "   airps.city = cities.code ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
     Qrys.push_back(Qry);
+}
+
+void PrintDataParser::t_field_map::fillMSOMap()
+{
+    TQuery *Qry;
+
+    Qry = OraSession.CreateQuery();
+    Qry->SQLText =
+        "select "
+        " receipt_id, "
+        " no, "
+        " form_type, "
+        " grp_id, "
+        " status, "
+        " pr_lat, "
+        " tickets, "
+        " prev_no, "
+        " airline, "
+        " aircode, "
+        " flt_no, "
+        " suffix, "
+        " airp_dep, "
+        " airp_arv, "
+        " ex_amount, "
+        " ex_weight, "
+        " bag_type, "
+        " bag_name, "
+        " value_tax, "
+        " rate, "
+        " rate_cur, "
+        " pay_rate, "
+        " pay_rate_cur, "
+        " pay_type, "
+        " pay_doc, "
+        " remarks, "
+        " issue_date, "
+        " issue_place, "
+        " issue_user_id, "
+        " annul_date, "
+        " annul_user_id, "
+        " pax, "
+        " document "
+        "from "
+        " bag_receipts "
+        "where "
+        " receipt_id = :id ";
+    Qry->CreateVariable("id", otInteger, pax_id);
+    Qrys.push_back(Qry);
+
+}
+
+PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
+{
+    this->pax_id = pax_id;
+    this->pr_lat = pr_lat;
+    if(tagsNode) {
+        // Положим в мэп теги из клиентского запроса
+        xmlNodePtr curNode = tagsNode->children;
+        while(curNode) {
+            string name = (char *)curNode->name;
+            name = upperc(name);
+            TTagValue TagValue;
+            TagValue.null = false;
+            TagValue.type = otString;
+            TagValue.StringVal = NodeAsString(curNode);
+            if(data.find(name) != data.end())
+                throw Exception("Duplicate tag found in client data " + name);
+            data[name] = TagValue;
+            TagValue.StringVal = transliter(TagValue.StringVal);
+            data[name + "_LAT"] = TagValue;
+            curNode = curNode->next;
+        }
+    }
+
+    switch(map_type) {
+        case mtBTBP:
+            fillBTBPMap();
+            break;
+        case mtMSO:
+            fillMSOMap();
+            break;
+    }
+
 }
 
 string PrintDataParser::parse_field(int offset, string field)
@@ -1467,6 +1536,138 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Next();
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
+namespace to_esc {
+    typedef struct {
+        int x, y;
+        string data;
+    } TField;
+    typedef vector<TField> TFields;
+
+    bool lt(const TField &p1, const TField &p2)
+    {
+        return (p1.y == p2.y ? p1.x < p2.x : p1.y < p2.y);
+    }
+
+    void dump(string data, string fname)
+    {
+        ofstream out(fname.c_str());
+        if(!out.good())
+            throw Exception("dump: cannot open file '%s' for output", fname.c_str());
+        out << data;
+    }
+
+    void convert(string &mso_form)
+    {
+        char Mode = 'S';
+        TFields fields;
+        string num;
+        int x, y;
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = StrToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = StrToInt(num);
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.data = num;
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+            }
+        }
+        sort(fields.begin(), fields.end(), lt);
+        mso_form = "\x1b@\x1bM\x1bj#";
+        int curr_y = 0;
+        for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
+            ProgTrace(TRACE5, "x: %d, y: %d, data: %s", fi->x, fi->y, fi->data.c_str());
+            int delta_y = fi->y - curr_y;
+            if(delta_y) {
+                int offset_y = delta_y * 7;
+                int y256 = offset_y / 256;
+                int y_reminder = offset_y % 256;
+                ProgTrace(TRACE5, "y256: %d, y_reminder: %d", y256, y_reminder);
+
+                for(int i = 0; i < y256; i++) {
+                    mso_form += "\x1bJ\xff";
+                }
+                mso_form += "\x1bJ";
+                if(y_reminder) mso_form += char(y_reminder - 1);
+                curr_y = fi->y;
+            }
+
+
+            int offset_x = int(fi->x * 7.1);
+            int x256 = offset_x / 256;
+            int x_reminder = offset_x % 256;
+
+            ProgTrace(TRACE5, "x256: %d, x_reminder: %d", x256, x_reminder);
+
+            mso_form += "\x1b$";
+            mso_form += (char)0;
+            mso_form += (char)0;
+            for(int i = 0; i < x256; i++) {
+                mso_form += "\x1b\\\xff";
+                mso_form += (char)0;
+            }
+            if(x_reminder) {
+                mso_form += (string)"\x1b\\" + (char)(x_reminder - 1);
+                mso_form += (char)0;
+            }
+            mso_form += fi->data;
+        }
+        mso_form += "\x0c\x1b@";
+        dump(mso_form, "mso_form");
+    }
+}
+
+void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    PrintDataParser parser(NodeAsInteger("id", reqNode), 0, NULL, PrintDataParser::mtMSO);
+    int br_id = 0;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select form from br_forms where id = :id";
+    Qry.CreateVariable("id", otInteger, br_id);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("Receipt form not found for id " + IntToString(br_id));
+    string mso_form = Qry.FieldAsString("form");
+    ProgTrace(TRACE5, "mso_form before parse: %s", mso_form.c_str());
+    mso_form = parser.parse(mso_form);
+    ProgTrace(TRACE5, "mso_form after parse: %s", mso_form.c_str());
+    to_esc::convert(mso_form);
+    ProgTrace(TRACE5, "mso_form after convert: %s", mso_form.c_str());
+    NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
