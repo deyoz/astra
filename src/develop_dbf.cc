@@ -205,7 +205,7 @@ void Develop_dbf::AddRow( TRow &row )
 	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end(); f++ ) {
 		if ( (int)r->size() > f->len )
 			throw Exception( "Invalid format data" );
-		switch ( f->type ) {
+		switch ( f->type  ) {
 			case 'C': break;
 			case 'L': if ( *r == "Y" || *r == "y" || 
 	                   *r == "T" || *r == "t" ||
