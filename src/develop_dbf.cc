@@ -202,6 +202,7 @@ void Develop_dbf::AddRow( TRow &row )
 	if ( row.data.size() != fields.size() )
 		throw Exception( "Invalid format data" );		
 	vector<string>::iterator r=row.data.begin();
+	string::size_type t;
 	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end(); f++ ) {
 		if ( (int)r->size() > f->len )
 			throw Exception( "Invalid format data" );
@@ -213,7 +214,7 @@ void Develop_dbf::AddRow( TRow &row )
 	                   *r == "F" || *r == "f" )
 	                break;
 	              throw Exception( "Invalid format data" );
-      case 'N': string::size_type t = r->find( "." );
+      case 'N': t = r->find( "." );
       	        if ( t == string::npos || f->precision == f->len || 
       	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
       	        	break;
