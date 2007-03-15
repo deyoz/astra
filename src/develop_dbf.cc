@@ -213,7 +213,7 @@ void Develop_dbf::AddRow( TRow &row )
 	                   *r == "F" || *r == "f" )
 	                break;
 	              throw Exception( "Invalid format data" );
-      case 'N': size_t t = r->find( "." );
+      case 'N': string::size_type t = r->find( "." );
       	        if ( t == string::npos || f->precision == f->len || 
       	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
       	        	break;
