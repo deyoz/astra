@@ -42,8 +42,8 @@ void Develop_dbf::setVersion( unsigned char v )
 
 void putbinary_tostream( ostringstream &s, int value, int vsize )
 {
-  for (int i=1; i<=vsize; i++ ) {
-    s.write( (const char*)&value + sizeof( value ) - i, 1 );
+  for (int i=0; i<vsize; i++ ) {
+    s.write( (const char*)&value + sizeof( value ) + i, 1 ); //???
   }
 }
 
