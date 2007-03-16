@@ -7,6 +7,7 @@
 void RunRpt(std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_report_form(const std::string name, xmlNodePtr node);
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f);
+std::string vs_number(int number, bool pr_lat = false);
 
 class DocsInterface : public JxtInterface
 {

@@ -8,6 +8,7 @@
 #include "misc.h"
 #include "stages.h"
 #include "str_utils.h"
+#include "docs.h"
 #include <fstream>
 
 using namespace std;
@@ -343,6 +344,10 @@ void PrintDataParser::t_field_map::dump_data()
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
     string result;
+    if(name == "ONE_CHAR")
+        result = AlignString("X", len, align);
+    if(name == "HUGE_CHAR") result.append(len, 'X');
+    if(result.size()) return result;
 
     if(!(*Qrys.begin())->FieldsCount()) {
         for(TQrys::iterator ti = Qrys.begin(); ti != Qrys.end(); ti++) {
@@ -720,7 +725,28 @@ void PrintDataParser::t_field_map::fillMSOMap()
         " receipt_id = :id ";
     Qry->CreateVariable("id", otInteger, pax_id);
     Qrys.push_back(Qry);
+    Qry->Execute();
+    add_tag("pax", Qry->FieldAsString("pax"));
+    add_tag("pax_lat", transliter(Qry->FieldAsString("pax")));
+    add_tag("document", Qry->FieldAsString("document"));
+    add_tag("document_lat", transliter(Qry->FieldAsString("document")));
+    add_tag("issue_date", UTCToLocal(Qry->FieldAsDateTime("issue_date"), TReqInfo::Instance()->desk.tz_region));
+    int ex_weight = Qry->FieldAsInteger("ex_weight");
+    float rate = Qry->FieldAsFloat("rate");
+    float pay_rate = Qry->FieldAsFloat("pay_rate");
+    float fare_sum = ex_weight * rate;
+    float pay_fare_sum = ex_weight * pay_rate;
 
+    {
+        double *iptr, fract;
+        fract = modf(fare_sum, iptr);
+        string buf = vs_number(int(*iptr), pr_lat);
+        if(fract != 0) {
+            buf += " " + IntToString(int(fract * 100)) + "/100";
+        }
+        buf.append(33, '-');
+        add_tag("amount_letter", buf);
+    }
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
@@ -1611,13 +1637,11 @@ namespace to_esc {
         mso_form = "\x1b@\x1bM\x1bj#";
         int curr_y = 0;
         for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
-            ProgTrace(TRACE5, "x: %d, y: %d, data: %s", fi->x, fi->y, fi->data.c_str());
             int delta_y = fi->y - curr_y;
             if(delta_y) {
                 int offset_y = delta_y * 7;
                 int y256 = offset_y / 256;
                 int y_reminder = offset_y % 256;
-                ProgTrace(TRACE5, "y256: %d, y_reminder: %d", y256, y_reminder);
 
                 for(int i = 0; i < y256; i++) {
                     mso_form += "\x1bJ\xff";
@@ -1631,8 +1655,6 @@ namespace to_esc {
             int offset_x = int(fi->x * 7.1);
             int x256 = offset_x / 256;
             int x_reminder = offset_x % 256;
-
-            ProgTrace(TRACE5, "x256: %d, x_reminder: %d", x256, x_reminder);
 
             mso_form += "\x1b$";
             mso_form += (char)0;
@@ -1648,13 +1670,17 @@ namespace to_esc {
             mso_form += fi->data;
         }
         mso_form += "\x0c\x1b@";
-        dump(mso_form, "mso_form");
     }
 }
 
 void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    PrintDataParser parser(NodeAsInteger("id", reqNode), 0, NULL, PrintDataParser::mtMSO);
+    PrintDataParser parser(
+            NodeAsInteger("id", reqNode),
+            NodeAsInteger("pr_lat", reqNode),
+            NULL,
+            PrintDataParser::mtMSO
+            );
     int br_id = 0;
     TQuery Qry(&OraSession);
     Qry.SQLText = "select form from br_forms where id = :id";
@@ -1662,11 +1688,8 @@ void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.Eof) throw Exception("Receipt form not found for id " + IntToString(br_id));
     string mso_form = Qry.FieldAsString("form");
-    ProgTrace(TRACE5, "mso_form before parse: %s", mso_form.c_str());
     mso_form = parser.parse(mso_form);
-    ProgTrace(TRACE5, "mso_form after parse: %s", mso_form.c_str());
     to_esc::convert(mso_form);
-    ProgTrace(TRACE5, "mso_form after convert: %s", mso_form.c_str());
     NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
 

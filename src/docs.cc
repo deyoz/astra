@@ -16,9 +16,9 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-string vsHow(int nmb, int range)
+string vsHow_ru(int nmb, int range)
 {
-    static const char* sotni[] = {
+    static char* sotni[] = {
         "сто ",
         "двести ",
         "триста ",
@@ -29,7 +29,7 @@ string vsHow(int nmb, int range)
         "восемьсот ",
         "девятьсот "
     };
-    static const char* teen[] = {
+    static char* teen[] = {
         "десять ",
         "одиннадцать ",
         "двенадцать ",
@@ -41,7 +41,7 @@ string vsHow(int nmb, int range)
         "восемнадцать ",
         "девятнадцать "
     };
-    static const char* desatki[] = {
+    static char* desatki[] = {
         "двадцать ",
         "тридцать ",
         "сорок ",
@@ -51,7 +51,7 @@ string vsHow(int nmb, int range)
         "восемьдесят ",
         "девяносто "
     };
-    static const char* stuki_m[] = {
+    static char* stuki_m[] = {
         "",
         "одно ",
         "два ",
@@ -63,7 +63,7 @@ string vsHow(int nmb, int range)
         "восемь ",
         "девять "
     };
-    static const char* stuki_g[] = {
+    static char* stuki_g[] = {
         "",
         "одна ",
         "две ",
@@ -75,7 +75,7 @@ string vsHow(int nmb, int range)
         "восемь ",
         "девять "
     };
-    static const char* dtext[2][3] = {
+    static char* dtext[2][3] = {
         {"", "", ""},
         {"тысяча ", "тысячи ", "тысяч "}
     };
@@ -121,13 +121,106 @@ string vsHow(int nmb, int range)
     return out;
 }
 
-string vs_number(int number)
+string vsHow_lat(int nmb, int range)
+{
+    static char* sotni[] = {
+        "one hundred ",
+        "two hundreds ",
+        "three hundreds ",
+        "four hundreds ",
+        "five hundreds ",
+        "six hundreds ",
+        "seven hundreds ",
+        "eight hundreds ",
+        "nine hundreds "
+    };
+    static char* teen[] = {
+        "ten ",
+        "eleven ",
+        "twelve ",
+        "thirteen ",
+        "fourteen ",
+        "fifteen ",
+        "sixteen ",
+        "seventeen ",
+        "eighteen ",
+        "nineteen "
+    };
+    static char* desatki[] = {
+        "twenty ",
+        "thirty ",
+        "forty ",
+        "fifty ",
+        "sixty ",
+        "seventy ",
+        "eighty ",
+        "ninety "
+    };
+    static char* stuki_m[] = {
+        "",
+        "one ",
+        "two ",
+        "three ",
+        "four ",
+        "five ",
+        "six ",
+        "seven ",
+        "eight ",
+        "nine "
+    };
+    static char* dtext[2][3] = {
+        {"", "", ""},
+        {"thousand ", "thousands ", "thousands "}
+    };
+
+    string out;
+    if(nmb == 0) return out;
+    int tmp = nmb / 100;
+    if(tmp > 0) out += sotni[tmp - 1];
+    tmp = nmb % 100;
+    if(tmp >= 10 && tmp < 20) out += teen[tmp - 10];
+    else {
+        tmp /= 10;
+        if(tmp > 1) out += desatki[tmp - 2];
+        tmp = (nmb % 100) % 10;
+        switch(range) {
+            case 0:
+            case 1:
+            case 2:
+            case 4:
+                out += stuki_m[tmp];
+                break;
+            case 3:
+            case 5:
+                out += stuki_m[tmp];
+                break;
+            default:
+                throw Exception("vsHow: unknown range: " + IntToString(range));
+        }
+    }
+    switch(tmp) {
+        case 1:
+            out += dtext[range][0];
+            break;
+        case 2:
+        case 3:
+        case 4:
+            out += dtext[range][1];
+            break;
+        default:
+            out += dtext[range][2];
+            break;
+    }
+    return out;
+}
+
+string vs_number(int number, bool pr_lat)
 {
     string result;
     int i = number / 1000;
-    result += vsHow(i, 1);
+    result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
     i = number % 1000;
-    result += vsHow(i, 0);
+    result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
     return result;
 }
 
