@@ -854,9 +854,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
       "  END IF; "
       "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_no,seat_type,seats,pr_brd, "
-      "                  refuse,reg_no,ticket_no,coupon_no,document,doc_check,subclass,tid) "
+      "                  refuse,reg_no,ticket_no,coupon_no,document,pr_exam,doc_check,subclass,tid) "
       "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_no,:seat_type,:seats,:pr_brd, "
-      "         NULL,:reg_no,:ticket_no,:coupon_no,:document,0,:subclass,tid__seq.currval); "
+      "         NULL,:reg_no,:ticket_no,:coupon_no,:document,0,0,:subclass,tid__seq.currval); "
       "END;";
     Qry.DeclareVariable("pax_id",otInteger);
     Qry.DeclareVariable("surname",otString);
@@ -1022,7 +1022,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             if ( !strcmp( NodeAsStringFast("refuse",node2), "€" ) ) //???
               SalonQry.SetVariable("agent_error", 1 );
             else
-            	SalonQry.SetVariable("agent_error", 0 );  
+            	SalonQry.SetVariable("agent_error", 0 );
             SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
             SalonQry.Execute();
           };
