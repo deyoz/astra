@@ -19,7 +19,7 @@
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
 
-#include "flight_cent_dbf.h" //!!!
+//#include "flight_cent_dbf.h" //!!!
 
 using namespace std;
 using namespace BASIC;
@@ -622,7 +622,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  createCentringFile( 20618, string( "DJEK" ) ); //!!!
+//  createCentringFile( 20618, string( "DJEK" ) ); //!!!
 
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
