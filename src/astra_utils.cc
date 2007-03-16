@@ -566,14 +566,14 @@ tz_database &get_tz_database()
   return tz_db;
 }
 
-string AirpTZRegion(string airp)
+string& AirpTZRegion(string airp)
 {
   if (airp.empty()) throw Exception("Airport not specified");
   TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
   return CityTZRegion(row.city);
 };
 
-string CityTZRegion(string city)
+string& CityTZRegion(string city)
 {
   if (city.empty()) throw Exception("City not specified");
   TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
