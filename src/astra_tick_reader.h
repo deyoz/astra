@@ -79,7 +79,8 @@ namespace TickReader{
     FrequentPass,
     FreeTextInfo,
     TaxDetails,
-    MonetaryInfo>
+    MonetaryInfo,
+    Pnr>
     {
         public:
             virtual ~PnrReader(){};
