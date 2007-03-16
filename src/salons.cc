@@ -72,7 +72,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
       NewTextChild( placeNode, "y", place->y );
       if ( place->x > xcount )
       	xcount = place->x;
-      if ( place->y > ycount )	
+      if ( place->y > ycount )
       	ycount = place->y;
       NewTextChild( placeNode, "elem_type", place->elem_type );
       if ( !place->isplace )
@@ -434,8 +434,7 @@ void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT airp,airline,flt_no,suffix,craft,bort,scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
-    "       system.AirpTZRegion(points.airp) AS tz_region "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
     "FROM points "
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
@@ -447,7 +446,6 @@ void TSalons::GetTripParams( int trip_id, xmlNodePtr dataNode )
   info.flt_no=Qry.FieldAsInteger("flt_no");
   info.suffix=Qry.FieldAsString("suffix");
   info.airp=Qry.FieldAsString("airp");
-  info.tz_region=Qry.FieldAsString("tz_region");
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   info.real_out=Qry.FieldAsDateTime("real_out");
 
@@ -585,12 +583,12 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
       for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
       		throw UserException( string( "Ремарка " ) + rem_name + " не может быть задана в классе " + place->clname );
-      } 
+      }
     }
   }
 }
-	
-	
+
+
 void TPlace::Assign( TPlace &pl )
 {
   selected = pl.selected;
