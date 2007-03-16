@@ -77,6 +77,7 @@ void TSQL::createSQLTrips( ) {
   TSQLParams p;
 
   /* ------------ПОСАДКА-------------- */
+  /* ------------ДОСМОТР-------------- */
   /* задаем текст */
   p.sqlfrom =
     "points ";
@@ -88,6 +89,7 @@ void TSQL::createSQLTrips( ) {
   p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );
   /* запоминаем */
   sqltrips[ "BRDBUS.EXE" ] = p;
+  sqltrips[ "EXAM.EXE" ] = p;
   /* не забываем очищать за собой переменные */
   p.clearVariables();
 
@@ -268,7 +270,6 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   string sql =
     "SELECT points.point_id, "
     "       points.airp, "
-    "       system.AirpTZRegion(points.airp) AS tz_region, "
     "       points.airline, "
     "       points.flt_no, "
     "       points.suffix, "
@@ -340,7 +341,6 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.suffix, "
     "       points.craft, "
     "       points.airp, "
-    "       system.AirpTZRegion(points.airp) AS tz_region, "
     "       points.scd_out, "
     "       points.act_out, "
     "       SUBSTR(ckin.get_classes(points.point_id),1,50) AS classes, "
@@ -469,8 +469,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   for(;!Qry.Eof;Qry.Next())
   {
     tripNode = NewTextChild( tripsNode, "trip" );
-    modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),&scd_out);
-    modf(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),&real_out);
+    string &tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
+    modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region),&scd_out);
+    modf(UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region),&real_out);
     ostringstream trip;
     trip << Qry.FieldAsString("airline")
          << Qry.FieldAsInteger("flt_no")
@@ -499,7 +500,8 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   int point_id = NodeAsInteger( "point_id", reqNode );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
-  if (reqInfo->screen.name == "BRDBUS.EXE")
+  if (reqInfo->screen.name == "BRDBUS.EXE" ||
+      reqInfo->screen.name == "EXAM.EXE" )
   {
     if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
       readTripHeader( point_id, dataNode );
@@ -579,7 +581,7 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
   TDateTime scd_out,act_out,real_out;
-  char *tz_region=Qry.FieldAsString("tz_region");
+  string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp" ));
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
   NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
@@ -606,7 +608,8 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
   //статусы рейсов
   string status;
-  if ( reqInfo->screen.name == "BRDBUS.EXE" )
+  if ( reqInfo->screen.name == "BRDBUS.EXE" ||
+       reqInfo->screen.name == "EXAM.EXE")
   {
     status = stagesRules->status( stBoarding, tripStages.getStage( stBoarding ) );
   };
@@ -644,6 +647,7 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   //всякие дополнительные времена
   TDateTime stage_time=0;
   if ( reqInfo->screen.name == "BRDBUS.EXE" ||
+       reqInfo->screen.name == "EXAM.EXE" ||
        reqInfo->screen.name == "CENT.EXE" )
     stage_time = UTCToClient( tripStages.time( sCloseBoarding ), tz_region );
   if ( reqInfo->screen.name == "AIR.EXE" ||
@@ -1395,9 +1399,10 @@ string GetTripName( TTripInfo &info )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out,real_out,desk_time;
+  string &tz_region=AirpTZRegion(info.airp);
   modf(reqInfo->desk.time,&desk_time);
-  modf(UTCToClient(info.scd_out,info.tz_region),&scd_out);
-  modf(UTCToClient(info.real_out,info.tz_region),&real_out);
+  modf(UTCToClient(info.scd_out,tz_region),&scd_out);
+  modf(UTCToClient(info.real_out,tz_region),&real_out);
   ostringstream trip;
   trip << info.airline
        << info.flt_no

@@ -52,7 +52,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode );
 class TTripInfo
 {
   public:
-    std::string airline,suffix,airp,tz_region;
+    std::string airline,suffix,airp;
     int flt_no;
     BASIC::TDateTime scd_out,real_out;
 };
