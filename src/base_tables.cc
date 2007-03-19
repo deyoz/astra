@@ -42,6 +42,10 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TAirlines();
         else if(name == "CLASSES")
             base_tables[name] = new TClasses();
+        else if(name == "PAY_TYPES")
+            base_tables[name] = new TPayTypes();
+        else if(name == "CURRENCY")
+            base_tables[name] = new TCurrency();
         else if(name == "SUBCLS")
             base_tables[name] = new TSubcls();
         else if(name == "CRAFTS")
@@ -293,6 +297,22 @@ void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repl
   ((TClassesRow*)*row)->name=Qry.FieldAsString("name");
   ((TClassesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   ((TClassesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TPayTypesRow;
+  ((TPayTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TPayTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TCurrencyRow;
+  ((TCurrencyRow*)*row)->name=Qry.FieldAsString("name");
+  ((TCurrencyRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

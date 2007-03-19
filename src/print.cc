@@ -9,6 +9,7 @@
 #include "stages.h"
 #include "str_utils.h"
 #include "docs.h"
+#include "base_tables.h"
 #include <fstream>
 
 using namespace std;
@@ -679,6 +680,27 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qrys.push_back(Qry);
 }
 
+void get_mso_point(const string &airp, string &point, string &point_lat)
+{
+    static TBaseTable &airps = base_tables.get("airps");
+    static TBaseTable &cities = base_tables.get("cities");
+
+
+
+    string city = airps.get_row("code", airp).AsString("city");
+    point = cities.get_row("code", city).AsString("name", 0);
+    point_lat = cities.get_row("code", city).AsString("name", 1);
+
+    TQuery airpsQry(&OraSession);        
+    airpsQry.SQLText =  "select 1 from airps where city = :city";
+    airpsQry.CreateVariable("city", otString, base_tables.get("airps").get_row("code", airp).AsString("city"));
+    airpsQry.Execute();
+    if(airpsQry.RowsProcessed() != 1) {
+        point += "(" + airp + ")";
+        point_lat += "(" + airps.get_row("code", airp).AsString("code", 1) + ")";
+    }
+}
+
 void PrintDataParser::t_field_map::fillMSOMap()
 {
     TQuery *Qry;
@@ -736,17 +758,114 @@ void PrintDataParser::t_field_map::fillMSOMap()
     float pay_rate = Qry->FieldAsFloat("pay_rate");
     float fare_sum = ex_weight * rate;
     float pay_fare_sum = ex_weight * pay_rate;
+    string pay_curr = Qry->FieldAsString("pay_rate_cur");
+    string curr = Qry->FieldAsString("rate_cur");
 
     {
-        double *iptr, fract;
-        fract = modf(fare_sum, iptr);
-        string buf = vs_number(int(*iptr), pr_lat);
+        double iptr, fract;
+        fract = modf(fare_sum, &iptr);
+        string buf_ru = vs_number(int(iptr), 0);
+        string buf_lat = vs_number(int(iptr), 1);
         if(fract != 0) {
-            buf += " " + IntToString(int(fract * 100)) + "/100";
+            string str_fract = " " + IntToString(int(fract * 100)) + "/100";
+            buf_ru += str_fract;
+            buf_lat += str_fract;
         }
-        buf.append(33, '-');
-        add_tag("amount_letter", buf);
+        buf_ru.append(33, '-');
+        buf_lat.append(33, '-');
+        add_tag("amount_letter", buf_ru);
+        add_tag("amount_letter_lat", buf_lat);
     }
+
+    {
+        ostringstream buf;
+        buf
+            << setprecision(0)
+            << fixed
+            << fare_sum;
+        if(pay_curr != curr)
+            buf 
+                << "("
+                << setprecision(2)
+                << pay_fare_sum << ")";
+        add_tag("amount_figure", buf.str());
+    }
+
+    TBaseTable &currency = base_tables.get("currency");
+    {
+        string buf, buf_lat;
+        TBaseTableRow &curr_row = currency.get_row("code", curr);
+        buf = curr_row.AsString("code", 0);
+        buf_lat = curr_row.AsString("code", 1);
+        if(curr != pay_curr) {
+            TBaseTableRow &pay_curr_row = currency.get_row("code", pay_curr);
+            buf += "(" + pay_curr_row.AsString("code", 0) + ")";
+            buf_lat += "(" + pay_curr_row.AsString("code", 1) + ")";
+        }
+        add_tag("currency", buf);
+        add_tag("currency_lat", buf_lat);
+    }
+
+    {
+        ostringstream buf;
+        buf
+            << setprecision(2)
+            << fixed
+            << fare_sum;
+        add_tag("total", buf.str() + currency.get_row("code", curr).AsString("code", 0));
+        add_tag("total_lat", currency.get_row("code", curr).AsString("code", 1) + buf.str());
+    }
+
+    {
+        string airp_dep = Qry->FieldAsString("airp_dep");
+        string airp_arv = Qry->FieldAsString("airp_arv");
+
+        string point_dep, point_dep_lat;
+        string point_arv, point_arv_lat;
+
+        get_mso_point(airp_dep, point_dep, point_dep_lat);
+        get_mso_point(airp_arv, point_arv, point_arv_lat);
+
+        add_tag("to", point_dep + "-" + point_arv);
+        add_tag("to_lat", point_dep_lat + "-" + point_arv_lat);
+    }
+    add_tag("tickets", Qry->FieldAsString("tickets"));
+    {
+        ostringstream buf, buf_lat;
+        buf
+            << setprecision(2)
+            << fixed
+            << rate
+            << curr;
+        buf_lat
+            << currency.get_row("code", curr).AsString("code", 1)
+            << setprecision(2)
+            << fixed
+            << rate;
+        if(pay_curr != curr) {
+            buf 
+                << "("
+                << pay_rate
+                << pay_curr
+                << ")";
+            buf_lat
+                << "("
+                << currency.get_row("code", pay_curr).AsString("code", 1)
+                << pay_rate
+                << ")";
+        }
+        add_tag("rate", buf.str());
+        add_tag("rate_lat", buf_lat.str());
+    }
+    add_tag("ex_weight", Qry->FieldAsInteger("ex_weight"));
+    TBaseTableRow &pt_row = base_tables.get("pay_types").get_row("code", Qry->FieldAsString("pay_type"));
+    add_tag("pay_type", pt_row.AsString("code"));
+    add_tag("pay_type_lat", pt_row.AsString("code", 1));
+
+    TBaseTableRow &airline = base_tables.get("airlines").get_row("code", Qry->FieldAsString("airline"));
+    add_tag("airline", airline.AsString("short_name"));
+    add_tag("airline_lat", airline.AsString("short_name", 1));
+    add_tag("aircode", Qry->FieldAsString("aircode"));
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
@@ -1566,7 +1685,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 namespace to_esc {
     typedef struct {
-        int x, y;
+        int x, y, font;
         string data;
     } TField;
     typedef vector<TField> TFields;
@@ -1589,7 +1708,7 @@ namespace to_esc {
         char Mode = 'S';
         TFields fields;
         string num;
-        int x, y;
+        int x, y, font;
         TField field;
         for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
             char curr_char = *si;
@@ -1617,7 +1736,7 @@ namespace to_esc {
                     else if(curr_char == ',') {
                         y = StrToInt(num);
                         num.erase();
-                        Mode = 'A';
+                        Mode = 'B';
                     } else
                         throw Exception("to_esc: y must be num");
                     break;
@@ -1625,12 +1744,24 @@ namespace to_esc {
                     if(curr_char == 10) {
                         field.x = x;
                         field.y = y;
+                        field.font = font;
                         field.data = num;
                         fields.push_back(field);
                         num.erase();
                         Mode = 'S';
                     } else
                         num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        font = StrToInt(num);
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: font must be num");
+                    break;
             }
         }
         sort(fields.begin(), fields.end(), lt);
@@ -1667,7 +1798,9 @@ namespace to_esc {
                 mso_form += (string)"\x1b\\" + (char)(x_reminder - 1);
                 mso_form += (char)0;
             }
+            if(fi->font == 1) mso_form += "\x1b\x0f";
             mso_form += fi->data;
+            if(fi->font == 1) mso_form += "\x12";
         }
         mso_form += "\x0c\x1b@";
     }
