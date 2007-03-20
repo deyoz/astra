@@ -86,6 +86,7 @@ void TDesk::clear()
 {
   code.clear();
   city.clear();
+  sale_point.clear();
   tz_region.clear();
   time = 0;
 };
@@ -165,7 +166,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region "
+    "SELECT pr_denial, city, sale_point, system.CityTZRegion(city) AS tz_region "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -176,6 +177,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
     throw UserException( "γ«μβ ®βª«ξη¥­" );
   desk.city = Qry.FieldAsString( "city" );
+  desk.sale_point = Qry.FieldAsString( "sale_point" );
   desk.tz_region = Qry.FieldAsString( "tz_region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
 
