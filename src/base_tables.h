@@ -134,6 +134,38 @@ class TTIDBaseTable: public TCodeBaseTable {
     virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
+class TCountriesRow: public TTIDBaseTableRow {
+  public:
+    std::string name,name_lat,city;
+    ~TCountriesRow() {};
+    char *get_row_name() { return "TCountriesRow"; };
+    std::string AsString(std::string field, bool pr_lat=false)
+    {
+      if (lowerc(field)=="name") return pr_lat?name_lat:name;
+      if (lowerc(field)=="city") return city;
+      return TTIDBaseTableRow::AsString(field,pr_lat);
+    };
+};
+
+class TCountries: public TTIDBaseTable {
+  private:
+    char *get_select_sql_text()
+    {
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+   	    "FROM countries";
+    };
+    char *get_refresh_sql_text()
+    {
+      return
+    	  "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+    	  "FROM countries WHERE tid>:tid";
+    };
+  protected:
+    char *get_table_name() { return "TCountries"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+};
+
 class TAirpsRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat,city;

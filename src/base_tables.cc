@@ -34,6 +34,8 @@ TBaseTable &TBaseTables::get(string name)
     if(ti == base_tables.end()) {
         if(name == "AIRPS")
             base_tables[name] = new TAirps();
+        else if(name == "COUNTRIES")
+            base_tables[name] = new TCountries();
         else if(name == "PERS_TYPES")
             base_tables[name] = new TPersTypes();
         else if(name == "CITIES")
@@ -248,6 +250,14 @@ TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_de
     return *(i->second);
   };
   return TBaseTable::get_row(field,value,with_deleted);
+};
+
+void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TCountriesRow;
+  ((TCountriesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TCountriesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TAirps::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
