@@ -6,6 +6,60 @@
 #include <vector>
 #include "JxtInterface.h"
 
+struct Cargo {
+	int cargo;
+	int mail;
+	int point_arv;
+	std::string airp_arv;	
+	int dosbag_weight;
+	Cargo() {
+		cargo = 0;
+		mail = 0;
+		point_arv = 0;
+		dosbag_weight = 0;
+	}
+};
+
+struct PaxLoad {
+	std::string cl;
+	int point_arv;
+	int seatsadult;
+	int seatschild;
+	int seatsbaby;
+	int bag_weight;
+	int rk_weight;
+	int adult;
+	int child;
+	int baby;
+	PaxLoad() {
+		point_arv = 0;
+		seatsadult = 0;
+		seatschild = 0;
+		seatsbaby = 0;
+	  bag_weight = 0;
+	  rk_weight = 0;
+	  adult = 0;
+	  child = 0;
+	  baby = 0;		
+	}
+};
+
+struct Luggage {
+	int pr_edit;
+	std::string region;
+		
+	std::vector<PaxLoad> vpaxload;	
+	int max_commerce;
+	std::vector<Cargo> vcargo;
+	Luggage() {
+		pr_edit = 0;
+		max_commerce = 0;
+	}
+};
+
+void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse );
+void GetLuggage( int point_id, Luggage &lug );
+
 class SoppInterface : public JxtInterface
 {
 private:

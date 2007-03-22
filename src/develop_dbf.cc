@@ -43,7 +43,8 @@ void Develop_dbf::setVersion( unsigned char v )
 void putbinary_tostream( ostringstream &s, int value, int vsize )
 {
   for (int i=0; i<vsize; i++ ) {
-    s.write( (const char*)&value + sizeof( value ) + i, 1 ); //???
+//  	ProgTrace( TRACE5, "put value=%d", (int)*((const char*)&value + i) );
+    s.write( ((const char*)&value + i), 1 ); //???
   }
 }
 
@@ -62,10 +63,12 @@ void Develop_dbf::BuildHeader()
 	int Year, Month, Day;
 	DecodeDate( NowUTC(), Year, Month, Day );
 	Year = Year % 100;
+		
 	putbinary_tostream( header, Year, 1 );
 	putbinary_tostream( header, Month, 1 );
 	putbinary_tostream( header, Day, 1 );
 	// далее 4 байта - кол-во строк
+	ProgTrace( TRACE5, "rowcount=%d", rowCount );
 	putbinary_tostream( header, rowCount, 4 );
 	// далее 2 байта - совокупный размер заголовка и дескрипторов полей - указатель на данные
 	putbinary_tostream( header, headerLen + descriptorFieldsLen, 2 );
@@ -121,7 +124,7 @@ void Develop_dbf::BuildData()
 {
 	recLen = 1;
 	data.clear();
-	for ( vector<TRow>::iterator i=rows.begin(); i!=rows.end(); i++ ) {
+	for ( vector<DBFRow>::iterator i=rows.begin(); i!=rows.end(); i++ ) {
 		if ( i->pr_del )
 			data << '*';
 		else
@@ -146,7 +149,9 @@ void Develop_dbf::BuildData()
 
 void Develop_dbf::Build()
 {
+	tst();
 	BuildData();
+	tst();
 	BuildFields();
 	BuildHeader();
 }
@@ -194,43 +199,50 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
 
 void Develop_dbf::AddField( std::string name, char type, int len )
 {
-	AddField( name, type, len, len );
+	AddField( name, type, len, 0 );
 }
 
-void Develop_dbf::AddRow( TRow &row )
+void Develop_dbf::AddRow( DBFRow &row )
 {
 	if ( row.data.size() != fields.size() )
-		throw Exception( "Invalid format data" );		
-	vector<string>::iterator r=row.data.begin();
+		throw Exception( "Invalid format data1" );		
 	string::size_type t;
-	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end(); f++ ) {
-		if ( (int)r->size() > f->len )
-			throw Exception( "Invalid format data" );
+	vector<string>::iterator r=row.data.begin();
+	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end() && r!=row.data.end(); f++, r++ ) {
+		if ( (int)r->size() > f->len ) {
+			ProgTrace( TRACE5, "data size=%d, data value=%s, field size=%d, field name=%s", 
+			           (int)r->size(), r->c_str(), f->len, f->name.c_str() );
+			throw Exception( "Invalid format data (data size > field size)" );
+	  }
 		switch ( f->type  ) {
 			case 'C': break;
-			case 'L': if ( *r == "Y" || *r == "y" || 
+			case 'L': if ( r->empty() || 
+				             *r == "Y" || *r == "y" || 
 	                   *r == "T" || *r == "t" ||
 	                   *r == "N" || *r == "n" ||
 	                   *r == "F" || *r == "f" )
 	                break;
-	              throw Exception( "Invalid format data" );
+	              throw Exception( "Invalid format data3" );
       case 'N': t = r->find( "." );
       	        if ( t == string::npos || f->precision == f->len || 
       	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
       	        	break;
-      	        throw Exception( "Invalid format data" );
+      	        throw Exception( "Invalid format data4" );
       case 'D': TDateTime v;
-      	        if ( StrToDateTime( r->c_str(), "yyyymmdd", v ) != EOF )
+      	        if ( r->empty() || StrToDateTime( r->c_str(), "yyyymmdd", v ) != EOF )
       	        	break;
-      	        throw Exception( "Invalid format data" );
+      	        ProgTrace( TRACE5, "date value=%s", r->c_str() );
+      	        throw Exception( "Invalid format data as DateTime " );
       case 'F': double d;
-      	        if ( StrToFloat( r->c_str(), d ) != EOF )
+      	        if ( r->empty() || StrToFloat( r->c_str(), d ) != EOF )
       	        	break;
-      	        throw Exception( "Invalid format data" );      	        	
+      	        ProgTrace( TRACE5, "float value=%s", r->c_str() );
+      	        throw Exception( "Invalid format data6" );      	        	
 		}
-		r++;
 	}
+	tst();
 	rows.push_back( row );
 	rowCount++;
+	tst();
 }
 

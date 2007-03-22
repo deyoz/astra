@@ -622,8 +622,6 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-//  createCentringFile( 20618, string( "DJEK" ) ); //!!!
-
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "CorrectStages", reqNode ) ) {
@@ -1241,47 +1239,82 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
 
-void GetLuggage( int point_id, xmlNodePtr dataNode )
+void GetLuggage( int point_id, Luggage &lug )
 {
-	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	 "SELECT "\
-   " SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "\
-   " SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "\
-   " FROM bag2, "\
-   "   (SELECT DISTINCT pax_grp.grp_id FROM pax_grp,pax "\
-   "     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1) pax_grp "\
-   "WHERE bag2.grp_id=pax_grp.grp_id ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  tst();
-  int bag_weight = Qry.FieldAsInteger( "bag_weight" );
-  int rk_weight = Qry.FieldAsInteger( "rk_weight" );
+	GetLuggage( point_id, lug, true, false );
+}
+
+
+void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse )
+{
+	TQuery Qry(&OraSession);  
   Qry.Clear();
-  Qry.SQLText =
+  string sql =
    "SELECT "\
+   " pax_grp.point_arv, pax_grp.class, "\
+   " SUM(DECODE(pers_type,'ВЗ',seats,0)) AS seatsadult, "
+   " SUM(DECODE(pers_type,'РБ',seats,0)) AS seatschild, "
+   " SUM(DECODE(pers_type,'РМ',seats,0)) AS seatsbaby, "
    " SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "\
    " SUM(DECODE(pers_type,'РБ',1,0)) AS child, "\
    " SUM(DECODE(pers_type,'РМ',1,0)) AS baby "\
    " FROM pax_grp,pax "\
-   "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1";
+   "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
+  if ( pr_brd )
+  	sql += " AND pr_brd=1 ";
+  if ( pr_refuse )
+  	sql += " AND pr_refuse=0 ";
+  sql += " GROUP BY pax_grp.point_arv, pax_grp.class ";
+  Qry.SQLText = sql;   
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
   tst();
-  int adult = Qry.FieldAsInteger( "adult" );
-  int child = Qry.FieldAsInteger( "child" );
-  int baby = Qry.FieldAsInteger( "baby" );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+    PaxLoad paxload;	
+    paxload.point_arv = Qry.FieldAsInteger( "point_arv" );
+    paxload.cl = Qry.FieldAsString( "class" );
+    paxload.seatsadult = Qry.FieldAsInteger( "seatsadult" );
+    paxload.seatschild = Qry.FieldAsInteger( "seatschild" );
+    paxload.seatsbaby = Qry.FieldAsInteger( "seatsbaby" );
+    paxload.adult = Qry.FieldAsInteger( "adult" );
+    paxload.child = Qry.FieldAsInteger( "child" );
+    paxload.baby = Qry.FieldAsInteger( "baby" );  
+    lug.vpaxload.push_back( paxload );  	
+    Qry.Next();
+  }
   Qry.Clear();
-  Qry.SQLText =
-   "SELECT NVL(SUM(weight),0) AS dosbag_weight "\
-   " FROM unaccomp_bag "\
-   "WHERE point_dep=:point_id";
+  sql =	
+	 "SELECT "\
+	 " pax_grp.point_arv, pax_grp.class, "
+   " SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "\
+   " SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "\
+   " FROM bag2, "\
+   "   (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "\
+   "     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
+   if ( pr_brd )
+   	 sql += " AND pr_brd=1 ";
+   if ( pr_refuse )
+   	 sql += " AND pr_refuse=0 ";
+   sql += 
+   " ) pax_grp "\
+   "WHERE bag2.grp_id=pax_grp.grp_id "
+   " GROUP BY pax_grp.point_arv, pax_grp.class ";
+	Qry.SQLText = sql;   
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
   tst();
-  int dosbag_weight = Qry.FieldAsInteger( "dosbag_weight" );
-
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	for (vector<PaxLoad>::iterator p=lug.vpaxload.begin(); p!=lug.vpaxload.end(); p++ ) {
+  		if ( p->point_arv == Qry.FieldAsInteger( "point_arv" ) &&
+  			   p->cl == Qry.FieldAsString( "class" ) ) {
+        p->bag_weight = Qry.FieldAsInteger( "bag_weight" );
+        p->rk_weight = Qry.FieldAsInteger( "rk_weight" );    	  			   	
+        break;
+  		}
+  	}
+    Qry.Next();
+  }
+    
   Qry.Clear();
   Qry.SQLText =
    "SELECT tz_regions.region region,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "\
@@ -1290,41 +1323,14 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
     "      points.airp=airps.code AND airps.city=cities.code AND "\
     "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+)";
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  tst();
   Qry.Execute();
-  tst();
-  NewTextChild( node, "max_commerce", Qry.FieldAsInteger( "max_commerce" ) );
-  tst();
-  int pr_edit = !Qry.FieldIsNULL( "act_out" ) || Qry.FieldAsInteger( "pr_del" ) != 0;
-  NewTextChild( node, "pr_edit", pr_edit );
-  string region = Qry.FieldAsString( "region" );
+  lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
+  lug.pr_edit = !Qry.FieldIsNULL( "act_out" ) || Qry.FieldAsInteger( "pr_del" ) != 0;  
+  lug.region = Qry.FieldAsString( "region" );  
   int pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
   int first_point = Qry.FieldAsInteger( "first_point" );
   int point_num = Qry.FieldAsInteger( "point_num" );
-
-  // определяем лето ли сейчас
-  int summer = is_dst( NowUTC(), region );
-  Qry.Clear();
-  Qry.SQLText =
-   "SELECT "\
-   " code, DECODE(:summer,1,weight_sum,weight_win) as weight "\
-   " FROM pers_types";
-  Qry.CreateVariable( "summer", otInteger, summer );
-	Qry.Execute();
-	tst();
-	xmlNodePtr wm = NewTextChild( node, "weightman" );
-	while ( !Qry.Eof ) {
-		xmlNodePtr weightNode = NewTextChild( wm, "weight" );
-		NewTextChild( weightNode, "code", Qry.FieldAsString( "code" ) );
-		NewTextChild( weightNode, "weight", Qry.FieldAsInteger( "weight" ) );
-		Qry.Next();
-	}
-	NewTextChild( node, "bag_weight", bag_weight + dosbag_weight );
-	NewTextChild( node, "rk_weight", rk_weight );
-	NewTextChild( node, "adult", adult );
-	NewTextChild( node, "child", child );
-	NewTextChild( node, "baby", baby );
-
-
 	if ( !pr_tranzit )
     first_point = point_id;
 	Qry.Clear();
@@ -1341,16 +1347,99 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
-  Qry.Execute();
   tst();
-  xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
+  Qry.Execute();
   while ( !Qry.Eof ) {
-  	xmlNodePtr fn = NewTextChild( loadNode, "load" );
-  	NewTextChild( fn, "cargo", Qry.FieldAsInteger( "cargo" ) );
-  	NewTextChild( fn, "mail", Qry.FieldAsInteger( "mail" ) );
-  	NewTextChild( fn, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
-  	NewTextChild( fn, "point_arv", Qry.FieldAsInteger( "point_arv" ) );
+  	Cargo cargo;
+  	cargo.cargo = Qry.FieldAsInteger( "cargo" );
+  	cargo.mail = Qry.FieldAsInteger( "mail" );
+  	cargo.point_arv = Qry.FieldAsInteger( "point_arv" );
+  	cargo.airp_arv = Qry.FieldAsString( "airp_arv" );
+  	lug.vcargo.push_back( cargo );
   	Qry.Next();
+  }
+  Qry.Clear();
+  Qry.SQLText =
+   "SELECT point_arv, NVL(SUM(weight),0) AS dosbag_weight "\
+   " FROM unaccomp_bag "\
+   "WHERE point_dep=:point_id "
+   " GROUP BY point_arv ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  tst();
+  Qry.Execute();
+  vector<Cargo>::iterator c;
+  while ( !Qry.Eof ) {
+  	for ( c=lug.vcargo.begin(); c!=lug.vcargo.end(); c++ ) {
+  		if ( c->point_arv == Qry.FieldAsInteger( "point_arv" ) ) {
+  			c->dosbag_weight = Qry.FieldAsInteger( "dosbag_weight" );
+  			break;
+  		}
+  	}
+  	if ( c == lug.vcargo.end() ) {
+  		Cargo cargo;
+  		cargo.dosbag_weight = Qry.FieldAsInteger( "dosbag_weight" );
+  		lug.vcargo.push_back( cargo );
+    }
+  	Qry.Next();
+  }
+}
+
+void GetLuggage( int point_id, xmlNodePtr dataNode )
+{
+	Luggage lug;
+	GetLuggage( point_id, lug );
+	xmlNodePtr node = NewTextChild( dataNode, "luggage" );
+  NewTextChild( node, "max_commerce", lug.max_commerce );
+  NewTextChild( node, "pr_edit", lug.pr_edit );
+
+  // определяем лето ли сейчас
+  int summer = is_dst( NowUTC(), lug.region );
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+   "SELECT "\
+   " code, DECODE(:summer,1,weight_sum,weight_win) as weight "\
+   " FROM pers_types";
+  Qry.CreateVariable( "summer", otInteger, summer );
+	Qry.Execute();
+	tst();
+	xmlNodePtr wm = NewTextChild( node, "weightman" );
+	while ( !Qry.Eof ) {
+		xmlNodePtr weightNode = NewTextChild( wm, "weight" );
+		NewTextChild( weightNode, "code", Qry.FieldAsString( "code" ) );
+		NewTextChild( weightNode, "weight", Qry.FieldAsInteger( "weight" ) );
+		Qry.Next();
+	}
+	tst();
+  int adult = 0;
+	int child = 0;
+	int baby = 0;
+	int rk_weight = 0;
+	int bag_weight = 0;
+	for ( vector<PaxLoad>::iterator p=lug.vpaxload.begin(); p!=lug.vpaxload.end(); p++ ) {
+	 	adult += p->adult;
+	 	child += p->child;
+	 	baby += p->baby;
+	 	rk_weight += p->rk_weight;
+	 	bag_weight += p->bag_weight;
+	}
+	int dosbag_weight = 0;
+  for ( vector<Cargo>::iterator c=lug.vcargo.begin(); c!=lug.vcargo.end(); c++ ) { //???
+  	dosbag_weight += c->dosbag_weight;
+  }
+	
+	NewTextChild( node, "bag_weight", bag_weight + dosbag_weight );
+	NewTextChild( node, "rk_weight", rk_weight );
+	NewTextChild( node, "adult", adult );
+	NewTextChild( node, "child", child );
+	NewTextChild( node, "baby", baby );
+
+  xmlNodePtr loadNode = NewTextChild( node, "trip_load" );
+  for ( vector<Cargo>::iterator c=lug.vcargo.begin(); c!=lug.vcargo.end(); c++ ) {
+  	xmlNodePtr fn = NewTextChild( loadNode, "load" );
+  	NewTextChild( fn, "cargo", c->cargo );
+  	NewTextChild( fn, "mail", c->mail );
+  	NewTextChild( fn, "airp_arv", c->airp_arv );
+  	NewTextChild( fn, "point_arv", c->point_arv );  	
   }
 }
 
