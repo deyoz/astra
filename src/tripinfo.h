@@ -7,6 +7,7 @@
 #include <map>
 #include "basic.h"
 #include "oralib.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "JxtInterface.h"
 
@@ -55,9 +56,24 @@ class TTripInfo
     std::string airline,suffix,airp;
     int flt_no;
     BASIC::TDateTime scd_out,real_out;
+    TTripInfo()
+    {
+      flt_no=0;
+      scd_out=ASTRA::NoExists;
+      real_out=ASTRA::NoExists;
+    };
+    TTripInfo( TQuery &Qry )
+    {
+      airline=Qry.FieldAsString("airline");
+      flt_no=Qry.FieldAsInteger("flt_no");
+      suffix=Qry.FieldAsString("suffix");
+      airp=Qry.FieldAsString("airp");
+      scd_out=Qry.FieldAsDateTime("scd_out");
+      real_out=Qry.FieldAsDateTime("real_out");
+    };
 };
 
-std::string GetTripName( TTripInfo &info );
+std::string GetTripName( TTripInfo &info, bool showAirp=false  );
 
 
 class TripsInterface : public JxtInterface
@@ -76,7 +92,7 @@ public:
   void GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  static void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode );
+  static bool readTripHeader( int point_id, xmlNodePtr dataNode );
 };
 
 #endif /*_TRIPINFO_H_*/

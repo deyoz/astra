@@ -464,33 +464,13 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
   Qry.Execute();
-  TDateTime scd_out,real_out,desk_time;
-  modf(reqInfo->desk.time,&desk_time);
   for(;!Qry.Eof;Qry.Next())
   {
     tripNode = NewTextChild( tripsNode, "trip" );
-    string &tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-    modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region),&scd_out);
-    modf(UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region),&real_out);
-    ostringstream trip;
-    trip << Qry.FieldAsString("airline")
-         << Qry.FieldAsInteger("flt_no")
-         << Qry.FieldAsString("suffix");
-    if (desk_time!=real_out)
-    {
-      if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
-        trip << "/" << DateTimeToStr(real_out,"dd");
-      else
-        trip << "/" << DateTimeToStr(real_out,"dd.mm");
-    };
-    if (scd_out!=real_out)
-      trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
-    if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||
-        reqInfo->screen.name=="TLG.EXE")
-      trip << " " << Qry.FieldAsString("airp");
+    TTripInfo info(Qry);
 
     NewTextChild( tripNode, "trip_id", Qry.FieldAsInteger( "point_id" ) );
-    NewTextChild( tripNode, "str", trip.str() );
+    NewTextChild( tripNode, "str", GetTripName(info,reqInfo->screen.name=="TLG.EXE") );
   };
 };
 
@@ -500,40 +480,34 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   int point_id = NodeAsInteger( "point_id", reqNode );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
+
+  if ( GetNode( "tripheader", reqNode ) )
+    if ( !readTripHeader( point_id, dataNode ) )
+      showErrorMessage( "Информация о рейсе недоступна" );
+
   if (reqInfo->screen.name == "BRDBUS.EXE" ||
       reqInfo->screen.name == "EXAM.EXE" )
   {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
-    if ( GetNode( "counters", reqNode ) ) /* Считать заголовок */
+    if ( GetNode( "counters", reqNode ) )
       BrdInterface::readTripCounters( point_id, dataNode );
+    if ( GetNode( "paxdata", reqNode ) )
+      BrdInterface::GetPax(reqNode,resNode);
   };
   if (reqInfo->screen.name == "AIR.EXE")
   {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
-    if ( GetNode( "tripcounters", reqNode ) ) /* Считать заголовок */
+    if ( GetNode( "tripcounters", reqNode ) )
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
       CheckInInterface::readTripData( point_id, dataNode );
   };
   if (reqInfo->screen.name == "CENT.EXE")
   {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
-    if ( GetNode( "tripcounters", reqNode ) ) { /* Считать заголовок */
+    if ( GetNode( "tripcounters", reqNode ) ) {
       readPaxLoad( point_id, reqNode, dataNode ); //djek
     }
   };
-  if (reqInfo->screen.name == "DOCS.EXE")
-  {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
-  };
   if (reqInfo->screen.name == "PREPREG.EXE")
   {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
     if ( GetNode( "tripcounters", reqNode ) )
       PrepRegInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "crsdata", reqNode ) )
@@ -541,38 +515,31 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
   if (reqInfo->screen.name == "TLG.EXE")
   {
-    if ( GetNode( "tripheader", reqNode ) ) /* Считать заголовок */
-      readTripHeader( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
       TelegramInterface::readTripData( point_id, dataNode );
   };
 
 };
-
-void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
+bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 {
-  ProgTrace(TRACE5, "PrepRegInterface::readTripHeader" );
+  ProgTrace(TRACE5, "TripsInterface::readTripHeader" );
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
   //если по компаниям и портам полномочий нет - пустой список рейсов
   if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
-      reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
+      reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return false;
 
   if (reqInfo->screen.name=="TLG.EXE" && point_id==-1)
   {
     xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
     NewTextChild( node, "point_id", -1 );
-    return;
+    return true;
   };
   TQuery Qry( &OraSession );
   TSQL::setSQLTripInfo( Qry, *reqInfo );
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if (Qry.Eof)
-  {
-    showErrorMessage( "Информация о рейсе недоступна" );
-    return;
-  };
+  if (Qry.Eof) return false;
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
   NewTextChild( node, "airline", Qry.FieldAsString( "airline" ) );
@@ -602,6 +569,9 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
+
+  TTripInfo info(Qry);
+  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE") );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -698,6 +668,7 @@ void TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
     NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
   };
+  return true;
 }
 
 
@@ -1395,7 +1366,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   }
 }
 
-string GetTripName( TTripInfo &info )
+string GetTripName( TTripInfo &info, bool showAirp )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out,real_out,desk_time;
@@ -1417,7 +1388,7 @@ string GetTripName( TTripInfo &info )
   };
   if (scd_out!=real_out)
     trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
-  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1))
+  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||showAirp)
     trip << " " << info.airp;
   return trip.str();
 };
