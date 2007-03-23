@@ -527,37 +527,52 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             }
             else
             {
-              // update
-              if (PaxUpdate(pax_id,tid,!mark))
+              if(reqInfo->screen.name != "BRDBUS.EXE" &&
+                 !boarding &&
+                 GetNode("confirmations/pr_brd",reqNode)==NULL &&
+                 Qry.FieldAsInteger("pr_brd")!=0)
               {
-                mark = !mark;
-                if (reqInfo->screen.name == "BRDBUS.EXE")
-                  ReplaceTextChild(paxNode, "pr_brd", mark);
-                else
-                  ReplaceTextChild(paxNode, "pr_exam", mark);
-                ReplaceTextChild(paxNode, "tid", tid);
-                if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                    ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
-                  showProgError("Нет связи с сервером эл. билетов");
-                else
-                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                  {
-                    if (mark)
-                      showMessage("Пассажир прошел посадку");
-                    else
-                      showMessage("Пассажир высажен");
-                  }
-                  else
-                  {
-                    if (mark)
-                      showMessage("Пассажир прошел досмотр");
-                    else
-                      showMessage("Пассажир возвращен на досмотр");
-                  };
-
+                xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                NewTextChild(confirmNode,"reset",true);
+                NewTextChild(confirmNode,"type","pr_brd");
+                ostringstream msg;
+                msg << "Пассажир уже прошел посадку." << endl
+                    << "Возвратить на досмотр?";
+                NewTextChild(confirmNode,"message",msg.str());
               }
               else
-                throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+                // update
+                if (PaxUpdate(pax_id,tid,!mark))
+                {
+                  mark = !mark;
+                  if (reqInfo->screen.name == "BRDBUS.EXE")
+                    ReplaceTextChild(paxNode, "pr_brd", mark);
+                  else
+                    ReplaceTextChild(paxNode, "pr_exam", mark);
+                  ReplaceTextChild(paxNode, "tid", tid);
+                  ReplaceTextChild(dataNode,"updated");
+                  if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                      ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
+                    showProgError("Нет связи с сервером эл. билетов");
+                  else
+                    if (reqInfo->screen.name == "BRDBUS.EXE")
+                    {
+                      if (mark)
+                        showMessage("Пассажир прошел посадку");
+                      else
+                        showMessage("Пассажир высажен");
+                    }
+                    else
+                    {
+                      if (mark)
+                        showMessage("Пассажир прошел досмотр");
+                      else
+                        showMessage("Пассажир возвращен на досмотр");
+                    };
+
+                }
+                else
+                  throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
             };
           };
         };
