@@ -136,10 +136,10 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   GetPax(reqNode,resNode);
 
-  if (reqInfo->screen.name == "BRDBUS.EXE" &&
+ /* if (reqInfo->screen.name == "BRDBUS.EXE" &&
       ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),point_id,csaFlt))
     showProgError("Нет связи с сервером эл. билетов");
-  else
+  else*/
     showMessage(msg);
 };
 
@@ -551,10 +551,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                     ReplaceTextChild(paxNode, "pr_exam", mark);
                   ReplaceTextChild(paxNode, "tid", tid);
                   ReplaceTextChild(dataNode,"updated");
-                  if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                /*  if (reqInfo->screen.name == "BRDBUS.EXE" &&
                       ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
                     showProgError("Нет связи с сервером эл. билетов");
-                  else
+                  else*/
                     if (reqInfo->screen.name == "BRDBUS.EXE")
                     {
                       if (mark)
