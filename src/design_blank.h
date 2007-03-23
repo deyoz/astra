@@ -15,8 +15,7 @@ class DesignBlankInterface: public JxtInterface
             evHandle=JxtHandler<DesignBlankInterface>::CreateHandler(&DesignBlankInterface::Save);
             AddEvent("Save",evHandle);
             evHandle=JxtHandler<DesignBlankInterface>::CreateHandler(&DesignBlankInterface::PrevNext);
-            AddEvent("Prev",evHandle);
-            AddEvent("Next",evHandle);
+            AddEvent("PrevNext",evHandle);
         }
 
         void PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

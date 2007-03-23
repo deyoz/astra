@@ -9,12 +9,7 @@ using namespace EXCEPTIONS;
 
 void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    string tag = (char *)reqNode->name;
-    int delta;
-    if(tag == "Prev")
-        delta = -1;
-    else
-        delta = 1;
+    int delta = NodeAsInteger("delta", reqNode);
     TQuery Qry(&OraSession);        
     Qry.SQLText =
         "select "
@@ -37,33 +32,44 @@ void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void DesignBlankInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);        
-    Qry.SQLText = 
-        "begin "
-        "   delete from bp_forms where "
-        "       bp_type = :bp_type and "
-        "       prn_type = :prn_type and "
-        "       version > :version; "
-        "   insert into bp_forms ( "
-        "       bp_type, "
-        "       prn_type, "
-        "       version, "
-        "       form, "
-        "       data "
-        "   ) values ( "
-        "       :bp_type, "
-        "       :prn_type, "
-        "       :version + 1, "
-        "       :form, "
-        "       :data "
-        "   ); "
-        "end;";
+    xmlNodePtr formNode = GetNode("form", reqNode);
+
+    TQuery Qry(&OraSession);
+    string SQLText;
+    if(formNode) {
+        SQLText =
+            "begin "
+            "   delete from bp_forms where "
+            "       bp_type = :bp_type and "
+            "       prn_type = :prn_type and "
+            "       version > :version; "
+            "   insert into bp_forms ( "
+            "       bp_type, "
+            "       prn_type, "
+            "       version, "
+            "       form, "
+            "       data "
+            "   ) values ( "
+            "       :bp_type, "
+            "       :prn_type, "
+            "       :version + 1, "
+            "       :form, "
+            "       :data "
+            "   ); "
+            "end;";
+        Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
+        Qry.CreateVariable("data", otString, NodeAsString("data", reqNode));
+    } else
+        SQLText =
+            "delete from bp_forms where "
+            "    bp_type = :bp_type and "
+            "    prn_type = :prn_type and "
+            "    version > :version ";
+    Qry.SQLText = SQLText;
 
     Qry.CreateVariable("bp_type", otString, NodeAsString("blank_type", reqNode));
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.CreateVariable("version", otInteger, NodeAsInteger("version", reqNode));
-    Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
-    Qry.CreateVariable("data", otString, NodeAsString("data", reqNode));
 
     Qry.Execute();
 }
@@ -109,7 +115,7 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
             NewTextChild(blankNode, "bp_type", Qry.FieldAsString("bp_type"));
             xmlNodePtr itemsNode = NewTextChild(blankNode, "items");
             xmlNodePtr itemNode = NewTextChild(itemsNode, "item");
-            NewTextChild(itemNode, "version", Qry.FieldAsInteger("last_ver"));
+            NewTextChild(itemNode, "version", Qry.FieldAsInteger("version"));
             NewTextChild(itemNode, "form", Qry.FieldAsString("form"));
             NewTextChild(itemNode, "data", Qry.FieldAsString("data"));
         }
