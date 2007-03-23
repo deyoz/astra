@@ -76,44 +76,88 @@ void DesignBlankInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+
     TQuery Qry(&OraSession);        
-    Qry.SQLText =
-        "select  "
-        "   bp_forms.version, "
-        "   bp_forms.bp_type,  "
-        "   bp_forms.form,  "
-        "   bp_forms.data  "
-        "from  "
-        "   bp_forms, "
-        "   ( "
-        "    select "
-        "        bp_type, "
-        "        prn_type, "
-        "        max(version) version "
-        "    from "
-        "        bp_forms "
-        "    group by "
-        "        bp_type, "
-        "        prn_type "
-        "   ) a "
-        "where  "
-        "   a.prn_type = :prn_type and "
-        "   a.bp_type = bp_forms.bp_type and "
-        "   a.prn_type = bp_forms.prn_type and "
-        "   a.version = bp_forms.version ";
+    if(doc == dtBP)
+        Qry.SQLText =
+            "select  "
+            "   bp_forms.version, "
+            "   bp_forms.bp_type,  "
+            "   0 num, "
+            "   bp_forms.form,  "
+            "   bp_forms.data  "
+            "from  "
+            "   bp_forms, "
+            "   ( "
+            "    select "
+            "        bp_type, "
+            "        prn_type, "
+            "        max(version) version "
+            "    from "
+            "        bp_forms "
+            "    group by "
+            "        bp_type, "
+            "        prn_type "
+            "   ) a "
+            "where  "
+            "   a.prn_type = :prn_type and "
+            "   a.bp_type = bp_forms.bp_type and "
+            "   a.prn_type = bp_forms.prn_type and "
+            "   a.version = bp_forms.version ";
+    else
+        Qry.SQLText =
+            "select  "
+            "   bt_forms.version, "
+            "   bt_forms.tag_type bp_type,  "
+            "   bt_forms.num, "
+            "   bt_forms.form,  "
+            "   bt_forms.data  "
+            "from  "
+            "   bt_forms, "
+            "   ( "
+            "    select "
+            "        tag_type, "
+            "        prn_type, "
+            "        num, "
+            "        max(version) version "
+            "    from "
+            "        bt_forms "
+            "    group by "
+            "        tag_type, "
+            "        prn_type, "
+            "        num "
+            "   ) a "
+            "where  "
+            "   a.prn_type = 3 and "
+            "   a.tag_type = bt_forms.tag_type and "
+            "   a.prn_type = bt_forms.prn_type and "
+            "   a.num = bt_forms.num and "
+            "   a.version = bt_forms.version "
+            "order by "
+            "   bt_forms.tag_type, "
+            "   bt_forms.num ";
+
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.Execute();
     if(Qry.Eof) throw Exception("Нет бланков для редактирования");
     xmlNodePtr blanksNode = NewTextChild(resNode, "blanks");
+    string bp_type;
+    xmlNodePtr blankNode;
+    xmlNodePtr itemsNode;
     while(!Qry.Eof) {
         if(!(
                     Qry.FieldIsNULL("form") ||
                     Qry.FieldIsNULL("data")
             )
           ) {
-            xmlNodePtr blankNode = NewTextChild(blanksNode, "blank");
-            NewTextChild(blankNode, "bp_type", Qry.FieldAsString("bp_type"));
-            xmlNodePtr itemsNode = NewTextChild(blankNode, "items");
+            string bp_type_tmp = Qry.FieldAsString("bp_type");
+            if(bp_type != bp_type_tmp) {
+                bp_type = bp_type_tmp;
+                blankNode = NewTextChild(blanksNode, "blank");
+                NewTextChild(blankNode, "bp_type", Qry.FieldAsString("bp_type"));
+                itemsNode = NewTextChild(blankNode, "items");
+            }
             xmlNodePtr itemNode = NewTextChild(itemsNode, "item");
             NewTextChild(itemNode, "version", Qry.FieldAsInteger("version"));
             NewTextChild(itemNode, "form", Qry.FieldAsString("form"));
