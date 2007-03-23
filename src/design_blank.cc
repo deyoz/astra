@@ -3,24 +3,43 @@
 #include "test.h"
 #include "oralib.h"
 #include "xml_unit.h"
+#include "astra_consts.h"
+#include "astra_utils.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace ASTRA;
 
 void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
     int delta = NodeAsInteger("delta", reqNode);
     TQuery Qry(&OraSession);        
-    Qry.SQLText =
-        "select "
-        "   form, "
-        "   data "
-        "from "
-        "   bp_forms "
-        "where "
-        "   prn_type = :prn_type and "
-        "   bp_type = :bp_type and "
-        "   version = :version";
+    if(doc == dtBP)
+        Qry.SQLText =
+            "select "
+            "   form, "
+            "   data "
+            "from "
+            "   bp_forms "
+            "where "
+            "   prn_type = :prn_type and "
+            "   bp_type = :bp_type and "
+            "   version = :version";
+    else {
+        Qry.SQLText =
+            "select "
+            "   form, "
+            "   data "
+            "from "
+            "   bt_forms "
+            "where "
+            "   prn_type = :prn_type and "
+            "   tag_type = :bp_type and "
+            "   num = :num and "
+            "   version = :version";
+        Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+    }
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.CreateVariable("bp_type", otString, NodeAsString("blank_type", reqNode));
     Qry.CreateVariable("version", otInteger, NodeAsInteger("version", reqNode) + delta);
@@ -32,39 +51,79 @@ void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 void DesignBlankInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
+
     xmlNodePtr formNode = GetNode("form", reqNode);
 
     TQuery Qry(&OraSession);
     string SQLText;
     if(formNode) {
-        SQLText =
-            "begin "
-            "   delete from bp_forms where "
-            "       bp_type = :bp_type and "
-            "       prn_type = :prn_type and "
-            "       version > :version; "
-            "   insert into bp_forms ( "
-            "       bp_type, "
-            "       prn_type, "
-            "       version, "
-            "       form, "
-            "       data "
-            "   ) values ( "
-            "       :bp_type, "
-            "       :prn_type, "
-            "       :version + 1, "
-            "       :form, "
-            "       :data "
-            "   ); "
-            "end;";
+        if(doc == dtBP)
+            SQLText =
+                "begin "
+                "   delete from bp_forms where "
+                "       bp_type = :bp_type and "
+                "       prn_type = :prn_type and "
+                "       version > :version; "
+                "   insert into bp_forms ( "
+                "       bp_type, "
+                "       prn_type, "
+                "       version, "
+                "       form, "
+                "       data "
+                "   ) values ( "
+                "       :bp_type, "
+                "       :prn_type, "
+                "       :version + 1, "
+                "       :form, "
+                "       :data "
+                "   ); "
+                "end;";
+        else {
+            SQLText =
+                "begin "
+                "   delete from bt_forms where "
+                "       tag_type = :bp_type and "
+                "       prn_type = :prn_type and "
+                "       num = :num and "
+                "       version > :version; "
+                "   insert into bt_forms ( "
+                "       tag_type, "
+                "       prn_type, "
+                "       num, "
+                "       version, "
+                "       form, "
+                "       data "
+                "   ) values ( "
+                "       :bp_type, "
+                "       :prn_type, "
+                "       :num, "
+                "       :version + 1, "
+                "       :form, "
+                "       :data "
+                "   ); "
+                "end;";
+            Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+        }
         Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
         Qry.CreateVariable("data", otString, NodeAsString("data", reqNode));
-    } else
+    } else {
+        if(doc == dtBP)
         SQLText =
             "delete from bp_forms where "
             "    bp_type = :bp_type and "
             "    prn_type = :prn_type and "
             "    version > :version ";
+        else {
+        SQLText =
+            "delete from bt_forms where "
+            "    tag_type = :bp_type and "
+            "    prn_type = :prn_type and "
+            "    num = :num and "
+            "    version > :version ";
+            Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+        }
+    }
     Qry.SQLText = SQLText;
 
     Qry.CreateVariable("bp_type", otString, NodeAsString("blank_type", reqNode));
@@ -129,7 +188,7 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
             "        num "
             "   ) a "
             "where  "
-            "   a.prn_type = 3 and "
+            "   a.prn_type = :prn_type and "
             "   a.tag_type = bt_forms.tag_type and "
             "   a.prn_type = bt_forms.prn_type and "
             "   a.num = bt_forms.num and "
