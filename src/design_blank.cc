@@ -72,27 +72,29 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 {
     TQuery Qry(&OraSession);        
     Qry.SQLText =
-        "select "
-        "   a.last_ver, "
-        "   bp_forms.bp_type, "
-        "   bp_forms.form, "
-        "   bp_forms.data "
-        "from "
+        "select  "
+        "   bp_forms.version, "
+        "   bp_forms.bp_type,  "
+        "   bp_forms.form,  "
+        "   bp_forms.data  "
+        "from  "
         "   bp_forms, "
-        "   (select "
-        "       bp_type, "
-        "       prn_type, "
-        "       max(version) last_ver "
-        "   from "
-        "       bp_forms "
-        "   group by "
-        "       bp_type, "
-        "       prn_type "
+        "   ( "
+        "    select "
+        "        bp_type, "
+        "        prn_type, "
+        "        max(version) version "
+        "    from "
+        "        bp_forms "
+        "    group by "
+        "        bp_type, "
+        "        prn_type "
         "   ) a "
-        "where "
-        "   bp_forms.prn_type = :prn_type and "
-        "   bp_forms.bp_type = a.bp_type and "
-        "   bp_forms.prn_type = a.prn_type ";
+        "where  "
+        "   a.prn_type = :prn_type and "
+        "   a.bp_type = bp_forms.bp_type and "
+        "   a.prn_type = bp_forms.prn_type and "
+        "   a.version = bp_forms.version ";
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.Execute();
     if(Qry.Eof) throw Exception("Нет бланков для редактирования");
