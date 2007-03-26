@@ -1184,8 +1184,28 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 
     Qry.Clear();
     Qry.SQLText =
-     "SELECT form,data FROM bp_forms "
-     "WHERE bp_type=:bp_type AND prn_type=:prn_type";
+            "select  "
+            "   bp_forms.form,  "
+            "   bp_forms.data  "
+            "from  "
+            "   bp_forms, "
+            "   ( "
+            "    select "
+            "        bp_type, "
+            "        prn_type, "
+            "        max(version) version "
+            "    from "
+            "        bp_forms "
+            "    group by "
+            "        bp_type, "
+            "        prn_type "
+            "   ) a "
+            "where  "
+            "   a.bp_type = :bp_type and "
+            "   a.prn_type = :prn_type and "
+            "   a.bp_type = bp_forms.bp_type and "
+            "   a.prn_type = bp_forms.prn_type and "
+            "   a.version = bp_forms.version ";
     Qry.CreateVariable("bp_type", otString, bp_type);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
@@ -1300,9 +1320,34 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     prn_forms.clear();
     TQuery FormsQry(&OraSession);
     FormsQry.SQLText =
-      "SELECT num, form, data FROM bt_forms "
-      "WHERE tag_type = :tag_type AND prn_type=:prn_type "
-      "ORDER BY num";
+        "select  "
+        "   bt_forms.num, "
+        "   bt_forms.form,  "
+        "   bt_forms.data  "
+        "from  "
+        "   bt_forms, "
+        "   ( "
+        "    select "
+        "        tag_type, "
+        "        prn_type, "
+        "        num, "
+        "        max(version) version "
+        "    from "
+        "        bt_forms "
+        "    group by "
+        "        tag_type, "
+        "        prn_type, "
+        "        num "
+        "   ) a "
+        "where  "
+        "   a.tag_type = :tag_type and "
+        "   a.prn_type = :prn_type and "
+        "   a.tag_type = bt_forms.tag_type and "
+        "   a.prn_type = bt_forms.prn_type and "
+        "   a.num = bt_forms.num and "
+        "   a.version = bt_forms.version "
+        "order by "
+        "   bt_forms.num ";
     FormsQry.CreateVariable("tag_type", otString, tag_type);
     FormsQry.CreateVariable("prn_type", otInteger, prn_type);
     FormsQry.Execute();
