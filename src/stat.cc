@@ -816,7 +816,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "   NVL(ckin.get_excess(pax.grp_id,pax.reg_no),0) excess, "
         "   pax_grp.grp_id, "
         "   ckin.get_birks(pax.grp_id,pax.reg_no,0) tags, "
-        "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, "
+        "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Аннул.') AS status, "
         "   classes.code class, "
         "   LPAD(seat_no,3,'0')|| "
         "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
