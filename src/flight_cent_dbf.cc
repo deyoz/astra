@@ -380,7 +380,7 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
   tst();
   DBFRow row;
   Luggage lug;
-  GetLuggage( point_id, lug, false, true ); // false - wo pr_brd=1, pr_refuse=0
+  GetLuggage( point_id, lug, false ); // false - wo pr_brd=1
 
   int p_id = -1;
 	for ( int count=1; count<=4; count++ ) {

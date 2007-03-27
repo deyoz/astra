@@ -19,7 +19,7 @@
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
 
-//#include "flight_cent_dbf.h" //!!!
+#include "flight_cent_dbf.h" //!!!
 
 using namespace std;
 using namespace BASIC;
@@ -1241,11 +1241,11 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 
 void GetLuggage( int point_id, Luggage &lug )
 {
-	GetLuggage( point_id, lug, true, false );
+	GetLuggage( point_id, lug, true );
 }
 
 
-void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse )
+void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 {
 	TQuery Qry(&OraSession);  
   Qry.Clear();
@@ -1259,14 +1259,12 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse )
    " SUM(DECODE(pers_type,'êÅ',1,0)) AS child, "\
    " SUM(DECODE(pers_type,'êå',1,0)) AS baby "\
    " FROM pax_grp,pax "\
-   "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
-  if ( pr_brd )
-  	sql += " AND pr_brd=1 ";
-  if ( pr_refuse )
-  	sql += " AND pr_refuse=0 ";
-  sql += " GROUP BY pax_grp.point_arv, pax_grp.class ";
+   "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND "\
+   "      pr_brd=:pr_brd "\
+   " GROUP BY pax_grp.point_arv, pax_grp.class ";
   Qry.SQLText = sql;   
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "pr_brd", otInteger, pr_brd );
   tst();
   Qry.Execute();
   while ( !Qry.Eof ) {
@@ -1290,17 +1288,13 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse )
    " SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "\
    " FROM bag2, "\
    "   (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "\
-   "     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
-   if ( pr_brd )
-   	 sql += " AND pr_brd=1 ";
-   if ( pr_refuse )
-   	 sql += " AND pr_refuse=0 ";
-   sql += 
-   " ) pax_grp "\
+   "     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND "\
+   "     pr_brd=:pr_brd AND pr_refuse=0 ) pax_grp "\
    "WHERE bag2.grp_id=pax_grp.grp_id "
    " GROUP BY pax_grp.point_arv, pax_grp.class ";
 	Qry.SQLText = sql;   
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "pr_brd", otInteger, pr_brd );
   tst();
   Qry.Execute();
   while ( !Qry.Eof ) {

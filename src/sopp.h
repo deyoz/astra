@@ -57,7 +57,7 @@ struct Luggage {
 	}
 };
 
-void GetLuggage( int point_id, Luggage &lug, bool pr_brd, bool pr_refuse );
+void GetLuggage( int point_id, Luggage &lug, bool pr_brd );
 void GetLuggage( int point_id, Luggage &lug );
 
 class SoppInterface : public JxtInterface
