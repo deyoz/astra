@@ -136,8 +136,6 @@ char DecodeStatus(char* s);
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
-char *EncodeSeatNo( char *Value, bool pr_latseat );
-char *DecodeSeatNo( char *Value );
 
 void showProgError(const std::string &message );
 void showError(const std::string &message, int code = 0 );
@@ -189,6 +187,9 @@ class UserException2:public EXCEPTIONS::UserException
     UserException2(): UserException(""){};
 };
 
-std::string transliter(const std::string &value);
+std::string convert_seat_no(const std::string &value, bool pr_lat);
+std::string convert_pnr_addr(const std::string &value, bool pr_lat);
+std::string convert_suffix(const std::string &value, bool pr_lat);
+std::string transliter(const std::string &value, bool pr_lat);
 
 #endif /*_ASTRA_UTILS_H_*/

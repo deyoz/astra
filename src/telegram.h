@@ -10,23 +10,49 @@ class TBSMTagItem
 {
   public:
     double no;
-    int bag_amount,bag_weight,rk_weight;
+    int bag_amount,bag_weight;
+    TBSMTagItem()
+    {
+      no=-1;
+      bag_amount=-1;
+      bag_weight=-1;
+    };
+};
+
+class TBSMBagItem
+{
+  public:
+    int rk_weight;
+    TBSMBagItem()
+    {
+      rk_weight=-1;
+    };
 };
 
 class TBSMPaxItem
 {
   public:
-    std::string surname,name,seat_no,pnr_addr;
+    std::string surname,name,seat_no,status,pnr_addr;
     int reg_no;
+    TBSMPaxItem()
+    {
+      reg_no=-1;
+    };
 };
 
 class TBSMContent
 {
   public:
+    TIndicator indicator;
     TTransferItem OutFlt;
     std::vector<TTransferItem> OnwardFlt;
-    std::vector<TBtmTagItem> tags;
+    std::vector<TBSMTagItem> tags;
     TBSMPaxItem pax;
+    TBSMBagItem bag;
+    TBSMContent()
+    {
+      indicator=None;
+    };
 };
 
 
@@ -64,8 +90,9 @@ public:
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  void GetBSMContent(int grp_id, TBSMContent& con);
-  void CreateBSMBody(int grp_id, bool pr_lat);
+  void LoadBSMContent(int grp_id, TBSMContent& con);
+  std::vector<TBSMContent>& CreateBSMContent(TBSMContent& con1, TBSMContent& con2);
+  void CreateBSMBody(TBSMContent& con, bool pr_lat);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );

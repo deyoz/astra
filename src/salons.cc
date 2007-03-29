@@ -14,11 +14,6 @@
 #include "images.h"
 #include "tripinfo.h"
 
-
-const char LAT_NAME_LINES[27] = "€‚ƒ„…†‡ˆŠ‹Œ‘’“”•–—˜™";
-const char RUS_NAME_LINES[27] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;

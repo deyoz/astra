@@ -749,9 +749,9 @@ void PrintDataParser::t_field_map::fillMSOMap()
     Qrys.push_back(Qry);
     Qry->Execute();
     add_tag("pax", Qry->FieldAsString("pax"));
-    add_tag("pax_lat", transliter(Qry->FieldAsString("pax")));
+    add_tag("pax_lat", transliter(Qry->FieldAsString("pax"),true));
     add_tag("document", Qry->FieldAsString("document"));
-    add_tag("document_lat", transliter(Qry->FieldAsString("document")));
+    add_tag("document_lat", transliter(Qry->FieldAsString("document"),true));
     add_tag("issue_date", UTCToLocal(Qry->FieldAsDateTime("issue_date"), TReqInfo::Instance()->desk.tz_region));
     int ex_weight = Qry->FieldAsInteger("ex_weight");
     float rate = Qry->FieldAsFloat("rate");
@@ -913,7 +913,7 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
             if(data.find(name) != data.end())
                 throw Exception("Duplicate tag found in client data " + name);
             data[name] = TagValue;
-            TagValue.StringVal = transliter(TagValue.StringVal);
+            TagValue.StringVal = transliter(TagValue.StringVal,true);
             data[name + "_LAT"] = TagValue;
             curNode = curNode->next;
         }

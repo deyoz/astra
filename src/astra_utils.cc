@@ -414,18 +414,6 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
-char *EncodeSeatNo( char *Value, bool pr_latseat )
-{
-  if ( !pr_latseat )
-    return CharReplace( Value, "ABCDEFGHIJK", "ÄÅÇÉÑÖÜáàäã" );
-  else return Value;
-};
-
-char *DecodeSeatNo( char *Value )
-{
-  return CharReplace( Value, "ÄÅÇÉÑÖÜáàäã", "ABCDEFGHIJK" );
-};
-
 void showProgError(const std::string &message )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -647,15 +635,25 @@ bool is_dst(TDateTime d, string region)
   return ( tz->has_dst() && ld.is_dst() );
 }
 
-const char rus_pnr[]="0123456789ÅÇÉÑäãåçèêëíîïñÜò";
-const char lat_pnr[]="0123456789BVGDKLMNPRSTFXCZW";
+char ToLatSeatNo(char c)
+{
+  if ((unsigned char)c>=0x80)
+  {
+    ByteReplace(&c,1,rus_seat,lat_seat);
+    if ((unsigned char)c>=0x80) c='?';
+  };
+  return c;
+};
 
-const char rus_suffix[]="ÄÇëÑèÖîÜïàâäãåçéüêëíìûòúõá";
-const char lat_suffix[]="ABCDPEFGHIJKLMNOQRSTUVWXYZ";
+string convert_seat_no(const string &value, bool pr_lat)
+{
+  string result = value;
+  if (pr_lat)
+    transform(result.begin(), result.end(), result.begin(), ToLatSeatNo);
+  return result;
+};
 
-
-
-char ToLatPnr(char c)
+char ToLatPnrAddr(char c)
 {
   if ((unsigned char)c>=0x80)
   {
@@ -663,6 +661,15 @@ char ToLatPnr(char c)
     if ((unsigned char)c>=0x80) c='?';
   };
   return c;
+};
+
+string convert_pnr_addr(const string &value, bool pr_lat)
+{
+  string result = value;
+  if (pr_lat)
+    transform(result.begin(), result.end(), result.begin(), ToLatPnrAddr);
+  return result;
+
 };
 
 char ToLatSuffix(char c)
@@ -675,54 +682,71 @@ char ToLatSuffix(char c)
   return c;
 };
 
-string transliter(const string &value)
+string convert_suffix(const string &value, bool pr_lat)
 {
-    string result;
-    for(u_int i = 0; i < value.size(); i++) {
-        if(!(value[i] >= 'A' && value[i] <= 'z')) {
-            string c;
-            switch(ToUpper(value[i])) {
-                case 'Ä': c = "A"; break;
-                case 'Å': c = "B"; break;
-                case 'Ç': c = "V"; break;
-                case 'É': c = "G"; break;
-                case 'Ñ': c = "D"; break;
-                case 'Ö': c = "E"; break;
-                case '': c = "IO"; break;
-                case 'Ü': c = "ZH"; break;
-                case 'á': c = "Z"; break;
-                case 'à': c = "I"; break;
-                case 'â': c = "I"; break;
-                case 'ä': c = "K"; break;
-                case 'ã': c = "L"; break;
-                case 'å': c = "M"; break;
-                case 'ç': c = "N"; break;
-                case 'é': c = "O"; break;
-                case 'è': c = "P"; break;
-                case 'ê': c = "R"; break;
-                case 'ë': c = "S"; break;
-                case 'í': c = "T"; break;
-                case 'ì': c = "U"; break;
-                case 'î': c = "F"; break;
-                case 'ï': c = "KH"; break;
-                case 'ñ': c = "TS"; break;
-                case 'ó': c = "CH"; break;
-                case 'ò': c = "SH"; break;
-                case 'ô': c = "SHCH"; break;
-                case 'ö': c = ""; break;
-                case 'õ': c = "Y"; break;
-                case 'ú': c = ""; break;
-                case 'ù': c = "E"; break;
-                case 'û': c = "IU"; break;
-                case 'ü': c = "IA"; break;
-                default:  c = "?";
-            }
-            if(ToUpper(value[i]) != value[i]) c = lowerc(c);
-            result += c;
-        } else
-            result += value[i];
-    }
-    return result;
+  string result = value;
+  if (pr_lat)
+    transform(result.begin(), result.end(), result.begin(), ToLatSuffix);
+  return result;
+
+};
+
+string transliter(const string &value, bool pr_lat)
+{
+  string result;
+  if (pr_lat)
+  {
+    char c;
+    char *c2;
+    for(string::const_iterator i=value.begin();i!=value.end();i++)
+    {
+      c=*i;
+      if ((unsigned char)c>=0x80)
+      {
+        switch(ToUpper(c))
+        {
+          case 'Ä': c2 = "A"; break;
+          case 'Å': c2 = "B"; break;
+          case 'Ç': c2 = "V"; break;
+          case 'É': c2 = "G"; break;
+          case 'Ñ': c2 = "D"; break;
+          case 'Ö': c2 = "E"; break;
+          case '': c2 = "IO"; break;
+          case 'Ü': c2 = "ZH"; break;
+          case 'á': c2 = "Z"; break;
+          case 'à': c2 = "I"; break;
+          case 'â': c2 = "I"; break;
+          case 'ä': c2 = "K"; break;
+          case 'ã': c2 = "L"; break;
+          case 'å': c2 = "M"; break;
+          case 'ç': c2 = "N"; break;
+          case 'é': c2 = "O"; break;
+          case 'è': c2 = "P"; break;
+          case 'ê': c2 = "R"; break;
+          case 'ë': c2 = "S"; break;
+          case 'í': c2 = "T"; break;
+          case 'ì': c2 = "U"; break;
+          case 'î': c2 = "F"; break;
+          case 'ï': c2 = "KH"; break;
+          case 'ñ': c2 = "TS"; break;
+          case 'ó': c2 = "CH"; break;
+          case 'ò': c2 = "SH"; break;
+          case 'ô': c2 = "SHCH"; break;
+          case 'ö': c2 = ""; break;
+          case 'õ': c2 = "Y"; break;
+          case 'ú': c2 = ""; break;
+          case 'ù': c2 = "E"; break;
+          case 'û': c2 = "IU"; break;
+          case 'ü': c2 = "IA"; break;
+          default:  c2 = "?";
+        };
+        if (ToUpper(c)!=c) result+=lowerc(c2); else result+=c2;
+      }
+      else result+=c;
+    };
+  }
+  else  result=value;
+  return result;
 }
 
 
