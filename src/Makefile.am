@@ -30,7 +30,7 @@ astra_LDADD = $(all_libraries) \
 	@TCLMON_LIBS@ @ORACLE_LIBS@ @EDILIB_LIBS@ @JXTLIB_LIBS@ @SERVERLIB_LIBS@ @SHARED_LIBS@ \
 	$(LDZLIB) $(TCL_SYS_LIB) $(LDCRYPT) $(XML_LIBS) @CHECK_LIBS@
 
-SUBDIRS = tlg file_server
+SUBDIRS = tlg
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
