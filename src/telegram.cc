@@ -1404,6 +1404,14 @@ void TelegramInterface::SendBSM
     heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << endl;
     p.heading=heading.str();
 
+    TQuery AddrQry(&OraSession);
+    AddrQry.Clear();
+    AddrQry.SQLText=
+      "BEGIN "
+      "  tlg.format_addr_line(:addrs); "
+      "END;";
+    AddrQry.DeclareVariable("addrs",otString);
+
     for(vector<TBSMContent>::iterator i=bsms.begin();i!=bsms.end();i++)
     {
       for(map<bool,string>::iterator j=addrs.begin();j!=addrs.end();j++)
@@ -1412,7 +1420,9 @@ void TelegramInterface::SendBSM
         p.id=-1;
         p.num=1;
         p.pr_lat=j->first;
-        p.addr=j->second;
+        AddrQry.SetVariable("addrs",j->second);
+        AddrQry.Execute();
+        p.addr=AddrQry.GetVariableAsString("addrs");
         p.body=TelegramInterface::CreateBSMBody(*i,p.pr_lat);
         TelegramInterface::SaveTlgOutPart(p);
         TelegramInterface::SendTlg(p.id);
