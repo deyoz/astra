@@ -8,6 +8,9 @@
 #include "basic.h"
 #include "develop_dbf.h"
 #include "sopp.h"
+#include "base_tables.h"
+#include "astra_utils.h"
+
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -202,6 +205,8 @@ PASS_12 		N	3
 */
 
 const string FileDirectory = "C:\\Program Files\\kupol\\base"; 
+const string PARAM_WORK_DIR = "WorkDir";
+const string PARAM_FILE_NAME = "FileName";
 
 void createFileParams( int point_id, map<string,string> &params )
 {
@@ -212,10 +217,10 @@ void createFileParams( int point_id, map<string,string> &params )
 	FlightQry.Execute();
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
-	params[ "FileName" ] = string( FlightQry.FieldAsString( "airline" ) ) + 
-	                       FlightQry.FieldAsString( "flt_no" ) + 
-	                       FlightQry.FieldAsString( "suffix" ) + ".dbf";
-	params[ "WorkDir" ] = FileDirectory;
+	params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) + 
+	                            FlightQry.FieldAsString( "flt_no" ) + 
+	                            FlightQry.FieldAsString( "suffix" ) + ".dbf";
+	params[ PARAM_WORK_DIR ] = FileDirectory;
 }
 
 void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data )
@@ -236,6 +241,7 @@ void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data
 	 baby += p->baby;
 	 rk_weight += p->rk_weight;
 	 bag_weight += p->bag_weight;
+	 pay_bag_weight += p->excess;
 	}
 	for ( vector<Cargo>::iterator p=lug.vcargo.begin(); p!=lug.vcargo.end(); p++ ) {
 		if ( p->point_arv != point_arv )
@@ -248,7 +254,7 @@ void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data
   data.push_back( IntToString( baby ) ); // дети маленькие
   data.push_back( IntToString( rk_weight ) ); // ручная кладь
   data.push_back( IntToString( bag_weight ) ); // ручная кладь
-	data.push_back( IntToString( pay_bag_weight ) ); // платный багаж    !!!
+	data.push_back( IntToString( pay_bag_weight ) ); // платный багаж    
 	data.push_back( IntToString( cargo_weight ) ); // груз    ???	
 	data.push_back( IntToString( mail_weight ) ); // почта    ???		
 }
@@ -268,7 +274,8 @@ void getTripCountsOnClass( Luggage &lug, std::string cl, vector<std::string> &da
 	  child += p->child;
 	  baby += p->baby;
 	  bag_weight += p->bag_weight;
-	  rk_weight += p->rk_weight;	  
+	  rk_weight += p->rk_weight;	
+	  pay_bag_weight += p->excess;  
 	}
 	data.push_back( IntToString( adult ) ); // взрослые пассажиры первого класса
 	data.push_back( IntToString( child ) ); // дети большие первого класса
@@ -291,7 +298,7 @@ void getTripSeats( Luggage &lug, vector<std::string> &data )
 	data.push_back( IntToString( seatsadult ) ); // число занятых кресел взрослыми пассажирами
 	data.push_back( IntToString( seatschild ) ); // число занятых кресел большими детьми
 	data.push_back( IntToString( seatsbaby ) ); // число занятых кресел маленькими детьми
-	data.push_back( "0" ); // число занятых кресел служебные пассажиры !!!
+//	data.push_back( "0" ); // число занятых кресел служебные пассажиры !!!
 }
 
 bool createCentringFile( int point_id, const string &Sender, const string &Receiver )
@@ -306,7 +313,7 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
 	dbf.AddField( "PLANDAT", 'D', 8 ); // плановая дата вылета
 	dbf.AddField( "FACTDAT", 'D', 8 ); // фактическая дата вылета
 	dbf.AddField( "TIME", 'C', 4 ); // время вылета
-	dbf.AddField( "STAND", 'N', 2 ); // номер стоянки
+	dbf.AddField( "STAND", 'C', 2 ); // номер стоянки
 	dbf.AddField( "COMPANY", 'C', 3 ); // авиакомпания
 	dbf.AddField( "OWNER", 'C', 3 ); // владелец ВС (авиакомпания)
 	dbf.AddField( "PORT1", 'C', 3 ); // пункт посадки
@@ -360,11 +367,11 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
 	dbf.AddField( "K_MAN", 'N', 3 ); // число занятых кресел взрослыми пассажирами
 	dbf.AddField( "K_RB", 'N', 3 ); // число занятых кресел большими детьми
 	dbf.AddField( "K_RM", 'N', 2 ); // число занятых кресел маленькими детьми
-	dbf.AddField( "K_SL", 'N', 4 ); // число занятых кресел служебные пассажиры	
+//???	dbf.AddField( "K_SL", 'N', 4 ); // число занятых кресел служебные пассажиры	
 	ProgTrace( TRACE5, "dbf.fieldCount=%d", dbf.fieldCount() );
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
-	 "SELECT points.point_num,points.point_id,pr_tranzit,first_point,"
+	 "SELECT points.point_num,points.point_id,pr_tranzit,DECODE(points.pr_tranzit,0,points.point_id,points.first_point) first_point,"
 	 "       airline,flt_no,suffix,bort,scd_out,act_out,"
 	 "       trip_type,SUBSTR( park_out, 1, 2 ) park_out,pr_reg,airp,pr_del, "
 	 "       a.cfg "
@@ -377,13 +384,22 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
   tst();
   if ( !Qry.RowCount() )
   	return false;
+  TQuery DestsQry( &OraSession );
+  DestsQry.SQLText = 
+   "SELECT point_num,point_id,airp FROM points "
+   " WHERE first_point=:first_point AND point_num>:point_num and pr_del=0 "
+   " ORDER BY point_num ";
+  DestsQry.CreateVariable( "first_point", otInteger, Qry.FieldAsInteger( "first_point" ) );
+  DestsQry.CreateVariable( "point_num", otInteger, Qry.FieldAsInteger( "point_num" ) );
+  DestsQry.Execute();
   tst();
   DBFRow row;
   Luggage lug;
   GetLuggage( point_id, lug, false ); // false - wo pr_brd=1
+  TBaseTable &cities = base_tables.get( "cities" );
 
   int p_id = -1;
-	for ( int count=1; count<=4; count++ ) {
+  for ( int count=1; count<=4; count++ ) {
 		if ( count == 1 ) {
 			p_id = point_id;
       row.pr_del = Qry.FieldAsInteger( "pr_del" );
@@ -398,27 +414,37 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
   		row.data.push_back( IntToString( Qry.FieldAsInteger( "cfg" ) ) ); //kr
   		if ( Qry.FieldIsNULL( "scd_out" ) )
   			return false;
-  		row.data.push_back( DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "yyyymmdd" ) );
+      string region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
+      TDateTime d = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+  			
+  		row.data.push_back( DateTimeToStr( d, "yyyymmdd" ) );
   		if ( !Qry.FieldIsNULL( "act_out" ) ) {
-  			row.data.push_back( DateTimeToStr( Qry.FieldAsDateTime( "act_out" ), "yyyymmdd" ) );
-  			row.data.push_back( DateTimeToStr( Qry.FieldAsDateTime( "act_out" ), "hhnn" ) );
+  			d = UTCToLocal( Qry.FieldAsDateTime( "act_out" ), region );
+  			row.data.push_back( DateTimeToStr( d, "yyyymmdd" ) );
+  			row.data.push_back( DateTimeToStr( d, "hhnn" ) );
   	  }
   		else {
   		  row.data.push_back( "" );
-  		  row.data.push_back( DateTimeToStr( Qry.FieldAsDateTime( "scd_out" ), "hhnn" ) );
+  		  row.data.push_back( DateTimeToStr( d, "hhnn" ) );
   		}
   		row.data.push_back( Qry.FieldAsString( "park_out" ) );
   		row.data.push_back( Qry.FieldAsString( "airline" ) );
   		row.data.push_back( Qry.FieldAsString( "airline" ) ); // owner = company ???		
 		}
 		// переход на следующий пункт посадки
-		p_id = -1;				
+		if ( DestsQry.Eof )
+			p_id = -1;
+		else {
+		  p_id = DestsQry.FieldAsInteger( "point_id" );				
+		}
 		if ( p_id < 0 )
 			row.data.push_back( "" );
 		else
-  		row.data.push_back( Qry.FieldAsString( "airp" ) );
+  		row.data.push_back( DestsQry.FieldAsString( "airp" ) );
   		//13
 	  getTripCountsOnDest( p_id, lug, row.data );
+	  if ( !DestsQry.Eof )
+	    DestsQry.Next();
 	}
 	getTripCountsOnClass( lug, "П", row.data );
 	getTripCountsOnClass( lug, "Б", row.data );
