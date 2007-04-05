@@ -10,7 +10,7 @@
 #include "astra_utils.h"
 #include "basic.h"
 #include "stl_utils.h"
-#include "flight_cent_dbf.h" //???
+//#include "flight_cent_dbf.h" //???
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -229,7 +229,7 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	string client_canon_name = NodeAsString( "canon_name", reqNode );
 	ProgTrace( TRACE5, "createFileData point_id=%d, client_canon_name=%s", point_id, client_canon_name.c_str() );
-	createCentringFile( point_id, MSG_OWN_CANON_NAME(), client_canon_name );
+//	createCentringFile( point_id, MSG_OWN_CANON_NAME(), client_canon_name );
 	tst();
 }
 

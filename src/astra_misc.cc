@@ -11,7 +11,7 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
+string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
 {
   pnrs.clear();
   TQuery Qry(&OraSession);
@@ -47,7 +47,7 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string &airline)
     return "";
 };
 
-string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string &airline)
+string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string airline)
 {
   pnrs.clear();
   TQuery Qry(&OraSession);
