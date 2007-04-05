@@ -5,6 +5,7 @@
 
 #include "JxtInterface.h"
 #include "tlg/tlg_parser.h"
+#include "astra_consts.h"
 
 class TBSMTagItem
 {
@@ -56,6 +57,37 @@ class TBSMContent
 };
 
 
+struct TTypeBSendInfo
+{
+  std::string tlg_type,airline,airp_dep;
+  int flt_no,first_point,point_num;
+};
+
+struct TTypeBAddrInfo
+{
+  std::string tlg_type,airline,airp_dep;
+  int flt_no,first_point,point_num;
+
+  std::string airp_arv,crs;
+  int pr_numeric;
+  bool pr_lat;
+};
+
+struct TTlgOutPartInfo
+{
+  int id,num,point_id;
+  std::string tlg_type,airp_arv,crs,addr,heading,body,ending;
+  bool pr_dep,pr_lat;
+  BASIC::TDateTime time_create,time_send_scd;
+  TTlgOutPartInfo ()
+  {
+    id=-1;
+    num=1;
+    time_create=ASTRA::NoExists;
+    time_send_scd=ASTRA::NoExists;
+  };
+};
+
 class TelegramInterface : public JxtInterface
 {
 public:
@@ -90,13 +122,22 @@ public:
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  void LoadBSMContent(int grp_id, TBSMContent& con);
-  std::vector<TBSMContent>& CreateBSMContent(TBSMContent& con1, TBSMContent& con2);
-  void CreateBSMBody(TBSMContent& con, bool pr_lat);
-
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
   static void SendTlg( int point_id, std::vector<std::string> &tlg_types );
+
+  static bool IsTypeBSend( TTypeBSendInfo &info );
+  static std::string GetTypeBAddrs( TTypeBAddrInfo &info );
+  static std::string GetTypeBAddrs( std::string tlg_type, bool pr_lat );
+
+  static void SaveTlgOutPart( TTlgOutPartInfo &info );
+
+  //BSM
+  static void LoadBSMContent(int grp_id, TBSMContent& con);
+  static void CompareBSMContent(TBSMContent& con1, TBSMContent& con2, std::vector<TBSMContent>& bsms);
+  static std::string CreateBSMBody(TBSMContent& con, bool pr_lat);
+  static bool IsBSMSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
+  static void SendBSM(int point_dep, int grp_id, TBSMContent &con1, std::map<bool,std::string> &addrs );
 };
 
 #endif /*_TELEGRAM_H_*/

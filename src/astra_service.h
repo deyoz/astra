@@ -6,11 +6,16 @@
 #include <map>
 #include "JxtInterface.h"
 
-std::string MSG_OWN_CANON_NAME(); //!!!
+const char* OWN_POINT_ADDR();
 
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 bool deleteFile( int id );
-/*bool loadFile( int id );*/
+void putFile(const char* receiver,
+             const char* sender,
+             const char* type,
+             std::map<std::string,std::string> &params,
+             int data_len,
+             const void* data);
 bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
@@ -25,20 +30,20 @@ public:
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::authorize);
      AddEvent("authorize",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::commitFileData);
-     AddEvent("commitFileData",evHandle);          
+     AddEvent("commitFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::errorFileData);
-     AddEvent("errorFileData",evHandle);                    
+     AddEvent("errorFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::createFileData);
-     AddEvent("createFileData",evHandle);                              
+     AddEvent("createFileData",evHandle);
   };
 
   void authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
-  void commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
+  void commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void createFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
- 
+
 #endif /*_ASTRA_SERVICE_H_*/
 

@@ -42,9 +42,8 @@ const char lat_pnr[]="0123456789BVGDKLMNPRSTFXCZW";
 const char rus_suffix[]="€‚‘„…”†•ˆ‰Š‹ŒŸ‘’“˜œ›‡";
 const char lat_suffix[]="ABCDPEFGHIJKLMNOQRSTUVWXYZ";
 
-const char rus_seat[]="€‚‘„…”†•ˆ‰Š‹ŒŸ‘’“˜œ›‡";
-const char lat_seat[]="ABCDPEFGHIJKLMNOQRSTUVWXYZ";
-
+const char rus_seat[]="€‚ƒ„…†‡ˆŠ‹Œ‘’“”•–—˜™";
+const char lat_seat[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 };
 

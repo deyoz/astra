@@ -11,6 +11,7 @@
 #include "basic.h"
 #include "stl_utils.h"
 //#include "flight_cent_dbf.h" //???
+#include "cfgproc.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -21,10 +22,19 @@ const string PARAM_TYPE = "type";
 const string PARAM_FILE_ID = "file_id";
 const string PARAM_NEXT_FILE = "NextFile";
 
-string MSG_OWN_CANON_NAME() //!!!
+const char* OWN_POINT_ADDR()
 {
-	return string( "ASTRA" );
-}
+  static string OWNADDR;
+  if ( OWNADDR.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
+    OWNADDR = r;
+    ProgTrace( TRACE5, "OWN_POINT_ADDR=%s", OWNADDR.c_str() );
+  }
+  return OWNADDR.c_str();
+};
 
 bool deleteFile( int id )
 {
@@ -34,24 +44,66 @@ bool deleteFile( int id )
       " DELETE file_queue WHERE id= :id; "
       " DELETE file_params WHERE id= :id; "
       "END; ";
-//      " DELETE file_error WHERE id=:id; "      
-      
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     return Qry.RowsProcessed()>0;
 };
 
-/*bool loadFile( int id )
+void putFile(const char* receiver,
+             const char* sender,
+             const char* type,
+             map<string,string> &params,
+             int data_len,
+             const void* data)
 {
-	TQuery LoadQry(&OraSession);
-	LoadQry.SQLText = 
-	 "INSERT INTO file_queue(id,sender,receiver,type,status,time) "
-	 " SELECT id,sender,receiver,type,'PUT',system.UTCSYSDATE FROM files "
-	 "  WHERE id=:id ";
-	LoadQry.CreateVariable( "id", otInteger, id );
-	LoadQry.Execute();
-	return LoadQry.RowsProcessed()>0;
-}*/
+    try
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText=
+                "INSERT INTO "
+                "file_queue(id,sender,receiver,type,status,time) "
+                "VALUES"
+                "(tlgs_id.nextval,:sender,:receiver,"
+                ":type,'PUT',system.UTCSYSDATE)";
+        Qry.CreateVariable("sender",otString,sender);
+        Qry.CreateVariable("receiver",otString,receiver);
+        Qry.CreateVariable("type",otString,type);
+        Qry.Execute();
+        Qry.SQLText=
+                "INSERT INTO "
+                "files(id,sender,receiver,type,time,data,error) "
+                "VALUES"
+                "(tlgs_id.currval,:sender,:receiver,"
+                ":type,system.UTCSYSDATE,:data,NULL)";
+        Qry.DeclareVariable("data",otLongRaw);
+        Qry.SetLongVariable("data",(void*)data,data_len);
+        Qry.Execute();
+        Qry.Close();
+
+        Qry.Clear();
+        Qry.SQLText=
+                "INSERT INTO file_params(id,name,value) "
+                "VALUES(tlgs_id.currval,:name,:value)";
+        Qry.DeclareVariable("name",otString);
+        Qry.DeclareVariable("value",otString);
+        for(map<string,string>::iterator i=params.begin();i!=params.end();i++)
+        {
+          Qry.SetVariable("name",i->first);
+          Qry.SetVariable("value",i->second);
+          Qry.Execute();
+        };
+    }
+    catch( std::exception &e)
+    {
+        ProgError(STDLOG, e.what());
+        throw;
+    }
+    catch(...)
+    {
+        ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+        throw;
+    };
+};
 
 bool errorFile( int id, const string &msg )
 {
@@ -78,7 +130,7 @@ bool sendFile( int id )
   SendQry.SQLText="UPDATE file_queue SET status='SEND', time=system.UTCSYSDATE WHERE id= :id";
   SendQry.CreateVariable("id",otInteger,id);
   SendQry.Execute();
-  return SendQry.RowsProcessed()>0;	
+  return SendQry.RowsProcessed()>0;
 }
 
 bool doneFile( int id )
@@ -88,7 +140,7 @@ bool doneFile( int id )
     DoneQry.SQLText=" UPDATE files SET time=system.UTCSYSDATE WHERE id=:id ";
     DoneQry.CreateVariable("id",otInteger,id);
     DoneQry.Execute();
-    return DoneQry.RowsProcessed()>0;	
+    return DoneQry.RowsProcessed()>0;
   }
   else
   	return false;
@@ -120,47 +172,47 @@ void buildFileParams( xmlNodePtr dataNode, const map<string,string> &fileparams 
 void buildFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 {
 	TQuery ScanQry( &OraSession );
-	ScanQry.SQLText = 		
+	ScanQry.SQLText =
 		"SELECT file_queue.id,file_queue.sender,file_queue.receiver,file_queue.type,"
 		"       file_queue.status,file_queue.time,system.UTCSYSDATE AS now, "
-		"       files.data " 		 
+		"       files.data "
 		" FROM file_queue,files "
 		" WHERE file_queue.id=files.id AND "
     "       file_queue.sender=:sender AND "
     "       ( file_queue.status='PUT' OR file_queue.status='SEND' AND file_queue.time + :wait_answer_sec/(60*60*24) < system.UTCSYSDATE  ) "
-    " ORDER BY file_queue.time,file_queue.id";		 	
-	ScanQry.CreateVariable( "sender", otString, MSG_OWN_CANON_NAME() );
+    " ORDER BY file_queue.time,file_queue.id";
+	ScanQry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
 	ScanQry.CreateVariable( "wait_answer_sec", otInteger, WAIT_ANSWER_SEC );
 	ScanQry.Execute();
 	map<string,string> fileparams;
 	char *p = NULL;
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );      	
-	
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+
 	while ( !ScanQry.Eof ) {
   	int file_id = ScanQry.FieldAsInteger( "id" );
     try
     {
       if ( client_canon_name == ScanQry.FieldAsString( "receiver" ) ) {
       	tst();
-        getFileParams( file_id, fileparams );      	      	
+        getFileParams( file_id, fileparams );
       	int len = ScanQry.GetSizeLongField( "data" );
       	if ( p )
       		p = (char*)realloc( p, len );
       	else
-      	  p = (char*)malloc( len );      	
+      	  p = (char*)malloc( len );
       	if ( !p )
       		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
         ScanQry.FieldAsLong( "data", p );
-        xmlNodePtr fileNode = NewTextChild( dataNode, "file" );  
+        xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
         NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
-        fileparams[ PARAM_TYPE ] = ScanQry.FieldAsString( "type" );        
+        fileparams[ PARAM_TYPE ] = ScanQry.FieldAsString( "type" );
         ScanQry.Next();
         if ( !ScanQry.Eof )
         	fileparams[ PARAM_NEXT_FILE ] = "TRUE";
         else
-        	fileparams[ PARAM_NEXT_FILE ] = "FALSE";        
+        	fileparams[ PARAM_NEXT_FILE ] = "FALSE";
         fileparams[ PARAM_FILE_ID ] = IntToString( file_id );
-        buildFileParams( dataNode, fileparams );        
+        buildFileParams( dataNode, fileparams );
         ProgTrace( TRACE5, "file_id=%d, msg.size()=%d", file_id, len );
         sendFile( file_id );
         break;
@@ -180,20 +232,20 @@ void buildFileData( xmlNodePtr resNode, const std::string &client_canon_name )
           errorFile( file_id, string("Ошибка отправки сообщения: ") + E.what() );
           OraSession.Commit();
         }
-        catch( ... ) { 
+        catch( ... ) {
         	tst();
         	try { OraSession.Rollback(); } catch(...){};
         }
         ProgError( STDLOG, "Exception: %s (file_id=%d)", E.what(), file_id );
         if ( p )
-          free( p );              
+          free( p );
         throw;
       }
-    };  	
+    };
     ScanQry.Next();
   }	 // end while
   if ( p )
-    free( p );      
+    free( p );
 }
 
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -210,7 +262,7 @@ void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 {
   int file_id = NodeAsInteger( "file_id", reqNode );
   ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
-  doneFile( file_id );  
+  doneFile( file_id );
 }
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -229,7 +281,7 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	string client_canon_name = NodeAsString( "canon_name", reqNode );
 	ProgTrace( TRACE5, "createFileData point_id=%d, client_canon_name=%s", point_id, client_canon_name.c_str() );
-//	createCentringFile( point_id, MSG_OWN_CANON_NAME(), client_canon_name );
+//	createCentringFile( point_id, OWN_POINT_ADDR(), client_canon_name );
 	tst();
 }
 
@@ -237,5 +289,6 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };
+
 
 

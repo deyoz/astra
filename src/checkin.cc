@@ -9,6 +9,7 @@
 #include "seats.h"
 #include "stages.h"
 #include "tripinfo.h"
+#include "telegram.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -632,13 +633,28 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //лочим рейс
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,airp FROM points "
+    "SELECT airline,flt_no,airp,point_num, "
+    "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "FROM points "
     "WHERE point_id=:point_id AND airp=:airp AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.CreateVariable("airp",otString,airp_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   string airline=Qry.FieldAsString("airline");
+
+  TTypeBSendInfo sendInfo;
+  sendInfo.airline=Qry.FieldAsString("airline");
+  sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
+  sendInfo.airp_dep=Qry.FieldAsString("airp");
+  sendInfo.point_num=Qry.FieldAsInteger("point_num");
+  sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.tlg_type="BSM";
+
+  //BSM
+  map<bool,string> BSMaddrs;
+  TBSMContent BSMContentBefore;
+  bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
 
   point_arv=NodeAsInteger("point_arv",reqNode);
   airp_arv=NodeAsString("airp_arv",reqNode);
@@ -961,6 +977,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (Qry.RowsProcessed()<=0)
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
 
+    //BSM
+    if (BSMsend)
+      TelegramInterface::LoadBSMContent(grp_id,BSMContentBefore);
 
     TQuery PaxQry(&OraSession);
     PaxQry.Clear();
@@ -1233,6 +1252,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("class_grp",otInteger,class_grp);
     Qry.Execute();
   };
+
+  //BSM
+  if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
   //пересчитать данные по группе и отправить на клиент
   LoadPax(ctxt,reqNode,resNode);

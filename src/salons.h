@@ -5,9 +5,6 @@
 #include <vector>
 #include <libxml/tree.h>
 
-extern const char LAT_NAME_LINES[27];
-extern const char RUS_NAME_LINES[27];
-
 enum TReadStyle { rTripSalons, rComponSalons };
 
 enum TModify { mNone, mDelete, mAdd, mChange };
@@ -28,12 +25,12 @@ struct TPoint {
 
 struct TRem {
   std::string rem;
-  bool pr_denial;  
+  bool pr_denial;
 };
 
 class TPlace {
   public:
-    bool selected;  
+    bool selected;
     bool visible;
     int x, y;
     std::string elem_type;
@@ -75,25 +72,25 @@ class TPlaceList {
   private:
     std::vector<std::string> xs, ys;
   public:
-    TPlaces places;        
-    int num;      
-    TPlace *place( int idx ); 
-    TPlace *place( TPoint &p ); 
+    TPlaces places;
+    int num;
+    TPlace *place( int idx );
+    TPlace *place( TPoint &p );
     int GetPlaceIndex( TPoint &p );
     int GetPlaceIndex( int x, int y );
     int GetXsCount();
-    int GetYsCount();    
+    int GetYsCount();
     bool ValidPlace( TPoint &p );
     std::string GetPlaceName( TPoint &p );
     std::string GetXsName( int x );
-    std::string GetYsName( int y );    
+    std::string GetYsName( int y );
     bool GetisPlaceXY( std::string placeName, TPoint &p );
     void Add( TPlace &pl );
 };
 
 class TSalons {
   private:
-    TPlaceList* FCurrPlaceList;	
+    TPlaceList* FCurrPlaceList;
   public:
     int trip_id;
     int comp_id;
@@ -108,7 +105,7 @@ class TSalons {
     TSalons();
     TPlaceList *CurrPlaceList();
     void SetCurrPlaceList( TPlaceList *newPlaceList );
-    
+
     void Clear( );
     static bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
     static void GetTripParams( int trip_id, xmlNodePtr dataNode );
