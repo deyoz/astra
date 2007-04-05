@@ -20,15 +20,17 @@ astra_SOURCES = \
 	astra_main.cc            cent.cc         maindcs.cc               sopp.cc    print.cc \
 	astra_tick_read_edi.cpp  checkin.cc      prepreg.cc               stages.cc  docs.cc \
 	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc    telegram.cc \
-	events.cc		             base_tables.cc  develop_dbf.cc           astra_misc.cc design_blank.cc
+	events.cc		 base_tables.cc  develop_dbf.cc           flight_cent_dbf.cc \
+	design_blank.cc		 astra_service.cc astra_misc.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
+	file_server/libfile_server.a \
 	@ETICKLIB_LIBS@ \
 	@TCLMON_LIBS@ @ORACLE_LIBS@ @EDILIB_LIBS@ @JXTLIB_LIBS@ @SERVERLIB_LIBS@ @SHARED_LIBS@ \
 	$(LDZLIB) $(TCL_SYS_LIB) $(LDCRYPT) $(XML_LIBS) @CHECK_LIBS@
 
-SUBDIRS = tlg
+SUBDIRS = tlg file_server
 
 EXTRA_DIST = systarg.mk run astra.tcl PS Restart kills \
 	MAKE local_after_example.tcl local_before_example.tcl
@@ -43,5 +45,6 @@ noinst_HEADERS = \
 	astra_tick_read_edi.h  checkin.h              season.h     tripinfo.h \
 	astra_tick_reader.h    etick_change_status.h  seats.h      xml_unit.h \
 	astra_tick_view.h      etick.h                setup.h	   docs.h \
-	events.h		           base_tables.h	        astra_misc.h design_blank.h
+	events.h		base_tables.h	      flight_cent_dbf.h \
+	design_blank.h	        astra_misc.h 
 
