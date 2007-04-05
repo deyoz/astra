@@ -155,7 +155,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   string sql;
 
   Qry.Clear();
-  Qry.SQLText = "SELECT id,version FROM screen WHERE exe = :exe";
+  Qry.SQLText = "SELECT id,version,pr_logon FROM screen WHERE exe = :exe";
   Qry.DeclareVariable( "exe", otString );
   Qry.SetVariable( "exe", screen.name );
   Qry.Execute();
@@ -163,6 +163,9 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
+  
+  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
+  	return; //???
 
   Qry.Clear();
   Qry.SQLText =
