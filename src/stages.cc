@@ -155,7 +155,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        {
          exec_stage( point_id, (int)i->first );
        }
-       catch( std::exception E ) {
+       catch( std::exception &E ) {
          ProgError( STDLOG, "Exception: %s", E.what() );
        }
        catch( ... ) {
@@ -499,7 +499,7 @@ void astra_timer( TDateTime utcdate )
   				try {
   				  exec_stage( point_id, stage_id );
   				}
-  				catch( Exception E ) {
+  				catch( Exception &E ) {
             ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                        E.what(),
                        DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
@@ -515,7 +515,7 @@ void astra_timer( TDateTime utcdate )
           TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   				pr_exit = false;
   			}
-        catch( Exception E ) {
+        catch( Exception &E ) {
         	try { OraSession.Rollback( ); } catch(...) { };
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),

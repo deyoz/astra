@@ -38,7 +38,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       {
         exec_tasks();
       }
-      catch( std::exception E ) {
+      catch( std::exception &E ) {
         ProgError( STDLOG, "Exception: %s", E.what() );
       }
       catch( ... ) {
@@ -47,7 +47,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       sleep( sleepsec );
     };
   }
-  catch( std::exception E ) {
+  catch( std::exception &E ) {
     ProgError( STDLOG, "Exception: %s", E.what() );
   }
   catch( ... ) {
@@ -96,7 +96,7 @@ void exec_tasks( void )
 	    UQry.Execute();	 //???
 	    OraSession.Commit();
 	  }
-          catch( Exception E )
+          catch( Exception &E )
           {
     	    try { OraSession.Rollback(); } catch(...) {};
             ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );

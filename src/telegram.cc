@@ -909,7 +909,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
               SendTlg(tlg_id);
             }
-            catch( Exception E )
+            catch( Exception &E )
             {
               ProgError(STDLOG,"SendTlg (point_id=%d, type=%s): %s",point_id,t->c_str(),E.what());
             }
