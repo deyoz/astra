@@ -748,14 +748,14 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
   sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
-  sendInfo.airp_dep=Qry.FieldAsString("airp_dep");
+  sendInfo.airp_dep=Qry.FieldAsString("airp");
   sendInfo.first_point=Qry.FieldAsInteger("first_point");
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
 
   TTypeBAddrInfo addrInfo;
   addrInfo.airline=Qry.FieldAsString("airline");
   addrInfo.flt_no=Qry.FieldAsInteger("flt_no");
-  addrInfo.airp_dep=Qry.FieldAsString("airp_dep");
+  addrInfo.airp_dep=Qry.FieldAsString("airp");
   addrInfo.first_point=Qry.FieldAsInteger("first_point");
   addrInfo.point_num=Qry.FieldAsInteger("point_num");
 
