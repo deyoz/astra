@@ -150,9 +150,10 @@ typedef BaseResContrInfo ResContrInfo;
 class OrigOfRequest : public BaseOrigOfRequest
 {
 public:
-    OrigOfRequest(const TReqInfo &req)
+    OrigOfRequest(const std::string & airline,
+                  const TReqInfo &req)
     : BaseOrigOfRequest(
-                        "UT",
+                        airline,
                         "ŒŽ‚",
                         "","",//ppr,agn
                         req.desk.city,
@@ -162,25 +163,20 @@ public:
                         Lang::RUSSIAN)
     {
     }
-    OrigOfRequest(const std::string & airline,
-                  const std::string & location,
-                  const std::string & originLocation,
-                  char type,
-                  const std::string &pult,
-                  const std::string &authCode,
-                  Lang::Language lang=Lang::ENGLISH)
-    :BaseOrigOfRequest(
-                    airline,
-                    location,
-                    "", // ppr
-                    "", // agn
-                    originLocation,
-                    type,
-                    pult,
-                    authCode,
-                    lang)
+
+    OrigOfRequest(const std::string & airline)
+    : BaseOrigOfRequest(
+                        airline,
+                        "ŒŽ‚",
+                        "","",//ppr,agn
+                        "ŒŽ‚",
+                        'Y',
+                        "SYSTEM",
+                        "",
+                        Lang::RUSSIAN)
     {
     }
+
     OrigOfRequest(const std::string & airline,
                   const std::string & location,
                   const std::string & ppr,
