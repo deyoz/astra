@@ -1,6 +1,5 @@
 #include "etick.h"
 #include <string>
-#include "query_runner.h"
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "test.h"
@@ -14,6 +13,7 @@
 #include "jxt_cont.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "base_tables.h"
 
 using namespace std;
 using namespace Ticketing;
@@ -32,8 +32,30 @@ using namespace EXCEPTIONS;
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
+  //int point_id=NodeAsInteger("point_id",reqNode); это позже
+  int point_id = JxtContext::getJxtContHandler()->currContext()->readInt("CKIN_TRIP_ID");
+  TQuery Qry(&OraSession);
+  Qry.SQLText="SELECT airline,flt_no FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof||
+      !set_edi_addrs(Qry.FieldAsString("airline"),
+                     Qry.FieldAsInteger("flt_no")))
+    throw EXCEPTIONS::Exception("ETSearch: edifact UNB-adresses not defined ");
 
-  OrigOfRequest org(*TReqInfo::Instance());
+  string oper_carrier=Qry.FieldAsString("airline");
+
+  try
+  {
+    TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
+    if (!row.code_lat.empty()) oper_carrier=row.code_lat;
+  }
+  catch(EBaseTableError) {};
+
+  ProgTrace(TRACE5,"ETSearch: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
+                   oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
+
+  OrigOfRequest org(oper_carrier,*TReqInfo::Instance());
   TickDispByNum tickDisp(org, tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
   showProgError("Нет связи с сервером эл. билетов");
@@ -98,7 +120,7 @@ void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
-  if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("pax_id",reqNode),csaPax,point_id))
+  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,point_id))
     showProgError("Нет связи с сервером эл. билетов");
 };
 
@@ -107,7 +129,7 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
-  if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("grp_id",reqNode),csaGrp,point_id))
+  if (ETCheckStatus(NodeAsInteger("grp_id",reqNode),csaGrp,point_id))
     showProgError("Нет связи с сервером эл. билетов");
 };
 
@@ -116,7 +138,7 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int point_id=-1;
   if (node!=NULL) point_id=NodeAsInteger(node);
-  if (ETCheckStatus(OrigOfRequest(*TReqInfo::Instance()),NodeAsInteger("point_id",reqNode),csaFlt,point_id))
+  if (ETCheckStatus(NodeAsInteger("point_id",reqNode),csaFlt,point_id))
     showProgError("Нет связи с сервером эл. билетов");
 };
 
@@ -132,7 +154,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 };
 
-bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, int point_id)
+bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
 {
   TQuery Qry(&OraSession);
   string sql=
@@ -189,6 +211,8 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
   Qry.SQLText=sql;
   Qry.Execute();
   list<Ticket> ltick;
+  string oper_carrier;
+  bool init_edi_addrs=false;
 
   if (!Qry.Eof)
   {
@@ -248,6 +272,13 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
 
         Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
         ltick.push_back(tick);
+        if (oper_carrier.empty())
+          oper_carrier=Qry.FieldAsString("oper_carrier");
+        if (!init_edi_addrs)
+          init_edi_addrs=
+            set_edi_addrs(Qry.FieldAsString("oper_carrier"),
+                          Qry.FieldAsInteger("flt_no"));
+
         ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                          Qry.FieldAsString("ticket_no"),
                          Qry.FieldAsInteger("coupon_no"),
@@ -305,6 +336,13 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
       lcpn.push_back(cpn);
       Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
       ltick.push_back(tick);
+      if (oper_carrier.empty())
+        oper_carrier=Qry.FieldAsString("oper_carrier");
+      if (!init_edi_addrs)
+        init_edi_addrs=
+          set_edi_addrs(Qry.FieldAsString("oper_carrier"),
+                        Qry.FieldAsInteger("flt_no"));
+
       ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                        Qry.FieldAsString("ticket_no"),
                        Qry.FieldAsInteger("coupon_no"),
@@ -314,10 +352,36 @@ bool ETCheckStatus(const OrigOfRequest &org, int id, TETCheckStatusArea area, in
 
 
   if (!ltick.empty())
-    ChangeStatus::ETChangeStatus(org, ltick);
+  {
+    if (oper_carrier.empty())
+      throw EXCEPTIONS::Exception("ETCheckStatus: unkown operation carrier");
+    if (!init_edi_addrs)
+      throw EXCEPTIONS::Exception("ETCheckStatus: edifact UNB-adresses not defined ");
 
+    try
+    {
+      TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",oper_carrier);
+      if (!row.code_lat.empty()) oper_carrier=row.code_lat;
+    }
+    catch(EBaseTableError) {};
 
+    ProgTrace(TRACE5,"ETCheckStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
+                     oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
+    TReqInfo& reqInfo = *(TReqInfo::Instance());
+    if (reqInfo.desk.code.empty())
+    {
+      //не запрос
+      OrigOfRequest org(oper_carrier);
+      ChangeStatus::ETChangeStatus(org, ltick);
+    }
+    else
+    {
+      OrigOfRequest org(oper_carrier,reqInfo);
+      ChangeStatus::ETChangeStatus(org, ltick);
+    };
+
+  };
   return (!ltick.empty());
 }
 

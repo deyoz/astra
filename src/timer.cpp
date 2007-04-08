@@ -6,7 +6,6 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "etick.h"
-#include "astra_ticket.h"
 #include "season.h"
 #include "stages.h"
 #include "tlg/tlg.h"
@@ -15,6 +14,8 @@
 #include "test.h"
 #include <daemon.h>
 #include "astra_consts.h"
+#include "astra_utils.h"
+#include "base_tables.h"
 #include "cfgproc.h"
 const int sleepsec = 5;
 
@@ -22,7 +23,6 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
-using namespace Ticketing;
 
 int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
@@ -36,6 +36,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       try
       {
+        base_tables.Invalidate();
         exec_tasks();
       }
       catch( std::exception &E ) {
@@ -79,6 +80,7 @@ void exec_tasks( void )
 	string name;
 	while ( !Qry.Eof )
 	{
+	  TReqInfo::Instance()->clear();
 	  try
 	  {
 	    name = Qry.FieldAsString( "name" );
@@ -149,14 +151,7 @@ void ETCheckStatusFlt(void)
       try
       {
       	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
-      	OrigOfRequest org("UT",
-      	                  "ŒŽ‚",
-      	                  "ŒŽ‚",
-                          'Y',
-                          "SYSTEM",
-                          "",
-                          Lang::RUSSIAN);
-        if (!ETCheckStatus(org,Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
+        if (!ETCheckStatus(Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
         {
           UpdQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
           UpdQry.Execute();
