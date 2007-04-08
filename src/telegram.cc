@@ -18,6 +18,8 @@
 #include "astra_misc.h"
 #include "astra_service.h"
 
+#define ENDL "\015\012"
+
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
@@ -591,9 +593,11 @@ void TelegramInterface::SendTlg(int tlg_id)
       else
       {
         //это передача файлов
+        //string data=AddrQry.GetVariableAsString("addrs")+tlg_text;
+        string data=TlgQry.FieldAsString("body");
         map<string,string> params;
         putFile(i->first.c_str(),OWN_POINT_ADDR(),tlg_type.c_str(),params,
-                tlg_text.size(),(void*)tlg_text.c_str());
+                data.size(),(void*)data.c_str());
       };
     };
   };
@@ -1198,19 +1202,19 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
   body.setf(ios::fixed);
 
-  body << "BSM" << endl;
+  body << "BSM" << ENDL;
 
   switch(con.indicator)
   {
-    case CHG: body << "CHG" << endl;
+    case CHG: body << "CHG" << ENDL;
               break;
-    case DEL: body << "DEL" << endl;
+    case DEL: body << "DEL" << ENDL;
               break;
      default: ;
   };
 
   body << ".V/1L"
-       << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat) << endl;
+       << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat) << ENDL;
 
 
   body << ".F/"
@@ -1219,7 +1223,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
        << convert_suffix(con.OutFlt.suffix,pr_lat) << '/'
        << DateTimeToStr( con.OutFlt.scd, "ddmmm", pr_lat) << '/'
        << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat) << '/'
-       << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat) << endl;
+       << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat) << ENDL;
 
   for(vector<TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
   {
@@ -1229,7 +1233,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
          << convert_suffix(i->suffix,pr_lat) << '/'
          << DateTimeToStr( i->scd, "ddmmm", pr_lat) << '/'
          << airps.get_row("code",i->airp_arv).AsString("code",pr_lat) << '/'
-         << subcls.get_row("code",i->subcl).AsString("code",pr_lat) << endl;
+         << subcls.get_row("code",i->subcl).AsString("code",pr_lat) << ENDL;
   };
 
   if (!con.tags.empty())
@@ -1244,7 +1248,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
       {
         body << ".N/"
              << setw(10) << setfill('0') << setprecision(0) << first_no << '/'
-             << setw(3) << setfill('0') << num << endl;
+             << setw(3) << setfill('0') << num << ENDL;
       };
       if (i==con.tags.end()) break;
       if (i==con.tags.begin() || i->no!=first_no+num)
@@ -1262,7 +1266,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
          << (con.indicator==DEL?'N':'Y') << '/'
          << convert_seat_no(con.pax.seat_no,pr_lat) << '/'
          << con.pax.status << '/'
-         << setw(3) << setfill('0') << con.pax.reg_no << endl;
+         << setw(3) << setfill('0') << con.pax.reg_no << ENDL;
 
   int bag_amount=0,bag_weight=0;
   bool pr_W=true;
@@ -1297,7 +1301,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
       if (con.bag.rk_weight>0)
         body << '/' << con.bag.rk_weight;
     };
-    body << endl;
+    body << ENDL;
   };
 
   if (con.pax.reg_no!=-1)
@@ -1306,13 +1310,13 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
          << transliter(con.pax.surname,pr_lat);
     if (!con.pax.name.empty())
       body << '/' << transliter(con.pax.name,pr_lat);
-    body  << endl;
+    body  << ENDL;
 
     if (!con.pax.pnr_addr.empty())
-      body << ".L/" << convert_pnr_addr(con.pax.pnr_addr,pr_lat) << endl;
+      body << ".L/" << convert_pnr_addr(con.pax.pnr_addr,pr_lat) << ENDL;
   };
 
-  body << "ENDBSM" << endl;
+  body << "ENDBSM" << ENDL;
 
   ProgTrace(TRACE5,"/n%s",body.str().c_str());
 
@@ -1401,7 +1405,7 @@ void TelegramInterface::SendBSM
     p.pr_dep=true;
     p.time_create=NowUTC();
     ostringstream heading;
-    heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << endl;
+    heading << '.' << OWN_SITA_ADDR() << ' ' << DateTimeToStr(p.time_create,"ddhhnn") << ENDL;
     p.heading=heading.str();
 
     TQuery AddrQry(&OraSession);
