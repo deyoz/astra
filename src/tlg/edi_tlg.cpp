@@ -9,10 +9,10 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "cont_tools.h"
-#include "slogger.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
+#include "slogger.h"
 
 using namespace edilib;
 using namespace edilib::EdiSess;

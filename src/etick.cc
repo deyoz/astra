@@ -3,6 +3,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "test.h"
+#include "query_runner.h"
 #include "xml_unit.h"
 #include "tlg/edi_tlg.h"
 #include "edilib/edi_func_cpp.h"
