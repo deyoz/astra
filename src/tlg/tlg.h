@@ -1,7 +1,8 @@
 #ifndef _TLG_H_
 #define _TLG_H_
 
-#include "query_runner.h"
+//#include "query_runner.h"
+#include "daemon.h"
 
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536
@@ -71,5 +72,7 @@ void sendErrorTlg(const char* receiver, const char* sender, const char *format, 
 
 void sendCmd(const char* receiver, const char* cmd);
 bool waitCmd(const char* receiver, int secs, const char* buf, int buflen);
+
+void sendCmdTlgSnd();
 
 #endif

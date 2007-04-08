@@ -5,6 +5,10 @@
 #include "astra_ticket.h"
 #include "monitor_ctl.h"
 
+bool set_edi_addrs(std::string airline,int flt_no=-1);
+std::string get_edi_addr();
+std::string get_edi_own_addr();
+
 std::string get_last_session_ref();
 
 struct EdiMess
@@ -53,8 +57,8 @@ public:
     virtual std::string ctrlAgency() const { return "IA"; }
     virtual std::string version() const { return "96"; }
     virtual std::string subVersion() const { return "2"; }*/
-    virtual std::string ourUnbAddr() const { return "ASTRA"; }
-    virtual std::string unbAddr() const { return "ETICK"; }
+    virtual std::string ourUnbAddr() const { return get_edi_own_addr(); }
+    virtual std::string unbAddr() const { return get_edi_addr(); }
 };
 
 class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
