@@ -16,6 +16,7 @@
 #include <string>
 #include "tripinfo.h"
 #include "season.h" //???
+#include "telegram.h"
 #include "boost/date_time/local_time/local_time.hpp"
 
 using namespace std;
@@ -971,34 +972,80 @@ void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	 "BEGIN "\
-   " DECLARE "\
-   " CURSOR cur IS "\
-   "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id; "\
-   " curRow      cur%ROWTYPE; "\
-   " vpoint_id    points.point_id%TYPE; "\
-   " BEGIN "\
-   "  SELECT point_id INTO vpoint_id FROM points WHERE point_id=:point_id FOR UPDATE; "\
-   "  UPDATE trip_comp_elems SET pr_free=1 WHERE point_id=:point_id; "\
-   "  FOR curRow IN cur LOOP "\
-   "    UPDATE pax SET refuse='А',pr_brd=NULL,seat_no=NULL WHERE grp_id=curRow.grp_id; "\
-   "    mvd.sync_pax_grp(curRow.grp_id,:term); "\
-   "    ckin.check_grp(curRow.grp_id); "\
-   "  END LOOP; "\
-   "  ckin.recount(:point_id); "\
-   " EXCEPTION "\
-   "  WHEN NO_DATA_FOUND THEN "\
-   "   IF vpoint_id IS NOT NULL THEN RAISE; END IF; "\
-   " END;"\
-   "END;";
   int point_id = NodeAsInteger( "point_id", reqNode );
+
+	TQuery Qry(&OraSession);
+	Qry.Clear();
+	Qry.SQLText=
+	  "SELECT airline,flt_no,airp,point_num, "
+    "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+
+  TTypeBSendInfo sendInfo;
+  sendInfo.airline=Qry.FieldAsString("airline");
+  sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
+  sendInfo.airp_dep=Qry.FieldAsString("airp");
+  sendInfo.point_num=Qry.FieldAsInteger("point_num");
+  sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.tlg_type="BSM";
+
+  //BSM
+  map<bool,string> BSMaddrs;
+  map<int,TBSMContent> BSMContentBefore;
+  bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
+
+  if (BSMsend)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    for(;!Qry.Eof;Qry.Next())
+    {
+      TBSMContent BSMContent;
+      TelegramInterface::LoadBSMContent(Qry.FieldAsInteger("grp_id"),BSMContent);
+      BSMContentBefore[Qry.FieldAsInteger("grp_id")]=BSMContent;
+    };
+  };
+
+  Qry.Clear();
+	Qry.SQLText =
+	 "BEGIN "
+   " DECLARE "
+   " CURSOR cur IS "
+   "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id; "
+   " curRow      cur%ROWTYPE; "
+   " BEGIN "
+   "  UPDATE trip_comp_elems SET pr_free=1 WHERE point_id=:point_id; "
+   "  FOR curRow IN cur LOOP "
+   "    UPDATE pax SET refuse='А',pr_brd=NULL,seat_no=NULL WHERE grp_id=curRow.grp_id; "
+   "    mvd.sync_pax_grp(curRow.grp_id,:term); "
+   "    ckin.check_grp(curRow.grp_id); "
+   "  END LOOP; "
+   "  ckin.recount(:point_id); "
+   " END; "
+   "END;";
+
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
   Qry.Execute();
   TReqInfo::Instance()->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
   showMessage( "Все пассажиры разрегистрированы" );
+
+  //BSM
+  if (BSMsend)
+  {
+    map<int,TBSMContent>::iterator i;
+    for(i=BSMContentBefore.begin();i!=BSMContentBefore.end();i++)
+    {
+      TelegramInterface::SendBSM(point_id,i->first,i->second,BSMaddrs);
+    };
+  };
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
