@@ -20,7 +20,7 @@
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
 
-#include "flight_cent_dbf.h" //!!!
+//#include "flight_cent_dbf.h" //!!!
 
 using namespace std;
 using namespace BASIC;
@@ -29,22 +29,31 @@ using namespace ASTRA;
 using namespace boost::local_time;
 
 const char* pointsSQL =
-    "SELECT points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
+    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "
+    "       trfer_in.point_id trferin, trfer_out.point_id trferout "
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p, "
+    "      (SELECT DISTINCT tlg_binding.point_id_spp AS point_id "
+    "       FROM tlg_binding,tlg_transfer "
+    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_in) trfer_out, "
+    "      (SELECT DISTINCT tlg_binding.point_id_spp AS point_id "
+    "       FROM tlg_binding,tlg_transfer "
+    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_out) trfer_in "
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
+    "     AND points.point_id=trfer_in.point_id(+) "
+    "     AND points.point_id=trfer_out.point_id(+) "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_pointsSQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid "
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, NULL trferin, NULL trferout "
     " FROM arx_points, "
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
@@ -123,6 +132,8 @@ struct TDest2 {
   int pr_del;
   int tid;
   string region;
+  bool trferin;  
+  bool trferout;
 };
 
 struct TSoppStage {
@@ -191,6 +202,8 @@ struct TTrip {
   string crs_disp_to;
 
   string region;
+  bool trferin;  
+  bool trferout;
 
   TTrip() {
     flt_no_in = NoExists;
@@ -207,6 +220,8 @@ struct TTrip {
     reg = 0;
     resa = 0;
     pr_reg = 0;
+    trferin = false;
+    trferout = false;
   }
 };
 
@@ -231,6 +246,8 @@ struct TCRS_Displaces {
 
 void GetCRS_Displaces( TCRS_Displaces &crsd );
 void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to );
+void read_tripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id );
+void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode );
 
 string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string region )
 {
@@ -278,6 +295,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;
+    trip.trferin = pd->trferin;
 
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
@@ -305,6 +323,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
+    trip.trferout = id->trferout;
   }
   trip.region = id->region;
   return trip;
@@ -347,6 +366,60 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
     return canuseTR;
   }
   return true;
+}
+
+void read_TripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id )
+{
+	stages.clear();
+  TQuery StagesQry( &OraSession );
+  if ( arx ) {
+  	StagesQry.SQLText = arx_stagesSQL;
+  	StagesQry.CreateVariable( "arx_date", otDate, first_date - 2 );
+  }
+  else
+    StagesQry.SQLText = stagesSQL;
+  StagesQry.CreateVariable( "point_id", otInteger, point_id );
+  StagesQry.Execute();
+  while ( !StagesQry.Eof ) {
+    TSoppStage stage;
+    stage.stage_id = StagesQry.FieldAsInteger( "stage_id" );
+    if ( StagesQry.FieldIsNULL( "scd" ) )
+      stage.scd = NoExists;
+    else
+      stage.scd = StagesQry.FieldAsDateTime( "scd" );
+    if ( StagesQry.FieldIsNULL( "est" ) )
+      stage.est = NoExists;
+    else
+      stage.est = StagesQry.FieldAsDateTime( "est" );
+    if ( StagesQry.FieldIsNULL( "act" ) )
+      stage.act = NoExists;
+    else
+      stage.act = StagesQry.FieldAsDateTime( "act" );
+    stage.pr_manual = StagesQry.FieldAsInteger( "pr_manual" );
+    stage.pr_auto = StagesQry.FieldAsInteger( "pr_auto" );
+
+    stages.push_back( stage );
+    StagesQry.Next();
+  }
+}
+
+void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode )
+{
+  xmlNodePtr lNode = NULL;
+  for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
+    if ( !lNode )
+      lNode = NewTextChild( tripNode, "stages" );
+    xmlNodePtr stageNode = NewTextChild( lNode, "stage" );
+    NewTextChild( stageNode, "stage_id", st->stage_id );
+    if ( st->scd > NoExists )
+      NewTextChild( stageNode, "scd", DateTimeToStr( UTCToClient( st->scd, region ), ServerFormatDateTimeAsString ) );
+    if ( st->est > NoExists )
+      NewTextChild( stageNode, "est", DateTimeToStr( UTCToClient( st->est, region ), ServerFormatDateTimeAsString ) );
+    if ( st->act > NoExists )
+      NewTextChild( stageNode, "act", DateTimeToStr( UTCToClient( st->act, region ), ServerFormatDateTimeAsString ) );
+    NewTextChild( stageNode, "pr_auto", st->pr_auto );
+    NewTextChild( stageNode, "pr_manual", st->pr_manual );
+  }
 }
 
 void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, bool arx, int point_id = NoExists )
@@ -396,20 +469,14 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     ResaQry.SQLText = resaSQL;
     ResaQry.DeclareVariable( "point_id", otInteger );
   }
-  TQuery StagesQry( &OraSession );
-  if ( arx ) {
-  	StagesQry.SQLText = arx_stagesSQL;
-  	StagesQry.CreateVariable( "arx_date", otDate, first_date - 2 );
-  }
-  else
-    StagesQry.SQLText = stagesSQL;
-  StagesQry.DeclareVariable( "point_id", otInteger );
   TQuery StationsQry( &OraSession );
   if ( !arx ) {
     StationsQry.SQLText = stationsSQL;
     StationsQry.DeclareVariable( "point_id", otInteger );
   }
+  tst();
   PointsQry.Execute();
+  tst();
   TDests dests;
   int move_id = NoExists;
   /*ProgTrace( TRACE5, "canUseAirline=%d, canUseAirp=%d",
@@ -505,6 +572,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.pr_del = PointsQry.FieldAsInteger( "pr_del" );
     d.tid = PointsQry.FieldAsInteger( "tid" );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
+    d.trferin = !PointsQry.FieldIsNULL( "trferin" );    
+    d.trferout = !PointsQry.FieldIsNULL( "trferout" );
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -578,29 +647,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
           tr->resa = ResaQry.FieldAsInteger( "resa" );
       }
       ////////////////////// stages ///////////////////////////////
-      StagesQry.SetVariable( "point_id", tr->point_id );
-      StagesQry.Execute();
-      while ( !StagesQry.Eof ) {
-        TSoppStage stage;
-        stage.stage_id = StagesQry.FieldAsInteger( "stage_id" );
-        if ( StagesQry.FieldIsNULL( "scd" ) )
-          stage.scd = NoExists;
-        else
-          stage.scd = StagesQry.FieldAsDateTime( "scd" );
-        if ( StagesQry.FieldIsNULL( "est" ) )
-          stage.est = NoExists;
-        else
-          stage.est = StagesQry.FieldAsDateTime( "est" );
-        if ( StagesQry.FieldIsNULL( "act" ) )
-          stage.act = NoExists;
-        else
-          stage.act = StagesQry.FieldAsDateTime( "act" );
-        stage.pr_manual = StagesQry.FieldAsInteger( "pr_manual" );
-        stage.pr_auto = StagesQry.FieldAsInteger( "pr_auto" );
-
-        tr->stages.push_back( stage );
-        StagesQry.Next();
-      }
+      read_TripStages( tr->stages, arx, first_date, tr->point_id );
       ////////////////////////// stations //////////////////////////////
       if ( !arx ) {
         StationsQry.SetVariable( "point_id", tr->point_id );
@@ -624,11 +671,11 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 
-  createCentringFile( 13672, "ASTRA", "DMDTST" );
-
+//  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "CorrectStages", reqNode ) ) {
+  	tst();
     TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
   }
   TDateTime vdate, first_date, next_date;
@@ -658,6 +705,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     next_date = NoExists;
   }
   TTrips trips;
+  tst();
   internal_ReadData( trips, first_date, next_date, arx );
   tst();
   xmlNodePtr tripsNode = NULL;
@@ -734,6 +782,12 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( tr->pr_del_out )
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
     NewTextChild( tripNode, "pr_reg", tr->pr_reg );
+    if ( tr->trferin ) {
+    	NewTextChild( tripNode, "trferin", "+" );    
+    }    
+    if ( tr->trferout ) {
+    	NewTextChild( tripNode, "trferout", "+" );
+    }
     lNode = NULL;
     for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
       if ( !lNode )
@@ -750,21 +804,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "crs_disp_from", tr->crs_disp_from );
     if ( !tr->crs_disp_to.empty() )
       NewTextChild( tripNode, "crs_disp_to", tr->crs_disp_to );
-    lNode = NULL;
-    for ( tstages::iterator st=tr->stages.begin(); st!=tr->stages.end(); st++ ) {
-      if ( !lNode )
-        lNode = NewTextChild( tripNode, "stages" );
-      xmlNodePtr stageNode = NewTextChild( lNode, "stage" );
-      NewTextChild( stageNode, "stage_id", st->stage_id );
-      if ( st->scd > NoExists )
-        NewTextChild( stageNode, "scd", DateTimeToStr( UTCToClient( st->scd, tr->region ), ServerFormatDateTimeAsString ) );
-      if ( st->est > NoExists )
-        NewTextChild( stageNode, "est", DateTimeToStr( UTCToClient( st->est, tr->region ), ServerFormatDateTimeAsString ) );
-      if ( st->act > NoExists )
-        NewTextChild( stageNode, "act", DateTimeToStr( UTCToClient( st->act, tr->region ), ServerFormatDateTimeAsString ) );
-      NewTextChild( stageNode, "pr_auto", st->pr_auto );
-      NewTextChild( stageNode, "pr_manual", st->pr_manual );
-    }
+    build_TripStages( tr->stages, tr->region, tripNode );
     lNode = NULL;
     for ( tstations::iterator st=tr->stations.begin(); st!=tr->stations.end(); st++ ) {
       if ( !lNode )
@@ -1382,7 +1422,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
     first_point = point_id;
 	Qry.Clear();
 	Qry.SQLText =
-	 "SELECT cargo,mail,a.airp airp_arv,a.point_id point_arv "\
+	 "SELECT cargo,mail,a.airp airp_arv,a.point_id point_arv, a.point_num "\
 	 " FROM trip_load, "\
 	 "( SELECT point_id, point_num, airp FROM points "
 	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ) a, "\
@@ -1390,7 +1430,8 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "\
 	 "  GROUP BY airp ) b "\
 	 "WHERE a.point_num=b.point_num AND trip_load.point_dep(+)=:point_id AND "\
-	 "      trip_load.point_arv(+)=a.point_id ";
+	 "      trip_load.point_arv(+)=a.point_id "\
+	 "ORDER BY a.point_num ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
@@ -1505,6 +1546,21 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "luggage", reqNode ) ) {
   	tst();
   	GetLuggage( point_id, dataNode );
+  }
+  if ( GetNode( "stages", reqNode ) ) {
+  	TQuery Qry(&OraSession );
+  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+  	if ( !Qry.Eof ) {
+  	  vector<TSoppStage> stages;
+      TBaseTable &airps = base_tables.get( "airps" );
+      TBaseTable &cities = base_tables.get( "cities" );
+  	  read_TripStages( stages, false, 0, point_id );
+      string city = ((TAirpsRow&)airps.get_row( "code", Qry.FieldAsString( "airp" ) )).city;
+      string region = ((TCitiesRow&)cities.get_row( "code", city )).region;
+  	  build_TripStages( stages, region, dataNode );
+    }
   }
 tst();
 }
