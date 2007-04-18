@@ -1002,7 +1002,7 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
                   };
                   try
                   {
-                    EncodeDate(year,mon,currday,day_create);
+                    EncodeDate(year,mon,day,day_create);
                     EncodeTime(hour,min,sec,time_create);
                     infoh.time_create=day_create+time_create;
                   }
