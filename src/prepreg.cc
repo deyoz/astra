@@ -14,6 +14,7 @@
 #include "oralib.h"
 #include "stl_utils.h"
 #include "tripinfo.h"
+#include "docs.h"
 
 using namespace std;
 using namespace BASIC;
@@ -428,6 +429,7 @@ void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewPNL( point_id, dataNode );
+  get_report_form("PNLPaxList", resNode);
 }
 
 
