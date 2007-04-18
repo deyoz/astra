@@ -14,6 +14,34 @@
 using namespace EXCEPTIONS;
 using namespace std;
 
+void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
+{
+  xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
+  xmlNodePtr itemNode,node;
+
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airp FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  string airp_dep=Qry.FieldAsString("airp");
+
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
+  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.Execute();
+  node = NewTextChild( tripdataNode, "halls" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    itemNode = NewTextChild( node, "hall" );
+    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
+    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+  };
+}
+
 void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();

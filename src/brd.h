@@ -41,6 +41,7 @@ public:
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
+  static void readTripData( int point_id, xmlNodePtr dataNode );
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
 };

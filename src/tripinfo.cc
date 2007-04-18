@@ -493,6 +493,8 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   {
     if ( GetNode( "counters", reqNode ) )
       BrdInterface::readTripCounters( point_id, dataNode );
+    if ( GetNode( "tripdata", reqNode ) )
+      BrdInterface::readTripData( point_id, dataNode );
     if ( GetNode( "paxdata", reqNode ) )
       BrdInterface::GetPax(reqNode,resNode);
   };
