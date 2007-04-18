@@ -549,7 +549,8 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
 {
   string code = cachetable->code();
   if ( code == "TRIP_BP" ||
-       code == "TRIP_BRD" ) {
+       code == "TRIP_BRD_WITH_REG" ||
+       code == "TRIP_EXAM_WITH_BRD" ) {
     message.ev_type = evtFlt;
     int FieldIndex;
     int point_id;
@@ -593,16 +594,26 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       }
       return;
     }
-    if ( code == "TRIP_BRD" ) {
+    if ( code == "TRIP_BRD_WITH_REG" ||
+         code == "TRIP_EXAM_WITH_BRD" ) {
       message.msg.clear();
       if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
         message.msg = "Отменен режим";
         FieldIndex = cachetable->FieldIndex( "pr_with_reg" );
-        if ( row.old_cols[ FieldIndex ] == "0" )
-          message.msg += " раздельной";
+        if (code == "TRIP_BRD_WITH_REG")
+        {
+          if ( row.old_cols[ FieldIndex ] == "0" )
+            message.msg += " раздельной регистрации и посадки";
+          else
+            message.msg += " посадки при регистрации";
+        }
         else
-          message.msg += " совмещенной";
-        message.msg += " регистрации и посадки";
+        {
+          if ( row.old_cols[ FieldIndex ] == "0" )
+            message.msg += " раздельной посадки и досмотра";
+          else
+            message.msg += " досмотра при посадке";
+        };
         FieldIndex = cachetable->FieldIndex( "hall_id" );
         if ( !row.old_cols[ FieldIndex ].empty() ) {
           message.msg += " для зала '";
@@ -614,11 +625,20 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
         message.msg += "Установлен режим";
         FieldIndex = cachetable->FieldIndex( "pr_with_reg" );
-        if ( row.cols[ FieldIndex ] == "0" )
-          message.msg += " раздельной";
+        if (code == "TRIP_BRD_WITH_REG")
+        {
+          if ( row.cols[ FieldIndex ] == "0" )
+            message.msg += " раздельной регистрации и посадки";
+          else
+            message.msg += " посадки при регистрации";
+        }
         else
-          message.msg += " совмещенной";
-        message.msg += " регистрации и посадки";
+        {
+          if ( row.cols[ FieldIndex ] == "0" )
+            message.msg += " раздельной посадки и досмотра";
+          else
+            message.msg += " досмотра при посадке";
+        };
         FieldIndex = cachetable->FieldIndex( "hall_id" );
         if ( !row.cols[ FieldIndex ].empty() ) {
           message.msg += " для зала '";

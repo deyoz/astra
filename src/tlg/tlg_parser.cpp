@@ -2155,20 +2155,6 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
     res=sscanf(tlg.lex,"%6[A-Z€-Ÿð0-9]%c",rem_code,&c);
     if (c!=0||res!=1) continue;
 
-    if (strcmp(rem_code,"TKNO")==0||
-        strcmp(rem_code,"TKNA")==0||
-        strcmp(rem_code,"TKNE")==0||
-        strcmp(rem_code,"TKNM")==0||
-        strcmp(rem_code,"TKN")==0||
-        strcmp(rem_code,"TKT")==0||
-        strcmp(rem_code,"TKTN")==0||
-        strcmp(rem_code,"TKTNO")==0||
-        strcmp(rem_code,"TTKNR")==0||
-        strcmp(rem_code,"TTKNO")==0)
-    {
-      strcpy(iRemItem->code,"TKNO");
-      continue;
-    };
     if (strlen(rem_code)<=5) strcpy(iRemItem->code,rem_code);
 
     num=1;

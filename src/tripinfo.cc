@@ -313,7 +313,8 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
            "                                 points.point_num)) AND "
            "aro_airps.aro_id=:user_id ";
   };
-  sql+="ORDER BY real_out DESC";
+  sql+="ORDER BY TRUNC(real_out) DESC,flt_no,airline, "
+       "         NVL(suffix,' '),move_id,point_num";
   Qry.SQLText = sql;
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   p.setVariables( Qry );
@@ -343,8 +344,10 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.airp, "
     "       points.scd_out, "
     "       points.act_out, "
+    "       points.bort, "
+    "       points.park_out, "
     "       SUBSTR(ckin.get_classes(points.point_id),1,50) AS classes, "
-    "       SUBSTR(ckin.get_airps(points.point_id),1,50) AS places, "
+    "       SUBSTR(ckin.get_airps(points.point_id),1,50) AS route, "
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
     "       points.trip_type, "
     "       points.litera, "
@@ -563,8 +566,11 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     act_out= 0;
     NewTextChild( node, "act_out" );
   };
+  NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
+  NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
-  NewTextChild( node, "places", Qry.FieldAsString( "places" ) );
+  NewTextChild( node, "route", Qry.FieldAsString( "route" ) );
+  NewTextChild( node, "places", Qry.FieldAsString( "route" ) );
   NewTextChild( node, "trip_type", Qry.FieldAsString( "trip_type" ) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
@@ -1299,23 +1305,26 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession );
   Qry.SQLText =
-    "SELECT ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "\
-    "       RTRIM(surname||' '||name) full_name, "\
-    "       pers_type, "\
-    "       class,crs_pnr.subclass, "\
-    "       NVL(preseat_no,seat_no) seat_no, "\
-    "       crs_pax.seats seats, "\
-    "       target, "\
-    "       report.get_trfer_airp(airp_arv) AS last_target, "\
-    "       report.get_PSPT(pax_id) AS document, "\
-    "       pax_id, "\
-    "       crs_pax.tid tid, "\
-    "       crs_pnr.pnr_id "\
-    " FROM crs_pnr,tlg_binding,crs_pax,v_last_crs_trfer "\
-    "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "\
-    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "\
-    "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "\
-    "      crs_pax.pr_del=0 "\
+    "SELECT pax.reg_no, "
+    "       ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+    "       RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
+    "       crs_pax.pers_type, "
+    "       crs_pnr.class,crs_pnr.subclass, "
+    "       crs_pax.seat_no,crs_pax.preseat_no, "
+    "       crs_pax.seats seats, "
+    "       crs_pnr.target, "
+    "       report.get_trfer_airp(airp_arv) AS last_target, "
+    "       report.get_PSPT(crs_pax.pax_id) AS document, "
+    "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
+    "       crs_pax.pax_id, "
+    "       crs_pax.tid tid, "
+    "       crs_pnr.pnr_id "
+    " FROM crs_pnr,tlg_binding,crs_pax,v_last_crs_trfer,pax "
+    "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "
+    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+    "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "
+    "      crs_pax.pax_id=pax.pax_id(+) AND "
+    "      crs_pax.pr_del=0 "
     "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
@@ -1329,36 +1338,34 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   dataNode = NewTextChild( dataNode, "trippnl" );
   while ( !Qry.Eof ) {
     xmlNodePtr itemNode = NewTextChild( dataNode, "item" );
-    NewTextChild( itemNode, "pnr_ref", Qry.FieldAsString( "pnr_ref" ) );
+    if (!Qry.FieldIsNULL("reg_no"))
+      NewTextChild( itemNode, "reg_no", Qry.FieldAsInteger( "reg_no" ) );
+    NewTextChild( itemNode, "pnr_ref", Qry.FieldAsString( "pnr_ref" ), "" );
     NewTextChild( itemNode, "full_name", Qry.FieldAsString( "full_name" ) );
-    NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ) );
+    NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ), EncodePerson(ASTRA::adult) );
     NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
     NewTextChild( itemNode, "subclass", Qry.FieldAsString( "subclass" ) );
-    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
-    if ( Qry.FieldAsInteger( "seats" ) > 1 )
-      NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ) );
+    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
+    NewTextChild( itemNode, "preseat_no", Qry.FieldAsString( "preseat_no" ), "" );
+    NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ), 1 );
     NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
-    NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ) );
+    NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ), "" );
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     RQry.Execute();
-    string rem, rem_code, rcode, ticket;
+    string rem, rem_code;
     xmlNodePtr stcrNode = NULL;
-    while ( !RQry.Eof ) {
+    for(;!RQry.Eof;RQry.Next())
+    {
       rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
       rem_code = RQry.FieldAsString( "rem_code" );
-      rcode = rem_code;
-      rcode = upperc( rcode );
-      if ( rcode == "TKNO" && ticket.empty() ) {
-      	ticket = RQry.FieldAsString( "rem" );
-      }
-      if ( rcode == "STCR" && !stcrNode ) {
+      if ( rem_code == "STCR" && !stcrNode )
+      {
       	stcrNode = NewTextChild( itemNode, "step", "down" );
-      }
-      RQry.Next();
-    }
-    NewTextChild( itemNode, "ticket", ticket );
-    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ) );
-    NewTextChild( itemNode, "rem", rem );
+      };
+    };
+    NewTextChild( itemNode, "ticket", Qry.FieldAsString( "ticket" ), "" );
+    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ), "" );
+    NewTextChild( itemNode, "rem", rem, "" );
     NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     NewTextChild( itemNode, "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
     NewTextChild( itemNode, "tid", Qry.FieldAsInteger( "tid" ) );

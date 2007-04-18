@@ -833,8 +833,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     bool pr_with_reg=false;
     Qry.Clear();
     Qry.SQLText=
-      "SELECT pr_with_reg FROM trip_brd "
-      "WHERE point_id=:point_id AND (hall=:hall OR hall IS NULL) "
+      "SELECT pr_misc AS pr_with_reg FROM trip_hall "
+      "WHERE point_id=:point_id AND type=1 AND (hall=:hall OR hall IS NULL) "
       "ORDER BY DECODE(hall,NULL,1,0)";
     Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.CreateVariable("hall",otInteger,hall);
