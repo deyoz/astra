@@ -15,6 +15,7 @@
 #include "stl_utils.h"
 #include "tripinfo.h"
 #include "docs.h"
+#include "stat.h"
 
 using namespace std;
 using namespace BASIC;
@@ -430,6 +431,7 @@ void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewPNL( point_id, dataNode );
   get_report_form("PNLPaxList", resNode);
+  STAT::set_variables(resNode);
 }
 
 

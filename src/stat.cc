@@ -14,8 +14,6 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void set_variables(xmlNodePtr resNode);
-
 enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
 
 const int depends_len = 3;
@@ -564,7 +562,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     get_report_form("ArxPaxLog", resNode);
-    set_variables(resNode);
+    STAT::set_variables(resNode);
     TQuery Qry(&OraSession);        
     string tag = (char *)reqNode->name;
     char *qry = NULL;
@@ -1018,7 +1016,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
     }
 
-    set_variables(resNode);
+    STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 
     return;
@@ -1633,7 +1631,7 @@ void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void set_variables(xmlNodePtr resNode)
+void STAT::set_variables(xmlNodePtr resNode)
 {
 
     xmlNodePtr formDataNode = GetNode("form_data", resNode);
@@ -1925,7 +1923,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
     }
-    set_variables(resNode);
+    STAT::set_variables(resNode);
 }
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2091,7 +2089,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     }
-    set_variables(resNode);
+    STAT::set_variables(resNode);
 }
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2241,7 +2239,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     }
-    set_variables(resNode);
+    STAT::set_variables(resNode);
 }
 
 void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -4,6 +4,10 @@
 #include <libxml/tree.h>
 #include "JxtInterface.h"		
 
+namespace STAT {
+    void set_variables(xmlNodePtr resNode);
+}
+
 class StatInterface : public JxtInterface
 {
 public:
