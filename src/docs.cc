@@ -226,7 +226,7 @@ string vs_number(int number, bool pr_lat)
 
 enum TState {PMTrfer, PM};
 
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f = NoExists)
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
 {
     TQuery Qry(&OraSession);
     string SQLText =
@@ -239,7 +239,9 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f = 
         "   craft, "
         "   bort, "
         "   park_out park, "
-        "   scd_out "
+        "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
+        "   scd_out, "
+        "   ckin.get_airps(point_id, 1) long_route "
         "from ";
     if(f == NoExists)
         SQLText +=
@@ -272,13 +274,16 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f = 
             IntToString(Qry.FieldAsInteger("flt_no")) +
             Qry.FieldAsString("suffix")
             );
-    TDateTime scd_out;
+    TDateTime scd_out, real_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
+    real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
     NewTextChild(variablesNode, "scd_out", DateTimeToStr(scd_out, "dd.mm.yyyy", pr_lat));
+    NewTextChild(variablesNode, "real_out", DateTimeToStr(real_out, "dd.mm.yyyy", pr_lat));
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
     NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy", pr_lat));
+    NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
 }
 
 int GetRPEncoding(string target)

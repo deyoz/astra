@@ -426,12 +426,15 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
+  int pr_lat = 0;
   ProgTrace(TRACE5, "PrepRegInterface::ViewPNL, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amRead );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewPNL( point_id, dataNode );
   get_report_form("PNLPaxList", resNode);
   STAT::set_variables(resNode);
+  xmlNodePtr formDataNode = GetNode("form_data/variables", resNode);
+  PaxListVars(point_id, pr_lat, formDataNode);
 }
 
 
