@@ -599,7 +599,7 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       message.msg.clear();
       if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
         message.msg = "Отменен режим";
-        FieldIndex = cachetable->FieldIndex( "pr_with_reg" );
+        FieldIndex = cachetable->FieldIndex( "pr_misc" );
         if (code == "TRIP_BRD_WITH_REG")
         {
           if ( row.old_cols[ FieldIndex ] == "0" )
@@ -624,7 +624,7 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       }
       if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
         message.msg += "Установлен режим";
-        FieldIndex = cachetable->FieldIndex( "pr_with_reg" );
+        FieldIndex = cachetable->FieldIndex( "pr_misc" );
         if (code == "TRIP_BRD_WITH_REG")
         {
           if ( row.cols[ FieldIndex ] == "0" )

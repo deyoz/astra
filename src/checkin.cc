@@ -830,16 +830,22 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable("point_dep",otInteger,point_dep);
     Qry.Execute();
     int reg_no = Qry.FieldAsInteger("reg_no");
-    bool pr_with_reg=false;
+    bool pr_brd_with_reg=false,pr_exam_with_brd=false;
     Qry.Clear();
     Qry.SQLText=
-      "SELECT pr_misc AS pr_with_reg FROM trip_hall "
-      "WHERE point_id=:point_id AND type=1 AND (hall=:hall OR hall IS NULL) "
+      "SELECT pr_misc FROM trip_hall "
+      "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
       "ORDER BY DECODE(hall,NULL,1,0)";
     Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.CreateVariable("hall",otInteger,hall);
+    Qry.DeclareVariable("type",otInteger);
+
+    Qry.SetVariable("type",1);
     Qry.Execute();
-    if (!Qry.Eof) pr_with_reg=Qry.FieldAsInteger("pr_with_reg")!=0;
+    if (!Qry.Eof) pr_brd_with_reg=Qry.FieldAsInteger("pr_misc")!=0;
+    Qry.SetVariable("type",2);
+    Qry.Execute();
+    if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
 
     Qry.Clear();
     Qry.SQLText=
@@ -872,7 +878,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_no,seat_type,seats,pr_brd, "
       "                  refuse,reg_no,ticket_no,coupon_no,document,pr_exam,doc_check,subclass,tid) "
       "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_no,:seat_type,:seats,:pr_brd, "
-      "         NULL,:reg_no,:ticket_no,:coupon_no,:document,0,0,:subclass,tid__seq.currval); "
+      "         NULL,:reg_no,:ticket_no,:coupon_no,:document,:pr_exam,0,:subclass,tid__seq.currval); "
       "END;";
     Qry.DeclareVariable("pax_id",otInteger);
     Qry.DeclareVariable("surname",otString);
@@ -917,7 +923,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           Qry.SetVariable("seat_type",FNull);
         };
         Qry.SetVariable("seats",seats);
-        Qry.SetVariable("pr_brd",(int)pr_with_reg);
+        Qry.SetVariable("pr_brd",(int)pr_brd_with_reg);
+        Qry.SetVariable("pr_exam",(int)(pr_brd_with_reg && pr_exam_with_brd));
         Qry.SetVariable("reg_no",reg_no);
         Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
         if (!NodeIsNULLFast("coupon_no",node2))
@@ -951,7 +958,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         msg.id2=reg_no;
         msg.id3=grp_id;
         msg.msg=(string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") зарегистрирован"+
-                (pr_with_reg?" и посажен. ":". ")+
+                ((pr_brd_with_reg && pr_exam_with_brd)?", прошел досмотр":"")+
+                (pr_brd_with_reg?" , прошел посадку":"")+
+                ". "+
                 "П/н: "+airp_arv+", класс: "+cl+", статус: "+grp_status+", место: "+
                 (seats>0?seat_no+(seats>1?"+"+IntToString(seats-1):""):"нет")+
                 msg.msg+=". Баг.нормы: "+normStr;
@@ -993,6 +1002,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                    "    document=:document, "
                    "    subclass=:subclass, "
                    "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
+                   "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
                    "    tid=tid__seq.currval "
                    "WHERE pax_id=:pax_id AND tid=:tid";
     PaxQry.DeclareVariable("pax_id",otInteger);

@@ -223,7 +223,7 @@ void BrdInterface::Deplane(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     TReqInfo::Instance()->MsgToLog("Все пассажиры возвращены на досмотр", evtPax, point_id);
 }
 
-bool BrdInterface::PaxUpdate(int pax_id, int &tid, bool mark)
+bool BrdInterface::PaxUpdate(int pax_id, int &tid, bool mark, bool pr_exam_with_brd)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -237,9 +237,15 @@ bool BrdInterface::PaxUpdate(int pax_id, int &tid, bool mark)
 
   TQuery Qry(&OraSession);
   if (reqInfo->screen.name == "BRDBUS.EXE")
+  {
     Qry.SQLText=
-      "UPDATE pax SET pr_brd=:mark, tid=tid__seq.currval "
+      "UPDATE pax "
+      "SET pr_brd=:mark, "
+      "    pr_exam=DECODE(:pr_exam_with_brd,0,pr_exam,:mark), "
+      "    tid=tid__seq.currval "
       "WHERE pax_id=:pax_id AND tid=:tid";
+    Qry.CreateVariable("pr_exam_with_brd",otInteger,(int)pr_exam_with_brd);
+  }
   else
     Qry.SQLText=
       "UPDATE pax SET pr_exam=:mark, tid=tid__seq.currval "
@@ -272,7 +278,11 @@ bool BrdInterface::PaxUpdate(int pax_id, int &tid, bool mark)
                   "Пассажир " + Qry.FieldAsString("surname") + " " +
                   Qry.FieldAsString("name");
       if (reqInfo->screen.name == "BRDBUS.EXE")
+      {
+        if (pr_exam_with_brd)
+          msg+=     (mark ? " прошел досмотр," : " возвращен на досмотр,");
         msg+=     (mark ? " прошел посадку" : " высажен");
+      }
       else
         msg+=     (mark ? " прошел досмотр" : " возвращен на досмотр");
 
@@ -293,7 +303,7 @@ void BrdInterface::PaxUpd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr r
     int tid = NodeAsInteger("tid", reqNode);
     bool mark = NodeAsInteger("pr_brd", reqNode)!=0;
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    if (PaxUpdate(pax_id, tid, mark))
+    if (PaxUpdate(pax_id, tid, mark, false))
       NewTextChild(dataNode, "pr_brd", (int)mark);
     else
     {
@@ -341,6 +351,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     int point_id=NodeAsInteger("point_id",reqNode);
     int reg_no=-1;
+    int hall=-1;
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -351,6 +362,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     string condition;
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
+      hall=NodeAsInteger("hall",reqNode);
       //получим point_id и reg_no
       Qry.Clear();
       Qry.SQLText=
@@ -398,6 +410,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
     {
+      hall=NodeAsInteger("hall",reqNode);
       reg_no=NodeAsInteger("reg_no",reqNode);
       condition+=" AND reg_no=:reg_no ";
       Qry.Clear();
@@ -525,8 +538,26 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         else
         {
+          bool pr_exam_with_brd=false;
+          if (reqInfo->screen.name == "BRDBUS.EXE")
+          {
+            TQuery SetsQry(&OraSession);
+            SetsQry.Clear();
+            SetsQry.SQLText=
+              "SELECT pr_misc FROM trip_hall "
+              "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
+              "ORDER BY DECODE(hall,NULL,1,0)";
+            SetsQry.CreateVariable("point_id",otInteger,point_id);
+            SetsQry.CreateVariable("hall",otInteger,hall);
+            SetsQry.CreateVariable("type",otInteger,2);
+            SetsQry.Execute();
+            if (!SetsQry.Eof) pr_exam_with_brd=SetsQry.FieldAsInteger("pr_misc")!=0;
+          };
+
+
           if (reqInfo->screen.name == "BRDBUS.EXE" &&
               boarding && Qry.FieldAsInteger("pr_exam")==0 &&
+              !pr_exam_with_brd &&
               strcmp(Qry.FieldAsString("airp_dep"),"СУР")==0)
           {
             showErrorMessage("Пассажир не прошел досмотр");
@@ -570,11 +601,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
               }
               else
                 // update
-                if (PaxUpdate(pax_id,tid,!mark))
+                if (PaxUpdate(pax_id,tid,!mark,pr_exam_with_brd))
                 {
                   mark = !mark;
                   if (reqInfo->screen.name == "BRDBUS.EXE")
+                  {
                     ReplaceTextChild(paxNode, "pr_brd", mark);
+                    if (pr_exam_with_brd)
+                      ReplaceTextChild(paxNode, "pr_exam", mark);
+                  }
                   else
                     ReplaceTextChild(paxNode, "pr_exam", mark);
                   ReplaceTextChild(paxNode, "tid", tid);
@@ -762,7 +797,7 @@ void BrdInterface::BrdList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
           else
           {
               // update
-              if (PaxUpdate(pax_id,tid,!mark))
+              if (PaxUpdate(pax_id,tid,!mark,false))
               {
                 mark = !mark;
                 NewTextChild(dataNode, "pr_brd", (int)mark);
