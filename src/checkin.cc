@@ -888,6 +888,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.DeclareVariable("seat_type",otString);
     Qry.DeclareVariable("seats",otInteger);
     Qry.DeclareVariable("pr_brd",otInteger);
+    Qry.DeclareVariable("pr_exam",otInteger);
     Qry.DeclareVariable("reg_no",otInteger);
     Qry.DeclareVariable("ticket_no",otString);
     Qry.DeclareVariable("coupon_no",otInteger);
