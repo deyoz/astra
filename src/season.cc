@@ -13,6 +13,8 @@
 #include "boost/date_time/local_time/local_time.hpp"
 #include "basic.h"
 #include "stl_utils.h"
+#include "stat.h"
+#include "docs.h"
 
 
 const int SEASON_PERIOD_COUNT = 4;
@@ -3166,6 +3168,8 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   else
     NewTextChild( dataNode, "mode", "airline" );
   internalRead( filter, dataNode );
+  get_report_form("SeasonList", resNode);
+  STAT::set_variables(resNode);
 }
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode )
