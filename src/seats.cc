@@ -92,7 +92,8 @@ bool CanUseTube; /* поиск через проходы */
 TUseAlone CanUseAlone; /* можно ли использовать посадку одного в ряду - может посадить
                           группу друг за другом */
 TSeatAlg SeatAlg;
-
+bool FindMCLS=false;
+bool canUseMCLS=false;
 
 TCounters::TCounters()
 {
@@ -464,6 +465,16 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
           ( !CanUseSmoke || place->pr_smoke ) &&
           ( !CanUseElem_Type || place->elem_type == PlaceElem_Type ) &&
           ( !CanUseGood || !place->not_good ) ) {
+    if ( canUseMCLS ) {
+      for ( prem = place->rems.begin(); prem != place->rems.end(); prem++ ) {
+        if ( !prem->pr_denial && prem->rem == "MCLS" )
+        	break;
+      }
+      if ( FindMCLS && prem == place->rems.end() ||
+      	   !FindMCLS && prem != place->rems.end() ) //  не смогли посадить на класс MCLS
+     	  break;
+    }
+
     switch( (int)CanUseRems ) {
       case sOnlyUse:
          if ( place->rems.empty() || Remarks.empty() ) // найдем хотя бы одну совпадающую
@@ -1109,7 +1120,7 @@ bool TSeatPlaces::SeatGrpOnBasePlace( )
 /* рассадка группы по всем салонам */
 bool TSeatPlaces::SeatsGrp( )
 {
-//ProgTrace( TRACE5, "SeatsGrp( )" );
+ ProgTrace( TRACE5, "SeatsGrp( )" );
  RollBack( );
  for ( int linesVar=0; linesVar<=1; linesVar++ ) {
    for( vecVarLines::iterator ilines=lines.getVarLine( linesVar ).begin();
@@ -1133,42 +1144,71 @@ bool TSeatPlaces::SeatsGrp( )
 }
 
 /* рассадка пассажиров по местам не учитывая группу */
-bool TSeatPlaces::SeatsPassengers( )
+bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 {
 //ProgTrace( TRACE5, "SeatsPassengers( )" );
+  bool OLDFindMCLS = FindMCLS;
+  bool OLDcanUseMCLS = canUseMCLS;
   vector<TPassenger> npass;
   Passengers.copyTo( npass );
   try {
-    for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
-    	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
-      if ( ipass->InUse || PlaceStatus == "PS" && !CanUse_PS &&
-      	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
-        continue;
-      Passengers.Clear();
-      ipass->placeList = NULL;
-      int old_index = ipass->index;
-      Passengers.Add( *ipass );
-      ipass->index = old_index;
+    for ( int i=(int)!pr_autoreseats; i<=1+(int)pr_autoreseats; i++ ) {
 
-      if ( SeatGrpOnBasePlace( ) ||
-           ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse  ) &&
-           ( PlaceStatus == "PS" && CanUse_PS || PlaceStatus != "PS" ) && SeatsGrp( ) ) {
-        if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
-          throw Exception( "Недопустимое значение направления рассадки" );
-        ipass->placeList = seatplaces.begin()->placeList;
-        ipass->Pos = seatplaces.begin()->Pos;
-        ipass->Step = seatplaces.begin()->Step;
-        ipass->placeName = ipass->placeList->GetPlaceName( ipass->Pos );
-        ipass->InUse = true;
-        Clear();
+      for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
+      	/* когда пассажир посажен или рассадка на бронь и у пассажира статус не бронь или нет предвар. рассадки или у пассажира указано не то место */
+        if ( ipass->InUse || PlaceStatus == "PS" && !CanUse_PS &&
+        	                   ( ipass->placeStatus != PlaceStatus || ipass->preseat.empty() || ipass->preseat != ipass->placeName ) )
+          continue;
+        Passengers.Clear();
+        ipass->placeList = NULL;
+        int old_index = ipass->index;
+        ProgTrace( TRACE5, "pr_auto_reseats=%d, find=%d, i=%d",
+                   pr_autoreseats, find( ipass->rems.begin(), ipass->rems.end(), string("MCLS") ) != ipass->rems.end(), i );
+        if ( pr_autoreseats ) {
+          if ( i == 0 ) {
+          	  if ( find( ipass->rems.begin(), ipass->rems.end(), string("MCLS") ) == ipass->rems.end() )
+          	  	continue;
+            	FindMCLS = true;
+            	canUseMCLS = true;
+            }
+            else
+            	if ( i == 1 ) {
+            		if ( find( ipass->rems.begin(), ipass->rems.end(), string("MCLS") ) != ipass->rems.end() )
+            			continue;
+            	  FindMCLS = false;
+            	  canUseMCLS = true;
+              }
+              else {
+                canUseMCLS = false;
+              }
+        }
+        Passengers.Add( *ipass );
+        ipass->index = old_index;
+
+        if ( SeatGrpOnBasePlace( ) ||
+             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse  ) &&
+             ( !CanUseStatus || PlaceStatus == "PS" && CanUse_PS || PlaceStatus != "PS" ) && SeatsGrp( ) ) {
+          if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
+            throw Exception( "Недопустимое значение направления рассадки" );
+          ipass->placeList = seatplaces.begin()->placeList;
+          ipass->Pos = seatplaces.begin()->Pos;
+          ipass->Step = seatplaces.begin()->Step;
+          ipass->placeName = ipass->placeList->GetPlaceName( ipass->Pos );
+          ipass->InUse = true;
+          Clear();
+        }
       }
     }
   }
   catch( ... ) {
+    FindMCLS = OLDFindMCLS;
+    canUseMCLS = OLDcanUseMCLS;
     Passengers.Clear();
     Passengers.copyFrom( npass );
     throw;
   }
+  FindMCLS = OLDFindMCLS;
+  canUseMCLS = OLDcanUseMCLS;
   Passengers.Clear();
   Passengers.copyFrom( npass );
   for ( VPassengers::iterator ipass=npass.begin(); ipass!=npass.end(); ipass++ ) {
@@ -1523,8 +1563,17 @@ bool ExistsBasePlace( TPassenger &pass, int lang )
         if ( !placeList->ValidPlace( FP ) )
           break;
         TPlace *place = placeList->place( FP );
+        bool findpass = ( find( pass.rems.begin(), pass.rems.end(), string("MCLS") ) != pass.rems.end() );
+        bool findplace = false;
+        for ( vector<TRem>::iterator r=place->rems.begin(); r!=place->rems.end(); r++ ) {
+        	if ( !r->pr_denial && r->rem == "MCLS" ) {
+        		findplace = true;
+        		break;
+        	}
+        }
         if ( !place->visible || !place->isplace || place->block ||
-             !place->pr_free || pass.clname != place->clname )
+             !place->pr_free || pass.clname != place->clname ||
+             findpass != findplace )
           break;
         vpl.push_back( place );
         switch( (int)pass.Step ) {
@@ -1697,7 +1746,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
   tst();
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT pax_grp.grp_id,pax.pax_id,pax.reg_no,surname,name, "\
-                "       seat_no,prev_seat_no,class,seats,pax.tid,step "\
+                "       seat_no,prev_seat_no,class,subclass,seats,pax.tid,step "\
                 " FROM pax_grp,pax, "\
                 "( SELECT COUNT(*) step, pax_id FROM pax_rem "\
                 "   WHERE rem_code = 'STCR' "\
@@ -1724,7 +1773,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
     pass.grpId = Qry.FieldAsInteger( "grp_id" );
     pass.regNo = Qry.FieldAsInteger( "reg_no" );
     string fname = Qry.FieldAsString( "surname" );
-    pass.fullName = TrimString( fname ) + Qry.FieldAsString( "name" );
+    pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
     for ( vector<TPlaceList*>::iterator placeList=Salons->placelists.begin();
           placeList!=Salons->placelists.end(); placeList++ ) {
       if ( (*placeList)->GetisPlaceXY( pass.placeName, pass.Pos ) ) {
@@ -1735,6 +1784,11 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
     pass.InUse = ( pass.placeList );
     if ( Qry.FieldAsInteger( "step" ) ) {
       pass.rems.push_back( "STCR" );
+    }
+    ProgTrace( TRACE5, "subcls=%s", Qry.FieldAsString( "subclass" ) );
+    if ( string( "М" ) == Qry.FieldAsString( "subclass" ) ) {
+    	pass.rems.push_back( "MCLS" );
+    	tst();
     }
     p.Add( pass );
     Qry.Next();
@@ -1772,7 +1826,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   tst();
   string placeName = Qry.FieldAsString( "seat_no" );
   string fname = Qry.FieldAsString( "surname" );
-  string fullname = TrimString( fname ) + Qry.FieldAsString( "name" );
+  string fullname = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
   TSeatStep Step;
   if ( Qry.FieldAsInteger( "step" ) )
     Step = sDown;
@@ -1978,7 +2032,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
           tst();
           GET_LINE_ARRAY( );
           /* рассадка пассажира у которого не найдено базовое место */
-          SeatPlaces.SeatsPassengers( );
+          SeatPlaces.SeatsPassengers( true );
           tst();
           SeatPlaces.RollBack( );
           int s = Passengers.getCount();
