@@ -136,7 +136,7 @@ class TSeatPlaces {
     void RollBack( ); 
     bool SeatGrpOnBasePlace( );
     bool SeatsGrp( );
-    bool SeatsPassengers( );  
+    bool SeatsPassengers( bool pr_autoreseats = false );  
     void PlacesToPassengers();    
 };
 
