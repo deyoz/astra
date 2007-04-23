@@ -132,7 +132,7 @@ struct TDest2 {
   int pr_del;
   int tid;
   string region;
-  bool trferin;  
+  bool trferin;
   bool trferout;
 };
 
@@ -202,7 +202,7 @@ struct TTrip {
   string crs_disp_to;
 
   string region;
-  bool trferin;  
+  bool trferin;
   bool trferout;
 
   TTrip() {
@@ -572,7 +572,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.pr_del = PointsQry.FieldAsInteger( "pr_del" );
     d.tid = PointsQry.FieldAsInteger( "tid" );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
-    d.trferin = !PointsQry.FieldIsNULL( "trferin" );    
+    d.trferin = !PointsQry.FieldIsNULL( "trferin" );
     d.trferout = !PointsQry.FieldIsNULL( "trferout" );
     dests.push_back( d );
     PointsQry.Next();
@@ -783,8 +783,8 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
     NewTextChild( tripNode, "pr_reg", tr->pr_reg );
     if ( tr->trferin ) {
-    	NewTextChild( tripNode, "trferin", "+" );    
-    }    
+    	NewTextChild( tripNode, "trferin", "+" );
+    }
     if ( tr->trferout ) {
     	NewTextChild( tripNode, "trferout", "+" );
     }
@@ -2482,11 +2482,12 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		tst();
   		Qry.Clear();
   		Qry.SQLText =
-       "BEGIN "\
-       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat,pr_tranz_reg) "\
-       "  VALUES(:point_id,0,0,0, NULL, 0, 0, NULL);"\
-       " ckin.set_trip_sets(:point_id); "\
-       " gtimer.puttrip_stages(:point_id);"\
+       "BEGIN "
+       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat,pr_tranz_reg, "
+       "    pr_check_load,pr_exam,pr_check_pay) "
+       "  VALUES(:point_id,0,0,0, NULL, 0, 0, NULL, 0, 0, 0); "
+       " ckin.set_trip_sets(:point_id); "
+       " gtimer.puttrip_stages(:point_id); "
        "END;";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();

@@ -28,7 +28,8 @@ extern const char* TPersonS[4];
 typedef enum {DoubleTr,DoubleOk,ChangeCl,WL,GoShow,NoQueue} TQueue;
 extern const int TQueueS[6];
 
-extern const char* TStatusS[3];
+typedef enum { psOk, psGoshow, psTransit } TPaxStatus;
+extern const char* TPaxStatusS[3];
 
 const int NoExists = INT_MIN;
 const std::string NoDays = ".......";

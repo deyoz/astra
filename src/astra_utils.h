@@ -132,7 +132,13 @@ ASTRA::TPerson DecodePerson(char* s);
 char* EncodePerson(ASTRA::TPerson p);
 ASTRA::TQueue DecodeQueue(int q);
 int EncodeQueue(ASTRA::TQueue q);
+ASTRA::TPaxStatus DecodePaxStatus(char* s);
+char* EncodePaxStatus(ASTRA::TPaxStatus s);
+
+
 char DecodeStatus(char* s);
+
+
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );

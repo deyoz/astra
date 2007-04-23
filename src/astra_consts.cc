@@ -14,6 +14,6 @@ const char* TPersonS[] = {"Çá","êÅ","êå",""};
 
 const int TQueueS[] = {1,2,4,6,8,0};
 
-const char* TStatusS[] = {"T","K","P"};
+const char* TPaxStatusS[] = {"K","P","T"};
 
 };

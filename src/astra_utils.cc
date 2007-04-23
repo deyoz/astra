@@ -163,7 +163,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
-  
+
   if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
   	return; //???
 
@@ -388,14 +388,19 @@ int EncodeQueue(TQueue q)
   return (int)TQueueS[q];
 };
 
-char DecodeStatus(char* s)
+TPaxStatus DecodePaxStatus(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TStatusS);i+=1) if (strcmp(s,TStatusS[i])==0) break;
-  if (i<sizeof(TStatusS))
-    return TStatusS[i][0];
+  for(i=0;i<sizeof(TPaxStatusS);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
+  if (i<sizeof(TPaxStatusS))
+    return (TPaxStatus)i;
   else
-    return '\0';
+    return psOk;
+};
+
+char* EncodePaxStatus(TPaxStatus s)
+{
+  return (char*)TPaxStatusS[s];
 };
 
 TDateTime DecodeTimeFromSignedWord( signed short int Value )

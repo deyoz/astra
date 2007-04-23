@@ -6,6 +6,7 @@
 #include <libxml/tree.h>
 #include "JxtInterface.h"
 #include "astra_ticket.h"
+#include "astra_consts.h"
 
 class CheckInInterface : public JxtInterface
 {
@@ -56,7 +57,8 @@ public:
   void LoadBag(xmlNodePtr grpNode);
   void LoadPaidBag(xmlNodePtr grpNode);
 
-  int CheckCounters(int point_dep, int point_arv, char* cl, char grp_status);
+  int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
+  bool CheckFltLoad(int point_id);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
