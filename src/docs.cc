@@ -8,6 +8,7 @@
 #include "str_utils.h"
 #include "astra_utils.h"
 #include "base_tables.h"
+#include "season.h"
 
 #define SALEK
 
@@ -225,6 +226,31 @@ string vs_number(int number, bool pr_lat)
 }
 
 enum TState {PMTrfer, PM};
+
+void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode)
+{
+	vector<SEASON::TViewPeriod> viewp;
+	SEASON::ReadTripInfo( trip_id, viewp, reqNode );
+  for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
+/*    NewTextChild( variablesNode, "exec", i->exec );
+    NewTextChild( variablesNode, "noexec", i->noexec );*/
+    for ( vector<SEASON::TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
+/*    	xmlNodePtr tripsNode = NULL;
+    	if ( !tripsNode )
+        tripsNode = NewTextChild( variablesNode, "trips" );
+      xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+      NewTextChild( tripNode, "move_id", j->move_id );*/
+      NewTextChild( variablesNode, "trip", j->name );
+/*      NewTextChild( tripNode, "crafts", j->crafts );
+      NewTextChild( tripNode, "ports", j->ports );
+      if ( j->land > NoExists )
+        NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
+      if ( j->takeoff > NoExists )
+        NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );*/
+      break;  
+    }
+  }		
+}
 
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
 {
@@ -1363,7 +1389,10 @@ void get_report_form(const string name, xmlNodePtr node)
     Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("form " + name + " not found");
+    if(Qry.Eof) {
+        NewTextChild(node, "FormNotExists", name);
+        return;
+    }
     // положим в ответ шаблон отчета
     int len = Qry.GetSizeLongField("form");
     void *data = malloc(len);
@@ -1409,6 +1438,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "ArxPaxLog") ;
     else if(name == "PNLPaxList") ;
     else if(name == "SeasonList") ;
+    else if(name == "SeasonEventsLog") ;
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
