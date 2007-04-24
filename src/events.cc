@@ -10,6 +10,7 @@
 #include "docs.h"
 
 #define NICKNAME "DJEK"
+#include "test.h"
 
 using namespace std;
 using namespace BASIC;
@@ -69,8 +70,6 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));*/
     Qry.Execute();
 
-    get_report_form("EventsLog", resNode);
-
     xmlNodePtr logNode = NewTextChild(resNode, "events_log");
 
     for(;!Qry.Eof;Qry.Next())
@@ -93,6 +92,16 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
         NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
     };
+    if(GetNode("LoadForm", reqNode)) {
+        if ( GetNode( "seasonvars", reqNode ) )
+            get_report_form("SeasonEventsLog", resNode);
+        else
+            get_report_form("EventsLog", resNode);
+    }
     logNode = NewTextChild(resNode, "variables");
-    PaxListVars(point_id, 0, logNode, f);
+    if ( GetNode( "seasonvars", reqNode ) )
+        SeasonListVars( point_id, 0, logNode, reqNode );
+    else
+        PaxListVars(point_id, 0, logNode, f);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
