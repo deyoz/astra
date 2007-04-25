@@ -326,9 +326,9 @@ void ParseInquiryStr(string query, TInquiryGroup &grp)
           };
           throw pos;
         case 12:
-          if (IsDigit(c) || IsLetter(c) || c==' ')
+          if (IsLetter(c) || c==' ')
           {
-            strh.push_back(c);
+             fam.surname.push_back(c);
             break;
           };
           if (c=='\0')
@@ -407,12 +407,15 @@ struct TInquiryGroupSummary
   int n[NoPerson];
   int nPaxWithPlace,nPax;
   vector<TInquiryFamilySummary> fams;
+  int persCountFmt;
+
   void Clear()
   {
     for(int i=0;i<NoPerson;i++) n[i]=0;
     nPaxWithPlace=0;
     nPax=0;
     fams.clear();
+    persCountFmt=0;
   };
   TInquiryGroupSummary()
   {
@@ -443,21 +446,37 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
   sum.Clear();
   if (grp.fams.empty()) throw UserException(100,"Неверный запрос");
   vector<TInquiryFamily>::iterator i;
+  if (!grp.large)
+  {
+    for(i=grp.fams.begin();i!=grp.fams.end();i++)
+    {
+      //проверим правильность цифровых данных перед каждой фамилией
+      if (i==grp.fams.begin()) continue;
+      if (i->n[adult]!=-1 || i->n[child]!=-1 || i->n[baby]!=-1 || i->seats!=-1)
+      {
+        fmt.persCountFmt=0; //внимание! изменяем формат
+        break;
+      };
+    };
+    sum.persCountFmt=fmt.persCountFmt;
+  }
+  else sum.persCountFmt=0;
+
   for(i=grp.fams.begin();i!=grp.fams.end();i++)
   {
-    //проверим правильность цифровых данных перед каждой фамилией
-    if (i==grp.fams.begin()) continue;
-    if (i->n[adult]!=-1 || i->n[child]!=-1 || i->n[baby]!=-1 || i->seats!=-1)
-    {
-      fmt.persCountFmt=0; //внимание! изменяем формат
-      break;
-    };
-  };
-
-  for(i=grp.fams.begin();
-      fmt.persCountFmt==0&&i!=grp.fams.end()||fmt.persCountFmt!=0&&i==grp.fams.begin(); i++)
-  {
     TInquiryFamilySummary info;
+
+    if (!grp.large)
+    {
+      info.surname=i->surname;
+      info.name=i->name;
+
+      if (sum.persCountFmt==1 && i!=grp.fams.begin())
+      {
+        sum.fams.push_back(info);
+        continue;
+      };
+    };
 
     if (i->n[adult]==-1 && i->n[child]==-1 && i->n[baby]==-1 && i->seats==-1)
       info.n[adult]=1;
@@ -469,11 +488,6 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     };
     if (!grp.large)
     {
-      if (fmt.persCountFmt==0)
-      {
-        info.surname=i->surname;
-        info.name=i->name;
-      };
       if (i->seats==-1)
       {
         if (fmt.infSeatsFmt==0)
@@ -522,6 +536,8 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     }
     else
     {
+      info.surname=i->surname;
+      info.name=i->name;
       info.nPax=info.n[adult]+info.n[child]+info.n[baby];
       if (i->seats==-1)
         info.nPaxWithPlace=info.nPax;
@@ -546,13 +562,17 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
   if (sum.nPax-sum.nPaxWithPlace>sum.n[adult])
     throw UserException(100,"Кол-во РМ без мест в группе превышает кол-во ВЗ");
 
+  if (sum.persCountFmt==1 && sum.nPax<(int)sum.fams.size())
+    throw UserException(100,"Кол-во фамилий превышает кол-во пассажиров в группе");
 
+  if (grp.prefix=='+')
+    throw UserException(100,"Используйте выбор статуса 'Подсадка' вместо знака '+' в начале запроса");
 };
 
 void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
 {
   xmlNodePtr node,paxNode=NewTextChild(resNode,"norec");
-  if (!sum.fams.empty())
+  if (sum.persCountFmt==0)
   {
     for(vector<TInquiryFamilySummary>::iterator f=sum.fams.begin();f!=sum.fams.end();f++)
     {
@@ -574,11 +594,18 @@ void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
   else
   {
     int n=1;
+    vector<TInquiryFamilySummary>::iterator f=sum.fams.begin();
     for(int p=0;p<NoPerson;p++)
     {
       for(int i=0;i<sum.n[p];i++,n++)
       {
         node=NewTextChild(paxNode,"pax");
+        if (f!=sum.fams.end())
+        {
+          NewTextChild(node,"surname",f->surname,"");
+          NewTextChild(node,"name",f->name,"");
+          f++;
+        };
         NewTextChild(node,"pers_type",EncodePerson((TPerson)p),EncodePerson(ASTRA::adult));
         if (n>sum.nPaxWithPlace)
           NewTextChild(node,"seats",0);
@@ -587,7 +614,7 @@ void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
   };
 };
 
-void CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
+int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
 {
   TQuery TrferQry(&OraSession);
   TrferQry.SQLText =
@@ -611,9 +638,11 @@ void CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
   xmlNodePtr tripNode,pnrNode,paxNode,node;
   string airp_dep="",airp_dep_lat="";
 
+  int count=0;
   tripNode=NewTextChild(resNode,"trips");
   for(;!PaxQry.Eof;PaxQry.Next())
   {
+    count++;
     if (PaxQry.FieldAsInteger("point_id")!=point_id)
     {
       node=NewTextChild(tripNode,"trip");
@@ -728,46 +757,66 @@ void CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
       };
     };
   };
+  return count;
 };
 
 void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TInquiryGroupSummary sum;
-  xmlNodePtr node=NodeAsNode("inquiry_summary",reqNode);
-  sum.nPax=NodeAsInteger("count",node);
-  sum.nPaxWithPlace=NodeAsInteger("seats",node);
-  sum.n[adult]=NodeAsInteger("adult",node);
-  sum.n[child]=NodeAsInteger("child",node);
-  sum.n[baby]=NodeAsInteger("infant",node);
+  int point_dep = NodeAsInteger("point_dep",reqNode);
+  readTripCounters(point_dep,resNode);
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  PaxQry.SQLText=
-    "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
-    "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-    "       crs_pax.seat_no,crs_pax.preseat_no, "
-    "       crs_pax.seat_type,crs_pax.seats, "
-    "       crs_pnr.pnr_id, "
-    "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
-    "       report.get_PSPT(crs_pax.pax_id) AS document "
-    "FROM tlg_trips,crs_pnr,crs_pax,pax "
-    "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
-    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pax.pax_id=pax.pax_id(+) AND "
-    "      crs_pnr.pnr_id=:pnr_id AND "
-    "      crs_pax.pr_del=0 AND "
-    "      pax.pax_id IS NULL "
-    "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
-  PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
-  PaxQry.Execute();
-  CreateSearchResponse(PaxQry,resNode);
+  TInquiryFamilySummary fam;
+  xmlNodePtr node=NodeAsNode("inquiry_summary",reqNode);
+  fam.nPax=NodeAsInteger("count",node);
+  fam.nPaxWithPlace=NodeAsInteger("seats",node);
+  fam.n[adult]=NodeAsInteger("adult",node);
+  fam.n[child]=NodeAsInteger("child",node);
+  fam.n[baby]=NodeAsInteger("infant",node);
+  fam.surname=NodeAsString("grp_name",node);
+
+  TInquiryGroupSummary sum;
+  sum.nPax=fam.nPax;
+  sum.nPaxWithPlace=fam.nPaxWithPlace;
+  sum.n[adult]=fam.n[adult];
+  sum.n[child]=fam.n[child];
+  sum.n[baby]=fam.n[baby];
+  sum.persCountFmt=0;
+  sum.fams.push_back(fam);
+
+  if (GetNode("pnr_id",reqNode)!=NULL)
+  {
+    TQuery PaxQry(&OraSession);
+    PaxQry.Clear();
+    PaxQry.SQLText=
+      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+      "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+      "       crs_pax.seat_no,crs_pax.preseat_no, "
+      "       crs_pax.seat_type,crs_pax.seats, "
+      "       crs_pnr.pnr_id, "
+      "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
+      "       report.get_PSPT(crs_pax.pax_id) AS document "
+      "FROM tlg_trips,crs_pnr,crs_pax,pax "
+      "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      crs_pnr.pnr_id=:pnr_id AND "
+      "      crs_pax.pr_del=0 AND "
+      "      pax.pax_id IS NULL "
+      "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+    PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
+    PaxQry.Execute();
+    CreateSearchResponse(PaxQry,resNode);
+    CreateNoRecResponse(sum,resNode);
+    NewTextChild(resNode,"ckin_state","Choice");
+    return;
+  };
   CreateNoRecResponse(sum,resNode);
-  NewTextChild(resNode,"ckin_state","Choice");
+  NewTextChild(resNode,"ckin_state","BeforeReg");
+  return;
 };
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-
   int point_dep = NodeAsInteger("point_dep",reqNode);
   TPaxStatus pax_status = DecodePaxStatus(NodeAsString("pax_status",reqNode));
 
@@ -789,10 +838,21 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild(node,"adult",sum.n[adult]);
   NewTextChild(node,"child",sum.n[child]);
   NewTextChild(node,"infant",sum.n[baby]);
+  if (grp.large && !sum.fams.empty())
+    NewTextChild(node,"grp_name",sum.fams.begin()->surname);
+  else
+    NewTextChild(node,"grp_name");
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.Clear();
-  string sql;
+  if (pax_status==psTransit)
+  {
+    TQuery Qry(&OraSession);
+    Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id",otInteger,point_dep);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+    if (Qry.FieldIsNULL("pr_tranz_reg")||Qry.FieldAsInteger("pr_tranz_reg")==0)
+      throw UserException("Перерегистрация транзита на данный рейс не производится");
+  };
 
   if (pax_status==psTransit || grp.digCkin ||grp.prefix=='-')
   {
@@ -800,6 +860,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild(resNode,"ckin_state","BeforeReg");
     return;
   };
+
+  TQuery PaxQry(&OraSession);
+  PaxQry.Clear();
+  string sql;
 
   if (grp.large)
   {
@@ -885,7 +949,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       //строка NoRec
       node=NewTextChild(pnrNode,"pnr");
       if (!sum.fams.empty())
-        NewTextChild(node,"grp_name",sum.fams.begin()->surname+" "+sum.fams.begin()->name);
+        NewTextChild(node,"grp_name",sum.fams.begin()->surname);
       NewTextChild(node,"seats",sum.nPaxWithPlace);
       NewTextChild(node,"seats_all",sum.nPaxWithPlace);
 
@@ -893,7 +957,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       return;
     };
     CreateNoRecResponse(sum,resNode);
-    NewTextChild(resNode,"ckin_state","Choice");
+    NewTextChild(resNode,"ckin_state","BeforeReg");
     return;
   };
 
@@ -1149,6 +1213,14 @@ bool CheckInInterface::CheckFltLoad(int point_id)
     "FROM pax_grp,bag2 "
     "WHERE pax_grp.grp_id=bag2.grp_id AND "
     "      pax_grp.point_dep=:point_id AND pax_grp.pr_refuse=0";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("weight");
+
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight),0) AS weight "
+    "FROM unaccomp_bag "
+    "WHERE point_dep=:point_id";
   Qry.Execute();
   if (!Qry.Eof)
     load+=Qry.FieldAsInteger("weight");
@@ -1919,15 +1991,16 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT point_arv,airp_arv,class,status,hall,pax_grp.tid "
-    "FROM pax_grp "
-    "WHERE grp_id=:grp_id";
+    "SELECT point_arv,airp_arv,airps.city AS city_arv,class,status,hall,pax_grp.tid "
+    "FROM pax_grp,airps "
+    "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
   NewTextChild(resNode,"grp_id",grp_id);
   NewTextChild(resNode,"point_arv",Qry.FieldAsInteger("point_arv"));
   NewTextChild(resNode,"airp_arv",Qry.FieldAsString("airp_arv"));
+  NewTextChild(resNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(resNode,"class",Qry.FieldAsString("class"));
   NewTextChild(resNode,"status",Qry.FieldAsString("status"));
   NewTextChild(resNode,"hall",Qry.FieldAsInteger("hall"));
@@ -1938,9 +2011,11 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.DeclareVariable("pax_id",otInteger);
   PaxQry.Clear();
   PaxQry.SQLText=
-    "SELECT pax_id,surname,name,pers_type,seat_no,seat_type, "
-    "       seats,refuse,reg_no,ticket_no,coupon_no,document,subclass,tid "
-    "FROM pax WHERE grp_id=:grp_id ORDER BY reg_no";
+    "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,pax.seat_no,pax.seat_type, "
+    "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
+    "       crs_pax.pax_id AS crs_pax_id "
+    "FROM pax,crs_pax "
+    "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
   PaxQry.CreateVariable("grp_id",otInteger,grp_id);
   PaxQry.Execute();
   node=NewTextChild(resNode,"passengers");
@@ -1965,6 +2040,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"document",PaxQry.FieldAsString("document"));
     NewTextChild(paxNode,"subclass",PaxQry.FieldAsString("subclass"));
     NewTextChild(paxNode,"tid",PaxQry.FieldAsInteger("tid"));
+
+    NewTextChild(paxNode,"pr_norec",(int)PaxQry.FieldIsNULL("crs_pax_id"));
 
     Qry.SetVariable("pax_id",pax_id);
     Qry.Execute();

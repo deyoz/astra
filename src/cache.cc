@@ -405,6 +405,7 @@ void TCacheTable::refresh()
 void TCacheTable::buildAnswer(xmlNodePtr resNode)
 {
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    NewTextChild( dataNode, "code", code() );
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
     if(pr_irefresh)
