@@ -554,7 +554,7 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     sum.nPaxWithPlace+=info.nPaxWithPlace;
     sum.fams.push_back(info);
   };
-//!!!  if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
+  if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
   if (sum.nPaxWithPlace==0)
     throw UserException(100,"Кол-во пассажиров с местами должно быть больше нуля");
   if (sum.nPax<sum.nPaxWithPlace)
@@ -743,6 +743,7 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
+    NewTextChild(node,"ticket",PaxQry.FieldAsString("ticket"),"");
 
     RemQry.SetVariable("pax_id",pax_id);
     RemQry.Execute();
@@ -794,7 +795,8 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.seat_type,crs_pax.seats, "
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document "
+      "       report.get_PSPT(crs_pax.pax_id) AS document, "
+      "       report.get_TKNO(crs_pax.pax_id) AS ticket "
       "FROM tlg_trips,crs_pnr,crs_pax,pax "
       "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -978,7 +980,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pax.seat_type,crs_pax.seats, "
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document "
+      "       report.get_PSPT(crs_pax.pax_id) AS document, "
+      "       report.get_TKNO(crs_pax.pax_id) AS ticket "
       "FROM tlg_trips,crs_pnr,crs_pax,pax, ";
     if (sum.nPax>1)
       sql+=
@@ -990,12 +993,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (pax_status==psOk)
     {
       sql+=
-          "   FROM crs_pnr,tlg_binding,crs_pax "
+          "   FROM crs_pnr,tlg_binding,crs_pax,pax "
           "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
           "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
           "         tlg_binding.point_id_spp= :point_id AND "
           "         crs_pnr.wl_priority IS NULL AND"
           "         crs_pax.pr_del=0 AND "
+          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
           "         ("+surnames+") "
           "   UNION ";
       if (sum.nPax>1)
@@ -1006,7 +1010,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "   SELECT DISTINCT crs_pax.pax_id ";
     };
 
-    sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax "
+    sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax,pax "
           "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
           "         tlg_binding.point_id_spp=crs_displace.point_from AND "
           "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1015,6 +1019,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "         crs_displace.pr_goshow= :pr_goshow AND "
           "         crs_pnr.wl_priority IS NULL AND "
           "         crs_pax.pr_del=0 AND "
+          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
           "         ("+surnames+")) ids "
           "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
           "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1046,7 +1051,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   CreateSearchResponse(PaxQry,resNode);
 
 
-  if (fmt.persCountFmt==0)
+//  if (fmt.persCountFmt==0)
   {
     //построим вектор обрезанных фамилий поискового запроса
     xmlNodePtr foundPnr=NULL,foundTrip=NULL;
