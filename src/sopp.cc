@@ -2620,7 +2620,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	tst();
   int point_id = NodeAsInteger( "point_id", reqNode );
   TQuery Qry(&OraSession);
 	Qry.SQLText=
@@ -2640,7 +2639,8 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	 " WHERE move_id=:move_id AND point_num>=:point_num";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.CreateVariable( "point_num", otInteger, point_num );
-  TQuery PointsQry( &OraSession );
+	Qry.Execute();
 	TReqInfo *reqInfo = TReqInfo::Instance();	
-	reqInfo->MsgToLog( string( "Отмена факт. вылета" ), evtDisp, move_id, point_id );
+	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
+	ReadTrips( ctxt, reqNode, resNode );
 }
