@@ -63,7 +63,7 @@ void Develop_dbf::BuildHeader()
 	int Year, Month, Day;
 	DecodeDate( NowUTC(), Year, Month, Day );
 	Year = Year % 100;
-		
+
 	putbinary_tostream( header, Year, 1 );
 	putbinary_tostream( header, Month, 1 );
 	putbinary_tostream( header, Day, 1 );
@@ -129,21 +129,21 @@ void Develop_dbf::BuildData()
 			data << '*';
 		else
 			data << ' ';
-	  vector<TField>::iterator f=fields.begin();			
+	  vector<TField>::iterator f=fields.begin();
 		for ( vector<string>::iterator j=i->data.begin(); j!=i->data.end(); j++ ) {
       if ( f->type != 'N' && f->type != 'F' )
  		    data << std::left;
       else
         data << std::right;
       data << setw( f->len ) <<  *j;
-		  f++;		  	
+		  f++;
 		}
 		if ( i == rows.begin() )
 			recLen = (int)data.str().size();
 	}
 	char c = 26;
 	data << c;
-  ProgTrace( TRACE5, "Data=|%s|", data.str().c_str() );	
+  ProgTrace( TRACE5, "Data=|%s|", data.str().c_str() );
 };
 
 
@@ -168,7 +168,7 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
 {
 	TField field;
   if ( (int)fields.size() >= 255 )
-    throw Exception( "Invalid Fields count>255" );	
+    throw Exception( "Invalid Fields count>255" );
   if ( name.size() > 11 )
     throw Exception( "Invalid Field name size>11" );
 	field.name = upperc( name );
@@ -195,7 +195,7 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
   	throw Exception( "Invalid Field precision" );
   field.precision = precision;
   fields.push_back( field );
-}	
+}
 
 void Develop_dbf::AddField( std::string name, char type, int len )
 {
@@ -204,30 +204,32 @@ void Develop_dbf::AddField( std::string name, char type, int len )
 
 void Develop_dbf::AddRow( DBFRow &row )
 {
-	if ( row.data.size() != fields.size() )
-		throw Exception( "Invalid format data1" );		
+	if ( row.data.size() != fields.size() ) {
+		ProgTrace( TRACE5, "row.data.size()=%d, fields.size()=%d", (int)row.data.size(), (int)fields.size() );
+		throw Exception( "Invalid format data " );
+	}
 	string::size_type t;
 	vector<string>::iterator r=row.data.begin();
 	for ( vector<TField>::iterator f=fields.begin(); f!=fields.end() && r!=row.data.end(); f++, r++ ) {
 		if ( (int)r->size() > f->len ) {
-			ProgTrace( TRACE5, "data size=%d, data value=%s, field size=%d, field name=%s", 
+			ProgTrace( TRACE5, "data size=%d, data value=%s, field size=%d, field name=%s",
 			           (int)r->size(), r->c_str(), f->len, f->name.c_str() );
 			throw Exception( "Invalid format data (data size > field size)" );
 	  }
 		switch ( f->type  ) {
 			case 'C': break;
-			case 'L': if ( r->empty() || 
-				             *r == "Y" || *r == "y" || 
+			case 'L': if ( r->empty() ||
+				             *r == "Y" || *r == "y" ||
 	                   *r == "T" || *r == "t" ||
 	                   *r == "N" || *r == "n" ||
 	                   *r == "F" || *r == "f" )
 	                break;
-	              throw Exception( "Invalid format data3" );
+	              throw Exception( "Invalid format data" );
       case 'N': t = r->find( "." );
-      	        if ( t == string::npos || f->precision == f->len || 
+      	        if ( t == string::npos || f->precision == f->len ||
       	        	   ( (int)t <= f->precision ) && f->len - f->precision >= (int)( r->size() - t ) - 1 )
       	        	break;
-      	        throw Exception( "Invalid format data4" );
+      	        throw Exception( "Invalid format data" );
       case 'D': TDateTime v;
       	        if ( r->empty() || StrToDateTime( r->c_str(), "yyyymmdd", v ) != EOF )
       	        	break;
@@ -237,7 +239,7 @@ void Develop_dbf::AddRow( DBFRow &row )
       	        if ( r->empty() || StrToFloat( r->c_str(), d ) != EOF )
       	        	break;
       	        ProgTrace( TRACE5, "float value=%s", r->c_str() );
-      	        throw Exception( "Invalid format data6" );      	        	
+      	        throw Exception( "Invalid format data" );
 		}
 	}
 	tst();

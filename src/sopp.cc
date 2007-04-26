@@ -32,7 +32,7 @@ const char* pointsSQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "
-    "       trfer_in.point_id trferin, trfer_out.point_id trferout "
+    "       trfer_in.point_id trfer_to, trfer_out.point_id trfer_from "
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
@@ -53,7 +53,7 @@ const char* pointsSQL =
 const char * arx_pointsSQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, NULL trferin, NULL trferout "
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, NULL trfer_to, NULL trfer_from "
     " FROM arx_points, "
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
@@ -132,8 +132,8 @@ struct TDest2 {
   int pr_del;
   int tid;
   string region;
-  bool trferin;
-  bool trferout;
+  bool trfer_to;
+  bool trfer_from;
 };
 
 struct TSoppStage {
@@ -202,8 +202,8 @@ struct TTrip {
   string crs_disp_to;
 
   string region;
-  bool trferin;
-  bool trferout;
+  bool trfer_to;
+  bool trfer_from;
 
   TTrip() {
     flt_no_in = NoExists;
@@ -220,8 +220,8 @@ struct TTrip {
     reg = 0;
     resa = 0;
     pr_reg = 0;
-    trferin = false;
-    trferout = false;
+    trfer_to = false;
+    trfer_from = false;
   }
 };
 
@@ -270,6 +270,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   else
     first_point = id->point_id;
   TDests::iterator pd = dests.end();
+  bool next_airp = false;
   for ( TDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
@@ -282,6 +283,10 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     else
       if ( fd->point_num > id->point_num && fd->first_point == first_point )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
+      		if ( !next_airp ) {
+      			next_airp = true;
+//            trip.trfer_from = fd->trfer_from;
+          }
           trip.places_out.push_back( fd->airp );
         }
   }
@@ -295,13 +300,17 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;
-    trip.trferin = pd->trferin;
+
+    trip.trfer_from = pd->trfer_from;
 
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
     trip.park_in = id->park_in;
   }
+  else
+    trip.trfer_from = false;
+
   trip.airp = id->airp;
 
   if ( !trip.places_out.empty() ) { // trip is takeoffing
@@ -316,6 +325,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.triptype_out = id->triptype;
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
+
+    trip.trfer_to = id->trfer_to;
+
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
     }
@@ -323,8 +335,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
-    trip.trferout = id->trferout;
   }
+  else
+  	 trip.trfer_to = false;
   trip.region = id->region;
   return trip;
 }
@@ -572,8 +585,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.pr_del = PointsQry.FieldAsInteger( "pr_del" );
     d.tid = PointsQry.FieldAsInteger( "tid" );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
-    d.trferin = !PointsQry.FieldIsNULL( "trferin" );
-    d.trferout = !PointsQry.FieldIsNULL( "trferout" );
+    d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
+    d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -782,11 +795,11 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( tr->pr_del_out )
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
     NewTextChild( tripNode, "pr_reg", tr->pr_reg );
-    if ( tr->trferin ) {
-    	NewTextChild( tripNode, "trferin", "+" );
+    if ( tr->trfer_to ) {
+    	NewTextChild( tripNode, "trfer_to", " ->" );
     }
-    if ( tr->trferout ) {
-    	NewTextChild( tripNode, "trferout", "+" );
+    if ( tr->trfer_from ) {
+    	NewTextChild( tripNode, "trfer_from", " ->" );
     }
     lNode = NULL;
     for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
@@ -1350,8 +1363,8 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
    " NVL(SUM(excess),0) AS excess "\
    " FROM pax_grp,pax "\
    "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
-   if ( pr_brd )
-   	sql += " AND pr_brd=1 ";
+/*   if ( pr_brd )
+   	sql += " AND pr_brd=1 ";*/
    sql += " GROUP BY pax_grp.point_arv, pax_grp.class ";
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -2483,9 +2496,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		Qry.Clear();
   		Qry.SQLText =
        "BEGIN "
-       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat,pr_tranz_reg, "
-       "    pr_check_load,pr_exam,pr_check_pay) "
-       "  VALUES(:point_id,0,0,0, NULL, 0, 0, NULL, 0, 0, 0); "
+       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
+       "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg) "
+       "  VALUES(:point_id,0,0,0, NULL, 0, 0, "
+       "    NULL, 0, 1, 0, 0, 0); "
        " ckin.set_trip_sets(:point_id); "
        " gtimer.puttrip_stages(:point_id); "
        "END;";
@@ -2602,4 +2616,31 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
    "END;";*/
 
+}
+
+void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	tst();
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  TQuery Qry(&OraSession);
+	Qry.SQLText=
+	  "SELECT move_id,airline||flt_no||suffix as trip,point_num "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND act_out IS NOT NULL FOR UPDATE";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+	int point_num = Qry.FieldAsInteger( "point_num" );
+	int move_id = Qry.FieldAsInteger( "move_id" );
+	string trip = Qry.FieldAsString( "trip" );
+	Qry.Clear();
+	Qry.SQLText = 
+	 "UPDATE points "
+	 "  SET act_out=NULL, act_in=DECODE(point_num,:point_num,act_in,NULL) "
+	 " WHERE move_id=:move_id AND point_num>=:point_num";
+	Qry.CreateVariable( "move_id", otInteger, move_id );
+	Qry.CreateVariable( "point_num", otInteger, point_num );
+  TQuery PointsQry( &OraSession );
+	TReqInfo *reqInfo = TReqInfo::Instance();	
+	reqInfo->MsgToLog( string( "Отмена факт. вылета" ), evtDisp, move_id, point_id );
 }

@@ -8,6 +8,7 @@
 #include "astra_callbacks.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
+#include "file_server/msg_server.h"
 #include "timer.h"
 #include "sirena_queue.h"
 #include "xml_stuff.h"
@@ -80,6 +81,7 @@ class AstraApplication : public ApplicationCallbacks
               ->add("typeb_handler", main_typeb_handler_tcl)
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
+//!!!              ->add("file_srv",main_file_srv_tcl)
               ->setApplicationCallbacks(this);
     }
     virtual int jxt_proc(const char *body, int blen, const char *head, int hlen,

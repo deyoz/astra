@@ -7,9 +7,31 @@
 #include "basic.h"
 #include "JxtInterface.h"
 
+namespace SEASON {
+	
+struct TViewTrip {
+	int trip_id;
+	int move_id;
+	std::string name;
+	std::string crafts;
+	std::string ports;
+	BASIC::TDateTime land;
+	BASIC::TDateTime takeoff;
+};
+
+struct TViewPeriod {
+	int trip_id;
+	std::string exec;
+	std::string noexec;
+	std::vector<TViewTrip> trips;
+};
+
+void ReadTripInfo( int trip_id, std::vector<TViewPeriod> &viewp, xmlNodePtr reqNode );
+
+}
+
 void CreateSPP( BASIC::TDateTime localdate );
-
-
+	
 class SeasonInterface : public JxtInterface
 {
 public:
@@ -47,5 +69,6 @@ public:
 
 std::string GetCityFromAirp( std::string &airp );
 std::string GetTZRegion( std::string &city, std::map<std::string,std::string> &regions, bool vexcept=1 );
+
 
 #endif

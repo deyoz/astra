@@ -20,6 +20,7 @@
 #include "docs.h"
 #include "telegram.h"
 #include "design_blank.h"
+#include "astra_service.h"
 
 #include "astra_utils.h"
 #include "basic.h"
@@ -62,6 +63,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new DocsInterface();
     new TelegramInterface();
     new DesignBlankInterface();
+    new AstraServiceInterface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,

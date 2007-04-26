@@ -25,6 +25,7 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
+using namespace SEASON;
 
 
 struct TRange {
@@ -133,23 +134,6 @@ struct TRangeList {
   vector<TPeriod> periods;
 };
 
-struct TViewTrip {
-	int trip_id;
-	int move_id;
-	string name;
-	string crafts;
-	string ports;
-	TDateTime land;
-	TDateTime takeoff;
-};
-
-struct TViewPeriod {
-	int trip_id;
-	string exec;
-	string noexec;
-	vector<TViewTrip> trips;
-};
-
 class TFilter {
   private:
   public:
@@ -196,11 +180,10 @@ void ClearNotUsedDays( TDateTime first, TDateTime last, string &days );
 
 void PeriodToUTC( TDateTime &first, TDateTime &last, string &days, const string region );
 
-void internalRead( TFilter &filter, xmlNodePtr dataNode );
+void internalRead( TFilter &filter, xmlNodePtr dataNode, int trip_id = NoExists );
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode );
 
 void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer );
-
 
 string GetPrintName( TDest *PDest, TDest *NDest )
 {
@@ -997,9 +980,10 @@ void CreateSPP( BASIC::TDateTime localdate )
   TQuery TQry(&OraSession);
   TQry.SQLText =
    "BEGIN "
-   " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat,pr_tranz_reg, "
-   "    pr_check_load,pr_exam,pr_check_pay) "
-   "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, NULL, 0, 0, 0); "
+   " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
+   "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg) "
+   "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, "
+   "    NULL, 0, 1, 0, 0, 0); "
    " ckin.set_trip_sets(:point_id); "
    " gtimer.puttrip_stages(:point_id); "
    "END;";
@@ -1920,6 +1904,7 @@ tst();
 void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
+  vector<TPeriod> oldperiods;
   TFilter filter;
   xmlNodePtr filterNode = GetNode( "filter", reqNode );
   filter.Parse( filterNode );
@@ -1930,12 +1915,30 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   VerifyRangeList( rangeList, mapds );
   vector<TPeriod> nperiods, speriods;
 
+  string log;
   string sql;
   TQuery SQry( &OraSession );
   xmlNodePtr node = GetNode( "trip_id", reqNode );
   int trip_id;
   if ( node ) {
     trip_id = NodeAsInteger( node );
+    SQry.Clear();
+    SQry.SQLText = "SELECT first_day, last_day, days, pr_cancel, tlg, reference "
+                   " FROM sched_days "
+                   " WHERE trip_id=:trip_id";
+    SQry.CreateVariable( "trip_id", otInteger, trip_id );
+    SQry.Execute();
+    while ( !SQry.Eof ) {
+    	TPeriod p;
+    	p.first = SQry.FieldAsDateTime( "first_day" );
+    	p.last = SQry.FieldAsDateTime( "last_day" );
+    	p.days = SQry.FieldAsString( "days" );
+    	p.cancel = SQry.FieldAsInteger( "pr_cancel" );
+    	p.tlg = SQry.FieldAsString( "tlg" );
+    	p.ref = SQry.FieldAsString( "reference" );
+    	oldperiods.push_back( p );
+    	SQry.Next();
+    }
     TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
     // теперь можно удалить все периоды, кот.
     //!!! ошибка т.к. периоды заводятся относительно региона первого п.п. у кот. delta=0
@@ -1965,6 +1968,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     SQry.Execute();
     trip_id = SQry.FieldAsInteger(0);
     ProgTrace( TRACE5, "new trip_id=%d", trip_id );
+    TReqInfo::Instance()->MsgToLog( "Ввод нового рейса ", evtSeason, trip_id );
   }
   // все диапазоны уже в UTC
   // пробегаем по всем полученным с клиента и накладываем их на все из БД
@@ -2080,8 +2084,9 @@ tst();
   int new_move_id;
   for ( vector<TPeriod>::iterator ip=speriods.begin(); ip!=speriods.end(); ip++ ) {
     ProgTrace( TRACE5, "ip->modify=%d, ip->move_id=%d", ip->modify, ip->move_id );
-    if ( ip->modify == fdelete )
+    if ( ip->modify == fdelete ) {
       continue;
+    }
     if ( ip->modify == finsert ) {
       NQry.Execute();
       new_move_id = NQry.FieldAsInteger( 0 );
@@ -2137,27 +2142,67 @@ tst();
     SQry.SetVariable( "pr_cancel", ip->cancel );
     SQry.SetVariable( "tlg", ip->tlg );
     SQry.SetVariable( "reference", ip->ref );
-tst();
+    vector<TPeriod>::iterator ew = oldperiods.end();
+    for ( ew=oldperiods.begin(); ew!=oldperiods.end(); ew++ ) {
+    	if ( ew->first == ip->first && ew->last == ip->last )
+    		break;
+    }
+    if ( ew == oldperiods.end() ) {
+      log = "Ввод нового периода " +
+            DateTimeToStr( ip->first, "dd.mm.yy" ) +
+            "-" +
+            DateTimeToStr( ip->last, "dd.mm.yy" ) + " " +
+            ip->days;
+      if ( ip->cancel )
+    	  log += " отм.";
+    }
+    else {
+    	log.clear();
+    	if ( ip->days != ew->days )
+    		log += " дни " + ip->days;
+      if ( ew->cancel != ip->cancel )
+      	log += " отм.";
+    	if ( ip->tlg != ew->tlg )
+    		log += " кратко " + ip->tlg;
+    	if ( ip->ref != ew->ref )
+    		log += " источники " + ip->ref;
+    	if ( !log.empty() )
+    	  log = "Изменение периода " +
+    	        DateTimeToStr( ip->first, "dd.mm.yy" ) +
+    	        "-" +
+              DateTimeToStr( ip->last, "dd.mm.yy" ) + log;
+    	ProgTrace( TRACE5, "log=%s", log.c_str() );
+    	ew->modify = fdelete;
+    }
+    if ( !log.empty() )
+      TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
     SQry.Execute()  ;
-tst();
     num++;
     TDestList ds = mapds[ ip->move_id ];
 ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
     int dnum = 0;
     double fl, ff;
     if ( !ds.dests.empty() ) {
+    	log.clear();
       for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
         RQry.SetVariable( "move_id", new_move_id );
         RQry.SetVariable( "num", dnum );
         RQry.SetVariable( "cod", id->cod );
+        if ( !log.empty() )
+        	log += "-";
+        else
+        	log = "Маршрут: ";
         RQry.SetVariable( "pr_cancel", id->pr_cancel );
         if ( id->Land > NoExists ) {
           RQry.SetVariable( "land", modf( (double)id->Land, &fl ) ); // удаляем delta_in
+          log += DateTimeToStr( id->Land, "hh:nn(UTC)" );
+
         }
         else {
           fl = 0.0;
           RQry.SetVariable( "land", FNull );
         }
+        log += id->cod;
         if ( id->company.empty() )
           RQry.SetVariable( "company", FNull );
         else
@@ -2172,11 +2217,14 @@ ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
           RQry.SetVariable( "bc", id->bc );
         if ( id->Takeoff > NoExists ) {
           RQry.SetVariable( "takeoff", modf( (double)id->Takeoff, &ff ) ); // удаляем delta_out
+          log += DateTimeToStr( id->Takeoff, "hh:nn(UTC)" );
         }
         else {
           ff = 0.0;
           RQry.SetVariable( "takeoff", FNull );
         }
+        if ( id->pr_cancel )
+        	log += " отм.";
         if ( id->triptype.empty() )
           RQry.SetVariable( "triptype", FNull );
         else
@@ -2204,16 +2252,28 @@ ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
           RQry.SetVariable( "suffix", FNull );
         else
           RQry.SetVariable( "suffix", id->suffix );
-ProgTrace( TRACE5, "num=%d", dnum );
         RQry.Execute();
         tst();
         dnum++;
       }
       mapds[ ip->move_id ].dests.clear();
       ip->move_id = new_move_id;
+      TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
     }
   }
-  TReqInfo::Instance()->MsgToLog( "Изменение характеристик рейса ", evtSeason, trip_id );
+  for ( vector<TPeriod>::const_iterator ew=oldperiods.begin(); ew!=oldperiods.end(); ew++ ) {
+  	if ( ew->modify == fdelete )
+  		continue;
+      log = "Удаление периода " +
+            DateTimeToStr( ew->first, "dd.mm.yy" ) +
+            "-" +
+            DateTimeToStr( ew->last, "dd.mm.yy" ) + " " +
+            ew->days;
+      if ( ew->cancel )
+    	  log += " отм.";
+    	TReqInfo::Instance()->MsgToLog( log, evtSeason, trip_id, new_move_id );
+  }
+
   // надо перечитать информацию по экрану редактирования
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   GetEditData( trip_id, filter, true, dataNode );
@@ -2934,7 +2994,7 @@ bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
   return false;
 }
 
-void internalRead( TFilter &filter, xmlNodePtr dataNode )
+void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = NoExists )
 {
   TDateTime last_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
   map<int,string> mapreg;
@@ -2947,10 +3007,14 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
   sql += COMMON_ORAUSER();
   sql += ".sched_days ";
   sql += "WHERE last_day>=:begin_date_season ";
+  if ( trip_id > NoExists )
+  	sql += " AND trip_id=:trip_id ";
   sql += "ORDER BY trip_id,move_id,num";
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   SQry.SQLText = sql;
   SQry.CreateVariable( "begin_date_season", otDate, last_date_season );
+  if ( trip_id > NoExists )
+  	SQry.CreateVariable( "trip_id", otInteger, trip_id );
   tst();
   SQry.Execute();
   tst();
@@ -2971,7 +3035,6 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
   GetDests( mapds, filter );
   /* теперь перейдем к выборке и фильтрации диапазонов */
   TViewPeriod viewperiod;
-  xmlNodePtr rangeListNode;
   viewperiod.trip_id = NoExists;
   int move_id = NoExists;
   TDestList ds;
@@ -2979,23 +3042,14 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
 //  string exec, noexec;
   bool canRange;
   bool rangeListEmpty = false;
-  vector<TViewPeriod> viewp;
   while ( !SQry.Eof ) {
     if ( viewperiod.trip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       if ( !rangeListEmpty ) {
         if ( viewperiod.trip_id > NoExists ) {
-//        	viewperiod.trip_id = trip_id;
           tst();
         	viewp.push_back( viewperiod );
-/*          NewTextChild( rangeListNode, "trip_id", trip_id );
-          NewTextChild( rangeListNode, "exec", exec );
-          NewTextChild( rangeListNode, "noexec", noexec );*/
         }
-/*        rangeListNode = NewTextChild(dataNode, "rangeList"); */
       }
-/*      trip_id = SQry.FieldAsInteger( idx_trip_id );*/
-/*      exec.clear();
-      noexec.clear();*/
       viewperiod.trips.clear();
       viewperiod.exec.clear();
       viewperiod.noexec.clear();
@@ -3008,14 +3062,7 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
       /* не работаем с рейсами у кот. нет delta = 0 */
       canRange = !ds.dests.empty();
     }
-    if ( canRange /*&& rangeListEmpty*/ ) {
-     /* rangeListEmpty - позволяет выделить только один маршрут
-        для отображение рейса закрепленного за trip_id */
-/*      if ( SQry.FieldIsNULL( idx_first_dest ) ) {
-        ProgError( STDLOG, "first_dest is null, trip_id=%d, move_id=%d", trip_id, move_id );
-      }
-      else {*/
-//        int first_dest = SQry.FieldAsInteger( idx_first_dest ); // номер п.п. относительно которого расчитывается диапазон
+    if ( canRange ) {
         TDateTime first = SQry.FieldAsDateTime( idx_first_day );
         TDateTime last = SQry.FieldAsDateTime( idx_last_day );
         string days = SQry.FieldAsString( idx_days );
@@ -3024,14 +3071,9 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
         TDateTime utc_first = first;
         /* получим правила перехода(вывода) времен в рейсе */
 
-//        string pregion = SQry.FieldAsString( idx_region );
         int ptz = SQry.FieldAsInteger( idx_ptz );
         string pregion = GetRegionFromTZ( ptz, mapreg );
 
-/*        TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
-        first += hours; //???
-        last += hours;*/
-//        TDateTime utcf = first;
         /* продолжаем фильтровать */
         time_period p( DateTimeToBoost( first ), DateTimeToBoost( last ) );
         time_period df( DateTimeToBoost( filter.range.first ), DateTimeToBoost( filter.range.last ) );
@@ -3050,55 +3092,22 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
       	      createAirlineTrip( viewperiod.trip_id, filter, GetTZOffSet( utc_first, ptz, v ), ds ) ) ) {
           rangeListEmpty = false;
           TDateTime delta_out = NoExists; // переход через сутки по вылету
-/*          for ( TDests::iterator id=ds.dests.begin(); id!=ds.dests.end(); id++ ) {
-            if ( id->num == first_dest ) {
-              if ( id->Land > NoExists && id->Takeoff > NoExists ) {
-                TDateTime land, takeoff;
-                double f1, f2, f3;
-                modf( (double)utcf, &f1 );
-                f3 = modf( (double)id->Land, &f2 );
-                land = UTCToClient( f1 + f2 + fabs( f3 ), id->region );
-                f3 = modf( (double)id->Takeoff, &f2 );
-                takeoff = UTCToClient( f1 + f2 + fabs( f3 ), id->region );
-                delta_out = takeoff - land;
-              }
-              else
-                delta_out = 0.0;
-              break;
-            }
-          }
-          if ( delta_out == NoExists ) {
-            ProgError( STDLOG, "delta_out is not define, trip_id=%d, move_id=%d", trip_id, move_id );*/
-            delta_out = 0.0;
-/*          } */
+          delta_out = 0.0;
           if ( pr_cancel )
             AddRefPeriod( viewperiod.noexec, first, last, (int)delta_out, days, tlg );
           else
             AddRefPeriod( viewperiod.exec, first, last, (int)delta_out, days, tlg );
-//          xmlNodePtr tripsNode = NULL;
           for ( vector<trip>::iterator tr=ds.trips.begin(); tr!=ds.trips.end(); tr++ ) {
-//            if ( !tripsNode )
-//              tripsNode = NewTextChild( rangeListNode, "trips" );
             TViewTrip vt;
-//            xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
             vt.move_id = move_id;
-            //NewTextChild( tripNode, "move_id", move_id );
             vt.name = tr->name;
-            //NewTextChild( tripNode, "name", tr->name );
-            //NewTextChild( tripNode, "crafts", tr->crafts );
             vt.crafts = tr->crafts;
             if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
-              //NewTextChild( tripNode, "ports", tr->ports_in + "/" + tr->ports_out );
               vt.ports = tr->ports_in + "/" + tr->ports_out;
             else
-              //NewTextChild( tripNode, "ports", tr->ports_in + tr->ports_out );
               vt.ports = tr->ports_in + tr->ports_out;
             vt.land = tr->land;
-//            if ( tr->land > NoExists )
-              //NewTextChild( tripNode, "land", DateTimeToStr( tr->land ) );
             vt.takeoff = tr->takeoff;
-//            if ( tr->takeoff > NoExists )
-              //NewTextChild( tripNode, "takeoff", DateTimeToStr( tr->takeoff ) );
             viewperiod.trips.push_back( vt );
           }
           mapds[ move_id ].dests.clear(); /* уже использовали маршрут */
@@ -3106,32 +3115,30 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
           ds.dests.clear();
           ds.trips.clear();
         } /* конец условия фильтра по диапазону */
-/*      } // end else */
     } /* end if canRange */
     SQry.Next();
   }
   if ( rangeListEmpty ) {
    ProgTrace( TRACE5, "drop rangelist trip_id=%d, move_id=%d", viewperiod.trip_id,move_id );
    /* удаляем ноду */
-/*   xmlUnlinkNode( rangeListNode );
-   xmlFreeNode( rangeListNode );*/
   }
   else {
     if ( viewperiod.trip_id > NoExists ) {
     	viewp.push_back( viewperiod );
-/*      NewTextChild( rangeListNode, "trip_id", trip_id );
-      NewTextChild( rangeListNode, "exec", exec );
-      NewTextChild( rangeListNode, "noexec", noexec );*/
     }
   }
-  sort( viewp.begin(), viewp.end(), ComparePeriod );
-  for ( vector<TViewPeriod>::iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
+}
+
+void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
+{
+  xmlNodePtr rangeListNode;
+  for ( vector<TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
   	tst();
   	rangeListNode = NewTextChild(dataNode, "rangeList");
     NewTextChild( rangeListNode, "trip_id", i->trip_id );
     NewTextChild( rangeListNode, "exec", i->exec );
     NewTextChild( rangeListNode, "noexec", i->noexec );
-    for ( vector<TViewTrip>::iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
+    for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
     	xmlNodePtr tripsNode = NULL;
     	if ( !tripsNode )
         tripsNode = NewTextChild( rangeListNode, "trips" );
@@ -3146,6 +3153,17 @@ void internalRead( TFilter &filter, xmlNodePtr dataNode )
         NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );
     }
   }
+}
+
+namespace SEASON {
+void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
+{
+  xmlNodePtr filterNode = GetNode( "filter", reqNode );
+  TFilter filter;
+  filter.Parse( filterNode );
+  internalRead( filter, viewp, trip_id );
+}
+
 }
 
 void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3168,9 +3186,15 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     NewTextChild( dataNode, "mode", "port" );
   else
     NewTextChild( dataNode, "mode", "airline" );
-  internalRead( filter, dataNode );
-  get_report_form("SeasonList", resNode);
-  STAT::set_variables(resNode);
+
+  vector<TViewPeriod> viewp;
+  internalRead( filter, viewp );
+  sort( viewp.begin(), viewp.end(), ComparePeriod );
+  buildViewTrips( viewp, dataNode );
+  if ( GetNode( "LoadForm", reqNode ) ) {
+    get_report_form("SeasonList", resNode);
+    STAT::set_variables(resNode);
+  }
 }
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode )
