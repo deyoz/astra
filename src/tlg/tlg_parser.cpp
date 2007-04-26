@@ -3445,7 +3445,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "SELECT pax_id,pr_del,last_op FROM crs_pax \
            WHERE pnr_id= :pnr_id AND \
                  surname= :surname AND (name= :name OR :name IS NULL AND name IS NULL) AND \
-                 DECODE(seats,0,0,1)=:seats AND tid<>:tid";
+                 DECODE(seats,0,0,1)=:seats AND tid<>:tid \
+           ORDER BY last_op DESC,pax_id DESC";
         CrsPaxQry.DeclareVariable("pnr_id",otInteger);
         CrsPaxQry.DeclareVariable("surname",otString);
         CrsPaxQry.DeclareVariable("name",otString);

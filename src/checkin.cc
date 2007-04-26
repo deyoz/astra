@@ -1178,7 +1178,7 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
       return 0;
 };
 
-bool CheckInInterface::CheckFltLoad(int point_id)
+void CheckInInterface::CheckFltLoad(int point_id)
 {
   TQuery Qry(&OraSession);
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1190,12 +1190,16 @@ bool CheckInInterface::CheckFltLoad(int point_id)
                        AirpTZRegion(Qry.FieldAsString("airp")));
 
   Qry.SQLText=
-    "SELECT pr_check_load,max_commerce FROM trip_sets WHERE point_id=:point_id";
+    "SELECT pr_check_load,pr_overload_reg,max_commerce FROM trip_sets WHERE point_id=:point_id";
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-  if (Qry.FieldAsInteger("pr_check_load")==0) return true;
-  if (Qry.FieldIsNULL("max_commerce")) return true;
+  if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+  if (Qry.FieldIsNULL("max_commerce")) return;
   int max_commerce=Qry.FieldAsInteger("max_commerce");
+  bool pr_check_load=Qry.FieldAsInteger("pr_check_load")!=0;
+  bool pr_overload_reg=Qry.FieldAsInteger("pr_overload_reg")!=0;
+
+  if (!pr_check_load && pr_overload_reg) return;
+
   int load=0;
   Qry.SQLText=
     "SELECT NVL(SUM(weight_win),0) AS weight_win, "
@@ -1241,7 +1245,13 @@ bool CheckInInterface::CheckFltLoad(int point_id)
 
   ProgTrace(TRACE5,"max_commerce=%d load=%d",max_commerce,load);
 
-  return (load<=max_commerce);
+  if (load>max_commerce)
+  {
+    if (pr_overload_reg)
+      showErrorMessage("Превышение максимальной коммерческой загрузки на рейс");
+    else
+      throw UserException("Превышение максимальной коммерческой загрузки на рейс");
+  };
 };
 
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1836,9 +1846,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                             NodeAsStringFast("coupon_no",node2));
     };
   };
-  //проверим максимальную загрузку
-  if (!CheckFltLoad(point_dep))
-    throw UserException("Превышение максимальной коммерческой загрузки на рейс");
 
   //обновление counters
   Qry.Clear();
@@ -1865,6 +1872,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   PaxQry.Execute();
   if (!PaxQry.Eof)
   {
+    //проверим максимальную загрузку
+    CheckFltLoad(point_dep);
+
     Qry.Clear();
     Qry.SQLText=
       "SELECT MAX(DECODE(airline,NULL,0,4)+ "

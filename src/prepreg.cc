@@ -345,9 +345,10 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     };
   };
 
-  node = GetNode( "triptranzit", reqNode );
+  node = GetNode( "trip_sets", reqNode );
   if ( node != NULL )
   {
+    //лочим рейс
     Qry.Clear();
     Qry.SQLText =
       "SELECT point_num,pr_tranzit,first_point "
@@ -355,58 +356,156 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
-    if (!Qry.FieldIsNULL("first_point"))
+
+    TQuery SetsQry( &OraSession );
+    SetsQry.Clear();
+    SetsQry.SQLText =
+      "SELECT pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam, "
+      "       pr_check_pay,pr_trfer_reg "
+      "FROM trip_sets WHERE point_id=:point_id";
+    SetsQry.CreateVariable("point_id",otInteger,point_id);
+    SetsQry.Execute();
+    if (SetsQry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+
+    bool new_pr_tranzit,old_pr_tranzit,
+         new_pr_tranz_reg,    old_pr_tranz_reg,
+         new_pr_check_load,   old_pr_check_load,
+         new_pr_overload_reg, old_pr_overload_reg,
+         new_pr_exam,         old_pr_exam,
+         new_pr_check_pay,    old_pr_check_pay,
+         new_pr_trfer_reg,    old_pr_trfer_reg;
+    old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+    old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
+    old_pr_check_load=SetsQry.FieldAsInteger("pr_check_load")!=0;
+    old_pr_overload_reg=SetsQry.FieldAsInteger("pr_overload_reg")!=0;
+    old_pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
+    old_pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
+    old_pr_trfer_reg=SetsQry.FieldAsInteger("pr_trfer_reg")!=0;
+
+    new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
+    new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
+    new_pr_check_load=NodeAsInteger("pr_check_load",node)!=0;
+    new_pr_overload_reg=NodeAsInteger("pr_overload_reg",node)!=0;
+    new_pr_exam=NodeAsInteger("pr_exam",node)!=0;
+    new_pr_check_pay=NodeAsInteger("pr_check_pay",node)!=0;
+    new_pr_trfer_reg=NodeAsInteger("pr_trfer_reg",node)!=0;
+
+    if (old_pr_tranzit!=new_pr_tranzit ||
+        old_pr_tranz_reg!=new_pr_tranz_reg)
     {
-      //рейс tranzitable
-      bool old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
-      bool new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
-      bool pr_tranz_reg;
-      if (new_pr_tranzit)
-        pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
-      else
-        pr_tranz_reg=false;
-      int first_point=Qry.FieldAsInteger("first_point");
-      int point_num=Qry.FieldAsInteger("point_num");
-      if (old_pr_tranzit != new_pr_tranzit)
+      if (!Qry.FieldIsNULL("first_point"))
       {
-        Qry.Clear();
+        //рейс tranzitable
+        bool pr_tranz_reg;
         if (new_pr_tranzit)
-          Qry.SQLText =
-            "BEGIN "
-            "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
-            "  UPDATE points SET first_point=:first_point "
-            "  WHERE first_point=:point_id AND point_num>:point_num; "
-            "END; ";
+          pr_tranz_reg=new_pr_tranz_reg;
         else
-          Qry.SQLText =
-            "BEGIN "
-            "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
-            "  UPDATE points SET first_point=:point_id "
-            "  WHERE first_point=:first_point AND point_num>:point_num; "
-            "END; ";
-        Qry.CreateVariable("pr_tranzit",otInteger,(int)new_pr_tranzit);
+          pr_tranz_reg=false;
+        int first_point=Qry.FieldAsInteger("first_point");
+        int point_num=Qry.FieldAsInteger("point_num");
+        if (old_pr_tranzit != new_pr_tranzit)
+        {
+          Qry.Clear();
+          if (new_pr_tranzit)
+            Qry.SQLText =
+              "BEGIN "
+              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+              "  UPDATE points SET first_point=:first_point "
+              "  WHERE first_point=:point_id AND point_num>:point_num; "
+              "END; ";
+          else
+            Qry.SQLText =
+              "BEGIN "
+              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+              "  UPDATE points SET first_point=:point_id "
+              "  WHERE first_point=:first_point AND point_num>:point_num; "
+              "END; ";
+          Qry.CreateVariable("pr_tranzit",otInteger,(int)new_pr_tranzit);
+          Qry.CreateVariable("point_id",otInteger,point_id);
+          Qry.CreateVariable("first_point",otInteger,first_point);
+          Qry.CreateVariable("point_num",otInteger,point_num);
+          Qry.Execute();
+        };
+        Qry.Clear();
+        Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg WHERE point_id=:point_id";
+        Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
         Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.CreateVariable("first_point",otInteger,first_point);
-        Qry.CreateVariable("point_num",otInteger,point_num);
         Qry.Execute();
+
+        TLogMsg msg;
+        msg.msg = "Установлен режим";
+        if ( !pr_tranz_reg ) msg.msg += " без";
+        msg.msg += " перерегистрации транзита для";
+        if ( !new_pr_tranzit )
+          msg.msg += " нетранзитного рейса";
+        else
+          msg.msg += " транзитного рейса";
+        msg.ev_type=evtFlt;
+        msg.id1=point_id;
+        TReqInfo::Instance()->MsgToLog(msg);
       };
+    };
+    if (old_pr_check_load!=new_pr_check_load ||
+        old_pr_overload_reg!=new_pr_overload_reg ||
+        old_pr_exam!=new_pr_exam ||
+        old_pr_check_pay!=new_pr_check_pay ||
+        old_pr_trfer_reg!=new_pr_trfer_reg )
+    {
       Qry.Clear();
-      Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg WHERE point_id=:point_id";
-      Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
+      Qry.SQLText=
+        "UPDATE trip_sets "
+        "SET pr_check_load=:pr_check_load, "
+        "    pr_overload_reg=:pr_overload_reg, "
+        "    pr_exam=:pr_exam, "
+        "    pr_check_pay=:pr_check_pay, "
+        "    pr_trfer_reg=:pr_trfer_reg "
+        "WHERE point_id=:point_id";
+      Qry.CreateVariable("pr_check_load",otInteger,(int)new_pr_check_load);
+      Qry.CreateVariable("pr_overload_reg",otInteger,(int)new_pr_overload_reg);
+      Qry.CreateVariable("pr_exam",otInteger,(int)new_pr_exam);
+      Qry.CreateVariable("pr_check_pay",otInteger,(int)new_pr_check_pay);
+      Qry.CreateVariable("pr_trfer_reg",otInteger,(int)new_pr_trfer_reg);
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
 
       TLogMsg msg;
-      msg.msg = "Установлен режим";
-      if ( !pr_tranz_reg ) msg.msg += " без";
-      msg.msg += " перерегистрации транзита для";
-      if ( !new_pr_tranzit )
-        msg.msg += " нетранзитного рейса";
-      else
-        msg.msg += " транзитного рейса";
       msg.ev_type=evtFlt;
       msg.id1=point_id;
-      TReqInfo::Instance()->MsgToLog(msg);
+      if (old_pr_check_load!=new_pr_check_load)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_check_load ) msg.msg += " без";
+        msg.msg += " контроля загрузки при регистрации";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_overload_reg!=new_pr_overload_reg)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_overload_reg ) msg.msg += " запрета"; else msg.msg += " разрешения";
+        msg.msg += " регистрации при превышении загрузки";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_exam!=new_pr_exam)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_exam ) msg.msg += " без";
+        msg.msg += " досмотрового контроля перед посадкой";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_check_pay!=new_pr_check_pay)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_check_pay ) msg.msg += " без";
+        msg.msg += " контроля оплаты багажа при посадке";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_trfer_reg!=new_pr_trfer_reg)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_trfer_reg ) msg.msg += " запрета"; else msg.msg += " разрешения";
+        msg.msg += " обработки трансфера при регистрации";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
     };
   };
 

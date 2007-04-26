@@ -669,12 +669,18 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     TQuery Qryh( &OraSession );
     Qryh.Clear();
     Qryh.SQLText=
-      "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg "
+      "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
+      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
-    if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+    if (Qryh.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
     NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
+    NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
+    NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
+    NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
+    NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
+    NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
   };
   return true;
 }
@@ -1312,7 +1318,9 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "       RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
     "       crs_pax.pers_type, "
     "       crs_pnr.class,crs_pnr.subclass, "
-    "       crs_pax.seat_no,crs_pax.preseat_no, "
+    "       crs_pax.seat_no AS crs_seat_no, "
+    "       crs_pax.preseat_no, "
+    "       pax.seat_no, "
     "       crs_pax.seats seats, "
     "       crs_pnr.target, "
     "       report.get_trfer_airp(airp_arv) AS last_target, "
@@ -1347,8 +1355,9 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ), EncodePerson(ASTRA::adult) );
     NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
     NewTextChild( itemNode, "subclass", Qry.FieldAsString( "subclass" ) );
-    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
+    NewTextChild( itemNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ), "" );
     NewTextChild( itemNode, "preseat_no", Qry.FieldAsString( "preseat_no" ), "" );
+    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
     NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ), 1 );
     NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
     NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ), "" );

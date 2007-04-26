@@ -78,10 +78,13 @@ void handle_tlg(void)
   {
     TlgIdQry.Clear();
     TlgIdQry.SQLText=
-      "SELECT id,\
-              MAX(time_receive) AS time_receive\
-       FROM tlgs_in WHERE time_parse IS NULL\
-       GROUP BY id ORDER BY MAX(time_create),MAX(merge_key)";
+      "SELECT id, "
+      "       MAX(time_receive) AS time_receive, "
+      "       MAX(time_create) AS max_time_create, "
+      "       MIN(time_receive) AS min_time_receive "
+      "FROM tlgs_in WHERE time_parse IS NULL "
+      "GROUP BY id "
+      "ORDER BY max_time_create,min_time_receive,id";
   };
 
   static TQuery TlgInQry(&OraSession);
