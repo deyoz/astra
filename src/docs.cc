@@ -309,6 +309,26 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
     NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy", pr_lat));
+
+    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+
+    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "airp_dep_city", airpRow.AsString("city", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "flt",
+            airlineRow.AsString("code", pr_lat) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            Qry.FieldAsString("suffix")
+            );
+    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "craft", craft);
+    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airpRow.AsString("name",pr_lat));
+    NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat));
     NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
 }
 
@@ -386,6 +406,16 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.Next();
     }
 
+    // Теперь переменные отчета
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void RunSZV(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "events_log");
     // Теперь переменные отчета
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
@@ -1431,6 +1461,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "rem") RunRem(reqNode, formDataNode);
     else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
     else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
+    else if(name == "SZV") RunSZV(reqNode, formDataNode);
     else if(name == "FullStat") ;
     else if(name == "ShortStat") ;
     else if(name == "DetailStat") ;
