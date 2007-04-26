@@ -1746,11 +1746,26 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.Eof) throw UserException("Принтеры не найдены");
     while(!Qry.Eof) {
         xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
-        NewTextChild(printerNode, "code", Qry.FieldAsInteger("code"));
-        NewTextChild(printerNode, "name", Qry.FieldAsString("name"));
-        NewTextChild(printerNode, "iface", Qry.FieldAsString("iface"));
-        NewTextChild(printerNode, "format_id", Qry.FieldAsInteger("format_id"));
-        NewTextChild(printerNode, "format", Qry.FieldAsString("format"));
+
+        int code = Qry.FieldAsInteger("code");
+        string name = Qry.FieldAsString("name");
+        string iface = Qry.FieldAsString("iface");
+        int format_id = Qry.FieldAsInteger("format_id");
+        string format = Qry.FieldAsString("format");
+
+        NewTextChild(printerNode, "code", code);
+        NewTextChild(printerNode, "name", name);
+        NewTextChild(printerNode, "iface", iface);
+        NewTextChild(printerNode, "format_id", format_id);
+        NewTextChild(printerNode, "format", format);
+
+        printerNode = NewTextChild(printersNode, "printer");
+        NewTextChild(printerNode, "code", code);
+        NewTextChild(printerNode, "name", name);
+        NewTextChild(printerNode, "iface", "CUSE");
+        NewTextChild(printerNode, "format_id", format_id);
+        NewTextChild(printerNode, "format", format);
+
         Qry.Next();
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
