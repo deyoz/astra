@@ -488,6 +488,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(!len) len = buf.str().size();
         result = AlignString(buf.str(), len, align);
     }
+    if(name == "GATE" && result.empty()) throw UserException("Не указан выход на посадку");
     return result;
 }
 
