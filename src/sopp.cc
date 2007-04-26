@@ -1363,8 +1363,8 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
    " NVL(SUM(excess),0) AS excess "\
    " FROM pax_grp,pax "\
    "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
-/*   if ( pr_brd )
-   	sql += " AND pr_brd=1 ";*/
+   if ( pr_brd )
+   	sql += " AND pr_brd=1 ";
    sql += " GROUP BY pax_grp.point_arv, pax_grp.class ";
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -2366,6 +2366,16 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  	else {
   	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort, evtDisp, move_id, id->point_id );
   	  	}
+  	  }
+  	  if ( id->pr_del != old_dest.pr_del ) {
+  	  	if ( id->pr_del == 1 )
+  	  		reqInfo->MsgToLog( string( "Отмена пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+  	  	else
+  	  		if ( id->pr_del == 0 )
+	  	  		reqInfo->MsgToLog( string( "Возврат пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+	  	  	else
+	  	  		if ( id->pr_del == -1 )
+	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
   	  }
 
   	  Qry.Clear();
