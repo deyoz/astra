@@ -10,6 +10,7 @@
 #include "str_utils.h"
 #include "docs.h"
 #include "base_tables.h"
+#include "stl_utils.h"
 #include <fstream>
 
 using namespace std;
@@ -488,7 +489,13 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(!len) len = buf.str().size();
         result = AlignString(buf.str(), len, align);
     }
-    if(name == "GATE" && result.empty()) throw UserException("Не указан выход на посадку");
+    {
+        string buf = result;
+        TrimString(buf);
+        if(buf.empty()) {
+            if(name == "GATE") throw UserException("Не указан выход на посадку");
+        }
+    }
     return result;
 }
 
