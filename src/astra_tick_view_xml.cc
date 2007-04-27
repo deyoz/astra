@@ -364,8 +364,8 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
                itin.arrPointCode()),"index",col_num++); // куда
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"codea",
                itin.airCode()+
-            (itin.operAirCode().size()?
-                       (string(":")+itin.operAirCode()):"")),
+            (itin.airCodeOper().size()?
+                       (string(":")+itin.airCodeOper()):"")),
             "index",col_num++); // компания
 
     // номер рейса

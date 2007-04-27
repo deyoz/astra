@@ -8,7 +8,7 @@
 #include "astra_callbacks.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
-#include "file_server/msg_server.h"
+//#include "file_server/msg_server.h"
 #include "timer.h"
 #include "sirena_queue.h"
 #include "xml_stuff.h"

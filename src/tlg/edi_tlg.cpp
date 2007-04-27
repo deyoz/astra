@@ -412,8 +412,8 @@ void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
             itin.depPointCode() << "+" <<
             itin.arrPointCode() << "+" <<
             itin.airCode();
-    if(!itin.operAirCode().empty()){
-        tmp << ":" << itin.operAirCode();
+    if(!itin.airCodeOper().empty()){
+        tmp << ":" << itin.airCodeOper();
     }
     tmp << "+";
     if(itin.flightnum())

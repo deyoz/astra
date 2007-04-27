@@ -25,14 +25,14 @@ class Itin : public BaseItin<Luggage>
 {
 public:
     typedef boost::shared_ptr< Itin > SharedPtr;
-    Itin(const string &air,
-         const string &oper_air,
+    Itin(const std::string &air,
+         const std::string &oper_air,
          int flight,
          int cls,
          const boost::gregorian::date  &date1,
          const boost::posix_time::time_duration &time1,
-         const string &depPoint,
-         const string &arrPoint)
+         const std::string &depPoint,
+         const std::string &arrPoint)
     :
         BaseItin<Luggage>("",
                           air,
@@ -53,20 +53,20 @@ public:
     {
     }
 
-    Itin(const string &tnum,
-         const string &air,
-         const string &oper_air,
+    Itin(const std::string &tnum,
+         const std::string &air,
+         const std::string &oper_air,
          int flight,
          int cls,
          const boost::gregorian::date  &date1,
          const boost::posix_time::time_duration &time1,
          const boost::gregorian::date  &date2,
          const boost::posix_time::time_duration &time2,
-         const string &depPoint,
-         const string &arrPoint,
+         const std::string &depPoint,
+         const std::string &arrPoint,
          const pair<boost::gregorian::date, boost::gregorian::date> &VldDates,
          const ItinStatus::itin_status &rpiStat,
-         const string &Fare,
+         const std::string &Fare,
          int ver,
          const Luggage &lugg)
     :

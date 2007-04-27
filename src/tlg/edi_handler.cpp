@@ -26,10 +26,10 @@ using namespace EXCEPTIONS;
 static void handle_tlg(void);
 
 int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
-{  
+{
   try
   {
-    OpenLogFile("logairimp");  
+    OpenLogFile("logairimp");
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
             ->connect_db();
@@ -38,7 +38,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     time_t scan_time=0;
     char buf[2];
     for(;;)
-    {      	
+    {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
         handle_tlg();
@@ -48,14 +48,14 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       {
         handle_tlg();
         scan_time=time(NULL);
-      };  
+      };
     }; // end of loop
   }
   catch(EOracleError E)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
   }
-  catch(std::exception E)
+  catch(std::exception &E)
   {
     ProgError(STDLOG,"std::exception: %s",E.what());
   }
@@ -88,7 +88,7 @@ void handle_tlg(void)
        WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
              tlg_queue.type='INA' AND tlg_queue.status='PUT'\
        ORDER BY tlg_queue.time,tlg_queue.id";
-    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());   
+    TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
   };
 
   int count,tlg_id;
@@ -101,7 +101,7 @@ void handle_tlg(void)
       for(;!TlgQry.Eof && (count++)<SCAN_COUNT; TlgQry.Next(), OraSession.Rollback())
       {
       	  tlg_id=TlgQry.FieldAsInteger("id");
-          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);                    
+          ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
           try{
               int len = TlgQry.GetSizeLongField("tlg_text");
               boost::shared_ptr< char > tlg (new (char [len+1]));
@@ -117,31 +117,31 @@ void handle_tlg(void)
           }
           catch(edi_exception &e)
           {
-              OraSession.Rollback();	              	
-              ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());	              
+              OraSession.Rollback();
+              ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
               errorTlg(tlg_id,"PARS");
               OraSession.Commit();
           }
           catch(std::exception &e)
           {
-              OraSession.Rollback();		
+              OraSession.Rollback();
               ProgError(STDLOG, "std::exception: %s", e.what());
               errorTlg(tlg_id,"PARS");
-              OraSession.Commit();              
+              OraSession.Commit();
           }
           catch(...)
           {
-              OraSession.Rollback();		
+              OraSession.Rollback();
               ProgError(STDLOG, "Unknown error");
               errorTlg(tlg_id,"UNKN");
-              OraSession.Commit();              
+              OraSession.Commit();
           }
           ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
       };
   }
   catch(...)
-  {      
-    ProgError(STDLOG, "Unknown error");    
+  {
+    ProgError(STDLOG, "Unknown error");
     throw;
   };
 }
