@@ -828,8 +828,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TInquiryGroup grp;
   ParseInquiryStr(query,grp);
   TInquiryFormat fmt;
-  fmt.persCountFmt=1;  //!!!
-  fmt.infSeatsFmt=1;
+  fmt.persCountFmt=0;  //!!!djek
+  fmt.infSeatsFmt=0;
+/*
+  airp from points where point_id=:point_dep
+if airp == '' { fmt.persCountFtm=1
+fmt.infSeatsFmt=1}
+*/
   TInquiryGroupSummary sum;
   GetInquiryInfo(grp,fmt,sum);
 
