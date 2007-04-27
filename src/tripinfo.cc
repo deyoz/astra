@@ -473,7 +473,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TTripInfo info(Qry);
 
     NewTextChild( tripNode, "trip_id", Qry.FieldAsInteger( "point_id" ) );
-    NewTextChild( tripNode, "str", GetTripName(info,reqInfo->screen.name=="TLG.EXE") );
+    NewTextChild( tripNode, "str", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
   };
 };
 
@@ -579,7 +579,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
   TTripInfo info(Qry);
-  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE") );
+  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -1384,7 +1384,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
   }
 }
 
-string GetTripName( TTripInfo &info, bool showAirp )
+string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out,real_out,desk_time;
@@ -1394,8 +1394,14 @@ string GetTripName( TTripInfo &info, bool showAirp )
   modf(UTCToClient(info.real_out,tz_region),&real_out);
   ostringstream trip;
   trip << info.airline
-       << info.flt_no
+       << setw(3) << setfill('0') << info.flt_no
        << info.suffix;
+
+  if (prList)
+  {
+    if (info.flt_no<10000) trip << " ";
+    if (info.flt_no<1000)  trip << " ";
+  };
 
   if (desk_time!=real_out)
   {

@@ -73,7 +73,7 @@ class TTripInfo
     };
 };
 
-std::string GetTripName( TTripInfo &info, bool showAirp=false  );
+std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
 
 
 class TripsInterface : public JxtInterface
