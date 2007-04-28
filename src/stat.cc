@@ -15,10 +15,15 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void GetPaxListSQL(TQuery &Qry);
+void GetFltLogSQL(TQuery &Qry);
+
 enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
+typedef void (*TGetSQL)( TQuery &Qry );
 
 const int depends_len = 3;
 struct TCBox {
+    TGetSQL GetSQL;
     string cbox, qry;
     string depends[depends_len];
 };
@@ -38,6 +43,7 @@ TCategory Category[] = {
         DepStat,
         {
             {
+                NULL,
                 "Flt",
 
                 "SELECT "
@@ -76,6 +82,7 @@ TCategory Category[] = {
                 {"Dest", "Awk", "Class"}
             },
             {
+                NULL,
                 "Awk",
 
                 "select company from "
@@ -103,6 +110,7 @@ TCategory Category[] = {
                 {"Flt",    "Dest", "Class"}
             },
             {
+                NULL,
                 "Dest",
 
                 "SELECT place.city AS dest "
@@ -131,6 +139,7 @@ TCategory Category[] = {
                 {"Awk",    "Flt",  "Class"}
             },
             {
+                NULL,
                 "Class",
 
                 "select "
@@ -165,6 +174,7 @@ TCategory Category[] = {
                 {"Awk",    "Flt",  "Dest"}
             },
             {
+                NULL,
                 "Rem",
 
                 "select "
@@ -199,6 +209,7 @@ TCategory Category[] = {
         BagTagStat,
         {
             {
+                NULL,
                 "Awk",
 
                 "select company from "
@@ -217,6 +228,7 @@ TCategory Category[] = {
         PaxList,
         {
             {
+                GetPaxListSQL,
                 "Flt",
 
                 "SELECT "
@@ -258,6 +270,7 @@ TCategory Category[] = {
         FltLog,
         {
             {
+                GetFltLogSQL,
                 "Flt",
 
 
@@ -319,6 +332,7 @@ TCategory Category[] = {
         SystemLog,
         {
             {
+                NULL,
                 "Agent",
 
                 "select 'Система' agent from dual where "
@@ -347,6 +361,7 @@ TCategory Category[] = {
                 {"Station", "Module"}
             },
             {
+                NULL,
                 "Station",
 
                 "select 'Система' station from dual where "
@@ -377,6 +392,7 @@ TCategory Category[] = {
                 {"Agent", "Module"}
             },
             {
+                NULL,
                 "Module",
 
                 "select 'Система' module from dual where "
@@ -410,6 +426,7 @@ TCategory Category[] = {
         PaxSrc,
         {
             {
+                NULL,
                 "Flt",
 
                 "SELECT trips.trip "
@@ -433,6 +450,7 @@ TCategory Category[] = {
                 {"Dest",   "Awk"}
             },
             {
+                NULL,
                 "Awk",
 
                 "select company from "
@@ -456,6 +474,7 @@ TCategory Category[] = {
                 {"Flt",    "Dest"}
             },
             {
+                NULL,
                 "Dest",
 
                 "SELECT place.city AS dest "
@@ -486,9 +505,133 @@ TCategory Category[] = {
 
 const int CategorySize = sizeof(Category)/sizeof(Category[0]);
 
+void GetFltLogSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string res =
+        "SELECT "
+        "    points.point_id, "
+        "    points.airp, "
+        "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
+        "    points.airline, "
+        "    points.flt_no, "
+        "    points.suffix, "
+        "    points.scd_out, "
+        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+        "FROM "
+        "    points, "
+        "    events ";
+    if (!info.user.access.airlines.empty())
+        res += ",aro_airlines";
+    if (!info.user.access.airps.empty())
+        res += ",aro_airps";
+    res +=
+        "WHERE "
+        "    events.type in ( "
+        "    :evtFlt, "
+        "    :evtGraph, "
+        "    :evtTlg, "
+        "    :evtPax, "
+        "    :evtPay "
+        "    ) and "
+        "    events.id1 = points.point_id and "
+        "    points.pr_del >= 0 and "
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "union "
+        "SELECT "
+        "    arx_points.point_id, "
+        "    arx_points.airp, "
+        "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
+        "    arx_points.airline, "
+        "    arx_points.flt_no, "
+        "    arx_points.suffix, "
+        "    arx_points.scd_out, "
+        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+        "FROM "
+        "    arx_points, "
+        "    arx_events "
+        "WHERE "
+        "    arx_events.part_key >= :FirstDate and "
+        "    arx_events.type in ( "
+        "    :evtFlt, "
+        "    :evtGraph, "
+        "    :evtTlg, "
+        "    :evtPax, "
+        "    :evtPay "
+        "    ) and "
+        "    arx_events.id1 = arx_points.point_id and "
+        "    arx_points.pr_del >= 0 and "
+        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "    arx_points.part_key >= :FirstDate ";
+    if (!info.user.access.airlines.empty())
+        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    res +=
+        "ORDER BY "
+        "    real_out DESC ";
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+    Qry.SQLText = res;
+}
+
+void GetPaxListSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string res =
+        "SELECT "
+        "    points.point_id, "
+        "    points.airp, "
+        "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
+        "    points.airline, "
+        "    points.flt_no, "
+        "    points.suffix, "
+        "    points.scd_out, "
+        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+        "FROM "
+        "    points ";
+    if (!info.user.access.airlines.empty())
+        res += ",aro_airlines";
+    if (!info.user.access.airps.empty())
+        res += ",aro_airps";
+    res +=
+        "WHERE "
+        "    points.pr_del >= 0 and "
+        "    points.pr_reg <> 0 and "
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "union "
+        "SELECT "
+        "    arx_points.point_id, "
+        "    arx_points.airp, "
+        "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
+        "    arx_points.airline, "
+        "    arx_points.flt_no, "
+        "    arx_points.suffix, "
+        "    arx_points.scd_out, "
+        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+        "FROM "
+        "    arx_points "
+        "WHERE "
+        "    arx_points.pr_del >= 0 and "
+        "    arx_points.pr_reg <> 0 and "
+        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "    arx_points.part_key >= :FirstDate ";
+    if (!info.user.access.airlines.empty())
+        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    res +=
+        "ORDER BY "
+        "    real_out DESC ";
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+    Qry.SQLText = res;
+}
+
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
+
     TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TCategory *Ctg = &Category[scr];
     int i = 0;
@@ -497,7 +640,8 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     if(i == cboxes_len)throw Exception((string)"CommonCBoxDropDown: data not found for " + cbox);
     TCBox *cbox_data = &Ctg->cboxes[i];
     TQuery Qry(&OraSession);        
-    Qry.SQLText = cbox_data->qry;
+    if(!cbox_data->GetSQL) throw Exception("GetSQL is NULL");
+    cbox_data->GetSQL(Qry);
     TReqInfo *reqInfo = TReqInfo::Instance();
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
@@ -526,6 +670,9 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     }
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
     if(cbox_data->cbox == "Flt") {
+        //если по компаниям и портам полномочий нет - пустой список рейсов
+        if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
+                reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
         TDateTime scd_out,real_out,desk_time;
         modf(reqInfo->desk.time,&desk_time);
         while(!Qry.Eof) {
