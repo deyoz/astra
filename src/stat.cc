@@ -8,6 +8,7 @@
 #include "stl_utils.h"
 #include "docs.h"
 #include "base_tables.h"
+#include "tripinfo.h"
 #include <fstream>
 
 using namespace std;
@@ -546,8 +547,13 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
 
             xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+
+            TTripInfo info(Qry);
+
             NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
-            NewTextChild(fNode, "value", trip.str());
+            NewTextChild( fNode, "value", GetTripName(info,false,true) );
+
+
             Qry.Next();
         }
     } else
