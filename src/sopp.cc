@@ -299,11 +299,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.triptype_in = pd->triptype;
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
-    trip.pr_del_in = pd->pr_del;
-
-    trip.trfer_from = pd->trfer_to;
-    pd->trfer_to = false;
-
+    trip.pr_del_in = pd->pr_del;    
+    trip.trfer_from = pd->trfer_from;
+    ProgTrace( TRACE5, "trip.point_id=%d, prior.point_id=%d, pd->trfer_from=%d", trip.point_id, pd->point_id, pd->trfer_from );
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
