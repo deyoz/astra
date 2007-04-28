@@ -2558,8 +2558,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
        try
        {
          exec_stage( id->point_id, sTakeoff );
-         TQuery StatQry(&OraSession);         
-         StatQry.SQLTExt
        }
        catch( std::exception &E ) {
          ProgError( STDLOG, "Exception: %s", E.what() );
