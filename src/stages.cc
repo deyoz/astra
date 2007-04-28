@@ -608,12 +608,21 @@ void CloseBoarding( int point_id )
 
 void Takeoff( int point_id )
 {
+	TQuery Qry(&OraSession);
+	Qry.Clear();
+	Qry.SQLText=
+	  "BEGIN "
+	  "  statist.get_full_stat(:point_id); "
+	  "END;";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute;
+	
   vector<string> tlg_types;
   tlg_types.push_back("PTM");
   tlg_types.push_back("BTM");
   tlg_types.push_back("PSM");
   tlg_types.push_back("PFS");
   tlg_types.push_back("FTL");
-  TelegramInterface::SendTlg(point_id,tlg_types);
+  TelegramInterface::SendTlg(point_id,tlg_types);  	
 }
 
