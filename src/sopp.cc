@@ -301,7 +301,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;    
     trip.trfer_from = pd->trfer_from;
-    ProgTrace( TRACE5, "trip.point_id=%d, prior.point_id=%d, pd->trfer_from=%d", trip.point_id, pd->point_id, pd->trfer_from );
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
@@ -341,9 +340,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   else
   	 trip.trfer_to = false;
   trip.region = id->region;
-  if ( trip.trfer_to || trip.trfer_from )
-  	ProgTrace( TRACE5, "trip.point_id=%d, trfer_to=%d, trfer_from=%d",
-  	           trip.point_id, trip.trfer_to, trip.trfer_from );
   return trip;
 }
 
@@ -592,8 +588,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
     d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
     d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
-    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
-               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
+/*    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
+               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );*/
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -901,7 +897,7 @@ void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &st
       }
     }
     else {
-      ProgTrace( TRACE5, "to->trip=%s", to->trip.c_str() );
+//      ProgTrace( TRACE5, "to->trip=%s", to->trip.c_str() );
       if ( str_to.find( to->trip ) == string::npos ) {
         if ( !str_to.empty() )
           str_to += " ";
@@ -2562,6 +2558,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
        try
        {
          exec_stage( id->point_id, sTakeoff );
+         TQuery StatQry(&OraSession);         
+         StatQry.SQLTExt
        }
        catch( std::exception &E ) {
          ProgError( STDLOG, "Exception: %s", E.what() );

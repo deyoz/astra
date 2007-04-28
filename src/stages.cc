@@ -615,7 +615,7 @@ void Takeoff( int point_id )
 	  "  statist.get_full_stat(:point_id); "
 	  "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute;
+	Qry.Execute();
 	
   vector<string> tlg_types;
   tlg_types.push_back("PTM");
