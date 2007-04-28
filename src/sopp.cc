@@ -301,15 +301,15 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;
 
-//djek now    trip.trfer_from = pd->trfer_from;
+    trip.trfer_from = pd->trfer_from;
 
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
     trip.park_in = id->park_in;
   }
-  /*djek now else
-    trip.trfer_from = false;*/
+  else
+    trip.trfer_from = false;
   //trip.trfer_from = pd->trfer_from;
 
   trip.airp = id->airp;
@@ -327,7 +327,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-//djek now    trip.trfer_to = id->trfer_to;
+    trip.trfer_to = id->trfer_to;
+    if ( trip.trfer_to )
+      trip.trfer_from = trip.trfer_to;
 
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
@@ -340,6 +342,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   else
   	 trip.trfer_to = false;
   trip.region = id->region;
+  if ( trip.trfer_to || trip.trfer_from )
+  	ProgTrace( TRACE5, "trip.point_id=%d, trfer_to=%d, trfer_from=%d",
+  	           trip.point_id, trip.trfer_to, trip.trfer_from );
   return trip;
 }
 
