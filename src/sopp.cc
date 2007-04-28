@@ -285,7 +285,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
-            trip.trfer_to = fd->trfer_from; //только что исправил
+            trip.trfer_to = fd->trfer_to;
           }
           trip.places_out.push_back( fd->airp );
         }
@@ -301,7 +301,8 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;
 
-    trip.trfer_from = pd->trfer_from;
+    trip.trfer_from = pd->trfer_to;
+    pd->trfer_to = false;
 
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
