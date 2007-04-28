@@ -285,7 +285,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
-            //trip.trfer_from = fd->trfer_from; //только что исправил
+            trip.trfer_from = fd->trfer_from; //только что исправил
           }
           trip.places_out.push_back( fd->airp );
         }
@@ -310,7 +310,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   }
   /*djek now else
     trip.trfer_from = false;*/
-  trip.trfer_from = pd->trfer_from;
+  //trip.trfer_from = pd->trfer_from;
 
   trip.airp = id->airp;
 
@@ -327,7 +327,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-    trip.trfer_to = id->trfer_to;
+//djek now    trip.trfer_to = id->trfer_to;
 
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
@@ -588,6 +588,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
     d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
     d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
+    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
+               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
