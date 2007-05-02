@@ -549,7 +549,12 @@ void GetFltLogSQL(TQuery &Qry)
         "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
         "FROM "
         "    arx_points, "
-        "    arx_events "
+        "    arx_events ";
+    if (!info.user.access.airlines.empty())
+        res += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        res += ",aro_airps ";
+    res +=
         "WHERE "
         "    arx_events.part_key >= :FirstDate and "
         "    arx_events.type in ( "
@@ -564,9 +569,9 @@ void GetFltLogSQL(TQuery &Qry)
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "    arx_points.part_key >= :FirstDate ";
     if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+        res += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+        res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     res +=
         "ORDER BY "
         "    real_out DESC ";
@@ -610,16 +615,21 @@ void GetPaxListSQL(TQuery &Qry)
         "    arx_points.scd_out, "
         "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
         "FROM "
-        "    arx_points "
+        "    arx_points ";
+    if (!info.user.access.airlines.empty())
+        res += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        res += ",aro_airps ";
+    res +=
         "WHERE "
         "    arx_points.pr_del >= 0 and "
         "    arx_points.pr_reg <> 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "    arx_points.part_key >= :FirstDate ";
     if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+        res += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+        res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     res +=
         "ORDER BY "
         "    real_out DESC ";
