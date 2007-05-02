@@ -285,7 +285,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
-            trip.trfer_to = fd->trfer_to;
+            trip.trfer_to = fd->trfer_from;
           }
           trip.places_out.push_back( fd->airp );
         }
