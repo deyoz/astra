@@ -17,6 +17,9 @@ using namespace BASIC;
 
 void GetPaxListSQL(TQuery &Qry);
 void GetFltLogSQL(TQuery &Qry);
+void GetSystemLogAgentSQL(TQuery &Qry);
+void GetSystemLogStationSQL(TQuery &Qry);
+void GetSystemLogModuleSQL(TQuery &Qry);
 
 enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
 typedef void (*TGetSQL)( TQuery &Qry );
@@ -332,7 +335,7 @@ TCategory Category[] = {
         SystemLog,
         {
             {
-                NULL,
+                GetSystemLogAgentSQL,
                 "Agent",
 
                 "select '‘¨αβ¥¬ ' agent from dual where "
@@ -361,7 +364,7 @@ TCategory Category[] = {
                 {"Station", "Module"}
             },
             {
-                NULL,
+                GetSystemLogStationSQL,
                 "Station",
 
                 "select '‘¨αβ¥¬ ' station from dual where "
@@ -392,7 +395,7 @@ TCategory Category[] = {
                 {"Agent", "Module"}
             },
             {
-                NULL,
+                GetSystemLogModuleSQL,
                 "Module",
 
                 "select '‘¨αβ¥¬ ' module from dual where "
@@ -536,7 +539,12 @@ void GetFltLogSQL(TQuery &Qry)
         "    ) and "
         "    events.id1 = points.point_id and "
         "    points.pr_del >= 0 and "
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airlines.empty())
+        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    res +=
         "union "
         "SELECT "
         "    arx_points.point_id, "
@@ -603,7 +611,12 @@ void GetPaxListSQL(TQuery &Qry)
         "WHERE "
         "    points.pr_del >= 0 and "
         "    points.pr_reg <> 0 and "
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airlines.empty())
+        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    res +=
         "union "
         "SELECT "
         "    arx_points.point_id, "
@@ -637,6 +650,216 @@ void GetPaxListSQL(TQuery &Qry)
         Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.SQLText = res;
 }
+
+void GetSystemLogAgentSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string SQLText =
+        "select '‘¨αβ¥¬ ' agent from dual where "
+        "  (:station is null or :station = '‘¨αβ¥¬ ') and "
+        "  (:module is null or :module = '‘¨αβ¥¬ ') "
+        "union "
+        "select ev_user agent from "
+        "   events, "
+        "   screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    time >= :FirstDate and "
+        "    time < :LastDate and "
+        "    (:station is null or station = :station) and "
+        "    events.screen = screen.exe(+) and "
+        "    (:module is null or nvl(screen.name, events.screen) = :module) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "union "
+        "select ev_user agent from "
+        "   arx_events, "
+        "   screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    arx_events.part_key >= :FirstDate and "
+        "    time >= :FirstDate and "
+        "    time < :LastDate and "
+        "    (:station is null or station = :station) and "
+        "    arx_events.screen = screen.exe(+) and "
+        "    (:module is null or nvl(screen.name, arx_events.screen) = :module) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "order by "
+        "    agent ";
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+    Qry.SQLText = SQLText;
+}
+
+void GetSystemLogStationSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string SQLText =
+        "select '‘¨αβ¥¬ ' station from dual where "
+        "  (:agent is null or :agent = '‘¨αβ¥¬ ') and "
+        "  (:module is null or :module = '‘¨αβ¥¬ ') "
+        "union "
+        "select station from events, screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    time >= :FirstDate and "
+        "    time < :LastDate and "
+        "    station is not null and "
+        "    (:agent is null or ev_user = :agent) and "
+        "    events.screen = screen.exe(+) and "
+        "    (:module is null or nvl(screen.name, events.screen) = :module) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "union "
+        "select station from arx_events, screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    arx_events.part_key >= :FirstDate and "
+        "    time >= :FirstDate and "
+        "    time < :LastDate and "
+        "    station is not null and "
+        "    (:agent is null or ev_user = :agent) and "
+        "    arx_events.screen = screen.exe(+) and "
+        "    (:module is null or nvl(screen.name, arx_events.screen) = :module) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "order by "
+        "    station ";
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+    Qry.SQLText = SQLText;
+}
+
+void GetSystemLogModuleSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string SQLText =
+        "select '‘¨αβ¥¬ ' module from dual where "
+        "  (:agent is null or :agent = '‘¨αβ¥¬ ') and "
+        "  (:station is null or :station = '‘¨αβ¥¬ ') "
+        "union " 
+        "select nvl(screen.name, events.screen) module from events, screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    events.time >= :FirstDate and "
+        "    events.time < :LastDate and "
+        "    (:station is null or station = :station) and "
+        "    (:agent is null or ev_user = :agent) and "
+        "    events.screen is not null and "
+        "    events.screen = screen.exe(+) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and points.point_id = events.id1 "
+            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "union "
+        "select nvl(screen.name, arx_events.screen) module from arx_events, screen ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            ", arx_points "
+            ",aro_airps ";
+    SQLText +=
+        "where "
+        "    arx_events.part_key >= :FirstDate and "
+        "    time >= :FirstDate and "
+        "    time < :LastDate and "
+        "    (:station is null or station = :station) and "
+        "    (:agent is null or ev_user = :agent) and "
+        "    arx_events.screen is not null and "
+        "    arx_events.screen = screen.exe(+) ";
+    if (!info.user.access.airlines.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText +=
+            "and arx_points.point_id = arx_events.id1 "
+            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    SQLText +=
+        "order by "
+        "    module ";
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+    Qry.SQLText = SQLText;
+}
+
 
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
