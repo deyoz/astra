@@ -325,7 +325,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-    trip.trfer_to = id->trfer_to;
+//    trip.trfer_to = id->trfer_to;
     if ( trip.trfer_to )
       trip.trfer_from = trip.trfer_to;
 
