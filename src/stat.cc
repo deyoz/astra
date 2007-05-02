@@ -522,9 +522,9 @@ void GetFltLogSQL(TQuery &Qry)
         "    points, "
         "    events ";
     if (!info.user.access.airlines.empty())
-        res += ",aro_airlines";
+        res += ",aro_airlines ";
     if (!info.user.access.airps.empty())
-        res += ",aro_airps";
+        res += ",aro_airps ";
     res +=
         "WHERE "
         "    events.type in ( "
@@ -591,9 +591,9 @@ void GetPaxListSQL(TQuery &Qry)
         "FROM "
         "    points ";
     if (!info.user.access.airlines.empty())
-        res += ",aro_airlines";
+        res += ",aro_airlines ";
     if (!info.user.access.airps.empty())
-        res += ",aro_airps";
+        res += ",aro_airps ";
     res +=
         "WHERE "
         "    points.pr_del >= 0 and "
@@ -642,6 +642,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     TQuery Qry(&OraSession);        
     if(!cbox_data->GetSQL) throw Exception("GetSQL is NULL");
     cbox_data->GetSQL(Qry);
+    ProgTrace(TRACE5, "%s", Qry.SQLText.SQLText());
     TReqInfo *reqInfo = TReqInfo::Instance();
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
