@@ -275,6 +275,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
+   				trip.trfer_from = fd->trfer_from;
           trip.places_in.push_back( fd->airp );
           pd = fd;
         }
@@ -285,7 +286,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
-            trip.trfer_to = fd->trfer_from;
+//            trip.trfer_to = fd->trfer_from;
           }
           trip.places_out.push_back( fd->airp );
         }
@@ -300,15 +301,15 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;    
-    trip.trfer_from = pd->trfer_from;
+//    trip.trfer_from = pd->trfer_from;
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
     trip.park_in = id->park_in;
   }
-  else
-    trip.trfer_from = false;
-  //trip.trfer_from = pd->trfer_from;
+  //else
+  //  trip.trfer_from = false;
+//  trip.trfer_from = pd->trfer_from;
 
   trip.airp = id->airp;
 
@@ -325,11 +326,17 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-    trip.trfer_to = id->trfer_to;
-/*    if ( trip.trfer_to ) {
-      trip.trfer_from = trip.trfer_to;
-      trip.trfer_to = false;
-    }*/
+    //trip.trfer_to = id->trfer_to;
+    if ( id->trfer_from ) {
+    	ProgTrace( TRACE5, "trfer_from: point_id=%d", trip.point_id );
+      trip.trfer_to = true;
+      trip.trfer_from = false;
+    }
+    if ( id->trfer_to ) {
+    	ProgTrace( TRACE5, "trfer_to: point_id=%d", trip.point_id );    	
+      trip.trfer_from = true;
+      trip.trfer_to = false;    	
+    }
 
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
