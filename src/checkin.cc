@@ -1484,6 +1484,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
         pas.placeName=NodeAsStringFast("seat_no",node2);
         pas.preseat=NodeAsStringFast("preseat_no",node2);
+        if ( !pas.preseat.empty() && !pas.placeName.empty() && pas.preseat != pas.placeName ) {
+        	pas.placeName = pas.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
+        }
         pas.countPlace=NodeAsIntegerFast("seats",node2);
         pas.placeRem=NodeAsStringFast("seat_type",node2);
         remNode=GetNodeFast("rems",node2);
@@ -1520,10 +1523,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
         node2=node->children;
         if (NodeAsIntegerFast("seats",node2)==0) continue;
-        if (Passengers.Get(i).placeName=="") throw Exception("SeatsPassengers: empty placeName");
+        TPassenger pas = Passengers.Get(i);
+        if (pas.placeName=="") throw Exception("SeatsPassengers: empty placeName");
         string seat_no=NodeAsStringFast("seat_no",node2);
-        if (seat_no!=""&&seat_no!=Passengers.Get(i).placeName)
-          showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+        if (seat_no!=""&&seat_no!=pas.placeName)
+        	if (!pas.preseat.empty() && pas.preseat == pas.placeName)
+        		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+        	else
+            showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
         ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
         i++;
     };
