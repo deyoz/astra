@@ -664,11 +664,11 @@ void GetSystemLogAgentSQL(TQuery &Qry)
         "   screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", points "
+            ", points p1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", points "
+            ", points p2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -679,12 +679,12 @@ void GetSystemLogAgentSQL(TQuery &Qry)
         "    (:module is null or nvl(screen.name, events.screen) = :module) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+            "and p1.point_id = events.id1 "
+            "AND aro_airlines.airline=p1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+            "and p2.point_id = events.id1 "
+            "AND aro_airps.airp=p2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "union "
         "select ev_user agent from "
@@ -692,11 +692,11 @@ void GetSystemLogAgentSQL(TQuery &Qry)
         "   screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -708,12 +708,12 @@ void GetSystemLogAgentSQL(TQuery &Qry)
         "    (:module is null or nvl(screen.name, arx_events.screen) = :module) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+            "and a1.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=a1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+            "and a2.point_id = arx_events.id1 "
+            "AND aro_airps.airp=a2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "order by "
         "    agent ";
@@ -733,11 +733,11 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "select station from events, screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", points "
+            ", points p1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", points "
+            ", points p2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -749,22 +749,22 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "    (:module is null or nvl(screen.name, events.screen) = :module) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+            "and p1.point_id = events.id1 "
+            "AND aro_airlines.airline=p1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+            "and p2.point_id = events.id1 "
+            "AND aro_airps.airp=p2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "union "
         "select station from arx_events, screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -777,12 +777,12 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "    (:module is null or nvl(screen.name, arx_events.screen) = :module) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+            "and a1.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=a1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+            "and a2.point_id = arx_events.id1 "
+            "AND aro_airps.airp=a2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "order by "
         "    station ";
@@ -802,11 +802,11 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "select nvl(screen.name, events.screen) module from events, screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", points "
+            ", points p1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", points "
+            ", points p2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -818,22 +818,22 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "    events.screen = screen.exe(+) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+            "and p1.point_id = events.id1 "
+            "AND aro_airlines.airline=p1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and points.point_id = events.id1 "
-            "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+            "and p2.point_id = events.id1 "
+            "AND aro_airps.airp=p2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "union "
         "select nvl(screen.name, arx_events.screen) module from arx_events, screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a1"
             ",aro_airlines ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            ", arx_points "
+            ", arx_points a2"
             ",aro_airps ";
     SQLText +=
         "where "
@@ -846,12 +846,12 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "    arx_events.screen = screen.exe(+) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+            "and a1.point_id = arx_events.id1 "
+            "AND aro_airlines.airline=a1.airline AND aro_airlines.aro_id=:user_id ";
     if (!info.user.access.airps.empty())
         SQLText +=
-            "and arx_points.point_id = arx_events.id1 "
-            "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+            "and a2.point_id = arx_events.id1 "
+            "AND aro_airps.airp=a2.airp AND aro_airps.aro_id=:user_id ";
     SQLText +=
         "order by "
         "    module ";
