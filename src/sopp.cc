@@ -328,12 +328,12 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 
     //trip.trfer_to = id->trfer_to;
     if ( id->trfer_from ) {
-    	ProgTrace( TRACE5, "trfer_from: point_id=%d", trip.point_id );
+//    	ProgTrace( TRACE5, "trfer_from: point_id=%d", trip.point_id );
       trip.trfer_to = true;
       trip.trfer_from = false;
     }
     if ( id->trfer_to ) {
-    	ProgTrace( TRACE5, "trfer_to: point_id=%d", trip.point_id );    	
+//    	ProgTrace( TRACE5, "trfer_to: point_id=%d", trip.point_id );    	
       trip.trfer_from = true;
       trip.trfer_to = false;    	
     }
@@ -597,8 +597,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
     d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
     d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
-    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
-               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
+//    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
+//               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -2484,7 +2484,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	Qry.CreateVariable( "tid", otInteger, new_tid );
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
-  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
+//  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
   	Qry.Execute();
   	tst();
   	Qry.Clear();
