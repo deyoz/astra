@@ -292,14 +292,19 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     string craft = Qry.FieldAsString("craft");
     string tz_region = Qry.FieldAsString("tz_region");
 
-    if(airline.size())
+    string airline_name;
+    if(airline.size()) {
       airline = base_tables.get("AIRLINES").get_row("code",airline).AsString("code",pr_lat);
+      TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+      airline_name = airlineRow.AsString("name", pr_lat);
+    }
 
-    NewTextChild(variablesNode, "trip",
-            airline +
-            IntToString(Qry.FieldAsInteger("flt_no")) +
-            Qry.FieldAsString("suffix")
-            );
+    string trip =
+        airline +
+        IntToString(Qry.FieldAsInteger("flt_no")) +
+        Qry.FieldAsString("suffix");
+
+    NewTextChild(variablesNode, "trip", trip);
     TDateTime scd_out, real_out;
     scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
     real_out= UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
@@ -311,18 +316,13 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     NewTextChild(variablesNode, "day_issue", DateTimeToStr(issued, "dd.mm.yy", pr_lat));
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
 
     NewTextChild(variablesNode, "own_airp_name", "Äùêéèéêí " + airpRow.AsString("name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "airp_dep_city", airpRow.AsString("city", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "flt",
-            airlineRow.AsString("code", pr_lat) +
-            IntToString(Qry.FieldAsInteger("flt_no")) +
-            Qry.FieldAsString("suffix")
-            );
+    NewTextChild(variablesNode, "airline_name", airline_name);
+    NewTextChild(variablesNode, "flt", trip);
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
