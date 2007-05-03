@@ -743,7 +743,7 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "where "
         "    time >= :FirstDate and "
         "    time < :LastDate and "
-        "    station is not null and "
+//        "    station is not null and "
         "    (:agent is null or ev_user = :agent) and "
         "    events.screen = screen.exe(+) and "
         "    (:module is null or nvl(screen.name, events.screen) = :module) ";
@@ -771,7 +771,7 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "    arx_events.part_key >= :FirstDate and "
         "    time >= :FirstDate and "
         "    time < :LastDate and "
-        "    station is not null and "
+//        "    station is not null and "
         "    (:agent is null or ev_user = :agent) and "
         "    arx_events.screen = screen.exe(+) and "
         "    (:module is null or nvl(screen.name, arx_events.screen) = :module) ";
@@ -814,7 +814,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "    events.time < :LastDate and "
         "    (:station is null or station = :station) and "
         "    (:agent is null or ev_user = :agent) and "
-        "    events.screen is not null and "
+//        "    events.screen is not null and "
         "    events.screen = screen.exe(+) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
@@ -842,7 +842,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "    time < :LastDate and "
         "    (:station is null or station = :station) and "
         "    (:agent is null or ev_user = :agent) and "
-        "    arx_events.screen is not null and "
+//        "    arx_events.screen is not null and "
         "    arx_events.screen = screen.exe(+) ";
     if (!info.user.access.airlines.empty())
         SQLText +=
