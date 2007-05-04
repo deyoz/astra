@@ -297,9 +297,10 @@ void CreateCentringFileDATA( int point_id )
 	string airline = Qry.FieldAsString( "airline" );
 	int flt_no = Qry.FieldAsInteger( "flt_no" );
 	string client_canon_name;
+	ProgTrace( TRACE5, "CreateCentringFileDATA point_id=%d, airp=%s", point_id, airp.c_str() );	
 /*	Qry.Clear();
 	Qry.SQLText = "SELECT canon_name FROM file*/
-	if ( airp != "êôç" )
+	if ( airp != "êôç" && airp != "ëìê" )
 		return;
 	client_canon_name = "CENTST";
 	createCentringFile( point_id, OWN_POINT_ADDR(), client_canon_name );

@@ -212,14 +212,20 @@ void createFileParams( int point_id, map<string,string> &params )
 {
 	params.clear();
 	TQuery FlightQry( &OraSession );
-	FlightQry.SQLText = "SELECT airline,flt_no,suffix FROM points WHERE point_id=:point_id";
+	FlightQry.SQLText = "SELECT airline,flt_no,suffix, gtimer.get_stage(:point_id, 1) as st FROM points WHERE point_id=:point_id";
 	FlightQry.CreateVariable( "point_id", otInteger, point_id );
 	FlightQry.Execute();
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
-	params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
-	                            FlightQry.FieldAsString( "flt_no" ) +
-	                            FlightQry.FieldAsString( "suffix" ) + ".dbf";
+	ProgTrace( TRACE5, "stage=%d", FlightQry.FieldAsInteger( "st" ) );
+	if ( FlightQry.FieldAsInteger( "st" ) != 20 ) //!!!
+    params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
+	                              FlightQry.FieldAsString( "flt_no" ) +
+	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";
+  else			
+	  params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
+	                              FlightQry.FieldAsString( "flt_no" ) +
+	                              FlightQry.FieldAsString( "suffix" ) + ".dbf";
 	params[ PARAM_WORK_DIR ] = FileDirectory;
 }
 

@@ -606,6 +606,7 @@ void CloseBoarding( int point_id )
   vector<string> tlg_types;
   tlg_types.push_back("COM");
   TelegramInterface::SendTlg(point_id,tlg_types);
+  CreateCentringFileDATA( point_id );
 };
 
 void Takeoff( int point_id )
