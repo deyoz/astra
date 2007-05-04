@@ -11,6 +11,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "telegram.h"
+#include "astra_service.h"
 
 using namespace std;
 using namespace BASIC;
@@ -597,6 +598,7 @@ void CloseCheckIn( int point_id )
   vector<string> tlg_types;
   tlg_types.push_back("COM");
   TelegramInterface::SendTlg(point_id,tlg_types);
+  CreateCentringFileDATA( point_id );
 };
 
 void CloseBoarding( int point_id )

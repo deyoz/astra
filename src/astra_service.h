@@ -20,6 +20,9 @@ bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
 
+void CreateCentringFileDATA( int point_id );
+
+
 class AstraServiceInterface : public JxtInterface
 {
 private:
