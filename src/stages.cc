@@ -626,6 +626,7 @@ void Takeoff( int point_id )
   tlg_types.push_back("PSM");
   tlg_types.push_back("PFS");
   tlg_types.push_back("FTL");
+  tlg_types.push_back("PRL");
   TelegramInterface::SendTlg(point_id,tlg_types);  	
 }
 
