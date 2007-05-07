@@ -204,7 +204,8 @@ PASS_11 		N	3
 PASS_12 		N	3
 */
 
-const string FileDirectory = "C:\\Program Files\\kupol\\base";
+//const string FileDirectory = "C:\\Program Files\\kupol\\base";
+const string FileDirectory = "C:\\Astra";
 const string PARAM_WORK_DIR = "WorkDir";
 const string PARAM_FILE_NAME = "FileName";
 
@@ -221,11 +222,11 @@ void createFileParams( int point_id, map<string,string> &params )
 	if ( FlightQry.FieldAsInteger( "st" ) != 20 ) //!!!
     params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
-	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";
+	                              FlightQry.FieldAsString( "suffix" ) + ".dbf";
   else			
 	  params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
-	                              FlightQry.FieldAsString( "suffix" ) + ".dbf";
+	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";
 	params[ PARAM_WORK_DIR ] = FileDirectory;
 }
 
