@@ -372,7 +372,7 @@ void process_tlg(void)
         OraSession.Commit();
         return;
     };
-    if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&tlg_in.TTL>0)
+    if ((tlg_in.type==TLG_IN||tlg_in.type==TLG_OUT)&&is_edi&&tlg_in.TTL>0)
     {
       if (time(NULL)-start_time>=tlg_in.TTL)
       {
