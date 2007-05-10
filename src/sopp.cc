@@ -20,6 +20,9 @@
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
 
+
+#include "perfom.h"
+
 //#include "flight_cent_dbf.h" //!!!
 
 using namespace std;
@@ -498,7 +501,9 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     StationsQry.DeclareVariable( "point_id", otInteger );
   }
   tst();
+  PerfomTest( 666 );  
   PointsQry.Execute();
+  PerfomTest( 666 );    
   tst();
   TDests dests;
   int move_id = NoExists;
@@ -602,6 +607,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
+  PerfomTest( 666 );      
   tst();
   if ( move_id > NoExists ) {
         //create trips
@@ -637,9 +643,11 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
   tst();
   // рейсы созданы, перейдем к набору информации по рейсам
   ////////////////////////// crs_displaces ///////////////////////////////
+  PerfomTest( 666 );      
   TCRS_Displaces crsd;
   if ( !arx )
     GetCRS_Displaces( crsd ); //пересадки
+  PerfomTest( 666 );      
 
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
@@ -691,6 +699,8 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
         GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
     } // end if (!place_out.empty())
   }
+  PerfomTest( 666 );      
+  
 }
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
