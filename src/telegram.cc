@@ -834,7 +834,6 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   {
     sendInfo.tlg_type=*t;
     if (!IsTypeBSend(sendInfo)) continue;
-    ProgTrace(TRACE5, "tlg_type: %s", t->c_str());
 
     //формируем телеграмму
     vector<string> airp_arvh;
