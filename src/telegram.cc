@@ -744,7 +744,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,flt_no,airp,point_num,scd_out,system.AirpTZRegion(airp) AS tz_region, "
+    "SELECT airline,flt_no,airp,point_num,scd_out,act_out,system.AirpTZRegion(airp) AS tz_region, "
     "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -797,7 +797,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   TlgQry.Clear();
   TlgQry.SQLText=
     "BEGIN "
-    "  :id:=tlg.create_tlg(:tlg_type,:point_id,:pr_dep,:scd_local,:airp_arv,:crs, "
+    "  :id:=tlg.create_tlg(:tlg_type,:point_id,:pr_dep,:scd_local,:act_local,:airp_arv,:crs, "
     "                      :pr_lat,:pr_numeric,:addrs,:sender,:pr_summer,:time_send); "
     "END; ";
 
@@ -805,7 +805,9 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
   string tz_region=Qry.FieldAsString("tz_region");
   TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
+  TDateTime act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
   TlgQry.CreateVariable("scd_local",otDate,scd_local);
+  TlgQry.CreateVariable("act_local",otDate,act_local);
   //вычисляем признак летней/зимней навигации
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
@@ -832,6 +834,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   {
     sendInfo.tlg_type=*t;
     if (!IsTypeBSend(sendInfo)) continue;
+    ProgTrace(TRACE5, "tlg_type: %s", t->c_str());
 
     //формируем телеграмму
     vector<string> airp_arvh;
