@@ -9,6 +9,7 @@
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "season.h"
+#include "brd.h"
 
 #define SALEK
 
@@ -486,6 +487,16 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     // Теперь переменные отчета
     PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
+}
+
+void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    BrdInterface::GetPax(reqNode, formDataNode);
+    xmlNodeSetName(formDataNode->children, (xmlChar *)"datasets");
+    int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_lat = NodeAsInteger("pr_lat", reqNode);
+    // Теперь переменные отчета
+    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1470,6 +1481,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "PNLPaxList") ;
     else if(name == "SeasonList") ;
     else if(name == "SeasonEventsLog") ;
+    else if(name == "exam") RunExam(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
