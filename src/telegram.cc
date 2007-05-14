@@ -287,7 +287,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TQuery TlgQry(&OraSession);
   TlgQry.SQLText=
     "BEGIN "
-    "  :id:=tlg.create_tlg(:tlg_type,:point_id,:pr_dep,:scd_local,:airp_arv,:crs, "
+    "  :id:=tlg.create_tlg(:tlg_type,:point_id,:pr_dep,:scd_local,:act_local,:airp_arv,:crs, "
     "                      :pr_lat,:pr_numeric,:addrs,:sender,:pr_summer,:time_send); "
     "END; ";
   TlgQry.DeclareVariable("id",otInteger);
@@ -296,7 +296,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   {
     TQuery Qry(&OraSession);
     Qry.SQLText=
-      "SELECT scd_out,system.AirpTZRegion(airp) AS tz_region "
+      "SELECT scd_out,act_out,system.AirpTZRegion(airp) AS tz_region "
       "FROM points WHERE point_id=:point_id";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
@@ -306,7 +306,9 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TlgQry.CreateVariable("point_id",otInteger,point_id);
     TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
     TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
+    TDateTime act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
     TlgQry.CreateVariable("scd_local",otDate,scd_local);
+    TlgQry.CreateVariable("act_local",otDate,act_local);
     //вычисляем признак летней/зимней навигации
     tz_database &tz_db = get_tz_database();
     time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
