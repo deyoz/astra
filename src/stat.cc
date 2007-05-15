@@ -2065,6 +2065,7 @@ void STAT::set_variables(xmlNodePtr resNode)
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo &info = *(TReqInfo::Instance());
     get_report_form("FullStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -2108,10 +2109,19 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  points, "
-        "  stat "
+        "  stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and points.airp = :ap ";
@@ -2147,12 +2157,21 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  arx_points, "
-        "  arx_stat "
+        "  arx_stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = :ap ";
@@ -2194,6 +2213,9 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    places ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
+
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
 
     Qry.SQLText = SQLText;
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2333,6 +2355,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo &info = *(TReqInfo::Instance());
     get_report_form("ShortStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -2364,10 +2387,19 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  points, "
-        "  stat "
+        "  stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and points.airp = :ap ";
@@ -2399,12 +2431,21 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  arx_points, "
-        "  arx_stat "
+        "  arx_stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = :ap ";
@@ -2440,6 +2481,9 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airline ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
+
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
 
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
@@ -2499,6 +2543,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo &info = *(TReqInfo::Instance());
     get_report_form("DetailStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -2520,10 +2565,19 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  points, "
-        "  stat "
+        "  stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and points.airp = :ap ";
@@ -2545,12 +2599,21 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  arx_points, "
-        "  arx_stat "
+        "  arx_stat ";
+    if (!info.user.access.airlines.empty())
+        SQLText += ",aro_airlines ";
+    if (!info.user.access.airps.empty())
+        SQLText += ",aro_airps ";
+    SQLText +=
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
+    if (!info.user.access.airlines.empty())
+        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+    if (!info.user.access.airps.empty())
+        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
         SQLText += 
             " and arx_points.airp = :ap ";
@@ -2581,6 +2644,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.Execute();
 
     if(!Qry.Eof) {
