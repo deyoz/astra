@@ -518,9 +518,11 @@ void GetFltLogSQL(TQuery &Qry)
         "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
         "    points.airline, "
         "    points.flt_no, "
-        "    points.suffix, "
+        "    nvl(points.suffix, ' ') suffix, "
         "    points.scd_out, "
-        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+        "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+        "    move_id, "
+        "    point_num "
         "FROM "
         "    points, "
         "    events ";
@@ -552,9 +554,11 @@ void GetFltLogSQL(TQuery &Qry)
         "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
         "    arx_points.airline, "
         "    arx_points.flt_no, "
-        "    arx_points.suffix, "
+        "    nvl(arx_points.suffix, ' ') suffix, "
         "    arx_points.scd_out, "
-        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+        "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+        "    move_id, "
+        "    point_num "
         "FROM "
         "    arx_points, "
         "    arx_events ";
@@ -582,7 +586,12 @@ void GetFltLogSQL(TQuery &Qry)
         res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     res +=
         "ORDER BY "
-        "    real_out DESC ";
+        "   real_out DESC, "
+        "   flt_no, "
+        "   airline, "
+        "   suffix, "
+        "   move_id, "
+        "   point_num ";
     if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
         Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.SQLText = res;
@@ -598,9 +607,11 @@ void GetPaxListSQL(TQuery &Qry)
         "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
         "    points.airline, "
         "    points.flt_no, "
-        "    points.suffix, "
+        "    nvl(points.suffix, ' ') suffix, "
         "    points.scd_out, "
-        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+        "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+        "    move_id, "
+        "    point_num "
         "FROM "
         "    points ";
     if (!info.user.access.airlines.empty())
@@ -624,9 +635,11 @@ void GetPaxListSQL(TQuery &Qry)
         "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
         "    arx_points.airline, "
         "    arx_points.flt_no, "
-        "    arx_points.suffix, "
+        "    nvl(arx_points.suffix, ' ') suffix, "
         "    arx_points.scd_out, "
-        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
+        "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+        "    move_id, "
+        "    point_num "
         "FROM "
         "    arx_points ";
     if (!info.user.access.airlines.empty())
@@ -645,7 +658,12 @@ void GetPaxListSQL(TQuery &Qry)
         res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     res +=
         "ORDER BY "
-        "    real_out DESC ";
+        "   real_out DESC, "
+        "   flt_no, "
+        "   airline, "
+        "   suffix, "
+        "   move_id, "
+        "   point_num ";
     if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
         Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.SQLText = res;
