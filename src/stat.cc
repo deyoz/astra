@@ -1137,6 +1137,10 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         SetProp(colNode, "width", 90);
         SetProp(colNode, "align", taLeftJustify);
 
+        colNode = NewTextChild(headerNode, "col", "ê•©·");
+        SetProp(colNode, "width", 90);
+        SetProp(colNode, "align", taLeftJustify);
+
         colNode = NewTextChild(headerNode, "col", "ê•£ ¸");
         SetProp(colNode, "width", 45);
         SetProp(colNode, "align", taRightJustify);
@@ -1150,6 +1154,30 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
         xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
         while(!Qry.Eof) {
+            string trip;
+            {
+                //trip name fetch
+                TQuery tripQry(&OraSession);        
+                tripQry.SQLText =
+                    "select "
+                    "   airline, "
+                    "   flt_no, "
+                    "   suffix, "
+                    "   airp, "
+                    "   scd_out, "
+                    "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+                    "from "
+                    "   points "
+                    "where "
+                    "   point_id = :point_id";
+                tripQry.CreateVariable("point_id", otInteger, Qry.FieldAsInteger("point_id"));
+                tripQry.Execute();
+                if(!tripQry.Eof) {
+                    TTripInfo info(tripQry);
+                    trip = GetTripName(info, false, true);
+                }
+            }
+
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
 
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
@@ -1163,6 +1191,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                         )
                     );
 
+            NewTextChild(rowNode, "trip", trip);
             NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
             NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
             NewTextChild(rowNode, "msg", Qry.FieldAsString("msg"));
