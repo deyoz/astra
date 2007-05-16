@@ -1,6 +1,6 @@
 #!/bin/sh
 # backslash to prevent from running next line under tcl \
-exec astra "$0" ${1+"$@"} 
+exec astra "$0" ${1+"$@"}
 
 
 # put the following line (possible edited into your local_before.tcl file)
@@ -13,7 +13,7 @@ exec astra "$0" ${1+"$@"}
 
 if { ! [  info exists env(ASTRA_INSTANCE) ] } {
     set env(ASTRA_INSTANCE) [pid]:0
-} else {        
+} else {
     regexp {(.*):(.*)} $env(ASTRA_INSTANCE) dummy v1 v2
     incr v2
     set env(ASTRA_INSTANCE) $v1:$v2
@@ -27,18 +27,18 @@ set OUR_PRIVATE_KEY "NO KEY DEFINED"
 set ONE_LOGGER 0
 proc set_local { varname value} {
 	puts "set_local: $varname set to $value"
-	uplevel #0 set $varname [list $value] 
+	uplevel #0 set $varname [list $value]
 }
 
 proc set_hidden { varname value} {
-	uplevel #0 set $varname [list $value] 
+	uplevel #0 set $varname [list $value]
 }
 
 proc parse_old_cf { fl fltcl } {
-    set fnew [ open $fltcl w 0600] 
+    set fnew [ open $fltcl w 0600]
     if  [catch { open $fl r } file]  {
         puts stderr "error opening $fl: $file"
-    } else { 
+    } else {
         set par 0
         while { [gets $file line] >=0 } {
             if { ![string length $line]  } {
@@ -70,18 +70,18 @@ proc parse_old_cf { fl fltcl } {
 proc load_variables {} {
     set l1 [ file split   $::argv0 ]
         puts $l1
-    set lbefore [ join [ lreplace  $l1 end end local_before.tcl ] / ]  
+    set lbefore [ join [ lreplace  $l1 end end local_before.tcl ] / ]
     if { [ file exists $lbefore ] } {
         uplevel #0 [list source $lbefore ]
-    } 
+    }
     set sirenacfg [ join [ lreplace  $l1 end end sirena.cfg ] / ]
 #    parse_old_cf $sirenacfg sirena_cfg.tcl
 
-    set lafter [ join [ lreplace  $l1 end end local_after.tcl ] / ]  
-    
+    set lafter [ join [ lreplace  $l1 end end local_after.tcl ] / ]
+
     if { [ file exists $lafter ] } {
         uplevel #0 [ list source $lafter ]
-    } 
+    }
 }
 
 
@@ -91,7 +91,7 @@ if { ! [ info exists env(OBRZAP_NOSIR) ] } {
 }
 load_variables
 
-if {  [ string equal -nocase $env(OBRZAP_NOSIR) YES ]  
+if {  [ string equal -nocase $env(OBRZAP_NOSIR) YES ]
     && [ info exists env(CONNECT_STRING) ] } {
  set CONNECT_STRING $env(CONNECT_STRING)
 
@@ -113,10 +113,10 @@ namespace import tclmon::*
 set SOCKDIR Sockets
 file mkdir $SOCKDIR
 
-set grp1(BIN) $SOCKDIR/sirena-BIN1 
+set grp1(BIN) $SOCKDIR/sirena-BIN1
 
 
-set grp1(BOUT) $SOCKDIR/sirena-BOUT1 
+set grp1(BOUT) $SOCKDIR/sirena-BOUT1
 set grp1(BPORT) $KRV_PORT
 set grp1(SIGNAL) $SOCKDIR/sirena-BSIG1
 set grp1(HEADTYPE) 1
@@ -127,10 +127,10 @@ set OBRZAP_NUM_1  3
 if {! [info exists grp2(APORT)]} {
 	set grp2(APORT) 8001
 }
-set grp2(BIN) $SOCKDIR/sirena-BIN2 
-set grp2(BOUT) $SOCKDIR/sirena-BOUT2 
+set grp2(BIN) $SOCKDIR/sirena-BIN2
+set grp2(BOUT) $SOCKDIR/sirena-BOUT2
 set grp2(SIGNAL) $SOCKDIR/sirena-BSIG2
-set grp2(HEADTYPE) 2 
+set grp2(HEADTYPE) 2
 if {! [info exists OBRZAP_NUM_2]} {
 set OBRZAP_NUM_2  1
 }
@@ -138,10 +138,10 @@ set OBRZAP_NUM_2  1
 if {! [info exists grp3(APORT)]} {
 set grp3(APORT) 8002
 }
-set grp3(BIN) $SOCKDIR/sirena-BIN3 
+set grp3(BIN) $SOCKDIR/sirena-BIN3
 set grp3(BOUT) $SOCKDIR/sirena-BOUT3
 set grp3(SIGNAL) $SOCKDIR/sirena-BSIG3
-set grp3(HEADTYPE) 3 
+set grp3(HEADTYPE) 3
 set grp3(REDISPLAY) 1 ;#any value is equivalent to 1 !!! Don't set to 0 or NO
 if {! [info exists OBRZAP_NUM_3]} {
 set OBRZAP_NUM_3  1
@@ -215,7 +215,7 @@ if { ! [  info exists log_sys(LEVEL) ] } {
 }
 
 if { ! [ info exists CUTLOGGING] } {
-	set CUTLOGGING  100 
+	set CUTLOGGING  100
 }
 if { ! [ info exists env(XP_TESTING) ] } {
     set env(XP_TESTING)  0
@@ -247,31 +247,31 @@ set MONITOR_LOG monitor.log
 proc astra_init {} {
 #    get_csa
     if { ! $::ONE_LOGGER } {
-        start_obr [ list logger log_sys $::SOCKDIR/logger-signal-sys ] 
+        start_obr [ list logger log_sys $::SOCKDIR/logger-signal-sys ]
     }
     start_obr [ list monitor monitor1 monitor2]
-    start_obr [ list logger log1 $::SOCKDIR/logger-signal ] 
+    start_obr [ list logger log1 $::SOCKDIR/logger-signal ]
     if { ! $::ONE_LOGGER } {
         if { [lsearch -exact $::GROUPS_TO_RUN astra_init2 ] != -1 } {
-            start_obr [ list logger loginet $::SOCKDIR/loginet-signal ] 
+            start_obr [ list logger loginet $::SOCKDIR/loginet-signal ]
         }
     }
     if { ! $::ONE_LOGGER } {
-        start_obr [ list logger logdaemon $::SOCKDIR/logger-signal-daemon ] 
+        start_obr [ list logger logdaemon $::SOCKDIR/logger-signal-daemon ]
     }
 	if { $::AIRXMLRUN !=0  } {
         if { ! $::ONE_LOGGER } {
-            start_obr [ list logger logdebug $::SOCKDIR/logger-signal-debug ] 
+            start_obr [ list logger logdebug $::SOCKDIR/logger-signal-debug ]
         }
     }
     if { ! $::ONE_LOGGER } {
-        start_obr [ list logger logairimp $::SOCKDIR/logger-signal-airimp] 
+        start_obr [ list logger logairimp $::SOCKDIR/logger-signal-airimp]
     }
     sirena_sleep 3000
-#    start_shmserv	
+#    start_shmserv
 #    sirena_sleep 3000
 
-#   group 1 - usual sirena terminal queries    
+#   group 1 - usual sirena terminal queries
     if { [lsearch -exact $::GROUPS_TO_RUN astra_init1 ] != -1 } {
         astra_init1;
     }
@@ -284,7 +284,7 @@ proc astra_init {} {
     if { [lsearch -exact $::GROUPS_TO_RUN astra_init3 ] != -1 } {
         astra_init3;
     }
-#   other processes    
+#   other processes
     if { [lsearch -exact $::GROUPS_TO_RUN astra_init_other ] != -1 } {
         astra_init_other;
     }
@@ -297,26 +297,26 @@ proc astra_init {} {
     }
 }
 proc start_shmserv {} {
-#        for {set i 0} {$i<$::SHMSERV_NUM} {incr i} { 
+#        for {set i 0} {$i<$::SHMSERV_NUM} {incr i} {
 #                start_obr [list shmsrv $i ]
 #        }
 }
 proc astra_init1 {} {
     start_obr [list levb grp1]
     sirena_sleep 1000
-    for {set i 1} {$i<=$::OBRZAP_NUM_1} {incr i} { 
+    for {set i 1} {$i<=$::OBRZAP_NUM_1} {incr i} {
         if  {  [ info exists ::OBRZAP_START_PAUSE ] } {
-            sirena_sleep $::OBRZAP_START_PAUSE 
+            sirena_sleep $::OBRZAP_START_PAUSE
         }
-        start_obr [list obrzap grp1 $i  ] 
+        start_obr [list obrzap grp1 $i  ]
     }
 }
 proc astra_init2 {} {
 
     start_obr [list levb grp2]
     sirena_sleep 1000
-    for {set i 1} {$i<=$::OBRZAP_NUM_2} {incr i} { 
-        start_obr [list obrzap grp2 [ expr $i + 20 ]  ] 
+    for {set i 1} {$i<=$::OBRZAP_NUM_2} {incr i} {
+        start_obr [list obrzap grp2 [ expr $i + 20 ]  ]
     }
     start_obr [list leva grp2]
 }
@@ -325,8 +325,8 @@ proc astra_init3 {} {
 
     start_obr [list levb grp3]
     sirena_sleep 1000
-    for {set i 1} {$i<=$::OBRZAP_NUM_3} {incr i} { 
-        start_obr [list obrzap grp3 [ expr $i + 30 ]  ] 
+    for {set i 1} {$i<=$::OBRZAP_NUM_3} {incr i} {
+        start_obr [list obrzap grp3 [ expr $i + 30 ]  ]
     }
     start_obr [list leva grp3]
 }
@@ -335,9 +335,10 @@ proc astra_init_other {} {
      sirena_sleep 1000
      start_obr [ list tlg_snd ]
      start_obr [ list tlg_srv ]
-#     start_obr [ list typeb_handler ] 
+     start_obr [ list typeb_handler ]
      start_obr [ list edi_handler ]
-     start_obr [ list timer ]     
+     start_obr [ list timer ]
+     start_obr [ list file_srv ]
 }
 
 proc start_obr1 { a } {
@@ -365,7 +366,7 @@ proc start_other_daemons {args} {
         start_obr1 [ list arch_pack  1 22 72 ]
     }
 	sirena_sleep 1000
-        
+
 }
 
 
@@ -383,14 +384,14 @@ if { [ string equal -nocase $env(OBRZAP_NOSIR) YES ] } {
 }
 last_run_time sirena_run_time.txt
 
-if { [ string equal -nocase $env(XP_TESTING) 0 ] } { 
+if { [ string equal -nocase $env(XP_TESTING) 0 ] } {
 astra_init
 }
-if { [ string equal -nocase $env(XP_TESTING) 1 ] } { 
+if { [ string equal -nocase $env(XP_TESTING) 1 ] } {
 set_testing_mode 1
 start_obr1 [list run_tests ]
 }
-if { [ string equal -nocase $env(XP_TESTING) 2 ] } { 
+if { [ string equal -nocase $env(XP_TESTING) 2 ] } {
 astra_init
 sirena_sleep 5000
 set_testing_mode 1
