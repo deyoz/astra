@@ -33,8 +33,8 @@ using namespace EXCEPTIONS;
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
-  //int point_id=NodeAsInteger("point_id",reqNode); это позже
-  int point_id = JxtContext::getJxtContHandler()->currContext()->readInt("CKIN_TRIP_ID");
+  int point_id=NodeAsInteger("point_id",reqNode); //это позже
+//!!!  int point_id = JxtContext::getJxtContHandler()->currContext()->readInt("CKIN_TRIP_ID");
   TQuery Qry(&OraSession);
   Qry.SQLText="SELECT airline,flt_no FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
