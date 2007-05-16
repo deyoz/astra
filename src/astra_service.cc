@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string>
+#include <map>
 #include "astra_service.h"
 #define NICKNAME "DJEK"
 #include "setup.h"
@@ -31,7 +33,6 @@ const char* OWN_POINT_ADDR()
     if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
       throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
     OWNADDR = r;
-    ProgTrace( TRACE5, "OWN_POINT_ADDR=%s", OWNADDR.c_str() );
   }
   return OWNADDR.c_str();
 };
@@ -49,12 +50,11 @@ bool deleteFile( int id )
     return Qry.RowsProcessed()>0;
 };
 
-void putFile(const char* receiver,
-             const char* sender,
-             const char* type,
-             map<string,string> &params,
-             int data_len,
-             const void* data)
+void putFile( const string &receiver,
+              const string &sender,
+              const string &type,
+              map<string,string> &params,
+              const string &file_data )
 {
     try
     {
@@ -76,7 +76,7 @@ void putFile(const char* receiver,
                 "(tlgs_id.currval,:sender,:receiver,"
                 ":type,system.UTCSYSDATE,:data,NULL)";
         Qry.DeclareVariable("data",otLongRaw);
-        Qry.SetLongVariable("data",(void*)data,data_len);
+        Qry.SetLongVariable("data",(void*)file_data.c_str(),file_data.size());
         Qry.Execute();
         Qry.Close();
 
@@ -267,9 +267,17 @@ void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-	string msg = NodeAsString( "error", reqNode );
+	bool pr_error;
+	xmlNodePtr n = GetNode( "error", reqNode );
+	pr_error = n;
+	if ( !pr_error )
+		n = GetNode( "mes", reqNode );
+	string msg = NodeAsString( n );
 	string file_id = NodeAsString( (char*)PARAM_FILE_ID.c_str(), reqNode );
-  ProgError( STDLOG, "AstraService Exception: %s, file_id=%s", msg.c_str(), file_id.c_str() );
+	if ( pr_error )
+    ProgError( STDLOG, "AstraService Exception: %s, file_id=%s", msg.c_str(), file_id.c_str() );
+  else
+  	ProgTrace( TRACE5, "AstraService Message: %s, file_id=%s", msg.c_str(), file_id.c_str() );
   int id;
   if ( StrToInt( file_id.c_str(), id ) != EOF && id > 0 ) {
   	errorFile( id, msg );
@@ -281,33 +289,72 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	string client_canon_name = NodeAsString( "canon_name", reqNode );
 	ProgTrace( TRACE5, "createFileData point_id=%d, client_canon_name=%s", point_id, client_canon_name.c_str() );
-	createCentringFile( point_id, OWN_POINT_ADDR(), client_canon_name );
+	map<string,string> params;
+	params[ PARAM_WORK_DIR ] = "C:\\Temp";
+	string data;
+	createCentringFile( point_id, params, data );
+	///!!! далее putFile
 	tst();
 }
 
 void CreateCentringFileDATA( int point_id )
 {
+	string client_canon_name;	
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT airp, airline, flt_no, suffix FROM points WHERE point_id=:point_id";
+	TQuery ParamQry( &OraSession );
+	Qry.SQLText = "SELECT file_param_sets.canon_name, file_param_sets.param_name, file_param_sets.param_value, "
+	              " DECODE( file_param_sets.airp, NULL, 0, 4 ) + "
+	              " DECODE( file_param_sets.airline, NULL, 0, 2 ) + "
+	              " DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "
+	              " FROM points, file_param_sets "
+	              " WHERE points.point_id=:point_id AND "
+	              "       file_param_sets.own_canon_name=:own_canon_name AND "
+	              "       file_param_sets.type=:type AND "
+	              "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
+	              "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
+	              "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) "
+	              " ORDER BY priority DESC"; 
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( Qry.Eof )
-		return;
-	string airp = Qry.FieldAsString( "airp" );
-	string airline = Qry.FieldAsString( "airline" );
-	int flt_no = Qry.FieldAsInteger( "flt_no" );
-	//string client_canon_name;
-	ProgTrace( TRACE5, "CreateCentringFileDATA point_id=%d, airp=%s", point_id, airp.c_str() );	
-/*	Qry.Clear();
-	Qry.SQLText = "SELECT canon_name FROM file*/
-	if ( airp != "РЩН" && airp != "СУР" )
-		return;
+	Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "type", otString, FILE_CENT_TYPE );
+	Qry.Execute();	              
+	map<string,int> cname; /* canon_name, priority */
+	map<string,string> params;
+	string file_data;
+	int priority;
+	while ( !Qry.Eof ) {
+		priority = Qry.FieldAsInteger( "priority" );
+		client_canon_name = Qry.FieldAsString( "canon_name" );
+		map<string,int>::iterator r=cname.end();
+		for ( r=cname.begin(); r!=cname.end(); r++ ) {
+			if ( r->first == client_canon_name )
+			  break;
+	  }	
+	  if ( r == cname.end() ) { /* если нет такого имени */
+	  	if ( !params.empty() && createCentringFile( point_id, params, file_data ) ) {
+	  		putFile( client_canon_name, OWN_POINT_ADDR(), FILE_CENT_TYPE, params, file_data );
+	    }
+		  cname.insert( make_pair( client_canon_name, priority ) );
+		  r = cname.end();
+		  r--;
+		  params.clear();
+		}
+		ProgTrace( TRACE5, "priority=%d, r->second=%d", priority, r->second );
+  	if ( priority == r->second ) {
+			params[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
+		}
+		Qry.Next();
+	}
+	ProgTrace( TRACE5, "params.empty()=%d", params.empty());
+	if ( !params.empty() && createCentringFile( point_id, params, file_data ) ) {
+    putFile( client_canon_name, OWN_POINT_ADDR(), FILE_CENT_TYPE, params, file_data );
+  }
 	//client_canon_name = "CENTST";
-	createCentringFile( point_id, OWN_POINT_ADDR(), string( "ASWFMG" ) );
-	createCentringFile( point_id, OWN_POINT_ADDR(), string( "GABFMG" ) );
-	createCentringFile( point_id, OWN_POINT_ADDR(), string( "UT_FMG" ) );
-	createCentringFile( point_id, OWN_POINT_ADDR(), string( "TJMFMG" ) );
-	createCentringFile( point_id, OWN_POINT_ADDR(), string( "SGCFMG" ) );
+	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "ASWFMG" ) );
+	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "GABFMG" ) );
+	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "UT_FMG" ) );
+	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "TJMFMG" ) );
+	//createCentringFile( point_id, OWN_POINT_ADDR(), string( "SGCFMG" ) );
 }
 
 

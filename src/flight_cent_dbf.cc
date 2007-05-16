@@ -1,6 +1,7 @@
 #include <string>
 #include <map>
 #define NICKNAME "DJEK"
+#include "flight_cent_dbf.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "slogger.h"
@@ -205,13 +206,8 @@ PASS_12 		N	3
 */
 
 //const string FileDirectory = "C:\\Program Files\\kupol\\base";
-const string FileDirectory = "C:\\Astra";
-const string PARAM_WORK_DIR = "WorkDir";
-const string PARAM_FILE_NAME = "FileName";
-
 void createFileParams( int point_id, map<string,string> &params )
 {
-	params.clear();
 	TQuery FlightQry( &OraSession );
 	FlightQry.SQLText = "SELECT airline,flt_no,suffix, gtimer.get_stage(:point_id, 1) as st FROM points WHERE point_id=:point_id";
 	FlightQry.CreateVariable( "point_id", otInteger, point_id );
@@ -226,8 +222,7 @@ void createFileParams( int point_id, map<string,string> &params )
   else			
 	  params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
-	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";
-	params[ PARAM_WORK_DIR ] = FileDirectory;
+	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";	
 }
 
 void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data )
@@ -317,7 +312,7 @@ void getTripSeats( Luggage &lug, vector<std::string> &data )
 	data.push_back( "0" ); //K_SL число занятых кресел служебные пассажиры !!!
 }
 
-bool createCentringFile( int point_id, const string &Sender, const string &Receiver )
+bool createCentringFile( int point_id, map<string,string> &params, string &file_data )
 {
 	Develop_dbf dbf;
 	dbf.AddField( "NR", 'C', 8 ); //1 номер рейса 3 - Company + 5 flt_no + ??? suffix
@@ -676,52 +671,7 @@ bool createCentringFile( int point_id, const string &Sender, const string &Recei
 	dbf.AddRow( row );
 	tst();
 	dbf.Build( );
-	tst();
-	if ( !dbf.isEmpty() ) {
-		tst();
-		Qry.Clear();
-		Qry.SQLText = "SELECT id__seq.nextval id, system.UTCSYSDATE now FROM dual ";
-		tst();
-		Qry.Execute();
-		tst();
-		int id = Qry.FieldAsInteger( "id" );
-		TDateTime d = Qry.FieldAsDateTime( "now" );
-		Qry.Clear();
-		Qry.SQLText =
-		  "INSERT INTO files(id,sender,receiver,type,error,time,data) "
-		  " VALUES(:id,:sender,:receiver,:type,:error,:time,:data) ";
-		Qry.CreateVariable( "id", otInteger, id );
-		Qry.CreateVariable( "sender", otString, Sender );
-		Qry.CreateVariable( "receiver", otString, Receiver );
-		Qry.CreateVariable( "type", otString, "FILE" );
-		Qry.CreateVariable( "error", otString, FNull );
-		Qry.CreateVariable( "time", otDate, d );
-		string res = dbf.Result( );
-		Qry.CreateLongVariable( "data", otLongRaw, (void*)res.data(), (int)res.size() );
-		ProgTrace( TRACE5, "create centring file size=%d", (int)res.size() );
-		Qry.Execute();
-		Qry.Clear();
-		Qry.SQLText =
-		  "INSERT INTO file_params(id,name,value) "
-		  " VALUES(:id,:name,:value) ";
-		Qry.CreateVariable( "id", otInteger, id );
-		Qry.DeclareVariable( "name", otString );
-		Qry.DeclareVariable( "value", otString );
-		map<string,string> params;
-		createFileParams( point_id, params );
-		for (map<string,string>::iterator p=params.begin(); p!=params.end(); p++ ) {
-			Qry.SetVariable( "name", p->first );
-			Qry.SetVariable( "value", p->second );
-      Qry.Execute();
-		}
-		Qry.Clear();
-		Qry.SQLText =
-	   "INSERT INTO file_queue(id,sender,receiver,type,status,time) "
-	   " SELECT id,sender,receiver,type,'PUT',system.UTCSYSDATE FROM files "
-	   "  WHERE id=:id ";
-	  Qry.CreateVariable( "id", otInteger, id );
-	  Qry.Execute();
-	}
-	tst();
+	file_data = dbf.Result();
+	createFileParams( point_id, params );
 	return !dbf.isEmpty();
 }

@@ -10,12 +10,11 @@ const char* OWN_POINT_ADDR();
 
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 bool deleteFile( int id );
-void putFile(const char* receiver,
-             const char* sender,
-             const char* type,
+void putFile(const std::string &receiver,
+             const std::string &sender,
+             const std::string &type,
              std::map<std::string,std::string> &params,
-             int data_len,
-             const void* data);
+             const std::string &file_data);
 bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
