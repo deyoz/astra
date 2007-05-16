@@ -598,8 +598,7 @@ void TelegramInterface::SendTlg(int tlg_id)
         //string data=AddrQry.GetVariableAsString("addrs")+tlg_text;
         string data=TlgQry.FieldAsString("body");
         map<string,string> params;
-        putFile(i->first.c_str(),OWN_POINT_ADDR(),tlg_type.c_str(),params,
-                data.size(),(void*)data.c_str());
+        putFile(i->first,OWN_POINT_ADDR(),tlg_type,params,data);
       };
     };
   };
