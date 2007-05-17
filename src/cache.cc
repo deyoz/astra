@@ -9,6 +9,7 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "tlg/tlg.h"
+#include "astra_service.h"
 #define TAG_REFRESH_DATA        "DATA_VER"
 #define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
 #define TAG_CODE                "CODE"
@@ -264,6 +265,14 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
     if ( f != vars.end() ) {
       Qry->DeclareVariable("SYS_canon_name", otString);
       Qry->SetVariable( "SYS_canon_name", OWN_CANON_NAME() );
+      vars.erase( f );
+    }
+
+    // задание переменной SYS_point_addr
+    f = find( vars.begin(), vars.end(), "SYS_POINT_ADDR" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_point_addr", otString);
+      Qry->SetVariable( "SYS_point_addr", OWN_POINT_ADDR() );
       vars.erase( f );
     }
 };
