@@ -466,6 +466,9 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
   {
     TInquiryFamilySummary info;
 
+    if (i->surname.size()>64 || i->name.size()>64 )
+      throw UserException(100,"Фамилия или имя пассажира в запросе слишком большой длины");
+
     if (!grp.large)
     {
       info.surname=i->surname;
