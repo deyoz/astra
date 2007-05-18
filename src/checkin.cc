@@ -23,6 +23,7 @@ using namespace EXCEPTIONS;
 
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  //load tag packs
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText="SELECT airline,target,tag_type,no,color FROM tag_packs WHERE desk=:desk";
