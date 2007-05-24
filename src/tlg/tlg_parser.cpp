@@ -2347,7 +2347,8 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         continue;
       };
 
-      if (strcmp(rem_code,"INF")==0)
+      if (strcmp(rem_code,"INF")==0||
+          strcmp(rem_code,"INFT")==0)
       {
             //отдельный массив для INF ne.inf
         TInfItem InfItem;
@@ -2384,6 +2385,24 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
         iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
         continue;
       };
+      if (strcmp(rem_code,"TKNE")==0)
+      {
+        if ((p=tlg.GetWord(p))==NULL) continue;
+        if ((p=tlg.GetWord(p))==NULL) continue;
+        if (strncmp(tlg.lex,"INF",3)==0)
+        {
+          iPaxItem->inf_rem.push_back(*iRemItem);
+          iRemItem->text.clear();
+        };
+        continue;
+      };
+    };
+    for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();)
+    {
+      if (iRemItem->text.empty())
+        iRemItem=iPaxItem->rem.erase(iRemItem);
+      else
+        iRemItem++;
     };
   };
 
@@ -2529,7 +2548,8 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
       };
       continue;
     };
-    if (strcmp(rem_code,"INF")==0)
+    if (strcmp(rem_code,"INF")==0||
+        strcmp(rem_code,"INFT")==0)
     {
           //отдельный массив для INF ne.inf
       TInfItem InfItem;
@@ -2566,6 +2586,26 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
       ne.inf.insert(ne.inf.end(),inf.begin(),inf.end());
       continue;
     };
+    if (strcmp(rem_code,"TKNE")==0)
+    {
+
+      if ((p=tlg.GetWord(p))==NULL) continue;
+      if ((p=tlg.GetWord(p))==NULL) continue;
+      if (strncmp(tlg.lex,"INF",3)==0)
+      {
+        ne.inf_rem.push_back(*iRemItem);
+        iRemItem->text.clear();
+      };
+      continue;
+    };
+  };
+
+  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
+  {
+    if (iRemItem->text.empty())
+      iRemItem=ne.rem.erase(iRemItem);
+    else
+      iRemItem++;
   };
 };
 
@@ -3105,6 +3145,29 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   };
 };
 
+void SavePNLADLRemarks(int pax_id, std::vector<TRemItem> &rem)
+{
+  TQuery CrsPaxRemQry(&OraSession);
+  CrsPaxRemQry.Clear();
+  CrsPaxRemQry.SQLText=
+    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code)\
+     VALUES(:pax_id,:rem,:rem_code)";
+  CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
+  CrsPaxRemQry.DeclareVariable("rem",otString);
+  CrsPaxRemQry.DeclareVariable("rem_code",otString);
+  //ремарки пассажира
+  CrsPaxRemQry.SetVariable("pax_id",pax_id);
+  vector<TRemItem>::iterator iRemItem;
+  for(iRemItem=rem.begin();iRemItem!=rem.end();iRemItem++)
+  {
+    if (iRemItem->text.empty()) continue;
+    if (iRemItem->text.size()>250) iRemItem->text.erase(250);
+    CrsPaxRemQry.SetVariable("rem",iRemItem->text);
+    CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
+    CrsPaxRemQry.Execute();
+  };
+};
+
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
@@ -3113,7 +3176,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   vector<TPnrItem>::iterator iPnrItem;
   vector<TNameElement>::iterator iNameElement;
   vector<TPaxItem>::iterator iPaxItem;
-  vector<TRemItem>::iterator iRemItem;
   vector<TTransferItem>::iterator iTransfer;
   vector<TPnrAddrItem>::iterator iPnrAddr;
   vector<TInfItem>::iterator iInfItem;
@@ -3479,15 +3541,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
 
-        TQuery CrsPaxRemQry(&OraSession);
-        CrsPaxRemQry.Clear();
-        CrsPaxRemQry.SQLText=
-          "INSERT INTO crs_pax_rem(pax_id,rem,rem_code)\
-           VALUES(:pax_id,:rem,:rem_code)";
-        CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
-        CrsPaxRemQry.DeclareVariable("rem",otString);
-        CrsPaxRemQry.DeclareVariable("rem_code",otString);
-
         TQuery CrsTransferQry(&OraSession);
         CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
@@ -3744,6 +3797,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "BEGIN "
                     "  FOR curRow IN cur LOOP "
                     "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_rem WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
                     "END;";
@@ -3782,7 +3836,10 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                     Qry.SetVariable("inf_id",inf_id);
                     Qry.Execute();
+                    SavePNLADLRemarks(inf_id,iPaxItem->inf_rem);
+                    SavePNLADLRemarks(inf_id,ne.inf_rem);
                   };
+
                   //младенцы, не привязанные к пассажиру - привязываем к первому в NameElement
                   if (iPaxItem==ne.pax.begin())
                   {
@@ -3795,27 +3852,13 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                       inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                       Qry.SetVariable("inf_id",inf_id);
                       Qry.Execute();
+                      SavePNLADLRemarks(inf_id,ne.inf_rem);
                     };
                   };
                   //ремарки пассажира
-                  CrsPaxRemQry.SetVariable("pax_id",pax_id);
-                  for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
-                  {
-                    if (iRemItem->text.empty()) continue;
-                    if (iRemItem->text.size()>250) iRemItem->text.erase(250);
-                    CrsPaxRemQry.SetVariable("rem",iRemItem->text);
-                    CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
-                    CrsPaxRemQry.Execute();
-                  };
+                  SavePNLADLRemarks(pax_id,iPaxItem->rem);
                   //ремарки, не привязанные к пассажиру
-                  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
-                  {
-                    if (iRemItem->text.empty()) continue;
-                    if (iRemItem->text.size()>250) iRemItem->text.erase(250);
-                    CrsPaxRemQry.SetVariable("rem",iRemItem->text);
-                    CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
-                    CrsPaxRemQry.Execute();
-                  };
+                  SavePNLADLRemarks(pax_id,ne.rem);
                 };
 
                 if (!pr_sync_pnr)
