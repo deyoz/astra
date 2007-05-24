@@ -138,11 +138,13 @@ void TSQL::createSQLTrips( ) {
     "points";
   p.sqlwhere =
     "points.act_out IS NULL AND points.pr_del=0 AND "
-    "(gtimer.is_final_stage( points.point_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR "
-    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :ckin_close_stage_id)<>0) ";
+    "(gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR "
+    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_close_stage_id)<>0 OR "
+    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_doc_stage_id)<>0) ";
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
+  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
   sqltrips[ "KASSA.EXE" ] = p;
   p.clearVariables();
 
@@ -444,6 +446,19 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   };
 };
 
+class TTripListItem
+{
+  public:
+    int point_id;
+    string trip_name;
+    TDateTime real_out_local_date;
+};
+
+bool lessTripListItem(const TTripListItem& item1,const TTripListItem& item2)
+{
+  return item1.real_out_local_date>item2.real_out_local_date;
+};
+
 /*******************************************************************************/
 void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -466,14 +481,28 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
+  vector<TTripListItem> list;
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    tripNode = NewTextChild( tripsNode, "trip" );
+    TTripListItem listItem;
+
     TTripInfo info(Qry);
 
-    NewTextChild( tripNode, "trip_id", Qry.FieldAsInteger( "point_id" ) );
-    NewTextChild( tripNode, "str", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
+    listItem.point_id=Qry.FieldAsInteger("point_id");
+    listItem.trip_name=GetTripName(info,reqInfo->screen.name=="TLG.EXE",true);
+    listItem.real_out_local_date=info.real_out_local_date;
+
+    list.push_back(listItem);
+  };
+
+  stable_sort(list.begin(),list.end(),lessTripListItem);
+
+  for(vector<TTripListItem>::iterator i=list.begin();i!=list.end();i++)
+  {
+    tripNode = NewTextChild( tripsNode, "trip" );
+    NewTextChild( tripNode, "trip_id", i->point_id );
+    NewTextChild( tripNode, "str", i->trip_name );
   };
 };
 
@@ -626,10 +655,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   TDateTime stage_time=0;
   if ( reqInfo->screen.name == "BRDBUS.EXE" ||
        reqInfo->screen.name == "EXAM.EXE" ||
-       reqInfo->screen.name == "CENT.EXE" )
+       reqInfo->screen.name == "CENT.EXE" ||
+       reqInfo->screen.name == "KASSA.EXE" )
     stage_time = UTCToClient( tripStages.time( sCloseBoarding ), tz_region );
   if ( reqInfo->screen.name == "AIR.EXE" ||
-       reqInfo->screen.name == "KASSA.EXE" ||
        reqInfo->screen.name == "PREPREG.EXE" )
     stage_time = UTCToClient( tripStages.time( sCloseCheckIn ), tz_region );
   if ( reqInfo->screen.name == "DOCS.EXE" )
@@ -1387,11 +1416,11 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  TDateTime scd_out,real_out,desk_time;
+  TDateTime scd_out_local_date,desk_time;
   string &tz_region=AirpTZRegion(info.airp);
   modf(reqInfo->desk.time,&desk_time);
-  modf(UTCToClient(info.scd_out,tz_region),&scd_out);
-  modf(UTCToClient(info.real_out,tz_region),&real_out);
+  modf(UTCToClient(info.scd_out,tz_region),&scd_out_local_date);
+  modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
   ostringstream trip;
   trip << info.airline
        << setw(3) << setfill('0') << info.flt_no
@@ -1403,17 +1432,18 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
     if (info.flt_no<1000)  trip << " ";
   };
 
-  if (desk_time!=real_out)
+  if (desk_time!=info.real_out_local_date)
   {
-    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
-      trip << "/" << DateTimeToStr(real_out,"dd");
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(info.real_out_local_date,"mm"))
+      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd");
     else
-      trip << "/" << DateTimeToStr(real_out,"dd.mm");
+      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd.mm");
   };
-  if (scd_out!=real_out)
-    trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
+  if (scd_out_local_date!=info.real_out_local_date)
+    trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
   if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||showAirp)
     trip << " " << info.airp;
+
   return trip.str();
 };
 
