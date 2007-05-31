@@ -1767,13 +1767,6 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         NewTextChild(printerNode, "format_id", format_id);
         NewTextChild(printerNode, "format", format);
 
-        printerNode = NewTextChild(printersNode, "printer");
-        NewTextChild(printerNode, "code", code);
-        NewTextChild(printerNode, "name", name);
-        NewTextChild(printerNode, "iface", "CUSE");
-        NewTextChild(printerNode, "format_id", format_id);
-        NewTextChild(printerNode, "format", format);
-
         Qry.Next();
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
