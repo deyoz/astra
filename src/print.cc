@@ -1722,6 +1722,8 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             table = "bt_forms ";
             break;
         case dtReceipt:
+            table = "br_forms ";
+            break;
         case dtFltDoc:
         case dtArchive:
         case dtDisp:
@@ -1897,21 +1899,25 @@ namespace to_esc {
 
 void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    tst();
     PrintDataParser parser(
             NodeAsInteger("id", reqNode),
             NodeAsInteger("pr_lat", reqNode),
             NULL,
             PrintDataParser::mtMSO
             );
-    int br_id = 0;
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select form from br_forms where id = :id";
-    Qry.CreateVariable("id", otInteger, br_id);
+    Qry.SQLText = "select data from br_forms where prn_type = :prn_type";
+    int prn_type = NodeAsInteger("prn_type", reqNode);
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("Receipt form not found for id " + IntToString(br_id));
-    string mso_form = Qry.FieldAsString("form");
+    if(Qry.Eof) throw Exception("Receipt form not found for prn_type " + IntToString(prn_type));
+    string mso_form = Qry.FieldAsString("data");
+    tst();
     mso_form = parser.parse(mso_form);
+    tst();
     to_esc::convert(mso_form);
+    tst();
     NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
 

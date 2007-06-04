@@ -102,12 +102,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
       int grp_id=Qry.FieldAsInteger("grp_id");
       condition+=
-        "     :pax AS pax"
-        "FROM pax_grp,airps"
-        "WHERE pax_grp.airp_arv=airps.code AND"
+        "     :pax AS pax "
+        "FROM pax_grp,airps "
+        "WHERE pax_grp.airp_arv=airps.code AND "
         "      pax_grp.grp_id=:grp_id AND rownum=1";
       Qry.Clear();
-      Qry.CreateVariable("pax",otInteger,pax);
+      Qry.CreateVariable("pax",otString,pax);
       Qry.CreateVariable("grp_id",otInteger,grp_id);
 
       sqlText+=condition;
@@ -592,5 +592,8 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     issue_place << *i << endl;
   };
   NewTextChild(resNode,"issue_place",issue_place.str());
+
+
 };
+
 
