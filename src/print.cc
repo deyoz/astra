@@ -1920,6 +1920,7 @@ void get_validator(vector<string> &validator)
 {
     string agency, agency_descr, agency_city;
     TReqInfo *reqInfo = TReqInfo::Instance();
+    if(reqInfo->desk.sale_point.empty()) throw UserException("Для данного пульта не определен пункт продаж");
     {
         TQuery spQry(&OraSession);        
         spQry.SQLText = 
