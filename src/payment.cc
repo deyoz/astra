@@ -7,6 +7,7 @@
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "checkin.h"
+#include "print.h"
 #include "tripinfo.h"
 #include "oralib.h"
 
@@ -581,15 +582,15 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     NewTextChild(resNode,"annul_date_local",DateTimeToStr(d,"ddmmmyy",(int)pr_lat));
   };
 
- /* TReqInfo *reqInfo = TReqInfo::Instance();
+  ostringstream issue_place;
+  vector<string> validator;
 
-  agency+' OEI'+#13#10+
-  descr+#13#10+
-  city+' '+country+#13#10+
-  sys.user.desk+' '+sys.user.private_num;*/
+  get_validator(validator);
 
-
-
-
+  for(vector<string>::iterator i=validator.begin();i!=validator.end();i++)
+  {
+    issue_place << *i << endl;
+  };
+  NewTextChild(resNode,"issue_place",issue_place.str());
 };
 

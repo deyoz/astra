@@ -2345,135 +2345,142 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
   xmlNodePtr valueBagNode=GetNode("value_bags",grpNode);
   xmlNodePtr bagNode=GetNode("bags",grpNode);
   xmlNodePtr tagNode=GetNode("tags",grpNode);
-  if (bagNode==NULL&&tagNode==NULL) return;
-  //подсчитаем кол-во багажа и баг. бирок
-  int bagAmount=0,tagCount=0;
-  if (bagNode!=NULL)
-    for(node=bagNode->children;node!=NULL;node=node->next)
-    {
-      node2=node->children;
-      if (NodeAsIntegerFast("pr_cabin",node2)==0) bagAmount+=NodeAsIntegerFast("amount",node2);
-    };
-  if (tagNode!=NULL)
-    for(node=tagNode->children;node!=NULL;node=node->next,tagCount++);
 
-  ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
-  bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
-  TQuery Qry(&OraSession);
-  if (bagAmount!=tagCount)
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  if ( reqInfo->screen.name == "AIR.EXE" )
   {
-    if (pr_tag_print && tagCount<bagAmount )
-    {
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
-      Qry.CreateVariable("point_id",otInteger,point_id);
-      Qry.Execute();
-      if (Qry.Eof) throw UserException("На рейс не назначен бланк печатаемой багажной бирки");
-      string tag_type = Qry.FieldAsString("tag_type");
-      //получим номера печатаемых бирок
-      Qry.Clear();
-      Qry.SQLText=
-        "DECLARE "
-        "  vairline airlines.code%TYPE; "
-        "  vaircode airlines.aircode%TYPE; "
-        "BEGIN "
-        "  BEGIN "
-        "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id; "
-        "    SELECT aircode INTO vaircode FROM airlines WHERE code=vairline; "
-        "  EXCEPTION "
-        "    WHEN OTHERS THEN vaircode:=NULL; "
-        "  END; "
-        "  ckin.get__tag_no(:desk,vaircode,:tag_count,:first_no,:last_no); "
-        "END;";
-      Qry.CreateVariable("point_id",otInteger,point_id);
-      Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
-      Qry.CreateVariable("tag_count",otInteger,bagAmount-tagCount);
-      Qry.DeclareVariable("first_no",otInteger);
-      Qry.DeclareVariable("last_no",otInteger);
-      Qry.Execute();
-      int first_no=Qry.GetVariableAsInteger("first_no");
-      int last_no=Qry.GetVariableAsInteger("last_no");
-      if (tagNode==NULL) tagNode=NewTextChild(grpNode,"tags");
-      if ((first_no/1000)==(last_no/1000))
+
+    if (bagNode==NULL&&tagNode==NULL) return;
+    //подсчитаем кол-во багажа и баг. бирок
+    int bagAmount=0,tagCount=0;
+    if (bagNode!=NULL)
+      for(node=bagNode->children;node!=NULL;node=node->next)
       {
-        //первый и последний номер из одного диапазона
-        for(int i=first_no;i<=last_no;i++,tagCount++)
-        {
-          node=NewTextChild(tagNode,"tag");
-          NewTextChild(node,"num",tagCount+1);
-          NewTextChild(node,"tag_type",tag_type);
-          NewTextChild(node,"no",i);
-          NewTextChild(node,"color");
-          NewTextChild(node,"bag_num");
-          NewTextChild(node,"pr_print",(int)false);
-        };
-      }
-      else
-      {
-        int j;
-        j=(first_no/1000)*1000+999;
-        for(int i=first_no;i<=j;i++,tagCount++)
-        {
-          node=NewTextChild(tagNode,"tag");
-          NewTextChild(node,"num",tagCount+1);
-          NewTextChild(node,"tag_type",tag_type);
-          NewTextChild(node,"no",i);
-          NewTextChild(node,"color");
-          NewTextChild(node,"bag_num");
-          NewTextChild(node,"pr_print",(int)false);
-        }
-        j=(last_no/1000)*1000;
-        if ((j%1000000)==0) j++;
-        for(int i=j;i<=last_no;i++,tagCount++)
-        {
-          node=NewTextChild(tagNode,"tag");
-          NewTextChild(node,"num",tagCount+1);
-          NewTextChild(node,"tag_type",tag_type);
-          NewTextChild(node,"no",i);
-          NewTextChild(node,"color");
-          NewTextChild(node,"bag_num");
-          NewTextChild(node,"pr_print",(int)false);
-        };
+        node2=node->children;
+        if (NodeAsIntegerFast("pr_cabin",node2)==0) bagAmount+=NodeAsIntegerFast("amount",node2);
       };
-      xmlNodePtr bNode,tNode;
-      int bag_num,bag_amount;
+    if (tagNode!=NULL)
+      for(node=tagNode->children;node!=NULL;node=node->next,tagCount++);
 
-      //пробуем привязать к багажу
-      if (bagNode!=NULL && tagNode!=NULL)
+    ProgTrace(TRACE5,"bagAmount=%d tagCount=%d",bagAmount,tagCount);
+    bool pr_tag_print=NodeAsInteger("@pr_print",tagNode)!=0;
+    TQuery Qry(&OraSession);
+    if (bagAmount!=tagCount)
+    {
+      if (pr_tag_print && tagCount<bagAmount )
       {
-        tNode=tagNode->last;
-        for(bNode=bagNode->last;bNode!=NULL;bNode=bNode->prev)
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.Execute();
+        if (Qry.Eof) throw UserException("На рейс не назначен бланк печатаемой багажной бирки");
+        string tag_type = Qry.FieldAsString("tag_type");
+        //получим номера печатаемых бирок
+        Qry.Clear();
+        Qry.SQLText=
+          "DECLARE "
+          "  vairline airlines.code%TYPE; "
+          "  vaircode airlines.aircode%TYPE; "
+          "BEGIN "
+          "  BEGIN "
+          "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id; "
+          "    SELECT aircode INTO vaircode FROM airlines WHERE code=vairline; "
+          "  EXCEPTION "
+          "    WHEN OTHERS THEN vaircode:=NULL; "
+          "  END; "
+          "  ckin.get__tag_no(:desk,vaircode,:tag_count,:first_no,:last_no); "
+          "END;";
+        Qry.CreateVariable("point_id",otInteger,point_id);
+        Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+        Qry.CreateVariable("tag_count",otInteger,bagAmount-tagCount);
+        Qry.DeclareVariable("first_no",otInteger);
+        Qry.DeclareVariable("last_no",otInteger);
+        Qry.Execute();
+        int first_no=Qry.GetVariableAsInteger("first_no");
+        int last_no=Qry.GetVariableAsInteger("last_no");
+        if (tagNode==NULL) tagNode=NewTextChild(grpNode,"tags");
+        if ((first_no/1000)==(last_no/1000))
         {
-          if (tNode==NULL) break;
-          node2=bNode->children;
-          bag_num=NodeAsIntegerFast("num",node2);
-          bag_amount=NodeAsIntegerFast("amount",node2);
-          if (NodeAsIntegerFast("pr_cabin",node2)!=0) continue;
-
-          //проверим чтобы на этот багаж не было назначено ни одной бирки
-          for(node=tagNode->children;node!=NULL&&node!=tNode->next;node=node->next)
+          //первый и последний номер из одного диапазона
+          for(int i=first_no;i<=last_no;i++,tagCount++)
           {
-            node2=node->children;
-            if (!NodeIsNULLFast("bag_num",node2) &&
-                bag_num==NodeAsIntegerFast("bag_num",node2)) break;
+            node=NewTextChild(tagNode,"tag");
+            NewTextChild(node,"num",tagCount+1);
+            NewTextChild(node,"tag_type",tag_type);
+            NewTextChild(node,"no",i);
+            NewTextChild(node,"color");
+            NewTextChild(node,"bag_num");
+            NewTextChild(node,"pr_print",(int)false);
           };
-          if (node!=NULL&&node!=tNode->next) break; //выйдем, если на текущий багаж ссылается бирка
+        }
+        else
+        {
+          int j;
+          j=(first_no/1000)*1000+999;
+          for(int i=first_no;i<=j;i++,tagCount++)
+          {
+            node=NewTextChild(tagNode,"tag");
+            NewTextChild(node,"num",tagCount+1);
+            NewTextChild(node,"tag_type",tag_type);
+            NewTextChild(node,"no",i);
+            NewTextChild(node,"color");
+            NewTextChild(node,"bag_num");
+            NewTextChild(node,"pr_print",(int)false);
+          }
+          j=(last_no/1000)*1000;
+          if ((j%1000000)==0) j++;
+          for(int i=j;i<=last_no;i++,tagCount++)
+          {
+            node=NewTextChild(tagNode,"tag");
+            NewTextChild(node,"num",tagCount+1);
+            NewTextChild(node,"tag_type",tag_type);
+            NewTextChild(node,"no",i);
+            NewTextChild(node,"color");
+            NewTextChild(node,"bag_num");
+            NewTextChild(node,"pr_print",(int)false);
+          };
+        };
+        xmlNodePtr bNode,tNode;
+        int bag_num,bag_amount;
 
-          int k=0;
-          for(;k<bag_amount;k++)
+        //пробуем привязать к багажу
+        if (bagNode!=NULL && tagNode!=NULL)
+        {
+          tNode=tagNode->last;
+          for(bNode=bagNode->last;bNode!=NULL;bNode=bNode->prev)
           {
             if (tNode==NULL) break;
-            node2=tNode->children;
-            if (/*NodeAsIntegerFast("printable",node2)==0 ||*/ !NodeIsNULLFast("bag_num",node2)) break;
-            ReplaceTextChild(tNode,"bag_num",bag_num);
-            tNode=tNode->prev;
+            node2=bNode->children;
+            bag_num=NodeAsIntegerFast("num",node2);
+            bag_amount=NodeAsIntegerFast("amount",node2);
+            if (NodeAsIntegerFast("pr_cabin",node2)!=0) continue;
+
+            //проверим чтобы на этот багаж не было назначено ни одной бирки
+            for(node=tagNode->children;node!=NULL&&node!=tNode->next;node=node->next)
+            {
+              node2=node->children;
+              if (!NodeIsNULLFast("bag_num",node2) &&
+                  bag_num==NodeAsIntegerFast("bag_num",node2)) break;
+            };
+            if (node!=NULL&&node!=tNode->next) break; //выйдем, если на текущий багаж ссылается бирка
+
+            int k=0;
+            for(;k<bag_amount;k++)
+            {
+              if (tNode==NULL) break;
+              node2=tNode->children;
+              if (/*NodeAsIntegerFast("printable",node2)==0 ||*/ !NodeIsNULLFast("bag_num",node2)) break;
+              ReplaceTextChild(tNode,"bag_num",bag_num);
+              tNode=tNode->prev;
+            };
+            if (k<bag_amount) break; //выйдем, если текущая бирка ссылается на багаж или она не печатаемая
           };
-          if (k<bag_amount) break; //выйдем, если текущая бирка ссылается на багаж или она не печатаемая
         };
-      };
-    }
-    else throw UserException(1,"Кол-во бирок и мест багажа не совпадает");
+      }
+      else throw UserException(1,"Кол-во бирок и мест багажа не совпадает");
+    };
   };
 
   TQuery BagQry(&OraSession);
@@ -2586,8 +2593,6 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
       };
     };
   };
-  BagQry.Close();
-  Qry.Close();
 };
 
 void CheckInInterface::LoadBag(xmlNodePtr grpNode)
