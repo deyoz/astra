@@ -5,6 +5,11 @@
 #include <sstream>
 #include <vector>
 
+const std::string PARAM_WORK_DIR = "WORKDIR";
+const std::string PARAM_FILE_NAME = "FileName";
+const std::string FILE_CENT_TYPE = "CENTR";
+const std::string FILE_SOFI_TYPE = "SOFI";
+
 struct TField {
 	std::string name;
 	char type; //C, L, N, M или F
