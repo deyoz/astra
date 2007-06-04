@@ -13,6 +13,7 @@
 #include "basic.h"
 #include "stl_utils.h"
 #include "flight_cent_dbf.h" //???
+#include "develop_dbf.h"
 #include "cfgproc.h"
 
 using namespace std;
@@ -299,7 +300,7 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 
 void CreateCentringFileDATA( int point_id )
 {
-	string client_canon_name;	
+	string client_canon_name;
 	TQuery Qry( &OraSession );
 	TQuery ParamQry( &OraSession );
 	Qry.SQLText = "SELECT file_param_sets.canon_name, file_param_sets.param_name, file_param_sets.param_value, "
@@ -313,11 +314,11 @@ void CreateCentringFileDATA( int point_id )
 	              "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	              "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	              "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) "
-	              " ORDER BY priority DESC"; 
+	              " ORDER BY priority DESC";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_CENT_TYPE );
-	Qry.Execute();	              
+	Qry.Execute();
 	map<string,int> cname; /* canon_name, priority */
 	map<string,string> params;
 	string file_data;
@@ -329,7 +330,7 @@ void CreateCentringFileDATA( int point_id )
 		for ( r=cname.begin(); r!=cname.end(); r++ ) {
 			if ( r->first == client_canon_name )
 			  break;
-	  }	
+	  }
 	  if ( r == cname.end() ) { /* если нет такого имени */
 	  	if ( !params.empty() && createCentringFile( point_id, params, file_data ) ) {
 	  		putFile( client_canon_name, OWN_POINT_ADDR(), FILE_CENT_TYPE, params, file_data );

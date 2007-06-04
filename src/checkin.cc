@@ -1837,8 +1837,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   };
 
-  SaveBag(reqNode);
-  SavePaidBag(reqNode);
+  CheckInInterface::SaveBag(reqNode);
+  CheckInInterface::SavePaidBag(reqNode);
   SaveBagToLog(reqNode);
   SaveTagPacks(reqNode);
 
@@ -2081,8 +2081,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     LoadPaxNorms(paxNode);
   };
   LoadTransfer(resNode);
-  LoadBag(resNode);
-  LoadPaidBag(resNode);
+  CheckInInterface::LoadBag(resNode);
+  CheckInInterface::LoadPaidBag(resNode);
 
   Qry.Close();
   PaxQry.Close();

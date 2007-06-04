@@ -45,8 +45,8 @@ public:
   void SavePaxRem(xmlNodePtr paxNode);
   std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms);
   void SaveTransfer(xmlNodePtr grpNode);
-  void SaveBag(xmlNodePtr grpNode);
-  void SavePaidBag(xmlNodePtr grpNode);
+  static void SaveBag(xmlNodePtr grpNode);
+  static void SavePaidBag(xmlNodePtr grpNode);
 
   void SaveBagToLog(xmlNodePtr grpNode);
   void SaveTagPacks(xmlNodePtr node);
@@ -54,8 +54,8 @@ public:
   void LoadPaxRem(xmlNodePtr paxNode);
   void LoadPaxNorms(xmlNodePtr paxNode);
   void LoadTransfer(xmlNodePtr grpNode);
-  void LoadBag(xmlNodePtr grpNode);
-  void LoadPaidBag(xmlNodePtr grpNode);
+  static void LoadBag(xmlNodePtr grpNode);
+  static void LoadPaidBag(xmlNodePtr grpNode);
 
   int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
   void CheckFltLoad(int point_id);
