@@ -747,8 +747,8 @@ void PrintDataParser::t_field_map::fillMSOMap()
         " issue_user_id, "
         " annul_date, "
         " annul_user_id, "
-        " pax, "
-        " document "
+        " pax " //, "
+//        " document "
         "from "
         " bag_receipts "
         "where "
@@ -758,8 +758,8 @@ void PrintDataParser::t_field_map::fillMSOMap()
     Qry->Execute();
     add_tag("pax", Qry->FieldAsString("pax"));
     add_tag("pax_lat", transliter(Qry->FieldAsString("pax"),true));
-    add_tag("document", Qry->FieldAsString("document"));
-    add_tag("document_lat", transliter(Qry->FieldAsString("document"),true));
+//    add_tag("document", Qry->FieldAsString("document"));
+//    add_tag("document_lat", transliter(Qry->FieldAsString("document"),true));
     add_tag("issue_date", UTCToLocal(Qry->FieldAsDateTime("issue_date"), TReqInfo::Instance()->desk.tz_region));
     int ex_weight = Qry->FieldAsInteger("ex_weight");
     float rate = Qry->FieldAsFloat("rate");
@@ -1914,6 +1914,44 @@ void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     to_esc::convert(mso_form);
     NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
+
+
+void get_validator(vector<string> &validator)
+{
+    string agency, agency_descr, agency_city;
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    {
+        TQuery spQry(&OraSession);        
+        spQry.SQLText = 
+            "select "
+            "   agency, "
+            "   descr, "
+            "   city "
+            "from "
+            "   sale_points "
+            "where "
+            "   code = :code";
+        spQry.CreateVariable("code", otString, reqInfo->desk.sale_point);
+        spQry.Execute();
+        if(spQry.Eof) throw Exception("sale point not found for '" + reqInfo->desk.sale_point + "'");
+        agency = spQry.FieldAsString("agency");
+        agency_descr = spQry.FieldAsString("descr");
+        agency_city = spQry.FieldAsString("city");
+    }
+
+    // agency
+    validator.push_back(agency + " ’Š");
+    // agency descr
+    validator.push_back(agency_descr);
+    // agency city
+    TBaseTableRow &city = base_tables.get("cities").get_row("code", agency_city);
+    TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
+    validator.push_back(city.AsString("Name") + " " + country.AsString("code"));
+    // agency code
+    validator.push_back(reqInfo->desk.sale_point);
+}
+
+
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

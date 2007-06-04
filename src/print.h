@@ -7,6 +7,7 @@
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
 void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
+void get_validator(std::vector<std::string> &validator);
 
 class PrintInterface: public JxtInterface
 {
