@@ -875,33 +875,13 @@ void PrintDataParser::t_field_map::fillMSOMap()
     add_tag("airline_lat", airline.AsString("short_name", 1));
     add_tag("aircode", Qry->FieldAsString("aircode"));
 
-    string agency, agency_descr, agency_city;
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    {
-        TQuery spQry(&OraSession);        
-        spQry.SQLText = 
-            "select "
-            "   agency, "
-            "   descr, "
-            "   city "
-            "from "
-            "   sale_points "
-            "where "
-            "   code = :code";
-        spQry.CreateVariable("code", otString, reqInfo->desk.sale_point);
-        spQry.Execute();
-        if(spQry.Eof) throw Exception("sale point not found for '" + reqInfo->desk.sale_point + "'");
-        agency = spQry.FieldAsString("agency");
-        agency_descr = spQry.FieldAsString("descr");
-        agency_city = spQry.FieldAsString("city");
-    }
-    add_tag("agency", agency + " ’Š");
-    add_tag("agency_descr", agency_descr);
-    TBaseTableRow &city = base_tables.get("cities").get_row("code", agency_city);
-    TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
-    add_tag("agency_city", city.AsString("Name") + " " + country.AsString("code"));
-    add_tag("agency_city_lat", city.AsString("Name", 1) + " " + country.AsString("code", 1));
-    add_tag("agency_code", reqInfo->desk.sale_point);
+    vector<string> validator;
+    get_validator(validator);
+
+    add_tag("agency", validator[0]);
+    add_tag("agency_descr",validator[1]);
+    add_tag("agency_city",validator[2]);
+    add_tag("agency_code",validator[3]);
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
