@@ -18,6 +18,131 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
+typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON} TPrnFormat;
+
+namespace to_esc {
+    typedef struct {
+        int x, y, font;
+        string data;
+    } TField;
+    typedef vector<TField> TFields;
+
+    bool lt(const TField &p1, const TField &p2)
+    {
+        return (p1.y == p2.y ? p1.x < p2.x : p1.y < p2.y);
+    }
+
+    void dump(string data, string fname)
+    {
+        ofstream out(fname.c_str());
+        if(!out.good())
+            throw Exception("dump: cannot open file '%s' for output", fname.c_str());
+        out << data;
+    }
+
+    void convert(string &mso_form)
+    {
+        char Mode = 'S';
+        TFields fields;
+        string num;
+        int x, y, font;
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = StrToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = StrToInt(num);
+                        num.erase();
+                        Mode = 'B';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.font = font;
+                        field.data = num;
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        font = StrToInt(num);
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: font must be num");
+                    break;
+            }
+        }
+        sort(fields.begin(), fields.end(), lt);
+        mso_form = "\x1b@\x1bM\x1bj#";
+        int curr_y = 0;
+        for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
+            int delta_y = fi->y - curr_y;
+            if(delta_y) {
+                int offset_y = delta_y * 7;
+                int y256 = offset_y / 256;
+                int y_reminder = offset_y % 256;
+
+                for(int i = 0; i < y256; i++) {
+                    mso_form += "\x1bJ\xff";
+                }
+                mso_form += "\x1bJ";
+                if(y_reminder) mso_form += char(y_reminder - 1);
+                curr_y = fi->y;
+            }
+
+
+            int offset_x = int(fi->x * 7.1);
+            int x256 = offset_x / 256;
+            int x_reminder = offset_x % 256;
+
+            mso_form += "\x1b$";
+            mso_form += (char)0;
+            mso_form += (char)0;
+            for(int i = 0; i < x256; i++) {
+                mso_form += "\x1b\\\xff";
+                mso_form += (char)0;
+            }
+            if(x_reminder) {
+                mso_form += (string)"\x1b\\" + (char)(x_reminder - 1);
+                mso_form += (char)0;
+            }
+            if(fi->font == 1) mso_form += "\x1b\x0f";
+            mso_form += fi->data;
+            if(fi->font == 1) mso_form += "\x12";
+        }
+        mso_form += "\x0c\x1b@";
+    }
+}
+
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
@@ -1209,6 +1334,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
 {
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     TQuery Qry(&OraSession);
+    Qry.SQLText = "select format from prn_types where code = :prn_type";
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
+    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
+    Qry.Clear();
     Qry.SQLText = "select grp_id from pax where pax_id = :pax_id";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
@@ -1220,7 +1351,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     PrintDataParser parser(pax_id, pr_lat, clientDataNode);
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
-    NewTextChild(paxNode, "prn_form", parser.parse(Print));
+        string prn_form = parser.parse(Print);
+    if(prn_format == pfEPSON) {
+        to_esc::convert(prn_form);
+        prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+    }
+    NewTextChild(paxNode, "prn_form", prn_form);
     {
         TQuery *Qry = parser.get_prn_qry();
         TDateTime time_print = NowUTC();
@@ -1239,6 +1375,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", Pectab);
     TQuery Qry(&OraSession);
+    Qry.SQLText = "select format from prn_types where code = :prn_type";
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
+    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
+    Qry.Clear();
     if(pr_all)
         Qry.SQLText =
             "select pax_id from pax where grp_id = :grp_id and refuse is null order by reg_no";
@@ -1263,7 +1405,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
         int pax_id = Qry.FieldAsInteger("pax_id");
         PrintDataParser parser(pax_id, pr_lat, clientDataNode);
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        NewTextChild(paxNode, "prn_form", parser.parse(Print));
+        string prn_form = parser.parse(Print);
+        if(prn_format == pfEPSON) {
+            to_esc::convert(prn_form);
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+        }
+        NewTextChild(paxNode, "prn_form", prn_form);
         {
             TQuery *Qry = parser.get_prn_qry();
             TDateTime time_print = NowUTC();
@@ -1752,129 +1899,6 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Next();
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
-}
-
-namespace to_esc {
-    typedef struct {
-        int x, y, font;
-        string data;
-    } TField;
-    typedef vector<TField> TFields;
-
-    bool lt(const TField &p1, const TField &p2)
-    {
-        return (p1.y == p2.y ? p1.x < p2.x : p1.y < p2.y);
-    }
-
-    void dump(string data, string fname)
-    {
-        ofstream out(fname.c_str());
-        if(!out.good())
-            throw Exception("dump: cannot open file '%s' for output", fname.c_str());
-        out << data;
-    }
-
-    void convert(string &mso_form)
-    {
-        char Mode = 'S';
-        TFields fields;
-        string num;
-        int x, y, font;
-        TField field;
-        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
-            char curr_char = *si;
-            switch(Mode) {
-                case 'S':
-                    if(IsDigit(curr_char)) {
-                        num += curr_char;
-                        Mode = 'X';
-                    } else
-                        throw Exception("to_esc: x must start from digit");
-                    break;
-                case 'X':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        x = StrToInt(num);
-                        num.erase();
-                        Mode = 'Y';
-                    } else
-                        throw Exception("to_esc: x must be num");
-                    break;
-                case 'Y':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        y = StrToInt(num);
-                        num.erase();
-                        Mode = 'B';
-                    } else
-                        throw Exception("to_esc: y must be num");
-                    break;
-                case 'A':
-                    if(curr_char == 10) {
-                        field.x = x;
-                        field.y = y;
-                        field.font = font;
-                        field.data = num;
-                        fields.push_back(field);
-                        num.erase();
-                        Mode = 'S';
-                    } else
-                        num += curr_char;
-                    break;
-                case 'B':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        font = StrToInt(num);
-                        num.erase();
-                        Mode = 'A';
-                    } else
-                        throw Exception("to_esc: font must be num");
-                    break;
-            }
-        }
-        sort(fields.begin(), fields.end(), lt);
-        mso_form = "\x1b@\x1bM\x1bj#";
-        int curr_y = 0;
-        for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
-            int delta_y = fi->y - curr_y;
-            if(delta_y) {
-                int offset_y = delta_y * 7;
-                int y256 = offset_y / 256;
-                int y_reminder = offset_y % 256;
-
-                for(int i = 0; i < y256; i++) {
-                    mso_form += "\x1bJ\xff";
-                }
-                mso_form += "\x1bJ";
-                if(y_reminder) mso_form += char(y_reminder - 1);
-                curr_y = fi->y;
-            }
-
-
-            int offset_x = int(fi->x * 7.1);
-            int x256 = offset_x / 256;
-            int x_reminder = offset_x % 256;
-
-            mso_form += "\x1b$";
-            mso_form += (char)0;
-            mso_form += (char)0;
-            for(int i = 0; i < x256; i++) {
-                mso_form += "\x1b\\\xff";
-                mso_form += (char)0;
-            }
-            if(x_reminder) {
-                mso_form += (string)"\x1b\\" + (char)(x_reminder - 1);
-                mso_form += (char)0;
-            }
-            if(fi->font == 1) mso_form += "\x1b\x0f";
-            mso_form += fi->data;
-            if(fi->font == 1) mso_form += "\x12";
-        }
-        mso_form += "\x0c\x1b@";
-    }
 }
 
 void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
