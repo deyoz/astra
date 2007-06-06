@@ -609,7 +609,7 @@ void GetPaxListSQL(TQuery &Qry)
         "    points.flt_no, "
         "    nvl(points.suffix, ' ') suffix, "
         "    points.scd_out, "
-        "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
         "    move_id, "
         "    point_num "
         "FROM "
@@ -637,7 +637,7 @@ void GetPaxListSQL(TQuery &Qry)
         "    arx_points.flt_no, "
         "    nvl(arx_points.suffix, ' ') suffix, "
         "    arx_points.scd_out, "
-        "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
         "    move_id, "
         "    point_num "
         "FROM "
@@ -658,7 +658,6 @@ void GetPaxListSQL(TQuery &Qry)
         res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     res +=
         "ORDER BY "
-        "   real_out DESC, "
         "   flt_no, "
         "   airline, "
         "   suffix, "
@@ -925,33 +924,13 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         //если по компаниям и портам полномочий нет - пустой список рейсов
         if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
                 reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
-        TDateTime scd_out,real_out,desk_time;
-        modf(reqInfo->desk.time,&desk_time);
         while(!Qry.Eof) {
-            modf(UTCToClient(Qry.FieldAsDateTime("scd_out"),Qry.FieldAsString("tz_region")),&scd_out);
-            modf(UTCToClient(Qry.FieldAsDateTime("real_out"),Qry.FieldAsString("tz_region")),&real_out);
-            ostringstream trip;
-            trip << Qry.FieldAsString("airline")
-                << Qry.FieldAsInteger("flt_no")
-                << Qry.FieldAsString("suffix");
-
-            if (desk_time!=real_out)
-            {
-                if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(real_out,"mm"))
-                    trip << "/" << DateTimeToStr(real_out,"dd");
-                else
-                    trip << "/" << DateTimeToStr(real_out,"dd.mm");
-            };
-            if (scd_out!=real_out)
-                trip << "(" << DateTimeToStr(scd_out,"dd") << ")";
-
             xmlNodePtr fNode = NewTextChild(cboxNode, "f");
 
             TTripInfo info(Qry);
 
             NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
             NewTextChild( fNode, "value", GetTripName(info,false,true) );
-
 
             Qry.Next();
         }
