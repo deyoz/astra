@@ -206,7 +206,6 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     xmlNodePtr itemsNode;
     while(!Qry.Eof) {
         if(!(
-                    Qry.FieldIsNULL("form") ||
                     Qry.FieldIsNULL("data")
             )
           ) {
