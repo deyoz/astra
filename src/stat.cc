@@ -81,7 +81,7 @@ TCategory Category[] = {
                 "    arx_points.part_key >= :FirstDate "
                 "ORDER BY "
                 "    real_out DESC ",
-                
+
                 {"Dest", "Awk", "Class"}
             },
             {
@@ -401,7 +401,7 @@ TCategory Category[] = {
                 "select 'Система' module from dual where "
                 "  (:agent is null or :agent = 'Система') and "
                 "  (:station is null or :station = 'Система') "
-                "union " 
+                "union "
                 "select nvl(screen.name, events.screen) module from events, screen where "
                 "    events.time >= :FirstDate and "
                 "    events.time < :LastDate and "
@@ -815,7 +815,7 @@ void GetSystemLogModuleSQL(TQuery &Qry)
         "select 'Система' module from dual where "
         "  (:agent is null or :agent = 'Система') and "
         "  (:station is null or :station = 'Система') "
-        "union " 
+        "union "
         "select nvl(screen.name, events.screen) module from events, screen ";
     if (!info.user.access.airlines.empty())
         SQLText +=
@@ -889,7 +889,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         if(Ctg->cboxes[i].cbox + "CBox" == cbox) break;
     if(i == cboxes_len)throw Exception((string)"CommonCBoxDropDown: data not found for " + cbox);
     TCBox *cbox_data = &Ctg->cboxes[i];
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     if(!cbox_data->GetSQL) throw Exception("GetSQL is NULL");
     cbox_data->GetSQL(Qry);
     ProgTrace(TRACE5, "%s", Qry.SQLText.SQLText());
@@ -947,7 +947,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 {
     get_report_form("ArxPaxLog", resNode);
     STAT::set_variables(resNode);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     string tag = (char *)reqNode->name;
     char *qry = NULL;
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1136,7 +1136,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             string trip;
             {
                 //trip name fetch
-                TQuery tripQry(&OraSession);        
+                TQuery tripQry(&OraSession);
                 tripQry.SQLText =
                     "select "
                     "   airline, "
@@ -1194,7 +1194,7 @@ class THalls: public vector<THallItem> {
 
 void THalls::Init()
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = "SELECT id,name FROM astra.halls2,astra.options WHERE halls2.airp=options.cod ORDER BY id";
     Qry.Execute();
     while(!Qry.Eof) {
@@ -1210,7 +1210,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
     get_report_form("ArxPaxList", resNode);
     {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     string SQLText =
         "SELECT "
         "   pax_grp.point_dep point_id, "
@@ -1221,12 +1221,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "   pax.reg_no, "
         "   pax_grp.airp_arv, "
         "   pax.surname||' '||pax.name full_name, "
-        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.reg_no),0) bag_amount, "
-        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.reg_no),0) bag_weight, "
-        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.reg_no),0) rk_weight, "
-        "   NVL(ckin.get_excess(pax.grp_id,pax.reg_no),0) excess, "
+        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum),0) bag_amount, "
+        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum),0) bag_weight, "
+        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum),0) rk_weight, "
+        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
         "   pax_grp.grp_id, "
-        "   ckin.get_birks(pax.grp_id,pax.reg_no,0) tags, "
+        "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
         "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
         "   classes.code class, "
         "   LPAD(seat_no,3,'0')|| "
@@ -1270,12 +1270,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "   arx_pax.reg_no, "
         "   arx_pax_grp.airp_arv, "
         "   arx_pax.surname||' '||arx_pax.name full_name, "
-        "   NVL(arch.get_bagAmount(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) bag_amount, "
-        "   NVL(arch.get_bagWeight(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) bag_weight, "
-        "   NVL(arch.get_rkWeight(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) rk_weight, "
-        "   NVL(arch.get_excess(arx_pax.grp_id,arx_pax.reg_no,:FirstDate),0) excess, "
+        "   NVL(arch.get_bagAmount(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_amount, "
+        "   NVL(arch.get_bagWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_weight, "
+        "   NVL(arch.get_rkWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
+        "   NVL(arch.get_excess(:FirstDate,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
         "   arx_pax_grp.grp_id, "
-        "   arch.get_birks(arx_pax.grp_id,arx_pax.reg_no,:FirstDate,0) tags, "
+        "   arch.get_birks(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
         "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
         "       'Разрег.('||arx_pax.refuse||')') AS status, "
         "   classes.code class, "
@@ -1437,7 +1437,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     ////////////////////////////////////////////////////////////////////////////////////////////
 
 
-
+/*
 
 
     string tag = (char *)reqNode->name;
@@ -1503,11 +1503,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  pax.reg_no, "
         "  pax.surname,pax.name, "
         "  pax_grp.target, "
-        "  astra.ckin.get_bagAmount(pax_grp.grp_id,pax.reg_no,rownum) AS bag_amount, "
-        "  astra.ckin.get_bagWeight(pax_grp.grp_id,pax.reg_no,rownum) AS bag_weight, "
-        "  astra.ckin.get_rkWeight(pax_grp.grp_id,pax.reg_no,rownum) AS rk_weight, "
-        "  astra.ckin.get_birks(pax_grp.grp_id,pax.reg_no,0) AS tags, "
-        "  astra.ckin.get_excess(pax_grp.grp_id,pax.reg_no) AS excess, "
+        "  astra.ckin.get_bagAmount(pax_grp.grp_id,pax.pax_id,rownum) AS bag_amount, "
+        "  astra.ckin.get_bagWeight(pax_grp.grp_id,pax.pax_id,rownum) AS bag_weight, "
+        "  astra.ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) AS rk_weight, "
+        "  astra.ckin.get_birks(pax_grp.grp_id,pax.pax_id,0) AS tags, "
+        "  astra.ckin.get_excess(pax_grp.grp_id,pax.pax_id) AS excess, "
         "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Разрег.('||pax.refuse||')') AS status, "
         "  pax_grp.class, "
         "  LPAD(pax.seat_no,3,'0')|| "
@@ -1530,11 +1530,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  pax.reg_no, "
         "  pax.surname,pax.name, "
         "  pax_grp.target, "
-        "  arx.ckin.get_bagAmount(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS bag_amount, "
-        "  arx.ckin.get_bagWeight(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS bag_weight, "
-        "  arx.ckin.get_rkWeight(pax_grp.part_key,pax_grp.grp_id,pax.reg_no,rownum) AS rk_weight, "
-        "  arx.ckin.get_birks(pax_grp.part_key,pax_grp.grp_id,pax.reg_no) AS tags, "
-        "  arx.ckin.get_excess(pax_grp.part_key,pax_grp.grp_id,pax.reg_no) AS excess, "
+        "  arx.ckin.get_bagAmount(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS bag_amount, "
+        "  arx.ckin.get_bagWeight(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS bag_weight, "
+        "  arx.ckin.get_rkWeight(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS rk_weight, "
+        "  arx.ckin.get_birks(pax_grp.part_key,pax_grp.grp_id,pax.pax_id) AS tags, "
+        "  arx.ckin.get_excess(pax_grp.part_key,pax_grp.grp_id,pax.pax_id) AS excess, "
         "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Разрег.('||pax.refuse||')') AS status, "
         "  pax_grp.class, "
         "  LPAD(pax.seat_no,3,'0')|| "
@@ -1552,7 +1552,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     THalls halls;
     halls.Init();
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = qry;
     TParams1 SQLParams;
     SQLParams.getParams(paramsNode);
@@ -1611,7 +1611,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
 
         Qry.Next();
-    }
+    }*/
 }
 
 struct TTagQryParts {
@@ -1763,7 +1763,7 @@ TTagQryParts::TTagQryParts(int state)
             "      transfer.grp_id=last_transfer.grp_id AND "
             "      transfer.transfer_num=last_transfer.transfer_num "
             ") lt, ";
-        arx_from = 
+        arx_from =
             "( "
             "  SELECT transfer.grp_id, "
             "         airline,flt_no,suffix,airp_arv,subclass "
@@ -1844,7 +1844,7 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         qry_parts.order_by +
         "color ";
 
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText = qry;
     TParams1 SQLParams;
     SQLParams.getParams(GetNode("sqlparams", reqNode));
@@ -1907,7 +1907,7 @@ void StatInterface::BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void StatInterface::DepStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT "
         "  0 AS priority, "
@@ -2079,8 +2079,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
-    TQuery Qry(&OraSession);        
-    string SQLText = 
+    TQuery Qry(&OraSession);
+    string SQLText =
         "select "
         "  airp, "
         "  airline, "
@@ -2131,15 +2131,15 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by "
         "  points.airp, "
         "  points.airline, "
@@ -2181,15 +2181,15 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by "
         "  arx_points.airp, "
         "  arx_points.airline, "
@@ -2255,7 +2255,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         colNode = NewTextChild(headerNode, "col", "Номер рейса");
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
-        
+
         colNode = NewTextChild(headerNode, "col", "Дата");
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
@@ -2369,28 +2369,28 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
-    TQuery Qry(&OraSession);        
-    string SQLText = 
+    TQuery Qry(&OraSession);
+    string SQLText =
         "select  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    airp,  ";
     else
-        SQLText += 
+        SQLText +=
         "    airline,  ";
-    SQLText += 
+    SQLText +=
         "    sum(flt_amount) flt_amount, "
         "    sum(pax_amount) pax_amount "
         "from  "
         "( "
         "select  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    points.airp,  ";
     else
-        SQLText += 
+        SQLText +=
         "    points.airline,  ";
-    SQLText += 
+    SQLText +=
         "    count(distinct stat.point_id) flt_amount, "
         "    sum(adult + child + baby) pax_amount "
         "from  "
@@ -2409,32 +2409,32 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    points.airp ";
     else
-        SQLText += 
+        SQLText +=
         "    points.airline ";
-    SQLText += 
+    SQLText +=
         "union "
         "select  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    arx_points.airp,  ";
     else
-        SQLText += 
+        SQLText +=
         "    arx_points.airline,  ";
-    SQLText += 
+    SQLText +=
         "    count(distinct arx_stat.point_id) flt_amount, "
         "    sum(adult + child + baby) pax_amount "
         "from  "
@@ -2455,37 +2455,37 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    arx_points.airp ";
     else
-        SQLText += 
+        SQLText +=
         "    arx_points.airline ";
-        SQLText += 
+        SQLText +=
         ") group by  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    airp ";
     else
-        SQLText += 
+        SQLText +=
         "    airline ";
-    SQLText += 
+    SQLText +=
         "order by  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    airp ";
     else
-        SQLText += 
+        SQLText +=
         "    airline ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
@@ -2557,8 +2557,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
 
-    TQuery Qry(&OraSession);        
-    string SQLText = 
+    TQuery Qry(&OraSession);
+    string SQLText =
         "select "
         "    airp, "
         "    airline, "
@@ -2587,15 +2587,15 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by "
         "  points.airp, "
         "  points.airline "
@@ -2623,15 +2623,15 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (!info.user.access.airps.empty())
         SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
     if(ap.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airp = :ap ";
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
-        SQLText += 
+        SQLText +=
             " and arx_points.airline = :ak ";
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText += 
+        SQLText +=
         "group by "
         "  arx_points.airp, "
         "  arx_points.airline "
@@ -2641,11 +2641,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airline "
         "order by  ";
     if(ap.size())
-        SQLText += 
+        SQLText +=
         "    airp, "
         "    airline ";
     else
-        SQLText += 
+        SQLText +=
         "    airline, "
         "    airp ";
 
