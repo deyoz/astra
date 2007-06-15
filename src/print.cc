@@ -19,6 +19,19 @@ using namespace BASIC;
 using namespace ASTRA;
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON} TPrnFormat;
+typedef enum {
+    ptIER506A = 1,
+    ptIER508A,
+    ptIER506B,
+    ptIER508B,
+    ptIER557A,
+    ptIER567A,
+    ptGenicom,
+    ptDRV,
+    ptIER508BR,
+    ptOKIML390,
+    ptOKIML3310
+} TPrnType;
 
 namespace to_esc {
     typedef struct {
@@ -40,8 +53,21 @@ namespace to_esc {
         out << data;
     }
 
-    void convert(string &mso_form)
+    void convert(string &mso_form, TPrnType prn_type)
     {
+        double y_modif, x_modif;
+        switch(prn_type) {
+            case ptOKIML390:
+                x_modif = 7;
+                y_modif = 7.1;
+                break;
+            case ptOKIML3310:
+                x_modif = 4.67;
+                y_modif = 8.66;
+                break;
+            default:
+                throw Exception("to_esc::convert: unknown prn_type " + IntToString(prn_type));
+        }
         char Mode = 'S';
         TFields fields;
         string num;
@@ -83,6 +109,8 @@ namespace to_esc {
                         field.y = y;
                         field.font = font;
                         field.data = num;
+                        if(field.font == 'B' && field.data.size() != 10)
+                            throw Exception("barcode data len must be 10");
                         fields.push_back(field);
                         num.erase();
                         Mode = 'S';
@@ -90,14 +118,15 @@ namespace to_esc {
                         num += curr_char;
                     break;
                 case 'B':
-                    if(IsDigit(curr_char))
+                    if(IsDigit(curr_char) || curr_char == 'B')
                         num += curr_char;
                     else if(curr_char == ',') {
-                        font = StrToInt(num);
+                        if(num.size() != 1) throw Exception("font fild must by 1 char");
+                        font = num[0];
                         num.erase();
                         Mode = 'A';
                     } else
-                        throw Exception("to_esc: font must be num");
+                        throw Exception("to_esc: font must be num or 'B'");
                     break;
             }
         }
@@ -107,7 +136,9 @@ namespace to_esc {
         for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
             int delta_y = fi->y - curr_y;
             if(delta_y) {
-                int offset_y = delta_y * 7;
+                int offset_y = int(delta_y * y_modif);
+                ProgTrace(TRACE5, "fi->y: %d; curr_y: %d", fi->y, curr_y);
+                ProgTrace(TRACE5, "offset_y: %d", offset_y);
                 int y256 = offset_y / 256;
                 int y_reminder = offset_y % 256;
 
@@ -120,7 +151,7 @@ namespace to_esc {
             }
 
 
-            int offset_x = int(fi->x * 7.1);
+            int offset_x = int(fi->x * x_modif);
             int x256 = offset_x / 256;
             int x_reminder = offset_x % 256;
 
@@ -135,9 +166,18 @@ namespace to_esc {
                 mso_form += (string)"\x1b\\" + (char)(x_reminder - 1);
                 mso_form += (char)0;
             }
-            if(fi->font == 1) mso_form += "\x1b\x0f";
+            if(fi->font == 'B') {
+                mso_form += "\x1b""\x10""A""\x08""\x03";
+                mso_form += (char)0;
+                mso_form += (char)0;
+                mso_form += "\x05""\x01""\x01""\x01";
+                mso_form += (char)0;
+                mso_form += "\x1b""\x10""B""\x0b";
+                mso_form += (char)0;
+            }
+            if(fi->font == '1') mso_form += "\x1b\x0f";
             mso_form += fi->data;
-            if(fi->font == 1) mso_form += "\x12";
+            if(fi->font == '1') mso_form += "\x12";
         }
         mso_form += "\x0c\x1b@";
     }
@@ -681,7 +721,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   system.transliter(points.BORT, 1) bort_lat, "
         "   to_char(points.FLT_NO) flt_no, "
         "   points.SUFFIX, "
-        "   system.transliter(points.SUFFIX, 1) suffix_lat, "
+        "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat, "
         "   system.AirpTZRegion(points.airp) AS tz_region "
         "from "
         "   points, "
@@ -711,7 +751,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   pers_types.name pers_type_name, "
         "   LPAD(seat_no,3,'0')|| "
         "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
-        "   system.transliter(LPAD(seat_no,3,'0')|| "
+        "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
         "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'')) AS seat_no_lat, "
         "   pax.SEAT_TYPE, "
         "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
@@ -743,10 +783,10 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   system.transliter(pax.DOCUMENT, 1) document_lat, "
         "   pax.SUBCLASS, "
         "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
-        "   ckin.get_birks(pax.grp_id, pax.reg_no, 0) tags, "
-        "   ckin.get_birks(pax.grp_id, pax.reg_no, 1) tags_lat, "
+        "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
+        "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
         "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
-        "   system.transliter(ckin.get_pax_pnr_addr(:pax_id)) pnr_lat "
+        "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id)) pnr_lat "
         "from "
         "   pax, "
         "   pers_types "
@@ -824,7 +864,7 @@ void get_mso_point(const string &airp, string &point, string &point_lat)
     point = cities.get_row("code", city).AsString("name", 0);
     point_lat = cities.get_row("code", city).AsString("name", 1);
 
-    TQuery airpsQry(&OraSession);        
+    TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select 1 from airps where city = :city";
     airpsQry.CreateVariable("city", otString, base_tables.get("airps").get_row("code", airp).AsString("city"));
     airpsQry.Execute();
@@ -917,7 +957,7 @@ void PrintDataParser::t_field_map::fillMSOMap()
             << fixed
             << fare_sum;
         if(pay_curr != curr)
-            buf 
+            buf
                 << "("
                 << setprecision(2)
                 << pay_fare_sum << ")";
@@ -976,7 +1016,7 @@ void PrintDataParser::t_field_map::fillMSOMap()
             << fixed
             << rate;
         if(pay_curr != curr) {
-            buf 
+            buf
                 << "("
                 << pay_rate
                 << pay_curr
@@ -1340,12 +1380,13 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
     TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
     Qry.Clear();
-    Qry.SQLText = "select grp_id from pax where pax_id = :pax_id";
+    Qry.SQLText = "select grp_id, reg_no from pax where pax_id = :pax_id";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(Qry.Eof)
         throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     string Pectab, Print;
+    int reg_no = Qry.FieldAsInteger("reg_no");
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
     PrintDataParser parser(pax_id, pr_lat, clientDataNode);
@@ -1353,7 +1394,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
         string prn_form = parser.parse(Print);
     if(prn_format == pfEPSON) {
-        to_esc::convert(prn_form);
+        to_esc::convert(prn_form, TPrnType(prn_type));
         prn_form = b64_encode(prn_form.c_str(), prn_form.size());
     }
     NewTextChild(paxNode, "prn_form", prn_form);
@@ -1364,6 +1405,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
         ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
         Qry->Execute();
         SetProp(paxNode, "pax_id", pax_id);
+        SetProp(paxNode, "reg_no", reg_no);
         SetProp(paxNode, "time_print", DateTimeToStr(time_print));
     }
 }
@@ -1383,10 +1425,10 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     Qry.Clear();
     if(pr_all)
         Qry.SQLText =
-            "select pax_id from pax where grp_id = :grp_id and refuse is null order by reg_no";
+            "select pax_id, reg_no from pax where grp_id = :grp_id and refuse is null order by reg_no";
     else
         Qry.SQLText =
-            "select pax.pax_id from "
+            "select pax.pax_id, pax.reg_no  from "
             "   pax, bp_print "
             "where "
             "   pax.grp_id = :grp_id and "
@@ -1403,11 +1445,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
+        int reg_no = Qry.FieldAsInteger("reg_no");
         PrintDataParser parser(pax_id, pr_lat, clientDataNode);
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         string prn_form = parser.parse(Print);
         if(prn_format == pfEPSON) {
-            to_esc::convert(prn_form);
+            to_esc::convert(prn_form, TPrnType(prn_type));
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         NewTextChild(paxNode, "prn_form", prn_form);
@@ -1417,6 +1460,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
             Qry->CreateVariable("now_utc", otDate, time_print);
             Qry->Execute();
             SetProp(paxNode, "pax_id", pax_id);
+            SetProp(paxNode, "reg_no", reg_no);
             SetProp(paxNode, "time_print", DateTimeToStr(time_print));
         }
         Qry.Next();
@@ -1638,21 +1682,12 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     get_route(tag_key.grp_id, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select "
-        "   pax_id "
-        "from "
-        "   pax "
-        "where "
-        "   grp_id = :grp_id and "
-        "   refuse is null "
-        "order by "
-        "   decode(seats, 0, 1, 0), "
-        "   decode(pers_type, 'ВЗ', 0, 'РБ', 1, 2), "
-        "   reg_no ";
+        "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
     Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    int pax_id = Qry.FieldAsInteger(0);
+    if (Qry.Eof||Qry.FieldIsNULL("pax_id"))
+      throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    int pax_id = Qry.FieldAsInteger("pax_id");
     string SQLText =
         "SELECT "
         "   bag_tags.no, "
@@ -1867,7 +1902,8 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   prn_types.name, "
         "   prn_types.iface, "
         "   prn_formats.id format_id, "
-        "   prn_formats.code format "
+        "   prn_formats.code format, "
+        "   prn_types.pr_stock "
         "from "
         "   prn_types, "
         "   prn_formats "
@@ -1889,12 +1925,14 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         string iface = Qry.FieldAsString("iface");
         int format_id = Qry.FieldAsInteger("format_id");
         string format = Qry.FieldAsString("format");
+        int pr_stock = Qry.FieldAsInteger("pr_stock");
 
         NewTextChild(printerNode, "code", code);
         NewTextChild(printerNode, "name", name);
         NewTextChild(printerNode, "iface", iface);
         NewTextChild(printerNode, "format_id", format_id);
         NewTextChild(printerNode, "format", format);
+        NewTextChild(printerNode, "pr_stock", pr_stock);
 
         Qry.Next();
     }
@@ -1920,7 +1958,7 @@ void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     tst();
     mso_form = parser.parse(mso_form);
     tst();
-    to_esc::convert(mso_form);
+    to_esc::convert(mso_form, TPrnType(prn_type));
     tst();
     NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
@@ -1932,8 +1970,8 @@ void get_validator(vector<string> &validator)
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(reqInfo->desk.sale_point.empty()) throw UserException("Для данного пульта не определен пункт продаж");
     {
-        TQuery spQry(&OraSession);        
-        spQry.SQLText = 
+        TQuery spQry(&OraSession);
+        spQry.SQLText =
             "select "
             "   agency, "
             "   descr, "
