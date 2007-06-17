@@ -1118,20 +1118,10 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
 
   Qry.Clear();
   Qry.SQLText =
-      "select "
-      "   pax_id "
-      "from "
-      "   pax "
-      "where "
-      "   grp_id = :grp_id and "
-      "   refuse is null "
-      "order by "
-      "   decode(seats, 0, 1, 0), "
-      "   decode(pers_type, 'Çá', 0, 'êÅ', 1, 2), "
-      "   reg_no ";
+      "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
-  if (!Qry.Eof)
+  if (!(Qry.Eof||Qry.FieldIsNULL("pax_id")))
   {
     int pax_id=Qry.FieldAsInteger("pax_id");
     Qry.Clear();
