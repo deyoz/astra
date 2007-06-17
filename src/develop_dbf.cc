@@ -68,7 +68,7 @@ void Develop_dbf::BuildHeader()
 	putbinary_tostream( header, Month, 1 );
 	putbinary_tostream( header, Day, 1 );
 	// далее 4 байта - кол-во строк
-	ProgTrace( TRACE5, "rowcount=%d", rowCount );
+	ProgTrace( TRACE5, "rowcount=%d", (int)rowCount );
 	putbinary_tostream( header, rowCount, 4 );
 	// далее 2 байта - совокупный размер заголовка и дескрипторов полей - указатель на данные
 	putbinary_tostream( header, headerLen + descriptorFieldsLen, 2 );

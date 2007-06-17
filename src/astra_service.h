@@ -20,7 +20,9 @@ bool sendFile( int id );
 bool doneFile( int id );
 
 void CreateCentringFileDATA( int point_id );
-
+void createSofiFileDATA( int receipt_id );
+void createAODBFileDATA( int point_id );
+void sync_aodb( void );
 
 class AstraServiceInterface : public JxtInterface
 {

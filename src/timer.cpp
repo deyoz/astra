@@ -16,6 +16,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
+#include "astra_service.h"
 #include "cfgproc.h"
 const int sleepsec = 5;
 
@@ -93,6 +94,8 @@ void exec_tasks( void )
 	    	      if ( name == "sync_mvd" ) sync_mvd();
 	    	      	else
 	    	      		if ( name == "arx_daily" ) arx_daily( utcdate );
+	    	      			else
+	    	      				if ( name == "sync_aodb" ) sync_aodb( );
 
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();	 //???

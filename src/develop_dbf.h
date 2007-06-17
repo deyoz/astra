@@ -7,8 +7,15 @@
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
 const std::string PARAM_FILE_NAME = "FileName";
-const std::string FILE_CENT_TYPE = "CENTR";
-const std::string FILE_SOFI_TYPE = "SOFI";
+const std::string PARAM_IN_ORDER = "IN_ORDER";	
+const std::string PARAM_TYPE = "type";
+const std::string PARAM_FILE_TYPE = "FILE_TYPE";	
+const std::string VALUE_TYPE_FILE = "FILE";
+const std::string VALUE_TYPE_BSM = "BSM";
+const std::string NS_PARAM_AIRP = "AIRP";
+const std::string NS_PARAM_AIRLINE = "AIRLINE";
+const std::string NS_PARAM_FLT_NO = "FLT_NO";	
+
 
 struct TField {
 	std::string name;
