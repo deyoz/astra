@@ -185,72 +185,6 @@ namespace to_esc {
     }
 }
 
-//////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
-
-class PrintDataParser {
-    public:
-        enum TMapType {mtBTBP};
-    private:
-        class t_field_map {
-            private:
-                struct TTagValue {
-                    bool null, pr_print;
-                    otFieldType type;
-                    string StringVal;
-                    double FloatVal;
-                    int IntegerVal;
-                    TDateTime DateTimeVal;
-                };
-
-                typedef map<string, TTagValue> TData;
-                TData data;
-                void dump_data();
-
-                string class_checked;
-                int pax_id;
-                int pr_lat;
-                typedef vector<TQuery*> TQrys;
-                TQrys Qrys;
-                TQuery *prnQry;
-
-                void fillBTBPMap();
-                void fillMSOMap(TBagReceipt &rcpt);
-                string check_class(string val);
-                bool printed(TData::iterator di);
-
-            public:
-                t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
-                t_field_map::t_field_map(TBagReceipt &rcpt);
-                string get_field(string name, int len, string align, string date_format, int field_lat);
-                void add_tag(string name, int val);
-                void add_tag(string name, string val);
-                void add_tag(string name, TDateTime val);
-                string GetTagAsString(string name);
-                TQuery *get_prn_qry();
-                ~t_field_map();
-        };
-
-        int pr_lat;
-        t_field_map field_map;
-        string parse_field(int offset, string field);
-        string parse_tag(int offset, string tag);
-    public:
-        PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
-        {
-            this->pr_lat = rcpt.pr_lat;
-        };
-        PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
-            field_map(pax_id, pr_lat, tagsNode, map_type)
-        {
-            this->pr_lat = pr_lat;
-        };
-        string parse(string &form);
-        TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
-        void add_tag(string name, int val) { return field_map.add_tag(name, val); };
-        void add_tag(string name, string val) { return field_map.add_tag(name, val); };
-        void add_tag(string name, TDateTime val) { return field_map.add_tag(name, val); };
-};
-
 string PrintDataParser::t_field_map::check_class(string val)
 {
     if(class_checked.size()) return class_checked;
@@ -1009,19 +943,26 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       bag_name = Qry.FieldAsString("name");
       bag_name_lat = Qry.FieldAsString("name_lat");
       if(rcpt.bag_type == 1 || rcpt.bag_type == 2) {
-          bag_name += " " + IntToString(rcpt.ex_amount) + pieces(rcpt.ex_amount, 0);
-          bag_name_lat += " " + IntToString(rcpt.ex_amount) + pieces(rcpt.ex_amount, 1);
+          bag_name += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 0);
+          bag_name_lat += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 1);
       }
-      add_tag("bag_name", bag_name);
-      add_tag("bag_name_lat", bag_name_lat);
+      add_tag("bag_name", upperc(bag_name));
+      add_tag("bag_name_lat", upperc(bag_name_lat));
   } else {
       add_tag("bag_name", "");
       add_tag("bag_name_lat", "");
   }
 
   double pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
-  double rate_sum = rcpt.rate * rcpt.ex_weight;
-  double pay_rate_sum = pay_rate * rcpt.ex_weight;
+  double rate_sum;
+  double pay_rate_sum;
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      rate_sum = rcpt.rate * rcpt.ex_weight;
+      pay_rate_sum = pay_rate * rcpt.ex_weight;
+  } else {
+      rate_sum = rcpt.rate * rcpt.value_tax/100;
+      pay_rate_sum = pay_rate * rcpt.value_tax/100;
+  }
 
 
   ostringstream remarks, remarks_lat;
@@ -1123,10 +1064,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf_ru += str_fract;
           buf_lat += str_fract;
       }
-      buf_ru.append(33, '-');
-      buf_lat.append(33, '-');
-      add_tag("amount_letters", buf_ru);
-      add_tag("amount_letters_lat", buf_lat);
+      add_tag("amount_letters", upperc(buf_ru));
+      add_tag("amount_letters_lat", upperc(buf_lat));
   }
 
   //exchange_rate
@@ -1235,7 +1174,11 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   add_tag("issue_date_str_lat", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 1));
 
   {
-      string buf = "";
+      string buf;
+      if(rcpt.issue_place.empty())
+          buf = get_validator();
+      else
+          buf = rcpt.issue_place;
       int line_num = 1;
       while(line_num <= 4) {
           string::size_type i = buf.find('\n');
@@ -1243,7 +1186,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf.erase(0, i + 1);
           if(buf.empty() && line_num < 4)
               throw Exception("fillMSOMap: Not enough lines in buffer\n");
-          cout << issue_place << endl;
+          add_tag("issue_place" + IntToString(line_num), issue_place);
           line_num++;
       }
   }
