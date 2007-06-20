@@ -413,7 +413,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
 
 string PrintDataParser::t_field_map::GetTagAsString(string name)
 {
-    TData::iterator di = data.find(name);
+    TData::iterator di = data.find(upperc(name));
     if(di == data.end()) throw Exception("Tag not found " + name);
     return di->second.StringVal;
 }

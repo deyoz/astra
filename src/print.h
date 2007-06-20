@@ -71,6 +71,7 @@ class PrintDataParser {
         void add_tag(std::string name, int val) { return field_map.add_tag(name, val); };
         void add_tag(std::string name, std::string val) { return field_map.add_tag(name, val); };
         void add_tag(std::string name, BASIC::TDateTime val) { return field_map.add_tag(name, val); };
+        std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
 };
 
 
