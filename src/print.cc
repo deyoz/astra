@@ -11,6 +11,8 @@
 #include "docs.h"
 #include "base_tables.h"
 #include "stl_utils.h"
+#include "payment.h"
+#include "exceptions.h"
 #include <fstream>
 
 using namespace std;
@@ -187,7 +189,7 @@ namespace to_esc {
 
 class PrintDataParser {
     public:
-        enum TMapType {mtBTBP, mtMSO};
+        enum TMapType {mtBTBP};
     private:
         class t_field_map {
             private:
@@ -212,16 +214,18 @@ class PrintDataParser {
                 TQuery *prnQry;
 
                 void fillBTBPMap();
-                void fillMSOMap();
+                void fillMSOMap(TBagReceipt &rcpt);
                 string check_class(string val);
                 bool printed(TData::iterator di);
 
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
+                t_field_map::t_field_map(TBagReceipt &rcpt);
                 string get_field(string name, int len, string align, string date_format, int field_lat);
                 void add_tag(string name, int val);
                 void add_tag(string name, string val);
                 void add_tag(string name, TDateTime val);
+                string GetTagAsString(string name);
                 TQuery *get_prn_qry();
                 ~t_field_map();
         };
@@ -231,6 +235,10 @@ class PrintDataParser {
         string parse_field(int offset, string field);
         string parse_tag(int offset, string tag);
     public:
+        PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
+        {
+            this->pr_lat = rcpt.pr_lat;
+        };
         PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
             field_map(pax_id, pr_lat, tagsNode, map_type)
         {
@@ -467,6 +475,13 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
     return prnQry;
+}
+
+string PrintDataParser::t_field_map::GetTagAsString(string name)
+{
+    TData::iterator di = data.find(name);
+    if(di == data.end()) throw Exception("Tag not found " + name);
+    return di->second.StringVal;
 }
 
 void PrintDataParser::t_field_map::add_tag(string name, TDateTime val)
@@ -752,7 +767,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   LPAD(seat_no,3,'0')|| "
         "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
         "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'')) AS seat_no_lat, "
+        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),''), 1) AS seat_no_lat, "
         "   pax.SEAT_TYPE, "
         "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
         "   DECODE( "
@@ -786,7 +801,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
         "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
         "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
-        "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id)) pnr_lat "
+        "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id), 1) pnr_lat "
         "from "
         "   pax, "
         "   pers_types "
@@ -862,18 +877,382 @@ void get_mso_point(const string &airp, string &point, string &point_lat)
 
     string city = airps.get_row("code", airp).AsString("city");
     point = cities.get_row("code", city).AsString("name", 0);
+    if(point.empty()) throw UserException("Не определено название города '" + city + "'");
     point_lat = cities.get_row("code", city).AsString("name", 1);
+    if(point_lat.empty()) throw UserException("Не определено лат. название города '" + city + "'");
 
     TQuery airpsQry(&OraSession);
-    airpsQry.SQLText =  "select 1 from airps where city = :city";
+    airpsQry.SQLText =  "select count(*) from airps where city = :city";
     airpsQry.CreateVariable("city", otString, base_tables.get("airps").get_row("code", airp).AsString("city"));
     airpsQry.Execute();
-    if(airpsQry.RowsProcessed() != 1) {
-        point += "(" + airp + ")";
+    if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
+        point += "(" + airps.get_row("code", airp).AsString("code", 0) + ")";
         point_lat += "(" + airps.get_row("code", airp).AsString("code", 1) + ")";
     }
 }
 
+string pieces(int ex_amount, bool pr_lat)
+{
+    string result;
+    if(pr_lat) {
+        return "pieces";
+    }
+    else {
+        return "мест";
+    };
+}
+
+int get_exch_precision(double rate)
+{
+    double iptr;
+    ostringstream ssbuf;
+    ssbuf << noshowpoint << modf(rate, &iptr);
+    int precision = ssbuf.str().size();
+    if(precision == 1)
+        precision = 0;
+    else
+        precision -= 2;
+
+    if(precision >= 3)
+        precision = 4;
+    else if(precision >= 1)
+        precision = 2;
+    return precision;
+}
+
+int get_rate_precision(double rate, string rate_cur)
+{
+    int precision;
+    if(
+            rate_cur == "ЕВР" ||
+            rate_cur == "ДОЛ" ||
+            rate_cur == "ГРН" ||
+            rate_cur == "ГБП"
+      )
+        precision = 2;
+    else {
+        double iptr;
+        if(modf(rate, &iptr) == 0.0)
+            precision = 0;
+        else
+            precision = 2;
+    }
+    return precision;
+}
+
+int get_value_tax_precision(double tax)
+{
+  return 1;
+};
+
+string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2, bool pr_lat)
+{
+    ostringstream buf;
+    buf
+        << rate1
+        << base_tables.get("currency").get_row("code", rate_cur1).AsString("code", pr_lat)
+        << "="
+        << fixed
+        << setprecision(get_exch_precision(rate2))
+        << rate2
+        << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat);
+    return buf.str();
+}
+
+string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
+{
+  //fmt_type=1 - только rate
+  //fmt_type=2 - только rate_cur
+  //иначе rate+rate_cur
+    ostringstream buf;
+    if (fmt_type!=2)
+      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed;
+    if (fmt_type!=2 && !pr_lat)
+      buf << rate;
+    if (fmt_type!=1)
+      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat);
+    if (fmt_type!=2 && pr_lat)
+      buf << rate;
+    return buf.str();
+}
+
+void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
+{
+    if(rcpt.form_type != "M61")
+        throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
+  add_tag("pax_name",rcpt.pax_name);
+  add_tag("pax_doc",rcpt.pax_doc);
+
+  TQuery Qry(&OraSession);
+  Qry.SQLText =  "select name, name_lat from rcpt_service_types where code = :code";
+  Qry.CreateVariable("code", otInteger, rcpt.service_type);
+  Qry.Execute();
+  if(Qry.Eof) throw Exception("fillMSOMap: service_type not found (code = %d)", rcpt.service_type);
+  add_tag("service_type", (string)"10 " + Qry.FieldAsString("name"));
+  add_tag("service_type_lat", (string)"10 " + Qry.FieldAsString("name_lat"));
+  if(rcpt.service_type == 2 && rcpt.bag_type != -1) {
+      Qry.Clear();
+      Qry.SQLText =
+          "select "
+          "  nvl(rcpt_bag_names.name, bag_types.name) name, "
+          "  nvl(rcpt_bag_names.name_lat, bag_types.name) name_lat "
+          "from "
+          "  bag_types, "
+          "  rcpt_bag_names "
+          "where "
+          "  bag_types.code = :code and "
+          "  bag_types.code = rcpt_bag_names.code(+)";
+      Qry.CreateVariable("code", otInteger, rcpt.bag_type);
+      Qry.Execute();
+      if(Qry.Eof) throw Exception("fillMSOMap: bag_type not found (code = %d)", rcpt.bag_type);
+      string bag_name, bag_name_lat;
+      bag_name = Qry.FieldAsString("name");
+      bag_name_lat = Qry.FieldAsString("name_lat");
+      if(rcpt.bag_type == 1 || rcpt.bag_type == 2) {
+          bag_name += " " + IntToString(rcpt.ex_amount) + pieces(rcpt.ex_amount, 0);
+          bag_name_lat += " " + IntToString(rcpt.ex_amount) + pieces(rcpt.ex_amount, 1);
+      }
+      add_tag("bag_name", bag_name);
+      add_tag("bag_name_lat", bag_name_lat);
+  } else {
+      add_tag("bag_name", "");
+      add_tag("bag_name_lat", "");
+  }
+
+  double pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+  double rate_sum = rcpt.rate * rcpt.ex_weight;
+  double pay_rate_sum = pay_rate * rcpt.ex_weight;
+
+
+  ostringstream remarks, remarks_lat;
+
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      remarks << "ТАРИФ ЗА КГ=";
+      remarks_lat << "RATE PER KG=";
+      if(
+             (rcpt.pay_rate_cur == "РУБ" ||
+              rcpt.pay_rate_cur == "ДОЛ" ||
+              rcpt.pay_rate_cur == "ЕВР") &&
+              rcpt.pay_rate_cur != rcpt.rate_cur
+        ) {
+          remarks
+              << RateToString(pay_rate, rcpt.pay_rate_cur, false, 0)
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, false, 0) << ")"
+              << "(" << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false)
+              << ")";
+          remarks_lat
+              << RateToString(pay_rate, rcpt.pay_rate_cur, true, 0)
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, true, 0) << ")"
+              << "(RATE " << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true)
+              << ")";
+      } else {
+          remarks << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
+          remarks_lat << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+      }
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
+      add_tag("remarks2", IntToString(rcpt.ex_weight) + "КГ");
+      add_tag("remarks2_lat", IntToString(rcpt.ex_weight) + "KG");
+  } else {
+      //багаж с объявленной ценностью
+      remarks
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax << "% OT "
+            << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
+      remarks_lat
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax << "% OF "
+            << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
+      add_tag("remarks2", "");
+      add_tag("remarks2_lat", "");
+  }
+
+  for(int fmt=1;fmt<=2;fmt++)
+  {
+    remarks.str("");
+    remarks_lat.str("");
+    if(
+           (rcpt.pay_rate_cur == "РУБ" ||
+            rcpt.pay_rate_cur == "ДОЛ" ||
+            rcpt.pay_rate_cur == "ЕВР") &&
+            rcpt.pay_rate_cur != rcpt.rate_cur
+      ) {
+        remarks
+            << RateToString(pay_rate_sum, rcpt.pay_rate_cur, false, fmt)
+            << "(" << RateToString(rate_sum, rcpt.rate_cur, false, fmt) << ")";
+        remarks_lat
+            << RateToString(pay_rate_sum, rcpt.pay_rate_cur, true, fmt)
+            << "(" << RateToString(rate_sum, rcpt.rate_cur, true, fmt) << ")";
+    } else {
+        remarks << RateToString(rate_sum, rcpt.rate_cur, false, fmt);
+        remarks_lat << RateToString(rate_sum, rcpt.rate_cur, true, fmt);
+    };
+    if (fmt==1)
+    {
+      add_tag("amount_figures", remarks.str());
+      add_tag("amount_figures_lat", remarks_lat.str());
+    }
+    else
+    {
+      add_tag("currency", remarks.str());
+      add_tag("currency_lat", remarks_lat.str());
+    };
+  };
+
+  double fare_sum;
+  if(
+         (rcpt.pay_rate_cur == "РУБ" ||
+          rcpt.pay_rate_cur == "ДОЛ" ||
+          rcpt.pay_rate_cur == "ЕВР") &&
+          rcpt.pay_rate_cur != rcpt.rate_cur
+    )
+    fare_sum=pay_rate_sum;
+  else
+    fare_sum=rate_sum;
+
+  //amount in figures
+  {
+      double iptr, fract;
+      fract = modf(fare_sum, &iptr);
+      string buf_ru = vs_number(int(iptr), 0);
+      string buf_lat = vs_number(int(iptr), 1);
+      if(fract != 0) {
+          string str_fract = " " + IntToString(int(fract * 100)) + "/100";
+          buf_ru += str_fract;
+          buf_lat += str_fract;
+      }
+      buf_ru.append(33, '-');
+      buf_lat.append(33, '-');
+      add_tag("amount_letters", buf_ru);
+      add_tag("amount_letters_lat", buf_lat);
+  }
+
+  //exchange_rate
+  remarks.str("");
+  remarks_lat.str("");
+  if (!(
+         (rcpt.pay_rate_cur == "РУБ" ||
+          rcpt.pay_rate_cur == "ДОЛ" ||
+          rcpt.pay_rate_cur == "ЕВР") &&
+          rcpt.pay_rate_cur != rcpt.rate_cur)
+     )
+  {
+      if (rcpt.pay_rate_cur != rcpt.rate_cur)
+      {
+          remarks
+              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false);
+          remarks_lat
+              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true);
+      };
+  };
+  add_tag("exchange_rate", remarks.str());
+  add_tag("exchange_rate_lat", remarks_lat.str());
+
+  //total
+  add_tag("total", RateToString(pay_rate_sum, rcpt.pay_rate_cur, false, 0));
+  add_tag("total_lat", RateToString(pay_rate_sum, rcpt.pay_rate_cur, true, 0));
+
+  add_tag("tickets", rcpt.tickets);
+  add_tag("prev_no", rcpt.prev_no);
+  add_tag("pay_form", rcpt.pay_form);
+
+  static TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", rcpt.airline);
+  if(!airline.short_name.empty())
+      add_tag("airline", airline.short_name);
+  else if(!airline.name.empty())
+      add_tag("airline", airline.name);
+  else
+      throw UserException("Не определено название а/к '%s'", rcpt.airline.c_str());
+
+  if(!airline.short_name_lat.empty())
+      add_tag("airline_lat", airline.short_name_lat);
+  else if(!airline.name_lat.empty())
+      add_tag("airline_lat", airline.name_lat);
+  else
+      throw UserException("Не определено лат. название а/к '%s'", rcpt.airline.c_str());
+
+  if(!airline.aircode.empty())
+      add_tag("aircode", airline.aircode);
+  else
+      throw UserException("Не определен расчетный код а/к '%s'", rcpt.airline.c_str());
+
+  {
+      string point_dep, point_dep_lat;
+      string point_arv, point_arv_lat;
+
+      get_mso_point(rcpt.airp_dep, point_dep, point_dep_lat);
+      get_mso_point(rcpt.airp_arv, point_arv, point_arv_lat);
+
+      if(airline.code_lat.empty())
+          throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
+      ostringstream buf;
+      buf
+          << point_dep << "-" << point_arv << " " << airline.code;
+      if(rcpt.flt_no != -1)
+          buf
+              << " "
+              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+      add_tag("to", buf.str());
+      buf.str("");
+      buf
+          << point_dep_lat << "-" << point_arv_lat << " " << airline.code_lat;
+      if(rcpt.flt_no != -1)
+          buf
+              << " "
+              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+      add_tag("to_lat", buf.str());
+  }
+
+/*  if(rcpt.issue_place.empty()) {
+    vector<string> validator;
+    get_validator(validator);
+
+    add_tag("issue_place1", validator[0]);
+    add_tag("issue_place2",validator[1]);
+    add_tag("issue_place3",validator[2]);
+    add_tag("issue_place4",validator[3]);
+  } else {
+      // split string into parts
+  }*/
+
+  Qry.Clear();
+  Qry.SQLText =
+      "select desk_grp.city from "
+      "  desk_grp, "
+      "  desks "
+      "where "
+      "  desks.code = :code and "
+      "  desks.grp_id = desk_grp.grp_id ";
+  Qry.CreateVariable("code", otString, rcpt.issue_desk);
+  Qry.Execute();
+  if(Qry.Eof)
+      throw Exception("fillMSOMap: issue_desk not found (code = %s)", rcpt.issue_desk.c_str());
+  TDateTime issue_date_local = UTCToLocal(rcpt.issue_date, CityTZRegion(Qry.FieldAsString("city")));
+  add_tag("issue_date", issue_date_local);
+  add_tag("issue_date_str", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 0));
+  add_tag("issue_date_str_lat", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 1));
+
+  {
+      string buf = "";
+      int line_num = 1;
+      while(line_num <= 4) {
+          string::size_type i = buf.find('\n');
+          string issue_place = buf.substr(0, i);
+          buf.erase(0, i + 1);
+          if(buf.empty() && line_num < 4)
+              throw Exception("fillMSOMap: Not enough lines in buffer\n");
+          cout << issue_place << endl;
+          line_num++;
+      }
+  }
+
+
+  dump_data();
+};
+
+/*
 void PrintDataParser::t_field_map::fillMSOMap()
 {
     TQuery *Qry;
@@ -909,7 +1288,7 @@ void PrintDataParser::t_field_map::fillMSOMap()
         " remarks, "
         " issue_date, "
         " issue_place, "
-        " issue_user_id, "
+        расчетный код а/к " issue_user_id, "
         " annul_date, "
         " annul_user_id, "
         " pax " //, "
@@ -1047,6 +1426,12 @@ void PrintDataParser::t_field_map::fillMSOMap()
     add_tag("agency_descr",validator[1]);
     add_tag("agency_city",validator[2]);
     add_tag("agency_code",validator[3]);
+}*/
+
+PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
+{
+    this->pr_lat = rcpt.pr_lat;
+    fillMSOMap(rcpt);
 }
 
 PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
@@ -1075,9 +1460,6 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
     switch(map_type) {
         case mtBTBP:
             fillBTBPMap();
-            break;
-        case mtMSO:
-            fillMSOMap();
             break;
     }
 
@@ -1942,12 +2324,12 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     tst();
-    PrintDataParser parser(
-            NodeAsInteger("id", reqNode),
-            NodeAsInteger("pr_lat", reqNode),
-            NULL,
-            PrintDataParser::mtMSO
-            );
+    // TBagReceipt constructor !!!
+    TBagReceipt rcpt;
+//    if(!PaymentInterface::GetReceipt(NodeAsInteger("id", reqNode), rcpt))
+    if(!PaymentInterface::GetReceipt(1, rcpt))
+        throw UserException("Квитанция не найдена. Обновите данные.");
+    PrintDataParser parser(rcpt);
     TQuery Qry(&OraSession);
     Qry.SQLText = "select data from br_forms where prn_type = :prn_type";
     int prn_type = NodeAsInteger("prn_type", reqNode);
@@ -1964,11 +2346,14 @@ void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 }
 
 
-void get_validator(vector<string> &validator)
+string get_validator()
 {
+    ostringstream validator;
     string agency, agency_descr, agency_city;
+    int private_num;
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(reqInfo->desk.sale_point.empty()) throw UserException("Для данного пульта не определен пункт продаж");
+
     {
         TQuery spQry(&OraSession);
         spQry.SQLText =
@@ -1986,18 +2371,29 @@ void get_validator(vector<string> &validator)
         agency = spQry.FieldAsString("agency");
         agency_descr = spQry.FieldAsString("descr");
         agency_city = spQry.FieldAsString("city");
+
+        spQry.Clear();
+        spQry.SQLText =
+            "SELECT private_num FROM operators WHERE login=:login";
+        spQry.CreateVariable("login",otString,reqInfo->user.login);
+        spQry.Execute();
+        if(spQry.Eof) throw UserException("Пользователь не является кассиром");
+        private_num = spQry.FieldAsInteger("private_num");
     }
 
     // agency
-    validator.push_back(agency + " ТКП");
+    validator << agency << " ТКП" << endl;
     // agency descr
-    validator.push_back(agency_descr);
+    validator << agency_descr.substr(0, 19) << endl;
     // agency city
     TBaseTableRow &city = base_tables.get("cities").get_row("code", agency_city);
     TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
-    validator.push_back(city.AsString("Name") + " " + country.AsString("code"));
+    validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
     // agency code
-    validator.push_back(reqInfo->desk.sale_point);
+    validator
+        << reqInfo->desk.sale_point << "    "
+        << setw(4) << setfill('0') << private_num << endl;
+    return validator.str();
 }
 
 
