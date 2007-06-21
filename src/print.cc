@@ -178,8 +178,15 @@ namespace to_esc {
                 mso_form += (char)0;
             }
             if(fi->font == '1') mso_form += "\x1b\x0f";
+            if(fi->font == '2') mso_form += "\x1bw\x01\x1bW\x01";
             mso_form += fi->data;
             if(fi->font == '1') mso_form += "\x12";
+            if(fi->font == '2') {
+                mso_form += "\x1bw";
+                mso_form += (char)0;
+                mso_form += "\x1bW";
+                mso_form += (char)0;
+            }
         }
         mso_form += "\x0c\x1b@";
     }
