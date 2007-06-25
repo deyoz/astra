@@ -283,13 +283,14 @@ class TCities: public TTIDBaseTable {
 
 class TAirlinesRow: public TTIDBaseTableRow {
   public:
-    std::string name,name_lat,short_name,short_name_lat;
+    std::string aircode,name,name_lat,short_name,short_name_lat;
     ~TAirlinesRow() {};
     char *get_row_name() { return "TAirlinesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
       if (lowerc(field)=="short_name") return pr_lat?short_name_lat:short_name;
+      if (lowerc(field)=="aircode") return aircode;
       return TTIDBaseTableRow::AsString(field,pr_lat);
     };
 };
@@ -299,13 +300,13 @@ class TAirlines: public TTIDBaseTable {
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines WHERE tid>:tid";
     };
   protected:
