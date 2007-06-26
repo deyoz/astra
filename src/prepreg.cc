@@ -41,7 +41,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "     (SELECT point_dep AS point_id,class, "
      "             SUM(crs_ok) AS resa, "
      "             SUM(crs_tranzit) AS tranzit, "
-     "             SUM(avail) AS avail "
+     "             MAX(avail) AS avail "
      "      FROM counters2 "
      "      WHERE counters2.point_dep=:point_id "
      "      GROUP BY point_dep,class) c "
@@ -216,12 +216,14 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "       GROUP BY airp) p "
     "WHERE crs_data.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "
     "      crs_data.target=p.airp(+) AND "
+    "      crs_data.target<>:airp_dep AND "
     "      (resa IS NOT NULL OR tranzit IS NOT NULL) "
     "GROUP BY crs,p.point_num,target,class "
     "ORDER BY crs,p.point_num,target ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
+  Qry.CreateVariable( "airp_dep", otString, airp );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crsdata" );
   while ( !Qry.Eof ) {
