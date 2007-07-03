@@ -114,9 +114,13 @@ void putFile( const string &receiver,
 
 bool errorFile( int id, const string &msg )
 {
-    if (deleteFile(id))
+	TQuery ErrQry(&OraSession);
+	ErrQry.SQLText = "SELECT in_order FROM file_types, files WHERE files.id=:id AND files.type=file_types.code";
+	ErrQry.CreateVariable( "id", otInteger, id );
+	ErrQry.Execute();
+    if ( ( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) )
     {
-      TQuery ErrQry(&OraSession);
+      ErrQry.Clear();
       ErrQry.SQLText=
        "BEGIN "
        " UPDATE files SET error=:error,time=system.UTCSYSDATE WHERE id=:id; "
@@ -263,7 +267,7 @@ void buildFileData( xmlNodePtr resNode, const std::string &client_canon_name )
     "       file_queue.type=file_types.code AND "
     "       ( file_queue.status='PUT' OR NVL(file_types.in_order,0)!=0 OR "
     "         file_queue.status='SEND' AND file_queue.time + :wait_answer_sec/(60*60*24) < system.UTCSYSDATE  ) "
-    " ORDER BY file_queue.time,file_queue.id";
+    " ORDER BY DECODE(in_order,1,files.time,file_queue.time),file_queue.id";
 	ScanQry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
 	ScanQry.CreateVariable( "receiver", otString, client_canon_name );
 	ScanQry.CreateVariable( "wait_answer_sec", otInteger, WAIT_ANSWER_SEC );
@@ -422,8 +426,8 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 		Qry.CreateVariable( "flt_no", otInteger, flt_no );		
 	Qry.Execute();
 	map<string,int> cname; /* canon_name, priority */
-	map<string,string> params;
-	string file_data;
+	map<string,string> params/*, checkin_params, bag_params*/;
+	string file_data/*, bag_file_data*/;
 	int priority;
 	while ( !Qry.Eof ) {
 		priority = Qry.FieldAsInteger( "priority" );
@@ -437,19 +441,29 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 			  break;
 	  }
 	  if ( r == cname.end() ) { /* если нет такого имени */
-      params.clear();	  
+      params.clear();
+//      bag_params.clear();
+      file_data.clear();
+//      bag_file_data.clear();
       try {
         if ( 
       	     type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
       	     type == FILE_SOFI_TYPE && createSofiFile( id, params, file_data ) ||
-      	     type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data )
+      	     type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data/*, bag_params, bag_file_data*/ )
       	   ) {
 	  		  /* теперь в params еще лежит и имя файла */
 	  		  params[ NS_PARAM_AIRP ] = airp;
 	  		  params[ NS_PARAM_AIRLINE ] = airline;
 	  		  params[ NS_PARAM_FLT_NO ] = flt_no;
 	  		  params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
+/* 	  		  bag_params[ NS_PARAM_AIRP ] = airp;
+	  		  bag_params[ NS_PARAM_AIRLINE ] = airline;
+	  		  bag_params[ NS_PARAM_FLT_NO ] = flt_no;
+	  		  bag_params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE*/
    		    putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
+/*   		    if ( !bag_file_data.empty() ) {
+   		    	putFile( client_canon_name, OWN_POINT_ADDR(), type, bag_params, bag_file_data );
+   		    }*/
 	      }
 	    }
 	    /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
