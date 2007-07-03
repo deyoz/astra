@@ -25,6 +25,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "base_tables.h"
 #include "astra_utils.h"
 #include "develop_dbf.h"
+#include "helpcpp.h"
 
 
 using namespace std;
@@ -34,14 +35,17 @@ using namespace BASIC;
 struct AODB_STRUCT{
 	int pax_id;
 	int num;
-	int rk;
+	int pr_cabin;
+	bool unaccomp;
 	bool doit;
 	string record;
 };
 
-string getRecord( int pax_id, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag );
-string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
-                      vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag );
+void getRecord( int pax_id, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag,
+                string &res_checkin/*, string &res_bag*/ );
+void createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
+                   vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
+                   string &res_checkin/*, string &res_bag*/ );
 
 void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag )
 {
@@ -93,7 +97,9 @@ void DecodeBagType( int bag_type, int &code, string &name )
 		}
 }
 
-bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> &params, std::string &file_data )
+bool createAODBCheckInInfoFile( int point_id, 
+                                std::map<std::string,std::string> &params, std::string &file_data/*,
+                                std::map<std::string,std::string> &bag_params, std::string &bag_file_data*/ )
 {
 	AODB_STRUCT STRAO;
 	vector<AODB_STRUCT> prior_aodb_pax, aodb_pax;
@@ -132,16 +138,27 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	STRAO.doit = false;
+	STRAO.unaccomp = false;
 	while ( !Qry.Eof ) {
 		STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  STRAO.num = Qry.FieldAsInteger( "bag_num" );
 	  STRAO.record = Qry.FieldAsString( "bag_record" );
-	  STRAO.rk = Qry.FieldAsInteger( "pr_cabin" );
+	  STRAO.pr_cabin = Qry.FieldAsInteger( "pr_cabin" );
 	  prior_aodb_bag.push_back( STRAO );
 		Qry.Next();
 	}
 	// теперь создадим похожую картинку по данным рейса из БД 	 
 	TQuery BagQry( &OraSession );
+	BagQry.SQLText =
+	 "SELECT weight,tags FROM unaccomp_bag WHERE point_dep=:point_id "
+	 " ORDER BY id";
+	BagQry.CreateVariable( "point_id", otInteger, point_id );
+	BagQry.Execute();
+	while ( !BagQry.Eof ) {
+		
+		BagQry.Next();
+	}
+	BagQry.Clear();
 	BagQry.SQLText = 
 		 "SELECT bag2.bag_type,bag2.weight,color,no,"
 		 "       bag2.num bag_num "
@@ -154,10 +171,10 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 	BagQry.DeclareVariable( "grp_id", otInteger );
 	BagQry.DeclareVariable( "pr_cabin", otInteger );
 	Qry.Clear();
-	Qry.SQLText =
+	Qry.SQLText =	
 	 "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	 "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
-	 "       pax.pers_type,pax.seat_no,pax.seats-1 seats,"
+	 "       pax.pers_type,pax.seat_no,DECODE(pax.seats,0,0,pax.seats-1) seats,"
 	 "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
 	 "       ckin.get_rkAmount(pax_grp.grp_id,pax.pax_id,rownum) rkamount,"
 	 "       ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) rkweight,"
@@ -173,7 +190,10 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 	RemQry.SQLText = "SELECT rem_code FROM pax_rem WHERE pax_id=:pax_id";
 	RemQry.DeclareVariable( "pax_id", otInteger );		
 	TQuery TimeQry( &OraSession );
-	TimeQry.SQLText = "SELECT MIN(time) as mtime FROM events WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no ";
+	TimeQry.SQLText = 
+	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
+	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode='Р' "
+	 " ORDER BY time,ev_order";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	while ( !Qry.Eof ) {
@@ -181,9 +201,9 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
 		record<<setw(16)<<scd_date;
 		record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
-		record<<setw(30)<<Qry.FieldAsString( "name" );
+		record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
 		TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv")); 		
-		record<<setw(20)<<row->name;
+		record<<setw(20)<<row->name.substr(0,20);
 		record<<setw(1);
 		switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
 			case ASTRA::F: 
@@ -248,7 +268,7 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 			record<<setw(1)<<1;
 		else
 			record<<setw(1)<<0;
-		record<<setw(1)<<0; // РМ количество
+		record<<setw(2)<<0; // РМ количество
 		record<<setw(36)<<""; // Имя ребенка
 		record<<setw(60)<<""; // ДОП. Инфо
 		record<<setw(1)<<0; // международный багаж
@@ -256,7 +276,7 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
     TimeQry.Execute();
-    record<<setw(4)<<""; // стойка рег.
+    record<<setw(4)<<string(TimeQry.FieldAsString( "station" )).substr(0,4); // стойка рег.
     if ( TimeQry.Eof )
     	record<<setw(16)<<"";
     else {
@@ -284,13 +304,13 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 		  	ostringstream record_bag;
 		  	record_bag<<setfill(' ')<<std::fixed;
 		  	DecodeBagType( BagQry.FieldAsInteger( "bag_type" ), code, type_name );
-		  	record_bag<<setw(2)<<code<<setw(20)<<type_name;
+		  	record_bag<<setw(2)<<code<<setw(20)<<type_name.substr(0,20);
 		  	record_bag<<setw(4)<<BagQry.FieldAsInteger( "weight" );
 	  		//record<<setw(1)<<0; // снятие
 	  		STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  		STRAO.num = BagQry.FieldAsInteger( "bag_num" );
 	  		STRAO.record = record_bag.str();
-	  		STRAO.rk = 1;
+	  		STRAO.pr_cabin = 1;
 		  	aodb_bag.push_back( STRAO );
 //		  	ProgTrace( TRACE5, "record rk=%s", record_bag.str().c_str() );
 		  	BagQry.Next();
@@ -304,22 +324,22 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 		  	ostringstream record_bag;
 		  	record_bag<<setfill(' ')<<std::fixed;
 		  	DecodeBagType( BagQry.FieldAsInteger( "bag_type" ), code, type_name );
-		  	record_bag<<setw(2)<<code<<setw(20)<<type_name;
+		  	record_bag<<setw(2)<<code<<setw(20)<<type_name.substr(0,20);
 		  	record_bag<<setw(10)<<setprecision(0)<<BagQry.FieldAsFloat( "no" );
-		  	record_bag<<setw(2)<<BagQry.FieldAsString( "color" );		  	
-		  	if ( pr_first ) {
+		  	record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);		  	
+		 // 	if ( pr_first ) {
 		  		pr_first = false;
 		  		record_bag<<setw(4)<<BagQry.FieldAsInteger( "weight" );
-		  	}
+/*		  	}
 		  	else {
 		  		record_bag<<setw(4)<<0;		  		
-		  	}
-		  	record_bag<<setw(10)<<""; // номер контейнера
+		  	}*/
+		  	//record_bag<<setw(10)<<""; // номер контейнера
 	  		//record<<setw(1)<<0; // снятие
 	  		STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 	  		STRAO.num = BagQry.FieldAsInteger( "bag_num" );
 	  		STRAO.record = record_bag.str();
-	  		STRAO.rk = 0;
+	  		STRAO.pr_cabin = 0;
 		  	aodb_bag.push_back( STRAO );
 //		  	ProgTrace( TRACE5, "record bag=%s", record_bag.str().c_str() );
 		  	BagQry.Next();
@@ -334,57 +354,101 @@ bool createAODBCheckInInfoFile( int point_id, std::map<std::string,std::string> 
 	// далее сравнение 2-х слепков, выяснение, что добавилось, что удалилось, что изменилось
 	// формирование данных для отпавки + их запись как новый слепок?	
 //	ProgTrace( TRACE5, "aodb_pax.size()=%d, prior_aodb_pax.size()=%d",aodb_pax.size(), prior_aodb_pax.size() );
+  string res_checkin, /*res_bag,*/ prior_res_checkin/*, prior_res_bag*/;
+  bool ch_pax/*, ch_bag*/;
 	for ( vector<AODB_STRUCT>::iterator p=aodb_pax.begin(); p!=aodb_pax.end(); p++ ) {
-		if ( getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) ) {
+		getRecord( p->pax_id, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
+		getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );		
+		ch_pax = res_checkin != prior_res_checkin;
+		//ch_bag = res_bag != prior_res_bag;
+		if ( ch_pax/*|| ch_bag*/ ) {
+//		if ( getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) ) {
 //			ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
-			file_data += createRecord( point_id, p->pax_id, aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag );
+			createRecord( point_id, p->pax_id, aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
+			              res_checkin/*, res_bag*/ );
+			if ( ch_pax )
+				file_data += res_checkin;
+/*			if ( ch_bag ) {
+				//ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );				
+				bag_file_data += res_bag;        
+			}*/
 //			ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
 	  }
   }
 	for ( vector<AODB_STRUCT>::iterator p=prior_aodb_pax.begin(); p!=prior_aodb_pax.end(); p++ ) {
 //		ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
-		if ( !p->doit &&
-			   getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) )
-			file_data += createRecord( point_id, p->pax_id, aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag );
+		if ( !p->doit ) {
+  		getRecord( p->pax_id, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
+	  	getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );			
+		  ch_pax = res_checkin != prior_res_checkin;
+		  //ch_bag = res_bag != prior_res_bag;	  	
+	  	if ( ch_pax /*|| ch_bag*/ ) { 
+//			   getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) )
+			  createRecord( point_id, p->pax_id, aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
+			                res_checkin/*, res_bag*/ );
+   			if ( ch_pax )
+		  		file_data += res_checkin;
+/*		  	if ( ch_bag ) {
+//			  	ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );				
+				  bag_file_data += res_bag;
+				}*/
+		  }  
+		}
   } 
    
   if ( !file_data.empty() ) {  	
 	  createFileParamsAODB( point_id, params, 0 );
 	}
+/*	if ( !bag_file_data.empty() ) {
+		tst();
+		createFileParamsAODB( point_id, bag_params, 1 );
+	}*/
 //	ProgTrace( TRACE5, "file_data.empty()=%d", file_data.empty() );
-	return !file_data.empty();
+  HelpCpp::TextCodec codec( "CP866", "CP1251" );
+  string reso = codec.encode( file_data );
+  file_data = reso;
+/*  reso = codec.encode( bag_file_data );
+  bag_file_data = reso;*/
+	return !file_data.empty()/* || !bag_file_data.empty()*/;
 }
 
 
-string getRecord( int pax_id, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag )
+void getRecord( int pax_id, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag,
+                string &res_checkin/*, string &res_bag*/  )
 {
-	string res;
+	res_checkin.clear();
+//	res_bag.clear();
 	for ( vector<AODB_STRUCT>::const_iterator i=aodb_pax.begin(); i!=aodb_pax.end(); i++ ) {
 	  if ( i->pax_id == pax_id ) {
-		  res = i->record;
+		  res_checkin = i->record;
 		  for ( vector<AODB_STRUCT>::const_iterator b=aodb_bag.begin(); b!=aodb_bag.end(); b++ ) {
 		  	if ( b->pax_id != pax_id )
 		  		continue;
-		  	res += b->record;
+		  	res_checkin += b->record;
+//		  	res_bag += b->record;
 	    }
 	    break;
 	  }
 	}
 //	ProgTrace( TRACE5, "getRecord pax_id=%d, return res=%s", pax_id, res.c_str() );
-	return res;
 }
 
-string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
-                      vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag )
+void createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
+                   vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
+                   string &res_checkin/*, string &res_bag*/ )
 {
-	string res;
-	TQuery PQry( &OraSession );
- 	PQry.SQLText = "SELECT MAX(rec_no) r FROM aodb_files WHERE point_id=:point_id ";
+	res_checkin.clear();
+	//res_bag.clear();
+	TQuery PQry( &OraSession );	
+ 	PQry.SQLText = "SELECT MAX(rec_no) r1, MAX(rec_no_bag) r2 FROM aodb_files WHERE point_id=:point_id ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
  	PQry.Execute();
+ 	int bag_num = PQry.FieldAsInteger( "r2" );
+ 	{
   ostringstream r;
-  r<<setfill(' ')<<std::fixed<<setw(6)<<PQry.FieldAsInteger( "r" ) + 1;	
- 	res = r.str();
+  r<<setfill(' ')<<std::fixed<<setw(6)<<PQry.FieldAsInteger( "r1" ) + 1;	
+ 	res_checkin = r.str();
+  }
   	// сохраняем новый слепок  	
  	PQry.Clear();
  	PQry.SQLText = 
@@ -393,7 +457,7 @@ string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, ve
  	 " DELETE aodb_pax WHERE pax_id=:pax_id; "
  	 " UPDATE aodb_files SET rec_no=rec_no+1 WHERE point_id=:point_id; "
  	 " IF SQL%NOTFOUND THEN "
- 	 "  INSERT INTO aodb_files(point_id,rec_no) VALUES(:point_id, 1); "
+ 	 "  INSERT INTO aodb_files(point_id,rec_no,rec_no_bag) VALUES(:point_id,1,0); "
  	 " END IF; "
  	 "END; ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -411,12 +475,12 @@ string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, ve
 		}
 		
 	if ( d == aodb_pax.end() ) { // удаление
-		res += n->record.substr( 0, n->record.length() - 2 );
-		res += "1;";
+		res_checkin += n->record.substr( 0, n->record.length() - 2 );
+		res_checkin += "1;";
 //		ProgTrace( TRACE5, "delete record, record=%s", res.c_str() );
   }
 	else  {
-		res += d->record;
+		res_checkin += d->record;
 		PQry.Clear();
     PQry.SQLText = "INSERT INTO aodb_pax(point_id,pax_id,record) VALUES(:point_id,:pax_id,:record)";
     PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -436,7 +500,7 @@ string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, ve
 	for ( int pr_cabin=1; pr_cabin>=0; pr_cabin-- ) {		
 		PQry.SetVariable( "pr_cabin", pr_cabin );
 	  for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
-	  	if ( i->rk != pr_cabin || i->pax_id != pax_id )
+	  	if ( i->pr_cabin != pr_cabin || i->pax_id != pax_id )
 	  		continue;
 	  	PQry.SetVariable( "num", num );
 	  	PQry.SetVariable( "record", i->record );
@@ -444,30 +508,44 @@ string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, ve
 	  	num++;
 	  	bool f=false;
 	  	for ( vector<AODB_STRUCT>::iterator j=prior_aodb_bag.begin(); j!= prior_aodb_bag.end(); j++ ) {
-	  		if ( j->rk == pr_cabin && !j->doit && 
+	  		if ( j->pr_cabin == pr_cabin && !j->doit && 
 	  			   i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
 	  			f=true;
 	  			i->doit=true;
 	  			j->doit=true;
-	  			res += i->record + "0;";
+	  			res_checkin += i->record + "0;";
 	  		}
 	    }
 	    if ( !f ) {
-	    	res += i->record + "0;";
+	    	res_checkin += i->record + "0;";
+/*	    	if ( !pr_cabin ) {
+          ostringstream r;
+          r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num + 1;	
+          bag_num++;
+ 	        res_bag += r.str();
+ 	        res_bag += i->record + "0;";
+        }  */
 	    }
   	}
 	  for ( vector<AODB_STRUCT>::iterator i=prior_aodb_bag.begin(); i!= prior_aodb_bag.end(); i++ ) {
 	  	bool f=false;
-	  	if ( i->doit || i->rk != pr_cabin || i->pax_id != pax_id )
+	  	if ( i->doit || i->pr_cabin != pr_cabin || i->pax_id != pax_id )
 	  		continue;
 	  	for ( vector<AODB_STRUCT>::iterator j=aodb_bag.begin(); j!= aodb_bag.end(); j++ ) {
-	  		if ( j->rk == pr_cabin && i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
+	  		if ( j->pr_cabin == pr_cabin && i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
 	  			f=true;
 	  			break;
 	  		}
 	    }
 	    if ( !f ) {
-	    	res += i->record + "1;";
+	    	res_checkin += i->record + "1;";
+/*	    	if ( !pr_cabin ) {
+          ostringstream r;
+          r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num + 1;	
+          bag_num++;
+ 	        res_bag += r.str();
+	    	  res_bag += i->record + "1;";
+	    	}*/
 	    }
   	}
 	}
@@ -475,6 +553,21 @@ string createRecord( int point_id, int pax_id, vector<AODB_STRUCT> &aodb_pax, ve
 		d->doit = true;
 	if ( n != prior_aodb_pax.end() )
 		n->doit = true;
+	PQry.Clear();
+	PQry.SQLText = 
+ 	 "BEGIN "
+ 	 " UPDATE aodb_files SET rec_no_bag=:rec_no_bag WHERE point_id=:point_id; "
+ 	 " IF SQL%NOTFOUND THEN "
+ 	 "  INSERT INTO aodb_files(point_id,rec_no,rec_no_bag) VALUES(:point_id,0,:rec_no_bag); "
+ 	 " END IF; "
+ 	 "END; ";	
+ 	PQry.CreateVariable( "point_id", otInteger, point_id );
+ 	PQry.CreateVariable( "rec_no_bag", otInteger, bag_num );
+ 	PQry.Execute();
+	res_checkin += "\n";	
 //	ProgTrace( TRACE5, "createRecord point_id=%d, pax_id=%d, return res=%s", point_id, pax_id, res.c_str() );
-	return res;
 }
+
+
+
+
