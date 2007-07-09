@@ -1501,12 +1501,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           {
             node2=remNode->children;
             const char *rem_code=NodeAsStringFast("rem_code",node2);
-            if (airline=="ûí" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
+            if (airline=="ûí" && strcmp(rem_code,"MCLS")==0 ||
+                airline=="èé" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
             pas.rems.push_back(rem_code);
           };
         };
-        ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
-        if (airline=="ûí" && strcmp(subclass,"å")==0 && !flagMCLS)
+        //ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
+        if (!flagMCLS &&
+            (airline=="ûí" && strcmp(subclass,"å")==0 ||
+             airline=="èé" && strcmp(subclass,"û")==0 ))
           pas.rems.push_back("MCLS");
 
         Passengers.Add(pas);
