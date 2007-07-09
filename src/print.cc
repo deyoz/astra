@@ -472,7 +472,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(name == "HUGE_CHAR") result.append(len, 'X');
     if(result.size()) return result;
 
-    if(!(*Qrys.begin())->FieldsCount()) {
+    if(Qrys.size() && !(*Qrys.begin())->FieldsCount()) {
         for(TQrys::iterator ti = Qrys.begin(); ti != Qrys.end(); ti++) {
             (*ti)->Execute();
             for(int i = 0; i < (*ti)->FieldsCount(); i++) {
@@ -873,7 +873,7 @@ int get_rate_precision(double rate, string rate_cur)
         precision = 2;
     else {
         double iptr;
-        if(modf(rate, &iptr) == 0.0)
+        if(modf(rate, &iptr) < 0.01)
             precision = 0;
         else
             precision = 2;
@@ -906,14 +906,12 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
   //fmt_type=2 - только rate_cur
   //иначе rate+rate_cur
     ostringstream buf;
-    if (fmt_type!=2)
-      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed;
     if (fmt_type!=2 && !pr_lat)
-      buf << rate;
+      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     if (fmt_type!=1)
       buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat);
     if (fmt_type!=2 && pr_lat)
-      buf << rate;
+      buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     return buf.str();
 }
 
@@ -960,7 +958,11 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       add_tag("bag_name_lat", "");
   }
 
-  double pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+  double pay_rate;
+  if (rcpt.pay_rate_cur != rcpt.rate_cur)
+    pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+  else
+    pay_rate = rcpt.rate;
   double rate_sum;
   double pay_rate_sum;
   if(rcpt.service_type == 1 || rcpt.service_type == 2) {
@@ -1066,7 +1068,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       fract = modf(fare_sum, &iptr);
       string buf_ru = vs_number(int(iptr), 0);
       string buf_lat = vs_number(int(iptr), 1);
-      if(fract != 0) {
+      if(fract >= 0.01) {
           string str_fract = " " + IntToString(int(fract * 100)) + "/100";
           buf_ru += str_fract;
           buf_lat += str_fract;
@@ -1119,10 +1121,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   else
       throw UserException("Не определено лат. название а/к '%s'", rcpt.airline.c_str());
 
-  if(!airline.aircode.empty())
-      add_tag("aircode", airline.aircode);
-  else
-      throw UserException("Не определен расчетный код а/к '%s'", rcpt.airline.c_str());
+  add_tag("aircode", rcpt.aircode);
 
   {
       string point_dep, point_dep_lat;
@@ -1151,18 +1150,6 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       add_tag("to_lat", buf.str());
   }
 
-/*  if(rcpt.issue_place.empty()) {
-    vector<string> validator;
-    get_validator(validator);
-
-    add_tag("issue_place1", validator[0]);
-    add_tag("issue_place2",validator[1]);
-    add_tag("issue_place3",validator[2]);
-    add_tag("issue_place4",validator[3]);
-  } else {
-      // split string into parts
-  }*/
-
   Qry.Clear();
   Qry.SQLText =
       "select desk_grp.city from "
@@ -1181,11 +1168,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   add_tag("issue_date_str_lat", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 1));
 
   {
-      string buf;
-      if(rcpt.issue_place.empty())
-          buf = get_validator();
-      else
-          buf = rcpt.issue_place;
+      string buf = rcpt.issue_place;
       int line_num = 1;
       while(line_num <= 4) {
           string::size_type i = buf.find('\n');
@@ -2271,27 +2254,21 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-void PrintInterface::GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+
+
+void PrintInterface::GetPrintDataBR(PrintDataParser &parser, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    tst();
-    // TBagReceipt constructor !!!
-    TBagReceipt rcpt;
-//    if(!PaymentInterface::GetReceipt(NodeAsInteger("id", reqNode), rcpt))
-    if(!PaymentInterface::GetReceipt(1, rcpt))
-        throw UserException("Квитанция не найдена. Обновите данные.");
-    PrintDataParser parser(rcpt);
+    int prn_type = NodeAsInteger("prn_type", reqNode);
+
     TQuery Qry(&OraSession);
     Qry.SQLText = "select data from br_forms where prn_type = :prn_type";
-    int prn_type = NodeAsInteger("prn_type", reqNode);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
     if(Qry.Eof) throw Exception("Receipt form not found for prn_type " + IntToString(prn_type));
     string mso_form = Qry.FieldAsString("data");
-    tst();
     mso_form = parser.parse(mso_form);
-    tst();
     to_esc::convert(mso_form, TPrnType(prn_type));
-    tst();
+
     NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
 }
 

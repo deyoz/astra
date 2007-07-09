@@ -2,10 +2,29 @@
 #define _PRINT_H
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"		
-#include "basic.h"		
-#include "oralib.h"		
-#include "payment.h"		
+#include "JxtInterface.h"
+#include "basic.h"
+#include "oralib.h"
+
+struct TBagReceipt
+{
+  bool pr_lat;
+  std::string form_type;
+  double no;
+  std::string pax_name,pax_doc;
+  int service_type,bag_type;
+  std::string bag_name;
+  std::string tickets,prev_no;
+  std::string airline,aircode,airp_dep,airp_arv,suffix;
+  int flt_no;
+  int ex_amount,ex_weight;
+  double value_tax,rate,exch_pay_rate;
+  int exch_rate;
+  std::string rate_cur,pay_rate_cur,pay_form;
+  std::string remarks;
+  BASIC::TDateTime issue_date,annul_date;
+  std::string issue_desk,annul_desk,issue_place;
+};
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
@@ -100,8 +119,6 @@ class PrintInterface: public JxtInterface
             AddEvent("ConfirmPrintBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrinterList);
             AddEvent("GetPrinterList",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBR);
-            AddEvent("GetPrintDataBR",evHandle);
         }
 
         void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -111,8 +128,8 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetPrintDataBR(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+        static void GetPrintDataBR(PrintDataParser &parser, xmlNodePtr reqNode, xmlNodePtr resNode);
+        virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

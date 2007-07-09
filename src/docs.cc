@@ -1704,3 +1704,9 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
     }
 }
+void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	tst();
+  NewTextChild(resNode,"fonts","");	
+  tst();
+}

@@ -5,12 +5,14 @@
 #define NICKNAME "VLAD"
 #include "test.h"
 #include "astra_utils.h"
+#include "astra_consts.h"
 #include "base_tables.h"
 #include "checkin.h"
 #include "print.h"
 #include "tripinfo.h"
 #include "oralib.h"
 
+using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
@@ -24,7 +26,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   string sqlText = (string)
         "SELECT pax_grp.grp_id,point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,pr_refuse,pax_grp.tid, ";
+        "       class,pr_refuse,pax_grp.tid, "
+        "       RTRIM(pax.surname||' '||pax.name) AS pax_name, "
+        "       document AS pax_doc "
+        "FROM pax_grp,pax,airps ";
 
   string condition;
   if( strcmp((char *)reqNode->name, "PaxByPaxId") == 0 ||
@@ -73,8 +78,6 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
 
     condition+=
-      "     RTRIM(pax.surname||' '||pax.name) AS pax "
-      "FROM pax_grp,pax,airps "
       "WHERE pax_grp.grp_id=pax.grp_id AND "
       "      pax_grp.airp_arv=airps.code AND "
       "      point_dep=:point_id AND reg_no=:reg_no ";
@@ -90,25 +93,24 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
   {
     Qry.Clear();
-    Qry.SQLText="SELECT receipt_id,grp_id,pax,annul_date FROM bag_receipts WHERE no=:no";
+    Qry.SQLText=
+      "SELECT receipt_id,annul_date,ckin.get_main_pax_id(grp_id) AS pax_id "
+      "FROM bag_receipts WHERE no=:no";
     Qry.CreateVariable("no",otFloat,NodeAsFloat("receipt_no",reqNode));
     Qry.Execute();
     if (Qry.Eof)
       throw UserException("Квитанция не найдена");
     receipt_id=Qry.FieldAsInteger("receipt_id");
-    string pax=Qry.FieldAsString("pax");
 
-    if (!Qry.FieldIsNULL("grp_id") && Qry.FieldIsNULL("annul_date"))
+    if (!Qry.FieldIsNULL("pax_id") && Qry.FieldIsNULL("annul_date"))
     {
-      int grp_id=Qry.FieldAsInteger("grp_id");
+      int pax_id=Qry.FieldAsInteger("pax_id");
       condition+=
-        "     :pax AS pax "
-        "FROM pax_grp,airps "
-        "WHERE pax_grp.airp_arv=airps.code AND "
-        "      pax_grp.grp_id=:grp_id AND rownum=1";
+        "WHERE pax_grp.grp_id=pax.grp_id AND "
+        "      pax_grp.airp_arv=airps.code AND "
+        "      pax.pax_id=:pax_id";
       Qry.Clear();
-      Qry.CreateVariable("pax",otString,pax);
-      Qry.CreateVariable("grp_id",otInteger,grp_id);
+      Qry.CreateVariable("pax_id",otInteger,pax_id);
 
       sqlText+=condition;
       Qry.SQLText = sqlText;
@@ -131,7 +133,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(resNode,"city_arv",Qry.FieldAsString("city_arv"));
     NewTextChild(resNode,"class",Qry.FieldAsString("class"));
     NewTextChild(resNode,"pr_refuse",(int)(Qry.FieldAsInteger("pr_refuse")!=0));
-    NewTextChild(resNode,"pax",Qry.FieldAsString("pax"));
+    NewTextChild(resNode,"pax_name",Qry.FieldAsString("pax_name"));
+    NewTextChild(resNode,"pax_doc",Qry.FieldAsString("pax_doc"));
     NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
 
     string subcl;
@@ -240,46 +243,10 @@ void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)
   xmlNodePtr node=NewTextChild(dataNode,"payment");
   for(;!Qry.Eof;Qry.Next())
   {
-    xmlNodePtr receiptNode=NewTextChild(node,"receipt");
-    NewTextChild(receiptNode,"id",Qry.FieldAsInteger("receipt_id"));
-    NewTextChild(receiptNode,"no",Qry.FieldAsFloat("no"));
-    NewTextChild(receiptNode,"form_type",Qry.FieldAsString("form_type"));
-    if (!Qry.FieldIsNULL("grp_id"))
-      NewTextChild(receiptNode,"grp_id",Qry.FieldAsInteger("grp_id"));
-    NewTextChild(receiptNode,"pax",Qry.FieldAsString("pax"));
-    NewTextChild(receiptNode,"status",Qry.FieldAsString("status"));
-    NewTextChild(receiptNode,"pr_lat",(int)(Qry.FieldAsInteger("pr_lat")!=0));
-    NewTextChild(receiptNode,"tickets",Qry.FieldAsString("tickets"));
-    NewTextChild(receiptNode,"prev_no",Qry.FieldAsString("prev_no"),"");
-    NewTextChild(receiptNode,"airline",Qry.FieldAsString("airline"));
-    NewTextChild(receiptNode,"aircode",Qry.FieldAsString("aircode"));
-    if (!Qry.FieldIsNULL("flt_no"))
-    {
-      NewTextChild(receiptNode,"flt_no",Qry.FieldAsInteger("flt_no"));
-      NewTextChild(receiptNode,"suffix",Qry.FieldAsString("suffix"));
-    };
-    NewTextChild(receiptNode,"airp_dep",Qry.FieldAsString("airp_dep"));
-    NewTextChild(receiptNode,"airp_arv",Qry.FieldAsString("airp_arv"));
-    NewTextChild(receiptNode,"ex_amount",Qry.FieldAsInteger("ex_amount"));
-    NewTextChild(receiptNode,"ex_weight",Qry.FieldAsInteger("ex_weight"));
-    if (!Qry.FieldIsNULL("bag_type"))
-      NewTextChild(receiptNode,"bag_type",Qry.FieldAsInteger("bag_type"));
-    else
-      NewTextChild(receiptNode,"bag_type");
-    NewTextChild(receiptNode,"bag_name",Qry.FieldAsString("bag_name"),"");
-    if (!Qry.FieldIsNULL("value_tax"))
-      NewTextChild(receiptNode,"value_tax",Qry.FieldAsFloat("value_tax"));
-    NewTextChild(receiptNode,"rate",Qry.FieldAsFloat("rate"));
-    NewTextChild(receiptNode,"rate_cur",Qry.FieldAsString("rate_cur"));
-    NewTextChild(receiptNode,"pay_rate",Qry.FieldAsFloat("pay_rate"));
-    NewTextChild(receiptNode,"pay_rate_cur",Qry.FieldAsString("pay_rate_cur"));
-    NewTextChild(receiptNode,"pay_type",Qry.FieldAsString("pay_type"));
-    NewTextChild(receiptNode,"pay_doc",Qry.FieldAsString("pay_doc"),"");
-    NewTextChild(receiptNode,"remarks",Qry.FieldAsString("remarks"),"");
-    NewTextChild(receiptNode,"issue_date",DateTimeToStr(Qry.FieldAsDateTime("issue_date")));
-    NewTextChild(receiptNode,"issue_place",Qry.FieldAsString("issue_place"),"");
-    if (!Qry.FieldIsNULL("annul_date"))
-      NewTextChild(receiptNode,"annul_date",DateTimeToStr(Qry.FieldAsDateTime("annul_date")));
+    int rcpt_id=Qry.FieldAsInteger("receipt_id");
+    TBagReceipt rcpt;
+    GetReceipt(Qry,rcpt);
+    PutReceipt(rcpt,rcpt_id,node);
   };
 };
 
@@ -319,148 +286,6 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   CheckInInterface::SaveBag(reqNode);
   CheckInInterface::SavePaidBag(reqNode);
-};
-
-void PaymentInterface::UpdReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-
-  int point_dep=NodeAsInteger("point_dep",reqNode);
-  int grp_id=NodeAsInteger("grp_id",reqNode);
-  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-  NewTextChild(resNode,"tid",tid);
-
-  xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
-  bool pr_del=NodeAsIntegerFast("pr_del",node);
-  xmlNodePtr idNode=GetNodeFast("id",node);
-
-  TQuery Qry(&OraSession);
-
-  if (!pr_del)
-  {
-    if (idNode!=NULL)
-    {
-      Qry.Clear();
-      Qry.SQLText=
-        "UPDATE bag_receipts "
-        "SET status='З',annul_date=SYSTEM.UTCSYSDATE,annul_user_id=:user_id "
-        "WHERE receipt_id=:receipt_id";
-      Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
-      Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-      Qry.Execute();
-      if (Qry.RowsProcessed()<=0)
-        throw UserException("Квитанция не найдена. Обновите данные");
-    };
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  SELECT id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
-      "  INSERT INTO bag_receipts "
-      "        (receipt_id,no,form_type,grp_id,pax,status,pr_lat,tickets,prev_no,airline,aircode,flt_no,suffix, "
-      "         airp_dep,airp_arv,ex_amount,ex_weight,bag_type,bag_name,value_tax,rate,rate_cur, "
-      "         pay_rate,pay_rate_cur,pay_type,pay_doc,remarks,issue_date,issue_place,issue_user_id) "
-      "  VALUES(:receipt_id,:no,:form_type,:grp_id,:pax,:status,:pr_lat,:tickets,:prev_no,:airline,:aircode,:flt_no,:suffix, "
-      "         :airp_dep,:airp_arv,:ex_amount,:ex_weight,:bag_type,:bag_name,:value_tax,:rate,:rate_cur, "
-      "         :pay_rate,:pay_rate_cur,:pay_type,:pay_doc,:remarks,:issue_date,:issue_place,:issue_user_id); "
-      "END;";
-    Qry.CreateVariable("receipt_id",otInteger,FNull);
-    double new_no=NodeAsFloatFast("no",node);
-    string new_form_type=NodeAsStringFast("form_type",node);
-    Qry.CreateVariable("no",otFloat,new_no);
-    Qry.CreateVariable("form_type",otString,new_form_type);
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("pax",otString,NodeAsStringFast("pax",node));
-    Qry.CreateVariable("status",otString,"П");
-    Qry.CreateVariable("pr_lat",otInteger,(int)(NodeAsIntegerFast("pr_lat",node)!=0));
-    Qry.CreateVariable("tickets",otString,NodeAsStringFast("tickets",node));
-    Qry.CreateVariable("prev_no",otString,NodeAsStringFast("prev_no",node));
-    Qry.CreateVariable("airline",otString,NodeAsStringFast("airline",node));
-    Qry.CreateVariable("aircode",otString,NodeAsStringFast("aircode",node));
-    if (!NodeIsNULLFast("flt_no",node,true))
-      Qry.CreateVariable("flt_no",otInteger,NodeAsIntegerFast("flt_no",node));
-    else
-      Qry.CreateVariable("flt_no",otInteger,FNull);
-    Qry.CreateVariable("suffix",otString,NodeAsStringFast("suffix",node,""));
-    Qry.CreateVariable("airp_dep",otString,NodeAsStringFast("airp_dep",node));
-    Qry.CreateVariable("airp_arv",otString,NodeAsStringFast("airp_arv",node));
-    if (!NodeIsNULLFast("ex_amount",node,true))
-      Qry.CreateVariable("ex_amount",otInteger,NodeAsIntegerFast("ex_amount",node));
-    else
-      Qry.CreateVariable("ex_amount",otInteger,FNull);
-    if (!NodeIsNULLFast("ex_weight",node,true))
-      Qry.CreateVariable("ex_weight",otInteger,NodeAsIntegerFast("ex_weight",node));
-    else
-      Qry.CreateVariable("ex_weight",otInteger,FNull);
-    if (!NodeIsNULLFast("bag_type",node))
-      Qry.CreateVariable("bag_type",otInteger,NodeAsIntegerFast("bag_type",node));
-    else
-      Qry.CreateVariable("bag_type",otInteger,FNull);
-    Qry.CreateVariable("bag_name",otString,NodeAsStringFast("bag_name",node));
-    if (!NodeIsNULLFast("value_tax",node,true))
-      Qry.CreateVariable("value_tax",otFloat,NodeAsFloatFast("value_tax",node));
-    else
-      Qry.CreateVariable("value_tax",otFloat,FNull);
-    Qry.CreateVariable("rate",otFloat,NodeAsFloatFast("rate",node));
-    Qry.CreateVariable("rate_cur",otString,NodeAsStringFast("rate_cur",node));
-    Qry.CreateVariable("pay_rate",otFloat,NodeAsFloatFast("pay_rate",node));
-    Qry.CreateVariable("pay_rate_cur",otString,NodeAsStringFast("pay_rate_cur",node));
-    Qry.CreateVariable("pay_type",otString,NodeAsStringFast("pay_type",node));
-    Qry.CreateVariable("pay_doc",otString,NodeAsStringFast("pay_doc",node));
-    Qry.CreateVariable("remarks",otString,NodeAsStringFast("remarks",node));
-    Qry.CreateVariable("issue_date",otDate,FNull);
-    Qry.CreateVariable("issue_place",otString,NodeAsStringFast("issue_place",node));
-    Qry.CreateVariable("issue_user_id",otInteger,reqInfo->user.user_id);
-    try
-    {
-      Qry.Execute();
-    }
-    catch(EOracleError E)
-    {
-      if (E.Code==1)
-      {
-        ostringstream msg;
-        msg.setf(ios::fixed);
-        msg << "Бланк квитанции с номером "
-            << setw(10) << setfill('0') << setprecision(0) << NodeAsFloatFast("no",node)
-            << " уже использован";
-        throw UserException(msg.str());
-      }
-      else
-        throw;
-    };
-
-    NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
-    NewTextChild(resNode,"issue_date",DateTimeToStr(Qry.GetVariableAsDateTime("issue_date")));
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE form_packs SET curr_no=:curr_no+1 "
-      "  WHERE user_id=:user_id AND type=:type; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO form_packs(user_id,curr_no,type) "
-      "    VALUES(:user_id,:curr_no+1,:type); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-    Qry.CreateVariable("curr_no",otFloat,new_no);
-    Qry.CreateVariable("type",otString,new_form_type);
-    Qry.Execute();
-  }
-  else
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "UPDATE bag_receipts "
-      "SET status='А',annul_date=SYSTEM.UTCSYSDATE,annul_user_id=:user_id "
-      "WHERE receipt_id=:receipt_id";
-    Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
-    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-    Qry.Execute();
-    if (Qry.RowsProcessed()<=0)
-      throw UserException("Квитанция не найдена. Обновите данные");
-  };
-
 };
 
 void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -531,69 +356,575 @@ void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 }
 
-void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+//из базы в структуру
+bool PaymentInterface::GetReceipt(int id, TBagReceipt &rcpt)
 {
-  bool pr_lat=NodeAsInteger("pr_lat",reqNode)!=0;
-  string str;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT * FROM bag_receipts WHERE receipt_id=:id";
+  Qry.CreateVariable("id",otInteger,id);
+  Qry.Execute();
 
-  TBaseTableRow &airline = base_tables.get("airlines").get_row("code", NodeAsString("airline",reqNode));
-  str=airline.AsString("code",pr_lat);
-  if (str.empty()) str=NodeAsString("airline",reqNode);
-  NewTextChild(resNode,"carrier",str);
-  str=airline.AsString("short_name",pr_lat);
-  if (str.empty()) str=airline.AsString("name",pr_lat);
-  if (str.empty()) str=airline.AsString("code",pr_lat);
-  if (str.empty()) str=NodeAsString("airline",reqNode);
-  NewTextChild(resNode,"issued_by",str);
+  return GetReceipt(Qry,rcpt);
+};
 
-  TBaseTableRow &airp_dep = base_tables.get("airps").get_row("code", NodeAsString("airp_dep",reqNode));
-  TBaseTableRow &city_dep = base_tables.get("cities").get_row("code", airp_dep.AsString("city"));
-  str=city_dep.AsString("name",pr_lat);
-  if (str.empty()) airp_dep.AsString("name",pr_lat);
-  if (str.empty()) city_dep.AsString("code",pr_lat);
-  if (str.empty()) airp_dep.AsString("code",pr_lat);
-  if (str.empty()) str=NodeAsString("airp_dep",reqNode);
-  NewTextChild(resNode,"from",str);
+//из базы в структуру
+bool PaymentInterface::GetReceipt(TQuery &Qry, TBagReceipt &rcpt)
+{
+  if (Qry.Eof) return false;
+  rcpt.pr_lat=Qry.FieldAsInteger("pr_lat")!=0;
+  rcpt.form_type=Qry.FieldAsString("form_type");
+  rcpt.no=Qry.FieldAsFloat("no");
+  rcpt.pax_name=Qry.FieldAsString("pax_name");
+  rcpt.pax_doc=Qry.FieldAsString("pax_doc");
+  rcpt.service_type=Qry.FieldAsInteger("service_type");
+  if (!Qry.FieldIsNULL("bag_type"))
+    rcpt.bag_type=Qry.FieldAsInteger("bag_type");
+  else
+    rcpt.bag_type=-1;
+  rcpt.bag_name=Qry.FieldAsString("bag_name");
+  rcpt.tickets=Qry.FieldAsString("tickets");
+  rcpt.prev_no=Qry.FieldAsString("prev_no");
+  rcpt.airline=Qry.FieldAsString("airline");
+  rcpt.aircode=Qry.FieldAsString("aircode");
+  if (!Qry.FieldIsNULL("flt_no"))
+    rcpt.flt_no=Qry.FieldAsInteger("flt_no");
+  else
+    rcpt.flt_no=-1;
+  rcpt.suffix=Qry.FieldAsString("suffix");
+  rcpt.airp_dep=Qry.FieldAsString("airp_dep");
+  rcpt.airp_arv=Qry.FieldAsString("airp_arv");
+  if (!Qry.FieldIsNULL("ex_amount"))
+    rcpt.ex_amount=Qry.FieldAsInteger("ex_amount");
+  else
+    rcpt.ex_amount=-1;
+  if (!Qry.FieldIsNULL("ex_weight"))
+    rcpt.ex_weight=Qry.FieldAsInteger("ex_weight");
+  else
+    rcpt.ex_weight=-1;
+  if (!Qry.FieldIsNULL("value_tax"))
+    rcpt.value_tax=Qry.FieldAsFloat("value_tax");
+  else
+    rcpt.value_tax=-1.0;
+  rcpt.rate=Qry.FieldAsFloat("rate");
+  rcpt.rate_cur=Qry.FieldAsString("rate_cur");
+  rcpt.exch_rate=Qry.FieldAsInteger("exch_rate");
+  rcpt.exch_pay_rate=Qry.FieldAsFloat("exch_pay_rate");
+  rcpt.pay_rate_cur=Qry.FieldAsString("pay_rate_cur");
+  rcpt.pay_form=Qry.FieldAsString("pay_form");
+  rcpt.remarks=Qry.FieldAsString("remarks");
+  rcpt.issue_date=Qry.FieldAsDateTime("issue_date");
+  rcpt.issue_desk=Qry.FieldAsString("issue_desk");
+  rcpt.issue_place=Qry.FieldAsString("issue_place");
+  if (!Qry.FieldIsNULL("annul_date"))
+    rcpt.annul_date=Qry.FieldAsDateTime("annul_date");
+  else
+    rcpt.annul_date=NoExists;
+  rcpt.annul_desk=Qry.FieldAsString("annul_desk");
+  return true;
+};
 
-  TBaseTableRow &airp_arv = base_tables.get("airps").get_row("code", NodeAsString("airp_arv",reqNode));
-  TBaseTableRow &city_arv = base_tables.get("cities").get_row("code", airp_arv.AsString("city"));
-  str=city_arv.AsString("name",pr_lat);
-  if (str.empty()) airp_arv.AsString("name",pr_lat);
-  if (str.empty()) city_arv.AsString("code",pr_lat);
-  if (str.empty()) airp_arv.AsString("code",pr_lat);
-  if (str.empty()) str=NodeAsString("airp_arv",reqNode);
-  NewTextChild(resNode,"to",str);
-
+//из структуры в базу
+int PaymentInterface::PutReceipt(TBagReceipt &rcpt, int grp_id)
+{
   TReqInfo *reqInfo = TReqInfo::Instance();
 
-  TDateTime d;
-  if (GetNode("issue_date",reqNode)!=NULL)
-    d=NodeAsDateTime("issue_date",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  SELECT id__seq.nextval,SYSTEM.UTCSYSDATE INTO :receipt_id,:issue_date FROM dual; "
+    "  INSERT INTO bag_receipts "
+    "        (receipt_id,grp_id,status,pr_lat,form_type,no,pax_name,pax_doc,service_type,bag_type,bag_name, "
+    "         tickets,prev_no,airline,aircode,flt_no,suffix,airp_dep,airp_arv,ex_amount,ex_weight,value_tax, "
+    "         rate,rate_cur,exch_rate,exch_pay_rate,pay_rate_cur,pay_form,remarks, "
+    "         issue_date,issue_place,issue_user_id,issue_desk) "
+    "  VALUES(:receipt_id,:grp_id,:status,:pr_lat,:form_type,:no,:pax_name,:pax_doc,:service_type,:bag_type,:bag_name, "
+    "         :tickets,:prev_no,:airline,:aircode,:flt_no,:suffix,:airp_dep,:airp_arv,:ex_amount,:ex_weight,:value_tax, "
+    "         :rate,:rate_cur,:exch_rate,:exch_pay_rate,:pay_rate_cur,:pay_form,:remarks, "
+    "         :issue_date,:issue_place,:issue_user_id,:issue_desk); "
+    "END;";
+  Qry.CreateVariable("receipt_id",otInteger,FNull);
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.CreateVariable("status",otString,"П");
+  Qry.CreateVariable("pr_lat",otInteger,(int)rcpt.pr_lat);
+  Qry.CreateVariable("form_type",otString,rcpt.form_type);
+  Qry.CreateVariable("no",otFloat,rcpt.no);
+  Qry.CreateVariable("pax_name",otString,rcpt.pax_name);
+  Qry.CreateVariable("pax_doc",otString,rcpt.pax_doc);
+  Qry.CreateVariable("service_type",otInteger,rcpt.service_type);
+  if (rcpt.bag_type!=-1)
+    Qry.CreateVariable("bag_type",otInteger,rcpt.bag_type);
   else
-    d=NowUTC();
-  NewTextChild(resNode,"issue_date",DateTimeToStr(d));
-  d=UTCToLocal(d,reqInfo->desk.tz_region);
-  NewTextChild(resNode,"issue_date_local",DateTimeToStr(d,"ddmmmyy",(int)pr_lat));
+    Qry.CreateVariable("bag_type",otInteger,FNull);
+  Qry.CreateVariable("bag_name",otString,rcpt.bag_name);
+  Qry.CreateVariable("tickets",otString,rcpt.tickets);
+  Qry.CreateVariable("prev_no",otString,rcpt.prev_no);
 
-  if (GetNode("annul_date",reqNode)!=NULL)
+  Qry.CreateVariable("airline",otString,rcpt.airline);
+  Qry.CreateVariable("aircode",otString,rcpt.aircode);
+  if (rcpt.flt_no!=-1)
+    Qry.CreateVariable("flt_no",otInteger,rcpt.flt_no);
+  else
+    Qry.CreateVariable("flt_no",otInteger,FNull);
+  Qry.CreateVariable("suffix",otString,rcpt.suffix);
+  Qry.CreateVariable("airp_dep",otString,rcpt.airp_dep);
+  Qry.CreateVariable("airp_arv",otString,rcpt.airp_arv);
+  if (rcpt.ex_amount!=-1)
+    Qry.CreateVariable("ex_amount",otInteger,rcpt.ex_amount);
+  else
+    Qry.CreateVariable("ex_amount",otInteger,FNull);
+  if (rcpt.ex_weight!=-1)
+    Qry.CreateVariable("ex_weight",otInteger,rcpt.ex_weight);
+  else
+    Qry.CreateVariable("ex_weight",otInteger,FNull);
+  if (rcpt.value_tax!=-1.0)
+    Qry.CreateVariable("value_tax",otFloat,rcpt.value_tax);
+  else
+    Qry.CreateVariable("value_tax",otFloat,FNull);
+  Qry.CreateVariable("rate",otFloat,rcpt.rate);
+  Qry.CreateVariable("rate_cur",otString,rcpt.rate_cur);
+  if (rcpt.exch_rate!=-1)
+    Qry.CreateVariable("exch_rate",otInteger,rcpt.exch_rate);
+  else
+    Qry.CreateVariable("exch_rate",otInteger,FNull);
+  if (rcpt.exch_pay_rate!=-1.0)
+    Qry.CreateVariable("exch_pay_rate",otFloat,rcpt.exch_pay_rate);
+  else
+    Qry.CreateVariable("exch_pay_rate",otFloat,FNull);
+  Qry.CreateVariable("pay_rate_cur",otString,rcpt.pay_rate_cur);
+  Qry.CreateVariable("pay_form",otString,rcpt.pay_form);
+  Qry.CreateVariable("remarks",otString,rcpt.remarks);
+  Qry.CreateVariable("issue_date",otDate,rcpt.issue_date);
+  Qry.CreateVariable("issue_place",otString,rcpt.issue_place);
+  Qry.CreateVariable("issue_user_id",otInteger,reqInfo->user.user_id);
+  Qry.CreateVariable("issue_desk",otString,rcpt.issue_desk);
+  try
   {
-    d=NodeAsDateTime("annul_date",reqNode);
-    d=UTCToLocal(d,reqInfo->desk.tz_region);
-    NewTextChild(resNode,"annul_date_local",DateTimeToStr(d,"ddmmmyy",(int)pr_lat));
-  };
-
-  ostringstream issue_place;
-  vector<string> validator;
-
-  get_validator(validator);
-
-  for(vector<string>::iterator i=validator.begin();i!=validator.end();i++)
+    Qry.Execute();
+  }
+  catch(EOracleError E)
   {
-    issue_place << *i << endl;
+    if (E.Code==1)
+    {
+      ostringstream msg;
+      msg.setf(ios::fixed);
+      msg << "Бланк квитанции с номером "
+          << setw(10) << setfill('0') << setprecision(0) << rcpt.no
+          << " уже использован";
+      throw UserException(msg.str());
+    }
+    else
+      throw;
   };
-  NewTextChild(resNode,"issue_place",issue_place.str());
-
-
+  return Qry.GetVariableAsInteger("receipt_id");
 };
+
+
+//из структуры в XML
+void PaymentInterface::PutReceipt(TBagReceipt &rcpt, int rcpt_id, xmlNodePtr resNode)
+{
+  if (resNode==NULL) return;
+
+  xmlNodePtr rcptNode=NewTextChild(resNode,"receipt");
+
+  if (rcpt_id!=-1)
+    NewTextChild(rcptNode,"id",rcpt_id);
+  NewTextChild(rcptNode,"pr_lat",(int)rcpt.pr_lat);
+  NewTextChild(rcptNode,"form_type",rcpt.form_type);
+  NewTextChild(rcptNode,"no",rcpt.no);
+  NewTextChild(rcptNode,"pax_name",rcpt.pax_name);
+  NewTextChild(rcptNode,"pax_doc",rcpt.pax_doc);
+  NewTextChild(rcptNode,"service_type",rcpt.service_type);
+  if (rcpt.bag_type!=-1)
+    NewTextChild(rcptNode,"bag_type",rcpt.bag_type);
+  else
+    NewTextChild(rcptNode,"bag_type");
+  NewTextChild(rcptNode,"bag_name",rcpt.bag_name,"");
+  NewTextChild(rcptNode,"tickets",rcpt.tickets);
+  NewTextChild(rcptNode,"prev_no",rcpt.prev_no,"");
+  NewTextChild(rcptNode,"airline",rcpt.airline);
+  NewTextChild(rcptNode,"aircode",rcpt.aircode);
+  if (rcpt.flt_no!=-1)
+  {
+    NewTextChild(rcptNode,"flt_no",rcpt.flt_no);
+    NewTextChild(rcptNode,"suffix",rcpt.suffix);
+  };
+  NewTextChild(rcptNode,"airp_dep",rcpt.airp_dep);
+  NewTextChild(rcptNode,"airp_arv",rcpt.airp_arv);
+  NewTextChild(rcptNode,"ex_amount",rcpt.ex_amount,-1);
+  NewTextChild(rcptNode,"ex_weight",rcpt.ex_weight,-1);
+  NewTextChild(rcptNode,"value_tax",rcpt.value_tax,-1.0);
+  NewTextChild(rcptNode,"rate",rcpt.rate);
+  NewTextChild(rcptNode,"rate_cur",rcpt.rate_cur);
+  NewTextChild(rcptNode,"exch_rate",rcpt.exch_rate,-1);
+  NewTextChild(rcptNode,"exch_pay_rate",rcpt.exch_pay_rate,-1.0);
+  NewTextChild(rcptNode,"pay_rate_cur",rcpt.pay_rate_cur);
+  NewTextChild(rcptNode,"pay_form",rcpt.pay_form);
+  NewTextChild(rcptNode,"remarks",rcpt.remarks,"");
+  NewTextChild(rcptNode,"issue_date",DateTimeToStr(rcpt.issue_date));
+  NewTextChild(rcptNode,"issue_place",rcpt.issue_place);
+  if (rcpt.annul_date!=NoExists)
+    NewTextChild(rcptNode,"annul_date",DateTimeToStr(rcpt.annul_date));
+};
+
+double PaymentInterface::GetCurrNo(int user_id, string form_type)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT curr_no "
+    "FROM form_types,form_packs "
+    "WHERE form_types.code=form_packs.type(+) AND "
+    "      form_types.code=:form_type AND "
+    "      form_packs.user_id(+)=:user_id";
+  Qry.CreateVariable("form_type",otString,form_type);
+  Qry.CreateVariable("user_id",otInteger,user_id);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw UserException("Печать установленного бланка не производится");
+  if (!Qry.FieldIsNULL("curr_no"))
+    return Qry.FieldAsFloat("curr_no");
+  else
+    return -1.0;
+};
+
+//из XML в структуру
+void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  xmlNodePtr rcptNode=NodeAsNode("receipt",reqNode);
+
+  int grp_id=NodeAsInteger("grp_id",reqNode);
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT points.airline,points.flt_no,points.suffix, "
+    "       pax_grp.airp_dep,pax_grp.airp_arv, "
+    "       ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id "
+    "FROM points,pax_grp "
+    "WHERE points.point_id=pax_grp.point_dep AND "
+    "      pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw UserException("Информация по рейсу или пассажиру изменена. Обновите данные");
+  //int pax_id=Qry.FieldAsInteger("pax_id");
+
+  rcpt.airline=Qry.FieldAsString("airline");
+  rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
+  rcpt.flt_no=Qry.FieldAsInteger("flt_no");
+  rcpt.suffix=Qry.FieldAsString("suffix");
+  rcpt.airp_dep=Qry.FieldAsString("airp_dep");
+  rcpt.airp_arv=Qry.FieldAsString("airp_arv");
+  string city_dep=base_tables.get("airps").get_row("code", rcpt.airp_dep).AsString("city");
+  string city_arv=base_tables.get("airps").get_row("code", rcpt.airp_arv).AsString("city");
+  string country_dep=base_tables.get("cities").get_row("code", city_dep).AsString("country");
+  string country_arv=base_tables.get("cities").get_row("code", city_arv).AsString("country");
+  rcpt.pr_lat=country_dep!="РФ" || country_arv!="РФ";
+  rcpt.form_type=NodeAsString("form_type",rcptNode);
+  if (rcpt.form_type.empty())
+    throw UserException("Не установлен тип бланка");
+
+  if (GetNode("no",rcptNode)==NULL)
+  {
+     //Превью квитанции
+    rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
+    rcpt.pay_form="НАЛ";
+  }
+  else
+  {
+     //Запись квитанции
+    rcpt.no=NodeAsFloat("no",rcptNode);
+    rcpt.bag_name=NodeAsString("bag_name",rcptNode);
+    rcpt.pay_form=NodeAsString("pay_form",rcptNode);
+  };
+  rcpt.pax_name=NodeAsString("pax_name",rcptNode);
+  rcpt.pax_doc=NodeAsString("pax_doc",rcptNode);
+  rcpt.service_type=NodeAsInteger("service_type",rcptNode);
+  if (!NodeIsNULL("bag_type",rcptNode))
+    rcpt.bag_type=NodeAsInteger("bag_type",rcptNode);
+  else
+    rcpt.bag_type=-1;
+
+  rcpt.tickets=NodeAsString("tickets",rcptNode);
+  rcpt.prev_no=NodeAsString("prev_no",rcptNode);
+  if (rcpt.service_type!=3)
+  {
+    rcpt.ex_amount=NodeAsInteger("ex_amount",rcptNode);
+    rcpt.ex_weight=NodeAsInteger("ex_weight",rcptNode);
+    rcpt.value_tax=-1.0;
+  }
+  else
+  {
+    rcpt.ex_amount=-1;
+    rcpt.ex_weight=-1;
+    rcpt.value_tax=NodeAsFloat("value_tax",rcptNode);
+  };
+  rcpt.rate=NodeAsFloat("rate",rcptNode);
+  rcpt.rate_cur=NodeAsString("rate_cur",rcptNode);
+  rcpt.pay_rate_cur=NodeAsString("pay_rate_cur",rcptNode);
+  if (rcpt.rate_cur!=rcpt.pay_rate_cur)
+  {
+    rcpt.exch_rate=NodeAsInteger("exch_rate",rcptNode);
+    rcpt.exch_pay_rate=NodeAsFloat("exch_pay_rate",rcptNode);
+  }
+  else
+  {
+    rcpt.exch_rate=-1;
+    rcpt.exch_pay_rate=-1.0;
+  };
+  rcpt.remarks=""; //формируется налету
+
+  rcpt.issue_date=NowUTC();
+  rcpt.issue_desk=reqInfo->desk.code;
+  rcpt.issue_place=get_validator();
+
+  rcpt.annul_date=NoExists;
+  rcpt.annul_desk="";
+};
+
+void PaymentInterface::PutReceiptFields(TBagReceipt &rcpt, PrintDataParser &parser, xmlNodePtr node)
+{
+  if (node==NULL) return;
+
+  //формируем в ответ образ телеграммы
+  xmlNodePtr fieldsNode=NewTextChild(node,"fields");
+  NewTextChild(fieldsNode,"pax_doc",parser.GetTagAsString("pax_doc"));
+  NewTextChild(fieldsNode,"pax_name",parser.GetTagAsString("pax_name"));
+  NewTextChild(fieldsNode,"bag_name",parser.GetTagAsString("bag_name"));
+  NewTextChild(fieldsNode,"amount_figures",parser.GetTagAsString("amount_figures"));
+  NewTextChild(fieldsNode,"tickets",parser.GetTagAsString("tickets"));
+  NewTextChild(fieldsNode,"prev_no",parser.GetTagAsString("prev_no"));
+  NewTextChild(fieldsNode,"pay_form",parser.GetTagAsString("pay_form"));
+  NewTextChild(fieldsNode,"aircode",parser.GetTagAsString("aircode"));
+  NewTextChild(fieldsNode,"issue_place1",parser.GetTagAsString("issue_place1"));
+  NewTextChild(fieldsNode,"issue_place2",parser.GetTagAsString("issue_place2"));
+  NewTextChild(fieldsNode,"issue_place3",parser.GetTagAsString("issue_place3"));
+  NewTextChild(fieldsNode,"issue_place4",parser.GetTagAsString("issue_place4"));
+  if (!rcpt.pr_lat)
+  {
+    NewTextChild(fieldsNode,"service_type",parser.GetTagAsString("service_type"));
+    NewTextChild(fieldsNode,"amount_letters",parser.GetTagAsString("amount_letters"));
+    NewTextChild(fieldsNode,"currency",parser.GetTagAsString("currency"));
+    NewTextChild(fieldsNode,"issue_date",parser.GetTagAsString("issue_date_str"));
+    NewTextChild(fieldsNode,"to",parser.GetTagAsString("to"));
+    NewTextChild(fieldsNode,"remarks1",parser.GetTagAsString("remarks1"));
+    NewTextChild(fieldsNode,"remarks2",parser.GetTagAsString("remarks2"));
+    NewTextChild(fieldsNode,"exchange_rate",parser.GetTagAsString("exchange_rate"));
+    NewTextChild(fieldsNode,"total",parser.GetTagAsString("total"));
+    NewTextChild(fieldsNode,"airline",parser.GetTagAsString("airline"));
+  }
+  else
+  {
+    NewTextChild(fieldsNode,"service_type",parser.GetTagAsString("service_type_lat"));
+    NewTextChild(fieldsNode,"amount_letters",parser.GetTagAsString("amount_letters_lat"));
+    NewTextChild(fieldsNode,"currency",parser.GetTagAsString("currency_lat"));
+    NewTextChild(fieldsNode,"issue_date",parser.GetTagAsString("issue_date_str_lat"));
+    NewTextChild(fieldsNode,"to",parser.GetTagAsString("to_lat"));
+    NewTextChild(fieldsNode,"remarks1",parser.GetTagAsString("remarks1_lat"));
+    NewTextChild(fieldsNode,"remarks2",parser.GetTagAsString("remarks2_lat"));
+    NewTextChild(fieldsNode,"exchange_rate",parser.GetTagAsString("exchange_rate_lat"));
+    NewTextChild(fieldsNode,"total",parser.GetTagAsString("total_lat"));
+    NewTextChild(fieldsNode,"airline",parser.GetTagAsString("airline_lat"));
+  };
+
+  if (rcpt.no!=-1.0)
+  {
+    ostringstream no;
+    no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+    NewTextChild(fieldsNode,"no",no.str());
+  }
+  else
+  {
+    NewTextChild(fieldsNode,"no");
+  };
+  NewTextChild(fieldsNode,"annul_str");
+};
+
+void PaymentInterface::PutReceiptFields(int id, xmlNodePtr node)
+{
+  if (node==NULL) return;
+
+  TBagReceipt rcpt;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT * FROM bag_receipts WHERE receipt_id=:id";
+  Qry.CreateVariable("id",otInteger,id);
+  Qry.Execute();
+  if (Qry.Eof)
+    throw UserException("Квитанция не найдена. Обновите данные");
+
+  GetReceipt(Qry,rcpt);
+  PrintDataParser parser(rcpt);
+  PutReceiptFields(rcpt,parser,node);
+
+  string status=Qry.FieldAsString("status");
+
+  if (rcpt.annul_date!=NoExists && !rcpt.annul_desk.empty())
+  {
+    TDateTime annul_date_local = UTCToLocal(rcpt.annul_date, CityTZRegion(DeskCity(rcpt.annul_desk)));
+    ostringstream annul_str;
+    if (status=="З")
+      annul_str << "ЗАМЕНА " << DateTimeToStr(annul_date_local, (string)"ddmmmyy", false);
+    if (status=="А")
+      annul_str << "ВОЗВРАТ " << DateTimeToStr(annul_date_local, (string)"ddmmmyy", false);
+    ReplaceTextChild(NodeAsNode("fields",node),"annul_str",annul_str.str()); //на русском языке
+  };
+};
+
+void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (GetNode("receipt/id",reqNode)==NULL)
+  {
+    TBagReceipt rcpt;
+    GetReceipt(reqNode,rcpt);
+    PrintDataParser parser(rcpt);
+    PutReceiptFields(rcpt,parser,resNode);
+  }
+  else
+  {
+    PutReceiptFields(NodeAsInteger("receipt/id",reqNode),resNode);
+  };
+};
+
+void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TBagReceipt rcpt;
+  int rcpt_id=NodeAsInteger("receipt/id",reqNode);
+
+  if (!GetReceipt(rcpt_id,rcpt))
+    throw UserException("Заменяемая квитанция не найдена. Обновите данные");
+  rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
+  rcpt.issue_date=NowUTC();
+  rcpt.issue_desk=reqInfo->desk.code;
+  rcpt.issue_place=get_validator();
+  rcpt.annul_date=NoExists;
+  rcpt.annul_desk="";
+
+  PrintDataParser parser(rcpt);
+  PutReceiptFields(rcpt,parser,resNode); //образ квитанции
+};
+
+void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  int point_dep=NodeAsInteger("point_dep",reqNode);
+  int grp_id=NodeAsInteger("grp_id",reqNode);
+  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+  NewTextChild(resNode,"tid",tid);
+
+  int rcpt_id=NodeAsInteger("receipt/id",reqNode);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "UPDATE bag_receipts "
+    "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
+    "WHERE receipt_id=:receipt_id AND status=:old_status";
+  Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
+  Qry.CreateVariable("old_status",otString,"П");
+  Qry.CreateVariable("new_status",otString,"А");
+  Qry.CreateVariable("annul_date",otDate,NowUTC());
+  Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+  Qry.Execute();
+  if (Qry.RowsProcessed()<=0)
+    throw UserException("Аннулируемая квитанция была изменена. Обновите данные");
+};
+
+void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  int point_dep=NodeAsInteger("point_dep",reqNode);
+  int grp_id=NodeAsInteger("grp_id",reqNode);
+  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+  NewTextChild(resNode,"tid",tid);
+
+  TQuery Qry(&OraSession);
+
+  TBagReceipt rcpt;
+  int rcpt_id;
+  if (GetNode("receipt/no",reqNode)!=NULL)
+  {
+    if (GetNode("receipt/id",reqNode)==NULL)
+    {
+      //печать новой квитанции
+      GetReceipt(reqNode,rcpt);
+    }
+    else
+    {
+      //замена бланка
+      rcpt_id=NodeAsInteger("receipt/id",reqNode);
+
+      if (!GetReceipt(rcpt_id,rcpt))
+        throw UserException("Заменяемая квитанция не найдена. Обновите данные");
+      rcpt.no=NodeAsFloat("receipt/no",reqNode);
+      rcpt.issue_date=NowUTC();
+      rcpt.issue_desk=reqInfo->desk.code;
+      rcpt.issue_place=get_validator();
+      rcpt.annul_date=NoExists;
+      rcpt.annul_desk="";
+
+      Qry.Clear();
+      Qry.SQLText=
+        "UPDATE bag_receipts "
+        "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
+        "WHERE receipt_id=:receipt_id AND status=:old_status";
+      Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
+      Qry.CreateVariable("old_status",otString,"П");
+      Qry.CreateVariable("new_status",otString,"З");
+      Qry.CreateVariable("annul_date",otDate,rcpt.issue_date);
+      Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+      Qry.CreateVariable("desk",otString,rcpt.issue_desk);
+      Qry.Execute();
+      if (Qry.RowsProcessed()<=0)
+        throw UserException("Заменяемая квитанция была изменена. Обновите данные");
+    };
+
+    rcpt_id=PutReceipt(rcpt,grp_id);
+
+    //изменяем номер бланка в пачке
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  UPDATE form_packs SET curr_no=:curr_no+1 "
+      "  WHERE user_id=:user_id AND type=:type; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO form_packs(user_id,curr_no,type) "
+      "    VALUES(:user_id,:curr_no+1,:type); "
+      "  END IF; "
+      "END;";
+    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+    Qry.CreateVariable("curr_no",otFloat,rcpt.no);
+    Qry.CreateVariable("type",otString,rcpt.form_type);
+    Qry.Execute();
+  }
+  else
+  {
+    //повтор печати
+    rcpt_id=NodeAsInteger("receipt/id",reqNode);
+    if (!GetReceipt(rcpt_id,rcpt))
+      throw UserException("Квитанция не найдена. Обновите данные");
+  };
+
+  //вывод
+  PutReceipt(rcpt,rcpt_id,resNode); //квитанция
+  PrintDataParser parser(rcpt);
+  PutReceiptFields(rcpt,parser,resNode); //образ квитанции
+  PrintInterface::GetPrintDataBR(parser,reqNode,resNode); //последовательность для принтера
+};
+
+
+
+
+
+
+
 
 

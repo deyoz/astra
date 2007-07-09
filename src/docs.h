@@ -30,6 +30,8 @@ public:
      AddEvent("GetFltInfo",evHandle);
      evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetSegList);
      AddEvent("GetSegList",evHandle);
+     evHandle=JxtHandler<DocsInterface>::CreateHandler(&DocsInterface::GetFonts);
+     AddEvent("GetFonts",evHandle);          
   };
 
   void SaveForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -38,6 +40,7 @@ public:
   void RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+void GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);     
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
