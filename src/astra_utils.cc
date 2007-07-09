@@ -579,6 +579,22 @@ string& CityTZRegion(string city)
   return row.region;
 };
 
+string DeskCity(string desk)
+{
+  if (desk.empty()) throw Exception("Desk not specified");
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT desk_grp.city "
+    "FROM desk_grp,desks "
+    "WHERE desks.code = :desk AND desks.grp_id = desk_grp.grp_id";
+  Qry.CreateVariable("desk", otString, desk);
+  Qry.Execute();
+  if(Qry.Eof)
+    throw UserException("Пульт %s не найден", desk.c_str());
+  return Qry.FieldAsString("city");
+};
+
 TDateTime UTCToLocal(TDateTime d, string region)
 {
   if (region.empty()) throw Exception("Region not specified",region.c_str());

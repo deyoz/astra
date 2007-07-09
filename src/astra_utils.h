@@ -161,6 +161,7 @@ std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
 std::string& AirpTZRegion(std::string airp);
 std::string& CityTZRegion(std::string city);
+std::string DeskCity(std::string desk);
 
 boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
