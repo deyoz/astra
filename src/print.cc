@@ -1633,6 +1633,12 @@ string PrintDataParser::parse_tag(int offset, string tag)
 void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 {
     TQuery Qry(&OraSession);
+    Qry.SQLText = "select format from prn_types where code = :prn_type";
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
+    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
+    Qry.Clear();
     Qry.SQLText = "select point_dep AS point_id, class from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
@@ -1678,7 +1684,11 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
 
-    if(Qry.Eof||Qry.FieldIsNULL("data"))
+
+ProgTrace( TRACE5, "prn_format=%d", prn_format );
+    if(Qry.Eof||Qry.FieldIsNULL("data")||
+    	 Qry.FieldIsNULL( "form" ) && (prn_format==pfBTP || prn_format==pfATB || prn_format==pfEPL2)
+    	)
       throw UserException("Печать пос. талона на выбранный принтер не производится");
 
     Pectab = Qry.FieldAsString("form");
