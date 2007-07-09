@@ -263,7 +263,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     string condition;
     if(strcmp((char *)reqNode->name, "PaxByPaxId") == 0)
     {
-      hall=NodeAsInteger("hall",reqNode);
+      if (!NodeIsNULL("hall",reqNode))
+        hall=NodeAsInteger("hall",reqNode);
       //получим point_id и reg_no
       Qry.Clear();
       Qry.SQLText=
@@ -287,7 +288,26 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.Clear();
         if (TripsInterface::readTripHeader( point_id, dataNode ))
         {
+          //проверим hall
+          if (hall!=-1)
+          {
+            TQuery HallQry(&OraSession);
+            HallQry.Clear();
+            HallQry.SQLText=
+              "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
+              "FROM halls2,points "
+              "WHERE points.point_id=:point_id AND halls2.id(+)=:hall AND "
+              "      points.airp=halls2.airp(+)";
+            HallQry.CreateVariable("point_id",otInteger,point_id);
+            HallQry.CreateVariable("hall",otInteger,hall);
+            HallQry.Execute();
+            if (HallQry.Eof ||
+                strcmp(HallQry.FieldAsString("hall_airp"),
+                       HallQry.FieldAsString("flt_airp"))!=0) hall=-1;
+          };
+
           readTripCounters( point_id, dataNode );
+          readTripData( point_id, dataNode );
         }
         else
         {
@@ -311,7 +331,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     else if(strcmp((char *)reqNode->name, "PaxByRegNo") == 0)
     {
-      hall=NodeAsInteger("hall",reqNode);
+      if (!NodeIsNULL("hall",reqNode))
+        hall=NodeAsInteger("hall",reqNode);
       reg_no=NodeAsInteger("reg_no",reqNode);
       condition+=" AND reg_no=:reg_no ";
       Qry.Clear();
@@ -439,6 +460,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         else
         {
+          if (hall==-1)
+          {
+            if(reqInfo->screen.name == "BRDBUS.EXE")
+              showErrorMessage("Не указан зал посадки");
+            else
+              showErrorMessage("Не указан зал досмотра");
+            readTripCounters(point_id,dataNode);
+            return;
+          };
+
           bool pr_exam_with_brd=false;
           bool pr_exam=false;
           bool pr_check_pay=false;
