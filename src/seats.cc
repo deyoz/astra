@@ -1745,15 +1745,15 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
   p.Clear();
   tst();
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT points.airline,pax_grp.grp_id,pax.pax_id,pax.reg_no,surname,name, "\
-                "       seat_no,prev_seat_no,class,cls_grp.code subclass,seats,pax.tid,step "\
-                " FROM pax_grp,pax, cls_grp, "\
+  Qry.SQLText = "SELECT points.airline,pax_grp.grp_id,pax.pax_id,pax.reg_no,surname,pax.name, "\
+                "       seat_no,prev_seat_no,pax_grp.class,cls_grp.code subclass,seats,pax.tid,step "\
+                " FROM pax_grp,pax, cls_grp, points, "\
                 "( SELECT COUNT(*) step, pax_id FROM pax_rem "\
                 "   WHERE rem_code = 'STCR' "\
                 "  GROUP BY pax_id ) a "\
                 "WHERE pax_grp.grp_id=pax.grp_id AND "\
-                "      point_dep=:point_id AND "\
-                "      points.point_id = point_dep AND "\
+                "      pax_grp.point_dep=:point_id AND "\
+                "      points.point_id = pax_grp.point_dep AND "\
                 "      pax_grp.class_grp = cls_grp.id AND "\
                 "      pax.pr_brd IS NOT NULL AND "\
                 "      seats > 0 AND "\
