@@ -1891,6 +1891,11 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TQuery Qry(&OraSession);
+  TQuery DelQry(&OraSession);
+  DelQry.SQLText = 
+   " UPDATE points SET point_num=point_num-1 WHERE point_num<=0-:point_num AND move_id=:move_id AND pr_del=-1 ";
+  DelQry.DeclareVariable( "move_id", otInteger );
+  DelQry.DeclareVariable( "point_num", otInteger );    
 	map<string,string> regions;
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	bool canExcept = NodeAsInteger( "canexcept", node );
@@ -2214,7 +2219,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.CreateVariable( "reference", otString, reference );
     Qry.Execute();
-    reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
+    //reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
   }
   TDest2 old_dest;
   bool ch_dests = false;
@@ -2245,8 +2250,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     		id->point_id = Qry.FieldAsInteger( "point_id" );
     	}
     }
-    else
+    else {
     	point_num++;
+    }
 /* !!! */
  		if ( id == dests.begin() ) {
     	  first_point = id->point_id;
@@ -2374,19 +2380,21 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  if ( id->craft != old_dest.craft ) {
   	  	if ( !old_dest.craft.empty() ) {
   	  	  id->remark += " изм. типа ВС с " + old_dest.craft;
-  	  	  reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft, evtDisp, move_id, id->point_id );
+  	  	  if ( !id->craft.empty() )
+  	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
-  	  	else {
-  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft, evtDisp, move_id, id->point_id );
+  	  	else {  	  		
+  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  }
   	  if ( id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
   	  	  id->remark += " изм. борта с " + old_dest.bort;
-  	  	  reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort, evtDisp, move_id, id->point_id );
+  	  	  if ( !id->bort.empty() )
+  	  	    reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  	else {
-  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort, evtDisp, move_id, id->point_id );
+  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  }
   	  if ( id->pr_del != old_dest.pr_del ) {
@@ -2396,8 +2404,15 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  		if ( id->pr_del == 0 )
 	  	  		reqInfo->MsgToLog( string( "Возврат пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  	else
-	  	  		if ( id->pr_del == -1 )
+	  	  		if ( id->pr_del == -1 ) {
+          		DelQry.SetVariable( "move_id", move_id );
+    	      	DelQry.SetVariable( "point_num", id->point_num );
+    		      DelQry.Execute();	  	  			
+    		      tst();
+    	      	id->point_num = 0-id->point_num;	  	  			    		      
+    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );    	      	
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+	  	  		}
   	  }
 
   	  Qry.Clear();

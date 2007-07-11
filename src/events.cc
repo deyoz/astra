@@ -22,37 +22,6 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     xmlNodePtr arx_date = ( GetNode( "arx_date", reqNode ) );
-    Qry.Clear();
-    double f=NoExists;
-    if ( arx_date ) {
-      Qry.SQLText=
-          "SELECT arx_events.type type, msg, time, id1 AS point_id, "
-          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
-          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
-          "       ev_user, station, ev_order "
-          "FROM arx_events "
-          "WHERE part_key>=:arx_date AND DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id "
-          " ORDER BY ev_order";    	
-  	  modf( (double)NodeAsDateTime( arx_date ), &f );
-  	  f=f-2;
-  	  Qry.CreateVariable( "arx_date", otDate, f );
-          
-    }
-    else
-      Qry.SQLText=
-          "SELECT events.type type, msg, time, id1 AS point_id, "
-          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
-          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
-          "       ev_user, station, ev_order "
-          "FROM events "
-          "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
-          " ORDER BY ev_order";
-    //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
-    int point_id = NodeAsInteger("point_id",reqNode);
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
     xmlNodePtr etNode = GetNode( "EventsTypes", reqNode );
     vector<string> eventsTypes;
     if ( etNode ) {
@@ -61,7 +30,62 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             eventsTypes.push_back( NodeAsString( etNode->children ) );
             etNode = etNode->next;
         }
+    }    
+    Qry.Clear();
+    double f=NoExists;
+    int point_id = NodeAsInteger("point_id",reqNode);    
+    int move_id = NoExists;
+    if ( find( eventsTypes.begin(), eventsTypes.end(), EncodeEventType(ASTRA::evtDisp) ) != eventsTypes.end() ) {
+    	if ( arx_date ) {
+        Qry.SQLText="SELECT move_id FROM arx_points WHERE part_key>=:arx_date AND point_id=:point_id";
+  	    modf( (double)NodeAsDateTime( arx_date ), &f );
+  	    f=f-2;        
+        Qry.CreateVariable( "arx_date", otDate, f );
+    	}
+    	else {
+        Qry.SQLText="SELECT move_id FROM points WHERE point_id=:point_id";
+    	}
+      Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.Execute();
+      if ( Qry.RowCount() )
+      	move_id = Qry.FieldAsInteger( "move_id" );    	
     }
+    
+    Qry.Clear();    
+    if ( arx_date ) {
+      Qry.SQLText =
+          "SELECT arx_events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM arx_events "
+          "WHERE part_key>=:arx_date AND "
+          "       ( DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id OR "
+          "         DECODE(type,:evtDisp,arx_events.id1,NULL)=:move_id ) "
+          " ORDER BY ev_order";    	
+  	  modf( (double)NodeAsDateTime( arx_date ), &f );
+  	  f=f-2;
+  	  Qry.CreateVariable( "arx_date", otDate, f );          
+    }
+    else
+      Qry.SQLText=
+          "SELECT events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM events "
+          "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id OR "
+          "      DECODE(type,:evtDisp,events.id1,NULL)=:move_id "
+          " ORDER BY ev_order";
+    //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
+    if ( move_id > NoExists )
+    	Qry.CreateVariable("move_id",otInteger,move_id);
+    else
+    	Qry.CreateVariable("move_id",otInteger,FNull);
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
 
     /*  Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
         Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
