@@ -917,7 +917,10 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   PutReceipt(rcpt,rcpt_id,resNode); //квитанция
   PrintDataParser parser(rcpt);
   PutReceiptFields(rcpt,parser,resNode); //образ квитанции
-  PrintInterface::GetPrintDataBR(parser,reqNode,resNode); //последовательность для принтера
+  int prn_type=NodeAsInteger("prn_type", reqNode);
+  string data;
+  PrintInterface::GetPrintDataBR(rcpt.form_type,prn_type,parser,data); //последовательность для принтера
+  NewTextChild(resNode, "form", data);
 };
 
 

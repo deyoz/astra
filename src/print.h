@@ -128,7 +128,7 @@ class PrintInterface: public JxtInterface
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        static void GetPrintDataBR(PrintDataParser &parser, xmlNodePtr reqNode, xmlNodePtr resNode);
+        static void GetPrintDataBR(std::string &form_type, int prn_type, PrintDataParser &parser, std::string &Print);
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

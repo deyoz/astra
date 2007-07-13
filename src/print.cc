@@ -2266,20 +2266,42 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 
 
-void PrintInterface::GetPrintDataBR(PrintDataParser &parser, xmlNodePtr reqNode, xmlNodePtr resNode)
+void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataParser &parser, string &Print)
 {
-    int prn_type = NodeAsInteger("prn_type", reqNode);
-
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select data from br_forms where prn_type = :prn_type";
+    Qry.SQLText =
+            "select  "
+            "   br_forms.data  "
+            "from  "
+            "   br_forms, "
+            "   ( "
+            "    select "
+            "        form_type, "
+            "        prn_type, "
+            "        max(version) version "
+            "    from "
+            "        br_forms "
+            "    group by "
+            "        form_type, "
+            "        prn_type "
+            "   ) a "
+            "where  "
+            "   a.form_type = :form_type and "
+            "   a.prn_type = :prn_type and "
+            "   a.form_type = br_forms.form_type and "
+            "   a.prn_type = br_forms.prn_type and "
+            "   a.version = br_forms.version ";
+    Qry.CreateVariable("form_type", otString, form_type);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("Receipt form not found for prn_type " + IntToString(prn_type));
+    if(Qry.Eof||Qry.FieldIsNULL("data"))
+      throw UserException("Печать квитанции на выбранный принтер не производится");
+
     string mso_form = Qry.FieldAsString("data");
     mso_form = parser.parse(mso_form);
     to_esc::convert(mso_form, TPrnType(prn_type));
 
-    NewTextChild(resNode, "form", b64_encode(mso_form.c_str(), mso_form.size()));
+    Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
 
 

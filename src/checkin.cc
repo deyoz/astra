@@ -1353,6 +1353,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   string airline=Qry.FieldAsString("airline");
 
+  //запоминаем старые данные группы для BSM
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
   sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
@@ -2296,8 +2297,10 @@ void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
   TrferQry.DeclareVariable("airp_arv",otString);
   TrferQry.DeclareVariable("subclass",otString);
   int i=1;
+  // регистрация в нашем порту
   for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,i++)
   {
+    //в данный момент сюда приходят коды как лат так и русские, в общем бардак
     node2=trferNode->children;
     TrferQry.SetVariable("transfer_num",i);
     TrferQry.SetVariable("airline",NodeAsStringFast("airline",node2));
@@ -2307,6 +2310,7 @@ void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     TrferQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
     TrferQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
     TrferQry.Execute();
+    // регистрация далее с поиском соотв. point_id + таблица настроек сквозной регистрации
   };
   TrferQry.Close();
 };
