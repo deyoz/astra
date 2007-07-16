@@ -163,10 +163,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
-
   if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
   	return; //???
-
   Qry.Clear();
   Qry.SQLText =
     "SELECT pr_denial, city, sale_point, system.CityTZRegion(city) AS tz_region "
@@ -192,7 +190,6 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.DeclareVariable( "pult", otString );
   Qry.SetVariable( "pult", vpult );
   Qry.Execute();
-
   if ( Qry.RowCount() == 0 )
   {
     if (!checkUserLogon)
@@ -203,9 +200,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( !vopr.empty() )
     if ( vopr != Qry.FieldAsString( "login" ) )
       throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
-
-    if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-      throw UserException( "Пользователю отказано в доступе" );
+  if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
+  	throw UserException( "Пользователь удален из системы" );
+  if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+    throw UserException( "Пользователю отказано в доступе" );
   user.user_id = Qry.FieldAsInteger( "user_id" );
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );

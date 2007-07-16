@@ -69,6 +69,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.Execute();
     if ( Qry.RowCount() == 0 )
       throw UserException("Неверно указан пользователь или пароль");
+    if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
+    	throw UserException( "Пользователь удален из системы" );      
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
       throw UserException( "Пользователю отказано в доступе" );
     reqInfo->user.user_id = Qry.FieldAsInteger("user_id");
