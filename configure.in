@@ -33,8 +33,18 @@ AM_PATH_XML2
 #check for socket type
 #MRJ_CHECK_SOCKET_T
 AX_BOOST_BASE
-#check for check
-AM_PATH_CHECK
+
+AC_ARG_ENABLE([xp-testing],
+        [  --enable-xp-testing       Enable xp testing],
+        [ AM_PATH_CHECK
+                [if test x$no_check != xyes; then enable_xp_testing=yes; fi]
+                AM_CONDITIONAL([XP_TESTING], [test x$enable_xp_testing = xyes])
+        ],\
+        [AM_CONDITIONAL([XP_TESTING], [test 1 = 0])] )
+
+if test x$enable_xp_testing = xyes; then
+AC_DEFINE([XP_TESTING],,[XP TESTING support])
+fi
 
 AC_PROG_LIBTOOL
 AC_PROG_RANLIB
