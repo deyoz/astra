@@ -532,7 +532,7 @@ void sync_aodb( void )
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
 	 "       gtimer.get_stage(point_id,1) BETWEEN :stage1 AND :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airline=points.airline ) AND "
+	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
 	Qry.CreateVariable( "stage1", otInteger, sOpenCheckIn );
