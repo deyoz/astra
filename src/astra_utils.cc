@@ -455,6 +455,27 @@ void showMessage(const std::string &message )
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
 };
 
+bool get_enable_unload_pectab()
+{
+    bool result = true;
+    Tcl_Obj *obj;
+    obj=Tcl_GetVar2Ex(Tcl_Interpretator,
+            "ENABLE_UNLOAD_PECTAB",0,TCL_GLOBAL_ONLY);
+    if(!obj)
+        result = false;
+    else {
+      static char buf[200];
+      buf[199]=0;
+      strcpy(buf,Tcl_GetString(obj));
+      int ENABLE_UNLOAD_PECTAB;
+      if(StrToInt(buf, ENABLE_UNLOAD_PECTAB) == EOF)
+          result = false;
+      else
+          result = ENABLE_UNLOAD_PECTAB != 0;
+    }
+    return result;
+}
+
 bool get_enable_fr_design()
 {
     bool result = true;
@@ -489,6 +510,7 @@ void showBasicInfo(void)
   };
   resNode = NewTextChild(resNode,"basic_info");
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
+  NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
 
   // достанем пользователя и пароль oracle
   string buf = get_connect_string();
