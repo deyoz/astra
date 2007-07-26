@@ -158,14 +158,14 @@ bool doneFile( int id )
 }
 
 void getFileParams( const std::string client_canon_name, const std::string &type, 
-	                  int id, map<string,string> &fileparams )
+	                  int id, map<string,string> &fileparams, bool send )
 {
-	tst();
 	fileparams.clear();
 	TQuery ParamQry( &OraSession );
 	ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
 	ParamQry.CreateVariable( "id", otInteger, id );
   ParamQry.Execute();
+  ProgTrace( TRACE5, "id=%d", id );
   string airline, airp, flt_no;
 	while ( !ParamQry.Eof ) {
 		if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRP )
@@ -180,6 +180,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 					fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
 		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
 			  }
+		tst();
 		ParamQry.Next();
 	}
 	ParamQry.Clear();
@@ -192,6 +193,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	  " WHERE file_param_sets.own_canon_name=:own_canon_name AND "
 	  "       file_param_sets.canon_name=:client_canon_name AND "
 	  "       file_param_sets.type=:type AND "
+	  "       file_param_sets.send=:send AND "
 	  "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=:airp ) AND "
 	  "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=:airline ) AND "
 	  "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=:flt_no ) "
@@ -211,6 +213,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	ParamQry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
 	ParamQry.CreateVariable( "client_canon_name", otString, client_canon_name );
 	ParamQry.CreateVariable( "type", otString, type );
+  ParamQry.CreateVariable( "send", otInteger, send );	
 	ParamQry.Execute();
 	int priority = -1;
 	while ( !ParamQry.Eof ) {
@@ -287,9 +290,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	ScanQry.CreateVariable( "sender", otString, OWN_POINT_ADDR() );
 	ScanQry.CreateVariable( "receiver", otString, client_canon_name );
 	ScanQry.CreateVariable( "wait_answer_sec", otInteger, WAIT_ANSWER_SEC );
-	tst();
 	ScanQry.Execute();
-	tst();
 	map<string,string> fileparams;
 	char *p = NULL;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -306,8 +307,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
       		   ScanQry.FieldAsDateTime( "time" ) + WAIT_ANSWER_SEC/(60.0*60.0*24.0) < ScanQry.FieldAsDateTime( "now" )
       		 )
     		  ) {
-      	tst();
-        getFileParams( client_canon_name, ScanQry.FieldAsString( "type" ), file_id, fileparams );
+        getFileParams( client_canon_name, ScanQry.FieldAsString( "type" ), file_id, fileparams, true );
       	int len = ScanQry.GetSizeLongField( "data" );
       	if ( p )
       		p = (char*)realloc( p, len );
@@ -466,6 +466,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 	              " FROM file_param_sets "
 	              " WHERE own_canon_name=:own_canon_name AND "
 	              "       type=:type AND "
+	              "       send = 1 AND "
 	              "       ( airp IS NULL OR airp=:airp ) AND "
 	              "       ( airline IS NULL OR airline=:airline ) AND "
 	              "       ( flt_no IS NULL OR flt_no=:flt_no ) "
@@ -589,7 +590,7 @@ void sync_aodb( void )
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
 	 "SELECT point_id,points.airline,points.flt_no,points.airp FROM points, file_param_sets "
-	 " WHERE file_param_sets.type=:type AND "
+	 " WHERE file_param_sets.type=:type AND send=1 AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
 	 "       gtimer.get_stage(point_id,1) BETWEEN :stage1 AND :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
@@ -625,7 +626,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 	string fd = NodeAsString( dataNode );
 	fd = b64_decode( fd.c_str(), fd.size() ); 
 	fd = CP1251TOCP866( fd );
-	ParseAndSaveSPP( fd );
+	ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], fd );
 }
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

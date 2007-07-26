@@ -536,7 +536,6 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
 //            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
-            ProgTrace( TRACE5, "move_id=%d, dest->point_id=%d", move_id, id->point_id );
             TTrip tr = createTrip( move_id, id, dests );
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) )
               trips.push_back( tr );
