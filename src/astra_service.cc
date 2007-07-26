@@ -252,7 +252,23 @@ void buildFileParams( xmlNodePtr dataNode, const map<string,string> &fileparams 
 	}
 }
 
-void buildFileData( xmlNodePtr resNode, const std::string &client_canon_name )
+void parseFileParams( xmlNodePtr dataNode, map<string,string> &fileparams )
+{
+	fileparams.clear();
+	if ( !dataNode )
+		return;
+	xmlNodePtr headersNode = GetNode( "headers", dataNode );
+	if ( headersNode ) {
+		headersNode = headersNode->children;
+		while ( headersNode ) {
+			fileparams[ NodeAsString( "key", headersNode ) ] = NodeAsString( "value", headersNode );
+			headersNode = headersNode->next;
+		}
+	}
+}
+
+
+void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 {
 	tst();
 	TQuery ScanQry( &OraSession );
@@ -345,14 +361,58 @@ void buildFileData( xmlNodePtr resNode, const std::string &client_canon_name )
     free( p );
 }
 
+void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
+{
+	TQuery Qry( &OraSession );
+	Qry.SQLText = 
+	 "SELECT type,param_name, param_value FROM file_param_sets "
+	 " WHERE canon_name=:canon_name AND own_canon_name=:own_canon_name AND send=:send";
+	Qry.CreateVariable( "canon_name", otString, client_canon_name );
+	Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "send", otInteger, 0 );
+	Qry.Execute();
+	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+	map<string,string> fileparams;
+	while ( !Qry.Eof ) {
+		if ( Qry.FieldAsString( "type" ) == FILE_AODB_TYPE ) {
+			fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
+		}
+		Qry.Next();
+	}	
+	fileparams[ PARAM_FILE_TYPE ] = FILE_AODB_TYPE;
+	string region = CityTZRegion( "ŒŽ‚" );
+	TDateTime d = UTCToLocal( NowUTC(), region );	 
+	string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
+	fileparams[ PARAM_FILE_NAME ] = filename;
+	Qry.Clear();
+	Qry.SQLText = 
+	 "BEGIN "
+	 " SELECT rec_no INTO :rec_no FROM aodb_spp_files WHERE filename=:filename;"
+	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
+	 " BEGIN "
+	 "  :rec_no := -1; "
+	 "  INSERT INTO aodb_spp_files(filename,rec_no) VALUES(:filename,:rec_no); "
+	 " END;"
+	 "END;";	 
+	Qry.CreateVariable( "filename", otString, filename );
+	Qry.DeclareVariable( "rec_no", otInteger );
+	Qry.Execute();
+	fileparams[ PARAM_FILE_REC_NO ] = Qry.GetVariableAsString( "rec_no" );
+	buildFileParams( dataNode, fileparams );	
+}
+
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	xmlNodePtr node = GetNode( "canon_name", reqNode );
 	if ( !node )
 		throw UserException( "param canon_name not found" );
 	string client_canon_name = NodeAsString( node );
-	ProgTrace( TRACE5, "client_canon_name=%s", client_canon_name.c_str() );
-  buildFileData( resNode, client_canon_name );
+	string curmode = NodeAsString( "curmode", reqNode );	
+	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
+	if ( curmode == "OUT" )	
+	  buildSaveFileData( resNode, client_canon_name );
+	else
+		buildLoadFileData( resNode, client_canon_name );
 }
 
 void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -446,6 +506,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
       file_data.clear();
 //      bag_file_data.clear();
       try {
+      	ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
         if ( 
       	     type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
       	     type == FILE_SOFI_TYPE && createSofiFile( id, params, file_data ) ||
@@ -546,11 +607,27 @@ void sync_aodb( void )
 	}
 }
 
-
+void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	map<string,string> fileparams;
+  xmlNodePtr dataNode = GetNode( "data", reqNode );
+	parseFileParams( dataNode, fileparams );
+	dataNode = GetNode( "file", dataNode );
+	if ( !dataNode ) {
+		ProgError( STDLOG, "saveFileData tag file not found!" );
+		return;
+	}
+	dataNode = GetNode( "data", dataNode );
+	if ( !dataNode ) {
+		ProgError( STDLOG, "saveFileData tag file\\data not found!" );
+		return;
+	}	
+	string fd = NodeAsString( dataNode );
+	fd = b64_decode( fd.c_str(), fd.size() ); 
+	fd = CP1251TOCP866( fd );
+	ParseAndSaveSPP( fd );
+}
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };
-
-
-

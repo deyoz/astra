@@ -15,6 +15,7 @@ const std::string VALUE_TYPE_BSM = "BSM";
 const std::string NS_PARAM_AIRP = "AIRP";
 const std::string NS_PARAM_AIRLINE = "AIRLINE";
 const std::string NS_PARAM_FLT_NO = "FLT_NO";	
+const std::string PARAM_FILE_REC_NO = "rec_no";
 
 
 struct TField {
