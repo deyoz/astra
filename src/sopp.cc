@@ -512,16 +512,19 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
             ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() ) );*/
 
   while ( !PointsQry.Eof ) {
+  	tst();
     if ( move_id != PointsQry.FieldAsInteger( "move_id" ) ) {
+    	ProgTrace( TRACE5, "move_id=%d", move_id );
       if ( move_id > NoExists ) {
+      	ProgTrace( TRACE5, "dests.size()=%d", dests.size() );
         //create trips
         string airline;
         for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-        	if ( id != dests.end() - 1 )
+        	if ( id != dests.end() - 1 || dests.size() < 2 )
         		airline = id->airline;
         	else {
         		TDests::iterator f = id;
-        			f--;
+        		f--;
         		airline = f->airline;
         	}
         	if ( (!reqInfo->user.access.airlines.empty() &&
@@ -538,15 +541,20 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
 //            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
+            ProgTrace( TRACE5, "move_id=%d, dest->point_id=%d", move_id, id->point_id );
             TTrip tr = createTrip( move_id, id, dests );
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) )
               trips.push_back( tr );
+            tst();
           }
         }
       }
+      tst();
       move_id = PointsQry.FieldAsInteger( "move_id" );
       dests.clear();
+      tst();
     }
+    tst();
     TDest2 d;
     d.point_id = PointsQry.FieldAsInteger( "point_id" );
     d.point_num = PointsQry.FieldAsInteger( "point_num" );
@@ -605,7 +613,9 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
 //    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
 //               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
     dests.push_back( d );
+    tst();
     PointsQry.Next();
+    tst();
   } // end while !PointsQry.Eof
   PerfomTest( 666 );      
   tst();
@@ -1885,7 +1895,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	NewTextChild( snode, "pr_del", Qry.FieldAsInteger( "pr_del" ) );
   	Qry.Next();
   }
-
+  tst();
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
