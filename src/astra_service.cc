@@ -92,7 +92,6 @@ void putFile( const string &receiver,
         Qry.DeclareVariable("value",otString);
         for(map<string,string>::iterator i=params.begin();i!=params.end();i++)
         {
-        	ProgTrace( TRACE5, "name=%s, value=%s", i->first.c_str(), i->second.c_str() );
         	if ( i->first.empty() || i->second.empty() )
         		continue;
           Qry.SetVariable("name",i->first);
@@ -244,7 +243,6 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	}
 }
 
-
 void buildFileParams( xmlNodePtr dataNode, const map<string,string> &fileparams )
 {
 	dataNode = NewTextChild( dataNode, "headers" );
@@ -269,7 +267,6 @@ void parseFileParams( xmlNodePtr dataNode, map<string,string> &fileparams )
 		}
 	}
 }
-
 
 void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 {

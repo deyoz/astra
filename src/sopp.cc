@@ -2105,9 +2105,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           Qry.SetVariable( "scd_out", id->scd_out );
         else
           Qry.SetVariable( "scd_out", FNull );
-        tst();
         Qry.Execute();
-        tst();
         existsTrip = Qry.FieldAsInteger( "c" );
       }
 
@@ -2266,9 +2264,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  "       pr_del,pr_reg,remark "\
   	  " FROM points WHERE point_id=:point_id ";
   	  Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  	  tst();
   	  Qry.Execute();
-  	  tst();
   	  if ( Qry.FieldIsNULL( "point_num" ) )
   	  	old_dest.point_num = NoExists;
   	  else
@@ -2375,7 +2371,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();	  	  			
-    		      tst();
     	      	id->point_num = 0-id->point_num;	  	  			    		      
     	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );    	      	
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
@@ -2478,14 +2473,11 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
 //  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
   	Qry.Execute();
-  	tst();
   	Qry.Clear();
   	Qry.SQLText = "DELETE trip_delays WHERE point_id=:point_id";
   	Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  	tst();
   	Qry.Execute();
   	if ( !id->delays.empty() ) {
-  		tst();
   		Qry.Clear();
   		Qry.SQLText =
   		 "INSERT INTO trip_delays(point_id,delay_num,delay_code,time) "\
@@ -2499,14 +2491,11 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			Qry.SetVariable( "delay_num", r );
   			Qry.SetVariable( "delay_code", q->code );
   			Qry.SetVariable( "time", q->time );
-  			tst();
   			Qry.Execute();
   			r++;
   		}
   	}
-  	tst();
   	if ( init_trip_stages ) {
-  		tst();
   		Qry.Clear();
   		Qry.SQLText =
        "BEGIN "
@@ -2519,11 +2508,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
        "END;";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
-  		tst();
   	}
-  	tst();
   	if ( !id->pr_del && id->pr_reg && id->est_out > NoExists && id->est_out != id->scd_out ) {
-  		tst();
   		Qry.Clear();
   		Qry.SQLText =
   		 "UPDATE trip_stages SET est=scd+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0 ";
@@ -2552,9 +2538,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		reqInfo->MsgToLog( tolog, evtDisp, move_id, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
-  	tst();
     if ( set_act_out ) {
-    	tst();
     	//!!! еще point_num не записан
        try
        {
@@ -2566,12 +2550,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
        catch( ... ) {
          ProgError( STDLOG, "Unknown error" );
        };
-    	tst();
     	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
-    	tst();
  	  }
   	if ( set_pr_del ) {
-  		tst();
   		ch_dests = true;
   		Qry.Clear();
   		Qry.SQLText =
@@ -2594,7 +2575,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   		}
   	}
-  	tst();
 /*  	if ( ch_dests ) {
   		Qry.Clear();
   		Qry.SQLText =
@@ -2615,12 +2595,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     	Qry.SetVariable( "point_id", id->point_id );
     	Qry.SetVariable( "point_num", id->point_num );
-    	tst();
     	Qry.Execute();
-    	tst();
     }
   }
-  tst();
 
  NewTextChild( reqNode, "move_id", move_id );
  ReadDests( ctxt, reqNode, resNode );
