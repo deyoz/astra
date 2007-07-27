@@ -114,10 +114,10 @@ void putFile( const string &receiver,
 bool errorFile( int id, const string &msg )
 {
 	TQuery ErrQry(&OraSession);
-	ErrQry.SQLText = "SELECT in_order FROM file_types, files WHERE files.id=:id AND files.type=file_types.code";
+	/*ErrQry.SQLText = "SELECT in_order FROM file_types, files WHERE files.id=:id AND files.type=file_types.code";
 	ErrQry.CreateVariable( "id", otInteger, id );
-	ErrQry.Execute();
-    if ( ( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) )
+	ErrQry.Execute();*/
+    if ( /*( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) &&*/ deleteFile(id) )
     {
       ErrQry.Clear();
       ErrQry.SQLText=
