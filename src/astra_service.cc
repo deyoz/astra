@@ -368,6 +368,8 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "send", otInteger, 0 );
 	Qry.Execute();
+	if ( !Qry.RowCount() )
+		return;		
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
 	map<string,string> fileparams;
 	while ( !Qry.Eof ) {
