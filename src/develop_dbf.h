@@ -5,6 +5,8 @@
 #include <sstream>
 #include <vector>
 
+const std::string PARAM_PULT = "PULT";
+const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_WORK_DIR = "WORKDIR";
 const std::string PARAM_FILE_NAME = "FileName";
 const std::string PARAM_IN_ORDER = "IN_ORDER";	
