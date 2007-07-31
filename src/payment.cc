@@ -11,6 +11,7 @@
 #include "print.h"
 #include "tripinfo.h"
 #include "oralib.h"
+#include "astra_service.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -888,7 +889,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     };
 
     rcpt_id=PutReceipt(rcpt,grp_id);
-
+    createSofiFileDATA( rcpt_id );
     //изменяем номер бланка в пачке
     Qry.Clear();
     Qry.SQLText=
@@ -903,7 +904,7 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.CreateVariable("curr_no",otFloat,rcpt.no);
     Qry.CreateVariable("type",otString,rcpt.form_type);
-    Qry.Execute();
+    Qry.Execute();    
   }
   else
   {
