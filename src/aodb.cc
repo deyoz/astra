@@ -447,9 +447,6 @@ bool createAODBCheckInInfoFile( int point_id,
 		createFileParamsAODB( point_id, bag_params, 1 );
 	}*/
 //	ProgTrace( TRACE5, "file_data.empty()=%d", file_data.empty() );
-  HelpCpp::TextCodec codec( "CP866", "CP1251" );
-  string reso = codec.encode( file_data );
-  file_data = reso;
 /*  reso = codec.encode( bag_file_data );
   bag_file_data = reso;*/
 	return !file_data.empty()/* || !bag_file_data.empty()*/;
