@@ -1007,34 +1007,57 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
               buf_ru += str_fract;
               buf_lat += str_fract;
           }
-          ValueBTLetter = upperc(buf_ru);
-          ValueBTLetter_lat = upperc(buf_lat);
+          ValueBTLetter = upperc(buf_ru) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
+          ValueBTLetter_lat = upperc(buf_lat) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
       }
   }
   add_tag("ValueBT", ValueBT);
   add_tag("ValueBTLetter", ValueBTLetter);
   add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
   if(rcpt.bag_type != -1) {
-      switch(rcpt.bag_type) {
-          case 20:
-              SkiBT = "x";
-              break;
-          case 21:
-              GolfBT = "x";
-              break;
-          case 4:
-              PetBT = "x";
-              break;
-          case 1:
-          case 2:
-              BulkyBT = "x";
-              BulkyBTLetter = IntToString(rcpt.ex_amount);
-              break;
-          default:
-              OtherBT = "x";
-              OtherBTLetter = bag_name;
-              OtherBTLetter_lat = bag_name_lat;
-              break;
+      if(rcpt.form_type == "451") {
+          switch(rcpt.bag_type) {
+              case 20:
+                  SkiBT = "x";
+                  break;
+              case 21:
+                  GolfBT = "x";
+                  break;
+              case 4:
+                  PetBT = "x";
+                  break;
+              case 1:
+              case 2:
+                  BulkyBT = "x";
+                  BulkyBTLetter = IntToString(rcpt.ex_amount);
+                  break;
+              default:
+                  OtherBT = "x";
+                  OtherBTLetter = bag_name;
+                  OtherBTLetter_lat = bag_name_lat;
+                  break;
+          }
+      } else if(rcpt.form_type == "Z61") {
+          switch(rcpt.bag_type) {
+              case 20:
+                  SkiBT = "x";
+                  break;
+              case 4:
+                  PetBT = "x";
+                  break;
+              case 1:
+              case 2:
+                  BulkyBT = "x";
+                  BulkyBTLetter = IntToString(rcpt.ex_amount);
+                  break;
+              default:
+                  OtherBT = "x";
+                  OtherBTLetter = bag_name;
+                  OtherBTLetter_lat = bag_name_lat;
+                  break;
+          }
       }
   }
   add_tag("SkiBT", SkiBT);
