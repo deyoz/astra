@@ -20,9 +20,6 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-// this is just test
-// yet another test
-
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON} TPrnFormat;
 typedef enum {
     ptIER506A = 1,
