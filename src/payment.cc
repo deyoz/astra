@@ -923,12 +923,3 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   PrintInterface::GetPrintDataBR(rcpt.form_type,prn_type,parser,data); //последовательность для принтера
   NewTextChild(resNode, "form", data);
 };
-
-
-
-
-
-
-
-
-
