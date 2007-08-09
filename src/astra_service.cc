@@ -458,7 +458,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 	string client_canon_name;
 	TQuery Qry( &OraSession );
 	Qry.SQLText = "SELECT canon_name, "
-	              " airp, airline, flt_no, "
+	              " airp, airline, flt_no, encoding, "
 	              " DECODE( airp, NULL, 0, 4 ) + "
 	              " DECODE( airline, NULL, 0, 2 ) + "
 	              " DECODE( flt_no, NULL, 0, 1 ) AS priority "
@@ -495,6 +495,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 		string airp = Qry.FieldAsString( "airp" );
 		string airline = Qry.FieldAsString( "airline" );
 		string flt_no = Qry.FieldAsString( "flt_no" );
+		string encoding = Qry.FieldAsString( "encoding" );
 		map<string,int>::iterator r=cname.end();
 		for ( r=cname.begin(); r!=cname.end(); r++ ) {
 			if ( r->first == client_canon_name )
@@ -522,6 +523,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 	  		  bag_params[ NS_PARAM_AIRLINE ] = airline;
 	  		  bag_params[ NS_PARAM_FLT_NO ] = flt_no;
 	  		  bag_params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE*/
+              file_data = ConvertCodePage(encoding, "CP866", file_data);
    		    putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
 /*   		    if ( !bag_file_data.empty() ) {
    		    	putFile( client_canon_name, OWN_POINT_ADDR(), type, bag_params, bag_file_data );

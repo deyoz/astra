@@ -26,6 +26,7 @@ public:
      AddEvent("LoadPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
      AddEvent("PaxList",evHandle);
+     AddEvent("BagPaxList",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::GetTripCounters);
      AddEvent("GetTripCounters",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::TestDateTime);

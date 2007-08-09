@@ -53,7 +53,7 @@ string vsHow_ru(int nmb, int range)
         "восемьдесят ",
         "девяносто "
     };
-    static char* stuki_m[] = {
+    static char* stuki_g[] = {
         "",
         "одно ",
         "два ",
@@ -65,7 +65,7 @@ string vsHow_ru(int nmb, int range)
         "восемь ",
         "девять "
     };
-    static char* stuki_g[] = {
+    static char* stuki_m[] = {
         "",
         "одна ",
         "две ",
@@ -1704,6 +1704,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
     }
 }
+
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	tst();

@@ -32,17 +32,25 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
      "  update_time date; "
 	 "BEGIN "
 	 " SELECT n, update_time INTO :nnn, update_time FROM sofi "
-     "  where canon_name = :canon_name for update; "
+     "  where "
+     " canon_name = :canon_name and "
+     " desk = :desk for update; "
      " if trunc(update_time) <> trunc(sysdate) then "
-     "   delete from sofi where canon_name = :canon_name; "
+     "   :nnn := 0; "
+     "   update sofi set n = 1, update_time = sysdate where "
+     "    canon_name = :canon_name and "
+     "    desk = :desk; "
+     " else "
+	 " UPDATE sofi SET n=:nnn+1 where canon_name = :canon_name and "
+     "    desk = :desk; "
      " end if; "
-	 " UPDATE sofi SET n=:nnn+1 where canon_name = :canon_name; "
 	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
 	 "   :nnn := 0; "
-	 "   INSERT INTO sofi(n, canon_name, update_time) VALUES( 1, :canon_name, sysdate ); "
+	 "   INSERT INTO sofi(n, canon_name, desk, update_time) VALUES( 1, :canon_name, :desk, sysdate ); "
 	 "END; ";
 	Qry.CreateVariable( "nnn", otInteger, 0 );
 	Qry.CreateVariable( "canon_name", otString, params[PARAM_CANON_NAME] );
+	Qry.CreateVariable( "desk", otString, params[PARAM_PULT] );
 	tst();
 	Qry.Execute();
 	tst();
@@ -190,5 +198,3 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &params, 
  createFileParamsSofi( receipt_id, params );
  return true;
 }
-
-

@@ -7,6 +7,7 @@
 #include "oralib.h"
 #include "print.h"
 
+std::string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete);
 class PaymentInterface : public JxtInterface
 {
 public:
@@ -30,7 +31,6 @@ public:
      evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::AnnulReceipt);
      AddEvent("AnnulReceipt",evHandle);
   };
-
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode);
   void SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

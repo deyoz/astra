@@ -11,6 +11,7 @@
 #include "tripinfo.h"
 #include "telegram.h"
 #include "misc.h"
+#include "payment.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1283,6 +1284,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_birks(pax.grp_id,pax.pax_id) AS tags, "
     "  report.get_remarks(pax_id,0) AS rems, "
     "  pax.grp_id, "
+    "  pax.pax_id, "
     "  pax_grp.class_grp AS cl_grp_id,pax_grp.hall AS hall_id, "
     "  pax_grp.point_arv,pax_grp.user_id "
     "FROM pax_grp,pax,v_last_trfer "
@@ -1293,8 +1295,21 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");
+  int grp_id = -1;
+  bool grp_excess = false;
   for(;!Qry.Eof;Qry.Next())
   {
+    int tmp_grp_id = Qry.FieldAsInteger("grp_id");
+    if(grp_id != tmp_grp_id) {
+        grp_id = tmp_grp_id;
+        grp_excess = false;
+    }
+
+    if(string((char *)reqNode->name) == "BagPaxList" && !Qry.FieldAsInteger("excess") && !grp_excess) {
+        grp_excess = false;
+        continue;
+    }
+    grp_excess = true;
     xmlNodePtr paxNode=NewTextChild(node,"pax");
     NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger("reg_no"));
     NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
@@ -1314,6 +1329,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"excess",Qry.FieldAsInteger("excess"),0);
     NewTextChild(paxNode,"tags",Qry.FieldAsString("tags"),"");
     NewTextChild(paxNode,"rems",Qry.FieldAsString("rems"),"");
+    bool rcpt_complete;
+    NewTextChild(paxNode,"rcpt_no_list", RcptNoList(grp_id, Qry.FieldAsInteger("pax_id"), rcpt_complete));
+    NewTextChild(paxNode,"rcpt_complete", rcpt_complete);
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
     NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger("cl_grp_id"));
@@ -1322,6 +1340,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
   };
   Qry.Close();
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 bool GetUsePS()
@@ -1353,7 +1372,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   string airline=Qry.FieldAsString("airline");
 
-  //запоминаем старые данные группы для BSM
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
   sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
@@ -1496,6 +1514,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         pas.placeRem=NodeAsStringFast("seat_type",node2);
         remNode=GetNodeFast("rems",node2);
         bool flagMCLS=false;
+        bool flagCHIN=strcmp( NodeAsStringFast("pers_type",node2), "ВЗ");
+        ProgTrace( TRACE5, "flagCHIN=%d, pers_type=%s", flagCHIN, NodeAsStringFast("pers_type",node2) );
         if (remNode!=NULL)
         {
           for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
@@ -1504,6 +1524,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             const char *rem_code=NodeAsStringFast("rem_code",node2);
             if (airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
                 airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
+            if ( strcmp(rem_code,"BLND")==0 || 
+            	   strcmp(rem_code,"STCR")==0 ||
+            	   strcmp(rem_code,"UMNR")==0 ||
+            	   strcmp(rem_code,"WCHS")==0 ||
+            	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
             pas.rems.push_back(rem_code);
           };
         };
@@ -1512,7 +1537,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             (airline=="ЮТ" && strcmp(subclass,"М")==0 ||
              airline=="ПО" && strcmp(subclass,"Ю")==0 ))
           pas.rems.push_back("MCLS");
-
+        if ( flagCHIN ) {
+        	tst();
+        	pas.rems.push_back( "CHIN" );
+        }
         Passengers.Add(pas);
     };
     // начитка салона
@@ -2297,10 +2325,8 @@ void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
   TrferQry.DeclareVariable("airp_arv",otString);
   TrferQry.DeclareVariable("subclass",otString);
   int i=1;
-  // регистрация в нашем порту
   for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,i++)
   {
-    //в данный момент сюда приходят коды как лат так и русские, в общем бардак
     node2=trferNode->children;
     TrferQry.SetVariable("transfer_num",i);
     TrferQry.SetVariable("airline",NodeAsStringFast("airline",node2));
@@ -2310,7 +2336,6 @@ void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     TrferQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
     TrferQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
     TrferQry.Execute();
-    // регистрация далее с поиском соотв. point_id + таблица настроек сквозной регистрации
   };
   TrferQry.Close();
 };

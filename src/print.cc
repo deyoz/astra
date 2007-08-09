@@ -35,6 +35,25 @@ typedef enum {
     ptOKIML3310
 } TPrnType;
 
+struct TPrnParams {
+    string encoding;
+    int offset, top;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+};
+
+void TPrnParams::get_prn_params(xmlNodePtr prnParamsNode)
+{
+    if(prnParamsNode == NULL) {
+        encoding = "CP866";
+        offset = 20;
+        top = 0;
+    } else {
+        encoding = NodeAsString("encoding", prnParamsNode);
+        offset = NodeAsInteger("offset", prnParamsNode);
+        top = NodeAsInteger("top", prnParamsNode);
+    }
+}
+
 namespace to_esc {
     typedef struct {
         int x, y, font;
@@ -55,7 +74,7 @@ namespace to_esc {
         out << data;
     }
 
-    void convert(string &mso_form, TPrnType prn_type)
+    void convert(string &mso_form, TPrnType prn_type, TPrnParams &prnParams)
     {
         double y_modif, x_modif;
         switch(prn_type) {
@@ -73,7 +92,11 @@ namespace to_esc {
         char Mode = 'S';
         TFields fields;
         string num;
-        int x, y, font;
+        int x, y, font, prnParamsOffset, prnParamsTop;
+        prnParamsOffset = 20 - prnParams.offset;
+        prnParamsTop = prnParams.top;
+        if(prnParamsOffset < 0)
+            prnParamsOffset = 0;
         TField field;
         for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
             char curr_char = *si;
@@ -107,8 +130,8 @@ namespace to_esc {
                     break;
                 case 'A':
                     if(curr_char == 10) {
-                        field.x = x;
-                        field.y = y;
+                        field.x = x + prnParamsOffset;
+                        field.y = y + prnParamsTop;
                         field.font = font;
                         field.data = num;
                         if(field.font == 'B' && field.data.size() != 10)
@@ -811,8 +834,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
 
 void get_mso_point(const string &airp, string &point, string &point_lat)
 {
-    static TBaseTable &airps = base_tables.get("airps");
-    static TBaseTable &cities = base_tables.get("cities");
+    TBaseTable &airps = base_tables.get("airps");
+    TBaseTable &cities = base_tables.get("cities");
 
 
 
@@ -917,7 +940,11 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
-    if(rcpt.form_type != "M61")
+    if(
+            rcpt.form_type != "M61" &&
+            rcpt.form_type != "Z61" &&
+            rcpt.form_type != "451"
+            )
         throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
   add_tag("pax_name",rcpt.pax_name);
   add_tag("pax_doc",rcpt.pax_doc);
@@ -929,6 +956,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   if(Qry.Eof) throw Exception("fillMSOMap: service_type not found (code = %d)", rcpt.service_type);
   add_tag("service_type", (string)"10 " + Qry.FieldAsString("name"));
   add_tag("service_type_lat", (string)"10 " + Qry.FieldAsString("name_lat"));
+  string bag_name, bag_name_lat;
   if(rcpt.service_type == 2 && rcpt.bag_type != -1) {
       Qry.Clear();
       Qry.SQLText =
@@ -944,19 +972,79 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       Qry.CreateVariable("code", otInteger, rcpt.bag_type);
       Qry.Execute();
       if(Qry.Eof) throw Exception("fillMSOMap: bag_type not found (code = %d)", rcpt.bag_type);
-      string bag_name, bag_name_lat;
       bag_name = Qry.FieldAsString("name");
       bag_name_lat = Qry.FieldAsString("name_lat");
       if(rcpt.bag_type == 1 || rcpt.bag_type == 2) {
           bag_name += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 0);
           bag_name_lat += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 1);
       }
-      add_tag("bag_name", upperc(bag_name));
-      add_tag("bag_name_lat", upperc(bag_name_lat));
+      upperc(bag_name);
+      upperc(bag_name_lat);
+      add_tag("bag_name", bag_name);
+      add_tag("bag_name_lat", bag_name_lat);
   } else {
       add_tag("bag_name", "");
       add_tag("bag_name_lat", "");
   }
+
+  string
+      SkiBT,
+      GolfBT,
+      PetBT,
+      BulkyBT, BulkyBTLetter,
+      OtherBT, OtherBTLetter,  OtherBTLetter_lat,
+      ValueBT, ValueBTLetter, ValueBTLetter_lat;
+  if(rcpt.service_type == 3) {
+      ValueBT = "x";
+
+      {
+          double iptr, fract;
+          fract = modf(rcpt.rate, &iptr);
+          string buf_ru = vs_number(int(iptr), 0);
+          string buf_lat = vs_number(int(iptr), 1);
+          if(fract >= 0.01) {
+              string str_fract = " " + IntToString(int(fract * 100)) + "/100";
+              buf_ru += str_fract;
+              buf_lat += str_fract;
+          }
+          ValueBTLetter = upperc(buf_ru);
+          ValueBTLetter_lat = upperc(buf_lat);
+      }
+  }
+  add_tag("ValueBT", ValueBT);
+  add_tag("ValueBTLetter", ValueBTLetter);
+  add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
+  if(rcpt.bag_type != -1) {
+      switch(rcpt.bag_type) {
+          case 20:
+              SkiBT = "x";
+              break;
+          case 21:
+              GolfBT = "x";
+              break;
+          case 4:
+              PetBT = "x";
+              break;
+          case 1:
+          case 2:
+              BulkyBT = "x";
+              BulkyBTLetter = IntToString(rcpt.ex_amount);
+              break;
+          default:
+              OtherBT = "x";
+              OtherBTLetter = bag_name;
+              OtherBTLetter_lat = bag_name_lat;
+              break;
+      }
+  }
+  add_tag("SkiBT", SkiBT);
+  add_tag("GolfBT", GolfBT);
+  add_tag("PetBT", PetBT);
+  add_tag("BulkyBT", BulkyBT);
+  add_tag("BulkyBTLetter", BulkyBTLetter);
+  add_tag("OtherBT", OtherBT);
+  add_tag("OtherBTLetter", OtherBTLetter);
+  add_tag("OtherBTLetter_lat", OtherBTLetter_lat);
 
   double pay_rate;
   if (rcpt.pay_rate_cur != rcpt.rate_cur)
@@ -974,7 +1062,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   }
 
 
-  ostringstream remarks, remarks_lat;
+  ostringstream remarks, remarks_lat, rate, rate_lat, ex_weight, ex_weight_lat;
 
   if(rcpt.service_type == 1 || rcpt.service_type == 2) {
       remarks << "ТАРИФ ЗА КГ=";
@@ -996,15 +1084,20 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
               << "(RATE " << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true)
               << ")";
       } else {
-          remarks << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
-          remarks_lat << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+          rate << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
+          rate_lat << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+          remarks << rate.str();
+          remarks_lat << rate_lat.str();
       }
-      add_tag("remarks1", remarks.str());
-      add_tag("remarks1_lat", remarks_lat.str());
-      add_tag("remarks2", IntToString(rcpt.ex_weight) + "КГ");
-      add_tag("remarks2_lat", IntToString(rcpt.ex_weight) + "KG");
+      ex_weight << IntToString(rcpt.ex_weight) << "КГ";
+      ex_weight_lat << IntToString(rcpt.ex_weight) << "KG";
   } else {
       //багаж с объявленной ценностью
+      rate
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax <<"%";
+      rate_lat
+          << rate.str();
       remarks
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OT "
@@ -1013,11 +1106,17 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OF "
             << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
-      add_tag("remarks1", remarks.str());
-      add_tag("remarks1_lat", remarks_lat.str());
       add_tag("remarks2", "");
       add_tag("remarks2_lat", "");
   }
+  add_tag("rate", rate.str());
+  add_tag("rate_lat", rate_lat.str());
+  add_tag("remarks1", remarks.str());
+  add_tag("remarks1_lat", remarks_lat.str());
+  add_tag("remarks2", ex_weight.str());
+  add_tag("remarks2_lat", ex_weight_lat.str());
+  add_tag("ex_weight", ex_weight.str());
+  add_tag("ex_weight_lat", ex_weight_lat.str());
 
   for(int fmt=1;fmt<=2;fmt++)
   {
@@ -1106,7 +1205,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   add_tag("prev_no", rcpt.prev_no);
   add_tag("pay_form", rcpt.pay_form);
 
-  static TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", rcpt.airline);
+  TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", rcpt.airline);
   if(!airline.short_name.empty())
       add_tag("airline", airline.short_name);
   else if(!airline.name.empty())
@@ -1126,6 +1225,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   {
       string point_dep, point_dep_lat;
       string point_arv, point_arv_lat;
+      ostringstream airline_code, airline_code_lat;
 
       get_mso_point(rcpt.airp_dep, point_dep, point_dep_lat);
       get_mso_point(rcpt.airp_arv, point_arv, point_arv_lat);
@@ -1134,20 +1234,32 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
       ostringstream buf;
       buf
-          << point_dep << "-" << point_arv << " " << airline.code;
+          << point_dep << "-" << point_arv << " ";
+
+      airline_code << airline.code;
       if(rcpt.flt_no != -1)
-          buf
+          airline_code
               << " "
               << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+      buf << airline_code.str();
+      add_tag("airline_code", airline_code.str());
       add_tag("to", buf.str());
       buf.str("");
       buf
-          << point_dep_lat << "-" << point_arv_lat << " " << airline.code_lat;
+          << point_dep_lat << "-" << point_arv_lat << " ";
+      airline_code_lat << airline.code_lat;
       if(rcpt.flt_no != -1)
-          buf
+          airline_code_lat
               << " "
               << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+      buf << airline_code_lat.str();
+      add_tag("airline_code_lat", airline_code_lat.str());
       add_tag("to_lat", buf.str());
+
+      add_tag("point_dep", point_dep);
+      add_tag("point_dep_lat", point_dep_lat);
+      add_tag("point_arv", point_arv);
+      add_tag("point_arv_lat", point_arv_lat);
   }
 
   Qry.Clear();
@@ -1719,7 +1831,9 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
         string prn_form = parser.parse(Print);
     if(prn_format == pfEPSON) {
-        to_esc::convert(prn_form, TPrnType(prn_type));
+        TPrnParams prnParams;
+        prnParams.get_prn_params(NULL);
+        to_esc::convert(prn_form, TPrnType(prn_type), prnParams);
         prn_form = b64_encode(prn_form.c_str(), prn_form.size());
     }
     NewTextChild(paxNode, "prn_form", prn_form);
@@ -1775,7 +1889,9 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         string prn_form = parser.parse(Print);
         if(prn_format == pfEPSON) {
-            to_esc::convert(prn_form, TPrnType(prn_type));
+            TPrnParams prnParams;
+            prnParams.get_prn_params(NULL);
+            to_esc::convert(prn_form, TPrnType(prn_type), prnParams);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         NewTextChild(paxNode, "prn_form", prn_form);
@@ -2264,9 +2380,8 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-
-
-void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataParser &parser, string &Print)
+void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataParser &parser, string &Print,
+        xmlNodePtr prnParamsNode)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2297,9 +2412,14 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
     if(Qry.Eof||Qry.FieldIsNULL("data"))
       throw UserException("Печать квитанции на выбранный принтер не производится");
 
+    TPrnParams prnParams;
+    prnParams.get_prn_params(prnParamsNode);
+
     string mso_form = Qry.FieldAsString("data");
     mso_form = parser.parse(mso_form);
-    to_esc::convert(mso_form, TPrnType(prn_type));
+    mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
+
+    to_esc::convert(mso_form, TPrnType(prn_type), prnParams);
 
     Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
@@ -2350,7 +2470,7 @@ string get_validator()
     validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
     // agency code
     validator
-        << reqInfo->desk.sale_point << "    "
+        << reqInfo->desk.sale_point << "  "
         << setw(4) << setfill('0') << private_num << endl;
     return validator.str();
 }
