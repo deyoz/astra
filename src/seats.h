@@ -51,6 +51,7 @@ struct TPassenger {
   std::string Elem_Type;
   std::string clname;
   std::string placeStatus;
+  std::string pers_type;
   int priority;
   int tid;
   std::string preseat;
@@ -58,6 +59,7 @@ struct TPassenger {
   TPlaceList *placeList; /* салон */
   TPoint Pos; /* указывает место */
   bool InUse;
+  bool isValidPlace;
   TPassenger() {
     countPlace = 1;
     prSmoke = false;
@@ -67,6 +69,7 @@ struct TPassenger {
     Pos.x = 0;
     Pos.y = 0;
     InUse = false;  	
+    isValidPlace = true;
     tid = -1;
   }
 };
@@ -105,9 +108,11 @@ struct TSeatPlace {
   std::vector<TPlace> oldPlaces;
   TSeatStep Step;
   bool InUse;
+  bool isValid;
   TSeatPlace() {
     placeList = NULL;
     InUse = false;
+    isValid = true;
   }
 };
 

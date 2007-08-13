@@ -1425,6 +1425,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     //простановка ремарок VIP,EXST, если нужно
     //подсчет seats
+    bool adultwithbaby = false;
     int seats,seats_sum=0;
     string rem_code;
     node=NodeAsNode("passengers",reqNode);
@@ -1432,6 +1433,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
       node2=node->children;
       seats=NodeAsIntegerFast("seats",node2);
+      if ( !seats )
+      	adultwithbaby = true;
       seats_sum+=seats;
       bool flagVIP=false, flagSTCR=false, flagEXST=false;
       remNode=GetNodeFast("rems",node2);
@@ -1493,7 +1496,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(node=node->children;node!=NULL;node=node->next)
     {
         node2=node->children;
-        if (NodeAsIntegerFast("seats",node2)==0) continue;
+        if (NodeAsIntegerFast("seats",node2)==0) 
+        	 continue;
         const char *subclass=NodeAsStringFast("subclass",node2);
         TPassenger pas;
         pas.clname=cl;
@@ -1514,8 +1518,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         pas.placeRem=NodeAsStringFast("seat_type",node2);
         remNode=GetNodeFast("rems",node2);
         bool flagMCLS=false;
-        bool flagCHIN=strcmp( NodeAsStringFast("pers_type",node2), "ВЗ");
-        ProgTrace( TRACE5, "flagCHIN=%d, pers_type=%s", flagCHIN, NodeAsStringFast("pers_type",node2) );
+        pas.pers_type = NodeAsStringFast("pers_type",node2);
+        bool flagCHIN=pas.pers_type != "ВЗ";
         if (remNode!=NULL)
         {
           for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
@@ -1537,8 +1541,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             (airline=="ЮТ" && strcmp(subclass,"М")==0 ||
              airline=="ПО" && strcmp(subclass,"Ю")==0 ))
           pas.rems.push_back("MCLS");
-        if ( flagCHIN ) {
+        if ( flagCHIN || adultwithbaby ) {
         	tst();
+        	adultwithbaby = false;
         	pas.rems.push_back( "CHIN" );
         }
         Passengers.Add(pas);
@@ -1567,6 +1572,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
         	else
             showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+        else
+        	if ( !pas.isValidPlace )
+        		showErrorMessage("Пассажиры посажены на запрещенные места");
         ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
         i++;
     };
