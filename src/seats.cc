@@ -1249,7 +1249,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
         ipass->index = old_index;
 
         if ( SeatGrpOnBasePlace( ) ||
-             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial /*!!!*/  ) &&
+             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial /*!!!*/ ) &&
              ( !CanUseStatus || PlaceStatus == "PS" && CanUse_PS || PlaceStatus != "PS" ) && SeatsGrp( ) ) {
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
             throw Exception( "Недопустимое значение направления рассадки" );
@@ -1707,7 +1707,6 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
   	}
   }  /*!!!*/
   
-//  ProgTrace( TRACE5, "SeatOnlyBasePlace=%d", SeatOnlyBasePlace );
 
   try {
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
@@ -1783,6 +1782,7 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                       if ( SeatPlaces.SeatsPassengers( ) )
                         throw 1;
                       if ( SeatOnlyBasePlace ) {
+                      	SeatOnlyBasePlace = false;                      	
                       	FSeatAlg=0;
                       }
                       break;
