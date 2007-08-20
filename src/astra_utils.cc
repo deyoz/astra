@@ -617,7 +617,7 @@ string DeskCity(string desk)
 
 TDateTime UTCToLocal(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified",region.c_str());
+  if (region.empty()) throw Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
