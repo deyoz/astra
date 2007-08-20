@@ -361,32 +361,68 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
     bool canuseTR = false;
     TDateTime d;
     if ( tr.act_in > NoExists ) {
-      d = UTCToClient( tr.act_in, tr.region );
+    	try {
+        d = UTCToClient( tr.act_in, tr.region );
+      }
+      catch( Exception &e ) {
+        ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+        return false;
+      }
       canuseTR = ( d >= first_date && d < next_date );
     }
     else
       if ( tr.est_in > NoExists ) {
-        d = UTCToClient( tr.est_in, tr.region );
+      	try {
+          d = UTCToClient( tr.est_in, tr.region );
+        }
+        catch( Exception &e ) {
+          ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+          return false;
+        }        
         canuseTR = ( d >= first_date && d < next_date );
       }
       else
         if ( tr.scd_in > NoExists ) {
-          d = UTCToClient( tr.scd_in, tr.region );
+        	try {
+            d = UTCToClient( tr.scd_in, tr.region );
+          }
+          catch( Exception &e ) {
+            ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+            return false;
+          }                  
           canuseTR = ( d >= first_date && d < next_date );
         }
     if ( !canuseTR )
       if ( tr.act_out > NoExists ) {
-        d = UTCToClient( tr.act_out, tr.region );
+      	try {
+          d = UTCToClient( tr.act_out, tr.region );
+        }
+        catch( Exception &e ) {
+          ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+          return false;
+        }                
         canuseTR = ( d >= first_date && d < next_date );
       }
       else
         if ( tr.est_out > NoExists ) {
-          d = UTCToClient( tr.est_out, tr.region );
+        	try {
+            d = UTCToClient( tr.est_out, tr.region );
+          }
+          catch( Exception &e ) {
+            ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+            return false;
+          }        
           canuseTR = ( d >= first_date && d < next_date );
         }
         else
           if ( tr.scd_out > NoExists ) {
-            d = UTCToClient( tr.scd_out, tr.region );
+          	try {
+              d = UTCToClient( tr.scd_out, tr.region );
+            }
+            catch( Exception &e ) {
+              ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+              return false;
+            }                    
             canuseTR = ( d >= first_date && d < next_date );
           }
     return canuseTR;
@@ -737,11 +773,42 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TTrips trips;
   internal_ReadData( trips, first_date, next_date, arx );
   xmlNodePtr tripsNode = NULL;
+  TDateTime fscd_in, fest_in, fact_in, fscd_out, fest_out, fact_out;
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tripsNode )
       tripsNode = NewTextChild( dataNode, "trips" );
     if ( tr->places_in.empty() && tr->places_out.empty() || tr->region.empty() ) // такой рейс не отображаем
       continue;
+    try {
+      if ( tr->scd_in > NoExists )
+    	  fscd_in = UTCToClient( tr->scd_in, tr->region );
+      else
+    	  fscd_in = NoExists;
+      if ( tr->est_in > NoExists )
+    	  fest_in = UTCToClient( tr->est_in, tr->region );
+      else
+    	  fest_in = NoExists;
+      if ( tr->act_in > NoExists )
+    	  fact_in = UTCToClient( tr->act_in, tr->region );
+      else
+    	  fact_in = NoExists;
+      if ( tr->scd_out > NoExists )
+    	  fscd_out = UTCToClient( tr->scd_out, tr->region );
+      else
+    	  fscd_out = NoExists;
+      if ( tr->est_out > NoExists )
+    	  fest_out = UTCToClient( tr->est_out, tr->region );
+      else
+    	  fest_out = NoExists;
+      if ( tr->act_out > NoExists )
+    	  fact_out = UTCToClient( tr->act_out, tr->region );
+      else
+    	  fact_out = NoExists;			
+    }
+    catch( Exception &e ) {
+      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );    	
+      continue;
+    }      
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
@@ -755,12 +822,12 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "craft_in", tr->craft_in );
     if ( tr->bort_in != tr->bort_out  && !tr->bort_in.empty() )
       NewTextChild( tripNode, "bort_in", tr->bort_in );
-    if ( tr->scd_in > NoExists )
-      NewTextChild( tripNode, "scd_in", DateTimeToStr( UTCToClient( tr->scd_in, tr->region ), ServerFormatDateTimeAsString ) );
-    if ( tr->est_in > NoExists )
-      NewTextChild( tripNode, "est_in", DateTimeToStr( UTCToClient( tr->est_in, tr->region ), ServerFormatDateTimeAsString ) );
-    if ( tr->act_in > NoExists )
-      NewTextChild( tripNode, "act_in", DateTimeToStr( UTCToClient( tr->act_in, tr->region ), ServerFormatDateTimeAsString ) );
+    if ( fscd_in > NoExists )
+      NewTextChild( tripNode, "scd_in", DateTimeToStr( fscd_in, ServerFormatDateTimeAsString ) );
+    if ( fest_in > NoExists )
+      NewTextChild( tripNode, "est_in", DateTimeToStr( fest_in, ServerFormatDateTimeAsString ) );
+    if ( fact_in > NoExists )
+      NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
       NewTextChild( tripNode, "triptype_in", tr->triptype_in );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
@@ -791,14 +858,14 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "craft_out", tr->craft_out );
     if ( !tr->bort_out.empty() )
       NewTextChild( tripNode, "bort_out", tr->bort_out );
-    if ( tr->scd_out > NoExists ) {
+    if ( fscd_out > NoExists ) {
 //    	ProgTrace( TRACE5, "tr->scd_out=%f, region=%s, point_id=%d",tr->scd_out, tr->region.c_str(), tr->point_id );
-      NewTextChild( tripNode, "scd_out", DateTimeToStr( UTCToClient( tr->scd_out, tr->region ), ServerFormatDateTimeAsString ) );
+      NewTextChild( tripNode, "scd_out", DateTimeToStr( fscd_out, ServerFormatDateTimeAsString ) );
     }
-    if ( tr->est_out > NoExists )
-      NewTextChild( tripNode, "est_out", DateTimeToStr( UTCToClient( tr->est_out, tr->region ), ServerFormatDateTimeAsString ) );
-    if ( tr->act_out > NoExists )
-      NewTextChild( tripNode, "act_out", DateTimeToStr( UTCToClient( tr->act_out, tr->region ), ServerFormatDateTimeAsString ) );
+    if ( fest_out > NoExists )
+      NewTextChild( tripNode, "est_out", DateTimeToStr( fest_out, ServerFormatDateTimeAsString ) );
+    if ( fact_out > NoExists )
+      NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
       NewTextChild( tripNode, "triptype_out", tr->triptype_out );
     if ( !tr->litera_out.empty() )
@@ -832,7 +899,12 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "crs_disp_from", tr->crs_disp_from );
     if ( !tr->crs_disp_to.empty() )
       NewTextChild( tripNode, "crs_disp_to", tr->crs_disp_to );
-    build_TripStages( tr->stages, tr->region, tripNode );
+    try {
+      build_TripStages( tr->stages, tr->region, tripNode );
+    }
+    catch( Exception &e ) {
+      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );
+    }        
     lNode = NULL;
     for ( tstations::iterator st=tr->stations.begin(); st!=tr->stations.end(); st++ ) {
       if ( !lNode )
@@ -1571,7 +1643,12 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	  read_TripStages( stages, false, 0, point_id );
       string city = ((TAirpsRow&)airps.get_row( "code", Qry.FieldAsString( "airp" ) )).city;
       string region = ((TCitiesRow&)cities.get_row( "code", city )).region;
-  	  build_TripStages( stages, region, dataNode );
+      try {
+  	    build_TripStages( stages, region, dataNode );
+  	  }
+      catch( Exception &e ) {
+        ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), point_id );
+      }          	   
     }
   }
 }
@@ -1818,18 +1895,24 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	if ( !Qry.FieldIsNULL( "bort" ) )
   	  NewTextChild( snode, "bort", Qry.FieldAsString( "bort" ) );
   	string region = Qry.FieldAsString( "region" );
-  	if ( !Qry.FieldIsNULL( "scd_in" ) )
-  	  NewTextChild( snode, "scd_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "scd_in" ), region ), ServerFormatDateTimeAsString ) );
-  	if ( !Qry.FieldIsNULL( "est_in" ) )
-  	  NewTextChild( snode, "est_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_in" ), region ), ServerFormatDateTimeAsString ) );
-  	if ( !Qry.FieldIsNULL( "act_in" ) )
-  	  NewTextChild( snode, "act_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "act_in" ), region ), ServerFormatDateTimeAsString ) );
-  	if ( !Qry.FieldIsNULL( "scd_out" ) )
-  	  NewTextChild( snode, "scd_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "scd_out" ), region ), ServerFormatDateTimeAsString ) );
-  	if ( !Qry.FieldIsNULL( "est_out" ) )
-  	  NewTextChild( snode, "est_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_out" ), region ), ServerFormatDateTimeAsString ) );
-  	if ( !Qry.FieldIsNULL( "act_out" ) )
-  	  NewTextChild( snode, "act_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "act_out" ), region ), ServerFormatDateTimeAsString ) );
+  	try {  	
+  	  if ( !Qry.FieldIsNULL( "scd_in" ) )
+  	    NewTextChild( snode, "scd_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "scd_in" ), region ), ServerFormatDateTimeAsString ) );
+  	  if ( !Qry.FieldIsNULL( "est_in" ) )
+  	    NewTextChild( snode, "est_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_in" ), region ), ServerFormatDateTimeAsString ) );
+  	  if ( !Qry.FieldIsNULL( "act_in" ) )
+  	    NewTextChild( snode, "act_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "act_in" ), region ), ServerFormatDateTimeAsString ) );
+  	  if ( !Qry.FieldIsNULL( "scd_out" ) )
+  	    NewTextChild( snode, "scd_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "scd_out" ), region ), ServerFormatDateTimeAsString ) );
+  	  if ( !Qry.FieldIsNULL( "est_out" ) )
+  	    NewTextChild( snode, "est_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "est_out" ), region ), ServerFormatDateTimeAsString ) );
+  	  if ( !Qry.FieldIsNULL( "act_out" ) )
+  	    NewTextChild( snode, "act_out", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "act_out" ), region ), ServerFormatDateTimeAsString ) );
+  	}
+  	catch( Exception &e ) {
+  		ProgError( STDLOG, "Exception %s, move_id=%d", e.what(), move_id );
+  		throw UserException( "Не найден регион в маршруте рейса, %s", Qry.FieldAsString( "airp" ) );
+  	}  	    
   	while ( !DQry.Eof && DQry.FieldAsInteger( "point_num" ) == Qry.FieldAsInteger( "point_num" ) ) {
   		if ( !dnode )
   			dnode = NewTextChild( snode, "delays" );
@@ -2111,7 +2194,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     }
   }
-  catch( UserException e ) {
+  catch( UserException &e ) {
   	if ( canExcept ) {
   		NewTextChild( NewTextChild( resNode, "data" ), "notvalid" );
   		showErrorMessage( string(e.what()) + ". Повторное нажатие клавиши F9 - запись." );
