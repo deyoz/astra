@@ -114,24 +114,26 @@ void putFile( const string &receiver,
 bool errorFile( int id, const string &msg )
 {
 	TQuery ErrQry(&OraSession);
-	/*ErrQry.SQLText = "SELECT in_order FROM file_types, files WHERE files.id=:id AND files.type=file_types.code";
+	ErrQry.SQLText = 
+	 "SELECT in_order FROM file_types, files "
+	 " WHERE files.id=:id AND files.type=file_types.code AND files_type=:BSMtype";
 	ErrQry.CreateVariable( "id", otInteger, id );
-	ErrQry.Execute();*/
-    if ( /*( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) &&*/ deleteFile(id) )
-    {
-      ErrQry.Clear();
-      ErrQry.SQLText=
-       "BEGIN "
-       " UPDATE files SET error=:error,time=system.UTCSYSDATE WHERE id=:id; "
-       " INSERT INTO file_error(id,msg) VALUES(:id,:msg); "
-       "END;";
-      ErrQry.CreateVariable( "error", otString, "ERR" );
-      ErrQry.CreateVariable( "id", otInteger, id );
-      ErrQry.CreateVariable( "msg", otString, msg );
-      ErrQry.Execute();
-      return ErrQry.RowsProcessed()>0;
-    }
-    else return false;
+	ErrQry.CreateVariable( "BSMtype", otString, "BSM" );
+	ErrQry.Execute();
+  if ( ( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) ) {
+    ErrQry.Clear();
+    ErrQry.SQLText=
+     "BEGIN "
+     " UPDATE files SET error=:error,time=system.UTCSYSDATE WHERE id=:id; "
+     " INSERT INTO file_error(id,msg) VALUES(:id,:msg); "
+     "END;";
+    ErrQry.CreateVariable( "error", otString, "ERR" );
+    ErrQry.CreateVariable( "id", otInteger, id );
+    ErrQry.CreateVariable( "msg", otString, msg );
+    ErrQry.Execute();
+    return ErrQry.RowsProcessed()>0;
+  }
+  else return false;
 };
 
 bool sendFile( int id )
