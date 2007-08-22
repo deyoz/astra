@@ -1942,6 +1942,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  bool ch_craft = false;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
   DelQry.SQLText = 
@@ -2424,6 +2425,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  }*/
 
   	  if ( id->craft != old_dest.craft ) {
+  	  	ch_craft = true;
   	  	if ( !old_dest.craft.empty() ) {
   	  	  id->remark += " изм. типа ВС с " + old_dest.craft;
   	  	  if ( !id->craft.empty() )
@@ -2684,7 +2686,11 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
  NewTextChild( reqNode, "move_id", move_id );
  ReadDests( ctxt, reqNode, resNode );
- showMessage( "Данные успешно сохранены" );
+ if ( ch_craft ) {
+ 	 showErrorMessage( "Данные успешно сохранены. Был изменен тип ВС. Необходимо назначить компоновку." );
+ }
+ else
+   showMessage( "Данные успешно сохранены" );
 /*   "BEGIN "\
    " SELECT move_id.nextval INTO :move_id from dual; "\
    " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
