@@ -534,14 +534,22 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
   //TReqInfo::Instance()->user.check_access( amRead );
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT comp_id,craft,bort,descr,classes FROM comps "\
-                " ORDER BY craft,comp_id";
+  Qry.SQLText = "SELECT airline,comp_id,craft,bort,descr,classes FROM comps "\
+                " ORDER BY airline,craft,comp_id";
   Qry.Execute();
+  TReqInfo *r = TReqInfo::Instance();
   xmlNodePtr node = NewTextChild( resNode, "data" );
   node = NewTextChild( node, "compons" );
   while ( !Qry.Eof ) {
+  	if ( !r->user.access.airlines.empty() &&
+  		   find( r->user.access.airlines.begin(), r->user.access.airlines.end(), Qry.FieldAsString( "airline" ) ) == r->user.access.airlines.end() ) {
+  		Qry.Next();
+  		continue;
+    }
     xmlNodePtr rnode = NewTextChild( node, "compon" );
     NewTextChild( rnode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
+    if ( r->user.access.airlines.size() != 1 )
+    	NewTextChild( rnode, "airline", Qry.FieldAsString( "airline" ) );
     NewTextChild( rnode, "craft", Qry.FieldAsString( "craft" ) );
     NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
     NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
