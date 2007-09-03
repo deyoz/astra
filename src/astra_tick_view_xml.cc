@@ -401,7 +401,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     }
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"lugg_norm",ebd.str()),"index",col_num++); // Норма багажа
 
-    xmlSetProp(xmlNewTextChild(rowNode,NULL,"coup_status",cpn.couponInfo().status().dispCode()),"index",col_num++); // статус купона
+    xmlSetProp(xmlNewTextChild(rowNode,NULL,"coup_status",cpn.couponInfo().status()->dispCode()),"index",col_num++); // статус купона
   }
 }
 

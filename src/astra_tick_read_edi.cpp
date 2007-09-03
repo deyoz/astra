@@ -502,16 +502,16 @@ Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
         throw Exception("Invalid coupon media");
        }
 
-       CouponStatus::coupon_status Status;
+       CouponStatus Status;
        if(GetNumDataElem(pMes, 4405)){
-           Status = GetDBNumCast<CouponStatus::coupon_status>
+           Status = GetDBNumCast<CouponStatus>
                    (EdiCast::CoupStatCast("INV_COUPON"),
                     pMes, 4405,0, "INV_COUPON");
        } else {
            if(media == TicketMedia::Media::Electro){
-               Status = CouponStatus::coupon_status(CouponStatus::OriginalIssue);
+               Status = CouponStatus(CouponStatus::OriginalIssue);
            } else {
-               Status = CouponStatus::coupon_status(CouponStatus::Paper);
+               Status = CouponStatus(CouponStatus::Paper);
            }
        }
 
@@ -679,7 +679,7 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
     PopEdiPointG(pMes);
     return Itin(tnum,
                 Awk, Oper_awk,
-                Flightnum, Class,
+                Flightnum,0, Class,
                 Date1, Time1,
                 date(), time_duration(),
                 Dep_point, Arr_point, ValidDates,
