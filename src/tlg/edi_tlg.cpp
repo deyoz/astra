@@ -18,7 +18,6 @@ using namespace edilib;
 using namespace edilib::EdiSess;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
-using namespace Ticketing::CouponStatus;
 using namespace jxtlib;
 using namespace JxtContext;
 
@@ -466,7 +465,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 
             SetEdiFullSegment(pMes, "CPN",0,
                               HelpCpp::string_cast(cpn.couponInfo().num()) + ":" +
-                                      cpn.couponInfo().status().code());
+                                      cpn.couponInfo().status()->code());
 
             if(cpn.haveItin()){
                 makeItin(pMes, cpn.itin(), cpn.couponInfo().num());
@@ -509,17 +508,17 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       ProgTrace(TRACE5,"ticket=%s coupon=%d",
                        currTick->ticknum().c_str(),
                        currTick->getCoupon().front().couponInfo().num());
-      coupon_status status(currTick->getCoupon().front().couponInfo().status());
+      CouponStatus status(currTick->getCoupon().front().couponInfo().status());
       Qry.Clear();
-      if (status.codeInt()==Checked ||
-          status.codeInt()==Boarded ||
-          status.codeInt()==Flown)
+      if (status->codeInt()==CouponStatus::Checked ||
+          status->codeInt()==CouponStatus::Boarded ||
+          status->codeInt()==CouponStatus::Flown)
       {
         //сделать update
         Qry.SQLText=
           "UPDATE etickets SET coupon_status=:status "
           "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
-        Qry.CreateVariable("status",otString,status.dispCode());
+        Qry.CreateVariable("status",otString,status->dispCode());
       }
       else
       {
