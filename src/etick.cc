@@ -23,7 +23,6 @@ using namespace Ticketing::TickReader;
 using namespace Ticketing::TickView;
 using namespace Ticketing::TickMng;
 using namespace Ticketing::ChangeStatus;
-using namespace Ticketing::CouponStatus;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace JxtContext;
@@ -223,33 +222,33 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
       string airp_dep=Qry.FieldAsString("airp_dep");
       string airp_arv=Qry.FieldAsString("airp_arv");
 
-      coupon_status status;
+      CouponStatus status;
       if (Qry.FieldIsNULL("coupon_status"))
-        status=coupon_status(OriginalIssue);
+        status=CouponStatus(CouponStatus::OriginalIssue);
       else
-        status=coupon_status(Qry.FieldAsString("coupon_status"),true);
+        status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
-      coupon_status real_status;
+      CouponStatus real_status;
       if (!Qry.FieldIsNULL("refuse"))
         //разрегистрирован
-        real_status=coupon_status(OriginalIssue);
+        real_status=CouponStatus(CouponStatus::OriginalIssue);
       else
       {
         if (Qry.FieldAsInteger("pr_brd")==0)
         	//не посажен
-          real_status=coupon_status(Checked);
+          real_status=CouponStatus(CouponStatus::Checked);
         else
         {
           if (Qry.FieldIsNULL("act"))
              //самолет не улетел
-            real_status=coupon_status(Boarded);
+            real_status=CouponStatus(CouponStatus::Boarded);
           else
-            real_status=coupon_status(Flown);
+            real_status=CouponStatus(CouponStatus::Flown);
         };
       };
       if (status!=real_status)
       {
-        ProgTrace(TRACE5,"status=%s real_status=%s",status.dispCode(),real_status.dispCode());
+        ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
         Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
         //if (area==csaFlt)
         //{
@@ -257,7 +256,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
           ptime scd(DateTimeToBoost(scd_local));
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
-                  Qry.FieldAsInteger("flt_no"),
+                  Qry.FieldAsInteger("flt_no"),0,
                   -1,
                   scd.date(),
                   time_duration(not_a_date_time), // not a date time
@@ -283,7 +282,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
         ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                          Qry.FieldAsString("ticket_no"),
                          Qry.FieldAsInteger("coupon_no"),
-                         real_status.dispCode());
+                         real_status->dispCode());
 
       };
       if (Qry.FieldIsNULL("tick_point_id") ||
@@ -321,12 +320,12 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      Coupon_info ci (Qry.FieldAsInteger("coupon_no"),OriginalIssue);
+      Coupon_info ci (Qry.FieldAsInteger("coupon_no"),CouponStatus::OriginalIssue);
       TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
       ptime scd(DateTimeToBoost(scd_local));
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
-                  Qry.FieldAsInteger("flt_no"),
+                  Qry.FieldAsInteger("flt_no"),0,
                   -1,
                   scd.date(),
                   time_duration(not_a_date_time), // not a date time
