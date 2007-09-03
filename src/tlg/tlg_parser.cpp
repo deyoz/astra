@@ -465,7 +465,12 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
 
             c=0;
             res=sscanf(tlg.lex,"%*3[0-9]%[A-Z€-Ÿð ]%c",lexh,&c);
-            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (c!=0||res!=1)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%[A-Z€-Ÿð ]%c",lexh,&c);
+              if (c!=0||res!=1) throw ETlgError("Wrong format");
+            };
             pax.surname=lexh;
 
             if (tlg.GetToEOLLexeme(p)!=NULL)
