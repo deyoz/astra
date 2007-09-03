@@ -17,6 +17,8 @@
 #include "misc.h"
 #include "base_tables.h"
 
+#include "tcl_utils.h"
+
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
@@ -459,7 +461,7 @@ bool get_enable_unload_pectab()
 {
     bool result = true;
     Tcl_Obj *obj;
-    obj=Tcl_GetVar2Ex(Tcl_Interpretator,
+    obj=Tcl_GetVar2Ex(getTclInterpretator(),
             "ENABLE_UNLOAD_PECTAB",0,TCL_GLOBAL_ONLY);
     if(!obj)
         result = false;
@@ -480,7 +482,7 @@ bool get_enable_fr_design()
 {
     bool result = true;
     Tcl_Obj *obj;
-    obj=Tcl_GetVar2Ex(Tcl_Interpretator,
+    obj=Tcl_GetVar2Ex(getTclInterpretator(),
             "ENABLE_FR_DESIGN",0,TCL_GLOBAL_ONLY);
     if(!obj)
         result = false;
