@@ -41,6 +41,14 @@ class PrintDataParser {
                     double FloatVal;
                     int IntegerVal;
                     BASIC::TDateTime DateTimeVal;
+                    TTagValue() {
+                        null = true;
+                        pr_print = false;
+                        type = otString;
+                        FloatVal = 0;
+                        IntegerVal = 0;
+                        DateTimeVal = 0;
+                    }
                 };
 
                 typedef std::map<std::string, TTagValue> TData;
@@ -71,18 +79,24 @@ class PrintDataParser {
                 ~t_field_map();
         };
 
+        int pectab_format;
         int pr_lat;
         t_field_map field_map;
         std::string parse_field(int offset, std::string field);
+        std::string parse_field0(int offset, std::string field);
+        std::string parse_field1(int offset, std::string field);
+        bool IsDelim(char curr_char, char &Mode);
         std::string parse_tag(int offset, std::string tag);
     public:
         PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
         {
+            pectab_format = 0;
             this->pr_lat = rcpt.pr_lat;
         };
         PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
             field_map(pax_id, pr_lat, tagsNode, map_type)
         {
+            pectab_format = 0;
             this->pr_lat = pr_lat;
         };
         std::string parse(std::string &form);
@@ -97,7 +111,7 @@ class PrintDataParser {
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
 void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
-std::string get_validator();
+std::string get_validator(TBagReceipt &rcpt);
 
 class PrintInterface: public JxtInterface
 {
@@ -129,7 +143,7 @@ class PrintInterface: public JxtInterface
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         static void GetPrintDataBR(std::string &form_type, int prn_type, PrintDataParser &parser, std::string &Print,
-                xmlNodePtr prnParamsNode
+                xmlNodePtr reqNode
                 );
         virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };

@@ -1,3 +1,5 @@
+#include "stat.h"
+#include "docs.h"
 #include "brd.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -253,6 +255,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     int point_id=NodeAsInteger("point_id",reqNode);
     int reg_no=-1;
     int hall=-1;
+
+    if ( GetNode( "LoadForm", reqNode ) )
+        get_report_form("ExamBrdbus", resNode);
+
+    if ( GetNode( "LoadVars", reqNode ) ) {
+        xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+        PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
+    }
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)

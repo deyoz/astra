@@ -116,10 +116,11 @@ bool errorFile( int id, const string &msg )
 	TQuery ErrQry(&OraSession);
 	ErrQry.SQLText = 
 	 "SELECT in_order FROM file_types, files "
-	 " WHERE files.id=:id AND files.type=file_types.code AND files_type=:BSMtype";
+	 " WHERE files.id=:id AND files.type=file_types.code AND files.type=:BSMtype";
 	ErrQry.CreateVariable( "id", otInteger, id );
 	ErrQry.CreateVariable( "BSMtype", otString, "BSM" );
 	ErrQry.Execute();
+	
   if ( ( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) ) {
     ErrQry.Clear();
     ErrQry.SQLText=
@@ -457,94 +458,101 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 void CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
 	                         const std::string &flt_no )
 {
-	string client_canon_name;
-	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT canon_name, "
-	              " airp, airline, flt_no, encoding, "
-	              " DECODE( airp, NULL, 0, 4 ) + "
-	              " DECODE( airline, NULL, 0, 2 ) + "
-	              " DECODE( flt_no, NULL, 0, 1 ) AS priority "
-	              " FROM file_param_sets "
-	              " WHERE own_canon_name=:own_canon_name AND "
-	              "       type=:type AND "
-	              "       send = 1 AND "
-	              "       ( airp IS NULL OR airp=:airp ) AND "
-	              "       ( airline IS NULL OR airline=:airline ) AND "
-	              "       ( flt_no IS NULL OR flt_no=:flt_no ) "
-	              " ORDER BY priority DESC";	              		              
-	Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
-	Qry.CreateVariable( "type", otString, type );
-	if ( airp.empty() )
-		Qry.CreateVariable( "airp", otString, FNull );
-	else
-		Qry.CreateVariable( "airp", otString, airp );
-	if ( airline.empty() )
-		Qry.CreateVariable( "airline", otString, FNull );
-	else
-		Qry.CreateVariable( "airline", otString, airline );
-	if ( flt_no.empty() )
-		Qry.CreateVariable( "flt_no", otInteger, FNull );
-	else
-		Qry.CreateVariable( "flt_no", otInteger, flt_no );		
-	Qry.Execute();
-	map<string,int> cname; /* canon_name, priority */
-	map<string,string> params/*, checkin_params, bag_params*/;
-	string file_data/*, bag_file_data*/;
-	int priority;
-	while ( !Qry.Eof ) {
-		priority = Qry.FieldAsInteger( "priority" );
-		client_canon_name = Qry.FieldAsString( "canon_name" );
-		string airp = Qry.FieldAsString( "airp" );
-		string airline = Qry.FieldAsString( "airline" );
-		string flt_no = Qry.FieldAsString( "flt_no" );
-		string encoding = Qry.FieldAsString( "encoding" );
-		map<string,int>::iterator r=cname.end();
-		for ( r=cname.begin(); r!=cname.end(); r++ ) {
-			if ( r->first == client_canon_name )
-			  break;
-	  }
-	  if ( r == cname.end() ) { /* если нет такого имени */
-      params.clear();
-//      bag_params.clear();
-      file_data.clear();
-//      bag_file_data.clear();
-      try {
-      	ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
-        params[PARAM_CANON_NAME] = client_canon_name;
-        if ( 
-      	     type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
-      	     type == FILE_SOFI_TYPE && createSofiFile( id, params, file_data ) ||
-      	     type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data/*, bag_params, bag_file_data*/ )
-      	   ) {
-	  		  /* теперь в params еще лежит и имя файла */
-	  		  params[ NS_PARAM_AIRP ] = airp;
-	  		  params[ NS_PARAM_AIRLINE ] = airline;
-	  		  params[ NS_PARAM_FLT_NO ] = flt_no;
-	  		  params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
-/* 	  		  bag_params[ NS_PARAM_AIRP ] = airp;
-	  		  bag_params[ NS_PARAM_AIRLINE ] = airline;
-	  		  bag_params[ NS_PARAM_FLT_NO ] = flt_no;
-	  		  bag_params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE*/
-              file_data = ConvertCodePage(encoding, "CP866", file_data);
-   		    putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
-/*   		    if ( !bag_file_data.empty() ) {
-   		    	putFile( client_canon_name, OWN_POINT_ADDR(), type, bag_params, bag_file_data );
-   		    }*/
-	      }
-	    }
-	    /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
-      catch( std::exception &e) {
-      	  ///try OraSession.RollBack(); catch(...){};//!!!
-          ProgError(STDLOG, e.what());
-      }
-      catch(...) {
-      	  ///try OraSession.RollBack(); catch(...){}; //!!!
-          ProgError(STDLOG, "putFile: Unknown error while trying to put file");
-      };
-		  cname.insert( make_pair( client_canon_name, priority ) );
-		}
-		Qry.Next();
-	}	
+    string client_canon_name;
+    TQuery Qry( &OraSession );
+    Qry.SQLText =
+        "select encoding from file_encoding where "
+        "   own_point_addr = :own_canon_name and "
+        "   type = :type and "
+        "   pr_send = 1";
+    Qry.CreateVariable( "own_canon_name", otString, OWN_POINT_ADDR() );
+    Qry.CreateVariable( "type", otString, type );
+    Qry.Execute();
+    string encoding = "CP866";
+    if(!Qry.Eof) encoding = Qry.FieldAsString( "encoding" );
+    Qry.SQLText = "SELECT canon_name, "
+        " airp, airline, flt_no, "
+        " DECODE( airp, NULL, 0, 4 ) + "
+        " DECODE( airline, NULL, 0, 2 ) + "
+        " DECODE( flt_no, NULL, 0, 1 ) AS priority "
+        " FROM file_param_sets "
+        " WHERE own_canon_name=:own_canon_name AND "
+        "       type=:type AND "
+        "       send = 1 AND "
+        "       ( airp IS NULL OR airp=:airp ) AND "
+        "       ( airline IS NULL OR airline=:airline ) AND "
+        "       ( flt_no IS NULL OR flt_no=:flt_no ) "
+        " ORDER BY priority DESC";	              		              
+    if ( airp.empty() )
+        Qry.CreateVariable( "airp", otString, FNull );
+    else
+        Qry.CreateVariable( "airp", otString, airp );
+    if ( airline.empty() )
+        Qry.CreateVariable( "airline", otString, FNull );
+    else
+        Qry.CreateVariable( "airline", otString, airline );
+    if ( flt_no.empty() )
+        Qry.CreateVariable( "flt_no", otInteger, FNull );
+    else
+        Qry.CreateVariable( "flt_no", otInteger, flt_no );		
+    Qry.Execute();
+    map<string,int> cname; /* canon_name, priority */
+    map<string,string> params/*, checkin_params, bag_params*/;
+    string file_data/*, bag_file_data*/;
+    int priority;
+    while ( !Qry.Eof ) {
+        priority = Qry.FieldAsInteger( "priority" );
+        client_canon_name = Qry.FieldAsString( "canon_name" );
+        string airp = Qry.FieldAsString( "airp" );
+        string airline = Qry.FieldAsString( "airline" );
+        string flt_no = Qry.FieldAsString( "flt_no" );
+        map<string,int>::iterator r=cname.end();
+        for ( r=cname.begin(); r!=cname.end(); r++ ) {
+            if ( r->first == client_canon_name )
+                break;
+        }
+        if ( r == cname.end() ) { /* если нет такого имени */
+            params.clear();
+            //      bag_params.clear();
+            file_data.clear();
+            //      bag_file_data.clear();
+            try {
+                ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
+                params[PARAM_CANON_NAME] = client_canon_name;
+                if ( 
+                        type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
+                        type == FILE_SOFI_TYPE && createSofiFile( id, params, file_data ) ||
+                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data/*, bag_params, bag_file_data*/ )
+                   ) {
+                    /* теперь в params еще лежит и имя файла */
+                    params[ NS_PARAM_AIRP ] = airp;
+                    params[ NS_PARAM_AIRLINE ] = airline;
+                    params[ NS_PARAM_FLT_NO ] = flt_no;
+                    params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
+                    /* 	  		  bag_params[ NS_PARAM_AIRP ] = airp;
+                                  bag_params[ NS_PARAM_AIRLINE ] = airline;
+                                  bag_params[ NS_PARAM_FLT_NO ] = flt_no;
+                                  bag_params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE*/
+                    file_data = ConvertCodePage(encoding, "CP866", file_data);
+                    putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
+                    /*   		    if ( !bag_file_data.empty() ) {
+                                    putFile( client_canon_name, OWN_POINT_ADDR(), type, bag_params, bag_file_data );
+                                    }*/
+                }
+            }
+            /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
+            catch( std::exception &e) {
+                ///try OraSession.RollBack(); catch(...){};//!!!
+                ProgError(STDLOG, e.what());
+            }
+            catch(...) {
+                ///try OraSession.RollBack(); catch(...){}; //!!!
+                ProgError(STDLOG, "putFile: Unknown error while trying to put file");
+            };
+            cname.insert( make_pair( client_canon_name, priority ) );
+        }
+        Qry.Next();
+    }	
 }
 
 void CreateCentringFileDATA( int point_id )

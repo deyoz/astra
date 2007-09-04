@@ -29,27 +29,27 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
      "declare "
-     "  update_time date; "
+     "  time date; "
 	 "BEGIN "
-	 " SELECT n, update_time INTO :nnn, update_time FROM sofi "
+	 " SELECT file_no, time INTO :file_no, time FROM sofi_files "
      "  where "
-     " canon_name = :canon_name and "
+     " point_addr = :point_addr and "
      " desk = :desk for update; "
-     " if trunc(update_time) <> trunc(sysdate) then "
-     "   :nnn := 0; "
-     "   update sofi set n = 1, update_time = sysdate where "
-     "    canon_name = :canon_name and "
+     " if trunc(time) <> trunc(sysdate) then "
+     "   :file_no := 0; "
+     "   update sofi_files set file_no = 1, time = sysdate where "
+     "    point_addr = :point_addr and "
      "    desk = :desk; "
      " else "
-	 " UPDATE sofi SET n=:nnn+1 where canon_name = :canon_name and "
+	 " UPDATE sofi_files SET file_no=:file_no+1 where point_addr = :point_addr and "
      "    desk = :desk; "
      " end if; "
 	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
-	 "   :nnn := 0; "
-	 "   INSERT INTO sofi(n, canon_name, desk, update_time) VALUES( 1, :canon_name, :desk, sysdate ); "
+	 "   :file_no := 0; "
+	 "   INSERT INTO sofi_files(file_no, point_addr, desk, time) VALUES( 1, :point_addr, :desk, sysdate ); "
 	 "END; ";
-	Qry.CreateVariable( "nnn", otInteger, 0 );
-	Qry.CreateVariable( "canon_name", otString, params[PARAM_CANON_NAME] );
+	Qry.CreateVariable( "file_no", otInteger, 0 );
+	Qry.CreateVariable( "point_addr", otString, params[PARAM_CANON_NAME] );
 	Qry.CreateVariable( "desk", otString, params[PARAM_PULT] );
 	tst();
 	Qry.Execute();
@@ -57,7 +57,7 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
 	ostringstream res;
 	res <<setw(0)<<DateTimeToStr(NowUTC(),"yymmdd");
     res << params[PARAM_PULT];
-	res <<Qry.GetVariableAsInteger( "nnn" );
+	res <<Qry.GetVariableAsInteger( "file_no" );
 	res <<setw(0)<<".txt";
     ProgTrace(TRACE5, "params.size = %d", params.size());
     for(map<string,string>::iterator im = params.begin(); im != params.end(); im++) {

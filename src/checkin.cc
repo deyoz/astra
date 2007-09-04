@@ -1434,7 +1434,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       node2=node->children;
       seats=NodeAsIntegerFast("seats",node2);
       if ( !seats )
-      	adultwithbaby = true;
+      	adultwithbaby = true;      
       seats_sum+=seats;
       bool flagVIP=false, flagSTCR=false, flagEXST=false;
       remNode=GetNodeFast("rems",node2);
@@ -1497,7 +1497,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     {
         node2=node->children;
         if (NodeAsIntegerFast("seats",node2)==0) 
-        	 continue;
+        	continue;
         const char *subclass=NodeAsStringFast("subclass",node2);
         TPassenger pas;
         pas.clname=cl;
@@ -1532,7 +1532,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             	   strcmp(rem_code,"STCR")==0 ||
             	   strcmp(rem_code,"UMNR")==0 ||
             	   strcmp(rem_code,"WCHS")==0 ||
-            	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
+            	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;                
             pas.rems.push_back(rem_code);
           };
         };
@@ -1574,7 +1574,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
         else
         	if ( !pas.isValidPlace )
-        		showErrorMessage("Пассажиры посажены на запрещенные места");
+        		showErrorMessage("Пассажиры посажены на запрещенные места");            
         ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
         i++;
     };

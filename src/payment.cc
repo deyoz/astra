@@ -18,6 +18,18 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
+int MainPaxRegNo(int grp_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = 
+        "select reg_no from pax where pax_id = ckin.get_main_pax_id(:grp_id)";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("MainPaxRegNo: ckin.get_main_pax_id failed for grp_id " + IntToString(grp_id));
+    return Qry.FieldAsInteger("reg_no");
+}
+
 string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
 {
     ostringstream result;
@@ -325,81 +337,114 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
 
 void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_dep=NodeAsInteger("point_dep",reqNode);
-  int grp_id=NodeAsInteger("grp_id",reqNode);
-  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-  NewTextChild(resNode,"tid",tid);
+    int point_dep=NodeAsInteger("point_dep",reqNode);
+    int grp_id=NodeAsInteger("grp_id",reqNode);
+    int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+    NewTextChild(resNode,"tid",tid);
 
-  CheckInInterface::SaveBag(reqNode);
-  CheckInInterface::SavePaidBag(reqNode);
+    CheckInInterface::SaveBag(reqNode);
+    CheckInInterface::SavePaidBag(reqNode);
+
+    TReqInfo::Instance()->MsgToLog(
+            "Данные по багажным тарифам и ценному багажу сохранены.",
+            ASTRA::evtPay,point_dep,MainPaxRegNo(grp_id),grp_id);
 };
 
 void PaymentInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_dep=NodeAsInteger("point_dep",reqNode);
-  int grp_id=NodeAsInteger("grp_id",reqNode);
-  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-  NewTextChild(resNode,"tid",tid);
+    int point_dep=NodeAsInteger("point_dep",reqNode);
+    int grp_id=NodeAsInteger("grp_id",reqNode);
+    int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+    NewTextChild(resNode,"tid",tid);
 
-  xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
-  bool pr_del=NodeAsIntegerFast("pr_del",node);
-  xmlNodePtr idNode=GetNodeFast("id",node);
+    xmlNodePtr node=NodeAsNode("receipt",reqNode)->children;
+    bool pr_del=NodeAsIntegerFast("pr_del",node);
+    xmlNodePtr idNode=GetNodeFast("id",node);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  if (idNode!=NULL)
-    Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
-  else
-    Qry.CreateVariable("receipt_id",otInteger,FNull);
-
-  if (!pr_del)
-  {
-    if (idNode==NULL)
-      Qry.SQLText=
-        "BEGIN "
-        "  SELECT id__seq.nextval INTO :receipt_id FROM dual; "
-        "  INSERT INTO bag_prepay "
-        "        (receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur) "
-        "  VALUES(:receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur); "
-        "END; ";
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    if (idNode!=NULL)
+        Qry.CreateVariable("receipt_id",otInteger,NodeAsInteger(idNode));
     else
-      Qry.SQLText=
-        "UPDATE bag_prepay "
-        "SET no=:no,aircode=:aircode,ex_weight=:ex_weight, "
-        "    bag_type=:bag_type,value=:value,value_cur=:value_cur "
-        "WHERE receipt_id=:receipt_id AND grp_id=:grp_id";
+        Qry.CreateVariable("receipt_id",otInteger,FNull);
 
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("no",otString,NodeAsStringFast("no",node));
-    Qry.CreateVariable("aircode",otString,NodeAsStringFast("aircode",node));
-    if (!NodeIsNULLFast("ex_weight",node,true))
-      Qry.CreateVariable("ex_weight",otInteger,NodeAsIntegerFast("ex_weight",node));
+    string aircode, no;
+
+    if (!pr_del)
+    {
+        if (idNode==NULL)
+            Qry.SQLText=
+                "BEGIN "
+                "  SELECT id__seq.nextval INTO :receipt_id FROM dual; "
+                "  INSERT INTO bag_prepay "
+                "        (receipt_id,grp_id,no,aircode,ex_weight,bag_type,value,value_cur) "
+                "  VALUES(:receipt_id,:grp_id,:no,:aircode,:ex_weight,:bag_type,:value,:value_cur); "
+                "END; ";
+        else
+            Qry.SQLText=
+                "UPDATE bag_prepay "
+                "SET no=:no,aircode=:aircode,ex_weight=:ex_weight, "
+                "    bag_type=:bag_type,value=:value,value_cur=:value_cur "
+                "WHERE receipt_id=:receipt_id AND grp_id=:grp_id";
+
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        no = NodeAsStringFast("no",node);
+        Qry.CreateVariable("no",otString,no);
+        aircode = NodeAsStringFast("aircode",node);
+        Qry.CreateVariable("aircode",otString,aircode);
+        if (!NodeIsNULLFast("ex_weight",node,true))
+            Qry.CreateVariable("ex_weight",otInteger,NodeAsIntegerFast("ex_weight",node));
+        else
+            Qry.CreateVariable("ex_weight",otInteger,FNull);
+        if (!NodeIsNULLFast("bag_type",node))
+            Qry.CreateVariable("bag_type",otInteger,NodeAsIntegerFast("bag_type",node));
+        else
+            Qry.CreateVariable("bag_type",otInteger,FNull);
+        if (!NodeIsNULLFast("value",node,true))
+            Qry.CreateVariable("value",otFloat,NodeAsFloatFast("value",node));
+        else
+            Qry.CreateVariable("value",otFloat,FNull);
+        Qry.CreateVariable("value_cur",otString,NodeAsStringFast("value_cur",node,""));
+        Qry.Execute();
+        if (idNode!=NULL && Qry.RowsProcessed()<=0)
+            throw UserException("Квитанция не найдена. Обновите данные");
+
+        NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
+    }
     else
-      Qry.CreateVariable("ex_weight",otInteger,FNull);
-    if (!NodeIsNULLFast("bag_type",node))
-      Qry.CreateVariable("bag_type",otInteger,NodeAsIntegerFast("bag_type",node));
-    else
-      Qry.CreateVariable("bag_type",otInteger,FNull);
-    if (!NodeIsNULLFast("value",node,true))
-      Qry.CreateVariable("value",otFloat,NodeAsFloatFast("value",node));
-    else
-      Qry.CreateVariable("value",otFloat,FNull);
-    Qry.CreateVariable("value_cur",otString,NodeAsStringFast("value_cur",node,""));
-    Qry.Execute();
-    if (idNode!=NULL && Qry.RowsProcessed()<=0)
-      throw UserException("Квитанция не найдена. Обновите данные");
+    {
+        Qry.SQLText=
+            "begin "
+            "   select aircode, no into :aircode, :no from bag_prepay "
+            "       WHERE receipt_id=:receipt_id for update; "
+            "   DELETE FROM bag_prepay WHERE receipt_id=:receipt_id; "
+            "end;";
+        Qry.DeclareVariable("aircode", otString);
+        Qry.DeclareVariable("no", otString);
+        try {
+            Qry.Execute();
+        } catch(EOracleError E) {
+            if(E.Code == 1403)
+                throw UserException("Квитанция не найдена. Обновите данные");
+            else
+                throw;
+        }
+        aircode = Qry.GetVariableAsString("aircode");
+        no = Qry.GetVariableAsString("no");
+    };
 
-    NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
-  }
-  else
-  {
-    Qry.SQLText="DELETE FROM bag_prepay WHERE receipt_id=:receipt_id";
-    Qry.Execute();
-    if (Qry.RowsProcessed()<=0)
-      throw UserException("Квитанция не найдена. Обновите данные");
-  };
+    ostringstream logmsg;
+    logmsg
+        << "Квитанция "
+        << aircode
+        << " "
+        << no
+        << " "
+        << (pr_del ? "удалена" : "сохранена");
 
-
+    TReqInfo::Instance()->MsgToLog(
+            logmsg.str(),
+            ASTRA::evtPay,point_dep,MainPaxRegNo(grp_id),grp_id);
 }
 
 //из базы в структуру
@@ -542,7 +587,7 @@ int PaymentInterface::PutReceipt(TBagReceipt &rcpt, int grp_id)
   Qry.CreateVariable("pay_form",otString,rcpt.pay_form.substr(0, 100));
   Qry.CreateVariable("remarks",otString,rcpt.remarks.substr(0, 50));
   Qry.CreateVariable("issue_date",otDate,rcpt.issue_date);
-  Qry.CreateVariable("issue_place",otString,rcpt.issue_place.substr(0, 50));
+  Qry.CreateVariable("issue_place",otString,rcpt.issue_place);
   Qry.CreateVariable("issue_user_id",otInteger,reqInfo->user.user_id);
   Qry.CreateVariable("issue_desk",otString,rcpt.issue_desk.substr(0, 6));
   try
@@ -725,7 +770,7 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
 
   rcpt.issue_date=NowUTC();
   rcpt.issue_desk=reqInfo->desk.code;
-  rcpt.issue_place=get_validator();
+  rcpt.issue_place=get_validator(rcpt);
 
   rcpt.annul_date=NoExists;
   rcpt.annul_desk="";
@@ -875,7 +920,7 @@ void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
   rcpt.issue_date=NowUTC();
   rcpt.issue_desk=reqInfo->desk.code;
-  rcpt.issue_place=get_validator();
+  rcpt.issue_place=get_validator(rcpt);
   rcpt.annul_date=NoExists;
   rcpt.annul_desk="";
 
@@ -885,129 +930,168 @@ void PaymentInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 void PaymentInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TReqInfo *reqInfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
 
-  int point_dep=NodeAsInteger("point_dep",reqNode);
-  int grp_id=NodeAsInteger("grp_id",reqNode);
-  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-  NewTextChild(resNode,"tid",tid);
+    int point_dep=NodeAsInteger("point_dep",reqNode);
+    int grp_id=NodeAsInteger("grp_id",reqNode);
+    int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+    NewTextChild(resNode,"tid",tid);
 
-  int rcpt_id=NodeAsInteger("receipt/id",reqNode);
+    int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "UPDATE bag_receipts "
-    "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
-    "WHERE receipt_id=:receipt_id AND status=:old_status";
-  Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
-  Qry.CreateVariable("old_status",otString,"П");
-  Qry.CreateVariable("new_status",otString,"А");
-  Qry.CreateVariable("annul_date",otDate,NowUTC());
-  Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-  Qry.Execute();
-  if (Qry.RowsProcessed()<=0)
-    throw UserException("Аннулируемая квитанция была изменена. Обновите данные");
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "begin "
+        "   select form_type, no into :form_type, :no from bag_receipts where "
+        "      receipt_id=:receipt_id AND status=:old_status for update; "
+        "   UPDATE bag_receipts "
+        "   SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
+        "   WHERE receipt_id=:receipt_id AND status=:old_status; "
+        "end;";
+    Qry.DeclareVariable("form_type",otString);
+    Qry.DeclareVariable("no",otFloat);
+    Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
+    Qry.CreateVariable("old_status",otString,"П");
+    Qry.CreateVariable("new_status",otString,"А");
+    Qry.CreateVariable("annul_date",otDate,NowUTC());
+    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+    try {
+        Qry.Execute();
+    } catch(EOracleError E) {
+        if(E.Code == 1403)
+            throw UserException("Аннулируемая квитанция была изменена. Обновите данные");
+        else
+            throw;
+    }
+    ostringstream no;
+    no
+        << Qry.GetVariableAsString("form_type")
+        << " "
+        << fixed
+        << setw(10)
+        << setfill('0')
+        << setprecision(0)
+        << Qry.GetVariableAsFloat("no");
+    reqInfo->MsgToLog(
+            "Квитанция " + no.str() + " аннулирована",
+            ASTRA::evtPay,point_dep,MainPaxRegNo(grp_id),grp_id);
 };
 
 void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     tst();
-  TReqInfo *reqInfo = TReqInfo::Instance();
+    TReqInfo *reqInfo = TReqInfo::Instance();
 
-  int point_dep=NodeAsInteger("point_dep",reqNode);
-  int grp_id=NodeAsInteger("grp_id",reqNode);
-  int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
-  NewTextChild(resNode,"tid",tid);
+    int point_dep=NodeAsInteger("point_dep",reqNode);
+    int grp_id=NodeAsInteger("grp_id",reqNode);
+    int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
+    NewTextChild(resNode,"tid",tid);
 
-  TQuery Qry(&OraSession);
+    TQuery Qry(&OraSession);
 
-  TBagReceipt rcpt;
-  int rcpt_id;
-  if (GetNode("receipt/no",reqNode)!=NULL)
-  {
-    if (GetNode("receipt/id",reqNode)==NULL)
+    TBagReceipt rcpt;
+    int rcpt_id;
+    string logmsg;
+    if (GetNode("receipt/no",reqNode)!=NULL)
     {
-      //печать новой квитанции
-      GetReceipt(reqNode,rcpt);
+        if (GetNode("receipt/id",reqNode)==NULL)
+        {
+            //печать новой квитанции
+            GetReceipt(reqNode,rcpt);
+            ostringstream no;
+            no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+            logmsg = "Квитанция " + rcpt.form_type + " " + no.str() + " напечатана";
+        }
+        else
+        {
+            //замена бланка
+            rcpt_id=NodeAsInteger("receipt/id",reqNode);
+
+            if (!GetReceipt(rcpt_id,rcpt))
+                throw UserException("Заменяемая квитанция не найдена. Обновите данные");
+
+            ostringstream old_no, no;
+            old_no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+
+            rcpt.no=NodeAsFloat("receipt/no",reqNode);
+            rcpt.issue_date=NowUTC();
+            rcpt.issue_desk=reqInfo->desk.code;
+            rcpt.issue_place=get_validator(rcpt);
+            rcpt.annul_date=NoExists;
+            rcpt.annul_desk="";
+
+            no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+
+            Qry.Clear();
+            Qry.SQLText=
+                "UPDATE bag_receipts "
+                "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
+                "WHERE receipt_id=:receipt_id AND status=:old_status";
+            Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
+            Qry.CreateVariable("old_status",otString,"П");
+            Qry.CreateVariable("new_status",otString,"З");
+            Qry.CreateVariable("annul_date",otDate,rcpt.issue_date);
+            Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+            Qry.CreateVariable("desk",otString,rcpt.issue_desk);
+            tst();
+            Qry.Execute();
+            tst();
+            if (Qry.RowsProcessed()<=0)
+                throw UserException("Заменяемая квитанция была изменена. Обновите данные");
+            logmsg = "Замена бланка " + rcpt.form_type + ": " + old_no.str() + " на " + no.str();
+        };
+
+        rcpt_id=PutReceipt(rcpt,grp_id);
+        createSofiFileDATA( rcpt_id );
+        //изменяем номер бланка в пачке
+        Qry.Clear();
+        Qry.SQLText=
+            "BEGIN "
+            "  UPDATE form_packs SET curr_no=:curr_no+1 "
+            "  WHERE user_id=:user_id AND type=:type; "
+            "  IF SQL%NOTFOUND THEN "
+            "    INSERT INTO form_packs(user_id,curr_no,type) "
+            "    VALUES(:user_id,:curr_no+1,:type); "
+            "  END IF; "
+            "END;";
+        Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+        Qry.CreateVariable("curr_no",otFloat,rcpt.no);
+        Qry.CreateVariable("type",otString,rcpt.form_type);
+        tst();
+        Qry.Execute();
+        tst();
     }
     else
     {
-      //замена бланка
-      rcpt_id=NodeAsInteger("receipt/id",reqNode);
-
-      if (!GetReceipt(rcpt_id,rcpt))
-        throw UserException("Заменяемая квитанция не найдена. Обновите данные");
-      rcpt.no=NodeAsFloat("receipt/no",reqNode);
-      rcpt.issue_date=NowUTC();
-      rcpt.issue_desk=reqInfo->desk.code;
-      rcpt.issue_place=get_validator();
-      rcpt.annul_date=NoExists;
-      rcpt.annul_desk="";
-
-      Qry.Clear();
-      Qry.SQLText=
-        "UPDATE bag_receipts "
-        "SET status=:new_status,annul_date=:annul_date,annul_user_id=:user_id,annul_desk=:desk "
-        "WHERE receipt_id=:receipt_id AND status=:old_status";
-      Qry.CreateVariable("receipt_id",otInteger,rcpt_id);
-      Qry.CreateVariable("old_status",otString,"П");
-      Qry.CreateVariable("new_status",otString,"З");
-      Qry.CreateVariable("annul_date",otDate,rcpt.issue_date);
-      Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-      Qry.CreateVariable("desk",otString,rcpt.issue_desk);
-    tst();
-      Qry.Execute();
-    tst();
-      if (Qry.RowsProcessed()<=0)
-        throw UserException("Заменяемая квитанция была изменена. Обновите данные");
+        //повтор печати
+        rcpt_id=NodeAsInteger("receipt/id",reqNode);
+        if (!GetReceipt(rcpt_id,rcpt))
+            throw UserException("Квитанция не найдена. Обновите данные");
+        ostringstream no;
+        no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
+        logmsg = "Повтор печати квитанции " + rcpt.form_type + " " + no.str();
     };
 
-    rcpt_id=PutReceipt(rcpt,grp_id);
-    createSofiFileDATA( rcpt_id );
-    //изменяем номер бланка в пачке
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  UPDATE form_packs SET curr_no=:curr_no+1 "
-      "  WHERE user_id=:user_id AND type=:type; "
-      "  IF SQL%NOTFOUND THEN "
-      "    INSERT INTO form_packs(user_id,curr_no,type) "
-      "    VALUES(:user_id,:curr_no+1,:type); "
-      "  END IF; "
-      "END;";
-    Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-    Qry.CreateVariable("curr_no",otFloat,rcpt.no);
-    Qry.CreateVariable("type",otString,rcpt.form_type);
+    //вывод
     tst();
-    Qry.Execute();
+    PutReceipt(rcpt,rcpt_id,resNode); //квитанция
     tst();
-  }
-  else
-  {
-    //повтор печати
-    rcpt_id=NodeAsInteger("receipt/id",reqNode);
-    if (!GetReceipt(rcpt_id,rcpt))
-      throw UserException("Квитанция не найдена. Обновите данные");
-  };
-
-  //вывод
+    PrintDataParser parser(rcpt);
     tst();
-  PutReceipt(rcpt,rcpt_id,resNode); //квитанция
+    PutReceiptFields(rcpt,parser,resNode); //образ квитанции
     tst();
-  PrintDataParser parser(rcpt);
-    tst();
-  PutReceiptFields(rcpt,parser,resNode); //образ квитанции
-    tst();
-  int prn_type=NodeAsInteger("prn_type", reqNode);
-  string data;
-  PrintInterface::GetPrintDataBR(
-          rcpt.form_type,
-          prn_type,
-          parser,
-          data,
-          GetNode("prnParams", reqNode)
-          ); //последовательность для принтера
-  NewTextChild(resNode, "form", data);
+    int prn_type=NodeAsInteger("prn_type", reqNode);
+    string data;
+    PrintInterface::GetPrintDataBR(
+            rcpt.form_type,
+            prn_type,
+            parser,
+            data,
+            reqNode
+            ); //последовательность для принтера
+    NewTextChild(resNode, "form", data);
+    reqInfo->MsgToLog(logmsg,
+            ASTRA::evtPay,point_dep,MainPaxRegNo(grp_id),grp_id);
 };

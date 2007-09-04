@@ -219,10 +219,15 @@ string vsHow_lat(int nmb, int range)
 string vs_number(int number, bool pr_lat)
 {
     string result;
-    int i = number / 1000;
-    result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
-    i = number % 1000;
-    result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
+    if(number >= 1000000) {
+       result = "XXXXXX";
+       ProgTrace(TRACE5, "vs_number: value too large (>= 1000000): %d", number);
+    } else {
+	    int i = number / 1000;
+	    result += (pr_lat ? vsHow_lat(i, 1) : vsHow_ru(i, 1));
+	    i = number % 1000;
+	    result += (pr_lat ? vsHow_lat(i, 0) : vsHow_ru(i, 0));
+    }
     return result;
 }
 

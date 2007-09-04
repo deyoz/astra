@@ -1024,8 +1024,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         qry =
             "SELECT msg, time, id1 AS point_id, "
             "  nvl(screen.name, events.screen) screen, "
-            "  DECODE(type,:evtPax,id2,id2,NULL) AS reg_no, "
-            "  DECODE(type,:evtPax,id3,id3,NULL) AS grp_id, "
+            "  DECODE(type,:evtPay,id2,:evtPax,id2,id2,NULL) AS reg_no, "
+            "  DECODE(type,:evtPay,id2,:evtPax,id3,id3,NULL) AS grp_id, "
             "  ev_user, station, ev_order "
             "FROM events, screen "
             "WHERE "
@@ -1038,6 +1038,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  events.type IN ( "
             "    :evtFlt, "
             "    :evtPax, "
+            "    :evtPay, "
             "    :evtGraph, "
             "    :evtTlg, "
             "    :evtComp, "
@@ -1063,6 +1064,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  arx_events.type IN ( "
             "    :evtFlt, "
             "    :evtPax, "
+            "    :evtPay, "
             "    :evtGraph, "
             "    :evtTlg, "
             "    :evtComp, "
@@ -1074,6 +1076,13 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
         Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
         Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+        {
+            xmlNodePtr node = GetNode("evtPay", reqNode);
+            string evtPay;
+            if(node)
+                evtPay = NodeAsString(node);
+            Qry.CreateVariable("evtPay", otString, evtPay);
+        }
         Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
         Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
         Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
@@ -2104,7 +2113,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points.airline, "
         "  points.flt_no, "
         "  points.scd_out, "
-        "  system.AirpTzRegion(airp) AS tz_region, "
+        "  system.AirpTzRegion(points.airp) AS tz_region, "
         "  stat.point_id, "
         "  substr(ckin.get_airps(stat.point_id),1,50) places, "
         "  sum(adult + child + baby) pax_amount, "
@@ -2152,7 +2161,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points.airline, "
         "  arx_points.flt_no, "
         "  arx_points.scd_out, "
-        "  system.AirpTzRegion(airp) AS tz_region, "
+        "  system.AirpTzRegion(arx_points.airp) AS tz_region, "
         "  arx_stat.point_id, "
         "  substr(arch.get_airps(arx_stat.point_id, :FirstDate),1,50) places, "
         "  sum(adult + child + baby) pax_amount, "

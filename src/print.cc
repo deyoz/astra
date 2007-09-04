@@ -20,6 +20,8 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
+const string delim = "\xb";
+
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON} TPrnFormat;
 typedef enum {
     ptIER506A = 1,
@@ -35,30 +37,65 @@ typedef enum {
     ptOKIML3310
 } TPrnType;
 
-struct TPrnParams {
-    string encoding;
-    int offset, top;
-    void get_prn_params(xmlNodePtr prnParamsNode);
-};
+namespace to_esc {
+    struct TPrnParams {
+        string encoding;
+        int offset, top;
+        void get_prn_params(xmlNodePtr prnParamsNode);
+    };
 
-void TPrnParams::get_prn_params(xmlNodePtr prnParamsNode)
-{
-    if(prnParamsNode == NULL) {
+    void TPrnParams::get_prn_params(xmlNodePtr reqNode)
+    {
         encoding = "CP866";
         offset = 20;
         top = 0;
-    } else {
-        encoding = NodeAsString("encoding", prnParamsNode);
-        offset = NodeAsInteger("offset", prnParamsNode);
-        top = NodeAsInteger("top", prnParamsNode);
+        if(reqNode) {
+            xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
+            if(prnParamsNode) {
+                encoding = NodeAsString("encoding", prnParamsNode);
+                offset = NodeAsInteger("offset", prnParamsNode);
+                top = NodeAsInteger("top", prnParamsNode);
+            } else {
+                encoding = NodeAsString("encoding", reqNode);
+            }
+        }
     }
-}
 
-namespace to_esc {
     typedef struct {
         int x, y, font;
+        int len, height;
+        string align;
         string data;
+        void parse_data();
     } TField;
+
+    void TField::parse_data()
+    {
+        size_t si = data.find(delim);
+        if(si == string::npos) {
+            len = 0;
+            height = 1;
+            align = "L";
+        } else {
+            for(int i = 0; i < 3; i++) {
+                string buf = data.substr(0, si);
+                data.erase(0, si + 1);
+                si = data.find(delim);
+                switch(i) {
+                    case 0:
+                        len = StrToInt(buf);
+                        break;
+                    case 1:
+                        height = StrToInt(buf);
+                        break;
+                    case 2:
+                        align = buf;
+                        break;
+                }
+            }
+        }
+    };
+
     typedef vector<TField> TFields;
 
     bool lt(const TField &p1, const TField &p2)
@@ -74,7 +111,7 @@ namespace to_esc {
         out << data;
     }
 
-    void convert(string &mso_form, TPrnType prn_type, TPrnParams &prnParams)
+    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL)
     {
         double y_modif, x_modif;
         switch(prn_type) {
@@ -93,6 +130,12 @@ namespace to_esc {
         TFields fields;
         string num;
         int x, y, font, prnParamsOffset, prnParamsTop;
+
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+
+        mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
+
         prnParamsOffset = 20 - prnParams.offset;
         prnParamsTop = prnParams.top;
         if(prnParamsOffset < 0)
@@ -134,6 +177,7 @@ namespace to_esc {
                         field.y = y + prnParamsTop;
                         field.font = font;
                         field.data = num;
+                        field.parse_data();
                         if(field.font == 'B' && field.data.size() != 10)
                             throw Exception("barcode data len must be 10");
                         fields.push_back(field);
@@ -155,6 +199,53 @@ namespace to_esc {
                     break;
             }
         }
+        {
+            TFields tmp_fields;
+            for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
+                if(fi->height > 1) {
+                    vector<string> strs;
+                    SeparateString(fi->data.c_str(), fi->len, strs);
+                    int height = fi->height;
+                    int y = 0;
+                    for(vector<string>::iterator iv = strs.begin(); iv != strs.end() && height != 0; iv++, height--) {
+                        if(iv == strs.begin()) {
+                            fi->data = AlignString(*iv, fi->len, fi->align);
+                            fi->height = 1;
+                            y = fi->y;
+                        } else {
+                            TField fbuf;
+                            fbuf.x = fi->x;
+
+                            switch(fi->font) {
+                                case '0':
+                                    y += 3;
+                                    break;
+                                case '1':
+                                    y += 3;
+                                    break;
+                                case '2':
+                                    y += 6;
+                                    break;
+                                default:
+                                    throw Exception("convert: unknown font for multiple rows field: %c", fi->font);
+                                    break;
+                            }
+                            fbuf.y = y;
+
+                            fbuf.font = fi->font;
+                            fbuf.len = fi->len;
+                            fbuf.height = 1;
+                            fbuf.align = fi->align;
+                            fbuf.data = AlignString(*iv, fi->len, fi->align);
+                            tmp_fields.push_back(fbuf);
+                        }
+                    }
+                }
+            }
+            for(TFields::iterator fi = tmp_fields.begin(); fi != tmp_fields.end(); fi++) {
+                fields.push_back(*fi);
+            }
+        }
         sort(fields.begin(), fields.end(), lt);
         mso_form = "\x1b@\x1bM\x1bj#";
         int curr_y = 0;
@@ -162,8 +253,6 @@ namespace to_esc {
             int delta_y = fi->y - curr_y;
             if(delta_y) {
                 int offset_y = int(delta_y * y_modif);
-                ProgTrace(TRACE5, "fi->y: %d; curr_y: %d", fi->y, curr_y);
-                ProgTrace(TRACE5, "offset_y: %d", offset_y);
                 int y256 = offset_y / 256;
                 int y_reminder = offset_y % 256;
 
@@ -247,6 +336,7 @@ bool PrintDataParser::t_field_map::printed(TData::iterator di)
 
 TQuery *PrintDataParser::t_field_map::get_prn_qry()
 {
+    dump_data();
     prnQry = OraSession.CreateQuery();
     prnQry->SQLText =
         "begin "
@@ -391,22 +481,22 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     di2 = data.find("NO_SMOKE");
     di3 = data.find("SMOKE");
     if(printed(di1) || printed(di2) || printed(di3))
-        prnQry->SetVariable(di1->first, di1->second.FloatVal);
+        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_AMOUNT");
-    if(printed(di1))
-        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+    if(printed(di1) && di1->second.StringVal.size())
+        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_WEIGHT");
-    if(printed(di1))
-        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+    if(printed(di1) && di1->second.StringVal.size())
+        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
 
 
     di1 = data.find("RK_WEIGHT");
-    if(printed(di1))
-        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+    if(printed(di1) && di1->second.StringVal.size())
+        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
 
 
     di1 = data.find("TAGS");
@@ -425,8 +515,8 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
 
 
     di1 = data.find("FLT_NO");
-    if(printed(di1))
-        prnQry->SetVariable(di1->first, di1->second.IntegerVal);
+    if(printed(di1) && di1->second.StringVal.size())
+        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
 
 
     di1 = data.find("SURNAME");
@@ -482,7 +572,24 @@ void PrintDataParser::t_field_map::dump_data()
 {
         ProgTrace(TRACE5, "------MAP DUMP------");
         for(TData::iterator di = data.begin(); di != data.end(); ++di) {
-            ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+            switch(di->second.type) {
+                case otInteger:
+                    ProgTrace(TRACE5, "data[%s] = %d", di->first.c_str(), di->second.IntegerVal);
+                    break;
+                case otFloat:
+                    ProgTrace(TRACE5, "data[%s] = %f", di->first.c_str(), di->second.FloatVal);
+                    break;
+                case otString:
+                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                    break;
+                case otDate:
+                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(),
+                            DateTimeToStr(di->second.DateTimeVal, "dd.mm.yyyy hh:nn:ss").c_str());
+                    break;
+                default:
+                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                    break;
+            }
         }
         ProgTrace(TRACE5, "------MAP DUMP------");
 }
@@ -734,24 +841,24 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),''), 1) AS seat_no_lat, "
         "   pax.SEAT_TYPE, "
         "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
-        "   DECODE( "
+        "   to_char(DECODE( "
         "       pax.SEAT_TYPE, "
         "       'SMSA',1, "
         "       'SMSW',1, "
         "       'SMST',1, "
-        "       0) pr_smoke, "
-        "   DECODE( "
+        "       0)) pr_smoke, "
+        "   to_char(DECODE( "
         "       pax.SEAT_TYPE, "
         "       'SMSA',' ', "
         "       'SMSW',' ', "
         "       'SMST',' ', "
-        "       'X') no_smoke, "
-        "   DECODE( "
+        "       'X')) no_smoke, "
+        "   to_char(DECODE( "
         "       pax.SEAT_TYPE, "
         "       'SMSA','X', "
         "       'SMSW','X', "
         "       'SMST','X', "
-        "       ' ') smoke, "
+        "       ' ')) smoke, "
         "   pax.SEATS, "
         "   pax.REG_NO, "
         "   pax.TICKET_NO, "
@@ -815,9 +922,9 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   pax_grp.EXCESS, "
         "   pax_grp.HALL, "
         "   system.transliter(pax_grp.HALL) hall_lat, "
-        "   ckin.get_bagAmount(pax_grp.grp_id, null) bag_amount, "
-        "   ckin.get_bagWeight(pax_grp.grp_id, null) bag_weight, "
-        "   ckin.get_rkWeight(pax_grp.grp_id, null) rk_weight "
+        "   to_char(ckin.get_bagAmount(pax_grp.grp_id, null)) bag_amount, "
+        "   to_char(ckin.get_bagWeight(pax_grp.grp_id, null)) bag_weight, "
+        "   to_char(ckin.get_rkWeight(pax_grp.grp_id, null)) rk_weight "
         "from "
         "   pax_grp, "
         "   airps, "
@@ -943,7 +1050,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
     if(
             rcpt.form_type != "M61" &&
             rcpt.form_type != "Z61" &&
-            rcpt.form_type != "451"
+            rcpt.form_type != "451" &&
+            rcpt.form_type != "35"
             )
         throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
   add_tag("pax_name",rcpt.pax_name);
@@ -1017,7 +1125,10 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   add_tag("ValueBTLetter", ValueBTLetter);
   add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
   if(rcpt.bag_type != -1) {
-      if(rcpt.form_type == "451") {
+      if(
+              rcpt.form_type == "451" ||
+              rcpt.form_type == "35"
+              ) {
           switch(rcpt.bag_type) {
               case 20:
                   SkiBT = "x";
@@ -1535,6 +1646,150 @@ PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tag
 
 string PrintDataParser::parse_field(int offset, string field)
 {
+    string result;
+    switch(pectab_format) {
+        case 0:
+            result = parse_field0(offset, field);
+            break;
+        case 1:
+            result = parse_field1(offset, field);
+            break;
+    }
+    return result;
+}
+
+bool PrintDataParser::IsDelim(char curr_char, char &Mode)
+{
+    bool result = true;
+    switch(curr_char) {
+        case 'C':
+        case 'D':
+        case 'F':
+        case 'H':
+        case 'L':
+            Mode = curr_char;
+            break;
+        case ')':
+            Mode = 'F';
+            break;
+        default:
+            result = false;
+            break;
+    }
+    return result;
+}
+
+string PrintDataParser::parse_field1(int offset, string field)
+{
+    char Mode = 'S';
+    string::size_type VarPos = 0;
+
+    string FieldName = upperc(field);
+    string FieldLen = "0";
+    string FieldHeight = "1";
+    string FieldAlign = "L";
+    string DateFormat = ServerFormatDateTimeAsString;
+    int FieldLat = -1;
+
+    string buf;
+    string::size_type i = 0;
+    for(; i < field.size(); i++) {
+        char curr_char = field[i];
+        switch(Mode) {
+            case 'S':
+                if(!IsLetter(curr_char))
+                    throw Exception("first char in tag name must be letter at " + IntToString(offset + i + 1));
+                Mode = 'N';
+                break;
+            case 'N':
+                if(!IsDigitIsLetter(curr_char) && curr_char != '_')
+                    if(curr_char == '(') {
+                        FieldName = upperc(field.substr(0, i));
+                        VarPos = i;
+                        Mode = '1';
+                    } else
+                        throw Exception("wrong char in tag name at " + IntToString(offset + i + 1));
+                break;
+            case '1':
+                if(IsDelim(curr_char, Mode))
+                    VarPos = i;
+                else
+                    throw Exception("first char in tag params  must be name of param at " + IntToString(offset + i + 1));
+                break;
+            case 'L':
+                if(!IsDigit(curr_char)) {
+                    if(IsDelim(curr_char, Mode)) {
+                        buf = field.substr(VarPos + 1, i - VarPos - 1);
+                        if(buf.size()) FieldLen = buf;
+                        VarPos = i;
+                    } else
+                        throw Exception("L param must consist of digits only at " + IntToString(offset + i + 1));
+                }
+                break;
+            case 'H':
+                if(!IsDigit(curr_char)) {
+                    if(IsDelim(curr_char, Mode)) {
+                        buf = field.substr(VarPos + 1, i - VarPos - 1);
+                        if(buf.size()) FieldHeight = buf;
+                        VarPos = i;
+                    } else
+                        throw Exception("H param must consist of digits only at " + IntToString(offset + i + 1));
+                }
+                break;
+            case 'C':
+                if(curr_char != 'r' && curr_char != 'l' && curr_char != 'c') {
+                    if(IsDelim(curr_char, Mode)) {
+                        buf = field.substr(VarPos + 1, i - VarPos - 1);
+                        if(buf.size()) FieldAlign = upperc(buf);
+                        VarPos = i;
+                    } else
+                        throw Exception("C param must be one of r, l or c at " + IntToString(offset + i + 1));
+                }
+                break;
+            case 'D':
+                if(IsDelim(curr_char, Mode)) {
+                    buf = field.substr(VarPos + 1, i - VarPos - 1);
+                    DateFormat = buf;
+                    VarPos = i;
+                }
+                break;
+            case 'F':
+                if(curr_char != 'r' && curr_char != 'e') {
+                    if(IsDelim(curr_char, Mode)) {
+                        buf = field.substr(VarPos + 1, i - VarPos - 1);
+                        if(buf == "e")
+                            FieldLat = 1;
+                        else
+                            FieldLat = 0;
+                        VarPos = i;
+                    } else
+                        throw Exception("D param must be one of r or e at " + IntToString(offset + i + 1));
+                }
+                break;
+        }
+    }
+    if(Mode != 'N' && Mode != 'F')
+        throw Exception("')' not found at " + IntToString(offset + i + 1));
+    string result;
+    if(FieldHeight != "1")
+        result =
+            FieldLen +
+            delim +
+            FieldHeight +
+            delim +
+            FieldAlign +
+            delim +
+            field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
+    else
+        result =
+            field_map.get_field(FieldName, StrToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+    return result;
+}
+
+
+
+string PrintDataParser::parse_field0(int offset, string field)
+{
     char Mode = 'S';
     string::size_type VarPos = 0;
 
@@ -1621,6 +1876,10 @@ string PrintDataParser::parse(string &form)
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
+    if(form.substr(0, 2) == "1\xa") {
+        i = 2;
+        pectab_format = 1;
+    }
     for(; i < form.size(); i++) {
         switch(Mode) {
             case 'S':
@@ -1820,7 +2079,6 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Qry.Execute();
 
 
-ProgTrace( TRACE5, "prn_format=%d", prn_format );
     if(Qry.Eof||Qry.FieldIsNULL("data")||
     	 Qry.FieldIsNULL( "form" ) && (prn_format==pfBTP || prn_format==pfATB || prn_format==pfEPL2)
     	)
@@ -1854,9 +2112,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
         string prn_form = parser.parse(Print);
     if(prn_format == pfEPSON) {
-        TPrnParams prnParams;
-        prnParams.get_prn_params(NULL);
-        to_esc::convert(prn_form, TPrnType(prn_type), prnParams);
+        to_esc::convert(prn_form, TPrnType(prn_type), NULL);
         prn_form = b64_encode(prn_form.c_str(), prn_form.size());
     }
     NewTextChild(paxNode, "prn_form", prn_form);
@@ -1912,9 +2168,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         string prn_form = parser.parse(Print);
         if(prn_format == pfEPSON) {
-            TPrnParams prnParams;
-            prnParams.get_prn_params(NULL);
-            to_esc::convert(prn_form, TPrnType(prn_type), prnParams);
+            to_esc::convert(prn_form, TPrnType(prn_type), NULL);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         NewTextChild(paxNode, "prn_form", prn_form);
@@ -2404,7 +2658,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 }
 
 void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataParser &parser, string &Print,
-        xmlNodePtr prnParamsNode)
+        xmlNodePtr reqNode)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2435,20 +2689,16 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
     if(Qry.Eof||Qry.FieldIsNULL("data"))
       throw UserException("Печать квитанции на выбранный принтер не производится");
 
-    TPrnParams prnParams;
-    prnParams.get_prn_params(prnParamsNode);
-
     string mso_form = Qry.FieldAsString("data");
     mso_form = parser.parse(mso_form);
-    mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
 
-    to_esc::convert(mso_form, TPrnType(prn_type), prnParams);
+    to_esc::convert(mso_form, TPrnType(prn_type), reqNode);
 
     Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
 
 
-string get_validator()
+string get_validator(TBagReceipt &rcpt)
 {
     ostringstream validator;
     string agency, agency_descr, agency_city;
@@ -2484,7 +2734,10 @@ string get_validator()
     }
 
     // agency
-    validator << agency << " ТКП" << endl;
+    validator << agency;
+    if(rcpt.form_type != "451")
+        validator << " ТКП";
+    validator << endl;
     // agency descr
     validator << agency_descr.substr(0, 19) << endl;
     // agency city
