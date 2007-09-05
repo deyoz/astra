@@ -2470,7 +2470,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
        "     craft=:craft,bort=:bort,scd_in=:scd_in,est_in=:est_in,act_in=:act_in,"\
        "     scd_out=:scd_out,est_out=:est_out,act_out=:act_out,trip_type=:trip_type,"\
        "     litera=:litera,park_in=:park_in,park_out=:park_out,pr_del=:pr_del,tid=:tid,"\
-       "     remark=:remark,pr_reg=:pr_reg "
+       "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end if
   	set_pr_del = ( !old_dest.pr_del && id->pr_del );
