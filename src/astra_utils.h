@@ -78,7 +78,6 @@ class TDesk {
   public:
     std::string code;
     std::string city;
-    std::string sale_point;
     std::string tz_region;
     BASIC::TDateTime time;
     TDesk();

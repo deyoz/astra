@@ -2701,37 +2701,49 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
 string get_validator(TBagReceipt &rcpt)
 {
     ostringstream validator;
-    string agency, agency_descr, agency_city;
+    string agency, agency_descr, agency_city, sale_point;
     int private_num;
+
+    TQuery Qry(&OraSession);
+
+    Qry.Clear();
+    Qry.SQLText="SELECT validator FROM form_types WHERE code=:code";
+    Qry.CreateVariable("code", otString, rcpt.form_type);
+    Qry.Execute();
+    if (Qry.Eof) throw Exception("get_validator: unknown form_type %s",rcpt.form_type.c_str());
+    string validator_type=Qry.FieldAsString("validator");
+
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(reqInfo->desk.sale_point.empty()) throw UserException("Для данного пульта не определен пункт продаж");
+    Qry.Clear();
+    Qry.SQLText="SELECT sale_point FROM sale_desks "
+                "WHERE code=:code AND validator=:validator AND pr_denial=0";
+    Qry.CreateVariable("code", otString, reqInfo->desk.code);
+    Qry.CreateVariable("validator", otString, validator_type);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Оформление квитанции формы %s с данного пульта запрещено", rcpt.form_type.c_str());
+    sale_point=Qry.FieldAsString("sale_point");
 
-    {
-        TQuery spQry(&OraSession);
-        spQry.SQLText =
-            "select "
-            "   agency, "
-            "   descr, "
-            "   city "
-            "from "
-            "   sale_points "
-            "where "
-            "   code = :code";
-        spQry.CreateVariable("code", otString, reqInfo->desk.sale_point);
-        spQry.Execute();
-        if(spQry.Eof) throw Exception("sale point not found for '" + reqInfo->desk.sale_point + "'");
-        agency = spQry.FieldAsString("agency");
-        agency_descr = spQry.FieldAsString("descr");
-        agency_city = spQry.FieldAsString("city");
+    Qry.Clear();
+    Qry.SQLText="SELECT agency,descr,city FROM sale_points "
+                "WHERE code=:code AND validator=:validator";
+    Qry.CreateVariable("code", otString, sale_point);
+    Qry.CreateVariable("validator", otString, validator_type);
+    Qry.Execute();
+    if (Qry.Eof) throw Exception("sale point '%s' not found for validator '%s'", sale_point.c_str(), validator_type.c_str());
+    agency = Qry.FieldAsString("agency");
+    agency_descr = Qry.FieldAsString("descr");
+    agency_city = Qry.FieldAsString("city");
 
-        spQry.Clear();
-        spQry.SQLText =
-            "SELECT private_num FROM operators WHERE login=:login";
-        spQry.CreateVariable("login",otString,reqInfo->user.login);
-        spQry.Execute();
-        if(spQry.Eof) throw UserException("Пользователь не является кассиром");
-        private_num = spQry.FieldAsInteger("private_num");
-    }
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT private_num FROM operators "
+        "WHERE login=:login AND validator=:validator AND pr_denial=0";
+    Qry.CreateVariable("login",otString,reqInfo->user.login);
+    Qry.CreateVariable("validator", otString, validator_type);
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("Оформление квитанции формы %s данному пользователю запрещено", rcpt.form_type.c_str());
+    private_num = Qry.FieldAsInteger("private_num");
+
 
     // agency
     validator << agency;
@@ -2746,7 +2758,7 @@ string get_validator(TBagReceipt &rcpt)
     validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
     // agency code
     validator
-        << reqInfo->desk.sale_point << "  "
+        << sale_point << "  "
         << setw(4) << setfill('0') << private_num << endl;
     return validator.str();
 }

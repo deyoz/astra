@@ -27,7 +27,7 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
 {
 	//!!! надо считать
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
      "declare "
      "  time date; "
 	 "BEGIN "
@@ -77,13 +77,13 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &params, 
     "      bag_receipts.rate,bag_receipts.rate_cur, "
     "      bag_receipts.exch_rate,bag_receipts.exch_pay_rate,bag_receipts.pay_rate_cur, "
     "      bag_receipts.ex_weight,bag_receipts.issue_user_id,  "
-    "      desks.code pult,desks.sale_point as sale_point, sale_points.city as sale_city,  "
+    "      desks.code pult, desk_grp.city as sale_city,  "
     "      points.scd_out, users2.descr  "
-    "FROM bag_receipts, desks, sale_points, pax_grp, points, users2  "
+    "FROM bag_receipts, desks, desk_grp, pax_grp, points, users2  "
     "WHERE receipt_id= :id AND  "
     "      bag_receipts.service_type IN (1,2) AND "
     "      bag_receipts.issue_desk=desks.code AND  "
-    "      desks.sale_point=sale_points.code AND  "
+    "      desks.grp_id=desk_grp.grp_id AND  "
     "      bag_receipts.grp_id=pax_grp.grp_id(+) AND  "
     "      pax_grp.point_dep=points.point_id(+) AND  "
     "      bag_receipts.issue_user_id=users2.user_id";
