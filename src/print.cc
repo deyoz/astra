@@ -1416,11 +1416,11 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   {
       string buf = rcpt.issue_place;
       int line_num = 1;
-      while(line_num <= 4) {
+      while(line_num <= 5) {
           string::size_type i = buf.find('\n');
           string issue_place = buf.substr(0, i);
           buf.erase(0, i + 1);
-          if(buf.empty() && line_num < 4)
+          if(buf.empty() && line_num < 5)
               throw Exception("fillMSOMap: Not enough lines in buffer\n");
           add_tag("issue_place" + IntToString(line_num), issue_place);
           line_num++;
@@ -2701,7 +2701,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
 string get_validator(TBagReceipt &rcpt)
 {
     ostringstream validator;
-    string agency, agency_descr, agency_city, sale_point;
+    string agency, agency_name, sale_point_descr, sale_point_city, sale_point;
     int private_num;
 
     TQuery Qry(&OraSession);
@@ -2724,15 +2724,27 @@ string get_validator(TBagReceipt &rcpt)
     sale_point=Qry.FieldAsString("sale_point");
 
     Qry.Clear();
-    Qry.SQLText="SELECT agency,descr,city FROM sale_points "
-                "WHERE code=:code AND validator=:validator";
+    Qry.SQLText=
+        "SELECT "
+        "   sale_points.agency, "
+        "   agencies.name agency_name, "
+        "   sale_points.descr, "
+        "   sale_points.city "
+        "FROM "
+        "   sale_points, "
+        "   agencies "
+        "WHERE "
+        "   sale_points.code=:code AND "
+        "   sale_points.validator=:validator and "
+        "   sale_points.agency = agencies.code ";
     Qry.CreateVariable("code", otString, sale_point);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
     if (Qry.Eof) throw Exception("sale point '%s' not found for validator '%s'", sale_point.c_str(), validator_type.c_str());
     agency = Qry.FieldAsString("agency");
-    agency_descr = Qry.FieldAsString("descr");
-    agency_city = Qry.FieldAsString("city");
+    agency_name = Qry.FieldAsString("agency_name");
+    sale_point_descr = Qry.FieldAsString("descr");
+    sale_point_city = Qry.FieldAsString("city");
 
     Qry.Clear();
     Qry.SQLText =
@@ -2745,21 +2757,31 @@ string get_validator(TBagReceipt &rcpt)
     private_num = Qry.FieldAsInteger("private_num");
 
 
-    // agency
-    validator << agency;
-    if(rcpt.form_type != "451")
-        validator << " ’Š";
-    validator << endl;
-    // agency descr
-    validator << agency_descr.substr(0, 19) << endl;
-    // agency city
-    TBaseTableRow &city = base_tables.get("cities").get_row("code", agency_city);
+    TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
     TBaseTableRow &country = base_tables.get("countries").get_row("code", city.AsString("country"));
-    validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
-    // agency code
-    validator
-        << sale_point << "  "
-        << setw(4) << setfill('0') << private_num << endl;
+    if(validator_type == "’Š") {
+        // agency
+        validator << agency << " ’Š";
+        validator << endl;
+        // agency descr
+        validator << sale_point_descr.substr(0, 19) << endl;
+        // agency city
+        validator << city.AsString("Name").substr(0, 16) << " " << country.AsString("code") << endl;
+        // agency code
+        validator
+            << sale_point << "  "
+            << setw(4) << setfill('0') << private_num << endl;
+        validator << endl; // empty string for this type
+    } else if(
+            validator_type == "ž’" ||
+            validator_type == "ˆ€’€") {
+        validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
+        validator << agency_name.substr(0, 19) << endl;
+        validator << sale_point_descr.substr(0, 19) << endl;
+        validator << city.AsString("Name").substr(0, 16) << "/" << country.AsString("code") << endl;
+        validator << setw(4) << setfill('0') << private_num << endl;
+    } else
+        throw Exception("get_validator: unknown validator type %s", validator_type.c_str());
     return validator.str();
 }
 

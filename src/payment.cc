@@ -794,6 +794,7 @@ void PaymentInterface::PutReceiptFields(TBagReceipt &rcpt, PrintDataParser &pars
   NewTextChild(fieldsNode,"issue_place2",parser.GetTagAsString("issue_place2"));
   NewTextChild(fieldsNode,"issue_place3",parser.GetTagAsString("issue_place3"));
   NewTextChild(fieldsNode,"issue_place4",parser.GetTagAsString("issue_place4"));
+  NewTextChild(fieldsNode,"issue_place5",parser.GetTagAsString("issue_place5"));
 
   NewTextChild(fieldsNode,"SkiBT",parser.GetTagAsString("SkiBT"));
   NewTextChild(fieldsNode,"GolfBT",parser.GetTagAsString("GolfBT"));
