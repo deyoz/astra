@@ -35,7 +35,7 @@ const char* pointsSQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "
-    "       trfer_in.point_id trfer_to, trfer_out.point_id trfer_from "
+    "       trfer_in.point_id trfer_to, trfer_out.point_id trfer_from, t.point_dep trfer_reg "
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
@@ -47,11 +47,13 @@ const char* pointsSQL =
     "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_in) trfer_out, "
     "      (SELECT DISTINCT tlg_binding.point_id_spp AS point_id "
     "       FROM tlg_binding,tlg_transfer "
-    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_out) trfer_in "
+    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_out) trfer_in, "
+    " (SELECT DISTINCT point_dep FROM transfer, pax_grp WHERE transfer.grp_id=pax_grp.grp_id AND pr_refuse=0 ) t "
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
     "     AND points.point_id=trfer_in.point_id(+) "
     "     AND points.point_id=trfer_out.point_id(+) "
+    "     AND points.point_id=t.point_dep(+) "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_pointsSQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
@@ -137,6 +139,7 @@ struct TDest2 {
   string region;
   bool trfer_to;
   bool trfer_from;
+  bool trfer_reg;
 };
 
 struct TSoppStage {
@@ -289,7 +292,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
-//            trip.trfer_to = fd->trfer_from;
           }
           trip.places_out.push_back( fd->airp );
         }
@@ -304,15 +306,11 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
     trip.pr_del_in = pd->pr_del;    
-//    trip.trfer_from = pd->trfer_from;
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
     trip.park_in = id->park_in;
   }
-  //else
-  //  trip.trfer_from = false;
-//  trip.trfer_from = pd->trfer_from;
 
   trip.airp = id->airp;
 
@@ -329,9 +327,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-    //trip.trfer_to = id->trfer_to;
-    if ( id->trfer_from ) {
-//    	ProgTrace( TRACE5, "trfer_from: point_id=%d", trip.point_id );
+/*  djek  if ( id->trfer_from ) {
       trip.trfer_to = true;
       trip.trfer_from = false;
     }
@@ -339,7 +335,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
 //    	ProgTrace( TRACE5, "trfer_to: point_id=%d", trip.point_id );    	
       trip.trfer_from = true;
       trip.trfer_to = false;    	
-    }
+    }*/
+    trip.trfer_from = trip.trfer_from || id->trfer_to;
+    trip.trfer_to = id->trfer_reg;
 
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
@@ -349,8 +347,8 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
   }
-  else
-  	 trip.trfer_to = false;
+/* djek  else
+  	 trip.trfer_to = false;*/
   trip.region = id->region;
   return trip;
 }
@@ -636,6 +634,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
     d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
     d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
+    d.trfer_reg = !PointsQry.FieldIsNULL( "trfer_reg" );
 //    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
 //               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
     dests.push_back( d );
