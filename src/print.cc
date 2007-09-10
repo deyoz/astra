@@ -2700,6 +2700,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
 
 string get_validator(TBagReceipt &rcpt)
 {
+    tst();
     ostringstream validator;
     string agency, agency_name, sale_point_descr, sale_point_city, sale_point;
     int private_num;
@@ -2748,13 +2749,16 @@ string get_validator(TBagReceipt &rcpt)
 
     Qry.Clear();
     Qry.SQLText =
-        "SELECT private_num FROM operators "
+        "SELECT private_num, agency FROM operators "
         "WHERE login=:login AND validator=:validator AND pr_denial=0";
     Qry.CreateVariable("login",otString,reqInfo->user.login);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
     if(Qry.Eof) throw UserException("Оформление квитанции формы %s данному пользователю запрещено", rcpt.form_type.c_str());
     private_num = Qry.FieldAsInteger("private_num");
+    ProgTrace(TRACE5, "AGENCIES: %s %s", agency.c_str(), Qry.FieldAsString("agency"));
+    if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
+        throw UserException("Агентство пульта не совпадает с агентством пользователя");
 
 
     TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
