@@ -30,6 +30,8 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace boost::local_time;
+	
+enum TTrferType { trferIn, trferOut, trferCkin };	
 
 const char* pointsSQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
@@ -137,8 +139,8 @@ struct TDest2 {
   int pr_del;
   int tid;
   string region;
-  bool trfer_to;
   bool trfer_from;
+  bool trfer_to;
   bool trfer_reg;
 };
 
@@ -208,8 +210,7 @@ struct TTrip {
   string crs_disp_to;
 
   string region;
-  bool trfer_to;
-  bool trfer_from;
+  BitSet<TTrferType> TrferType;
 
   TTrip() {
     flt_no_in = NoExists;
@@ -226,8 +227,7 @@ struct TTrip {
     reg = 0;
     resa = 0;
     pr_reg = 0;
-    trfer_to = false;
-    trfer_from = false;
+    TrferType.clearFlags();
   }
 };
 
@@ -281,7 +281,8 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
-   				trip.trfer_from = fd->trfer_from;
+  				if ( fd->trfer_from )  
+   				  trip.TrferType.setFlag( trferIn );
           trip.places_in.push_back( fd->airp );
           pd = fd;
         }
@@ -336,8 +337,10 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       trip.trfer_from = true;
       trip.trfer_to = false;    	
     }*/
-    trip.trfer_from = trip.trfer_from || id->trfer_to;
-    trip.trfer_to = id->trfer_reg;
+    if ( id->trfer_to )
+    	trip.TrferType.setFlag( trferOut );
+    if ( id->trfer_reg )
+    	trip.TrferType.setFlag( trferCkin );
 
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
@@ -876,12 +879,15 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( tr->pr_del_out )
       NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
     NewTextChild( tripNode, "pr_reg", tr->pr_reg );
-    if ( tr->trfer_to ) {
-    	NewTextChild( tripNode, "trfer_to", " ->" );
-    }
-    if ( tr->trfer_from ) {
-    	NewTextChild( tripNode, "trfer_from", " ->" );
-    }
+   	int trfertype = 0x000;
+   	if ( tr->TrferType.isFlag( trferIn ) )
+   		trfertype += 0x00F;
+   	if ( tr->TrferType.isFlag( trferOut ) )
+   		trfertype += 0x0F0;    		
+   	if ( tr->TrferType.isFlag( trferCkin ) )
+   		trfertype += 0xF00;    		    		
+   	if ( trfertype )
+    	NewTextChild( tripNode, "trfertype", trfertype );
     lNode = NULL;
     for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
       if ( !lNode )
