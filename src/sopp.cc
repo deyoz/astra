@@ -36,31 +36,34 @@ enum TTrferType { trferIn, trferOut, trferCkin };
 const char* pointsSQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, "
-    "       trfer_in.point_id trfer_to, trfer_out.point_id trfer_from, t.point_dep trfer_reg "
+    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p, "
-    "      (SELECT DISTINCT tlg_binding.point_id_spp AS point_id "
-    "       FROM tlg_binding,tlg_transfer "
-    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_in) trfer_out, "
-    "      (SELECT DISTINCT tlg_binding.point_id_spp AS point_id "
-    "       FROM tlg_binding,tlg_transfer "
-    "       WHERE tlg_binding.point_id_tlg=tlg_transfer.point_id_out) trfer_in, "
-    " (SELECT DISTINCT point_dep FROM transfer, pax_grp WHERE transfer.grp_id=pax_grp.grp_id AND pr_refuse=0 ) t "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
+/*    
+    " (SELECT +INDEX(points POINTS__IDX3)move_id FROM points "
+    "   WHERE points.pr_del!=-1 AND "
+    "         NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date "
+    " UNION "
+    " SELECT +INDEX(points POINTS__IDX2)move_id FROM points "
+    "   WHERE points.pr_del!=-1 AND "
+    "         NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) p "*/
+/*    " (SELECT DISTINCT move_id FROM points "
+    "   WHERE points.pr_del!=-1 AND "
+    "         ( :first_date IS NULL OR "
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "*/
+    
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
-    "     AND points.point_id=trfer_in.point_id(+) "
-    "     AND points.point_id=trfer_out.point_id(+) "
-    "     AND points.point_id=t.point_dep(+) "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_pointsSQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, NULL trfer_to, NULL trfer_from "
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid "
     " FROM arx_points, "
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
@@ -76,6 +79,7 @@ const char* classesSQL =
     " FROM trip_classes,classes "\
     "WHERE trip_classes.point_id=:point_id AND trip_classes.class=classes.code "\
     "ORDER BY priority";
+    
 const char* arx_classesSQL =
     "SELECT class,cfg "\
     " FROM arx_trip_classes,classes "\
@@ -91,7 +95,7 @@ const char* arx_regSQL =
     "       arx_pax.part_key>=:arx_date AND "
     "       arx_pax_grp.grp_id=arx_pax.grp_id AND arx_pax.pr_brd IS NOT NULL ";
 const char* resaSQL =
-    "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
+    "SELECT ckin.get_crs_ok(:point_id,:airline,:flt_no,:airp_dep) as resa FROM dual ";
 const char *stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM trip_stages "
     " WHERE point_id=:point_id "
@@ -104,6 +108,30 @@ const char* stationsSQL =
     "SELECT stations.name,stations.work_mode,trip_stations.pr_main FROM stations,trip_stations "\
     " WHERE point_id=:point_id AND stations.desk=trip_stations.desk AND stations.work_mode=trip_stations.work_mode "\
     " ORDER BY stations.work_mode,stations.name";
+
+const char* trfer_out_SQL =
+    "SELECT 1 "
+    " FROM tlg_binding,tlg_transfer "
+    "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_in AND rownum<2";
+
+const char* trfer_in_SQL =
+    "SELECT 1 "
+    " FROM tlg_binding,tlg_transfer "
+    "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
+const char* trfer_reg_SQL =    
+    "SELECT 1 FROM transfer, pax_grp "
+    "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND pr_refuse=0 AND rownum<2";
+const char* crs_displaces_SQL =
+    "SELECT point_from,"
+    "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"
+    "       airp_arv_from,class_from,point_to,"
+    "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"
+    "       airp_arv_to,class_to,pr_goshow go_show"
+    " FROM points p1, points p2, crs_displace c "
+    "WHERE (c.point_from=:point_id OR c.point_to=:point_id) AND "
+    "      p1.point_id=c.point_from AND p2.point_id=c.point_to";
+
+
 
 struct TDelay {
 	string code;
@@ -139,9 +167,6 @@ struct TDest2 {
   int pr_del;
   int tid;
   string region;
-  bool trfer_from;
-  bool trfer_to;
-  bool trfer_reg;
 };
 
 struct TSoppStage {
@@ -210,6 +235,7 @@ struct TTrip {
   string crs_disp_to;
 
   string region;
+  int trfer_out_point_id;
   BitSet<TTrferType> TrferType;
 
   TTrip() {
@@ -227,6 +253,7 @@ struct TTrip {
     reg = 0;
     resa = 0;
     pr_reg = 0;
+    trfer_out_point_id = -1;
     TrferType.clearFlags();
   }
 };
@@ -250,7 +277,7 @@ struct TCRS_Displaces {
   map<int,TCRS_Displ> displaces_to;
 };
 
-void GetCRS_Displaces( TCRS_Displaces &crsd );
+/*void GetCRS_Displaces( TCRS_Displaces &crsd );*/
 void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to );
 void read_tripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id );
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode );
@@ -281,8 +308,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
-  				if ( fd->trfer_from )  
-   				  trip.TrferType.setFlag( trferIn );
+   				trip.trfer_out_point_id = fd->point_id;  
           trip.places_in.push_back( fd->airp );
           pd = fd;
         }
@@ -328,20 +354,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.litera_out = id->litera;
     trip.park_out = id->park_out;
 
-/*  djek  if ( id->trfer_from ) {
-      trip.trfer_to = true;
-      trip.trfer_from = false;
-    }
-    if ( id->trfer_to ) {
-//    	ProgTrace( TRACE5, "trfer_to: point_id=%d", trip.point_id );    	
-      trip.trfer_from = true;
-      trip.trfer_to = false;    	
-    }*/
-    if ( id->trfer_to )
-    	trip.TrferType.setFlag( trferOut );
-    if ( id->trfer_reg )
-    	trip.TrferType.setFlag( trferCkin );
-
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
     }
@@ -350,8 +362,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
   }
-/* djek  else
-  	 trip.trfer_to = false;*/
   trip.region = id->region;
   return trip;
 }
@@ -443,23 +453,29 @@ void read_TripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date
     StagesQry.SQLText = stagesSQL;
   StagesQry.CreateVariable( "point_id", otInteger, point_id );
   StagesQry.Execute();
+  int col_stage_id = StagesQry.FieldIndex( "stage_id" );
+  int col_scd = StagesQry.FieldIndex( "scd" );
+  int col_est = StagesQry.FieldIndex( "est" );
+  int col_act = StagesQry.FieldIndex( "act" );
+  int col_pr_manual = StagesQry.FieldIndex( "pr_manual" );
+  int col_pr_auto = StagesQry.FieldIndex( "pr_auto" );
   while ( !StagesQry.Eof ) {
     TSoppStage stage;
-    stage.stage_id = StagesQry.FieldAsInteger( "stage_id" );
-    if ( StagesQry.FieldIsNULL( "scd" ) )
+    stage.stage_id = StagesQry.FieldAsInteger( col_stage_id );
+    if ( StagesQry.FieldIsNULL( col_scd ) )
       stage.scd = NoExists;
     else
-      stage.scd = StagesQry.FieldAsDateTime( "scd" );
-    if ( StagesQry.FieldIsNULL( "est" ) )
+      stage.scd = StagesQry.FieldAsDateTime( col_scd );
+    if ( StagesQry.FieldIsNULL( col_est ) )
       stage.est = NoExists;
     else
-      stage.est = StagesQry.FieldAsDateTime( "est" );
-    if ( StagesQry.FieldIsNULL( "act" ) )
+      stage.est = StagesQry.FieldAsDateTime( col_est );
+    if ( StagesQry.FieldIsNULL( col_act ) )
       stage.act = NoExists;
     else
-      stage.act = StagesQry.FieldAsDateTime( "act" );
-    stage.pr_manual = StagesQry.FieldAsInteger( "pr_manual" );
-    stage.pr_auto = StagesQry.FieldAsInteger( "pr_auto" );
+      stage.act = StagesQry.FieldAsDateTime( col_act );
+    stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
+    stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
 
     stages.push_back( stage );
     StagesQry.Next();
@@ -531,23 +547,87 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
   if ( !arx ) {
     ResaQry.SQLText = resaSQL;
     ResaQry.DeclareVariable( "point_id", otInteger );
+    ResaQry.DeclareVariable( "airline", otString );
+    ResaQry.DeclareVariable( "airp_dep", otString );
+    ResaQry.DeclareVariable( "flt_no", otInteger );
   }
   TQuery StationsQry( &OraSession );
   if ( !arx ) {
     StationsQry.SQLText = stationsSQL;
     StationsQry.DeclareVariable( "point_id", otInteger );
   }
+  TQuery Trfer_outQry( &OraSession );
+  TQuery Trfer_inQry( &OraSession );
+  TQuery Trfer_regQry( &OraSession );
+  if ( !arx ) {
+  	Trfer_outQry.SQLText = trfer_out_SQL;
+  	Trfer_outQry.DeclareVariable( "point_id", otInteger );
+  	Trfer_inQry.SQLText = trfer_in_SQL;
+  	Trfer_inQry.DeclareVariable( "point_id", otInteger );
+  	Trfer_regQry.SQLText = trfer_reg_SQL;
+  	Trfer_regQry.DeclareVariable( "point_id", otInteger );  	
+  }
+  TQuery CRS_DisplQry( &OraSession );
+  if ( !arx ) {
+  	CRS_DisplQry.SQLText = crs_displaces_SQL;
+  	CRS_DisplQry.DeclareVariable( "point_id", otInteger );  	  	
+  }
   PerfomTest( 666 );  
   PointsQry.Execute();
-  PerfomTest( 666 );    
+  PerfomTest( 667 );    
   TDests dests;
+  
+  TCRS_Displaces crsd;  
+  double sd,d1;      	
+  modf( NowUTC(), &sd );        
+  string rgn;                
+  
   int move_id = NoExists;
-  /*ProgTrace( TRACE5, "canUseAirline=%d, canUseAirp=%d",
-            ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() ),
-            ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() ) );*/
-
+  
+  int col_move_id = PointsQry.FieldIndex( "move_id" );
+  int col_point_id = PointsQry.FieldIndex( "point_id" );
+  int col_point_num = PointsQry.FieldIndex( "point_num" );
+  int col_airp = PointsQry.FieldIndex( "airp" );
+  int col_first_point = PointsQry.FieldIndex( "first_point" );
+  int col_airline = PointsQry.FieldIndex( "airline" );
+  int col_flt_no = PointsQry.FieldIndex( "flt_no" );
+  int col_suffix = PointsQry.FieldIndex( "suffix" );
+  int col_craft = PointsQry.FieldIndex( "craft" );
+  int col_bort = PointsQry.FieldIndex( "bort" );
+  int col_scd_in = PointsQry.FieldIndex( "scd_in" );
+  int col_est_in = PointsQry.FieldIndex( "est_in" );
+  int col_act_in = PointsQry.FieldIndex( "act_in" );
+	int col_scd_out = PointsQry.FieldIndex( "scd_out" );
+	int col_est_out = PointsQry.FieldIndex( "est_out" );
+	int col_act_out = PointsQry.FieldIndex( "act_out" );
+	int col_trip_type = PointsQry.FieldIndex( "trip_type" );
+	int col_litera = PointsQry.FieldIndex( "litera" );
+	int col_park_in = PointsQry.FieldIndex( "park_in" );
+	int col_park_out = PointsQry.FieldIndex( "park_out" );
+	int col_remark = PointsQry.FieldIndex( "remark" );
+	int col_pr_tranzit = PointsQry.FieldIndex( "pr_tranzit" );
+	int col_pr_reg = PointsQry.FieldIndex( "pr_reg" );
+	int col_pr_del = PointsQry.FieldIndex( "pr_del" );
+	int col_tid = PointsQry.FieldIndex( "tid" );
+	int col_class = -1;
+	int col_cfg = -1;
+	int col_name = -1;
+	int col_work_mode = -1;
+	int col_pr_main = -1;
+	int col_crs_point_from = -1;
+	int col_crs_trip_from = -1;
+	int col_crs_airp_arv_from = -1;
+	int col_crs_scd_from = -1;
+	int col_crs_class_from = -1;
+	int col_crs_point_to = -1;
+	int col_crs_trip_to = -1;
+	int col_crs_airp_arv_to = -1;
+	int col_crs_scd_to = -1;
+	int col_crs_class_to = -1;
+	int col_crs_go_show = -1;
+  
   while ( !PointsQry.Eof ) {
-    if ( move_id != PointsQry.FieldAsInteger( "move_id" ) ) {
+    if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
       if ( move_id > NoExists ) {
         //create trips
         string airline;
@@ -572,78 +652,75 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                       id->airp
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
-//            ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
             TTrip tr = createTrip( move_id, id, dests );
-            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) )
+            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) ) {
               trips.push_back( tr );
+            }
           }
         }
-      }
-      move_id = PointsQry.FieldAsInteger( "move_id" );
+      } 
+      move_id = PointsQry.FieldAsInteger( col_move_id );
       dests.clear();
     }
     TDest2 d;
-    d.point_id = PointsQry.FieldAsInteger( "point_id" );
-    d.point_num = PointsQry.FieldAsInteger( "point_num" );
+    d.point_id = PointsQry.FieldAsInteger( col_point_id );
+    d.point_num = PointsQry.FieldAsInteger( col_point_num );
 
-    d.airp = PointsQry.FieldAsString( "airp" );
+    d.airp = PointsQry.FieldAsString( col_airp );
     d.city = ((TAirpsRow&)airps.get_row( "code", d.airp )).city;
 
-    if ( PointsQry.FieldIsNULL( "first_point" ) )
+    if ( PointsQry.FieldIsNULL( col_first_point ) )
       d.first_point = NoExists;
     else
-      d.first_point = PointsQry.FieldAsInteger( "first_point" );
-    d.airline = PointsQry.FieldAsString( "airline" );
-    if ( PointsQry.FieldIsNULL( "flt_no" ) )
+      d.first_point = PointsQry.FieldAsInteger( col_first_point );
+    d.airline = PointsQry.FieldAsString( col_airline );
+    if ( PointsQry.FieldIsNULL( col_flt_no ) )
       d.flt_no = NoExists;
     else
-      d.flt_no = PointsQry.FieldAsInteger( "flt_no" );
-    d.suffix = PointsQry.FieldAsString( "suffix" );
-    d.craft = PointsQry.FieldAsString( "craft" );
-    d.bort = PointsQry.FieldAsString( "bort" );
-    if ( PointsQry.FieldIsNULL( "scd_in" ) )
+      d.flt_no = PointsQry.FieldAsInteger( col_flt_no );
+    d.suffix = PointsQry.FieldAsString( col_suffix );
+    d.craft = PointsQry.FieldAsString( col_craft );
+    d.bort = PointsQry.FieldAsString( col_bort );
+    if ( PointsQry.FieldIsNULL( col_scd_in ) )
       d.scd_in = NoExists;
     else
-      d.scd_in = PointsQry.FieldAsDateTime( "scd_in" );
-    if ( PointsQry.FieldIsNULL( "est_in" ) )
+      d.scd_in = PointsQry.FieldAsDateTime( col_scd_in );
+    if ( PointsQry.FieldIsNULL( col_est_in ) )
       d.est_in = NoExists;
     else
-      d.est_in = PointsQry.FieldAsDateTime( "est_in" );
-    if ( PointsQry.FieldIsNULL( "act_in" ) )
+      d.est_in = PointsQry.FieldAsDateTime( col_est_in );
+    if ( PointsQry.FieldIsNULL( col_act_in ) )
       d.act_in = NoExists;
     else
-      d.act_in = PointsQry.FieldAsDateTime( "act_in" );
-    if ( PointsQry.FieldIsNULL( "scd_out" ) )
+      d.act_in = PointsQry.FieldAsDateTime( col_act_in );
+    if ( PointsQry.FieldIsNULL( col_scd_out ) )
       d.scd_out = NoExists;
     else
-      d.scd_out = PointsQry.FieldAsDateTime( "scd_out" );
-    if ( PointsQry.FieldIsNULL( "est_out" ) )
+      d.scd_out = PointsQry.FieldAsDateTime( col_scd_out );
+    if ( PointsQry.FieldIsNULL( col_est_out ) )
       d.est_out = NoExists;
     else
-      d.est_out = PointsQry.FieldAsDateTime( "est_out" );
-    if ( PointsQry.FieldIsNULL( "act_out" ) )
+      d.est_out = PointsQry.FieldAsDateTime( col_est_out );
+    if ( PointsQry.FieldIsNULL( col_act_out ) )
       d.act_out = NoExists;
     else
-      d.act_out = PointsQry.FieldAsDateTime( "act_out" );
-    d.triptype = PointsQry.FieldAsString( "trip_type" );
-    d.litera = PointsQry.FieldAsString( "litera" );
-    d.park_in = PointsQry.FieldAsString( "park_in" );
-    d.park_out = PointsQry.FieldAsString( "park_out" );
-    d.remark = PointsQry.FieldAsString( "remark" );
-    d.pr_tranzit = PointsQry.FieldAsInteger( "pr_tranzit" );
-    d.pr_reg = PointsQry.FieldAsInteger( "pr_reg" );
-    d.pr_del = PointsQry.FieldAsInteger( "pr_del" );
-    d.tid = PointsQry.FieldAsInteger( "tid" );
+      d.act_out = PointsQry.FieldAsDateTime( col_act_out );
+    d.triptype = PointsQry.FieldAsString( col_trip_type );
+    d.litera = PointsQry.FieldAsString( col_litera );
+    d.park_in = PointsQry.FieldAsString( col_park_in );
+    d.park_out = PointsQry.FieldAsString( col_park_out );
+    d.remark = PointsQry.FieldAsString( col_remark );
+    d.pr_tranzit = PointsQry.FieldAsInteger( col_pr_tranzit );
+    d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
+    d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
+    d.tid = PointsQry.FieldAsInteger( col_tid );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
-    d.trfer_to = !PointsQry.FieldIsNULL( "trfer_to" );
-    d.trfer_from = !PointsQry.FieldIsNULL( "trfer_from" );
-    d.trfer_reg = !PointsQry.FieldIsNULL( "trfer_reg" );
-//    ProgTrace( TRACE5, "point_id=%d, airp=%s, trfer_to=%d, trfer_from=%d", 
-//               d.point_id, d.airp.c_str(), d.trfer_to, d.trfer_from );
+    
+       
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
-  PerfomTest( 666 );      
+  PerfomTest( 668 );      
   if ( move_id > NoExists ) {
         //create trips
     string airline;
@@ -668,20 +745,16 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                    id->airp
                  ) != reqInfo->user.access.airps.end() ||
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
-//           ProgTrace( TRACE5, "create trips with move_id=%d", move_id );
          TTrip tr = createTrip( move_id, id, dests );
-         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) )
+         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) ) {
            trips.push_back( tr );
+         }
       }
     }
   }
   // рейсы созданы, перейдем к набору информации по рейсам
   ////////////////////////// crs_displaces ///////////////////////////////
-  PerfomTest( 666 );      
-  TCRS_Displaces crsd;
-  if ( !arx )
-    GetCRS_Displaces( crsd ); //пересадки
-  PerfomTest( 666 );      
+  PerfomTest( 669 );      
 
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
@@ -689,14 +762,17 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
       ClassesQry.SetVariable( "point_id", tr->point_id );
       ClassesQry.Execute();
       while ( !ClassesQry.Eof ) {
+      	if ( col_class == -1 ) {
+      		col_class = ClassesQry.FieldIndex( "class" );
+      		col_cfg = ClassesQry.FieldIndex( "cfg" );
+      	}
         if ( !tr->classes.empty() && point_id == NoExists )
           tr->classes += " ";
-        tr->classes += ClassesQry.FieldAsString( "class" );
+        tr->classes += ClassesQry.FieldAsString( col_class );
         if ( point_id == NoExists )
-         tr->classes += string(ClassesQry.FieldAsString( "cfg" ));
+         tr->classes += string(ClassesQry.FieldAsString( col_cfg ));
         ClassesQry.Next();
       }
-
       if ( point_id != NoExists )
       	continue;
 
@@ -709,10 +785,31 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
       ///////////////////////// resa ///////////////////////////
       if ( !arx ) {
       	ResaQry.SetVariable( "point_id", tr->point_id );
+        ResaQry.SetVariable( "airline", tr->airline_out );
+        ResaQry.SetVariable( "airp_dep", tr->airp );
+        ResaQry.SetVariable( "flt_no", tr->flt_no_out );      	
       	ResaQry.Execute();
         if ( !ResaQry.Eof )
           tr->resa = ResaQry.FieldAsInteger( "resa" );
       }
+      ////////////////////// trfer  ///////////////////////////////
+      if ( !arx ) {
+      	if ( tr->trfer_out_point_id != -1 ) {
+      		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
+      		Trfer_outQry.Execute();
+      		if ( !Trfer_outQry.Eof )
+      			tr->TrferType.setFlag( trferIn );
+      	}
+    		Trfer_inQry.SetVariable( "point_id", tr->point_id );
+     		Trfer_inQry.Execute();
+        if ( !Trfer_inQry.Eof )
+        	tr->TrferType.setFlag( trferOut );
+    		Trfer_regQry.SetVariable( "point_id", tr->point_id );
+     		Trfer_regQry.Execute();
+        if ( !Trfer_regQry.Eof )
+        	tr->TrferType.setFlag( trferCkin );        	
+      }
+
       ////////////////////// stages ///////////////////////////////
       read_TripStages( tr->stages, arx, first_date, tr->point_id );
       ////////////////////////// stations //////////////////////////////
@@ -721,20 +818,66 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
         StationsQry.Execute();
 
         while ( !StationsQry.Eof ) {
+        	if ( col_name == -1 ) {
+        		col_name = StationsQry.FieldIndex( "name" );
+        		col_work_mode = StationsQry.FieldIndex( "work_mode" );
+        		col_pr_main = StationsQry.FieldIndex( "pr_main" );
+        	}
           TStation station;
-          station.name = StationsQry.FieldAsString( "name" );
-          station.work_mode = StationsQry.FieldAsString( "work_mode" );
-          station.pr_main = StationsQry.FieldAsInteger( "pr_main" );
+          station.name = StationsQry.FieldAsString( col_name );
+          station.work_mode = StationsQry.FieldAsString( col_work_mode );
+          station.pr_main = StationsQry.FieldAsInteger( col_pr_main );
           tr->stations.push_back( station );
           StationsQry.Next();
         }
       }
-      if ( !arx )
+      if ( !arx ) {
+        crsd.displaces_from.clear();
+        crsd.displaces_to.clear();      	
+      	CRS_DisplQry.SetVariable( "point_id", tr->point_id );
+      	CRS_DisplQry.Execute();
+      	while ( !CRS_DisplQry.Eof ) {
+  	      if ( col_crs_point_from == -1 ) {
+  		      col_crs_point_from = CRS_DisplQry.FieldIndex( "point_from" );
+  		      col_crs_trip_from = CRS_DisplQry.FieldIndex( "trip_from" );
+  		      col_crs_airp_arv_from = CRS_DisplQry.FieldIndex( "airp_arv_from" );
+  		      col_crs_scd_from = CRS_DisplQry.FieldIndex( "scd_from" );
+  		      col_crs_class_from = CRS_DisplQry.FieldIndex( "class_from" );
+  		      col_crs_point_to = CRS_DisplQry.FieldIndex( "point_to" );
+  		      col_crs_trip_to = CRS_DisplQry.FieldIndex( "trip_to" );
+  		      col_crs_airp_arv_to = CRS_DisplQry.FieldIndex( "airp_arv_to" );
+  		      col_crs_scd_to = CRS_DisplQry.FieldIndex( "scd_to" );
+  		      col_crs_class_to = CRS_DisplQry.FieldIndex( "class_to" );
+  		      col_crs_go_show = CRS_DisplQry.FieldIndex( "go_show" );
+  	      }
+          tcrs_displ dis;  	      
+          dis.point_id =CRS_DisplQry.FieldAsInteger( col_crs_point_from );
+          dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_from );
+          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );    
+          rgn =AirpTZRegion(dis.airp_arv );	
+
+          modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );
+          if ( sd != d1 )
+            dis.trip += DateTimeToStr( d1, "/dd" );
+          dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_from );
+          crsd.displaces_from[ CRS_DisplQry.FieldAsInteger( col_crs_point_to ) ].push_back( dis );
+          dis.point_id = CRS_DisplQry.FieldAsInteger( col_crs_point_to );
+          dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_to );
+          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_to );
+          rgn =AirpTZRegion(dis.airp_arv );	
+          modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_to ), rgn ), &d1 );
+          if ( sd != d1 )
+           dis.trip += DateTimeToStr( d1, "/dd" );    
+          dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_to );
+          dis.go_show = CRS_DisplQry.FieldAsInteger( col_crs_go_show );
+          crsd.displaces_to[ CRS_DisplQry.FieldAsInteger( col_crs_point_from ) ].push_back( dis );      		
+      		CRS_DisplQry.Next();
+      	}
         GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
+      }
     } // end if (!place_out.empty())
   }
-  PerfomTest( 666 );      
-  
+  PerfomTest( 662 );      
 }
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -924,7 +1067,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 }
 
 //!!! только на вылет
-void GetCRS_Displaces( TCRS_Displaces &crsd )
+/*void GetCRS_Displaces( TCRS_Displaces &crsd )
 {
   crsd.displaces_from.clear();
   crsd.displaces_to.clear();
@@ -932,40 +1075,41 @@ void GetCRS_Displaces( TCRS_Displaces &crsd )
   Qry.SQLText =
     "SELECT point_from,"\
     "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"\
-    "       system.AIRPTZREGION( p1.airp ) region_from, "\
     "       airp_arv_from,class_from,point_to,"\
     "       p2.airline||p2.flt_no||p2.suffix trip_to,p2.scd_out scd_to,"\
-    "       system.AIRPTZREGION( p2.airp ) region_to, "\
     "       airp_arv_to,class_to,pr_goshow go_show"\
     " FROM points p1, points p2, crs_displace c "\
-    "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
-    "      p1.point_id=c.point_from AND "\
+    "WHERE p1.point_id=c.point_from AND "\
     "      p2.point_id=c.point_to";
   Qry.Execute();
   double sd,d1;
   modf( NowUTC(), &sd );
+  string rgn;
   while ( !Qry.Eof ) {
     tcrs_displ dis;
     dis.point_id = Qry.FieldAsInteger( "point_from" );
     dis.trip = Qry.FieldAsString( "trip_from" );
-    modf( UTCToClient( Qry.FieldAsDateTime( "scd_from" ), Qry.FieldAsString( "region_from" ) ), &d1 );
+    dis.airp_arv = Qry.FieldAsString( "airp_arv_from" );    
+    rgn =AirpTZRegion(dis.airp_arv );	
+
+    modf( UTCToClient( Qry.FieldAsDateTime( "scd_from" ), rgn ), &d1 );
     if ( sd != d1 )
       dis.trip += DateTimeToStr( d1, "/dd" );
-    dis.airp_arv = Qry.FieldAsString( "airp_arv_from" );
     dis.cl = Qry.FieldAsString( "class_from" );
     crsd.displaces_from[ Qry.FieldAsInteger( "point_to" ) ].push_back( dis );
     dis.point_id = Qry.FieldAsInteger( "point_to" );
     dis.trip = Qry.FieldAsString( "trip_to" );
-    modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), Qry.FieldAsString( "region_to" ) ), &d1 );
-    if ( sd != d1 )
-      dis.trip += DateTimeToStr( d1, "/dd" );
     dis.airp_arv = Qry.FieldAsString( "airp_arv_to" );
+    rgn =AirpTZRegion(dis.airp_arv );	
+    modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), rgn ), &d1 );
+    if ( sd != d1 )
+      dis.trip += DateTimeToStr( d1, "/dd" );    
     dis.cl = Qry.FieldAsString( "class_to" );
     dis.go_show = Qry.FieldAsInteger( "go_show" );
     crsd.displaces_to[ Qry.FieldAsInteger( "point_from" ) ].push_back( dis );
     Qry.Next();
   }
-}
+}*/
 
 void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to )
 {
@@ -1658,7 +1802,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) /*???*/
 {
 	int point_id = NodeAsInteger( "point_id", reqNode );
   TTrips trips;
@@ -1704,8 +1848,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
    "       p2.airline airline_to,p2.flt_no flt_no_to,p2.suffix suffix_to,p2.scd_out scd_to,"\
    "       airp_arv_to,class_to,pr_goshow go_show "\
    " FROM points p1, points p2, crs_displace c "\
-   "WHERE NOT(c.point_from=c.point_to AND c.airp_arv_from=c.airp_arv_to AND c.class_from=c.class_to) AND "\
-   "      p1.point_id=c.point_from AND "\
+   "WHERE p1.point_id=c.point_from AND "\
    "      p2.point_id=c.point_to AND "\
    "      c.point_from=:point_from";
   Qry.CreateVariable( "point_from", otInteger, point_id );
