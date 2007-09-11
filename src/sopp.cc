@@ -308,7 +308,9 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
-   				trip.trfer_out_point_id = fd->point_id;  
+   				trip.trfer_out_point_id = fd->point_id;
+   				if ( trip.point_id == 47494 )
+   				  ProgTrace( TRACE5, "fd->point_id=%d", fd->point_id );
           trip.places_in.push_back( fd->airp );
           pd = fd;
         }
