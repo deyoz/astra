@@ -20,15 +20,15 @@ class TCounters {
   public:
     TCounters();
     void Clear();
-    int p_Count_3( TSeatStep Step = sRight );    
+    int p_Count_3( TSeatStep Step = sRight );
     int p_Count_2( TSeatStep Step = sRight );
     int p_Count( TSeatStep Step = sRight );
     void Set_p_Count_3( int Count, TSeatStep Step = sRight );
     void Set_p_Count_2( int Count, TSeatStep Step = sRight );
-    void Set_p_Count( int Count, TSeatStep Step = sRight );          
+    void Set_p_Count( int Count, TSeatStep Step = sRight );
     void Add_p_Count_3( int Count, TSeatStep Step = sRight );
     void Add_p_Count_2( int Count, TSeatStep Step = sRight );
-    void Add_p_Count( int Count, TSeatStep Step = sRight );              
+    void Add_p_Count( int Count, TSeatStep Step = sRight );
 };
 
 struct TPassenger {
@@ -43,7 +43,7 @@ struct TPassenger {
   std::string OldPlaceName;
   bool isSeat;
   int countPlace;
-  TSeatStep Step;  
+  TSeatStep Step;
   std::vector<std::string> rems;
   std::string maxRem;
   std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
@@ -68,7 +68,7 @@ struct TPassenger {
     placeList = NULL;
     Pos.x = 0;
     Pos.y = 0;
-    InUse = false;  	
+    InUse = false;
     isValidPlace = true;
     tid = -1;
   }
@@ -83,17 +83,17 @@ class TPassengers {
     void addRemPriority( TPassenger &pass );
     void Calc_Priority( TPassenger &pass );
   public:
-    TCounters counters;  
+    TCounters counters;
     std::string clname;   // класс с которым мы работаем
     bool KTube;
     bool KWindow;
     bool UseSmoke;
     TPassengers();
-    ~TPassengers();    
-    void Clear();    
+    ~TPassengers();
+    void Clear();
     void Add( TPassenger &pass );
     int getCount();
-    TPassenger &TPassengers::Get( int Idx );
+    TPassenger &Get( int Idx );
     void copyTo( VPassengers &npass );
     void copyFrom( VPassengers &npass );
     void SetCountersForPass( TPassenger  &pass );
@@ -116,7 +116,7 @@ struct TSeatPlace {
   }
 };
 
-typedef std::vector<TSeatPlace> VSeatPlaces; 
+typedef std::vector<TSeatPlace> VSeatPlaces;
 typedef VSeatPlaces::iterator ISeatPlace;
 
 class TSeatPlaces {
@@ -132,17 +132,17 @@ class TSeatPlaces {
     bool SeatsGrp_On( TPoint FP );
     bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
   public:
-    TCounters counters;  
+    TCounters counters;
     TSeatPlaces();
     ~TSeatPlaces();
     void Clear();
     void Add( TSeatPlace &seatplace );
-    void RollBack( int Begin, int End ); 
-    void RollBack( ); 
+    void RollBack( int Begin, int End );
+    void RollBack( );
     bool SeatGrpOnBasePlace( );
     bool SeatsGrp( );
-    bool SeatsPassengers( bool pr_autoreseats = false );  
-    void PlacesToPassengers();    
+    bool SeatsPassengers( bool pr_autoreseats = false );
+    void PlacesToPassengers();
 };
 
 namespace SEATS {

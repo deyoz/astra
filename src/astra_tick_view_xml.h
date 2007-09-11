@@ -121,6 +121,13 @@ class PassengerXmlView : public PassengerViewer
   virtual ~PassengerXmlView() {}
 };
 
+class FormOfIdXmlView : public FormOfIdViewer
+{
+public:
+    virtual void operator () (ViewerData &, const std::list<FormOfId>&) const;
+    virtual ~FormOfIdXmlView() {}
+};
+
 class PassengerXmlListView : public PassengerViewer
 {
     public:
@@ -263,6 +270,7 @@ class PnrXmlView : public PnrViewer, public PnrXmlViewCommon
     TaxDetailsXmlView TaxXmlView;
     MonetaryInfoXmlView MonXmlView;
     FreeTextInfoXmlView IftXmlView;
+    FormOfIdXmlView     FoidView;
 
     mutable XmlViewData ViewData;
   public:
@@ -275,6 +283,10 @@ class PnrXmlView : public PnrViewer, public PnrXmlViewCommon
     virtual const PassengerXmlView & passengerView () const
     {
       return PnrXmlViewCommon::passengerView();
+    }
+    virtual const FormOfIdViewer &formOfIdView () const
+    {
+        return FoidView;
     }
     virtual const FormOfPaymentXmlView &formOfPaymentView () const
     {

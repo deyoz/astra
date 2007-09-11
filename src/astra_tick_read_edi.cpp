@@ -715,6 +715,49 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
     PopEdiPoint();
 }
 
+void FormOfIdEdiR::operator ( )(ReaderData &RData, std::list< FormOfId > & lfoid) const
+{
+    REdiData &Data = dynamic_cast<REdiData &>(RData);
+    EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
+
+    PushEdiPointG(pMes);
+    if(SetEdiPointToSegmentG(pMes, SegmElement("CRI"), EtErr::INV_FOID))
+    {
+        PushEdiPointG(pMes);
+        int numFOID = GetNumComposite(pMes, "C967");
+        for (int curFoid=0; curFoid < numFOID; curFoid++)
+        {
+            if(!SetEdiPointToCompositeG(pMes, CompElement("C967", curFoid)))
+            {
+                throw EXCEPTIONS::Exception("SetEdiPointToCompositeG() failed");
+            }
+
+            FoidType TFoid = GetDBNumCast <FoidType> (EdiCast::FoidTypeCast(EtErr::INV_FOID),
+                    pMes, DataElement(1153));
+
+            std::string DocNum = GetDBNum(pMes,1154);
+            std::string Owner  = GetDBNum(pMes,3036);
+
+            if(DocNum.length() > FormOfId::MaxNumberLen)
+            {
+                throw Exception("Invalid FOID document length");
+            }
+
+            if(Owner.length() > FormOfId::MaxOwnerLen)
+            {
+                throw Exception("Invalid FOID owner length");
+            }
+
+            lfoid.push_back(FormOfId(TFoid, DocNum, Owner));
+            PopEdiPoint_wdG(pMes);
+        }
+        PopEdiPointG(pMes);
+    }
+
+    PopEdiPointG(pMes);
+}
+
+
 void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti) const
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);

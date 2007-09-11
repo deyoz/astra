@@ -59,6 +59,13 @@ namespace TickReader{
             virtual ~PassengerEdiR () {}
     };
 
+    class FormOfIdEdiR : public FormOfIdReader
+    {
+    public:
+        virtual void operator () (ReaderData &, std::list<FormOfId> &lfoid) const;
+        virtual ~FormOfIdEdiR(){}
+    };
+
     class TaxDetailsEdiR : public TaxDetailsReader {
         public:
             virtual void operator () (ReaderData &, list<TaxDetails> &) const;
@@ -124,6 +131,7 @@ namespace TickReader{
         CouponEdiR CoupEdiR;
         FormOfPaymentEdiR FopEdiR;
         PassengerEdiR PassEdiR;
+        FormOfIdEdiR  FoidEdiR;
 
         mutable REdiData ReadData;
         public:
@@ -132,6 +140,7 @@ namespace TickReader{
             virtual const TicketEdiR &ticketRead () const { return TickEdiR; }
             virtual const CouponEdiR &couponRead () const { return CoupEdiR; }
             virtual const PassengerEdiR & passengerRead () const { return PassEdiR; }
+            virtual const FormOfIdEdiR  & formOfIdRead() const { return FoidEdiR; }
             virtual const FormOfPaymentEdiR &formOfPaymentRead () const { return FopEdiR; }
 
             virtual const ResContrInfoEdiR & resContrInfoRead () const { return ResContrEdiR; }

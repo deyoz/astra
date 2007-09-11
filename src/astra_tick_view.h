@@ -25,6 +25,12 @@ public:
     virtual ~PassengerViewer(){}
 };
 
+class FormOfIdViewer : public BaseFormOfIdViewer <FormOfId>
+{
+public:
+    virtual ~FormOfIdViewer(){}
+};
+
 class TaxDetailsViewer : public BaseTaxDetailsViewer<TaxDetails>
 {
 public:

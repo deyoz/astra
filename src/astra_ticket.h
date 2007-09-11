@@ -13,6 +13,7 @@ namespace Ticketing{
 
 typedef BaseCoupon_info Coupon_info;
 
+typedef BaseFormOfId FormOfId;
 
 // NOTE: See eticklib for realization
 typedef BaseLuggage Luggage;

@@ -254,6 +254,35 @@ void PassengerXmlView::operator () (ViewerData &Data, const Passenger &Pass) con
   xmlNewTextChild(passNode,NULL,"name",Pass.name()); // имя пассажира
 }
 
+void FormOfIdXmlView::operator ( )(ViewerData &Data, const std::list<FormOfId> &lFoid) const
+{
+    XmlViewData &VData=dynamic_cast<XmlViewData &>(Data);
+    xmlNodePtr mainNode=VData.getNode();
+
+    std::string FOID_str;
+    bool first=true;
+
+    for(list<FormOfId>::const_iterator iter=lFoid.begin();
+        iter!=lFoid.end(); iter ++)
+    {
+        if(!first)
+            FOID_str += "; ";
+        FOID_str += iter->type()->code();
+        FOID_str += "/";
+        FOID_str += iter->number();
+        FOID_str += "/";
+        FOID_str += iter->owner();
+        first=false;
+    }
+
+    xmlNewTextChild(mainNode,NULL,"foid", FOID_str);
+    if(!lFoid.empty())
+    {
+        setElemProp(mainNode->parent, "foid", "tip",
+                    lFoid.front().type()->description((Lang::Language)currLang()));
+    }
+}
+
 /* Passenger data: list */
 void PassengerXmlListView::operator () (ViewerData &Data, const Passenger &Pass) const
 {

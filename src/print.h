@@ -69,7 +69,7 @@ class PrintDataParser {
 
             public:
                 t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
-                t_field_map::t_field_map(TBagReceipt &rcpt);
+                t_field_map(TBagReceipt &rcpt);
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
                 void add_tag(std::string name, int val);
                 void add_tag(std::string name, std::string val);

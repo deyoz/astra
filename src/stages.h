@@ -85,7 +85,7 @@ class TStagesRules {
     TStagesRules();
     void Update();
     bool CanStatus( TStage_Type stage_type, TStage stage );
-    std::string TStagesRules::status( TStage_Type stage_type, TStage stage );
+    std::string status( TStage_Type stage_type, TStage stage );
     void Build( xmlNodePtr dataNode );
     static TStagesRules *Instance();
 

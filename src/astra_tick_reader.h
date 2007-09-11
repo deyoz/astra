@@ -27,6 +27,12 @@ namespace TickReader{
             virtual ~PassengerReader(){}
     };
 
+    class FormOfIdReader : public BaseFormOfIdReader<FormOfId>
+    {
+        public:
+            virtual ~FormOfIdReader(){}
+    };
+
     class FrequentPassReader : public BaseFrequentPassReader<FrequentPass>
     {
         public:
@@ -76,6 +82,7 @@ namespace TickReader{
     Coupon,
     CouponReader,
     Passenger,
+    FormOfId,
     FrequentPass,
     FreeTextInfo,
     TaxDetails,
