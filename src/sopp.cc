@@ -309,8 +309,6 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
    				trip.trfer_out_point_id = fd->point_id;
-   				if ( trip.point_id == 47494 )
-   				  ProgTrace( TRACE5, "fd->point_id=%d", fd->point_id );
           trip.places_in.push_back( fd->airp );
           pd = fd;
         }
@@ -796,12 +794,6 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
       }
       ////////////////////// trfer  ///////////////////////////////
       if ( !arx ) {
-      	if ( tr->trfer_out_point_id != -1 ) {
-      		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
-      		Trfer_outQry.Execute();
-      		if ( !Trfer_outQry.Eof )
-      			tr->TrferType.setFlag( trferIn );
-      	}
     		Trfer_inQry.SetVariable( "point_id", tr->point_id );
      		Trfer_inQry.Execute();
         if ( !Trfer_inQry.Eof )
@@ -878,6 +870,12 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
         GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
       }
     } // end if (!place_out.empty())
+   	if ( tr->trfer_out_point_id != -1 ) {
+   		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
+   		Trfer_outQry.Execute();
+   		if ( !Trfer_outQry.Eof )
+   			tr->TrferType.setFlag( trferIn );
+   	}    
   }
   PerfomTest( 662 );      
 }
