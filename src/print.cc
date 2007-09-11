@@ -1415,13 +1415,14 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   {
       string buf = rcpt.issue_place;
+      ProgTrace(TRACE5, "BUFFER: %s", buf.c_str());
       int line_num = 1;
       while(line_num <= 5) {
           string::size_type i = buf.find('\n');
           string issue_place = buf.substr(0, i);
           buf.erase(0, i + 1);
-          if(buf.empty() && line_num < 5)
-              throw Exception("fillMSOMap: Not enough lines in buffer\n");
+//          if(buf.empty() && line_num < 5)
+//              throw Exception("fillMSOMap: Not enough lines in buffer\n");
           add_tag("issue_place" + IntToString(line_num), issue_place);
           line_num++;
       }
