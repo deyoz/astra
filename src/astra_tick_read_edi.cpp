@@ -721,7 +721,7 @@ void FormOfIdEdiR::operator ( )(ReaderData &RData, std::list< FormOfId > & lfoid
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
     PushEdiPointG(pMes);
-    if(SetEdiPointToSegmentG(pMes, SegmElement("CRI"), EtErr::INV_FOID))
+    if(SetEdiPointToSegmentG(pMes, SegmElement("CRI")))
     {
         PushEdiPointG(pMes);
         int numFOID = GetNumComposite(pMes, "C967");
