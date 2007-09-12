@@ -3446,8 +3446,15 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		if ( trip_id > NoExists ) {
   			// определить текущий сезон
   			//xmlNodePtr fnode = NewTextChild( reqn, "filter" );
-
-  			Write( ctxt, reqn, resNode );
+    	  try {
+  	      Write( ctxt, reqn, resNode );
+        }
+        catch( std::exception &E ) {
+          ProgError( STDLOG, "Exception: %s", E.what() );
+        }
+        catch( ... ) {
+          ProgError( STDLOG, "Unknown error" );
+        };
         xmlUnlinkNode( node );
         xmlFreeNode( node );
 
@@ -3504,8 +3511,15 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	Qry.Next();
   }
  if ( trip_id > NoExists ) {
+ 	try {
   	Write( ctxt, reqn, resNode );
-
+  }
+  catch( std::exception &E ) {
+    ProgError( STDLOG, "Exception: %s", E.what() );
+  }
+  catch( ... ) {
+    ProgError( STDLOG, "Unknown error" );
+  };
  }
 
 }

@@ -94,6 +94,8 @@ class TSalons {
   public:
     int trip_id;
     int comp_id;
+    std::string airline;
+    std::string airp;    	
     std::string craft;
     std::string bort;
     std::string descr;

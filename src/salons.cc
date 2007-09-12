@@ -142,7 +142,7 @@ void TSalons::Write( TReadStyle readStyle )
     switch ( (int)modify ) {
       case mChange:
          Qry.SQLText = "BEGIN "\
-                       " UPDATE comps SET craft=:craft,bort=:bort,descr=:descr, "\
+                       " UPDATE comps SET airline=:airline,airp=:airp,craft=:craft,bort=:bort,descr=:descr, "\
                        "        time_create=system.UTCSYSDATE,classes=:classes "\
                        "  WHERE comp_id=:comp_id; "\
                        " DELETE comp_rem WHERE comp_id=:comp_id; "\
@@ -150,8 +150,8 @@ void TSalons::Write( TReadStyle readStyle )
                        "END; ";
          break;
       case mAdd:
-         Qry.SQLText = "INSERT INTO comps(comp_id,craft,bort,descr,time_create,classes) "\
-                       " VALUES(:comp_id,:craft,:bort,:descr,system.UTCSYSDATE,:classes) ";
+         Qry.SQLText = "INSERT INTO comps(comp_id,airline,airp,craft,bort,descr,time_create,classes) "\
+                       " VALUES(:comp_id,:airline,:airp,:craft,:bort,:descr,system.UTCSYSDATE,:classes) ";
          break;
       case mDelete:
          Qry.SQLText = "BEGIN "\
@@ -165,14 +165,12 @@ void TSalons::Write( TReadStyle readStyle )
     Qry.DeclareVariable( "comp_id", otInteger );
     Qry.SetVariable( "comp_id", comp_id );
     if ( modify != mDelete ) {
-      Qry.DeclareVariable( "craft", otString );
-      Qry.DeclareVariable( "descr", otString );
-      Qry.DeclareVariable( "bort", otString );
-      Qry.DeclareVariable( "classes", otString );
-      Qry.SetVariable( "craft", craft );
-      Qry.SetVariable( "bort", bort );
-      Qry.SetVariable( "descr", descr );
-      Qry.SetVariable( "classes", classes );
+      Qry.CreateVariable( "airline", otString, airline );
+      Qry.CreateVariable( "airp", otString, airp );      
+      Qry.CreateVariable( "craft", otString, craft );      
+      Qry.CreateVariable( "descr", otString, descr );
+      Qry.CreateVariable( "bort", otString, bort );
+      Qry.CreateVariable( "classes", otString, classes );
     }
   }
   Qry.Execute();

@@ -23,6 +23,8 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 
+bool filterComp( const string &airline, const string &airp );
+
 
 void SalonsInterface::CheckInShow( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -53,72 +55,86 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   ProgTrace( TRACE5, "trip_id=%d", trip_id );
   TQuery Qry( &OraSession );
   TSalons::GetTripParams( trip_id, dataNode );
-
- tst();
- Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-               "       comps.descr,0 as pr_comp "\
-               " FROM comps, points "\
-               "WHERE points.craft = comps.craft AND points.point_id = :point_id "\
-               "UNION "\
-               "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-               "       comps.descr,1 as pr_comp "\
-               " FROM comps, points, trip_sets "\
-               "WHERE points.point_id=trip_sets.point_id AND "\
-               "      points.craft = comps.craft AND points.point_id = :point_id AND "\
-               "      trip_sets.comp_id = comps.comp_id "\
-               "UNION "\
-               "SELECT -1, craft, bort, "\
-               "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
-               "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
-               "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, '',1 "\
-               "FROM "\
-               "(SELECT -1, craft, bort, "\
-               "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
-               "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
-               "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
-               "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "\
-               " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-               "       comp_elem_types.pr_seat <> 0 AND "\
-               "       trip_comp_elems.point_id = points.point_id AND "\
-               "       points.point_id = :point_id AND "\
-               "       trip_sets.point_id(+) = points.point_id AND "\
-               "       trip_sets.comp_id IS NULL "\
-               "GROUP BY craft, bort) a "\
-               "ORDER BY comp_id, craft, bort, classes, descr";
- Qry.DeclareVariable( "point_id", otInteger );
- Qry.SetVariable( "point_id", trip_id );
- tst();
- Qry.Execute();
- tst();
- try {
-   if ( Qry.RowCount() == 0 )
-     throw UserException( "Нет компоновок по данному типу ВС" );
-   xmlNodePtr compsNode = NewTextChild( dataNode, "comps"  );
-   string StrVal;
-   while ( !Qry.Eof ) {
-     xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
-     if ( !Qry.FieldIsNULL( "bort" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-       StrVal = Qry.FieldAsString( "bort" );
-     else
-       StrVal = "  ";
-     StrVal += string( "  " ) + Qry.FieldAsString( "classes" );
-     tst();
-     if ( !Qry.FieldIsNULL( "descr" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-       StrVal += string( "  " ) + Qry.FieldAsString( "descr" );
-     tst();
-     if ( Qry.FieldAsInteger( "pr_comp" ) == 1 )
-       StrVal += CurrName;
-     NewTextChild( compNode, "name", StrVal );
-     NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-     NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
-     NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
-     NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
-     NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
-     tst();
-     NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
-     tst();
-     Qry.Next();
-   }
+  Qry.SQLText = "SELECT airline FROM points WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.Execute();
+  if ( !Qry.RowCount() )
+  	throw UserException( "Рейс не найден" );
+  string trip_airline = Qry.FieldAsString( "airline" );
+  Qry.Clear();
+  Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
+                "       comps.descr,0 as pr_comp, comps.airline, comps.airp "\
+                " FROM comps, points "\
+                "WHERE points.craft = comps.craft AND points.point_id = :point_id "\
+                "UNION "\
+                "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
+                "       comps.descr,1 as pr_comp, null, null "\
+                " FROM comps, points, trip_sets "\
+                "WHERE points.point_id=trip_sets.point_id AND "\
+                "      points.craft = comps.craft AND points.point_id = :point_id AND "\
+                "      trip_sets.comp_id = comps.comp_id "\
+                "UNION "\
+                "SELECT -1, craft, bort, "\
+                "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
+                "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
+                "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, "\
+                "        null,1, null, null "\
+                "FROM "\
+                "(SELECT -1, craft, bort, "\
+                "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
+                "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
+                "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
+                "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "\
+                " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+                "       comp_elem_types.pr_seat <> 0 AND "\
+                "       trip_comp_elems.point_id = points.point_id AND "\
+                "       points.point_id = :point_id AND "\
+                "       trip_sets.point_id(+) = points.point_id AND "\
+                "       trip_sets.comp_id IS NULL "\
+                "GROUP BY craft, bort) a "\
+                "ORDER BY comp_id, craft, bort, classes, descr";
+  Qry.DeclareVariable( "point_id", otInteger );
+  Qry.SetVariable( "point_id", trip_id );
+  Qry.Execute();
+  try {
+    xmlNodePtr compsNode = NULL;
+    string StrVal;
+    while ( !Qry.Eof ) {
+    	if ( Qry.FieldAsInteger( "pr_comp" ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		   ( Qry.FieldIsNULL( "airline" ) || trip_airline == Qry.FieldAsString( "airline" ) ) &&
+    		   filterComp( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
+      	if ( !compsNode )
+      		compsNode = NewTextChild( dataNode, "comps"  );
+        xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
+        if ( !Qry.FieldIsNULL( "airline" ) )
+        	StrVal = Qry.FieldAsString( "airline" );
+        else
+        	StrVal = Qry.FieldAsString( "airp" );
+        if ( StrVal.length() == 2 )        	
+          StrVal += "  ";
+        else
+        	StrVal += " ";
+        if ( !Qry.FieldIsNULL( "bort" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
+          StrVal += Qry.FieldAsString( "bort" );
+        else
+          StrVal += "  ";
+        StrVal += string( "  " ) + Qry.FieldAsString( "classes" );
+        if ( !Qry.FieldIsNULL( "descr" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
+          StrVal += string( "  " ) + Qry.FieldAsString( "descr" );
+        if ( Qry.FieldAsInteger( "pr_comp" ) == 1 )
+          StrVal += CurrName;
+        NewTextChild( compNode, "name", StrVal );
+        NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
+        NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
+        NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
+        NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
+        NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
+        NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
+      }
+      Qry.Next();
+    }
+    if ( !compsNode )
+      throw UserException( "Нет компоновок по данному типу ВС" );    
    tst();
    TSalons Salons;
    Salons.trip_id = trip_id;
@@ -175,7 +191,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     /* инициализация */
     Qry.Clear();
     Qry.SQLText = "BEGIN "\
-                  " salons.initcomp( :point_id ); "\
+                  " salons.initcomp( :point_id, 1 ); "\
                   "END; ";
     Qry.DeclareVariable( "point_id", otInteger );
     Qry.SetVariable( "point_id", trip_id );
@@ -183,26 +199,28 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     /* запись в лог */
     xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
     string msg = string( "Изменена компоновка рейса. Классы: " ) +
-                 NodeAsString( "ref", refcompNode );
+                 NodeAsString( "classes", refcompNode );
     xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
     bool cBase = false;
     bool cChange = false;
     if ( ctypeNode ) {
+    	tst();
       ctypeNode = ctypeNode->children; /* value */
       while ( ctypeNode ) {
       	string stype = NodeAsString( ctypeNode );
-        cBase = ( stype == string( "cBase" ) );
-        cChange = ( stype == string( "cChange" ) );
+        cBase = ( stype == string( "cBase" ) || cBase );
+        cChange = ( stype == string( "cChange" ) || cChange );
         ctypeNode = ctypeNode->next;
       }
     }
+    ProgTrace( TRACE5, "cBase=%d, cChange=%d", cBase, cChange );
     if ( cBase ) {
       msg = string( "Назначена базовая компоновка (ид=" ) +
             IntToString( comp_id ) +
             "). Классы: " + NodeAsString( "classes", refcompNode );
       if ( cChange )
         msg = string( "Назначена компоновка рейса. Классы: " ) +
-              NodeAsString( "ref", refcompNode );
+              NodeAsString( "classes", refcompNode );
     }
     msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
@@ -221,7 +239,7 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.Execute(); 
     xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
     string msg = string( "Изменена компоновка рейса. Классы: " ) +
-                 NodeAsString( "ref", refcompNode );     	
+                 NodeAsString( "classes", refcompNode );     	
     msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );   
     /* перечитываение компоновки из БД */	
@@ -482,15 +500,76 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       if ( smodify == "change" )
         Salons.modify = mChange;
       else
-        throw Exception( string( "Ошибка в значении тега modify " ) + smodify );
+        throw Exception( string( "Ошибка в значении тега modify " ) + smodify );       
+  TReqInfo *r = TReqInfo::Instance();          
+  xmlNodePtr a = GetNode( "airline", reqNode );
+  if ( a )
+   Salons.airline = NodeAsString( a );
+  else 
+  	if ( r->user.access.airlines.size() == 1 )
+  		Salons.airline = *r->user.access.airlines.begin();
+ 	a = GetNode( "airp", reqNode );
+ 	if ( a ) {
+ 		Salons.airp = NodeAsString( a );
+ 		Salons.airline.clear();
+ 	}
+ 	else
+  	if ( r->user.user_type != utAirline && r->user.access.airps.size() == 1 && !GetNode( "airline", reqNode ) ) {
+  		Salons.airp = *r->user.access.airps.begin();
+  		Salons.airline.clear();
+    }
+  TQuery Qry( &OraSession );    
+  if ( Salons.modify != mDelete ) {
+    if ( !Salons.airline.empty() ) {
+      Qry.SQLText = "SELECT code FROM airlines WHERE code=:airline";
+      Qry.CreateVariable( "airline", otString, Salons.airline );
+      Qry.Execute();
+      if ( !Qry.RowCount() )
+        throw UserException( "Неправильно задан код авиакомпании" );  
+    }
+    if ( !Salons.airp.empty() ) {
+      Qry.Clear();
+      Qry.SQLText = "SELECT code FROM airps WHERE code=:airp";
+      Qry.CreateVariable( "airp", otString, Salons.airp );
+      Qry.Execute();
+      if ( !Qry.RowCount() )
+        throw UserException( "Неправильно задан код аэропорта" );    
+    }
+  
+    if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) { 
+    	if ( Salons.airline.empty() )
+    	  throw UserException( "Должен быть задан код авиакомпании или код аэропорта" );
+    	else
+    		throw UserException( "Одновременное задание авиакомпании и аэропорта запрещено" ); // ??? почему?
+    }
+  
+    if ( ( r->user.user_type == utAirline ||
+           r->user.user_type == utSupport && Salons.airp.empty() && !r->user.access.airlines.empty() ) &&
+    	   find( r->user.access.airlines.begin(), 
+    	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
+ 	  	if ( Salons.airline.empty() )
+ 		  	throw UserException( "Не задан код авиакомпании" );
+  	  else
+    		throw UserException( "У оператора нет прав записи компоновки для заданной авиакомпании" );         
+    }
+    if ( ( r->user.user_type == utAirport || 
+    	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
+    	   find( r->user.access.airps.begin(), 
+    	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
+ 	  	if ( Salons.airp.empty() )
+ 	  		throw UserException( "Не задан код аэропорта" );
+ 	  	else
+ 	  	  throw UserException( "У оператора нет прав записи компоновки для заданного аэропорта" ); 		   	  	         	
+    }
+  }	
   Salons.craft = NodeAsString( "craft", reqNode );
   Salons.bort = NodeAsString( "bort", reqNode );
   Salons.descr = NodeAsString( "descr", reqNode );
   string classes = NodeAsString( "classes", reqNode );
   Salons.classes = RTrimString( classes );
   if ( Salons.craft.empty() )
-    throw UserException( "Не задан тип ВС" );
-  TQuery Qry( &OraSession );
+    throw UserException( "Не задан тип ВС" );    
+  Qry.Clear();
   Qry.SQLText = "SELECT code FROM crafts WHERE code=:craft";
   Qry.DeclareVariable( "craft", otString );
   Qry.SetVariable( "craft", Salons.craft );
@@ -511,7 +590,17 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       else
         msg = "Изменена базовая компоновка (ид=";
       msg += IntToString( Salons.comp_id );
-      msg += "). Тип ВС: " + Salons.craft + ", борт: ";
+      msg += "). Код а/к: ";
+      if ( Salons.airline.empty() )
+      	msg += "не указан";
+      else
+      	msg += Salons.airline; 
+      msg += ", код а/п: ";
+      if ( Salons.airp.empty() )
+      	msg += "не указан";
+      else
+      	msg += Salons.airp;       
+      msg += ", тип ВС: " + Salons.craft + ", борт: ";
       if ( Salons.bort.empty() )
         msg += "не указан";
       else
@@ -523,38 +612,95 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
         msg += Salons.descr;
       break;
   }
-  TReqInfo::Instance()->MsgToLog( msg, evtComp, comp_id );
+  r->MsgToLog( msg, evtComp, comp_id );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "comp_id", Salons.comp_id );
+  if ( !Salons.airline.empty() )
+    NewTextChild( dataNode, "airline", Salons.airline );
+  if ( !Salons.airp.empty() )
+    NewTextChild( dataNode, "airp", Salons.airp );
   showMessage( "Изменения успешно сохранены" );
+}
+
+bool filterComp( const string &airline, const string &airp )
+{
+	TReqInfo *r = TReqInfo::Instance();	
+  return
+       ( (int)airline.empty() + (int)airp.empty() == 1 &&
+ 		   (( 
+ 		     r->user.user_type == utAirline &&
+ 		     find( r->user.access.airlines.begin(), 
+ 		           r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() /*&&
+  		     ( r->user.access.airps.empty() || 
+  		       find( r->user.access.airps.begin(), 
+  		             r->user.access.airps.end(), 
+  		             Qry.FieldAsString( "airp" ) ) != r->user.access.airps.end() )*/
+  		  ) 
+  		  ||
+  		  (
+  		    r->user.user_type == utAirport &&
+  		    ( airp.empty() && ( r->user.access.airlines.empty() ||
+  		       find( r->user.access.airlines.begin(), 
+  		             r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() ) ||
+  		       find( r->user.access.airps.begin(), 
+  		             r->user.access.airps.end(), airp ) != r->user.access.airps.end() )
+  		   )
+  		   ||
+  		   (
+  		     r->user.user_type == utSupport &&
+  		     ( airp.empty() ||
+  		       r->user.access.airps.empty() ||
+   		       find( r->user.access.airps.begin(), 
+    	             r->user.access.airps.end(), airp ) != r->user.access.airps.end() ) &&
+  		     ( airline.empty() ||
+  		       r->user.access.airlines.empty() ||
+  		       find( r->user.access.airlines.begin(), 
+  		             r->user.access.airlines.end(), airline ) != r->user.access.airlines.end() )
+  		   )) 
+  		 );
 }
 
 void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo *r = TReqInfo::Instance();	
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
+  if ( r->user.user_type == utAirline && r->user.access.airlines.empty() ||
+  	   r->user.user_type == utAirport && r->user.access.airps.empty() )
+  	throw UserException( "Нет прав доступа к базовым компоновкам" );
   //TReqInfo::Instance()->user.check_access( amRead );
   TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT airline,comp_id,craft,bort,descr,classes FROM comps "\
-                " ORDER BY airline,craft,comp_id";
+  if ( r->user.user_type == utAirport )
+    Qry.SQLText = "SELECT airline,airp,comp_id,craft,bort,descr,classes FROM comps "\
+                  " ORDER BY airp,airline,craft,comp_id";  	
+  else
+    Qry.SQLText = "SELECT airline,airp,comp_id,craft,bort,descr,classes FROM comps "\
+                  " ORDER BY airline,airp,craft,comp_id";
   Qry.Execute();
-  TReqInfo *r = TReqInfo::Instance();
   xmlNodePtr node = NewTextChild( resNode, "data" );
   node = NewTextChild( node, "compons" );
   while ( !Qry.Eof ) {
-  	if ( !r->user.access.airlines.empty() &&
-  		   find( r->user.access.airlines.begin(), r->user.access.airlines.end(), Qry.FieldAsString( "airline" ) ) == r->user.access.airlines.end() ) {
-  		Qry.Next();
-  		continue;
-    }
-    xmlNodePtr rnode = NewTextChild( node, "compon" );
-    NewTextChild( rnode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-    if ( r->user.access.airlines.size() != 1 )
-    	NewTextChild( rnode, "airline", Qry.FieldAsString( "airline" ) );
-    NewTextChild( rnode, "craft", Qry.FieldAsString( "craft" ) );
-    NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
-    NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
-    NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );
-    Qry.Next();
+  	if ( filterComp( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
+      xmlNodePtr rnode = NewTextChild( node, "compon" );
+      NewTextChild( rnode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
+      if ( r->user.user_type == utAirline && 
+           r->user.access.airlines.size() > 1 ||
+           r->user.user_type != utAirline && 
+           ( r->user.access.airlines.empty() || r->user.access.airlines.size() > 1 ) ||
+           r->user.user_type == utSupport && r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 )
+        NewTextChild( rnode, "airline", Qry.FieldAsString( "airline" ) );   
+      if ( r->user.user_type == utAirport && r->user.access.airps.size() > 1 ||
+           r->user.user_type == utSupport &&
+           ( r->user.access.airps.empty() || r->user.access.airps.size() > 1 ||
+             r->user.access.airlines.size() >= 1 && r->user.access.airps.size() >= 1 ) )
+    	  NewTextChild( rnode, "airp", Qry.FieldAsString( "airp" ) );    	         
+      NewTextChild( rnode, "craft", Qry.FieldAsString( "craft" ) );
+      NewTextChild( rnode, "bort", Qry.FieldAsString( "bort" ) );
+      NewTextChild( rnode, "descr", Qry.FieldAsString( "descr" ) );
+      NewTextChild( rnode, "classes", Qry.FieldAsString( "classes" ) );		     			                  		     			     
+      if ( r->user.user_type == utAirport && !Qry.FieldIsNULL( "airline" ) )
+        NewTextChild( rnode, "canedit", 0 );
+		}
+  	Qry.Next();		    	
   }
 }
 
