@@ -1350,9 +1350,11 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         {
           if (PaxQry.FieldAsInteger("seats")>0) seats++;
           for(int i=PaxQry.FieldAsInteger("seats");i>=2;i--)
-          node2=NewTextChild(paxNode,"pax");
-          NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
-          NewTextChild(node2,"name","EXST",""); //впоследствии надо учитывать STCR
+          {
+            node2=NewTextChild(paxNode,"pax");
+            NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
+            NewTextChild(node2,"name","EXST",""); //впоследствии надо учитывать STCR
+          };
         };
       };
     };
