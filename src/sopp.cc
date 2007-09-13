@@ -30,8 +30,8 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace boost::local_time;
-	
-enum TTrferType { trferIn, trferOut, trferCkin };	
+
+enum TTrferType { trferIn, trferOut, trferCkin };
 
 const char* pointsSQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
@@ -43,7 +43,7 @@ const char* pointsSQL =
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
-/*    
+/*
     " (SELECT +INDEX(points POINTS__IDX3)move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
     "         NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date "
@@ -56,7 +56,7 @@ const char* pointsSQL =
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "*/
-    
+
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
@@ -79,7 +79,7 @@ const char* classesSQL =
     " FROM trip_classes,classes "\
     "WHERE trip_classes.point_id=:point_id AND trip_classes.class=classes.code "\
     "ORDER BY priority";
-    
+
 const char* arx_classesSQL =
     "SELECT class,cfg "\
     " FROM arx_trip_classes,classes "\
@@ -118,7 +118,7 @@ const char* trfer_in_SQL =
     "SELECT 1 "
     " FROM tlg_binding,tlg_transfer "
     "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
-const char* trfer_reg_SQL =    
+const char* trfer_reg_SQL =
     "SELECT 1 FROM transfer, pax_grp "
     "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND pr_refuse=0 AND rownum<2";
 const char* crs_displaces_SQL =
@@ -332,7 +332,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     trip.triptype_in = pd->triptype;
     trip.litera_in = pd->litera;
     trip.remark_in = pd->remark;
-    trip.pr_del_in = pd->pr_del;    
+    trip.pr_del_in = pd->pr_del;
     trip.scd_in = id->scd_in;
     trip.est_in = id->est_in;
     trip.act_in = id->act_in;
@@ -389,7 +389,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
         catch( Exception &e ) {
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
-        }        
+        }
         canuseTR = ( d >= first_date && d < next_date );
       }
       else
@@ -400,7 +400,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           catch( Exception &e ) {
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
-          }                  
+          }
           canuseTR = ( d >= first_date && d < next_date );
         }
     if ( !canuseTR )
@@ -411,7 +411,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
         catch( Exception &e ) {
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
-        }                
+        }
         canuseTR = ( d >= first_date && d < next_date );
       }
       else
@@ -422,7 +422,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           catch( Exception &e ) {
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
-          }        
+          }
           canuseTR = ( d >= first_date && d < next_date );
         }
         else
@@ -433,7 +433,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
             catch( Exception &e ) {
               ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
               return false;
-            }                    
+            }
             canuseTR = ( d >= first_date && d < next_date );
           }
     return canuseTR;
@@ -565,25 +565,25 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
   	Trfer_inQry.SQLText = trfer_in_SQL;
   	Trfer_inQry.DeclareVariable( "point_id", otInteger );
   	Trfer_regQry.SQLText = trfer_reg_SQL;
-  	Trfer_regQry.DeclareVariable( "point_id", otInteger );  	
+  	Trfer_regQry.DeclareVariable( "point_id", otInteger );
   }
   TQuery CRS_DisplQry( &OraSession );
   if ( !arx ) {
   	CRS_DisplQry.SQLText = crs_displaces_SQL;
-  	CRS_DisplQry.DeclareVariable( "point_id", otInteger );  	  	
+  	CRS_DisplQry.DeclareVariable( "point_id", otInteger );
   }
-  PerfomTest( 666 );  
+  PerfomTest( 666 );
   PointsQry.Execute();
-  PerfomTest( 667 );    
+  PerfomTest( 667 );
   TDests dests;
-  
-  TCRS_Displaces crsd;  
-  double sd,d1;      	
-  modf( NowUTC(), &sd );        
-  string rgn;                
-  
+
+  TCRS_Displaces crsd;
+  double sd,d1;
+  modf( NowUTC(), &sd );
+  string rgn;
+
   int move_id = NoExists;
-  
+
   int col_move_id = PointsQry.FieldIndex( "move_id" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
   int col_point_num = PointsQry.FieldIndex( "point_num" );
@@ -625,7 +625,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
 	int col_crs_scd_to = -1;
 	int col_crs_class_to = -1;
 	int col_crs_go_show = -1;
-  
+
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
       if ( move_id > NoExists ) {
@@ -658,7 +658,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
             }
           }
         }
-      } 
+      }
       move_id = PointsQry.FieldAsInteger( col_move_id );
       dests.clear();
     }
@@ -715,12 +715,12 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
-    
-       
+
+
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
-  PerfomTest( 668 );      
+  PerfomTest( 668 );
   if ( move_id > NoExists ) {
         //create trips
     string airline;
@@ -754,7 +754,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
   }
   // рейсы созданы, перейдем к набору информации по рейсам
   ////////////////////////// crs_displaces ///////////////////////////////
-  PerfomTest( 669 );      
+  PerfomTest( 669 );
 
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
@@ -787,7 +787,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
       	ResaQry.SetVariable( "point_id", tr->point_id );
         ResaQry.SetVariable( "airline", tr->airline_out );
         ResaQry.SetVariable( "airp_dep", tr->airp );
-        ResaQry.SetVariable( "flt_no", tr->flt_no_out );      	
+        ResaQry.SetVariable( "flt_no", tr->flt_no_out );
       	ResaQry.Execute();
         if ( !ResaQry.Eof )
           tr->resa = ResaQry.FieldAsInteger( "resa" );
@@ -801,7 +801,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     		Trfer_regQry.SetVariable( "point_id", tr->point_id );
      		Trfer_regQry.Execute();
         if ( !Trfer_regQry.Eof )
-        	tr->TrferType.setFlag( trferCkin );        	
+        	tr->TrferType.setFlag( trferCkin );
       }
 
       ////////////////////// stages ///////////////////////////////
@@ -827,7 +827,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
       }
       if ( !arx ) {
         crsd.displaces_from.clear();
-        crsd.displaces_to.clear();      	
+        crsd.displaces_to.clear();
       	CRS_DisplQry.SetVariable( "point_id", tr->point_id );
       	CRS_DisplQry.Execute();
       	while ( !CRS_DisplQry.Eof ) {
@@ -844,11 +844,11 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
   		      col_crs_class_to = CRS_DisplQry.FieldIndex( "class_to" );
   		      col_crs_go_show = CRS_DisplQry.FieldIndex( "go_show" );
   	      }
-          tcrs_displ dis;  	      
+          tcrs_displ dis;
           dis.point_id =CRS_DisplQry.FieldAsInteger( col_crs_point_from );
           dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_from );
-          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );    
-          rgn =AirpTZRegion(dis.airp_arv );	
+          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );
+          rgn =AirpTZRegion(dis.airp_arv );
 
           modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );
           if ( sd != d1 )
@@ -858,13 +858,13 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
           dis.point_id = CRS_DisplQry.FieldAsInteger( col_crs_point_to );
           dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_to );
           dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_to );
-          rgn =AirpTZRegion(dis.airp_arv );	
+          rgn =AirpTZRegion(dis.airp_arv );
           modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_to ), rgn ), &d1 );
           if ( sd != d1 )
-           dis.trip += DateTimeToStr( d1, "/dd" );    
+           dis.trip += DateTimeToStr( d1, "/dd" );
           dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_to );
           dis.go_show = CRS_DisplQry.FieldAsInteger( col_crs_go_show );
-          crsd.displaces_to[ CRS_DisplQry.FieldAsInteger( col_crs_point_from ) ].push_back( dis );      		
+          crsd.displaces_to[ CRS_DisplQry.FieldAsInteger( col_crs_point_from ) ].push_back( dis );
       		CRS_DisplQry.Next();
       	}
         GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );
@@ -875,9 +875,9 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
    		Trfer_outQry.Execute();
    		if ( !Trfer_outQry.Eof )
    			tr->TrferType.setFlag( trferIn );
-   	}    
+   	}
   }
-  PerfomTest( 662 );      
+  PerfomTest( 662 );
 }
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -948,12 +948,12 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       if ( tr->act_out > NoExists )
     	  fact_out = UTCToClient( tr->act_out, tr->region );
       else
-    	  fact_out = NoExists;			
+    	  fact_out = NoExists;
     }
     catch( Exception &e ) {
-      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );    	
+      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );
       continue;
-    }      
+    }
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
@@ -1027,9 +1027,9 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
    	if ( tr->TrferType.isFlag( trferIn ) )
    		trfertype += 0x00F;
    	if ( tr->TrferType.isFlag( trferOut ) )
-   		trfertype += 0x0F0;    		
+   		trfertype += 0x0F0;
    	if ( tr->TrferType.isFlag( trferCkin ) )
-   		trfertype += 0xF00;    		    		
+   		trfertype += 0xF00;
    	if ( trfertype )
     	NewTextChild( tripNode, "trfertype", trfertype );
     if ( tr->TrferType.isFlag( trferCkin ) )
@@ -1057,7 +1057,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     }
     catch( Exception &e ) {
       ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );
-    }        
+    }
     lNode = NULL;
     for ( tstations::iterator st=tr->stations.begin(); st!=tr->stations.end(); st++ ) {
       if ( !lNode )
@@ -1094,8 +1094,8 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     tcrs_displ dis;
     dis.point_id = Qry.FieldAsInteger( "point_from" );
     dis.trip = Qry.FieldAsString( "trip_from" );
-    dis.airp_arv = Qry.FieldAsString( "airp_arv_from" );    
-    rgn =AirpTZRegion(dis.airp_arv );	
+    dis.airp_arv = Qry.FieldAsString( "airp_arv_from" );
+    rgn =AirpTZRegion(dis.airp_arv );
 
     modf( UTCToClient( Qry.FieldAsDateTime( "scd_from" ), rgn ), &d1 );
     if ( sd != d1 )
@@ -1105,10 +1105,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     dis.point_id = Qry.FieldAsInteger( "point_to" );
     dis.trip = Qry.FieldAsString( "trip_to" );
     dis.airp_arv = Qry.FieldAsString( "airp_arv_to" );
-    rgn =AirpTZRegion(dis.airp_arv );	
+    rgn =AirpTZRegion(dis.airp_arv );
     modf( UTCToClient( Qry.FieldAsDateTime( "scd_to" ), rgn ), &d1 );
     if ( sd != d1 )
-      dis.trip += DateTimeToStr( d1, "/dd" );    
+      dis.trip += DateTimeToStr( d1, "/dd" );
     dis.cl = Qry.FieldAsString( "class_to" );
     dis.go_show = Qry.FieldAsInteger( "go_show" );
     crsd.displaces_to[ Qry.FieldAsInteger( "point_from" ) ].push_back( dis );
@@ -1162,7 +1162,13 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
                                 bool pr_bag)
 {
   TQuery Qry(&OraSession);
+  TQuery PaxQry(&OraSession);
+  TQuery TagQry(&OraSession);
+
   bool pr_out=NodeAsInteger("pr_out",reqNode)!=0;
+  bool pr_tlg=true;
+  if (GetNode("pr_tlg",reqNode)!=NULL)
+    pr_tlg=NodeAsInteger("pr_tlg",reqNode)!=0;
   int point_id=NodeAsInteger("point_id",reqNode);
   Qry.Clear();
   if (pr_out)
@@ -1197,86 +1203,122 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   NewTextChild(resNode,"trip",GetTripName(info));
 
   Qry.Clear();
-  if (pr_out)
-    Qry.SQLText=
-      "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-      "       tlg_trips.scd,tlg_trips.airp_dep AS airp, "
-      "       tlg_transfer.trfer_id,tlg_transfer.subcl_in AS subcl, "
-      "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
-      "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
-      "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
-      "      tlgs_in.type=:tlg_type AND "
-      "      tlg_transfer.point_id_out=tlg_binding.point_id_tlg AND "
-      "      tlg_binding.point_id_spp=:point_id AND "
-      "      tlg_trips.point_id=tlg_transfer.point_id_in AND "
-      "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
-      "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-      "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
-  else
-    Qry.SQLText=
-      "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-      "       tlg_trips.scd,tlg_trips.airp_arv AS airp, "
-      "       tlg_transfer.trfer_id,tlg_transfer.subcl_out AS subcl, "
-      "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
-      "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
-      "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
-      "      tlgs_in.type=:tlg_type AND "
-      "      tlg_transfer.point_id_in=tlg_binding.point_id_tlg AND "
-      "      tlg_binding.point_id_spp=:point_id AND "
-      "      tlg_trips.point_id=tlg_transfer.point_id_out AND "
-      "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
-      "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
-      "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  if (pr_bag)
-    Qry.CreateVariable("tlg_type",otString,"BTM");
-  else
-    Qry.CreateVariable("tlg_type",otString,"PTM");
+  if (pr_tlg)
+  {
+    if (pr_out)
+      Qry.SQLText=
+        "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
+        "       tlg_trips.scd,tlg_trips.airp_dep AS airp,tlg_trips.airp_dep,tlg_trips.airp_arv, "
+        "       tlg_transfer.trfer_id,tlg_transfer.subcl_in AS subcl, "
+        "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
+        "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
+        "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
+        "      tlgs_in.type=:tlg_type AND "
+        "      tlg_transfer.point_id_out=tlg_binding.point_id_tlg AND "
+        "      tlg_binding.point_id_spp=:point_id AND "
+        "      tlg_trips.point_id=tlg_transfer.point_id_in AND "
+        "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
+        "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
+        "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
+    else
+      Qry.SQLText=
+        "SELECT tlg_trips.point_id,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
+        "       tlg_trips.scd,tlg_trips.airp_arv AS airp,tlg_trips.airp_dep,tlg_trips.airp_arv, "
+        "       tlg_transfer.trfer_id,tlg_transfer.subcl_out AS subcl, "
+        "       trfer_grp.grp_id,seats,bag_amount,bag_weight,rk_weight,weight_unit "
+        "FROM trfer_grp,tlgs_in,tlg_trips,tlg_transfer,tlg_binding "
+        "WHERE tlg_transfer.tlg_id=tlgs_in.id AND tlgs_in.num=1 AND "
+        "      tlgs_in.type=:tlg_type AND "
+        "      tlg_transfer.point_id_in=tlg_binding.point_id_tlg AND "
+        "      tlg_binding.point_id_spp=:point_id AND "
+        "      tlg_trips.point_id=tlg_transfer.point_id_out AND "
+        "      tlg_transfer.trfer_id=trfer_grp.trfer_id "
+        "ORDER BY tlg_trips.scd,tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
+        "         tlg_trips.airp_dep,tlg_transfer.trfer_id ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    if (pr_bag)
+      Qry.CreateVariable("tlg_type",otString,"BTM");
+    else
+      Qry.CreateVariable("tlg_type",otString,"PTM");
 
-  TQuery PaxQry(&OraSession);
-  PaxQry.SQLText="SELECT surname,name FROM trfer_pax WHERE grp_id=:grp_id ORDER BY surname,name";
-  PaxQry.DeclareVariable("grp_id",otInteger);
+    PaxQry.SQLText="SELECT surname,name FROM trfer_pax WHERE grp_id=:grp_id ORDER BY surname,name";
+    PaxQry.DeclareVariable("grp_id",otInteger);
 
-  TQuery TagQry(&OraSession);
-  TagQry.SQLText=
-    "SELECT TRUNC(no/1000) AS pack, "
-    "       MOD(no,1000) AS no "
-    "FROM trfer_tags WHERE grp_id=:grp_id ORDER BY trfer_tags.no";
-  TagQry.DeclareVariable("grp_id",otFloat);
+    TagQry.SQLText=
+      "SELECT TRUNC(no/1000) AS pack, "
+      "       MOD(no,1000) AS no "
+      "FROM trfer_tags WHERE grp_id=:grp_id ORDER BY trfer_tags.no";
+    TagQry.DeclareVariable("grp_id",otInteger);
+  }
+  else
+  {
+    Qry.SQLText=
+      "SELECT transfer.airline,transfer.flt_no,transfer.suffix,transfer.local_date, "
+      "       pax_grp.airp_arv AS airp_dep,transfer.airp_arv,transfer.subclass, "
+      "       pax_grp.grp_id,pax_grp.class AS subcl, "
+      "       NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
+      "       NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
+      "       NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
+      "       'K' AS weight_unit "
+      "FROM pax_grp,transfer "
+      "WHERE pax_grp.grp_id=transfer.grp_id AND transfer.transfer_num=1 AND "
+      "      pax_grp.point_dep=:point_id AND pr_refuse=0 AND pax_grp.status<>'T' "
+      "ORDER BY transfer.local_date,transfer.airline,transfer.flt_no, "
+      "         transfer.suffix,pax_grp.airp_arv,transfer.airp_arv ";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+
+    PaxQry.SQLText=
+      "SELECT surname,name,seats FROM pax WHERE grp_id=:grp_id AND pr_brd IS NOT NULL";
+    PaxQry.DeclareVariable("grp_id",otInteger);
+
+    TagQry.SQLText=
+      "SELECT TRUNC(no/1000) AS pack, "
+      "       MOD(no,1000) AS no "
+      "FROM bag_tags WHERE grp_id=:grp_id ORDER BY bag_tags.no";
+    TagQry.DeclareVariable("grp_id",otInteger);
+  };
 
   Qry.Execute();
   xmlNodePtr trferNode=NewTextChild(resNode,"transfer");
   xmlNodePtr grpNode,paxNode,node,node2;
   int grp_id;
-  char subcl[2];
-  point_id=-1;
+  string prev_trip;
+  char subcl[2],airp_dep[4],airp_arv[4];
   *subcl=0;
+  *airp_dep=0;
+  *airp_arv=0;
   for(;!Qry.Eof;Qry.Next())
   {
-    if (point_id==-1 ||
-        point_id!=Qry.FieldAsInteger("point_id") ||
+    ostringstream trip;
+    trip << Qry.FieldAsString("airline")
+         << Qry.FieldAsInteger("flt_no")
+         << Qry.FieldAsString("suffix") << "/";
+    if (pr_tlg)
+      trip << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
+    else
+      trip << setw(2) << setfill('0') << Qry.FieldAsInteger("local_date");
+
+    if (prev_trip!=trip.str() ||
+        strcmp(airp_dep,Qry.FieldAsString("airp_dep"))!=0 ||
+        strcmp(airp_arv,Qry.FieldAsString("airp_arv"))!=0 ||
         strcmp(subcl,Qry.FieldAsString("subcl"))!=0)
     {
       node=NewTextChild(trferNode,"trfer_flt");
-      ostringstream trip;
-      trip << Qry.FieldAsString("airline")
-           << Qry.FieldAsInteger("flt_no")
-           << Qry.FieldAsString("suffix") << "/"
-           << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
 
       NewTextChild(node,"trip",trip.str());
-      NewTextChild(node,"airp",Qry.FieldAsString("airp"));
+      if (pr_tlg) NewTextChild(node,"airp",Qry.FieldAsString("airp"));
+      NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
+      NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
       NewTextChild(node,"subcl",Qry.FieldAsString("subcl"));
       grpNode=NewTextChild(node,"grps");
-      point_id=Qry.FieldAsInteger("point_id");
+
+      prev_trip=trip.str();
+      strcpy(airp_dep,Qry.FieldAsString("airp_dep"));
+      strcpy(airp_arv,Qry.FieldAsString("airp_arv"));
       strcpy(subcl,Qry.FieldAsString("subcl"));
     };
 
     node=NewTextChild(grpNode,"grp");
-    if (!Qry.FieldIsNULL("seats"))
-      NewTextChild(node,"seats",Qry.FieldAsInteger("seats"));
-    else
-      NewTextChild(node,"seats");
     if (!Qry.FieldIsNULL("bag_amount"))
       NewTextChild(node,"bag_amount",Qry.FieldAsInteger("bag_amount"));
     else
@@ -1295,6 +1337,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     PaxQry.SetVariable("grp_id",grp_id);
     PaxQry.Execute();
+    int seats=0;
     if (!PaxQry.Eof)
     {
       paxNode=NewTextChild(node,"passengers");
@@ -1303,7 +1346,27 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         node2=NewTextChild(paxNode,"pax");
         NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
         NewTextChild(node2,"name",PaxQry.FieldAsString("name"),"");
+        if (!pr_tlg)
+        {
+          if (PaxQry.FieldAsInteger("seats")>0) seats++;
+          for(int i=PaxQry.FieldAsInteger("seats");i>=2;i--)
+          node2=NewTextChild(paxNode,"pax");
+          NewTextChild(node2,"surname",PaxQry.FieldAsString("surname"));
+          NewTextChild(node2,"name","EXST",""); //впоследствии надо учитывать STCR
+        };
       };
+    };
+
+    if (pr_tlg)
+    {
+      if (!Qry.FieldIsNULL("seats"))
+        NewTextChild(node,"seats",Qry.FieldAsInteger("seats"));
+      else
+        NewTextChild(node,"seats");
+    }
+    else
+    {
+      NewTextChild(node,"seats",seats);
     };
 
     if (pr_bag)
@@ -1802,7 +1865,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	  }
       catch( Exception &e ) {
         ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), point_id );
-      }          	   
+      }
     }
   }
 }
@@ -2048,7 +2111,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	if ( !Qry.FieldIsNULL( "bort" ) )
   	  NewTextChild( snode, "bort", Qry.FieldAsString( "bort" ) );
   	string region = Qry.FieldAsString( "region" );
-  	try {  	
+  	try {
   	  if ( !Qry.FieldIsNULL( "scd_in" ) )
   	    NewTextChild( snode, "scd_in", DateTimeToStr( UTCToClient( Qry.FieldAsDateTime( "scd_in" ), region ), ServerFormatDateTimeAsString ) );
   	  if ( !Qry.FieldIsNULL( "est_in" ) )
@@ -2065,7 +2128,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	catch( Exception &e ) {
   		ProgError( STDLOG, "Exception %s, move_id=%d", e.what(), move_id );
   		throw UserException( "Не найден регион в маршруте рейса, %s", Qry.FieldAsString( "airp" ) );
-  	}  	    
+  	}
   	while ( !DQry.Eof && DQry.FieldAsInteger( "point_num" ) == Qry.FieldAsInteger( "point_num" ) ) {
   		if ( !dnode )
   			dnode = NewTextChild( snode, "delays" );
@@ -2098,10 +2161,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   bool ch_craft = false;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
-  DelQry.SQLText = 
+  DelQry.SQLText =
    " UPDATE points SET point_num=point_num-1 WHERE point_num<=0-:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
-  DelQry.DeclareVariable( "point_num", otInteger );    
+  DelQry.DeclareVariable( "point_num", otInteger );
 	map<string,string> regions;
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	bool canExcept = NodeAsInteger( "canexcept", node );
@@ -2584,7 +2647,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  	  if ( !id->craft.empty() )
   	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
-  	  	else {  	  		
+  	  	else {
   	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
   	  }
@@ -2608,9 +2671,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	  	  		if ( id->pr_del == -1 ) {
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
-    		      DelQry.Execute();	  	  			
-    	      	id->point_num = 0-id->point_num;	  	  			    		      
-    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );    	      	
+    		      DelQry.Execute();
+    	      	id->point_num = 0-id->point_num;
+    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  		}
   	  }
@@ -2866,14 +2929,14 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	int move_id = Qry.FieldAsInteger( "move_id" );
 	string trip = Qry.FieldAsString( "trip" );
 	Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "UPDATE points "
 	 "  SET act_out=NULL, act_in=DECODE(point_num,:point_num,act_in,NULL) "
 	 " WHERE move_id=:move_id AND point_num>=:point_num";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.CreateVariable( "point_num", otInteger, point_num );
 	Qry.Execute();
-	TReqInfo *reqInfo = TReqInfo::Instance();	
+	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
 	ReadTrips( ctxt, reqNode, resNode );
 }
