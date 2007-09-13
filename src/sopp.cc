@@ -1032,9 +1032,9 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
    		trfertype += 0xF00;    		    		
    	if ( trfertype )
     	NewTextChild( tripNode, "trfertype", trfertype );
-    if ( tr->TrferType.isFlag( trferOut ) || tr->TrferType.isFlag( trferCkin ) )
+    if ( tr->TrferType.isFlag( trferCkin ) )
     	NewTextChild( tripNode, "trfer_to", "->" );
-    if ( tr->TrferType.isFlag( trferIn ) )
+    if ( tr->TrferType.isFlag( trferOut ) || tr->TrferType.isFlag( trferIn ) )
     	NewTextChild( tripNode, "trfer_from", "->" );
     lNode = NULL;
     for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
