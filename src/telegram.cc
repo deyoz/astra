@@ -1240,7 +1240,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
           (i==con.tags.end() || i->no!=first_no+num))
       {
         body << ".N/"
-             << setw(10) << setfill('0') << setprecision(0) << first_no << '/'
+             << setw(10) << setfill('0') << setprecision(0) << first_no
              << setw(3) << setfill('0') << num << ENDL;
       };
       if (i==con.tags.end()) break;
