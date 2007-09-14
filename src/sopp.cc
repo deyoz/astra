@@ -2373,7 +2373,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.Clear();
     Qry.SQLText =
      "SELECT COUNT(*) c FROM points "\
-     " WHERE airline||flt_no||suffix||trip_type=:name AND move_id!=:move_id AND "\
+     " WHERE airline||flt_no||suffix=:name AND move_id!=:move_id AND "\
      "       ( TRUNC(scd_in)=TRUNC(:scd_in) OR TRUNC(scd_out)=TRUNC(:scd_out) )";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.DeclareVariable( "name", otString );
@@ -2398,7 +2398,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  	}
       }
       if ( !existsTrip && id != dests.end() - 1 ) {
-        Qry.SetVariable( "name", id->airline + IntToString( id->flt_no ) + id->suffix + id->triptype );
+        Qry.SetVariable( "name", id->airline + IntToString( id->flt_no ) + id->suffix );
         if ( id->scd_in > NoExists )
           Qry.SetVariable( "scd_in", id->scd_in );
         else

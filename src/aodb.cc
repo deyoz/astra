@@ -484,6 +484,7 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
                    string &res_checkin/*, string &res_bag*/ )
 {
+	//!!!!проверка на дублирования рейсов в СПП
 	res_checkin.clear();
 	//res_bag.clear();
 	TQuery PQry( &OraSession );	
