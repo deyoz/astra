@@ -57,7 +57,6 @@ void TSQLParams::setVariables( TQuery &Qry ) {
   Qry.ClearVariables();
   for ( std::vector<TVar>::iterator ip=vars.begin(); ip!=vars.end(); ip++ ) {
     Qry.CreateVariable( ip->name, ip->type, ip->value );
-    ProgTrace( TRACE5, "Qry.CreateVariable name=%s, value=%s", ip->name.c_str(), ip->value.c_str() );
   }
 }
 
@@ -318,7 +317,6 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   sql+="ORDER BY TRUNC(real_out) DESC,flt_no,airline, "
        "         NVL(suffix,' '),move_id,point_num";
   Qry.SQLText = sql;
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
@@ -431,7 +429,6 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
            "aro_airps.aro_id=:user_id ";
   };
   Qry.SQLText = sql;
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   p.setVariables( Qry );
   if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
     Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
@@ -1248,7 +1245,6 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     sql << "ORDER BY " << order_by.str().erase(0,1);
   };
 
-  ProgTrace(TRACE5,"SQL=%s",sql.str().c_str());
 
   Qry.Clear();
   Qry.SQLText = sql.str().c_str();
@@ -1350,6 +1346,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "       crs_pax.seat_no AS crs_seat_no, "
     "       crs_pax.preseat_no, "
     "       pax.seat_no, "
+    "       pax.refuse, "    
     "       crs_pax.seats seats, "
     "       crs_pnr.target, "
     "       report.get_trfer_airp(airp_arv) AS last_target, "
@@ -1387,6 +1384,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ), "" );
     NewTextChild( itemNode, "preseat_no", Qry.FieldAsString( "preseat_no" ), "" );
     NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
+    NewTextChild( itemNode, "refuse", !Qry.FieldIsNULL( "seat_no" ) );
     NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ), 1 );
     NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
     NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ), "" );
