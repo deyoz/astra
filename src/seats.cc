@@ -1987,6 +1987,8 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
                   " salons.seatpass( :point_id, :pax_id, :placename, :whatdo ); "\
                   " UPDATE pax SET seat_no=:placename,prev_seat_no=:placename,tid=tid__seq.currval "\
                   "  WHERE pax_id=:pax_id; "\
+                  " UPDATE crs_pax SET preseat_no=NULL,tid=tid__seq.currval "\
+                  "  WHERE pax_id=:pax_id; "\                  
                   " mvd.sync_pax(:pax_id,:term); "\
                   "END; ";
     Qry.DeclareVariable( "term", otString );
