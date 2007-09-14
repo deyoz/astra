@@ -1384,7 +1384,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ), "" );
     NewTextChild( itemNode, "preseat_no", Qry.FieldAsString( "preseat_no" ), "" );
     NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
-    NewTextChild( itemNode, "refuse", !Qry.FieldIsNULL( "seat_no" ) );
+    NewTextChild( itemNode, "refuse", Qry.FieldIsNULL( "refuse" ) );
     NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ), 1 );
     NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
     NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ), "" );

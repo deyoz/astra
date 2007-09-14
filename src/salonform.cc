@@ -417,9 +417,9 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     if ( !checkinNode ) {
       if ( errmsg.empty() )
       	if ( setseatNode )
-      		errmsg = "Невозможно предварительное назначение данного места";
+      		errmsg = "Невозможно предварительное назначение данного места. Обновите данные";
       	else {
-          errmsg = "Пересадка невозможна";
+          errmsg = "Пересадка невозможна. Обновите данные";
           SEATS::SelectPassengers( &Salons, Passengers );
           tst();
           if ( Passengers.existsNoSeats() )
