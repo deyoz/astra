@@ -23,7 +23,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void createFileParamsSofi( int receipt_id, map<string,string> &params )
+void createFileParamsSofi( int receipt_id, string pult, map<string,string> &params )
 {
 	//!!! надо считать
 	TQuery Qry( &OraSession );
@@ -50,13 +50,12 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
 	 "END; ";
 	Qry.CreateVariable( "file_no", otInteger, 0 );
 	Qry.CreateVariable( "point_addr", otString, params[PARAM_CANON_NAME] );
-	Qry.CreateVariable( "desk", otString, params[PARAM_PULT] );
+	Qry.CreateVariable( "desk", otString, pult );
 	tst();
 	Qry.Execute();
-	tst();
 	ostringstream res;
 	res <<setw(0)<<DateTimeToStr(NowUTC(),"yymmdd");
-    res << params[PARAM_PULT];
+    res << pult;
 	res <<Qry.GetVariableAsInteger( "file_no" );
 	res <<setw(0)<<".txt";
     ProgTrace(TRACE5, "params.size = %d", params.size());
@@ -66,17 +65,18 @@ void createFileParamsSofi( int receipt_id, map<string,string> &params )
   params[ PARAM_FILE_NAME ] =  res.str();
 }
 
-bool createSofiFile( int receipt_id, std::map<std::string,std::string> &params, std::string &file_data )
+bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams, 
+	                   std::map<std::string,std::string> &params, std::string &file_data )
 {
-	tst();
-  TQuery Qry(&OraSession);
+	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );	
+  TQuery Qry(&OraSession);	
   Qry.SQLText=
     "SELECT TO_CHAR(bag_receipts.no) no,bag_receipts.form_type,bag_receipts.aircode,bag_receipts.issue_date, "
     "      bag_receipts.pax_name,bag_receipts.tickets,bag_receipts.airp_dep,bag_receipts.airp_arv, "
     "      bag_receipts.airline,bag_receipts.flt_no,bag_receipts.suffix,bag_receipts.grp_id,bag_receipts.ex_weight,  "
     "      bag_receipts.rate,bag_receipts.rate_cur, "
     "      bag_receipts.exch_rate,bag_receipts.exch_pay_rate,bag_receipts.pay_rate_cur, "
-    "      bag_receipts.ex_weight,bag_receipts.issue_user_id,  "
+    "      bag_receipts.ex_weight,bag_receipts.issue_user_id, bag_receipts.issue_desk, "
     "      desks.code pult, desk_grp.city as sale_city,  "
     "      points.scd_out, users2.descr  "
     "FROM bag_receipts, desks, desk_grp, pax_grp, points, users2  "
@@ -92,6 +92,31 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &params, 
 	tst();
 	if ( Qry.Eof )
 		return false;
+  TQuery QryAgency(&OraSession);		
+  for(map<string,string>::iterator im = inparams.begin(); im != inparams.end(); im++) {	
+ 	  if ( im->first == SOFI_AGENCY_PARAMS ) {
+      QryAgency.SQLText="SELECT validator FROM form_types WHERE code=:code";
+      QryAgency.CreateVariable( "code", otString, Qry.FieldAsString( "form_type" ) );
+      QryAgency.Execute();
+      if ( QryAgency.Eof ) 
+      	throw Exception("get_validator: unknown form_type %s", Qry.FieldAsString( "form_type" ) );
+      string validator_type=QryAgency.FieldAsString("validator");
+      QryAgency.Clear();
+      QryAgency.SQLText=
+       "SELECT sale_points.agency FROM sale_desks, sale_points "
+       "WHERE sale_desks.code=:code AND sale_desks.validator=:validator AND "
+       " sale_points.code=sale_desks.sale_point AND sale_points.validator=sale_desks.validator";
+      QryAgency.CreateVariable( "code", otString, Qry.FieldAsString( "issue_desk" ) );
+      QryAgency.CreateVariable("validator", otString, validator_type );
+      QryAgency.Execute();
+      tst();
+      if ( im->second != QryAgency.FieldAsString("agency") )
+      	return false;
+      tst();
+ 	  	break;
+ 	  }
+ 	}
+  tst();
 	const string dlmt = "``|``";
 	ostringstream res;
 	res<<setfill(' ')<<std::fixed<<setw(3)<<"КПБ";
@@ -191,10 +216,10 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &params, 
  res<<trim(buf.str().substr(0, 12)); //???10.3(2) "rate" - валюта тарифа, pay_rate - валюта оплаты
  res<<dlmt<<setprecision(0);
  res<<Qry.FieldAsString( "pult" );
- params[PARAM_PULT] = Qry.FieldAsString( "pult" );
  res<<dlmt; //15
  res<<dlmt; //15
  file_data = res.str();
- createFileParamsSofi( receipt_id, params );
+ createFileParamsSofi( receipt_id, Qry.FieldAsString( "pult" ), params );
+ tst();
  return true;
 }
