@@ -96,6 +96,8 @@ void exec_tasks( void )
 	    	      		if ( name == "arx_daily" ) arx_daily( utcdate );
 	    	      			else
 	    	      				if ( name == "sync_aodb" ) sync_aodb( );
+	    	      				else
+	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
 
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();	 //???
@@ -658,89 +660,17 @@ void arx_daily(TDateTime utcdate)
 
   ProgTrace(TRACE5,"arx_daily stopped");
 };
-/*
-void sync_countries(void)
+
+void sync_sirena_codes( void )
 {
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT ida, "
-    "       UPPER(TRIM(rcodeg)) AS rcode, "
-    "       REPLACE(UPPER(TRIM(lcodeg)),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS lcode, "
-    "       UPPER(TRIM(rname)) AS rname, "
-    "       REPLACE(UPPER(TRIM(lname)),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS lname "
-    "FROM gos WHERE close=0";
-
-  TQuery UpdQry(&OraSession);
-  UpdQry.Clear();
-  UpdQry.SQLText=
-    "DECLARE "
-    "  row2	countries%ROWTYPE; "
-    "  row3     countries%ROWTYPE; "
+	ProgTrace(TRACE5,"sync_sirena_codes started");
+	TQuery Qry(&OraSession);
+	Qry.Clear();
+  Qry.SQLText= /*04068*/
     "BEGIN "
-    "  row2.code:=NULL; "
-    "  row2.code_lat:=NULL; "
-    "  row2.name:=NULL; "
-    "  row2.name_lat:=NULL; "
-
-
-
-
-    "  IF :rcode IS NOT NULL AND "
-    "     LENGTH(:rcode)=2 AND "
-    "     system.is_upp_let(:rcode)<>0 THEN row2.code:=:rcode; END IF; "
-    "  IF :lcode IS NOT NULL AND "
-    "     LENGTH(:lcode)=2 AND "
-    "     system.is_upp_let(:lcode,1)<>0 THEN row2.code_lat:=:lcode; END IF; "
-    "  IF :rname IS NOT NULL AND "
-    "     system.is_name(:rname)<>0 THEN row2.name:=:rname; END IF; "
-    "  IF :lname IS NOT NULL AND "
-    "     system.is_name(:lname,1)<>0 THEN row2.name_lat:=:lname; END IF; "
-
-
-    "  IF
-
-
-    "  SELECT * INTO row3 FROM "
-
-
-    "  IF :tid IS NULL THEN "
-    "    SELECT tid__seq.nextval INTO :tid FROM dual; "
-    "  END IF; "
-    "  UPDATE countries "
-    "  SET code_lat=DECODE(:code_lat,NULL,code_lat,:code_lat), "
-    "      name=DECODE(:name,NULL,name,:name), "
-    "      name_lat=DECODE(:name_lat,NULL,name_lat,:name_lat), "
-    "      pr_del=0,tid=:tid "
-    "  WHERE code=:code; "
-    "  IF SQL%NOTFOUND THEN "
-    "    INSERT INTO countries(id,code,code_lat,name,name_lat,pr_del,tid) "
-    "    VALUES(id__seq.nextval,:code,:code_lat,:name,:name_lat,0,:tid); "
-    "  END IF; "
+    "  utils.sync_sirena_codes; "
     "END;";
-  UpdQry.DeclareVariable("code",otString);
-  UpdQry.DeclareVariable("code_lat",otString);
-  UpdQry.DeclareVariable("name",otString);
-  UpdQry.DeclareVariable("name_lat",otString);
-  UpdQry.CreateVariable("tid",otInteger,FNull);
-
-
   Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
-  {
-    UpdQry.SetVariable("code",FNull);
-    UpdQry.SetVariable("code_lat",FNull);
-    UpdQry.SetVariable("name",FNull);
-    UpdQry.SetVariable("name_lat",FNull);
-
-    if (!Qry.FieldIsNULL("rcode") &&
-        strlen(Qry.FieldAsString("rcode"))==2 &&
-
-
-  };
-
-
-
-};  */
-
-
+  OraSession.Commit();
+	ProgTrace(TRACE5,"sync_sirena_codes stopped");
+};
