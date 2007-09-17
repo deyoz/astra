@@ -159,7 +159,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
   TQuery Qry(&OraSession);
   string sql=
     "SELECT points.point_id, points.airline AS oper_carrier, points.flt_no, "
-    "       points.scd_out AS scd, points.act_out AS act, system.AirpTZRegion( points.airp ) AS region,"
+    "       points.scd_out AS scd, points.act_out AS act, points.airp,"
     "       pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
     "       pax.ticket_no, pax.coupon_no, "
     "       pax.refuse, pax.pr_brd, "
@@ -252,7 +252,8 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
         Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
         //if (area==csaFlt)
         //{
-          TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
+          TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),
+                                         AirpTZRegion(Qry.FieldAsString("airp")));
           ptime scd(DateTimeToBoost(scd_local));
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
@@ -307,7 +308,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
     Qry.SQLText=
       "SELECT etickets.ticket_no,etickets.coupon_no, "
       "       points.airline AS oper_carrier, points.flt_no, points.scd_out AS scd, "
-      "       system.AirpTZRegion( points.airp ) AS region, "
+      "       points.airp, "
       "       etickets.airp_dep, etickets.airp_arv "
       "FROM etickets,points,pax "
       "WHERE etickets.point_id=points.point_id AND "
@@ -321,7 +322,8 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
     for(;!Qry.Eof;Qry.Next())
     {
       Coupon_info ci (Qry.FieldAsInteger("coupon_no"),CouponStatus::OriginalIssue);
-      TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),Qry.FieldAsString("region"));
+      TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),
+                                     AirpTZRegion(Qry.FieldAsString("airp")));
       ptime scd(DateTimeToBoost(scd_local));
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier

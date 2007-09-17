@@ -78,11 +78,11 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (point_id!=-1)
   {
     TQuery RegionQry(&OraSession);
-    RegionQry.SQLText="SELECT system.AirpTZRegion(airp) AS tz_region FROM points WHERE point_id=:point_id";
+    RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id";
     RegionQry.CreateVariable("point_id",otInteger,point_id);
     RegionQry.Execute();
     if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
-    tz_region = RegionQry.FieldAsString("tz_region");
+    tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
 
     sql+="(SELECT DISTINCT tlg_source.tlg_id AS id "
          " FROM tlg_source,tlg_binding "
@@ -187,11 +187,11 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     {
       point_id = Qry.FieldAsInteger("point_id");
       TQuery RegionQry(&OraSession);
-      RegionQry.SQLText="SELECT system.AirpTZRegion(airp) AS tz_region FROM points WHERE point_id=:point_id";
+      RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id";
       RegionQry.CreateVariable("point_id",otInteger,point_id);
       RegionQry.Execute();
       if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
-      tz_region = RegionQry.FieldAsString("tz_region");
+      tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
     }
     else
     {
@@ -296,12 +296,11 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   {
     TQuery Qry(&OraSession);
     Qry.SQLText=
-      "SELECT scd_out,act_out,system.AirpTZRegion(airp) AS tz_region "
-      "FROM points WHERE point_id=:point_id";
+      "SELECT scd_out,act_out,airp FROM points WHERE point_id=:point_id";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
-    string tz_region=Qry.FieldAsString("tz_region");
+    string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
 
     TlgQry.CreateVariable("point_id",otInteger,point_id);
     TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
@@ -743,7 +742,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,flt_no,airp,point_num,scd_out,act_out,system.AirpTZRegion(airp) AS tz_region, "
+    "SELECT airline,flt_no,airp,point_num,scd_out,act_out, "
     "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -802,7 +801,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
   TlgQry.CreateVariable("point_id",otInteger,point_id);
   TlgQry.CreateVariable("pr_dep",otInteger,1); //!!!
-  string tz_region=Qry.FieldAsString("tz_region");
+  string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
   TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
   TDateTime act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
   TlgQry.CreateVariable("scd_local",otDate,scd_local);
@@ -1170,7 +1169,6 @@ TTlgFltInfo& GetFltInfo(int point_id, TTlgFltInfo &info)
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,flt_no,suffix,airp, "
-    "       system.AirpTZRegion(points.airp) AS tz_region, "
     "       scd_out "
     "FROM points WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1180,7 +1178,7 @@ TTlgFltInfo& GetFltInfo(int point_id, TTlgFltInfo &info)
   info.flt_no=Qry.FieldAsInteger("flt_no");
   info.suffix=Qry.FieldAsString("suffix");
   info.airp=Qry.FieldAsString("airp");
-  info.tz_region=Qry.FieldAsString("tz_region");
+  info.tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
   info.scd_out=Qry.FieldAsDateTime("scd_out");
   return info;
 };*/

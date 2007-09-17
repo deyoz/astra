@@ -486,11 +486,17 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     TTripInfo info(Qry);
 
-    listItem.point_id=Qry.FieldAsInteger("point_id");
-    listItem.trip_name=GetTripName(info,reqInfo->screen.name=="TLG.EXE",true);
-    listItem.real_out_local_date=info.real_out_local_date;
-
-    list.push_back(listItem);
+    try
+    {
+      listItem.point_id=Qry.FieldAsInteger("point_id");
+      listItem.trip_name=GetTripName(info,reqInfo->screen.name=="TLG.EXE",true);
+      listItem.real_out_local_date=info.real_out_local_date;
+      list.push_back(listItem);
+    }
+    catch(UserException &E)
+    {
+      showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+    };
   };
 
   stable_sort(list.begin(),list.end(),lessTripListItem);
@@ -1346,7 +1352,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "       crs_pax.seat_no AS crs_seat_no, "
     "       crs_pax.preseat_no, "
     "       pax.seat_no, "
-    "       pax.refuse, "    
+    "       pax.refuse, "
     "       crs_pax.seats seats, "
     "       crs_pnr.target, "
     "       report.get_trfer_airp(airp_arv) AS last_target, "

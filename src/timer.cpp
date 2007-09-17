@@ -202,8 +202,7 @@ void create_mvd_file(TDateTime first_time, TDateTime last_time,
       "       airp_dep, "
       "       airp_arv, "
       "       bag_weight, "
-      "       SUBSTR(pnr,1,12) AS pnr, "
-      "       system.AirpTZRegion(airp_dep) AS tz_region "
+      "       SUBSTR(pnr,1,12) AS pnr "
       "FROM rozysk "
       "WHERE time>=:first_time AND time<:last_time AND (airp_dep=:airp OR :airp IS NULL) "
       "ORDER BY time";
@@ -222,7 +221,7 @@ void create_mvd_file(TDateTime first_time, TDateTime last_time,
       << DateTimeToStr(last_time-1.0/1440,"ddmmyyhhnn") << ENDL;
     for(;!Qry.Eof;Qry.Next())
     {
-      const char* tz_region = Qry.FieldAsString("tz_region");
+      string tz_region = AirpTZRegion(Qry.FieldAsString("airp_dep"));
 
       TDateTime time_local=UTCToLocal(Qry.FieldAsDateTime("time"),tz_region);
       TDateTime takeoff_local;
@@ -284,8 +283,7 @@ void sync_mvd(void)
   TQuery FilesQry(&OraSession);
   FilesQry.Clear();
   FilesQry.SQLText=
-    "SELECT name,dir,last_create,airp, "
-    "       DECODE(airp,NULL,NULL,system.AirpTZRegion(airp)) AS tz_region "
+    "SELECT name,dir,last_create,airp "
     "FROM file_sets "
     "WHERE code=:code AND pr_denial=0";
   FilesQry.DeclareVariable("code",otString);
@@ -313,10 +311,17 @@ void sync_mvd(void)
          (now-FilesQry.FieldAsDateTime("last_create"))<1.0/1440) continue;
 
       TDateTime local;
-      if (!FilesQry.FieldIsNULL("tz_region"))
-        local=UTCToLocal(now,FilesQry.FieldAsString("tz_region"));
+      string tz_region;
+      if (!FilesQry.FieldIsNULL("airp"))
+      {
+        tz_region=AirpTZRegion(FilesQry.FieldAsString("airp"));
+        local=UTCToLocal(now,tz_region);
+      }
       else
+      {
+        tz_region.clear();
         local=now;
+      };
       ostringstream file_name;
       file_name << FilesQry.FieldAsString("dir")
                 << DateTimeToStr(local,FilesQry.FieldAsString("name"));
@@ -324,12 +329,12 @@ void sync_mvd(void)
       if (FilesQry.FieldIsNULL("last_create"))
         create_mvd_file(now-1,now,
                         FilesQry.FieldAsString("airp"),
-                        FilesQry.FieldAsString("tz_region"),
+                        tz_region.c_str(),
                         file_name.str().c_str());
       else
         create_mvd_file(FilesQry.FieldAsDateTime("last_create"),now,
                         FilesQry.FieldAsString("airp"),
-                        FilesQry.FieldAsString("tz_region"),
+                        tz_region.c_str(),
                         file_name.str().c_str());
 
       Qry.SetVariable("airp",FilesQry.FieldAsString("airp"));
@@ -522,7 +527,7 @@ void arx_daily(TDateTime utcdate)
 
   PointsQry.Clear();
   PointsQry.SQLText=
-    "SELECT point_id,scd,pr_utc,system.AirpTZRegion(airp_dep,0) AS region "
+    "SELECT point_id,scd,pr_utc,airp_dep "
     "FROM tlg_trips,tlg_binding "
     "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND tlg_binding.point_id_tlg IS NULL";
   PointsQry.Execute();
@@ -531,7 +536,8 @@ void arx_daily(TDateTime utcdate)
     int point_id=PointsQry.FieldAsInteger("point_id");
     bool pr_utc=PointsQry.FieldAsInteger("pr_utc")!=0;
     TDateTime scd=PointsQry.FieldAsDateTime("scd"); //NOT NULL всегда
-    if (!pr_utc) scd=LocalToUTC(scd+1,PointsQry.FieldAsString("region"));
+    if (!pr_utc)
+      scd=LocalToUTC(scd+1,AirpTZRegion(PointsQry.FieldAsString("airp_dep")));
 
     if (scd<utcdate-ARX_MAX_DAYS())
     {
