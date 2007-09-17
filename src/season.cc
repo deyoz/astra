@@ -216,29 +216,6 @@ string GetPrintName( TDest *PDest, TDest *NDest )
 	return res;
 }
 
-/*string GetTZRegion( string &city, map<string,string> &regions, bool vexcept )
-{
-  string res;
-  if ( city.empty() )
-    return res;
-  if ( regions.find( city ) != regions.end() )
-    return regions[ city ];
-  TQuery Qry( &OraSession );
-  Qry.SQLText = "SELECT system.CityTZRegion(:city,0) as region FROM dual";
-  Qry.DeclareVariable( "city", otString );
-  Qry.SetVariable( "city", city );
-  Qry.Execute();
-  if ( Qry.FieldIsNULL( "region" ) ) {
-    if ( vexcept )
-      throw UserException( "Для выбранного города %s не задан регион", city.c_str() );
-    return res;
-  }
-  res = Qry.FieldAsString( "region" );
-  regions[ city ] = res;
-  return res;
-}*/
-
-
 TFilter::TFilter()
 {
   Clear();
