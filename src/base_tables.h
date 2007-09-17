@@ -261,7 +261,9 @@ class TCities: public TTIDBaseTable {
     {
       return
         "SELECT id,code,code_lat,name,name_lat, "
-        "       cities.country,cities.tz,region,pr_del,tid "
+        "       cities.country,cities.tz, "
+        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
+        "       GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid)) AS tid "
         "FROM cities,tz_regions "
         "WHERE cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+)";
@@ -270,9 +272,11 @@ class TCities: public TTIDBaseTable {
     {
       return
       	"SELECT id,code,code_lat,name,name_lat, "
-      	"       cities.country,cities.tz,region,pr_del,tid "
+      	"       cities.country,cities.tz, "
+        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
+        "       GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid)) AS tid "
       	"FROM cities,tz_regions "
-      	"WHERE tid>:tid AND "
+      	"WHERE GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid))>:tid AND "
       	"      cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+)";
     };
