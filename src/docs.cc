@@ -264,7 +264,6 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     string SQLText =
         "select "
         "   airp, "
-        "   system.AirpTZRegion(airp) AS tz_region, "
         "   airline, "
         "   flt_no, "
         "   suffix, "
@@ -296,7 +295,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
     string craft = Qry.FieldAsString("craft");
-    string tz_region = Qry.FieldAsString("tz_region");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
     string airline_name;
     if(airline.size()) {
@@ -421,7 +420,7 @@ void RunSZV(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "events_log");
+    NewTextChild(dataSetsNode, "events_log");
     // Теперь переменные отчета
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
@@ -853,7 +852,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.SQLText =
         "select "
         "   airp, "
-        "   system.AirpTZRegion(airp) AS tz_region, "
         "   airline, "
         "   flt_no, "
         "   suffix, "
@@ -872,7 +870,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
     string craft = Qry.FieldAsString("craft");
-    string tz_region = Qry.FieldAsString("tz_region");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
@@ -987,7 +985,6 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.SQLText =
         "select "
         "   airp, "
-        "   system.AirpTZRegion(airp) AS tz_region, "
         "   airline, "
         "   flt_no, "
         "   suffix, "
@@ -1006,7 +1003,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
     string craft = Qry.FieldAsString("craft");
-    string tz_region = Qry.FieldAsString("tz_region");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
@@ -1190,7 +1187,6 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.SQLText =
         "select "
         "   airp, "
-        "   system.AirpTZRegion(airp) AS tz_region, "
         "   airline, "
         "   flt_no, "
         "   suffix, "
@@ -1209,7 +1205,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
     string craft = Qry.FieldAsString("craft");
-    string tz_region = Qry.FieldAsString("tz_region");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
@@ -1582,8 +1578,7 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  bort, "
     "  trip_type, "
     "  ckin.get_pr_tranz_reg(point_id,pr_tranzit) AS pr_tranz_reg, "
-    "  park_out, "
-    "  system.AirpTZRegion(points.airp) AS tz_region "
+    "  park_out "
     "FROM  points "
     "WHERE point_id= :point_id AND pr_del=0";
   Qry.CreateVariable("point_id",otInteger,NodeAsInteger("point_id",reqNode));
@@ -1602,7 +1597,7 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(resNode,"park_out",Qry.FieldAsString("park_out"));
 
   TDateTime scd_out;
-  char *tz_region=Qry.FieldAsString("tz_region");
+  string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   NewTextChild( resNode, "scd_out", DateTimeToStr(scd_out) );
 };
