@@ -209,6 +209,7 @@ struct TTrip {
   vector<string> places_in;
 
   string airp;
+  string city;
 
   string airline_out;
   int flt_no_out;
@@ -340,6 +341,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   }
 
   trip.airp = id->airp;
+  trip.city = id->city;
 
   if ( !trip.places_out.empty() ) { // trip is takeoffing
     trip.airline_out = id->airline;
@@ -357,7 +359,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
     try {
       trip.remark_out = GetRemark( id->remark, id->scd_out, id->est_out, id->region );
     }
-    catch(...) { ProgTrace( TRACE5, "id->point_id=%d", id->point_id ); };
+    catch(...) { ProgError( STDLOG, "id->point_id=%d", id->point_id ); };
 
     trip.pr_del_out = id->pr_del;
     trip.pr_reg = id->pr_reg;
@@ -366,7 +368,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   return trip;
 }
 
-bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, bool LocalAll )
+bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, bool LocalAll, string &errcity )
 {
   if ( LocalAll && first_date > NoExists ) {
     bool canuseTR = false;
@@ -376,6 +378,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
         d = UTCToClient( tr.act_in, tr.region );
       }
       catch( Exception &e ) {
+      	if ( errcity.empty() )
+      	  errcity = tr.city;
         ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
         return false;
       }
@@ -387,6 +391,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           d = UTCToClient( tr.est_in, tr.region );
         }
         catch( Exception &e ) {
+        	if ( errcity.empty() )
+        	  errcity = tr.city;
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
         }
@@ -398,6 +404,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
             d = UTCToClient( tr.scd_in, tr.region );
           }
           catch( Exception &e ) {
+          	if ( errcity.empty() )
+          	  errcity = tr.city;
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
           }
@@ -409,6 +417,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           d = UTCToClient( tr.act_out, tr.region );
         }
         catch( Exception &e ) {
+        	if ( errcity.empty() )
+        	  errcity = tr.city;
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
         }
@@ -420,6 +430,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
             d = UTCToClient( tr.est_out, tr.region );
           }
           catch( Exception &e ) {
+           	if ( errcity.empty() )
+          	  errcity = tr.city;
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
           }
@@ -431,6 +443,8 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
               d = UTCToClient( tr.scd_out, tr.region );
             }
             catch( Exception &e ) {
+             	if ( errcity.empty() )
+      	        errcity = tr.city;
               ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
               return false;
             }
@@ -501,8 +515,9 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
   }
 }
 
-void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, bool arx, int point_id = NoExists )
+string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, bool arx, int point_id = NoExists )
 {
+	string errcity;
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery PointsQry( &OraSession );
   TBaseTable &airps = base_tables.get( "airps" );
@@ -653,7 +668,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
             TTrip tr = createTrip( move_id, id, dests );
-            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) ) {
+            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll, errcity ) ) {
               trips.push_back( tr );
             }
           }
@@ -716,7 +731,6 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
     d.tid = PointsQry.FieldAsInteger( col_tid );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
 
-
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -746,7 +760,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
                  ) != reqInfo->user.access.airps.end() ||
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
          TTrip tr = createTrip( move_id, id, dests );
-         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll  ) ) {
+         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll, errcity  ) ) {
            trips.push_back( tr );
          }
       }
@@ -848,9 +862,16 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
           dis.point_id =CRS_DisplQry.FieldAsInteger( col_crs_point_from );
           dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_from );
           dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );
-          rgn =AirpTZRegion(dis.airp_arv );
-
-          modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );
+          try {
+            rgn =AirpTZRegion( dis.airp_arv );
+            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );            
+          }
+          catch( Exception &e ) {
+          	if ( errcity.empty() )
+          		errcity = dis.airp_arv;
+          	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
+          	d1 = sd;          	
+          }
           if ( sd != d1 )
             dis.trip += DateTimeToStr( d1, "/dd" );
           dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_from );
@@ -858,8 +879,16 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
           dis.point_id = CRS_DisplQry.FieldAsInteger( col_crs_point_to );
           dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_to );
           dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_to );
-          rgn =AirpTZRegion(dis.airp_arv );
-          modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_to ), rgn ), &d1 );
+          try {
+            rgn =AirpTZRegion(dis.airp_arv );
+            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_to ), rgn ), &d1 );
+          }
+          catch( Exception &e ) {
+          	if ( errcity.empty() )
+          		errcity = dis.airp_arv;
+          	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
+          	d1 = sd;          	
+          }          
           if ( sd != d1 )
            dis.trip += DateTimeToStr( d1, "/dd" );
           dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_to );
@@ -878,6 +907,7 @@ void internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date
    	}
   }
   PerfomTest( 662 );
+  return errcity;
 }
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -916,7 +946,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     next_date = NoExists;
   }
   TTrips trips;
-  internal_ReadData( trips, first_date, next_date, arx );
+  string errcity = internal_ReadData( trips, first_date, next_date, arx );
   xmlNodePtr tripsNode = NULL;
   TDateTime fscd_in, fest_in, fact_in, fscd_out, fest_out, fact_out;
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
@@ -1069,6 +1099,8 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       	NewTextChild( stationNode, "pr_main" );
     }
   } // end for trip
+  if ( !errcity.empty() )
+    showErrorMessage( string("Для города ") + errcity + " не задан регион. Некоторые рейсы не отображаются" );
 }
 
 //!!! только на вылет
@@ -1857,11 +1889,8 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	Qry.Execute();
   	if ( !Qry.Eof ) {
   	  vector<TSoppStage> stages;
-      TBaseTable &airps = base_tables.get( "airps" );
-      TBaseTable &cities = base_tables.get( "cities" );
   	  read_TripStages( stages, false, 0, point_id );
-      string city = ((TAirpsRow&)airps.get_row( "code", Qry.FieldAsString( "airp" ) )).city;
-      string region = ((TCitiesRow&)cities.get_row( "code", city )).region;
+      string region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
       try {
   	    build_TripStages( stages, region, dataNode );
   	  }
@@ -1877,7 +1906,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	int point_id = NodeAsInteger( "point_id", reqNode );
   TTrips trips;
   TCRS_Displaces crsd;
-  internal_ReadData( trips, NoExists, NoExists, false, point_id );
+  string errcity = internal_ReadData( trips, NoExists, NoExists, false, point_id );
   xmlNodePtr crsdNode = NewTextChild( NewTextChild( resNode, "data" ), "crd_displaces" );
   NewTextChild( crsdNode, "point_id", point_id );
 	xmlNodePtr tripsNode = NewTextChild( crsdNode, "trips" );
@@ -1971,7 +2000,8 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	NewTextChild( crsdNode, "target", Qry.FieldAsString( "target" ) );
   	Qry.Next();
   }
-
+  if ( !errcity.empty() )
+    showErrorMessage( string("Для города ") + errcity + " не задан регион" );
 }
 
 void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2160,6 +2190,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TBaseTable &baseairps = base_tables.get( "airps" );		
   bool ch_craft = false;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
@@ -2167,7 +2198,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    " UPDATE points SET point_num=point_num-1 WHERE point_num<=0-:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
-	map<string,string> regions;
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
 	bool canExcept = NodeAsInteger( "canexcept", node );
 	int move_id = NodeAsInteger( "move_id", node );
@@ -2207,8 +2237,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		else
 			d.first_point = NoExists;
 		d.airp = NodeAsStringFast( "airp", snode );
-		city = GetCityFromAirp( d.airp );
-		region = GetTZRegion( city, regions );
+		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp )).city;
+		region = CityTZRegion( city );
 		fnode = GetNodeFast( "airline", snode );
 		if ( fnode )
 			d.airline = NodeAsString( fnode );

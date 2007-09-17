@@ -119,14 +119,14 @@ void exec_tasks( void )
 
 void createSPP( TDateTime utcdate )
 {
-	map<string,string> regions;
+  TBaseTable &basecities = base_tables.get( "cities" );	
 	string city = "МОВ";
 	utcdate += 1; //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->clear();
 	reqInfo->user.time_form = tfUTC;
 	reqInfo->user.user_type = utSupport;
-	reqInfo->desk.tz_region = GetTZRegion( city, regions, true );
+	reqInfo->desk.tz_region = ((TCitiesRow&)basecities.get_row( "code", city )).region;
 	CreateSPP( utcdate );
 	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
 }

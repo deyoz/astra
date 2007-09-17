@@ -15,6 +15,7 @@
 #include "stl_utils.h"
 #include "stat.h"
 #include "docs.h"
+#include "base_tables.h"
 
 
 const int SEASON_PERIOD_COUNT = 4;
@@ -153,7 +154,6 @@ class TFilter {
     void Parse( xmlNodePtr filterNode );
     void Build( xmlNodePtr filterNode );
     void GetSeason();
-//    string CityTZRegion( string &city, bool vexcept=1 );
     bool isSummer( TDateTime pfirst );
     void InsertSectsPeriods( map<int,TDestList> &mapds,
                              vector<TPeriod> &speriods, vector<TPeriod> &nperiods, TPeriod p );
@@ -216,22 +216,7 @@ string GetPrintName( TDest *PDest, TDest *NDest )
 	return res;
 }
 
-string GetCityFromAirp( string &airp )
-{
-  tst();
-  string city;
-  if ( !airp.empty() ) {
-    TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT city FROM airps WHERE code=:airp";
-    Qry.DeclareVariable( "airp", otString );
-    Qry.SetVariable( "airp", airp );
-    Qry.Execute();
-    city = Qry.FieldAsString( "city" );
-  }
-  return city;
-}
-
-string GetTZRegion( string &city, map<string,string> &regions, bool vexcept )
+/*string GetTZRegion( string &city, map<string,string> &regions, bool vexcept )
 {
   string res;
   if ( city.empty() )
@@ -251,7 +236,7 @@ string GetTZRegion( string &city, map<string,string> &regions, bool vexcept )
   res = Qry.FieldAsString( "region" );
   regions[ city ] = res;
   return res;
-}
+}*/
 
 
 TFilter::TFilter()
@@ -776,6 +761,7 @@ ProgTrace( TRACE5, "res=%s, days=%s", res.c_str(), days.c_str() );
  (int)TReqInfo::Instance()->user.access.airps.size() != 1 */
 void TFilter::Parse( xmlNodePtr filterNode )
 {
+  TBaseTable &baseairps = base_tables.get( "airps" );	
   /* вначале заполняем по умолчанию, а потом переписываем тем, что пришло с клиента */
   Clear();
   GetSeason();
@@ -832,7 +818,7 @@ ProgTrace( TRACE5, "range.first=%f, range.last=%f, range.days=%s",
   string sairpcity = city;
   if ( !airp.empty() ) {
     /* проверка на совпадение города с аэропортом */
-    sairpcity = GetCityFromAirp( airp );
+    sairpcity = ((TAirpsRow&)baseairps.get_row( "code", airp )).city; 
     if ( !city.empty() && sairpcity != city )
       throw UserException( "Заданный код аэропорта не принадлежит заданному коду города" );
   }
@@ -1641,8 +1627,8 @@ tst();
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
 void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, string &filter_region )
 {
+  TBaseTable &baseairps = base_tables.get( "airps" );		
   TReqInfo *reqInfo = TReqInfo::Instance();
-  map<string,string> regions;
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
   if ( reqInfo->user.user_type == utSupport ) {
    /* все права - все рейсы доступны если не указаны конкретные ак и ап*/
@@ -1707,8 +1693,8 @@ tst();
         TDest dest;
         curNode = destNode->children;
         dest.cod = NodeAsStringFast( "cod", curNode );
-        dest.city = GetCityFromAirp( dest.cod );
-        dest.region = GetTZRegion( dest.city, regions );
+        dest.city = ((TAirpsRow&)baseairps.get_row( "code", dest.cod )).city; 
+        dest.region = CityTZRegion( dest.city );
         node = GetNodeFast( "cancel", curNode );
         if ( node )
           dest.pr_cancel = NodeAsInteger( node );
