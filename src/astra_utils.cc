@@ -584,22 +584,23 @@ tz_database &get_tz_database()
   return tz_db;
 }
 
-string& AirpTZRegion(string airp)
+string& AirpTZRegion(string airp, bool with_exception)
 {
   if (airp.empty()) throw Exception("Airport not specified");
   TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
-  return CityTZRegion(row.city);
+  return CityTZRegion(row.city,with_exception);
 };
 
-string& CityTZRegion(string city)
+string& CityTZRegion(string city, bool with_exception)
 {
   if (city.empty()) throw Exception("City not specified");
   TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
-  if (row.region.empty()) throw UserException("Для города %s не задан регион",city.c_str());
+  if (row.region.empty() && with_exception)
+    throw UserException("Для города %s не задан регион",city.c_str());
   return row.region;
 };
 
-string DeskCity(string desk)
+string DeskCity(string desk, bool with_exception)
 {
   if (desk.empty()) throw Exception("Desk not specified");
   TQuery Qry(&OraSession);
@@ -611,7 +612,12 @@ string DeskCity(string desk)
   Qry.CreateVariable("desk", otString, desk);
   Qry.Execute();
   if(Qry.Eof)
-    throw UserException("Пульт %s не найден", desk.c_str());
+  {
+    if (with_exception)
+      throw UserException("Пульт %s не найден", desk.c_str());
+    else
+      return "";
+  }
   return Qry.FieldAsString("city");
 };
 

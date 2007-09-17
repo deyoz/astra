@@ -158,9 +158,9 @@ void MsgToLog(TLogMsg &msg);
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 
-std::string& AirpTZRegion(std::string airp);
-std::string& CityTZRegion(std::string city);
-std::string DeskCity(std::string desk);
+std::string& AirpTZRegion(std::string airp, bool with_exception=true);
+std::string& CityTZRegion(std::string city, bool with_exception=true);
+std::string DeskCity(std::string desk, bool with_exception=true);
 
 boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
