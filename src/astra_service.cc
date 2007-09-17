@@ -452,7 +452,6 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 void CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
 	                         const std::string &flt_no )
 {
-    string client_canon_name;
     TQuery EncodeQry( &OraSession );
     EncodeQry.SQLText =
         "select encoding from file_encoding where "
@@ -464,7 +463,8 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
     EncodeQry.CreateVariable( "type", otString, type );
     EncodeQry.DeclareVariable( "point_addr", otString );
     TQuery Qry( &OraSession );
-    Qry.SQLText = "SELECT point_addr, "
+    Qry.SQLText = 
+        "SELECT point_addr, param_name, param_value,"
         " airp, airline, flt_no, "
         " DECODE( airp, NULL, 0, 4 ) + "
         " DECODE( airline, NULL, 0, 2 ) + "
@@ -476,7 +476,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
         "       ( airp IS NULL OR airp=:airp ) AND "
         "       ( airline IS NULL OR airline=:airline ) AND "
         "       ( flt_no IS NULL OR flt_no=:flt_no ) "
-        " ORDER BY priority DESC";	              		              
+        " ORDER BY point_addr,priority DESC";	              		              
     Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );		        
     Qry.CreateVariable( "type", otString, type );
     if ( airp.empty() )
@@ -492,22 +492,31 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
     else
         Qry.CreateVariable( "flt_no", otInteger, flt_no );		
     Qry.Execute();
-    map<string,int> cname; /* canon_name, priority */
-    map<string,string> params;
+//    map<string,int> cname; /* canon_name, priority */
+    map<string,string> params, inparams;
     string file_data;
-    int priority;
-    while ( !Qry.Eof ) {
-        priority = Qry.FieldAsInteger( "priority" );
-        client_canon_name = Qry.FieldAsString( "point_addr" );
-        string airp = Qry.FieldAsString( "airp" );
+//    int priority;
+    string client_canon_name; 
+    bool master_params = false;
+    tst();   
+    while ( 1 ) {
+//        priority = Qry.FieldAsInteger( "priority" );
+        if ( client_canon_name.empty() && !Qry.Eof )
+          client_canon_name = Qry.FieldAsString( "point_addr" );
+/*???        string airp = Qry.FieldAsString( "airp" );
         string airline = Qry.FieldAsString( "airline" );
         string flt_no = Qry.FieldAsString( "flt_no" );
         map<string,int>::iterator r=cname.end();
         for ( r=cname.begin(); r!=cname.end(); r++ ) {
             if ( r->first == client_canon_name )
                 break;
-        }
-        if ( r == cname.end() ) { /* если нет такого имени */
+        }*/
+        if ( Qry.Eof && !client_canon_name.empty() ||
+        	   !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) { /* если нет такого имени */
+        	tst();
+        	if ( !Qry.Eof )
+            client_canon_name = Qry.FieldAsString( "point_addr" );
+          if ( master_params ) {
             params.clear();
             file_data.clear();
             try {
@@ -515,7 +524,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                 params[PARAM_CANON_NAME] = client_canon_name;
                 if ( 
                         type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
-                        type == FILE_SOFI_TYPE && createSofiFile( id, params, file_data ) ||
+                        type == FILE_SOFI_TYPE && createSofiFile( id, inparams, params, file_data ) ||
                         type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data/*, bag_params, bag_file_data*/ )
                    ) {
                     /* теперь в params еще лежит и имя файла */
@@ -539,7 +548,22 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                 ///try OraSession.RollBack(); catch(...){}; //!!!
                 ProgError(STDLOG, "putFile: Unknown error while trying to put file");
             };
-            cname.insert( make_pair( client_canon_name, priority ) );
+            inparams.clear();
+            master_params = false;
+          }
+        }
+        if ( Qry.Eof )
+        	break;
+        map<string,string>::iterator im=inparams.end();
+        for ( im=inparams.begin(); im!=inparams.end(); im++ ) {
+        	if ( im->first == Qry.FieldAsString( "param_name" ) )
+        		break;
+        }
+        if ( im == inparams.end() ) {
+        	inparams.insert( make_pair( Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "param_value" ) ) );
+        	if ( string( Qry.FieldAsString( "param_name" ) ).find( "DEP" ) == std::string::npos ) {
+        	 	master_params = true;        	
+        	}
         }
         Qry.Next();
     }	
