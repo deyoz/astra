@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <tcl.h>
+#include "base_tables.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -56,11 +57,13 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        base_tables.Invalidate();
         scan_tlg();
         scan_time=time(NULL);
       };
       if (waitCmd("CMD_TLG_SND",WAIT_INTERVAL,buf,sizeof(buf)))
       {
+        base_tables.Invalidate();
         scan_tlg();
         scan_time=time(NULL);
       };

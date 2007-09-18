@@ -6,6 +6,7 @@
 #include <list>
 #include "tlg_parser.h"
 #include "astra_utils.h"
+#include "base_tables.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "misc.h"
@@ -161,6 +162,34 @@ enum TNsiType {ntAirlines,ntAirps,ntClass,ntSubcls};
 
 char* GetNsiCode(char* value, TNsiType nsi, char* code)
 {
+  switch(nsi)
+  {
+    case ntAirlines:
+      {
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
+      break;
+    case ntAirps:
+      {
+        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
+      break;
+    case ntSubcls:
+      {
+        TSubclsRow &row=(TSubclsRow&)(base_tables.get("subcls").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
+      break;
+    case ntClass:
+      {
+        TSubclsRow &row=(TSubclsRow&)(base_tables.get("subcls").get_row("code/code_lat",value));
+        strcpy(code,row.cl.c_str());
+      }
+      break;
+  };
+/*
   static TQuery Qry(&OraSession);
   if (Qry.SQLText.IsEmpty()) Qry.DeclareVariable("code",otString);
   switch(nsi)
@@ -197,7 +226,7 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
       case ntAirps:    throw ETlgError("More than one airport found (code=%s)",Qry.GetVariableAsString("code"));
       case ntSubcls:
       case ntClass:    throw ETlgError("More than one subclass found (code=%s)",Qry.GetVariableAsString("code"));
-    };
+    };*/
   return code;
 };
 
@@ -2726,7 +2755,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   {
     //перевод UTCToLocal(points.scd)
     TripsQry.SQLText=
-      "SELECT point_id,scd_out AS scd,system.AirpTZRegion(:airp_dep,0) AS region, "
+      "SELECT point_id,scd_out AS scd,airp, "
       "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
@@ -2746,13 +2775,15 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   };
   TripsQry.Execute();
   TDateTime scd;
+  string tz_region;
   for(;!TripsQry.Eof;TripsQry.Next())
   {
     if (!flt.pr_utc)
     {
       scd=TripsQry.FieldAsDateTime("scd");
-      if (TripsQry.FieldIsNULL("region")) continue;
-      scd=UTCToLocal(scd,TripsQry.FieldAsString("region"));
+      tz_region=AirpTZRegion(TripsQry.FieldAsString("airp"),false);
+      if (tz_region.empty()) continue;
+      scd=UTCToLocal(scd,tz_region);
       modf(scd,&scd);
       if (scd!=flt.scd) continue;
     };

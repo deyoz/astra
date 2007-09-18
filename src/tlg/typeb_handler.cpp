@@ -3,6 +3,7 @@
 #include <tcl.h>
 #include <math.h>
 #include "astra_utils.h"
+#include "base_tables.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -37,11 +38,13 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        base_tables.Invalidate();
         handle_tlg();
         scan_time=time(NULL);
       };
       if (waitCmd("CMD_TYPEB_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
       {
+        base_tables.Invalidate();
         handle_tlg();
         scan_time=time(NULL);
       };

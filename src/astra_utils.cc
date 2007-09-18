@@ -168,7 +168,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pr_denial, city, system.CityTZRegion(city) AS tz_region "
+    "SELECT pr_denial, city "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -179,7 +179,23 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
     throw UserException( "Пульт отключен" );
   desk.city = Qry.FieldAsString( "city" );
-  desk.tz_region = Qry.FieldAsString( "tz_region" );
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT region FROM cities,tz_regions "
+    "WHERE cities.country=tz_regions.country(+) AND "
+    "      cities.tz=tz_regions.tz(+) AND "
+    "      cities.code=:city AND "
+    "      cities.pr_del=0 AND "
+    "      tz_regions.pr_del(+)=0";
+  Qry.DeclareVariable( "city", otString );
+  Qry.SetVariable( "city", desk.city );
+  Qry.Execute();
+  if (Qry.Eof)
+    throw UserException("Не определен город пульта");
+  if (Qry.FieldIsNULL("region"))
+    throw UserException("Для города %s не задан регион",desk.city.c_str());
+  desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
 
   Qry.Clear();

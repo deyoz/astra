@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <tcl.h>
 #include <string>
+#include "base_tables.h"
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
@@ -69,10 +70,14 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
       if ((res=select(sockfd+1,&rfds,NULL,NULL,&tv))==-1)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
-      if (res!=0&&FD_ISSET(sockfd,&rfds)) process_tlg();
-
+      if (res!=0&&FD_ISSET(sockfd,&rfds))
+      {
+        base_tables.Invalidate();
+        process_tlg();
+      };
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        base_tables.Invalidate();
         scan_tlg();
         scan_time=time(NULL);
       };
