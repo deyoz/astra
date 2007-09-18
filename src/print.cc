@@ -596,6 +596,8 @@ void PrintDataParser::t_field_map::dump_data()
 
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
+    tst();
+    ProgTrace(TRACE5, "TAG: %s", name.c_str());
     string result;
     if(name == "ONE_CHAR")
         result = AlignString("X", len, align);
@@ -732,7 +734,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                         di->first == "BRD_TO" ||
                         di->first == "SCD"
                   ) {
-                    PrintTime = UTCToLocal(PrintTime, data.find("TZ_REGION")->second.StringVal);
+                    PrintTime = UTCToLocal(PrintTime,
+                            AirpTZRegion(data.find("AIRP_DEP")->second.StringVal));
                 }
                 buf << DateTimeToStr(PrintTime, date_format, field_lat);
                 break;
@@ -747,6 +750,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             if(name == "GATE") throw UserException("Не указан выход на посадку");
         }
     }
+    tst();
     return result;
 }
 
@@ -2090,6 +2094,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
 {
+    tst();
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select format from prn_types where code = :prn_type";
@@ -2107,7 +2112,9 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
     int reg_no = Qry.FieldAsInteger("reg_no");
     GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
+    tst();
     PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+    tst();
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
         string prn_form = parser.parse(Print);
@@ -2164,9 +2171,12 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
         int reg_no = Qry.FieldAsInteger("reg_no");
+        tst();
         PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+        tst();
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         string prn_form = parser.parse(Print);
+        tst();
         if(prn_format == pfEPSON) {
             to_esc::convert(prn_form, TPrnType(prn_type), NULL);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
