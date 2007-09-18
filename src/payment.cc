@@ -21,7 +21,7 @@ using namespace std;
 int MainPaxRegNo(int grp_id)
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText = 
+    Qry.SQLText =
         "select reg_no from pax where pax_id = ckin.get_main_pax_id(:grp_id)";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
@@ -34,13 +34,13 @@ string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
 {
     ostringstream result;
     TQuery Qry(&OraSession);
-    Qry.SQLText = 
+    Qry.SQLText =
         "select ckin.get_main_pax_id(:grp_id) pax_id from dual";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
     rcpt_complete = false;
     if(!Qry.Eof && Qry.FieldAsInteger("pax_id") == pax_id) {
-        Qry.SQLText = 
+        Qry.SQLText =
             "select no from bag_prepay where grp_id = :grp_id";
         Qry.Execute();
         while(!Qry.Eof) {
@@ -49,7 +49,7 @@ string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
             if(Qry.Eof) break;
             result << ", ";
         }
-        Qry.SQLText = 
+        Qry.SQLText =
             "select no from bag_receipts where grp_id = :grp_id and annul_date is null";
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
@@ -62,7 +62,7 @@ string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
                 result << ", ";
             result << buf.str();
         }
-        Qry.SQLText =
+        Qry.SQLText =  //мля!!! это ни хрена не правильно! мля!!!
             "select 1 from dual where "
             "(select count(*) from bag_receipts where grp_id = :grp_id and annul_date is null) = "
             "(select count(*) from paid_bag where grp_id = :grp_id and rate_id is not null) + "
@@ -895,7 +895,7 @@ void PaymentInterface::ViewReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   if (GetNode("receipt/id",reqNode)==NULL)
   {
   	tst();
-    TBagReceipt rcpt;    
+    TBagReceipt rcpt;
     GetReceipt(reqNode,rcpt);
     tst();
     PrintDataParser parser(rcpt);

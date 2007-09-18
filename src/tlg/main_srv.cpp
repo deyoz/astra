@@ -353,6 +353,8 @@ void process_tlg(void)
         };
         break;
       case TLG_ACK_ACK:
+      case TLG_CONN_REQ:
+      case TLG_CONN_RES:
         break;
       default:
         throw Exception("Unknown telegram type %d",tlg_in.type);
@@ -371,6 +373,10 @@ void process_tlg(void)
       case TLG_F_ACK:
       case TLG_F_NEG:
         tlg_out.type=htons(TLG_ACK_ACK);
+        tlg_len=0;
+        break;
+      case TLG_CONN_REQ:
+        tlg_out.type=htons(TLG_CONN_RES);
         tlg_len=0;
         break;
       default:
