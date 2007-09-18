@@ -65,13 +65,13 @@ void TBaseTable::load_table()
     TQuery Qry(&OraSession);
     if (!pr_init)
     {
-      ProgTrace(TRACE5,"Qry.SQLText = get_select_sql_text");
+      //ProgTrace(TRACE5,"Qry.SQLText = get_select_sql_text");
       Qry.SQLText = get_select_sql_text();
       create_variables(Qry,false);
     }
     else
     {
-      ProgTrace(TRACE5,"Qry.SQLText = get_refresh_sql_text");
+      //ProgTrace(TRACE5,"Qry.SQLText = get_refresh_sql_text");
       Qry.SQLText = get_refresh_sql_text();
       create_variables(Qry,true);
     };
@@ -91,7 +91,7 @@ void TBaseTable::load_table()
         throw;
       };
     };
-    ProgTrace(TRACE5,"TABLE %s UPDATED: %d rows",get_table_name(),table.size());
+    //ProgTrace(TRACE5,"TABLE %s UPDATED: %d rows",get_table_name(),table.size());
     pr_init=true;
     pr_actual=true;
     after_update();
@@ -231,8 +231,8 @@ void TTIDBaseTable::add_row(TBaseTableRow *row)
 void TTIDBaseTable::after_update()
 {
   TCodeBaseTable::after_update();
-  ProgTrace(TRACE5,"UPDATE TABLE %s tid=%d new_tid=%d",
-                   get_table_name(),tid,new_tid);
+  //ProgTrace(TRACE5,"UPDATE TABLE %s tid=%d new_tid=%d",
+  //                 get_table_name(),tid,new_tid);
   tid=new_tid;
 };
 
