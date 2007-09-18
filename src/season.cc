@@ -221,9 +221,7 @@ TFilter::TFilter()
   Clear();
   region = TReqInfo::Instance()->desk.tz_region;
   TQuery GQry( &OraSession );
-  string sql = "SELECT tz FROM ";
-  sql += COMMON_ORAUSER();
-  sql += ".tz_regions WHERE region=:region";
+  string sql = "SELECT tz FROM tz_regions WHERE region=:region AND pr_del=0";
   ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   GQry.SQLText = sql;
   GQry.CreateVariable( "region", otString, region );
@@ -868,16 +866,10 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 {
 //  TReqInfo::Instance()->user.check_access( amWrite );
     TQuery Qry(&OraSession);
-    string sql = "BEGIN ";
-    sql += "DELETE ";
-    sql += COMMON_ORAUSER();
-    sql += ".routes WHERE move_id IN (SELECT move_id FROM ";
-    sql += COMMON_ORAUSER();
-    sql += ".sched_days WHERE trip_id=:trip_id ); ";
-    sql += "DELETE ";
-    sql += COMMON_ORAUSER();
-    sql += ".sched_days WHERE trip_id=:trip_id; END; ";
-    Qry.SQLText = sql;
+    Qry.SQLText = 
+    "BEGIN "
+    "DELETE routes WHERE move_id IN (SELECT move_id FROM sched_days WHERE trip_id=:trip_id ); "
+    "DELETE sched_days WHERE trip_id=:trip_id; END; ";
     Qry.CreateVariable( "trip_id", otInteger, NodeAsInteger( "trip_id", reqNode ) );
     Qry.Execute();
     TReqInfo::Instance()->MsgToLog("Удаление рейса ", evtSeason, NodeAsInteger("trip_id", reqNode));
@@ -1094,8 +1086,7 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, int offset,
                     TDateTime vd, TDestList &ds )
 {
-             ProgTrace( TRACE5, "first_day=%s",
-                      DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
+  ProgTrace( TRACE5, "first_day=%s", DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
@@ -1111,22 +1102,20 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   // имеем move_id, vd на период выполнения
   // получим маршрут и проверим на права доступа к этому маршруту
   TQuery Qry(&OraSession);
-  string sql =
+  Qry.SQLText = 
   " SELECT num, routes.cod, land-TRUNC(land)+:vdate+delta_in land, company, trip, bc, "\
   "        takeoff-TRUNC(takeoff)+:vdate+delta_out takeoff, triptype, litera, "\
   "        airps.city city,tz_regions.region region, "\
   "        pr_cancel, f, c, y, suffix "\
-  "  FROM " + COMMON_ORAUSER() + ".routes, airps, cities, tz_regions "\
+  "  FROM routes, airps, cities, tz_regions "\
   " WHERE routes.move_id=:vmove_id AND "\
   "       routes.cod=airps.code AND airps.city=cities.code AND "\
   "       cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) "
   " ORDER BY move_id,num";
 
-  Qry.SQLText = sql;
   Qry.CreateVariable( "vdate", otDate, vd );
   Qry.CreateVariable( "vmove_id", otInteger, move_id );
   Qry.Execute();
-  tst();
   bool candests = false;
   ds.cancel = true;
   double f1;
@@ -1282,30 +1271,29 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
              DateTimeToStr( d2, "dd.mm.yy hh:nn" ).c_str() );
   // для начала надо получить список периодов, которые выполняются в эту дату, пока без учета времени
   //!!!
-  string sql = (string)
+  Qry.SQLText = 
   " SELECT DISTINCT move_id,first_day,last_day,:vd-delta AS qdate,pr_cancel,d.tz tz "
-  "  FROM "\
-  "  ( SELECT routes.move_id as move_id,"\
-  "           TO_NUMBER(delta_in) as delta,"\
+  "  FROM "
+  "  ( SELECT routes.move_id as move_id,"
+  "           TO_NUMBER(delta_in) as delta,"
   "           sched_days.pr_cancel as pr_cancel,"
-  "           first_day,last_day,tz FROM "+
-  COMMON_ORAUSER()+".sched_days,"+COMMON_ORAUSER()+".routes "\
-  " WHERE routes.move_id = sched_days.move_id AND "\
-  "       TRUNC(first_day) + delta_in <= :vd AND "\
-  "       TRUNC(last_day) + delta_in >= :vd AND  "\
-  "       INSTR( days, TO_CHAR( :vd - delta_in, 'D' ) ) != 0 "\
-  "   UNION "\
-  " SELECT routes.move_id as move_id, "\
-  "        TO_NUMBER(delta_out) as delta,"\
-  "        sched_days.pr_cancel as pr_cancel,"\
-  "        first_day,last_day,tz FROM "+
-  COMMON_ORAUSER()+".sched_days,"+COMMON_ORAUSER()+".routes "\
-  "   WHERE routes.move_id = sched_days.move_id AND "\
-  "         TRUNC(first_day) + delta_out <= :vd AND "\
-  "         TRUNC(last_day) + delta_out >= :vd AND "\
-  "         INSTR( days, TO_CHAR( :vd - delta_out, 'D' ) ) != 0 ) d "\
+  "           first_day,last_day,tz FROM "
+  " sched_days,routes "
+  " WHERE routes.move_id = sched_days.move_id AND "
+  "       TRUNC(first_day) + delta_in <= :vd AND "
+  "       TRUNC(last_day) + delta_in >= :vd AND  "
+  "       INSTR( days, TO_CHAR( :vd - delta_in, 'D' ) ) != 0 "
+  "   UNION "
+  " SELECT routes.move_id as move_id, "
+  "        TO_NUMBER(delta_out) as delta,"
+  "        sched_days.pr_cancel as pr_cancel,"
+  "        first_day,last_day,tz FROM "
+  " sched_days,routes "
+  "   WHERE routes.move_id = sched_days.move_id AND "
+  "         TRUNC(first_day) + delta_out <= :vd AND "
+  "         TRUNC(last_day) + delta_out >= :vd AND "
+  "         INSTR( days, TO_CHAR( :vd - delta_out, 'D' ) ) != 0 ) d "
   " ORDER BY move_id, qdate";
-   Qry.SQLText = sql;
    Qry.DeclareVariable( "vd", otDate );
    f3 = modf( d1, &f1 );
    f4 = modf( d2, &f2 );
@@ -1907,16 +1895,11 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     //!!! ошибка т.к. периоды заводятся относительно региона первого п.п. у кот. delta=0
     ProgTrace( TRACE5, "delete all periods from database" );
     SQry.Clear();
-    sql = "BEGIN ";
-    sql += "DELETE ";
-    sql += COMMON_ORAUSER();
-    sql += ".routes WHERE move_id IN (SELECT move_id FROM ";
-    sql += COMMON_ORAUSER();
-    sql += ".sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season ); ";
-    sql += "DELETE ";
-    sql += COMMON_ORAUSER();
-    sql += ".sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season; END; ";
-    SQry.SQLText = sql;
+    SQry.SQLText = 
+    "BEGIN "
+    "DELETE routes WHERE move_id IN "
+    "(SELECT move_id FROM sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season ); "
+    "DELETE sched_days WHERE trip_id=:trip_id AND last_day>=:begin_date_season; END; ";
     SQry.CreateVariable( "trip_id", otInteger, trip_id );
     SQry.CreateVariable( "begin_date_season", otDate, begin_date_season );
     SQry.Execute();
@@ -1924,10 +1907,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   else {
     // это новый рейс
     ProgTrace( TRACE5, "it is new trip" );
-    sql = "SELECT ";
-    sql += COMMON_ORAUSER();
-    sql += ".routes_trip_id.nextval AS trip_id FROM dual";
-    SQry.SQLText = sql;
+    SQry.SQLText = "SELECT routes_trip_id.nextval AS trip_id FROM dual";
     SQry.Execute();
     trip_id = SQry.FieldAsInteger(0);
     ProgTrace( TRACE5, "new trip_id=%d", trip_id );
@@ -1975,40 +1955,29 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   // теперь внимание среди периодов есть, те которые удалены
   TQuery GQry( &OraSession );
   GQry.Clear();
-  sql = "DECLARE i NUMBER;";
-  sql += "BEGIN ";
-  sql += "SELECT COUNT(*) INTO i FROM ";
-  sql += COMMON_ORAUSER();
-  sql += " .seasons ";
-  sql += " WHERE tz=:tz AND :first=first AND :last=last; ";
-  sql += "IF i = 0 THEN ";
-  sql += "INSERT INTO ";
-  sql += COMMON_ORAUSER();
-  sql += ".seasons(tz,first,last,hours) VALUES(:tz,:first,:last,:hours); ";
-  sql += "END IF;";
-  sql += "END;";
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
-  GQry.SQLText = sql;
+  GQry.SQLText =
+  "DECLARE i NUMBER;"
+  "BEGIN "
+  "SELECT COUNT(*) INTO i FROM seasons "
+  " WHERE tz=:tz AND :first=first AND :last=last; "
+  "IF i = 0 THEN ";
+  " INSERT INTO seasons(tz,first,last,hours) VALUES(:tz,:first,:last,:hours); "
+  "END IF;"
+  "END;";
   GQry.CreateVariable( "tz", otInteger, filter.tz );
   GQry.DeclareVariable( "first", otDate );
   GQry.DeclareVariable( "last", otDate );
   GQry.DeclareVariable( "hours", otInteger );
   TQuery NQry( &OraSession );
-  sql = "SELECT ";
-  sql += COMMON_ORAUSER();
-  sql += ".routes_move_id.nextval AS move_id FROM dual";
-  NQry.SQLText = sql;
+  NQry.SQLText = "SELECT routes_move_id.nextval AS move_id FROM dual";
   TQuery RQry( &OraSession );
   SQry.Clear();
-  sql = "INSERT INTO ";
-  sql += COMMON_ORAUSER();
-  sql += ".sched_days(trip_id,move_id,num,first_day,last_day,days,pr_cancel,tlg,reference,tz) ";
-  sql += "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_cancel,:tlg,:reference,:tz) ";
-  SQry.SQLText = sql;
+  SQry.SQLText =
+  "INSERT INTO sched_days(trip_id,move_id,num,first_day,last_day,days,pr_cancel,tlg,reference,tz) "
+  "VALUES(:trip_id,:move_id,:num,:first_day,:last_day,:days,:pr_cancel,:tlg,:reference,:tz) ";
   SQry.DeclareVariable( "trip_id", otInteger );
   SQry.DeclareVariable( "move_id", otInteger );
   SQry.DeclareVariable( "num", otInteger );
-//  SQry.DeclareVariable( "first_dest", otInteger );
   SQry.DeclareVariable( "first_day", otDate );
   SQry.DeclareVariable( "last_day", otDate );
   SQry.DeclareVariable( "days", otString );
@@ -2018,12 +1987,11 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   SQry.CreateVariable( "tz", otInteger, filter.tz );
 tst();
   RQry.Clear();
-  sql = "INSERT INTO ";
-  sql += COMMON_ORAUSER();
-  sql += ".routes(move_id,num,cod,pr_cancel,land,company,trip,bc,takeoff,litera, ";
-  sql += "triptype,f,c,y,unitrip,delta_in,delta_out,suffix) VALUES(:move_id,:num,:cod,:pr_cancel,:land, ";
-  sql += ":company,:trip,:bc,:takeoff,:litera,:triptype,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix) ";
-  RQry.SQLText = sql;
+  RQry.SQLText =
+  "INSERT INTO routes(move_id,num,cod,pr_cancel,land,company,trip,bc,takeoff,litera, "
+  "                   triptype,f,c,y,unitrip,delta_in,delta_out,suffix) "
+  " VALUES(:move_id,:num,:cod,:pr_cancel,:land, :company,:trip,:bc,:takeoff,:litera, "
+  "        :triptype,:f,:c,:y,:unitrip,:delta_in,:delta_out,:suffix) ";
   RQry.DeclareVariable( "move_id", otInteger );
   RQry.DeclareVariable( "num", otInteger );
   RQry.DeclareVariable( "cod", otString );
@@ -2688,23 +2656,20 @@ void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
   tm.Init();
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery RQry( &OraSession );
-  string sql;
-  sql = "SELECT move_id,num,routes.cod cod,airps.city city,tz_regions.region as region, "\
-        "       pr_cancel,land+delta_in land,company,"\
-        "       trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix ";
-  sql += " FROM ";
-  sql += COMMON_ORAUSER();
-  sql += ".routes, airps, cities, tz_regions ";
-  sql += "WHERE ";
+  string sql =
+  "SELECT move_id,num,routes.cod cod,airps.city city,tz_regions.region as region, "
+  "       pr_cancel,land+delta_in land,company,"
+  "       trip,bc,litera,triptype,takeoff+delta_out takeoff,f,c,y,unitrip,suffix "
+  " FROM routes, airps, cities, tz_regions "
+  "WHERE ";
   if ( vmove_id > NoExists ) {
     RQry.CreateVariable( "move_id", otInteger, vmove_id );
     sql += "move_id=:move_id AND ";
   }
-  sql += "routes.cod=airps.code AND airps.city = cities.code AND "\
+  sql += "routes.cod=airps.code AND airps.city = cities.code AND "
          "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+) "
          "ORDER BY move_id,num";
 
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   RQry.SQLText = sql;
   RQry.Execute();
   int idx_rmove_id = RQry.FieldIndex("move_id");
@@ -2843,12 +2808,7 @@ int GetTZOffSet( TDateTime first, int tz, map<int,TTimeDiff> &v )
   TTimeDiff vt;
   if ( mt == v.end() ) {
     TQuery Qry( &OraSession );
-    string sql;
-    sql = "SELECT tz,first,last, hours FROM ";
-    sql += COMMON_ORAUSER();
-    sql += ".seasons ";
-    sql += "WHERE tz=:tz";
-    Qry.SQLText = sql;
+    Qry.SQLText = "SELECT tz,first,last, hours FROM seasons WHERE tz=:tz";
     Qry.CreateVariable( "tz", otInteger, tz );
     Qry.Execute();
     while ( !Qry.Eof ) {
@@ -2877,12 +2837,7 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
   TTimeDiff vt;
   if ( mt == v.end() ) {
     TQuery Qry( &OraSession );
-    string sql;
-    sql = "SELECT tz,first,last, hours FROM ";
-    sql += COMMON_ORAUSER();
-    sql += ".seasons ";
-    sql += "WHERE tz=:tz";
-    Qry.SQLText = sql;
+    Qry.SQLText = "SELECT tz,first,last, hours FROM seasons WHERE tz=:tz";
     Qry.CreateVariable( "tz", otInteger, tz );
     Qry.Execute();
     while ( !Qry.Eof ) {
@@ -2964,23 +2919,17 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   map<int,TTimeDiff> v;
   map<int,TDestList> mapds;
   TQuery SQry( &OraSession );
-  string sql;
-  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,tz ";
-  sql += " FROM ";
-  sql += COMMON_ORAUSER();
-  sql += ".sched_days ";
-  sql += "WHERE last_day>=:begin_date_season ";
+  string sql =
+  "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,tz ";
+  " FROM sched_days WHERE last_day>=:begin_date_season ";
   if ( trip_id > NoExists )
   	sql += " AND trip_id=:trip_id ";
   sql += "ORDER BY trip_id,move_id,num";
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
   SQry.SQLText = sql;
   SQry.CreateVariable( "begin_date_season", otDate, last_date_season );
   if ( trip_id > NoExists )
   	SQry.CreateVariable( "trip_id", otInteger, trip_id );
-  tst();
   SQry.Execute();
-  tst();
   int idx_trip_id = SQry.FieldIndex("trip_id");
   int idx_smove_id = SQry.FieldIndex("move_id");
 //  int idx_first_dest = SQry.FieldIndex( "first_dest" );
@@ -3163,17 +3112,13 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode )
 {
   TQuery SQry( &OraSession );
-  string sql;
   TDateTime begin_date_season = BoostToDateTime( filter.periods.begin()->period.begin() );
   // выбираем для редактирования все периоды, которые больше или равны текущей дате
-  sql = "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference,tz ";
-  sql += " FROM ";
-  sql += COMMON_ORAUSER();
-  sql += ".sched_days ";
-  sql += " WHERE last_day>=:begin_date_season ";
-  sql += "ORDER BY trip_id,move_id,num";
-  ProgTrace( TRACE5, "sql=%s", sql.c_str() );
-  SQry.SQLText = sql;
+  SQry.SQLText = 
+  "SELECT trip_id,move_id,first_day,last_day,days,pr_cancel,tlg,reference,tz "
+  " FROM sched_days "
+  " WHERE last_day>=:begin_date_season "
+  "ORDER BY trip_id,move_id,num";
   SQry.CreateVariable( "begin_date_season", otDate, begin_date_season );
   SQry.Execute();
   int idx_trip_id = SQry.FieldIndex("trip_id");
