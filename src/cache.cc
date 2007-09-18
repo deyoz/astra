@@ -61,7 +61,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
 
   Qry->Clear();
   Qry->SQLText = "SELECT title, select_sql, refresh_sql, insert_sql, update_sql, delete_sql, "
-                 "       logging, event_type, tid, "
+                 "       logging, keep_locally, event_type, tid, "
                  "       select_right, insert_right, update_right, delete_right "
                  " FROM cache_tables WHERE code = :code";
   Qry->DeclareVariable("code", otString);
@@ -76,6 +76,7 @@ TCacheTable::TCacheTable(xmlNodePtr cacheNode)
   UpdateSQL = Qry->FieldAsString("update_sql");
   DeleteSQL = Qry->FieldAsString("delete_sql");
   Logging = Qry->FieldAsInteger("logging") != 0;
+  Keep_Locally = Qry->FieldAsInteger("keep_locally") != 0;
   EventType = DecodeEventType( Qry->FieldAsString( "event_type" ) );
   curVerIface = Qry->FieldAsInteger( "tid" ); /* текущая версия интерфейса */
   //получим права доступа до операций
@@ -417,6 +418,7 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild( dataNode, "code", code() );
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
+    NewTextChild( dataNode, "Keep_Locally", Keep_Locally );
     if(pr_irefresh)
         XMLInterface(dataNode);
     if(pr_drefresh)

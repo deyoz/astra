@@ -105,6 +105,7 @@ class TCacheTable {
         std::string DeleteSQL;
         TEventType EventType;
         bool Logging;
+        bool Keep_Locally;        	        
         int SelectRight;
         int InsertRight;
         int UpdateRight;
