@@ -52,7 +52,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    points.point_id, "
                 "    points.airp, "
-                "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
                 "    points.airline, "
                 "    points.flt_no, "
                 "    points.suffix, "
@@ -67,7 +66,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    arx_points.point_id, "
                 "    arx_points.airp, "
-                "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
                 "    arx_points.airline, "
                 "    arx_points.flt_no, "
                 "    arx_points.suffix, "
@@ -237,7 +235,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    points.point_id, "
                 "    points.airp, "
-                "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
                 "    points.airline, "
                 "    points.flt_no, "
                 "    points.suffix, "
@@ -252,7 +249,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    arx_points.point_id, "
                 "    arx_points.airp, "
-                "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
                 "    arx_points.airline, "
                 "    arx_points.flt_no, "
                 "    arx_points.suffix, "
@@ -280,7 +276,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    points.point_id, "
                 "    points.airp, "
-                "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
                 "    points.airline, "
                 "    points.flt_no, "
                 "    points.suffix, "
@@ -304,7 +299,6 @@ TCategory Category[] = {
                 "SELECT "
                 "    arx_points.point_id, "
                 "    arx_points.airp, "
-                "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
                 "    arx_points.airline, "
                 "    arx_points.flt_no, "
                 "    arx_points.suffix, "
@@ -515,7 +509,6 @@ void GetFltLogSQL(TQuery &Qry)
         "SELECT "
         "    points.point_id, "
         "    points.airp, "
-        "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
         "    points.airline, "
         "    points.flt_no, "
         "    nvl(points.suffix, ' ') suffix, "
@@ -551,7 +544,6 @@ void GetFltLogSQL(TQuery &Qry)
         "SELECT "
         "    arx_points.point_id, "
         "    arx_points.airp, "
-        "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
         "    arx_points.airline, "
         "    arx_points.flt_no, "
         "    nvl(arx_points.suffix, ' ') suffix, "
@@ -600,11 +592,11 @@ void GetFltLogSQL(TQuery &Qry)
 void GetPaxListSQL(TQuery &Qry)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    tst();
     string res =
         "SELECT "
         "    points.point_id, "
         "    points.airp, "
-        "    system.AirpTZRegion(points.airp, 0) AS tz_region, "
         "    points.airline, "
         "    points.flt_no, "
         "    nvl(points.suffix, ' ') suffix, "
@@ -632,7 +624,6 @@ void GetPaxListSQL(TQuery &Qry)
         "SELECT "
         "    arx_points.point_id, "
         "    arx_points.airp, "
-        "    system.AirpTZRegion(arx_points.airp, 0) AS tz_region, "
         "    arx_points.airline, "
         "    arx_points.flt_no, "
         "    nvl(arx_points.suffix, ' ') suffix, "
@@ -930,7 +921,11 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             TTripInfo info(Qry);
 
             NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
-            NewTextChild( fNode, "value", GetTripName(info,false,true) );
+            try {
+                NewTextChild( fNode, "value", GetTripName(info,false,true) );
+            } catch(UserException &E) {
+                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+            }
 
             Qry.Next();
         }
@@ -1162,7 +1157,11 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                 tripQry.Execute();
                 if(!tripQry.Eof) {
                     TTripInfo info(tripQry);
-                    trip = GetTripName(info, false, true);
+                    try {
+                        trip = GetTripName(info, false, true);
+                    } catch(UserException &E) {
+                        showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                    }
                 }
             }
 
@@ -2095,7 +2094,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  airline, "
         "  flt_no, "
         "  scd_out, "
-        "  tz_region, "
         "  point_id, "
         "  places, "
         "  sum(pax_amount) pax_amount, "
@@ -2113,7 +2111,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points.airline, "
         "  points.flt_no, "
         "  points.scd_out, "
-        "  system.AirpTzRegion(points.airp) AS tz_region, "
         "  stat.point_id, "
         "  substr(ckin.get_airps(stat.point_id),1,50) places, "
         "  sum(adult + child + baby) pax_amount, "
@@ -2161,7 +2158,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points.airline, "
         "  arx_points.flt_no, "
         "  arx_points.scd_out, "
-        "  system.AirpTzRegion(arx_points.airp) AS tz_region, "
         "  arx_stat.point_id, "
         "  substr(arch.get_airps(arx_stat.point_id, :FirstDate),1,50) places, "
         "  sum(adult + child + baby) pax_amount, "
@@ -2211,7 +2207,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  airline, "
         "  flt_no, "
         "  scd_out, "
-        "  tz_region, "
         "  point_id, "
         "  places "
         "order by ";
@@ -2341,7 +2336,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
             NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(Qry.FieldAsDateTime("scd_out"), Qry.FieldAsString("tz_region")), "dd.mm.yy")
+                        UTCToClient(Qry.FieldAsDateTime("scd_out"), AirpTZRegion(Qry.FieldAsString("airp"), false)), "dd.mm.yy")
                         );
             NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
             NewTextChild(rowNode, "col", pax_amount);
