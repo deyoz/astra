@@ -263,7 +263,7 @@ class TCities: public TTIDBaseTable {
         "SELECT id,code,code_lat,name,name_lat, "
         "       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
-        "       GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid)) AS tid "
+        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
         "FROM cities,tz_regions "
         "WHERE cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+)";
@@ -274,11 +274,20 @@ class TCities: public TTIDBaseTable {
       	"SELECT id,code,code_lat,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
-        "       GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid)) AS tid "
+        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
       	"FROM cities,tz_regions "
-      	"WHERE GREATEST(cities.tid,nvl(tz_regions.tid, cities.tid))>:tid AND "
+      	"WHERE cities.tid>:tid AND "
       	"      cities.country=tz_regions.country(+) AND "
-        "      cities.tz=tz_regions.tz(+)";
+        "      cities.tz=tz_regions.tz(+) "
+        "UNION "
+        "SELECT id,code,code_lat,name,name_lat, "
+      	"       cities.country,cities.tz, "
+        "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
+        "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
+      	"FROM cities,tz_regions "
+      	"WHERE tz_regions.tid>:tid AND "
+      	"      cities.country=tz_regions.country AND "
+        "      cities.tz=tz_regions.tz ";
     };
   protected:
     char *get_table_name() { return "TCities"; };
