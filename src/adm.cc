@@ -24,9 +24,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   string sql=
     string("SELECT adm_cache_tables.cache,NVL(adm_cache_tables.title,cache_tables.title) AS title, ")+
     "       depth,num "
-    "FROM adm_cache_tables,cache_tables,"+
-          COMMON_ORAUSER()+".user_roles,"+
-          COMMON_ORAUSER()+".role_rights "+
+    "FROM adm_cache_tables,cache_tables,user_roles,role_rights "+
     "WHERE adm_cache_tables.cache=cache_tables.code AND "
     "      user_roles.role_id=role_rights.role_id AND "
     "      role_rights.right_id IN (select_right,insert_right,update_right,delete_right) AND "

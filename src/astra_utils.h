@@ -17,8 +17,6 @@
 
 std::string AlignString(std::string str, int len, std::string align);
 
-const std::string COMMON_ORAUSER();
-
 struct TLogMsg {
   std::string msg;
   ASTRA::TEventType ev_type;

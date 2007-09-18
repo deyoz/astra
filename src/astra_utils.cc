@@ -52,20 +52,6 @@ string AlignString(string str, int len, string align)
     return result;
 }
 
-const string COMMON_ORAUSER()
-{
-  static string CORAUSER;
-  if ( CORAUSER.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "COMMON_ORAUSER", r, sizeof( r ) ) < 0 )
-      throw Exception( "Can't read param COMMON_ORAUSER" );
-    CORAUSER = r;
-    ProgTrace( TRACE5, "COMMON_ORAUSER=%s", CORAUSER.c_str() );
-  }
-  return CORAUSER;
-}
-
 TScreen::TScreen()
 {
   id=0;
