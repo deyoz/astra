@@ -134,7 +134,12 @@ namespace to_esc {
         TPrnParams prnParams;
         prnParams.get_prn_params(reqNode);
 
-        mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
+        try {
+            mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
+        } catch(EConvertError &E) {
+            ProgError(STDLOG, E.what());
+            throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
+        }
 
         prnParamsOffset = 20 - prnParams.offset;
         prnParamsTop = prnParams.top;

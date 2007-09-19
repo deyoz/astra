@@ -535,7 +535,12 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                     EncodeQry.SetVariable( "point_addr", client_canon_name );
                     EncodeQry.Execute();
                     if ( !EncodeQry.Eof )              
-                      file_data = ConvertCodePage( EncodeQry.FieldAsString( "encoding" ), "CP866", file_data );
+                        try {
+                            file_data = ConvertCodePage( EncodeQry.FieldAsString( "encoding" ), "CP866", file_data );
+                        } catch(EConvertError &E) {
+                            ProgError(STDLOG, E.what());
+                            throw UserException("Ошибка конвертации в %s", EncodeQry.FieldAsString( "encoding" ));
+                        }
                     putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
                 }
             }
@@ -661,9 +666,14 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   EncodeQry.Execute();    	
 
   if ( !EncodeQry.Eof )
-	  file_data = ConvertCodePage( EncodeQry.FieldAsString( "encoding" ), "CP866", file_data );
-	
-	ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], file_data );
+      try {
+          file_data = ConvertCodePage( "CP866", EncodeQry.FieldAsString( "encoding" ), file_data );
+      } catch(EConvertError &E) {
+          ProgError(STDLOG, E.what());
+          throw UserException("Ошибка конвертации из %s", EncodeQry.FieldAsString( "encoding" ));
+      }
+
+  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], file_data );
 }
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
