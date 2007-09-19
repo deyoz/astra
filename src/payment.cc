@@ -62,7 +62,7 @@ string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
                 result << ", ";
             result << buf.str();
         }
-        Qry.SQLText =  //мля!!! это ни хрена не правильно! мля!!!
+        Qry.SQLText =  
             "select kassa.pr_payment(:grp_id) pr_complete from dual";
         Qry.Execute();
         rcpt_complete = Qry.FieldAsInteger("pr_complete");
