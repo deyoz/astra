@@ -63,12 +63,9 @@ string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
             result << buf.str();
         }
         Qry.SQLText =  //мля!!! это ни хрена не правильно! мля!!!
-            "select 1 from dual where "
-            "(select count(*) from bag_receipts where grp_id = :grp_id and annul_date is null) = "
-            "(select count(*) from paid_bag where grp_id = :grp_id and rate_id is not null) + "
-            "(select count(*) from value_bag where grp_id = :grp_id) ";
+            "select kassa.pr_payment(:grp_id) pr_complete from dual";
         Qry.Execute();
-        rcpt_complete = !Qry.Eof;
+        rcpt_complete = Qry.FieldAsInteger("pr_complete");
     }
     Qry.Close();
     return result.str();
