@@ -513,9 +513,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
         }*/
         if ( Qry.Eof && !client_canon_name.empty() ||
         	   !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) { /* если нет такого имени */
-        	tst();
-        	if ( !Qry.Eof )
-            client_canon_name = Qry.FieldAsString( "point_addr" );
+        	ProgTrace( TRACE5, "client_canon_name=%s", client_canon_name.c_str() );            
           if ( master_params ) {
             params.clear();
             file_data.clear();
@@ -556,6 +554,8 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
             inparams.clear();
             master_params = false;
           }
+         	if ( !Qry.Eof )
+            client_canon_name = Qry.FieldAsString( "point_addr" );
         }
         if ( Qry.Eof )
         	break;
@@ -617,7 +617,7 @@ void sync_aodb( void )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
-	 "SELECT point_id,points.airline,points.flt_no,points.airp FROM points, file_param_sets "
+	 "SELECT DISTINCT point_id,points.airline,points.flt_no,points.airp FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
 	 "       gtimer.get_stage(point_id,1) BETWEEN :stage1 AND :stage2 AND "
