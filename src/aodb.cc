@@ -887,6 +887,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 		}				
 	}
 	// § ―¨αμ Ά „
+	tst();
 	Qry.Clear();
 	Qry.SQLText = 
 	 "SELECT point_id,craft,bort,scd_out,est_out,act_out,litera,park_out,pr_del "
@@ -1020,7 +1021,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
-		Qry.Execute();
+		Qry.Execute();		
 	}
 	else { // update
 		string remark;
@@ -1231,7 +1232,8 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
  	 "  WHERE filename=:filename AND point_addr=:point_addr AND rec_no=:rec_no; "
  	 " IF SQL%NOTFOUND THEN "
 	 "  INSERT INTO aodb_spp_error(filename,point_addr,rec_no,record,msg) VALUES(:filename,:point_addr,:rec_no,:record,:msg); "
- 	 " END IF; ";
+ 	 " END IF; "
+ 	 "END;";
 	QryLog.CreateVariable( "filename", otString, filename );
 	QryLog.CreateVariable( "point_addr", otString, canon_name );
 	QryLog.DeclareVariable( "rec_no", otInteger );
