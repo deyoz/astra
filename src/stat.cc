@@ -1165,6 +1165,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                     try {
                         trip = GetTripName(info, false, true);
                     } catch(UserException &E) {
+                        if(tag != "SystemLogRun")
+                            throw UserException(E.what());
                         showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
                         Qry.Next();
                         continue;
@@ -1194,7 +1196,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
             Qry.Next();
         }
-    }
+    } else
+        throw UserException("Не найдено ни одной операции.");
 }
 
 struct THallItem {
@@ -1232,7 +1235,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "   points.airline, "
         "   points.flt_no, "
         "   points.suffix, "
+        "   points.airp, "
         "   points.scd_out, "
+        "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
         "   pax.reg_no, "
         "   pax_grp.airp_arv, "
         "   pax.surname||' '||pax.name full_name, "
@@ -1281,7 +1286,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "   arx_points.airline, "
         "   arx_points.flt_no, "
         "   arx_points.suffix, "
+        "   arx_points.airp, "
         "   arx_points.scd_out, "
+        "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
         "   arx_pax.reg_no, "
         "   arx_pax_grp.airp_arv, "
         "   arx_pax.surname||' '||arx_pax.name full_name, "
@@ -1410,12 +1417,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         xmlNodePtr rowsNode = NewTextChild(paxListNode, "rows");
         while(!Qry.Eof) {
+            TTripInfo info(Qry);
+            string trip = GetTripName(info);
             xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
             NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
             NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
             NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger("flt_no"));
             NewTextChild(paxNode, "suffix", Qry.FieldAsString("suffix"));
+            NewTextChild(paxNode, "trip", trip);
 
             NewTextChild( paxNode, "scd_out",
                     DateTimeToStr(
@@ -1442,7 +1452,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
             Qry.Next();
         }
-    }
+    } else
+        throw UserException("Не найдено ни одного пассажира");
 
     STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
@@ -2380,7 +2391,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_rk_weight);
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
-    }
+    } else
+        throw UserException("Не найдено ни одной операции.");
     STAT::set_variables(resNode);
 }
 
