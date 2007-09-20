@@ -916,16 +916,21 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
                 reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
         while(!Qry.Eof) {
-            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-
             TTripInfo info(Qry);
-
-            NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
-            try {
-                NewTextChild( fNode, "value", GetTripName(info,false,true) );
-            } catch(UserException &E) {
-                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+            string trip_name;
+            try
+            {
+                trip_name = GetTripName(info,false,true);
             }
+            catch(UserException &E)
+            {
+                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                Qry.Next();
+                continue;
+            };
+            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+            NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
+            NewTextChild( fNode, "value", trip_name);
 
             Qry.Next();
         }
@@ -1161,6 +1166,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
                         trip = GetTripName(info, false, true);
                     } catch(UserException &E) {
                         showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                        Qry.Next();
+                        continue;
                     }
                 }
             }
@@ -2307,6 +2314,18 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         int total_bag_weight = 0;
         int total_excess = 0;
         while(!Qry.Eof) {
+            string region;
+            try
+            {
+                region = AirpTZRegion(Qry.FieldAsString("airp"));
+            }
+            catch(UserException &E)
+            {
+                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                Qry.Next();
+                continue;
+            };
+
             rowNode = NewTextChild(rowsNode, "row");
             if(ap.size()) {
                 NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
@@ -2336,8 +2355,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
             NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
             NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(Qry.FieldAsDateTime("scd_out"), AirpTZRegion(Qry.FieldAsString("airp"), false)), "dd.mm.yy")
-                        );
+                        UTCToClient(Qry.FieldAsDateTime("scd_out"), region), "dd.mm.yy")
+                    );
             NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
             NewTextChild(rowNode, "col", pax_amount);
             NewTextChild(rowNode, "col", adult);
