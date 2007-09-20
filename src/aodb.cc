@@ -484,6 +484,7 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
                    string &res_checkin/*, string &res_bag*/ )
 {
+//	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, point_addr=%s", point_id, pax_id, point_addr.c_str() );
 	//!!!!проверка на дублирования рейсов в СПП
 	res_checkin.clear();
 	//res_bag.clear();
@@ -849,19 +850,28 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 			if ( term.name.empty() )
 				throw Exception( "Invalid term name, value=|%s|", term.name.c_str() );					
 			//!!!!
+			string term_name;
 			if ( term.type == "П" )
-				term.name = "G" + term.name;
+				term_name = "G" + term.name;
 			else
-				term.name = "R" + term.name;
+				term_name = "R" + term.name;
 			Qry.Clear();
-			ProgTrace( TRACE5, "term.name=%s", term.name.c_str() );
+			ProgTrace( TRACE5, "term.name=%s", term_name.c_str() );
 			Qry.SQLText = "SELECT desk FROM stations WHERE airp=:airp AND work_mode=:work_mode AND name=:code";
 			Qry.CreateVariable( "airp", otString, "ВНК" );
 			Qry.CreateVariable( "work_mode", otString, term.type );
-			Qry.CreateVariable( "code", otString, term.name );
+			Qry.CreateVariable( "code", otString, term_name );
 			Qry.Execute();
-			if ( !Qry.RowCount() )
-				throw Exception( "Invalid term name, value=%s", term.name.c_str() );
+			if ( !Qry.RowCount() ) {
+  			if ( term.type == "П" )
+	  			term_name = "G0" + term.name;
+		  	else
+			  	term_name = "R0" + term.name;				
+			  Qry.SetVariable( "code", term_name );
+			  Qry.Execute();
+			  if ( !Qry.RowCount() )
+				  throw Exception( "Invalid term name, value=%s", term.name.c_str() );
+			}
 			term.name = Qry.FieldAsString( "desk" );
 			i += 4;
      	tmp = linestr.substr( i, 1 );
@@ -1216,7 +1226,12 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 {
 	TQuery QryLog( &OraSession );
 	QryLog.SQLText =
-	 "INSERT INTO aodb_spp_error(filename,point_addr,rec_no,record,msg) VALUES(:filename,:point_addr,:rec_no,:record,:msg)";
+	 " BEGIN "
+ 	 " UPDATE aodb_spp_error SET record=:record, msg=:msg "
+ 	 "  WHERE filename=:filename AND point_addr=:point_addr AND rec_no=:rec_no; "
+ 	 " IF SQL%NOTFOUND THEN "
+	 "  INSERT INTO aodb_spp_error(filename,point_addr,rec_no,record,msg) VALUES(:filename,:point_addr,:rec_no,:record,:msg); "
+ 	 " END IF; ";
 	QryLog.CreateVariable( "filename", otString, filename );
 	QryLog.CreateVariable( "point_addr", otString, canon_name );
 	QryLog.DeclareVariable( "rec_no", otInteger );
