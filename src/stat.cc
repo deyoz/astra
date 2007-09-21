@@ -9,6 +9,7 @@
 #include "docs.h"
 #include "base_tables.h"
 #include "tripinfo.h"
+#include "misc.h"
 #include <fstream>
 
 using namespace std;
@@ -945,14 +946,21 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TPerfTimer tm;
+    tm.Init();
+    int i = 0;
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     get_report_form("ArxPaxLog", resNode);
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     STAT::set_variables(resNode);
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     TQuery Qry(&OraSession);
     string tag = (char *)reqNode->name;
     char *qry = NULL;
     TReqInfo *reqInfo = TReqInfo::Instance();
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     xmlNodePtr reportTitleNode = NewTextChild(variablesNode, "report_title");
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     if(tag == "LogRun") {
         NodeSetContent(reportTitleNode, "Операции по пассажиру");
         qry =
@@ -1050,8 +1058,8 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "UNION "
             "SELECT msg, time, id1 AS point_id, "
             "  nvl(screen.name, arx_events.screen) screen, "
-            "  DECODE(type,:evtPax,id2,NULL) AS reg_no, "
-            "  DECODE(type,:evtPax,id3,NULL) AS grp_id, "
+            "  DECODE(type,:evtPay,id2,:evtPax,id2,id2,NULL) AS reg_no, "
+            "  DECODE(type,:evtPay,id2,:evtPax,id3,id3,NULL) AS grp_id, "
             "  ev_user, station, ev_order "
             "FROM arx_events, screen "
             "WHERE "
@@ -1098,6 +1106,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
     } else
         throw Exception((string)"PaxLog: unknown tag " + tag);
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     Qry.SQLText = qry;
     try {
         Qry.Execute();
@@ -1107,7 +1116,9 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         else
             throw;
     }
+    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     if(!Qry.Eof) {
+        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
         xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
         xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
         xmlNodePtr colNode;
@@ -1140,6 +1151,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
 
 
+        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
         xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
         while(!Qry.Eof) {
             string trip;
@@ -1196,6 +1208,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
             Qry.Next();
         }
+        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
     } else
         throw UserException("Не найдено ни одной операции.");
 }
