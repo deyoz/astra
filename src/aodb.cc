@@ -253,7 +253,7 @@ bool createAODBCheckInInfoFile( int point_id,
 		record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 		record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
 		TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv")); 		
-		record<<setw(20)<<row->name.substr(0,20);
+		record<<setw(20)<<row->code.substr(0,20);
 		record<<setw(1);
 		switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
 			case ASTRA::F: 
