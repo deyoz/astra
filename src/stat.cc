@@ -12,6 +12,8 @@
 #include "misc.h"
 #include <fstream>
 
+#define MAX_STAT_ROWS 2000
+
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
@@ -944,6 +946,194 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         }
 }
 
+void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_report_form("ArxPaxLog", resNode);
+    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    NewTextChild(variablesNode, "report_title", "Операции в системе");
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select exe from screen where name = :module";
+    Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
+    Qry.Execute();
+    string module;
+    if(!Qry.Eof) module = Qry.FieldAsString("exe");
+    int count = 0;
+    
+    xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+    xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+    xmlNodePtr colNode;
+
+
+    colNode = NewTextChild(headerNode, "col", "Агент");
+    SetProp(colNode, "width", 73);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Стойка");
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Время");
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Рейс");
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Рег №");
+    SetProp(colNode, "width", 45);
+    SetProp(colNode, "align", taRightJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Операция");
+    SetProp(colNode, "width", 750);
+    SetProp(colNode, "align", taLeftJustify);
+
+    for(int j = 0; j < 2; j++) {
+        Qry.Clear();
+        if (j==0) {    
+            Qry.SQLText =
+                "SELECT msg, time, id1 AS point_id, "
+                "       screen, "
+                "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+                "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+                "  ev_user, station, ev_order "
+                "FROM events "
+                "WHERE "
+                "  events.time >= :FirstDate and "
+                "  events.time < :LastDate and "
+                "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
+                "  (:module is null or nvl(screen, 'Система') = :module) and "
+                "  (:station is null or nvl(station, 'Система') = :station) and "
+                "  events.type IN ( "
+                "    :evtFlt, "
+                "    :evtPax, "
+                "    :evtPay, "
+                "    :evtGraph, "
+                "    :evtTlg, "
+                "    :evtComp, "
+                "    :evtAccess, "
+                "    :evtSystem, "
+                "    :evtCodif, "
+                "    :evtPeriod "
+                "          ) ";
+        } else {    
+            Qry.SQLText =
+                "SELECT msg, time, id1 AS point_id, "
+                "       screen, "
+                "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+                "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+                "  ev_user, station, ev_order "
+                "FROM arx_events "
+                "WHERE "
+                "  arx_events.part_key >= :FirstDate and "
+                "  arx_events.part_key < :LastDate and "
+                "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
+                "  (:module is null or nvl(screen, 'Система') = :module) and "
+                "  (:station is null or nvl(station, 'Система') = :station) and "
+                "  arx_events.type IN ( "
+                "    :evtFlt, "
+                "    :evtPax, "
+                "    :evtPay, "
+                "    :evtGraph, "
+                "    :evtTlg, "
+                "    :evtComp, "
+                "    :evtAccess, "
+                "    :evtSystem, "
+                "    :evtCodif, "
+                "    :evtPeriod "
+                "          ) ";
+        }
+
+        Qry.CreateVariable("evtFlt", otString, NodeAsString("evtFlt", reqNode));
+        Qry.CreateVariable("evtPax", otString, NodeAsString("evtPax", reqNode));
+        {
+            xmlNodePtr node = GetNode("evtPay", reqNode);
+            string evtPay;
+            if(node)
+                evtPay = NodeAsString(node);
+            Qry.CreateVariable("evtPay", otString, evtPay);
+        }
+        Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
+        Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
+        Qry.CreateVariable("evtComp", otString, NodeAsString("evtComp", reqNode));
+        Qry.CreateVariable("evtAccess", otString, NodeAsString("evtAccess", reqNode));
+        Qry.CreateVariable("evtSystem", otString, NodeAsString("evtSystem", reqNode));
+        Qry.CreateVariable("evtCodif", otString, NodeAsString("evtCodif", reqNode));
+        Qry.CreateVariable("evtPeriod", otString, NodeAsString("evtPeriod", reqNode));
+
+        Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("agent", otString, NodeAsString("agent", reqNode));
+        Qry.CreateVariable("station", otString, NodeAsString("station", reqNode));
+        Qry.CreateVariable("module", otString, module);
+
+        TPerfTimer tm;
+        tm.Init();
+        try {
+            Qry.Execute();
+        } catch (EOracleError E) {
+            if(E.Code == 376)
+                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            else
+                throw;
+        }
+        ProgTrace(TRACE5, "SystemLogRun%d EXEC QRY: %s", j, tm.PrintWithMessage().c_str());
+
+        if(!Qry.Eof) {
+            int col_point_id=Qry.FieldIndex("point_id");
+            int col_ev_user=Qry.FieldIndex("ev_user");
+            int col_station=Qry.FieldIndex("station");
+            int col_time=Qry.FieldIndex("time");
+            int col_grp_id=Qry.FieldIndex("grp_id");
+            int col_reg_no=Qry.FieldIndex("reg_no");
+            int col_msg=Qry.FieldIndex("msg");
+            int col_ev_order=Qry.FieldIndex("ev_order");
+            int col_screen=Qry.FieldIndex("screen");
+
+            xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+            while(!Qry.Eof) {
+                xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+
+                NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+                NewTextChild( rowNode, "time",
+                        DateTimeToStr(
+                            UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                            ServerFormatDateTimeAsString
+                            )
+                        );
+                NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+                NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                if(!Qry.FieldIsNULL(col_grp_id))
+                    NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+                if(!Qry.FieldIsNULL(col_reg_no))
+                    NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(rowNode, "ev_user", Qry.FieldAsString(col_ev_user), "");
+                NewTextChild(rowNode, "station", Qry.FieldAsString(col_station), "");
+                NewTextChild(rowNode, "screen", Qry.FieldAsString(col_screen), "");
+
+                count++;
+                if(count > MAX_STAT_ROWS) {
+                    showErrorMessage(
+                            "Выбрано слишком много строк. Показано " +
+                            IntToString(MAX_STAT_ROWS) +
+                            " произвольных строк."
+                            " Уточните критерии поиска."
+                            );
+                    break;
+                }
+                Qry.Next();
+            }
+        }
+        ProgTrace(TRACE5, "FORM XML2: %s", tm.PrintWithMessage().c_str());
+        ProgTrace(TRACE5, "count %d: %d", j, count);
+    }
+    if(!count)
+        throw UserException("Не найдено ни одной операции.");
+
+}
+
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TPerfTimer tm;
@@ -1034,12 +1224,19 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  nvl(screen.name, events.screen) screen, "
             "  DECODE(type,:evtPay,id2,:evtPax,id2,id2,NULL) AS reg_no, "
             "  DECODE(type,:evtPay,id2,:evtPax,id3,id3,NULL) AS grp_id, "
-            "  ev_user, station, ev_order "
-            "FROM events, screen "
+            "  ev_user, station, ev_order, "
+            "  airline, "
+            "  flt_no, "
+            "  suffix, "
+            "  airp, "
+            "  scd_out, "
+            "  NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+            "FROM events, points, screen "
             "WHERE "
             "  events.time >= :FirstDate and "
             "  events.time < :LastDate and "
             "  events.screen = screen.exe(+) and "
+            "  events.id1 = points.point_id(+) and "
             "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
             "  (:module is null or nvl(screen.name, 'Система') = :module) and "
             "  (:station is null or nvl(station, 'Система') = :station) and "
@@ -1060,12 +1257,19 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "  nvl(screen.name, arx_events.screen) screen, "
             "  DECODE(type,:evtPay,id2,:evtPax,id2,id2,NULL) AS reg_no, "
             "  DECODE(type,:evtPay,id2,:evtPax,id3,id3,NULL) AS grp_id, "
-            "  ev_user, station, ev_order "
-            "FROM arx_events, screen "
+            "  ev_user, station, ev_order, "
+            "  airline, "
+            "  flt_no, "
+            "  suffix, "
+            "  airp, "
+            "  scd_out, "
+            "  NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+            "FROM arx_events, arx_points, screen "
             "WHERE "
             "  arx_events.part_key >= :FirstDate and "
             "  arx_events.part_key < :LastDate and "
             "  arx_events.screen = screen.exe(+) and "
+            "  arx_events.id1 = arx_points.point_id(+) and "
             "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
             "  (:module is null or nvl(screen.name, 'Система') = :module) and "
             "  (:station is null or nvl(station, 'Система') = :station) and "
@@ -1155,34 +1359,17 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
         while(!Qry.Eof) {
             string trip;
-            {
+            if(!Qry.FieldIsNULL("airp")) {
                 //trip name fetch
-                TQuery tripQry(&OraSession);
-                tripQry.SQLText =
-                    "select "
-                    "   airline, "
-                    "   flt_no, "
-                    "   suffix, "
-                    "   airp, "
-                    "   scd_out, "
-                    "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
-                    "from "
-                    "   points "
-                    "where "
-                    "   point_id = :point_id";
-                tripQry.CreateVariable("point_id", otInteger, Qry.FieldAsInteger("point_id"));
-                tripQry.Execute();
-                if(!tripQry.Eof) {
-                    TTripInfo info(tripQry);
-                    try {
-                        trip = GetTripName(info, false, true);
-                    } catch(UserException &E) {
-                        if(tag != "SystemLogRun")
-                            throw UserException(E.what());
-                        showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
-                        Qry.Next();
-                        continue;
-                    }
+                TTripInfo info(Qry);
+                try {
+                    trip = GetTripName(info, false, true);
+                } catch(UserException &E) {
+                    if(tag != "SystemLogRun")
+                        throw UserException(E.what());
+                    showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                    Qry.Next();
+                    continue;
                 }
             }
 
