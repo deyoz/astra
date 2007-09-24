@@ -239,12 +239,13 @@ bool createAODBCheckInInfoFile( int point_id,
 	TQuery TimeQry( &OraSession );
 	TimeQry.SQLText = 
 	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
-	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode='Р' "
+	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode=:mode "
 	 " AND screen=:screen "
 	 " ORDER BY time DESC,ev_order DESC";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
+	TimeQry.DeclareVariable( "mode", otString );
 	while ( !Qry.Eof ) {
 		ostringstream record;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
@@ -325,6 +326,7 @@ bool createAODBCheckInInfoFile( int point_id,
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
     TimeQry.SetVariable( "screen", "AIR.EXE" );
+    TimeQry.SetVariable( "mode", "Р" );
     TimeQry.Execute();
     string term;
     TDateTime t;
@@ -333,9 +335,11 @@ bool createAODBCheckInInfoFile( int point_id,
     }
     else {
     	term = TimeQry.FieldAsString( "station" );
+    	if ( !term.empty() && term[0] == 'R' )
+    		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
     }    	
-    	
+    ProgTrace( TRACE5, "term=%s", term.c_str() );	
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
@@ -346,15 +350,15 @@ bool createAODBCheckInInfoFile( int point_id,
     	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 
     }
     TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
+    TimeQry.SetVariable( "mode", "П" );
     TimeQry.Execute();
-    if ( TimeQry.Eof ) {
-    	t = NoExists;
-    }
-    else {
+    if ( !TimeQry.Eof ) {
     	term = TimeQry.FieldAsString( "station" );
+    	if ( !term.empty() && term[0] == 'G' )
+    		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
     }    	
-    	
+    ProgTrace( TRACE5, "term=%s", term.c_str() );	
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
