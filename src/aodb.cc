@@ -240,9 +240,11 @@ bool createAODBCheckInInfoFile( int point_id,
 	TimeQry.SQLText = 
 	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
 	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode='Р' "
-	 " ORDER BY time,ev_order";
+	 " AND screen=:screen "
+	 " ORDER BY time DESC,ev_order DESC";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
+	TimeQry.DeclareVariable( "screen", otString );
 	while ( !Qry.Eof ) {
 		ostringstream record;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
@@ -322,18 +324,46 @@ bool createAODBCheckInInfoFile( int point_id,
 //		record<<setw(1)<<0; // трансатлантический багаж :)
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
+    TimeQry.SetVariable( "screen", "AIR.EXE" );
     TimeQry.Execute();
-    if ( TimeQry.Eof )
+    string term;
+    TDateTime t;
+    if ( TimeQry.Eof ) {
+    	t = NoExists;
+    }
+    else {
+    	term = TimeQry.FieldAsString( "station" );
+    	t = TimeQry.FieldAsDateTime( "mtime" );
+    }    	
+    	
+    if ( t == NoExists )
       record<<setw(4)<<"";
     else
-      record<<setw(4)<<string(TimeQry.FieldAsString( "station" )).substr(0,4); // стойка рег.
-    if ( TimeQry.Eof )
+      record<<setw(4)<<string(term).substr(0,4); // стойка рег.
+    if ( t == NoExists )
     	record<<setw(16)<<"";
     else {
-    	record<<setw(16)<<DateTimeToStr( UTCToLocal( TimeQry.FieldAsDateTime( "mtime" ), region ), "dd.mm.yyyy hh:nn" );	 
+    	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 
     }
-    record<<setw(4)<<""; // выход на посадку
-    record<<setw(16)<<""; // время прохода на посадку
+    TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
+    TimeQry.Execute();
+    if ( TimeQry.Eof ) {
+    	t = NoExists;
+    }
+    else {
+    	term = TimeQry.FieldAsString( "station" );
+    	t = TimeQry.FieldAsDateTime( "mtime" );
+    }    	
+    	
+    if ( t == NoExists )
+      record<<setw(4)<<"";
+    else
+      record<<setw(4)<<string(term).substr(0,4); // выход на посадку
+    if ( t == NoExists )
+    	record<<setw(16)<<"";
+    else {
+    	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 //время прохода на посадку
+    }    
 		if ( Qry.FieldIsNULL( "refuse" ) )
 			record<<setw(1)<<0<<";";
 		else
@@ -485,7 +515,6 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
                    string &res_checkin/*, string &res_bag*/ )
 {
 //	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, point_addr=%s", point_id, pax_id, point_addr.c_str() );
-	//!!!!проверка на дублирования рейсов в СПП
 	res_checkin.clear();
 	//res_bag.clear();
 	TQuery PQry( &OraSession );	
