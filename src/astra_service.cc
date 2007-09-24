@@ -167,7 +167,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	ParamQry.SQLText = "SELECT name,value FROM file_params WHERE id=:id";
 	ParamQry.CreateVariable( "id", otInteger, id );
   ParamQry.Execute();
-  ProgTrace( TRACE5, "id=%d", id );
+//  ProgTrace( TRACE5, "id=%d", id );
   string airline, airp, flt_no;
 	while ( !ParamQry.Eof ) {
 		if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_AIRP )
@@ -180,7 +180,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 					flt_no = ParamQry.FieldAsString( "value" );
 				else {
 					fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
-		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
+//		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
 			  }
 		ParamQry.Next();
 	}
@@ -224,7 +224,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 		if ( priority != ParamQry.FieldAsInteger( "priority" ) )
 			break;
 		fileparams[ ParamQry.FieldAsString( "param_name" ) ] = ParamQry.FieldAsString( "param_value" );
-		ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "param_name" ), ParamQry.FieldAsString( "param_value" ) );
+//		ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "param_name" ), ParamQry.FieldAsString( "param_value" ) );
 		ParamQry.Next();
   }
   // испраывить!!!! ВЛАД АУ!!!
@@ -237,7 +237,7 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	ParamQry.SQLText = "SELECT NVL(in_order,0) as in_order FROM file_types WHERE code=:type";
 	ParamQry.CreateVariable( "type", otString, type );
 	ParamQry.Execute();
-	ProgTrace( TRACE5, "type=%s", type.c_str() );
+//	ProgTrace( TRACE5, "type=%s", type.c_str() );
 	if ( !ParamQry.Eof && ParamQry.FieldAsInteger( "in_order" ) ) {
 		fileparams[ PARAM_IN_ORDER ] = "TRUE";
 	}
@@ -320,7 +320,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
         else
         	fileparams[ PARAM_NEXT_FILE ] = "FALSE";
         buildFileParams( dataNode, fileparams );
-        ProgTrace( TRACE5, "file_id=%d, msg.size()=%d", file_id, len );
+//        ProgTrace( TRACE5, "file_id=%d, msg.size()=%d", file_id, len );
         sendFile( file_id );        
         break;
       }
@@ -498,7 +498,6 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
 //    int priority;
     string client_canon_name; 
     bool master_params = false;
-    tst();   
     while ( 1 ) {
 //        priority = Qry.FieldAsInteger( "priority" );
         if ( client_canon_name.empty() && !Qry.Eof )
@@ -513,7 +512,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
         }*/
         if ( Qry.Eof && !client_canon_name.empty() ||
         	   !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) { /* если нет такого имени */
-        	ProgTrace( TRACE5, "client_canon_name=%s", client_canon_name.c_str() );            
+//        	ProgTrace( TRACE5, "client_canon_name=%s", client_canon_name.c_str() );            
           if ( master_params ) {
             params.clear();
             file_data.clear();
