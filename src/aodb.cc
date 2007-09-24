@@ -654,11 +654,11 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	tmp = linestr.substr( 0, 6 );
 	tmp = TrimString( tmp );
 	fl.rec_no = NoExists;
-	if ( StrToInt( tmp.c_str(), fl.rec_no ) == EOF )
+	if ( StrToInt( tmp.c_str(), fl.rec_no ) == EOF || fl.rec_no < 0 ||fl.rec_no > 999999 )
 		throw Exception( "Invalid rec_no, value=%s", tmp.c_str() );
 	tmp = linestr.substr( 6, 10 );
 	tmp = TrimString( tmp );
-	if ( StrToFloat( tmp.c_str(), fl.id ) == EOF )
+	if ( StrToFloat( tmp.c_str(), fl.id ) == EOF || fl.id < 0 || fl.id > 9999999999.0 )
 		throw Exception( "Invalid id, value=%s", tmp.c_str() );
 	tmp = linestr.substr( 16, 10 );
 	tmp = TrimString( tmp );
@@ -759,7 +759,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	if ( tmp.empty() )
 		fl.max_load = NoExists;
 	else
-  	if ( StrToInt( tmp.c_str(), fl.max_load ) == EOF )
+  	if ( StrToInt( tmp.c_str(), fl.max_load ) == EOF || fl.max_load < 0 || fl.max_load > 999999 )
 	  	throw Exception( "Invalid max_load, value=%s", tmp.c_str() );
 	tmp = linestr.substr( 88, 10 );
 	fl.craft = TrimString( tmp );
@@ -840,7 +840,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 		tmp = linestr.substr( i, 1 );
 		tmp = TrimString( tmp );
 		if ( dest_mode ) {
-    	if ( StrToInt( tmp.c_str(), dest.num ) == EOF )
+    	if ( StrToInt( tmp.c_str(), dest.num ) == EOF || dest.num < 0 || dest.num > 9 )
     		if ( fl.dests.empty() )
 	    	  throw Exception( "Invalid dest.num, value=%s", tmp.c_str() );					
 	      else
@@ -865,7 +865,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	    	i += 3;
 	    	tmp = linestr.substr( i, 1 );
 	    	tmp = TrimString( tmp );
-	    	if ( tmp.empty() || StrToInt( tmp.c_str(), dest.pr_del ) == EOF )
+	    	if ( tmp.empty() || StrToInt( tmp.c_str(), dest.pr_del ) == EOF || dest.pr_del < 0 || dest.pr_del > 1 )
 	    	  throw Exception( "Invalid dest.pr_del, value=|%s|", tmp.c_str() );					
 	    	fl.dests.push_back( dest );
 	    	i++;
@@ -911,7 +911,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 			i += 4;
      	tmp = linestr.substr( i, 1 );
 	   	tmp = TrimString( tmp );
-	    if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF )
+	    if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
 	      throw Exception( "Invalid term.pr_del, value=|%s|", tmp.c_str() );								
 	    fl.terms.push_back( term );
 	    i++;
@@ -938,7 +938,9 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	Qry.CreateVariable( "airp", otString, "Ççä" );
   Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "scd_out", otDate, fl.scd );
+	tst();
 	Qry.Execute();
+	tst();
 /*rogTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
 	int move_id, new_tid, point_id;
@@ -1291,6 +1293,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
   	  fd.erase( 0, i + 1 );
   	}
     AODB_Flight fl;
+    fl.rec_no = NoExists;
     try {    	
     	if ( linestr.length() < 175 + 4 )
     		throw Exception( "invalid flight record format, length=%d, value=%s", linestr.length(), linestr.c_str() );
@@ -1298,7 +1301,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
     }
     catch( Exception &e ) {    	    	
       if ( fl.rec_no == NoExists )
-      	QryLog.SetVariable( "rec_no", FNull );
+      	QryLog.SetVariable( "rec_no", -1 );
       else
         QryLog.SetVariable( "rec_no", fl.rec_no );
       QryLog.SetVariable( "record", linestr );
