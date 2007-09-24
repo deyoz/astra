@@ -324,10 +324,15 @@ bool createAODBCheckInInfoFile( int point_id,
 		record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
+    tst();
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
+    tst();
     TimeQry.SetVariable( "screen", "AIR.EXE" );
+    tst();
     TimeQry.SetVariable( "mode", "Р" );
+    tst();
     TimeQry.Execute();
+    tst();
     string term;
     TDateTime t;
     if ( TimeQry.Eof ) {
@@ -349,8 +354,11 @@ bool createAODBCheckInInfoFile( int point_id,
     else {
     	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 
     }
+    tst();
     TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
+    tst();
     TimeQry.SetVariable( "mode", "П" );
+    tst();
     TimeQry.Execute();
     if ( !TimeQry.Eof ) {
     	term = TimeQry.FieldAsString( "station" );
