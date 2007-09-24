@@ -327,9 +327,7 @@ bool createAODBCheckInInfoFile( int point_id,
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
     TimeQry.SetVariable( "screen", "AIR.EXE" );
     TimeQry.SetVariable( "work_mode", "ê" );
-    tst();
     TimeQry.Execute();
-    tst();
     string term;
     TDateTime t;
     if ( TimeQry.Eof ) {
@@ -341,7 +339,6 @@ bool createAODBCheckInInfoFile( int point_id,
     		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
     }    	
-    ProgTrace( TRACE5, "term=%s", term.c_str() );	
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
@@ -355,13 +352,16 @@ bool createAODBCheckInInfoFile( int point_id,
     TimeQry.SetVariable( "work_mode", "è" );
     tst();
     TimeQry.Execute();
-    if ( !TimeQry.Eof ) {
+    if ( TimeQry.Eof ) {
+    	term.clear();
+    	t = NoExists;
+    }
+    else {
     	term = TimeQry.FieldAsString( "station" );
     	if ( !term.empty() && term[0] == 'G' )
     		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
     }    	
-    ProgTrace( TRACE5, "term=%s", term.c_str() );	
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
@@ -459,7 +459,7 @@ bool createAODBCheckInInfoFile( int point_id,
 				//ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );				
 				bag_file_data += res_bag;        
 			}*/
-//			ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
+			ProgTrace(TRACE5, "pax_id=%d", p->pax_id );
 	  }
   }
 	for ( vector<AODB_STRUCT>::iterator p=prior_aodb_pax.begin(); p!=prior_aodb_pax.end(); p++ ) {
@@ -892,7 +892,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 			else
 				term_name = "R" + term.name;
 			Qry.Clear();
-			ProgTrace( TRACE5, "term.name=%s", term_name.c_str() );
+//	ProgTrace( TRACE5, "term.name=%s", term_name.c_str() );
 			Qry.SQLText = "SELECT desk FROM stations WHERE airp=:airp AND work_mode=:work_mode AND name=:code";
 			Qry.CreateVariable( "airp", otString, "Ççä" );
 			Qry.CreateVariable( "work_mode", otString, term.type );
@@ -940,8 +940,8 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
   Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "scd_out", otDate, fl.scd );
 	Qry.Execute();
-	ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
-	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );
+/*rogTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
+	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
 	int move_id, new_tid, point_id;
 	bool pr_insert = Qry.Eof;
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";	
@@ -1222,12 +1222,12 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	Qry.DeclareVariable( "pr_del", otInteger );
 	Qry.DeclareVariable( "desk", otString );
 	Qry.DeclareVariable( "work_mode", otString );
-	ProgTrace( TRACE5, "fl.terms.size()=%d, point_id=%d", fl.terms.size(), point_id );
+//rogTrace( TRACE5, "fl.terms.size()=%d, point_id=%d", fl.terms.size(), point_id );
 	for ( vector<AODB_Term>::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
 		Qry.SetVariable( "desk", it->name );
 		Qry.SetVariable( "work_mode", it->type );
 		Qry.SetVariable( "pr_del", it->pr_del );
-		ProgTrace( TRACE5, "desk=%s, work_mode=%s, pr_del=%d", it->name.c_str(), it->type.c_str(), it->pr_del );
+//ProgTrace( TRACE5, "desk=%s, work_mode=%s, pr_del=%d", it->name.c_str(), it->type.c_str(), it->pr_del );
 		Qry.Execute();
 	}
 }
