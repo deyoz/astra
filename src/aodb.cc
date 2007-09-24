@@ -350,7 +350,6 @@ bool createAODBCheckInInfoFile( int point_id,
     }
     TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
     TimeQry.SetVariable( "work_mode", "è" );
-    tst();
     TimeQry.Execute();
     if ( TimeQry.Eof ) {
     	term.clear();
