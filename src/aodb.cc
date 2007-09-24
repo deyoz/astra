@@ -239,13 +239,13 @@ bool createAODBCheckInInfoFile( int point_id,
 	TQuery TimeQry( &OraSession );
 	TimeQry.SQLText = 
 	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
-	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode=:mode "
+	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode=:work_mode "
 	 " AND screen=:screen "
 	 " ORDER BY time DESC,ev_order DESC";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
-	TimeQry.DeclareVariable( "mode", otString );
+	TimeQry.DeclareVariable( "work_mode", otString );
 	while ( !Qry.Eof ) {
 		ostringstream record;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
@@ -324,12 +324,9 @@ bool createAODBCheckInInfoFile( int point_id,
 		record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
-    tst();
     TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
-    tst();
     TimeQry.SetVariable( "screen", "AIR.EXE" );
-    tst();
-    TimeQry.SetVariable( "mode", "Р" );
+    TimeQry.SetVariable( "work_mode", "Р" );
     tst();
     TimeQry.Execute();
     tst();
@@ -354,10 +351,8 @@ bool createAODBCheckInInfoFile( int point_id,
     else {
     	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 
     }
-    tst();
     TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
-    tst();
-    TimeQry.SetVariable( "mode", "П" );
+    TimeQry.SetVariable( "work_mode", "П" );
     tst();
     TimeQry.Execute();
     if ( !TimeQry.Eof ) {
