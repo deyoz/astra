@@ -441,6 +441,7 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           if ( tr.scd_out > NoExists ) {
           	try {
               d = UTCToClient( tr.scd_out, tr.region );
+              ProgTrace( TRACE5, "d=%f, first_date=%f, next_date=%f", d, first_date, next_date );
             }
             catch( Exception &e ) {
              	if ( errcity.empty() )
@@ -668,7 +669,9 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
             TTrip tr = createTrip( move_id, id, dests );
+
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll, errcity ) ) {
+
               trips.push_back( tr );
             }
           }
@@ -746,6 +749,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         f--;
         airline = f->airline;
       }
+    ProgTrace( TRACE5, " filtered move_id=%d, id->point_id=%d", move_id, id->point_id );              
       if ( (!reqInfo->user.access.airlines.empty() &&
              find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
@@ -2239,7 +2243,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
-   " UPDATE points SET point_num=point_num-1 WHERE point_num<=0-:point_num AND move_id=:move_id AND pr_del=-1 ";
+   " UPDATE points SET point_num=point_num-1 WHERE point_num<=-1-:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
 	xmlNodePtr node = NodeAsNode( "data", reqNode );
@@ -2471,6 +2475,14 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  		throw UserException( string("Времена вылета/прилета в маршруте не упорядочены") );
   	  	}
       }
+      if ( id->craft.empty() ) {
+        for ( TDests::iterator xd=id+1; xd!=dests.end(); xd++ ) {
+        	if ( xd->pr_del )
+        		continue;
+          throw UserException( string("Не задан тип ВС") );
+        }
+      }
+      	
       if ( !existsTrip && id != dests.end() - 1 ) {
         Qry.SetVariable( "name", id->airline + IntToString( id->flt_no ) + id->suffix );
         if ( id->scd_in > NoExists )
@@ -2513,8 +2525,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	if ( id != dests.begin() ) {
   		TDests::iterator p=id;
   			p--;
-      id->pr_tranzit=( p->airline + IntToString( p->flt_no ) + p->suffix + p->triptype ==
-                       id->airline + IntToString( id->flt_no ) + id->suffix + id->triptype );
+      id->pr_tranzit=( p->airline + IntToString( p->flt_no ) + p->suffix /*+ p->triptype ???*/ ==
+                       id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
   	}
   	else
   		id->pr_tranzit = 0;
@@ -2571,6 +2583,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int point_num = 0;
   int first_point;
   bool insert_point;
+  bool pr_begin = true;
   for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	id->point_num = point_num;
   	if ( id->modify ) {
@@ -2595,30 +2608,34 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     	point_num++;
     }
 /* !!! */
- 		if ( id == dests.begin() ) {
-    	  first_point = id->point_id;
-    	  if ( id->first_point != NoExists ) {
-    	    id->first_point = NoExists;
-    	    id->modify = true;
-    	  }
-    }
-    else
-      if ( !id->pr_tranzit ) {
-      	if ( id->first_point != first_point ) {
-          id->first_point = first_point;
-          id->modify = true;
-        }
-        first_point = id->point_id;
+    if ( id->pr_del != -1 ) {
+ 		  if ( pr_begin ) {
+ 		  	  pr_begin = false;
+      	  first_point = id->point_id;
+      	  if ( id->first_point != NoExists ) {
+      	    id->first_point = NoExists;
+      	    id->modify = true;
+      	  }
       }
       else
-      	if ( id->first_point != first_point ) {
-          id->first_point = first_point;
-          id->modify = true;
+        if ( !id->pr_tranzit ) {
+        	if ( id->first_point != first_point ) {
+            id->first_point = first_point;
+            id->modify = true;
+          }
+          first_point = id->point_id;
         }
+        else
+        	if ( id->first_point != first_point ) {
+            id->first_point = first_point;
+            id->modify = true;
+          }
+    }
 /*!!!end of*/
 
-    if ( !id->modify ) //??? remark
+    if ( !id->modify ) { //??? remark
     	continue;
+    }
 
     if ( insert_point ) {
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id );
@@ -2716,7 +2733,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
   	  }*/
 
-  	  if ( id->craft != old_dest.craft ) {
+  	  if ( id->craft != old_dest.craft && !old_dest.craft.empty() ) {
   	  	ch_craft = true;
   	  	if ( !old_dest.craft.empty() ) {
   	  	  id->remark += " изм. типа ВС с " + old_dest.craft;
@@ -2748,7 +2765,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
-    	      	id->point_num = 0-id->point_num;
+    	      	id->point_num = -1-id->point_num;
     	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  		}
