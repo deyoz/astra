@@ -1069,6 +1069,7 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 		Qry.Execute();		
 	}
 	else { // update
+		//reqInfo->MsgToLog( "Обновление рейса ", evtDisp, move_id );		
 		string remark;
 	  AODB_Flight old_fl;		
 		point_id = Qry.FieldAsInteger( "point_id" );
