@@ -24,6 +24,7 @@ public:
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::PaxLog);
      AddEvent("LogRun",evHandle);
      AddEvent("FltLogRun",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::SystemLogRun);
      AddEvent("SystemLogRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::CommonCBoxDropDown);
      AddEvent("CommonCBoxDropDown",evHandle);
@@ -32,6 +33,7 @@ public:
   };	
   
   void CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BagTagStatRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
