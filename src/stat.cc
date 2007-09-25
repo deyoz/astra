@@ -514,22 +514,13 @@ void GetFltLogSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    points, "
-        "    events ";
+        "    points ";
     if (!info.user.access.airlines.empty())
         res += ",aro_airlines ";
     if (!info.user.access.airps.empty())
         res += ",aro_airps ";
     res +=
         "WHERE "
-        "    events.type in ( "
-        "    :evtFlt, "
-        "    :evtGraph, "
-        "    :evtTlg, "
-        "    :evtPax, "
-        "    :evtPay "
-        "    ) and "
-        "    events.id1 = points.point_id and "
         "    points.pr_del >= 0 and "
         "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if (!info.user.access.airlines.empty())
@@ -549,23 +540,13 @@ void GetFltLogSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    arx_points, "
-        "    arx_events ";
+        "    arx_points ";
     if (!info.user.access.airlines.empty())
         res += ",aro_airlines ";
     if (!info.user.access.airps.empty())
         res += ",aro_airps ";
     res +=
         "WHERE "
-        "    arx_events.part_key >= :FirstDate and "
-        "    arx_events.type in ( "
-        "    :evtFlt, "
-        "    :evtGraph, "
-        "    :evtTlg, "
-        "    :evtPax, "
-        "    :evtPay "
-        "    ) and "
-        "    arx_events.id1 = arx_points.point_id and "
         "    arx_points.pr_del >= 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "    arx_points.part_key >= :FirstDate ";
@@ -697,9 +678,131 @@ void GetSystemLogModuleSQL(TQuery &Qry)
 }
 
 
+void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo &reqInfo = *(TReqInfo::Instance());
+    TQuery Qry(&OraSession);        
+    if (!reqInfo.user.access.airlines.empty() || !reqInfo.user.access.airps.empty())
+        Qry.CreateVariable( "user_id", otInteger, reqInfo.user.user_id );
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
+    TTripInfo tripInfo;
+    xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
+    int count = 0;
+    string trip_name;
+    for(int i = 0; i < 2; i++) {
+        string SQLText;
+        if(i == 0) {
+            SQLText =
+                "SELECT "
+                "    points.point_id, "
+                "    points.airp, "
+                "    points.airline, "
+                "    points.flt_no, "
+                "    nvl(points.suffix, ' ') suffix, "
+                "    points.scd_out, "
+                "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+                "    move_id, "
+                "    point_num "
+                "FROM "
+                "    points ";
+            if (!reqInfo.user.access.airlines.empty())
+                SQLText += ",aro_airlines ";
+            if (!reqInfo.user.access.airps.empty())
+                SQLText += ",aro_airps ";
+            SQLText +=
+                "WHERE "
+                "    points.pr_del >= 0 and "
+                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+            if (!reqInfo.user.access.airlines.empty())
+                SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+            if (!reqInfo.user.access.airps.empty())
+                SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+        } else {
+            SQLText =
+                "SELECT "
+                "    arx_points.point_id, "
+                "    arx_points.airp, "
+                "    arx_points.airline, "
+                "    arx_points.flt_no, "
+                "    nvl(arx_points.suffix, ' ') suffix, "
+                "    arx_points.scd_out, "
+                "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+                "    move_id, "
+                "    point_num "
+                "FROM "
+                "    arx_points ";
+            if (!reqInfo.user.access.airlines.empty())
+                SQLText += ",aro_airlines ";
+            if (!reqInfo.user.access.airps.empty())
+                SQLText += ",aro_airps ";
+            SQLText +=
+                "WHERE "
+                "    arx_points.pr_del >= 0 and "
+                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                "    arx_points.part_key >= :FirstDate ";
+            if (!reqInfo.user.access.airlines.empty())
+                SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
+            if (!reqInfo.user.access.airps.empty())
+                SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+        }
+        Qry.SQLText = SQLText;
+        try {
+            Qry.Execute();
+        } catch (EOracleError E) {
+            if(E.Code == 376)
+                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            else
+                throw;
+        }
+        if(!Qry.Eof) {
+            int col_airline=Qry.FieldIndex("airline");
+            int col_flt_no=Qry.FieldIndex("flt_no");
+            int col_suffix=Qry.FieldIndex("suffix");
+            int col_airp=Qry.FieldIndex("airp");
+            int col_scd_out=Qry.FieldIndex("scd_out");
+            int col_real_out=Qry.FieldIndex("real_out");
+            for( ; !Qry.Eof; Qry.Next()) {
+                tripInfo.airline = Qry.FieldAsString(col_airline);
+                tripInfo.flt_no = Qry.FieldAsInteger(col_flt_no);
+                tripInfo.suffix = Qry.FieldAsString(col_suffix);
+                tripInfo.airp = Qry.FieldAsString(col_airp);
+                tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
+                tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
+                tripInfo.real_out_local_date=ASTRA::NoExists;
+                try
+                {
+                    trip_name = GetTripName(tripInfo,false,true);
+                }
+                catch(UserException &E)
+                {
+                    showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                    continue;
+                };
+                xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+                NewTextChild( fNode, "value", trip_name);
+                NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
+                count++;
+                if(count > MAX_STAT_ROWS) {
+                    showErrorMessage(
+                            "Выбрано слишком много строк. Показано " +
+                            IntToString(MAX_STAT_ROWS) +
+                            " произвольных строк."
+                            " Уточните период поиска."
+                            );
+                    break;
+                }
+            }
+        }
+    }
+    if(!count)
+        throw UserException("Не найдено ни одного рейса.");
+}
+
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
+    if(cbox == "FltCBox") return FltCBoxDropDown(ctxt, reqNode, resNode);
 
     TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TCategory *Ctg = &Category[scr];
@@ -713,10 +816,13 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     cbox_data->GetSQL(Qry);
     ProgTrace(TRACE5, "%s", Qry.SQLText.SQLText());
     TReqInfo *reqInfo = TReqInfo::Instance();
+    if(cbox == "FltCBox") {
+        Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
+        Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+    }
     /*
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-    */
     if(scr == FltLog) {
         Qry.CreateVariable("evtFlt", otString, EncodeEventType(evtFlt));
         Qry.CreateVariable("evtGraph", otString, EncodeEventType(evtGraph));
@@ -724,6 +830,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         Qry.CreateVariable("evtPax", otString, EncodeEventType(evtPax));
         Qry.CreateVariable("evtPay", otString, EncodeEventType(evtPay));
     }
+    */
     xmlNodePtr dependNode = GetNode("depends", reqNode);
     if(dependNode) {
         dependNode = dependNode->children;
@@ -996,7 +1103,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     if(!count)
         throw UserException("Не найдено ни одной операции.");
-
 }
 
 void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
