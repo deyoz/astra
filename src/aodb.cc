@@ -645,6 +645,10 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
 
 void ParseFlight( std::string &linestr, AODB_Flight &fl )
 {
+  fl.rec_no = NoExists;	
+ 	if ( linestr.length() < 6 )
+ 		throw Exception( "invalid flight record format, length=%d, value=%s", linestr.length(), linestr.c_str() );	
+ 		
 	TReqInfo *reqInfo = TReqInfo::Instance();
   string region = CityTZRegion( "ŒŽ‚" );	  	 	  	
 	TQuery Qry( &OraSession );	
@@ -656,6 +660,10 @@ void ParseFlight( std::string &linestr, AODB_Flight &fl )
 	fl.rec_no = NoExists;
 	if ( StrToInt( tmp.c_str(), fl.rec_no ) == EOF || fl.rec_no < 0 ||fl.rec_no > 999999 )
 		throw Exception( "Invalid rec_no, value=%s", tmp.c_str() );
+		
+ 	if ( linestr.length() < 175 + 4 )
+ 		throw Exception( "invalid flight record format, length=%d, value=%s", linestr.length(), linestr.c_str() );
+		
 	tmp = linestr.substr( 6, 10 );
 	tmp = TrimString( tmp );
 	if ( StrToFloat( tmp.c_str(), fl.id ) == EOF || fl.id < 0 || fl.id > 9999999999.0 )
@@ -1293,10 +1301,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
   	  fd.erase( 0, i + 1 );
   	}
     AODB_Flight fl;
-    fl.rec_no = NoExists;
     try {    	
-    	if ( linestr.length() < 175 + 4 )
-    		throw Exception( "invalid flight record format, length=%d, value=%s", linestr.length(), linestr.c_str() );
       ParseFlight( linestr, fl );
     }
     catch( Exception &e ) {    	    	

@@ -93,15 +93,15 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
+	TReqInfo *reqInfo = TReqInfo::Instance();		
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT tz_regions.region region "\
-   " FROM points,airps,cities,tz_regions "
-    "WHERE points.point_id=:point_id AND points.airp=airps.code AND airps.city=cities.code AND "\
-    "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+)";
+   "SELECT airp FROM points WHERE points.point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  string region = Qry.FieldAsString( "region" );
+  string region;
+	if ( reqInfo->user.time_form == tfLocalAll )
+ 	  region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
   Qry.Clear();
   Qry.SQLText =
    "BEGIN "\
@@ -195,7 +195,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        tolog += DateTimeToStr( ClientToUTC( i->second.act, region ), "=hh:nn dd.mm.yy (UTC)" );
      else
         tolog += " не задано";
-     TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
+     reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
      	tst();
    }
 }

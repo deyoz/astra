@@ -1681,6 +1681,7 @@ void GetLuggage( int point_id, Luggage &lug )
 
 void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 {
+	TReqInfo *reqInfo = TReqInfo::Instance();	
 	TQuery Qry(&OraSession);
   Qry.Clear();
   string sql =
@@ -1747,16 +1748,17 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 
   Qry.Clear();
   Qry.SQLText =
-   "SELECT tz_regions.region region,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "\
-   " FROM points,trip_sets,airps,cities,tz_regions "
-    "WHERE points.point_id=:point_id AND trip_sets.point_id=:point_id AND "\
-    "      points.airp=airps.code AND airps.city=cities.code AND "\
-    "      cities.country=tz_regions.country(+) AND cities.tz=tz_regions.tz(+)";
+   "SELECT airp,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
+   " FROM points,trip_sets "
+    "WHERE points.point_id=:point_id AND trip_sets.point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
   lug.pr_edit = !Qry.FieldIsNULL( "act_out" ) || Qry.FieldAsInteger( "pr_del" ) != 0;
-  lug.region = Qry.FieldAsString( "region" );
+	if ( reqInfo->user.time_form == tfLocalAll )
+ 	  lug.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
+ 	else
+ 		lug.region.clear();
   int pr_tranzit = Qry.FieldAsInteger( "pr_tranzit" );
   int first_point = Qry.FieldAsInteger( "first_point" );
   int point_num = Qry.FieldAsInteger( "point_num" );
@@ -2132,7 +2134,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   }
   else
 	  Qry.SQLText =
-    "SELECT point_id,point_num,first_point,airp,city,airline,flt_no,suffix,craft,bort,"\
+    "SELECT point_id,point_num,first_point,airp,airline,flt_no,suffix,craft,bort,"\
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"\
     "       pr_tranzit,pr_reg,points.pr_del pr_del "\
     " FROM points "
