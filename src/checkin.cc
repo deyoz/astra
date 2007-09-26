@@ -833,8 +833,16 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TInquiryGroup grp;
   ParseInquiryStr(query,grp);
   TInquiryFormat fmt;
-  fmt.persCountFmt=0;  //!!!djek
+  fmt.persCountFmt=0;
   fmt.infSeatsFmt=0;
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.city=="СУР")
+  {
+    fmt.persCountFmt=1;
+    fmt.infSeatsFmt=1;
+  };
+
 /*
   airp from points where point_id=:point_dep
 if airp == '' { fmt.persCountFtm=1
@@ -1434,7 +1442,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       node2=node->children;
       seats=NodeAsIntegerFast("seats",node2);
       if ( !seats )
-      	adultwithbaby = true;      
+      	adultwithbaby = true;
       seats_sum+=seats;
       bool flagVIP=false, flagSTCR=false, flagEXST=false;
       remNode=GetNodeFast("rems",node2);
@@ -1496,7 +1504,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     for(node=node->children;node!=NULL;node=node->next)
     {
         node2=node->children;
-        if (NodeAsIntegerFast("seats",node2)==0) 
+        if (NodeAsIntegerFast("seats",node2)==0)
         	continue;
         const char *subclass=NodeAsStringFast("subclass",node2);
         TPassenger pas;
@@ -1528,11 +1536,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             const char *rem_code=NodeAsStringFast("rem_code",node2);
             if (airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
                 airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
-            if ( strcmp(rem_code,"BLND")==0 || 
+            if ( strcmp(rem_code,"BLND")==0 ||
             	   strcmp(rem_code,"STCR")==0 ||
             	   strcmp(rem_code,"UMNR")==0 ||
             	   strcmp(rem_code,"WCHS")==0 ||
-            	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;                
+            	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
             pas.rems.push_back(rem_code);
           };
         };
@@ -1574,7 +1582,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
         else
         	if ( !pas.isValidPlace )
-        		showErrorMessage("Пассажиры посажены на запрещенные места");            
+        		showErrorMessage("Пассажиры посажены на запрещенные места");
         ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
         i++;
     };
