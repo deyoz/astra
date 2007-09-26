@@ -26,12 +26,15 @@ public:
      AddEvent("FltLogRun",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::SystemLogRun);
      AddEvent("SystemLogRun",evHandle);
+     evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::FltCBoxDropDown);
+     AddEvent("FltCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::CommonCBoxDropDown);
      AddEvent("CommonCBoxDropDown",evHandle);
      evHandle=JxtHandler<StatInterface>::CreateHandler(&StatInterface::RunStat);
      AddEvent("run_stat",evHandle);
   };	
   
+  void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

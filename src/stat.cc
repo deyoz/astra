@@ -11,6 +11,7 @@
 #include "tripinfo.h"
 #include "misc.h"
 #include <fstream>
+#include "timer.h"
 
 #define MAX_STAT_ROWS 2000
 
@@ -678,7 +679,35 @@ void GetSystemLogModuleSQL(TQuery &Qry)
 }
 
 
-void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+typedef struct {
+    TDateTime scd_out, real_out_local_date;
+    string airline, suffix, name;
+    int point_id, flt_no, move_id, point_num;
+} TPointsRow;
+
+bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
+{
+    bool result;
+    if(item1.real_out_local_date == item2.real_out_local_date) {
+        if(item1.flt_no == item2.flt_no) {
+            if(item1.airline == item2.airline) {
+                if(item1.suffix == item2.suffix) {
+                    if(item1.move_id == item2.move_id) {
+                        result = item1.point_num < item2.point_num;
+                    } else
+                        result = item1.move_id < item2.move_id;
+                } else
+                    result = item1.suffix < item2.suffix;
+            } else
+                result = item1.airline < item2.airline;
+        } else
+            result = item1.flt_no < item2.flt_no;
+    } else
+        result = item1.real_out_local_date > item2.real_out_local_date;
+    return result;
+};
+
+void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);        
@@ -687,9 +716,12 @@ void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
     TTripInfo tripInfo;
-    xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
-    int count = 0;
     string trip_name;
+    typedef vector<TPointsRow> TPoints;
+    TPoints points;
+    TPerfTimer tm;
+    tm.Init();
+    int count = 0;
     for(int i = 0; i < 2; i++) {
         string SQLText;
         if(i == 0) {
@@ -762,6 +794,9 @@ void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
             int col_airp=Qry.FieldIndex("airp");
             int col_scd_out=Qry.FieldIndex("scd_out");
             int col_real_out=Qry.FieldIndex("real_out");
+            int col_move_id=Qry.FieldIndex("move_id");
+            int col_point_num=Qry.FieldIndex("point_num");
+            int col_point_id=Qry.FieldIndex("point_id");
             for( ; !Qry.Eof; Qry.Next()) {
                 tripInfo.airline = Qry.FieldAsString(col_airline);
                 tripInfo.flt_no = Qry.FieldAsInteger(col_flt_no);
@@ -779,15 +814,24 @@ void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
                     showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
                     continue;
                 };
-                xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-                NewTextChild( fNode, "value", trip_name);
-                NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
+                TPointsRow pointsRow;
+                pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
+                pointsRow.scd_out = tripInfo.scd_out;
+                pointsRow.real_out_local_date = tripInfo.real_out_local_date;
+                pointsRow.airline = tripInfo.airline;
+                pointsRow.suffix = tripInfo.suffix;
+                pointsRow.name = trip_name;
+                pointsRow.flt_no = tripInfo.flt_no;
+                pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
+                pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
+                points.push_back(pointsRow);
+
                 count++;
-                if(count > MAX_STAT_ROWS) {
+                if(count >= MAX_STAT_ROWS) {
                     showErrorMessage(
-                            "Выбрано слишком много строк. Показано " +
+                            "Выбрано слишком много рейсов. Показано " +
                             IntToString(MAX_STAT_ROWS) +
-                            " произвольных строк."
+                            " произвольных рейсов."
                             " Уточните период поиска."
                             );
                     break;
@@ -795,14 +839,26 @@ void FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNod
             }
         }
     }
-    if(!count)
+    ProgTrace(TRACE5, "FltCBoxDropDown EXEC QRY: %s", tm.PrintWithMessage().c_str());
+    if(count == 0)
         throw UserException("Не найдено ни одного рейса.");
+    tm.Init();
+    sort(points.begin(), points.end(), lessPointsRow);
+    ProgTrace(TRACE5, "FltCBoxDropDown SORT: %s", tm.PrintWithMessage().c_str());
+    tm.Init();
+    xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
+    for(TPoints::iterator iv = points.begin(); iv != points.end(); iv++) {
+        xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+        NewTextChild( fNode, "name", iv->name);
+        NewTextChild(fNode, "point_id", iv->point_id);
+        NewTextChild(fNode, "scd_out", DateTimeToStr(iv->scd_out, ServerFormatDateTimeAsString));
+    }
+    ProgTrace(TRACE5, "FltCBoxDropDown XML: %s", tm.PrintWithMessage().c_str());
 }
 
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
-    if(cbox == "FltCBox") return FltCBoxDropDown(ctxt, reqNode, resNode);
 
     TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TCategory *Ctg = &Category[scr];
@@ -1397,418 +1453,280 @@ void THalls::Init()
 
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TDateTime FirstDate = ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region);
+    TDateTime LastDate = ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region);
     get_report_form("ArxPaxList", resNode);
     {
-    TQuery Qry(&OraSession);
-    string SQLText =
-        "SELECT "
-        "   pax_grp.point_dep point_id, "
-        "   points.airline, "
-        "   points.flt_no, "
-        "   points.suffix, "
-        "   points.airp, "
-        "   points.scd_out, "
-        "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-        "   pax.reg_no, "
-        "   pax_grp.airp_arv, "
-        "   pax.surname||' '||pax.name full_name, "
-        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum),0) bag_amount, "
-        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum),0) bag_weight, "
-        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum),0) rk_weight, "
-        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
-        "   pax_grp.grp_id, "
-        "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
-        "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
-        "   classes.code class, "
-        "   LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-        "   pax_grp.hall hall, "
-        "   pax.document, "
-        "   pax.ticket_no "
-        "FROM  pax_grp,pax, points, "
-        "( "
-        "  select  "
-        "     code,  "
-        "     code_lat,  "
-        "     name,  "
-        "     name_lat, "
-        "     priority "
-        "  from  "
-        "     classes  "
-        "  union  "
-        "  select "
-        "     'М',  "
-        "     'M',  "
-        "     'КОМФОРТ',  "
-        "     'COMFORT' , "
-        "     4 "
-        "  from  "
-        "     dual "
-        ") classes "
-        "WHERE "
-        "   points.point_id = :point_id and "
-        "   points.point_id = pax_grp.point_dep and "
-        "   pax_grp.grp_id=pax.grp_id AND "
-        "   report.get_grp_class(pax_grp.grp_id, 1)=classes.code AND "
-        "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
-        "union "
-        "SELECT "
-        "   arx_pax_grp.point_dep point_id, "
-        "   arx_points.airline, "
-        "   arx_points.flt_no, "
-        "   arx_points.suffix, "
-        "   arx_points.airp, "
-        "   arx_points.scd_out, "
-        "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
-        "   arx_pax.reg_no, "
-        "   arx_pax_grp.airp_arv, "
-        "   arx_pax.surname||' '||arx_pax.name full_name, "
-        "   NVL(arch.get_bagAmount(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_amount, "
-        "   NVL(arch.get_bagWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_weight, "
-        "   NVL(arch.get_rkWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
-        "   NVL(arch.get_excess(:FirstDate,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
-        "   arx_pax_grp.grp_id, "
-        "   arch.get_birks(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
-        "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
-        "       'Разрег.('||arx_pax.refuse||')') AS status, "
-        "   classes.code class, "
-        "   LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-        "   arx_pax_grp.hall hall, "
-        "   arx_pax.document, "
-        "   arx_pax.ticket_no "
-        "FROM  arx_pax_grp,arx_pax, arx_points, "
-        "( "
-        "  select  "
-        "     code,  "
-        "     code_lat,  "
-        "     name,  "
-        "     name_lat, "
-        "     priority "
-        "  from  "
-        "     classes  "
-        "  union  "
-        "  select "
-        "     'М',  "
-        "     'M',  "
-        "     'КОМФОРТ',  "
-        "     'COMFORT' , "
-        "     4 "
-        "  from  "
-        "     dual "
-        ") classes "
-        "WHERE "
-        "   arx_points.point_id = :point_id and "
-        "   arx_points.point_id = arx_pax_grp.point_dep and "
-        "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
-        "   arch.get_grp_class(arx_pax_grp.grp_id,:FirstDate, 1)=classes.code AND "
-        "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "   arx_points.part_key >= :FirstDate and "
-        "   arx_pax_grp.part_key >= :FirstDate and "
-        "   arx_pax.part_key >= :FirstDate and "
-        "   pr_brd IS NOT NULL ";
-
-    Qry.SQLText = SQLText;
-
-    TReqInfo *reqInfo = TReqInfo::Instance();
-
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-    Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
-
-    Qry.Execute();
-    if(!Qry.Eof) {
-        xmlNodePtr paxListNode = NewTextChild(resNode, "paxList");
-        xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
-        xmlNodePtr colNode;
-
-        colNode = NewTextChild(headerNode, "col", "Рейс");
-        SetProp(colNode, "width", 53);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Дата");
-        SetProp(colNode, "width", 61);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "№");
-        SetProp(colNode, "width", 25);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Фамилия");
-        SetProp(colNode, "width", 173);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "П/Н");
-        SetProp(colNode, "width", 32);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Мест");
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Вес");
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Р/к");
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Плат");
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Бирки");
-        SetProp(colNode, "width", 163);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Статус");
-        SetProp(colNode, "width", 93);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Кл.");
-        SetProp(colNode, "width", 25);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "№ м");
-        SetProp(colNode, "width", 40);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Зал");
-        SetProp(colNode, "width", 78);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Документ");
-        SetProp(colNode, "width", 114);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "№ билета");
-        SetProp(colNode, "width", 101);
-        SetProp(colNode, "align", taLeftJustify);
-
-        xmlNodePtr rowsNode = NewTextChild(paxListNode, "rows");
-        while(!Qry.Eof) {
-            TTripInfo info(Qry);
-            string trip = GetTripName(info);
-            xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
-
-            NewTextChild(paxNode, "point_id", Qry.FieldAsInteger("point_id"));
-            NewTextChild(paxNode, "airline", Qry.FieldAsString("airline"));
-            NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger("flt_no"));
-            NewTextChild(paxNode, "suffix", Qry.FieldAsString("suffix"));
-            NewTextChild(paxNode, "trip", trip);
-
-            NewTextChild( paxNode, "scd_out",
-                    DateTimeToStr(
-                        UTCToClient( Qry.FieldAsDateTime("scd_out"), reqInfo->desk.tz_region),
-                        ServerFormatDateTimeAsString
-                        )
-                    );
-
-            NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-            NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
-            NewTextChild(paxNode, "full_name", Qry.FieldAsString("full_name"));
-            NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
-            NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
-            NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
-            NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
-            NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
-            NewTextChild(paxNode, "status", Qry.FieldAsString("status"));
-            NewTextChild(paxNode, "class", Qry.FieldAsString("class"));
-            NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"));
-            NewTextChild(paxNode, "hall", Qry.FieldAsInteger("hall"));
-            NewTextChild(paxNode, "document", Qry.FieldAsString("document"));
-            NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"));
-
-            Qry.Next();
-        }
-    } else
-        throw UserException("Не найдено ни одного пассажира");
-
-    STAT::set_variables(resNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
-
-    return;
-    }
-    ////////////////////////////////////////////////////////////////////////////////////////////
-
-
-/*
-
-
-    string tag = (char *)reqNode->name;
-    xmlNodePtr paramsNode = GetNode("sqlparams", reqNode);
-    string grp_id, grp, arx_grp_id, arx_grp;
-    if(tag == "PaxListRun")
-        ; // do nothing
-    else if(tag == "PaxSrcRun") {
-        xmlNodePtr curNode = paramsNode->children;
-
-        string family, pass, ticketno;
-        family = NodeAsStringFast("family", curNode, "");
-        pass = NodeAsStringFast("pass", curNode, "");
-        ticketno = NodeAsStringFast("ticketno", curNode, "");
-
-        if(family.size() || pass.size() || ticketno.size()) {
-            TDateTime FirstDate = NodeAsDateTime("FirstDate", paramsNode);
-            TDateTime LastDate = NodeAsDateTime("LastDate", paramsNode);
-            grp_id =
-                ",(SELECT DISTINCT grp_id FROM astra.pax "
-                "  WHERE (:family is null or surname ";
-            if(FirstDate + 1 < LastDate && family.size() < 4)
-                grp_id += " = :family) and ";
-            else
-                grp_id += " LIKE :family||'%') and ";
-            grp_id +=
-                "  (:ticketno is null or ticket_no = :ticketno) and  "
-                "  (:pass is null or document = :pass)  "
-                "  ORDER BY grp_id) grps ";
-            grp = " pax_grp.grp_id=grps.grp_id AND ";
-
-            arx_grp_id =
-                ",(SELECT DISTINCT part_key,grp_id FROM arx.pax "
-                "  WHERE pax.part_key>= :FirstDate AND pax.part_key< :LastDate AND ";
-            if(FirstDate + 1 < LastDate && family.size() < 4)
-                arx_grp_id += "        (:family is null or surname= :family) and ";
-            else
-                arx_grp_id += "        (:family is null or surname LIKE :family||'%') and ";
-            arx_grp_id +=
-                "  (:ticketno is null or ticket_no = :ticketno) and  "
-                "  (:pass is null or document = :pass)  "
-                "  ORDER BY part_key,grp_id) grps ";
-            arx_grp = "pax.part_key=grps.part_key AND pax.grp_id=grps.grp_id AND ";
+        TQuery Qry(&OraSession);
+        string SQLText;
+        if(!(NowUTC() - ARX_MAX_DAYS() > LastDate)) {
+            ProgTrace(TRACE5, "PaxListRun: current base qry");
+            SQLText =
+                "SELECT "
+                "   pax_grp.point_dep point_id, "
+                "   points.airline, "
+                "   points.flt_no, "
+                "   points.suffix, "
+                "   points.airp, "
+                "   points.scd_out, "
+                "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+                "   pax.reg_no, "
+                "   pax_grp.airp_arv, "
+                "   pax.surname||' '||pax.name full_name, "
+                "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum),0) bag_amount, "
+                "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum),0) bag_weight, "
+                "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum),0) rk_weight, "
+                "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
+                "   pax_grp.grp_id, "
+                "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
+                "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
+                "   classes.code class, "
+                "   LPAD(seat_no,3,'0')|| "
+                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   pax_grp.hall hall, "
+                "   pax.document, "
+                "   pax.ticket_no "
+                "FROM  pax_grp,pax, points, "
+                "( "
+                "  select  "
+                "     code,  "
+                "     code_lat,  "
+                "     name,  "
+                "     name_lat, "
+                "     priority "
+                "  from  "
+                "     classes  "
+                "  union  "
+                "  select "
+                "     'М',  "
+                "     'M',  "
+                "     'КОМФОРТ',  "
+                "     'COMFORT' , "
+                "     4 "
+                "  from  "
+                "     dual "
+                ") classes "
+                "WHERE "
+                "   points.point_id = :point_id and "
+                "   points.point_id = pax_grp.point_dep and "
+                "   pax_grp.grp_id=pax.grp_id AND "
+                "   report.get_grp_class(pax_grp.grp_id, 1)=classes.code AND "
+                "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
         } else {
-            grp_id =
-                ",(SELECT DISTINCT grp_id FROM astra.bag_tags "
-                "  WHERE no=:n_birk ORDER BY grp_id) grps ";
-            grp = "pax_grp.grp_id=grps.grp_id AND ";
-            arx_grp_id =
-                ",(SELECT DISTINCT part_key,grp_id FROM arx.bag_tags "
-                "  WHERE bag_tags.part_key>= :FirstDate AND bag_tags.part_key< :LastDate AND "
-                "        no=:n_birk ORDER BY part_key,grp_id) grps ";
-            arx_grp = "pax.part_key=grps.part_key AND pax.grp_id=grps.grp_id AND ";
+            ProgTrace(TRACE5, "PaxListRun: arx base qry");
+            SQLText =
+                "SELECT "
+                "   arx_pax_grp.point_dep point_id, "
+                "   arx_points.airline, "
+                "   arx_points.flt_no, "
+                "   arx_points.suffix, "
+                "   arx_points.airp, "
+                "   arx_points.scd_out, "
+                "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
+                "   arx_pax.reg_no, "
+                "   arx_pax_grp.airp_arv, "
+                "   arx_pax.surname||' '||arx_pax.name full_name, "
+                "   NVL(arch.get_bagAmount(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_amount, "
+                "   NVL(arch.get_bagWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) bag_weight, "
+                "   NVL(arch.get_rkWeight(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,rownum),0) rk_weight, "
+                "   NVL(arch.get_excess(:FirstDate,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
+                "   arx_pax_grp.grp_id, "
+                "   arch.get_birks(:FirstDate,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
+                "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
+                "       'Разрег.('||arx_pax.refuse||')') AS status, "
+                "   classes.code class, "
+                "   LPAD(seat_no,3,'0')|| "
+                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   arx_pax_grp.hall hall, "
+                "   arx_pax.document, "
+                "   arx_pax.ticket_no "
+                "FROM  arx_pax_grp,arx_pax, arx_points, "
+                "( "
+                "  select  "
+                "     code,  "
+                "     code_lat,  "
+                "     name,  "
+                "     name_lat, "
+                "     priority "
+                "  from  "
+                "     classes  "
+                "  union  "
+                "  select "
+                "     'М',  "
+                "     'M',  "
+                "     'КОМФОРТ',  "
+                "     'COMFORT' , "
+                "     4 "
+                "  from  "
+                "     dual "
+                ") classes "
+                "WHERE "
+                "   arx_points.point_id = :point_id and "
+                "   arx_points.point_id = arx_pax_grp.point_dep and "
+                "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
+                "   arch.get_grp_class(arx_pax_grp.grp_id,:FirstDate, 1)=classes.code AND "
+                "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                "   arx_points.part_key >= :FirstDate and "
+                "   arx_pax_grp.part_key >= :FirstDate and "
+                "   arx_pax.part_key >= :FirstDate and "
+                "   pr_brd IS NOT NULL ";
         }
-    } else
-        throw Exception((string)"PaxLog: unknown tag " + tag);
-    string qry = (string)
-        "SELECT "
-        "  pax.pax_id,pax_grp.point_id, "
-        "  pax_grp.grp_id, "
-        "  trips.company AS airline,trips.flt_no,trips.suffix, "
-        "  trips.scd, "
-        "  pax.reg_no, "
-        "  pax.surname,pax.name, "
-        "  pax_grp.target, "
-        "  astra.ckin.get_bagAmount(pax_grp.grp_id,pax.pax_id,rownum) AS bag_amount, "
-        "  astra.ckin.get_bagWeight(pax_grp.grp_id,pax.pax_id,rownum) AS bag_weight, "
-        "  astra.ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) AS rk_weight, "
-        "  astra.ckin.get_birks(pax_grp.grp_id,pax.pax_id,0) AS tags, "
-        "  astra.ckin.get_excess(pax_grp.grp_id,pax.pax_id) AS excess, "
-        "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Разрег.('||pax.refuse||')') AS status, "
-        "  pax_grp.class, "
-        "  LPAD(pax.seat_no,3,'0')|| "
-        "           DECODE(SIGN(1-pax.seats),-1,'+'||TO_CHAR(pax.seats-1),'') AS seat_no, "
-        "  pax.document, "
-        "  pax.ticket_no "
-        "FROM astra.trips,astra.pax_grp,astra.pax " +
-        grp_id +
-        "WHERE trips.trip_id=pax_grp.point_id AND pax_grp.grp_id=pax.grp_id AND " +
-        grp +
-        "      trips.scd>= :FirstDate AND trips.scd< :LastDate AND "
-        "      (:trip IS NULL OR trips.trip= :trip) and "
-        "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM astra.place WHERE place.trip_id=trips.trip_id AND place.city=:dest)) "
-        "UNION "
-        "SELECT "
-        "  pax.pax_id,pax_grp.point_id, "
-        "  pax_grp.grp_id, "
-        "  trips.company AS airline,trips.flt_no,trips.suffix, "
-        "  trips.scd, "
-        "  pax.reg_no, "
-        "  pax.surname,pax.name, "
-        "  pax_grp.target, "
-        "  arx.ckin.get_bagAmount(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS bag_amount, "
-        "  arx.ckin.get_bagWeight(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS bag_weight, "
-        "  arx.ckin.get_rkWeight(pax_grp.part_key,pax_grp.grp_id,pax.pax_id,rownum) AS rk_weight, "
-        "  arx.ckin.get_birks(pax_grp.part_key,pax_grp.grp_id,pax.pax_id) AS tags, "
-        "  arx.ckin.get_excess(pax_grp.part_key,pax_grp.grp_id,pax.pax_id) AS excess, "
-        "  DECODE(pax.refuse,NULL,DECODE(pax_grp.pr_wl,0,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'ЛО'),'Разрег.('||pax.refuse||')') AS status, "
-        "  pax_grp.class, "
-        "  LPAD(pax.seat_no,3,'0')|| "
-        "           DECODE(SIGN(1-pax.seats),-1,'+'||TO_CHAR(pax.seats-1),'') AS seat_no, "
-        "  pax_grp.hall AS hall, "
-        "  pax.document, "
-        "  pax.ticket_no "
-        "FROM arx.trips,arx.pax_grp,arx.pax " +
-        arx_grp_id +
-        "WHERE trips.part_key=pax_grp.part_key AND trips.trip_id=pax_grp.point_id AND pax_grp.part_key=pax.part_key AND pax_grp.grp_id=pax.grp_id AND " +
-        arx_grp +
-        "      trips.part_key>= :FirstDate AND trips.part_key< :LastDate AND "
-        "      (:trip IS NULL OR trips.trip= :trip) and "
-        "      (:dest IS NULL OR pax_grp.target IN (SELECT cod FROM arx.place WHERE place.part_key=trips.part_key AND place.trip_id=trips.trip_id AND place.city=:dest)) ";
 
-    THalls halls;
-    halls.Init();
-    TQuery Qry(&OraSession);
-    Qry.SQLText = qry;
-    TParams1 SQLParams;
-    SQLParams.getParams(paramsNode);
-    SQLParams.setSQL(&Qry);
-    try {
+        Qry.SQLText = SQLText;
+
+        Qry.CreateVariable("FirstDate", otDate, FirstDate);
+        Qry.CreateVariable("LastDate", otDate, LastDate);
+        Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
+
+        TPerfTimer tm;
+        tm.Init();
         Qry.Execute();
-    } catch (EOracleError E) {
-        if(E.Code == 376)
-            throw UserException(376);
-        else
-            throw;
-    }
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    xmlNodePtr PaxesNode = NewTextChild(dataNode, "Paxes");
-    while(!Qry.Eof) {
-        xmlNodePtr rowNode = NewTextChild(PaxesNode, "row");
+        ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
+        if(!Qry.Eof) {
+            tm.Init();
+            xmlNodePtr paxListNode = NewTextChild(resNode, "paxList");
+            xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
+            xmlNodePtr colNode;
 
-        string airline = Qry.FieldAsString("airline");
-        int flt_no = Qry.FieldAsInteger("flt_no");
-        string suffix = Qry.FieldAsString("suffix");
+            colNode = NewTextChild(headerNode, "col", "Рейс");
+            SetProp(colNode, "width", 53);
+            SetProp(colNode, "align", taLeftJustify);
 
-        NewTextChild(rowNode, "trip_id", Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode, "airline", airline);
-        NewTextChild(rowNode, "flt_no", flt_no);
-        NewTextChild(rowNode, "suffix", suffix);
-        NewTextChild(rowNode, "trip", airline+IntToString(flt_no)+suffix);
-        NewTextChild(rowNode, "scd", DateTimeToStr(Qry.FieldAsDateTime("scd")));
-        NewTextChild(rowNode, "n_reg", Qry.FieldAsInteger("reg_no"));
-        NewTextChild(rowNode, "family", (string)Qry.FieldAsString("surname")+" "+Qry.FieldAsString("name"));
-        NewTextChild(rowNode, "bagAmount", Qry.FieldAsInteger("bag_amount"));
-        NewTextChild(rowNode, "bagWeight", Qry.FieldAsInteger("bag_weight"));
-        NewTextChild(rowNode, "rkWeight", Qry.FieldAsInteger("rk_weight"));
-        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
-        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-        NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
-        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(rowNode, "status", Qry.FieldAsString("status"));
-        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
-        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
-        {
-            string hall;
-            if(!Qry.FieldIsNULL("hall")) {
-                int hall_id = Qry.FieldAsInteger("hall");
-                THalls::iterator ih = halls.begin();
-                for(; ih != halls.end(); ih++) {
-                    if(ih->id == hall_id) break;
-                }
-                if(ih == halls.end())
-                    hall = IntToString(hall_id);
-                else
-                    hall = ih->name;
+            colNode = NewTextChild(headerNode, "col", "Дата");
+            SetProp(colNode, "width", 61);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "№");
+            SetProp(colNode, "width", 25);
+            SetProp(colNode, "align", taRightJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Фамилия");
+            SetProp(colNode, "width", 173);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "П/Н");
+            SetProp(colNode, "width", 32);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Мест");
+            SetProp(colNode, "width", 40);
+            SetProp(colNode, "align", taRightJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Вес");
+            SetProp(colNode, "width", 40);
+            SetProp(colNode, "align", taRightJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Р/к");
+            SetProp(colNode, "width", 40);
+            SetProp(colNode, "align", taRightJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Плат");
+            SetProp(colNode, "width", 40);
+            SetProp(colNode, "align", taRightJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Бирки");
+            SetProp(colNode, "width", 163);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Статус");
+            SetProp(colNode, "width", 93);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Кл.");
+            SetProp(colNode, "width", 25);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "№ м");
+            SetProp(colNode, "width", 40);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Зал");
+            SetProp(colNode, "width", 78);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "Документ");
+            SetProp(colNode, "width", 114);
+            SetProp(colNode, "align", taLeftJustify);
+
+            colNode = NewTextChild(headerNode, "col", "№ билета");
+            SetProp(colNode, "width", 101);
+            SetProp(colNode, "align", taLeftJustify);
+
+            xmlNodePtr rowsNode = NewTextChild(paxListNode, "rows");
+            ProgTrace(TRACE5, "Header: %s", tm.PrintWithMessage().c_str());
+            tm.Init();
+
+            int col_point_id = Qry.FieldIndex("point_id");
+            int col_airline = Qry.FieldIndex("airline");
+            int col_flt_no = Qry.FieldIndex("flt_no");
+            int col_suffix = Qry.FieldIndex("suffix");
+            int col_scd_out = Qry.FieldIndex("scd_out");
+            int col_reg_no = Qry.FieldIndex("reg_no");
+            int col_full_name = Qry.FieldIndex("full_name");
+            int col_bag_amount = Qry.FieldIndex("bag_amount");
+            int col_bag_weight = Qry.FieldIndex("bag_weight");
+            int col_rk_weight = Qry.FieldIndex("rk_weight");
+            int col_excess = Qry.FieldIndex("excess");
+            int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_airp_arv = Qry.FieldIndex("airp_arv");
+            int col_tags = Qry.FieldIndex("tags");
+            int col_status = Qry.FieldIndex("status");
+            int col_class = Qry.FieldIndex("class");
+            int col_seat_no = Qry.FieldIndex("seat_no");
+            int col_document = Qry.FieldIndex("document");
+            int col_ticket_no = Qry.FieldIndex("ticket_no");
+            int col_hall = Qry.FieldIndex("hall");
+
+            while(!Qry.Eof) {
+                TTripInfo info(Qry);
+                string trip = GetTripName(info);
+                xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
+
+                NewTextChild(paxNode, "point_id", Qry.FieldAsInteger(col_point_id));
+                NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
+                NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
+                NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
+                NewTextChild(paxNode, "trip", trip);
+
+                NewTextChild( paxNode, "scd_out",
+                        DateTimeToStr(
+                            UTCToClient( Qry.FieldAsDateTime(col_scd_out), reqInfo->desk.tz_region),
+                            ServerFormatDateTimeAsString
+                            )
+                        );
+
+                NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
+                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
+                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
+                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
+                NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+                NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+                NewTextChild(paxNode, "airp_arv", Qry.FieldAsString(col_airp_arv));
+                NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
+                NewTextChild(paxNode, "status", Qry.FieldAsString(col_status));
+                NewTextChild(paxNode, "class", Qry.FieldAsString(col_class));
+                NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
+                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
+
+                Qry.Next();
             }
-            NewTextChild(rowNode, "hall", hall);
-        }
-        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
-        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+            ProgTrace(TRACE5, "XML: %s", tm.PrintWithMessage().c_str());
+        } else
+            throw UserException("Не найдено ни одного пассажира");
 
-        Qry.Next();
-    }*/
+        tm.Init();
+        STAT::set_variables(resNode);
+        ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
+        tm.Init();
+        ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+        ProgTrace(TRACE5, "GetXMLDocText: %s", tm.PrintWithMessage().c_str());
+
+        return;
+    }
 }
 
 struct TTagQryParts {
