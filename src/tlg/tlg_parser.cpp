@@ -2760,7 +2760,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      pr_del=0 ";
+      "      pr_del>=0 ";
   }
   else
   {
@@ -2770,7 +2770,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      TRUNC(scd)= :scd AND pr_del=0 ";
+      "      TRUNC(scd)= :scd AND pr_del>=0 ";
     TripsQry.CreateVariable("scd",otDate,flt.scd);
   };
   TripsQry.Execute();
@@ -2805,7 +2805,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
             //ищем point_num первого попавшегося в маршруте airp_arv
             SegQry.SQLText=
               "SELECT MIN(point_num) AS last_point_num FROM points "
-              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 AND "
+              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 AND "
               "      airp=:airp_arv ";
             SegQry.CreateVariable("airp_arv",otString,flt.airp_arv);
           }
@@ -2814,7 +2814,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
             //ищем point_num последнего пункта в маршруте
             SegQry.SQLText=
               "SELECT MAX(point_num) AS last_point_num FROM points "
-              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ";
+              "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 ";
           };
           SegQry.Execute();
           if (SegQry.Eof||SegQry.FieldIsNULL("last_point_num"))
@@ -2834,7 +2834,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
             "SELECT point_id FROM points "
             "WHERE DECODE(pr_tranzit,0,point_id,first_point)=:first_point AND "
             "      point_num>=:point_num AND "
-            "      point_num<:last_point_num AND pr_del=0 "
+            "      point_num<:last_point_num AND pr_del>=0 "
             "ORDER BY point_num DESC";
           SegQry.CreateVariable("first_point",otInteger,TripsQry.FieldAsInteger("first_point"));
           SegQry.CreateVariable("point_num",otInteger,TripsQry.FieldAsInteger("point_num"));
