@@ -3457,7 +3457,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       "curRow cur%ROWTYPE; "
       "BEGIN "
       "  FOR curRow IN cur LOOP "
-      "    ckin.recount(curRow.point_id_spp); "
+      "    ckin.crs_recount(curRow.point_id_spp); "
       "  END LOOP; "
       "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
