@@ -301,6 +301,9 @@ bool createAODBCheckInInfoFile( int point_id,
 			case ASTRA::adult:
 				  record<<0;
 				  break;
+		  case ASTRA::baby:
+		  	  record<<2;
+		  	  break;
 			default:
 				  record<<1;
 		}
