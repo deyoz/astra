@@ -1021,7 +1021,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       Qry.CreateVariable( "act_out", otDate, fl.act );
     else
     	Qry.CreateVariable( "act_out", otDate, FNull );
-    Qry.CreateVariable( "trip_type", otString, "¯" );
+    Qry.CreateVariable( "trip_type", otString, fl.trip_type );
     Qry.CreateVariable( "litera", otString, fl.litera );
     Qry.CreateVariable( "park_in", otString, FNull );
     Qry.CreateVariable( "park_out", otString, fl.term );
