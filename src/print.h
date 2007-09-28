@@ -64,7 +64,6 @@ class PrintDataParser {
 
                 void fillBTBPMap();
                 void fillMSOMap(TBagReceipt &rcpt);
-                std::string check_class(std::string val);
                 bool printed(TData::iterator di);
 
             public:
