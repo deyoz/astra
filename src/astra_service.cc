@@ -601,7 +601,7 @@ void createSofiFileDATA( int receipt_id )
 		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
 }
 
-void createAODBFileDATA( int point_id )
+/*void createAODBFileDATA( int point_id )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = "SELECT airp, airline, flt_no FROM points WHERE point_id=:point_id";
@@ -610,7 +610,7 @@ void createAODBFileDATA( int point_id )
 	if ( !Qry.Eof )
 		CreateCommonFileData( point_id, FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
 		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
-}
+}*/
 
 void sync_aodb( void )
 {
@@ -621,7 +621,7 @@ void sync_aodb( void )
 	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
 	 "       points.point_id=aodb_points.point_id AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
-	 "       gtimer.get_stage(point_id,1) BETWEEN :stage1 AND :stage2 AND "
+	 "       gtimer.get_stage(points.point_id,1) BETWEEN :stage1 AND :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";

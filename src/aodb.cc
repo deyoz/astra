@@ -154,13 +154,13 @@ bool createAODBCheckInInfoFile( int point_id,
 	 " WHERE points.point_id=:point_id AND points.point_id=aodb_points.point_id AND "
 	 "       aodb_points.point_addr=:point_addr FOR UPDATE";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, params[PARAM_CANON_NAME] );	
+	Qry.CreateVariable( "point_addr", otString, point_addr );	
 	Qry.Execute();
 	if ( !Qry.RowCount() ) {
 		ProgError( STDLOG, "Flight not found, point_id=%d", point_id );
 		return false;
 	}
-	float aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
+	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
 	string flight = Qry.FieldAsString( "trip" );
 	string region = CityTZRegion( "ŒŽ‚" );
 	string scd_date = DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), "dd.mm.yyyy hh:nn" );	 
@@ -253,7 +253,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	TimeQry.DeclareVariable( "work_mode", otString );
 	while ( !Qry.Eof ) {
 		ostringstream record;
-		record<<setfill(' ')<<std::fixed<<setw(10)<<aodb_point_id;
+		record<<setfill(' ')<<std::fixed<<setw(10)<<setprecision(0)<<aodb_point_id;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
 		record<<setw(16)<<scd_date;
 		record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
