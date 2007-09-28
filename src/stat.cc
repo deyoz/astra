@@ -943,6 +943,202 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         }
 }
 
+void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr paramNode = reqNode->children;
+    int point_id = NodeAsIntegerFast("point_id", paramNode);
+    TDateTime part_key;
+    xmlNodePtr partKeyNode = GetNodeFast("part_key", paramNode);
+    if(partKeyNode == NULL)
+        part_key = NoExists;
+    else
+        part_key = NodeAsDateTime(partKeyNode);
+    get_report_form("ArxPaxLog", resNode);
+    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TQuery Qry(&OraSession);
+    int count = 0;
+
+    xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
+    xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
+    xmlNodePtr colNode;
+
+
+    colNode = NewTextChild(headerNode, "col", "Агент");
+    SetProp(colNode, "width", 73);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Стойка");
+    SetProp(colNode, "width", 60);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Время");
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Рейс");
+    SetProp(colNode, "width", 90);
+    SetProp(colNode, "align", taLeftJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Рег №");
+    SetProp(colNode, "width", 45);
+    SetProp(colNode, "align", taRightJustify);
+
+    colNode = NewTextChild(headerNode, "col", "Операция");
+    SetProp(colNode, "width", 750);
+    SetProp(colNode, "align", taLeftJustify);
+
+    Qry.Clear();
+    if (part_key == NoExists) {
+        ProgTrace(TRACE5, "FltLogRun: work base qry");
+        Qry.SQLText =
+            "SELECT msg, time, id1 AS point_id, "
+            "       events.screen, "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM events "
+            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "      events.id1 = :point_id ";
+    } else {    
+        ProgTrace(TRACE5, "FltLogRun: arx base qry");
+        Qry.SQLText =
+            "SELECT msg, time, id1 AS point_id, "
+            "       arx_events.screen, "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
+            "       ev_user, station, ev_order "
+            "FROM arx_events "
+            "WHERE "
+            "      arx_events.part_key = :part_key and "
+            "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "      arx_events.id1 = :point_id ";
+        Qry.CreateVariable("part_key", otDate, part_key);
+    }
+
+    Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+    Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
+    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+    Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+    Qry.CreateVariable("point_id", otInteger, point_id);
+
+    TPerfTimer tm;
+    tm.Init();
+    try {
+        Qry.Execute();
+    } catch (EOracleError E) {
+        if(E.Code == 376)
+            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+        else
+            throw;
+    }
+
+    if(Qry.Eof && part_key == NoExists)
+        throw UserException("Рейс перемещен в архив. Выберите заново из списка");
+
+    typedef map<string, string> TScreenMap;
+    typedef map<string, bool> TAccessMap;
+    TAccessMap user_access;
+    TAccessMap desk_access;
+    TScreenMap screen_map;
+    if(!Qry.Eof) {
+        int col_point_id=Qry.FieldIndex("point_id");
+        int col_ev_user=Qry.FieldIndex("ev_user");
+        int col_station=Qry.FieldIndex("station");
+        int col_time=Qry.FieldIndex("time");
+        int col_grp_id=Qry.FieldIndex("grp_id");
+        int col_reg_no=Qry.FieldIndex("reg_no");
+        int col_msg=Qry.FieldIndex("msg");
+        int col_ev_order=Qry.FieldIndex("ev_order");
+        int col_screen=Qry.FieldIndex("screen");
+
+        xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+        for( ; !Qry.Eof; Qry.Next()) {
+            string ev_user = Qry.FieldAsString(col_ev_user);
+            string station = Qry.FieldAsString(col_station);
+
+            if(ev_user != "") {
+                if(user_access.find(ev_user) == user_access.end()) {
+                    TQuery Qry(&OraSession);        
+                    Qry.SQLText = 
+                        "select descr from users2 where "
+                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
+                        "   descr = :ev_user";
+                    Qry.CreateVariable("ev_user", otString, ev_user);
+                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
+                    Qry.Execute();
+                    user_access[ev_user] = !Qry.Eof;
+                }
+                if(!user_access[ev_user]) continue;
+            }
+
+            if(station != "") {
+                if(desk_access.find(station) == desk_access.end()) {
+                    TQuery Qry(&OraSession);        
+                    Qry.SQLText = 
+                        "select desks.code from desks, desk_grp where "
+                        "desks.grp_id=desk_grp.grp_id AND "
+                        "adm.check_airline_access(desk_grp.airline,:SYS_user_id)<>0 AND "
+                        "adm.check_airp_access(desk_grp.airp,:SYS_user_id)<>0 and "
+                        "desks.code = :station ";
+                    Qry.CreateVariable("station", otString, station);
+                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
+                    Qry.Execute();
+                    desk_access[station] = !Qry.Eof;
+                }
+                if(!desk_access[station]) continue;
+            }
+
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+            NewTextChild( rowNode, "time",
+                    DateTimeToStr(
+                        UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                        ServerFormatDateTimeAsString
+                        )
+                    );
+            NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+            if(!Qry.FieldIsNULL(col_grp_id))
+                NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+            if(!Qry.FieldIsNULL(col_reg_no))
+                NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+            NewTextChild(rowNode, "ev_user", ev_user, "");
+            NewTextChild(rowNode, "station", station, "");
+            string screen = Qry.FieldAsString(col_screen);
+            if(screen.size()) {
+                if(screen_map.find(screen) == screen_map.end()) {
+                    TQuery Qry(&OraSession);        
+                    Qry.SQLText = "select name from screen where exe = :exe";
+                    Qry.CreateVariable("exe", otString, screen);
+                    Qry.Execute();
+                    if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
+                    screen_map[screen] = Qry.FieldAsString(0);
+                }
+                screen = screen_map[screen];
+            }
+            NewTextChild(rowNode, "screen", screen, "");
+
+            count++;
+            if(count > MAX_STAT_ROWS) {
+                showErrorMessage(
+                        "Выбрано слишком много строк. Показано " +
+                        IntToString(MAX_STAT_ROWS) +
+                        " произвольных строк."
+                        " Уточните критерии поиска."
+                        );
+                break;
+            }
+        }
+    }
+    ProgTrace(TRACE5, "count: %d", count);
+    if(!count)
+        throw UserException("Не найдено ни одной операции.");
+}
+
 void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr paramNode = reqNode->children;
@@ -1034,6 +1230,9 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         else
             throw;
     }
+
+    if(Qry.Eof && part_key == NoExists)
+        throw UserException("Рейс перемещен в архив. Выберите заново из списка");
 
     typedef map<string, bool> TAccessMap;
     TAccessMap user_access;
@@ -1363,32 +1562,7 @@ void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     xmlNodePtr reportTitleNode = NewTextChild(variablesNode, "report_title");
     ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    if(tag == "LogRun") {
-        NodeSetContent(reportTitleNode, "Операции по пассажиру");
-        qry =
-            "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM events "
-            "WHERE type IN (:evtPax,:evtPay) AND "
-            "      id1=:point_id AND "
-            "      (id2 IS NULL OR id2=:reg_no) AND "
-            "      (id3 IS NULL OR id3=:grp_id) "
-            "UNION "
-            "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM arx_events "
-            "WHERE part_key >= :part_key AND "
-            "      type IN (:evtPax,:evtPay) AND "
-            "      id1=:point_id AND "
-            "      (id2 IS NULL OR id2=:reg_no) AND "
-            "      (id3 IS NULL OR id3=:grp_id) ";
-        Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-        Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-        Qry.CreateVariable("part_key", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-        Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
-        Qry.CreateVariable("reg_no", otInteger, NodeAsInteger("reg_no", reqNode));
-        Qry.CreateVariable("grp_id", otInteger, NodeAsInteger("grp_id", reqNode));
-    } else if(tag == "FltLogRun") {
+    if(tag == "FltLogRun") {
         NodeSetContent(reportTitleNode, "Журнал операций рейса");
         qry =
             "SELECT msg, time, id1 AS point_id, "
@@ -1582,37 +1756,18 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax_grp.grp_id, "
                 "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
-                "   classes.code class, "
+                "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   pax_grp.hall hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, "
-                "( "
-                "  select  "
-                "     code,  "
-                "     code_lat,  "
-                "     name,  "
-                "     name_lat, "
-                "     priority "
-                "  from  "
-                "     classes  "
-                "  union  "
-                "  select "
-                "     'М',  "
-                "     'M',  "
-                "     'КОМФОРТ',  "
-                "     'COMFORT' , "
-                "     4 "
-                "  from  "
-                "     dual "
-                ") classes "
+                "FROM  pax_grp,pax, points, cls_grp "
                 "WHERE "
                 "   points.point_id = :point_id and "
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id AND "
-                "   report.get_grp_class(pax_grp.grp_id, 1)=classes.code ";
+                "   pax_grp.class_grp = cls_grp.id ";
         } else {
             ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
@@ -1635,40 +1790,21 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arch.get_birks(:part_key,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
                 "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
                 "       'Разрег.('||arx_pax.refuse||')') AS status, "
-                "   classes.code class, "
+                "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
                 "   arx_pax_grp.hall hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, "
-                "( "
-                "  select  "
-                "     code,  "
-                "     code_lat,  "
-                "     name,  "
-                "     name_lat, "
-                "     priority "
-                "  from  "
-                "     classes  "
-                "  union  "
-                "  select "
-                "     'М',  "
-                "     'M',  "
-                "     'КОМФОРТ',  "
-                "     'COMFORT' , "
-                "     4 "
-                "  from  "
-                "     dual "
-                ") classes "
+                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp "
                 "WHERE "
                 "   arx_points.point_id = :point_id and "
                 "   arx_points.point_id = arx_pax_grp.point_dep and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
-                "   arch.get_grp_class(arx_pax_grp.grp_id,:part_key, 1)=classes.code AND "
-                "   arx_points.part_key >= :part_key and "
-                "   arx_pax_grp.part_key >= :part_key and "
-                "   arx_pax.part_key >= :part_key and "
+                "   arx_pax_grp.class_grp = cls_grp.id and "
+                "   arx_points.part_key = :part_key and "
+                "   arx_pax_grp.part_key = :part_key and "
+                "   arx_pax.part_key = :part_key and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("part_key", otDate, part_key);
         }
