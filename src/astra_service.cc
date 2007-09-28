@@ -616,8 +616,10 @@ void sync_aodb( void )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
-	 "SELECT DISTINCT point_id,points.airline,points.flt_no,points.airp FROM points, file_param_sets "
+	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
+	 " FROM points, file_param_sets, aodb_points "
 	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
+	 "       points.point_id=aodb_points.point_id AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
 	 "       gtimer.get_stage(point_id,1) BETWEEN :stage1 AND :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
