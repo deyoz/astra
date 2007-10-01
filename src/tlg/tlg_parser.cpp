@@ -3957,6 +3957,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
                 };*/
               };
+              Qry.Clear();
+              Qry.SQLText=
+                "UPDATE crs_pnr SET last_target= "
+                "  (SELECT airp_arv FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num= "
+                "    (SELECT MAX(transfer_num) FROM crs_transfer WHERE pnr_id=:pnr_id)) "
+                "WHERE pnr_id=:pnr_id";
+              Qry.CreateVariable("pnr_id",otInteger,pnr_id);
+              Qry.Execute();
             };
             if (pr_sync_pnr)
             {
