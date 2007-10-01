@@ -2040,11 +2040,7 @@ void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_pr
     }
     else
     {
-      //если а/к PNR и PNL совпадают - вставим PNR первым
-      if (strcmp(PnrAddr.airline,flt.airline)==0)
-        pnr.addrs.insert(pnr.addrs.begin(),PnrAddr);
-      else
-        pnr.addrs.push_back(PnrAddr);
+      pnr.addrs.push_back(PnrAddr);
     };
     return;
   };
@@ -3496,18 +3492,15 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         TQuery CrsPnrQry(&OraSession);
         CrsPnrQry.Clear();
         CrsPnrQry.SQLText=
-          "SELECT crs_pnr.pnr_id FROM pnr_addrs,crs_pnr \
-           WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id(+) AND\
-                 point_id= :point_id AND crs= :crs AND\
-                 target= :target AND subclass= :subclass AND\
-                 (pnr_addrs.airline IS NULL AND pnr_ref= :pnr_ref OR\
-                  pnr_addrs.airline IS NOT NULL AND\
-                  pnr_addrs.airline=:pnr_airline AND pnr_addrs.addr=:pnr_addr)";
+          "SELECT crs_pnr.pnr_id FROM pnr_addrs,crs_pnr "
+          "WHERE crs_pnr.pnr_id=pnr_addrs.pnr_id AND "
+          "      point_id= :point_id AND crs= :crs AND "
+          "      target= :target AND subclass= :subclass AND "
+          "      pnr_addrs.airline=:pnr_airline AND pnr_addrs.addr=:pnr_addr";
         CrsPnrQry.CreateVariable("point_id",otInteger,point_id);
         CrsPnrQry.CreateVariable("crs",otString,crs);
         CrsPnrQry.DeclareVariable("target",otString);
         CrsPnrQry.DeclareVariable("subclass",otString);
-        CrsPnrQry.DeclareVariable("pnr_ref",otString);
         CrsPnrQry.DeclareVariable("pnr_airline",otString);
         CrsPnrQry.DeclareVariable("pnr_addr",otString);
 
@@ -3517,11 +3510,10 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN \
              IF :pnr_id IS NULL THEN \
                SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; \
-               INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,pnr_ref,grp_name,wl_priority,crs,tid) \
-               VALUES(:pnr_id,:point_id,:target,:subclass,:class,:pnr_ref,:grp_name,:wl_priority,:crs,tid__seq.currval); \
+               INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,wl_priority,crs,tid) \
+               VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:wl_priority,:crs,tid__seq.currval); \
              ELSE \
-               UPDATE crs_pnr SET pnr_ref=NVL(:pnr_ref,pnr_ref), \
-                                  grp_name=NVL(:grp_name,grp_name), \
+               UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), \
                                   wl_priority=NVL(:wl_priority,wl_priority), \
                                   tid=tid__seq.currval \
                WHERE pnr_id= :pnr_id; \
@@ -3531,7 +3523,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPnrInsQry.DeclareVariable("target",otString);
         CrsPnrInsQry.DeclareVariable("subclass",otString);
         CrsPnrInsQry.DeclareVariable("class",otString);
-        CrsPnrInsQry.DeclareVariable("pnr_ref",otString);
         CrsPnrInsQry.DeclareVariable("grp_name",otString);
         CrsPnrInsQry.DeclareVariable("wl_priority",otString);
         CrsPnrInsQry.CreateVariable("crs",otString,crs);
@@ -3622,7 +3613,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
             //попробовать найти pnr_id по PNR reference
             for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
-              CrsPnrQry.SetVariable("pnr_ref",iPnrAddr->addr);
               CrsPnrQry.SetVariable("pnr_airline",iPnrAddr->airline);
               CrsPnrQry.SetVariable("pnr_addr",iPnrAddr->addr);
               CrsPnrQry.Execute();
@@ -3741,10 +3731,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
             };
 
             //создать новую группу или проапдейтить старую
-            if (!pnr.addrs.empty())
-              CrsPnrInsQry.SetVariable("pnr_ref",pnr.addrs.begin()->addr);
-            else
-              CrsPnrInsQry.SetVariable("pnr_ref",FNull);
             CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name);
             CrsPnrInsQry.SetVariable("wl_priority",pnr.wl_priority);
             if (pnr_id==0)
