@@ -157,7 +157,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	Qry.CreateVariable( "point_addr", otString, point_addr );	
 	Qry.Execute();
 	if ( !Qry.RowCount() ) {
-		ProgError( STDLOG, "Flight not found, point_id=%d", point_id );
+		ProgError( STDLOG, "Flight not found, point_id=%d, point_addr=%s", point_id, point_addr.c_str() );
 		return false;
 	}
 	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
@@ -1024,7 +1024,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "trip_type", otString, fl.trip_type );
     Qry.CreateVariable( "litera", otString, fl.litera );
     Qry.CreateVariable( "park_in", otString, FNull );
-    Qry.CreateVariable( "park_out", otString, fl.term );
+    Qry.CreateVariable( "park_out", otString, FNull/*fl.term*/ );
     if ( fl.pr_del )
     	Qry.CreateVariable( "pr_del", otInteger, -1 );
     else
@@ -1082,13 +1082,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
 		Qry.Execute();		
-		Qry.Clear();
-		Qry.SQLText = 
-		 "INSERT INTO aodb_points(aodb_point_id,point_addr,point_id) VALUES(:aodb_point_id,:point_addr,:point_id)";
-		Qry.CreateVariable( "point_id", otInteger, point_id );
-		Qry.CreateVariable( "point_addr", otString, point_addr );
-		Qry.CreateVariable( "aodb_point_id", otFloat, fl.id );
-		Qry.Execute();
 	}
 	else { // update
 		//reqInfo->MsgToLog( "Обновление рейса ", evtDisp, move_id );		
@@ -1159,7 +1152,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  else
  	    Qry.CreateVariable( "act_out", otDate, FNull );
  	  Qry.CreateVariable( "litera", otString, fl.litera );
- 	  Qry.CreateVariable( "park_out", otString, fl.term );
+ 	  Qry.CreateVariable( "park_out", otString, /*fl.term*/FNull );
  	  if ( fl.pr_del )
  	  	 Qry.CreateVariable( "pr_del", otInteger, -1 );
  	  else
@@ -1220,6 +1213,21 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
     Qry.Execute();
 	}
+	
+  Qry.Clear();
+	Qry.SQLText = 
+	 "BEGIN "
+	 " UPDATE aodb_points SET aodb_point_id=aodb_point_id "
+	 " WHERE point_id=:point_id; "
+	 " IF SQL%NOTFOUND THEN "
+	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id) VALUES(:aodb_point_id,:point_addr,:point_id)"
+	 " END IF; "
+	 "END;";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.CreateVariable( "aodb_point_id", otFloat, fl.id );
+	Qry.Execute();
+	
 	// обновление времен технологического графика
   Qry.Clear();
 	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id";
