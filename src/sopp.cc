@@ -95,7 +95,7 @@ const char* arx_regSQL =
     "       arx_pax.part_key>=:arx_date AND "
     "       arx_pax_grp.grp_id=arx_pax.grp_id AND arx_pax.pr_brd IS NOT NULL ";
 const char* resaSQL =
-    "SELECT ckin.get_crs_ok(:point_id,:airline,:flt_no,:airp_dep) as resa FROM dual ";
+    "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
 const char *stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM trip_stages "
     " WHERE point_id=:point_id "
@@ -579,9 +579,6 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   if ( !arx ) {
     ResaQry.SQLText = resaSQL;
     ResaQry.DeclareVariable( "point_id", otInteger );
-    ResaQry.DeclareVariable( "airline", otString );
-    ResaQry.DeclareVariable( "airp_dep", otString );
-    ResaQry.DeclareVariable( "flt_no", otInteger );
   }
   TQuery StationsQry( &OraSession );
   if ( !arx ) {
@@ -600,12 +597,12 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	Trfer_regQry.DeclareVariable( "point_id", otInteger );
   }
   TQuery CRS_DispltoQry( &OraSession );
-  TQuery CRS_DisplfromQry( &OraSession );  
+  TQuery CRS_DisplfromQry( &OraSession );
   if ( !arx ) {
   	CRS_DispltoQry.SQLText = crs_displace_to_SQL;
   	CRS_DispltoQry.DeclareVariable( "point_id_spp", otInteger );
   	CRS_DisplfromQry.SQLText = crs_displace_from_SQL;
-  	CRS_DisplfromQry.DeclareVariable( "point_id_tlg", otInteger );  	
+  	CRS_DisplfromQry.DeclareVariable( "point_id_tlg", otInteger );
   }
   PerfomTest( 666 );
   PointsQry.Execute();
@@ -757,7 +754,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         f--;
         airline = f->airline;
       }
-    ProgTrace( TRACE5, " filtered move_id=%d, id->point_id=%d", move_id, id->point_id );              
+    ProgTrace( TRACE5, " filtered move_id=%d, id->point_id=%d", move_id, id->point_id );
       if ( (!reqInfo->user.access.airlines.empty() &&
              find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
@@ -811,9 +808,6 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
       ///////////////////////// resa ///////////////////////////
       if ( !arx ) {
       	ResaQry.SetVariable( "point_id", tr->point_id );
-        ResaQry.SetVariable( "airline", tr->airline_out );
-        ResaQry.SetVariable( "airp_dep", tr->airp );
-        ResaQry.SetVariable( "flt_no", tr->flt_no_out );
       	ResaQry.Execute();
         if ( !ResaQry.Eof )
           tr->resa = ResaQry.FieldAsInteger( "resa" );
@@ -858,9 +852,9 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	   CRS_DispltoQry.SetVariable( "point_id_spp", tr->point_id );
   	   CRS_DispltoQry.Execute();
   	   tr->crs_disp_to = getCrsDisplace( point_id, desk_time, CRS_DispltoQry );
-  	   CRS_DisplfromQry.SetVariable( "point_id_tlg", tr->point_id );  	
+  	   CRS_DisplfromQry.SetVariable( "point_id_tlg", tr->point_id );
   	   CRS_DisplfromQry.Execute();
-  	   tr->crs_disp_from = getCrsDisplace( point_id, desk_time, CRS_DisplfromQry );  	   
+  	   tr->crs_disp_from = getCrsDisplace( point_id, desk_time, CRS_DisplfromQry );
 /*        crsd.displaces_from.clear();
         crsd.displaces_to.clear();
       	CRS_DisplQry.SetVariable( "point_id", tr->point_id );
@@ -885,13 +879,13 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
           dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );
           try {
             rgn =AirpTZRegion( dis.airp_arv );
-            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );            
+            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );
           }
           catch( Exception &e ) {
           	if ( errcity.empty() )
           		errcity = dis.airp_arv;
           	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
-          	d1 = sd;          	
+          	d1 = sd;
           }
           if ( sd != d1 )
             dis.trip += DateTimeToStr( d1, "/dd" );
@@ -908,8 +902,8 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
           	if ( errcity.empty() )
           		errcity = dis.airp_arv;
           	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
-          	d1 = sd;          	
-          }          
+          	d1 = sd;
+          }
           if ( sd != d1 )
            dis.trip += DateTimeToStr( d1, "/dd" );
           dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_to );
@@ -1924,7 +1918,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	TReqInfo *reqInfo = TReqInfo::Instance();	
+	TReqInfo *reqInfo = TReqInfo::Instance();
   xmlNodePtr node = NewTextChild( resNode, "data" );
 	int move_id = NodeAsInteger( "move_id", reqNode );
 	xmlNodePtr pNode = GetNode( "arx_date", reqNode );
@@ -2063,7 +2057,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  TBaseTable &baseairps = base_tables.get( "airps" );		
+  TBaseTable &baseairps = base_tables.get( "airps" );
   bool ch_craft;
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
@@ -2241,7 +2235,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         	if ( ir->pr_del != -1 ) {
         		pr_last = false;
         		break;
-        	}        		
+        	}
         }
         if ( reqInfo->user.user_type == utAirline &&
         	   !pr_last &&
@@ -2319,7 +2313,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           throw UserException( string("Не задан тип ВС") );
         }
       }
-      	
+
       if ( !existsTrip && id != dests.end() - 1 ) {
         Qry.SetVariable( "name", id->airline + IntToString( id->flt_no ) + id->suffix );
         if ( id->scd_in > NoExists )
@@ -2874,25 +2868,25 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 }
 
 void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) /*???*/
-{ 
-	int point_id = NodeAsInteger( "point_id", reqNode );	
-	xmlNodePtr crsdNode = NewTextChild( NewTextChild( resNode, "data" ), "crs_displaces" );	
-	xmlNodePtr displnode = NULL;	
-	NewTextChild( crsdNode, "point_id", point_id );	
+{
+	int point_id = NodeAsInteger( "point_id", reqNode );
+	xmlNodePtr crsdNode = NewTextChild( NewTextChild( resNode, "data" ), "crs_displaces" );
+	xmlNodePtr displnode = NULL;
+	NewTextChild( crsdNode, "point_id", point_id );
 
 	TQuery Qry( &OraSession );
 	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id AND pr_del!=-1";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();	
+	Qry.Execute();
 	if ( Qry.Eof )
 		throw UserException( "Рейс не найден" );
 	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
 	TDateTime desk_time;
 	modf(UTCToLocal( NowUTC(), region ),&desk_time);
 	NewTextChild( crsdNode, "airp_time", DateTimeToStr( desk_time ) );
-	
-	Qry.Clear();	
-	Qry.SQLText = 
+
+	Qry.Clear();
+	Qry.SQLText =
    "SELECT p2.airp FROM points p1, points p2 "
    "WHERE p1.point_id=:point_id AND p1.pr_del!=-1 AND "
    "      p2.first_point IN (p1.first_point,p1.point_id) AND "
@@ -2915,10 +2909,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	 "WHERE crs_displace2.point_id_spp = :point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-  displnode = NULL;	
+  displnode = NULL;
   while ( !Qry.Eof ) {
   	if ( !displnode )
-  		displnode = NewTextChild( crsdNode, "displaces" );  		
+  		displnode = NewTextChild( crsdNode, "displaces" );
   	xmlNodePtr snode = NewTextChild( displnode, "displace" );
 		NewTextChild( snode, "id", Qry.FieldAsInteger( "id" ) );
 		NewTextChild( snode, "airp_arv_spp", Qry.FieldAsString( "airp_arv_spp" ) );
@@ -2926,8 +2920,8 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( snode, "airline", Qry.FieldAsString( "airline" ) );
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
 		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );
-		string region = AirpTZRegion( Qry.FieldAsString( "airp_dep" ), true );		
-		NewTextChild( snode, "scd", DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd" ), region ) ) );	
+		string region = AirpTZRegion( Qry.FieldAsString( "airp_dep" ), true );
+		NewTextChild( snode, "scd", DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd" ), region ) ) );
 //			NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
 		NewTextChild( snode, "airp_arv_tlg", Qry.FieldAsString( "airp_arv_tlg" ) );
 		NewTextChild( snode, "class_tlg", Qry.FieldAsString( "class_tlg" ) );
@@ -2949,10 +2943,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild(	snode, "point_id", Qry.FieldAsInteger( "point_id" ) );
 		NewTextChild( snode, "airline", Qry.FieldAsString( "airline" ) );
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );		
+		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );	  	//???
 		NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
-		NewTextChild( snode, "airp_arv", Qry.FieldAsString( "airp_arv" ) );		                             
+		NewTextChild( snode, "airp_arv", Qry.FieldAsString( "airp_arv" ) );
 	  Qry.Next();
 	}
 }
@@ -2960,7 +2954,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry )
 {
   bool ch_class = false;
-  bool ch_dest = false;  
+  bool ch_dest = false;
   string str_to, trip;
   TTripInfo info;
   while ( !Qry.Eof ) {
@@ -2968,7 +2962,7 @@ string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry )
   		if ( string(Qry.FieldAsString( "class_spp" )) != string(Qry.FieldAsString( "class_tlg" )) )
   			ch_class = true;
   		if ( string(Qry.FieldAsString( "airp_arv_spp" )) != string(Qry.FieldAsString( "airp_arv_tlg" )) )
-  			ch_dest = true;  			
+  			ch_dest = true;
   	}
   	else {
   		trip = string(Qry.FieldAsString( "airline" )) + Qry.FieldAsString( "flt_no" ) + Qry.FieldAsString( "suffix" );
@@ -2985,7 +2979,7 @@ string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry )
         if ( !str_to.empty() )
           str_to += " ";
         str_to += trip;
-      }  		
+      }
   	}
   	Qry.Next();
   }
@@ -2999,8 +2993,8 @@ string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry )
 void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
-  TQuery TQry(&OraSession);  
-  TQry.SQLText = 
+  TQuery TQry(&OraSession);
+  TQry.SQLText =
    "SELECT point_id FROM tlg_trips "
    " WHERE pr_utc=0 AND bind_type=0 AND airp_dep=:airp_dep AND airp_arv IS NULL AND "
    "       airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND TRUNC(scd)=TRUNC(:scd)";
@@ -3013,9 +3007,9 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id AND pr_del!=-1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof )  	
+  if ( Qry.Eof )
   	throw UserException( "Рейс не найден" );
-  string airp_dep = Qry.FieldAsString( "airp" );	
+  string airp_dep = Qry.FieldAsString( "airp" );
 	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
 	TDateTime desk_time;
 	modf(UTCToLocal( NowUTC(), region ),&desk_time);
@@ -3028,7 +3022,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	vecid.push_back( Qry.FieldAsInteger( "id" ) );
   	Qry.Next();
   }
-  TQuery PQry(&OraSession);  
+  TQuery PQry(&OraSession);
   PQry.SQLText = "SELECT id__seq.nextval id FROM dual";
   tst();
   Qry.Clear();
@@ -3038,7 +3032,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
    " SET airp_arv_spp=:airp_arv_spp,class_spp=:class_spp,"
    "     airline=:airline,flt_no=:flt_no,suffix=:suffix,scd=:scd,airp_dep=:airp_dep,"
    "     point_id_tlg=NULL,airp_arv_tlg=:airp_arv_tlg,class_tlg=:class_tlg,pr_goshow=:pr_goshow "
-   " WHERE point_id_spp=:point_id_spp AND id=:id; " 
+   " WHERE point_id_spp=:point_id_spp AND id=:id; "
    " IF SQL%NOTFOUND THEN "
    "  INSERT INTO crs_displace2(id,point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,airp_dep, "
    "                            point_id_tlg,airp_arv_tlg,class_tlg,pr_goshow) "
@@ -3065,11 +3059,11 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   int id;
   string airp_arv_spp, class_spp, airline, suffix, airp_arv_tlg, class_tlg;
   int flt_no, pr_goshow;
-  TDateTime scd;  	
+  TDateTime scd;
   string tolog;
   vector<int>::iterator r;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  xmlNodePtr crsdNode = NewTextChild( dataNode, "crs_displaces" );	
+  xmlNodePtr crsdNode = NewTextChild( dataNode, "crs_displaces" );
   xmlNodePtr n;
   tst();
   while ( node ) {
@@ -3086,7 +3080,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   		NewTextChild( n, "id", id );
   	}
   	Qry.SetVariable( "id", id );
-  	airp_arv_spp = NodeAsStringFast( "airp_arv_spp", snode );  	
+  	airp_arv_spp = NodeAsStringFast( "airp_arv_spp", snode );
   	class_spp = NodeAsStringFast( "class_spp", snode );
   	airline = NodeAsStringFast( "airline", snode );
   	flt_no = NodeAsIntegerFast( "flt_no", snode );
@@ -3105,7 +3099,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	Qry.SetVariable( "airp_arv_tlg", airp_arv_tlg );
   	Qry.SetVariable( "class_tlg", class_tlg );
   	Qry.SetVariable( "pr_goshow", pr_goshow );
-  	
+
   	TQry.SetVariable( "airline", airline );
   	TQry.SetVariable( "flt_no", flt_no );
   	TQry.SetVariable( "suffix", suffix );
@@ -3114,7 +3108,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	TQry.Execute();
   	if ( !TQry.Eof )
   	  Qry.SetVariable( "point_id_tlg", TQry.FieldAsInteger( "point_id" ) );
-  	else 
+  	else
   		Qry.SetVariable( "point_id_tlg", FNull );
   	tst();
   	Qry.Execute();
@@ -3130,19 +3124,19 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     if ( pr_goshow )
     	tolog += "'ДА'";
     else
-    	tolog += "'НЕТ'";            	
-    TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id, id );  	
+    	tolog += "'НЕТ'";
+    TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id, id );
   	node = node->next;
   }
   Qry.Clear();
   Qry.SQLText = "DELETE crs_displace2 WHERE id=:id";
   Qry.DeclareVariable( "id", otInteger );
   PQry.Clear();
-  PQry.SQLText = 
+  PQry.SQLText =
   "SELECT airp_arv_spp,class_spp,airline||flt_no||suffix trip,scd,airp_dep,"
   "       airp_arv_tlg,class_tlg,pr_goshow "
   " FROM crs_displace2 WHERE id=:id";
-  PQry.DeclareVariable( "id", otInteger );  
+  PQry.DeclareVariable( "id", otInteger );
   for ( r=vecid.begin(); r!=vecid.end(); r++ ) {
   	tst();
   	PQry.SetVariable( "id", *r );
@@ -3151,16 +3145,16 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	Qry.SetVariable( "id", *r );
   	Qry.Execute();
     tolog = "Удаление пересадки пассажиров: ";
-    tolog += string("прилет ") + PQry.FieldAsString("airp_arv_spp") + ",класс " + 
+    tolog += string("прилет ") + PQry.FieldAsString("airp_arv_spp") + ",класс " +
              PQry.FieldAsString("class_spp") + " на рейс ";
     tolog += string(PQry.FieldAsString("trip")) + "/" +DateTimeToStr( PQry.FieldAsDateTime( "scd" ), "dd.mm" );
-    tolog += string(" прилет ") + PQry.FieldAsString("airp_arv_tlg") + ",класс " + 
+    tolog += string(" прилет ") + PQry.FieldAsString("airp_arv_tlg") + ",класс " +
              PQry.FieldAsString("class_tlg") + ", подсадка ";
     if ( PQry.FieldAsInteger("pr_goshow") )
     	tolog += "'ДА'";
     else
-    	tolog += "'НЕТ'";            	
-    TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id, id );  	  	
+    	tolog += "'НЕТ'";
+    TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id, id );
   }
   Qry.Clear();
   Qry.SQLText = crs_displace_to_SQL;
@@ -3172,8 +3166,8 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.SQLText = crs_displace_from_SQL;
   Qry.CreateVariable( "point_id_tlg", otInteger, point_id );
   Qry.Execute();
-  NewTextChild( tripNode, "from", getCrsDisplace( point_id, desk_time, Qry ) );  
-  
+  NewTextChild( tripNode, "from", getCrsDisplace( point_id, desk_time, Qry ) );
+
 /*  TCRS_Displaces crsd;
   GetCRS_Displaces( crsd );
   string crs_disp_from, crs_disp_to;

@@ -1,10 +1,10 @@
 #!/bin/ksh -x
 
-LOGFILEBASENAMES="astra  daemon  logairimp  monitor  system  tclmon "
+LOGFILEBASENAMES="astra  daemon  logairimp  monitor  system  tclmon txtastra"
 LOG2MOVE=""
 LASTLOG=3
 ARCHDIR=$HOME/archive/oldlog
-ARCHLOGTTL=3 
+ARCHLOGTTL=13 
 MAXLOGSIZE=5000 #in kbytes
 for i in /usr/local/bin/gzip /bin/gzip /usr/bin/gzip ; do
         if [ -f $i ] ; then

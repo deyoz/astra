@@ -3,7 +3,7 @@
 
 for i in /bin/nawk /usr/bin/nawk /bin/awk /usr/bin/awk /usr/bin/gawk \
 /usr/local/bin/gawk /usr/local/bin/nawk ; do
-	if [ -f $i ] ; then
+    if [ -f $i ] ; then
 	 	AWK=$i 
 		break
     fi
