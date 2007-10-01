@@ -157,7 +157,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	Qry.CreateVariable( "point_addr", otString, point_addr );	
 	Qry.Execute();
 	if ( !Qry.RowCount() ) {
-		ProgError( STDLOG, "Flight not found, point_id=%d, point_addr=%s", point_id, point_addr.c_str() );
+//		ProgError( STDLOG, "Flight not found, point_id=%d, point_addr=%s", point_id, point_addr.c_str() );
 		return false;
 	}
 	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
