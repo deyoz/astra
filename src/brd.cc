@@ -404,204 +404,226 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       throw UserException("Пассажир не зарегистрирован");
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
+    int adl = 0;
+    int chd = 0;
+    int inf = 0;
     for(;!Qry.Eof;Qry.Next())
     {
-      int pax_id=Qry.FieldAsInteger("pax_id");
+        int pax_id=Qry.FieldAsInteger("pax_id");
+        char *pers_type = Qry.FieldAsString("pers_type");
 
-      xmlNodePtr paxNode = NewTextChild(listNode, "pax");
-      NewTextChild(paxNode, "pax_id", pax_id);
-      NewTextChild(paxNode, "pr_brd",  Qry.FieldAsInteger("pr_brd")!=0, false);
-      NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam")!=0, false);
-      NewTextChild(paxNode, "doc_check", Qry.FieldAsInteger("doc_check")!=0, false);
-      NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-      NewTextChild(paxNode, "surname", Qry.FieldAsString("surname"));
-      NewTextChild(paxNode, "name", Qry.FieldAsString("name"), "");
-      NewTextChild(paxNode, "pers_type", Qry.FieldAsString("pers_type"), EncodePerson(adult));
-      NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no_str"), "");
-      NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"), 1);
-      NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"), "");
-      NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"), 0);
-      NewTextChild(paxNode, "document", Qry.FieldAsString("document"), "");
-      NewTextChild(paxNode, "tid", Qry.FieldAsInteger("tid"));
-      NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"), 0);
-      NewTextChild(paxNode, "value_bag_count", Qry.FieldAsInteger("value_bag_count"), 0);
-      NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment")!=0, false);
-      NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"), 0);
-      NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"), 0);
-      NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"), 0);
-      NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"), 0);
-      NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
-      NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
-
-      if (reg_no==Qry.FieldAsInteger("reg_no"))
-      {
-        int mark;
-        if (reqInfo->screen.name == "BRDBUS.EXE")
-          mark=Qry.FieldAsInteger("pr_brd");
-        else
-          mark=Qry.FieldAsInteger("pr_exam");
-        bool boarding = NodeAsInteger("boarding", reqNode)!=0;
-        int tid;
-        if (GetNode("tid",reqNode)!=NULL)
-        {
-          tid=NodeAsInteger("tid",reqNode);
-          if (tid!=Qry.FieldAsInteger("tid"))
-            throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+        switch(DecodePerson(pers_type)) {
+            case adult:
+                adl++;
+                break;
+            case child:
+                chd++;
+                break;
+            case baby:
+                inf++;
+                break;
+            default:
+                break;
         }
-        else
-          tid=Qry.FieldAsInteger("tid");
 
-        if(!boarding && !mark || boarding && mark)
+        xmlNodePtr paxNode = NewTextChild(listNode, "pax");
+        NewTextChild(paxNode, "pax_id", pax_id);
+        NewTextChild(paxNode, "pr_brd",  Qry.FieldAsInteger("pr_brd")!=0, false);
+        NewTextChild(paxNode, "pr_exam", Qry.FieldAsInteger("pr_exam")!=0, false);
+        NewTextChild(paxNode, "doc_check", Qry.FieldAsInteger("doc_check")!=0, false);
+        NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(paxNode, "surname", Qry.FieldAsString("surname"));
+        NewTextChild(paxNode, "name", Qry.FieldAsString("name"), "");
+        NewTextChild(paxNode, "pers_type", pers_type, EncodePerson(adult));
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no_str"), "");
+        NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"), 1);
+        NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"), "");
+        NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"), 0);
+        NewTextChild(paxNode, "document", Qry.FieldAsString("document"), "");
+        NewTextChild(paxNode, "tid", Qry.FieldAsInteger("tid"));
+        NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"), 0);
+        NewTextChild(paxNode, "value_bag_count", Qry.FieldAsInteger("value_bag_count"), 0);
+        NewTextChild(paxNode, "pr_payment", Qry.FieldAsInteger("pr_payment")!=0, false);
+        NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"), 0);
+        NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"), 0);
+        NewTextChild(paxNode, "rk_amount", Qry.FieldAsInteger("rk_amount"), 0);
+        NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"), 0);
+        NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
+        NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
+
+        if (reg_no==Qry.FieldAsInteger("reg_no"))
         {
-          if (reqInfo->screen.name == "BRDBUS.EXE")
-          {
-            if (mark)
-              showErrorMessage("Пассажир уже прошел посадку");
+            int mark;
+            if (reqInfo->screen.name == "BRDBUS.EXE")
+                mark=Qry.FieldAsInteger("pr_brd");
             else
-              showErrorMessage("Пассажир не прошел посадку");
-          }
-          else
-          {
-            if (mark)
-              showErrorMessage("Пассажир уже прошел досмотр");
-            else
-              showErrorMessage("Пассажир не прошел досмотр");
-          };
-        }
-        else
-        {
-          if (hall==-1)
-          {
-            if(reqInfo->screen.name == "BRDBUS.EXE")
-              showErrorMessage("Не указан зал посадки");
-            else
-              showErrorMessage("Не указан зал досмотра");
-            readTripCounters(point_id,dataNode);
-            return;
-          };
-
-          bool pr_exam_with_brd=false;
-          bool pr_exam=false;
-          bool pr_check_pay=false;
-          if (reqInfo->screen.name == "BRDBUS.EXE")
-          {
-            TQuery SetsQry(&OraSession);
-            SetsQry.Clear();
-            SetsQry.SQLText=
-              "SELECT pr_misc FROM trip_hall "
-              "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
-              "ORDER BY DECODE(hall,NULL,1,0)";
-            SetsQry.CreateVariable("point_id",otInteger,point_id);
-            SetsQry.CreateVariable("hall",otInteger,hall);
-            SetsQry.CreateVariable("type",otInteger,2);
-            SetsQry.Execute();
-            if (!SetsQry.Eof) pr_exam_with_brd=SetsQry.FieldAsInteger("pr_misc")!=0;
-
-            SetsQry.Clear();
-            SetsQry.SQLText=
-              "SELECT pr_exam,pr_check_pay FROM trip_sets WHERE point_id=:point_id";
-            SetsQry.CreateVariable("point_id",otInteger,point_id);
-            SetsQry.Execute();
-            if (!SetsQry.Eof)
+                mark=Qry.FieldAsInteger("pr_exam");
+            bool boarding = NodeAsInteger("boarding", reqNode)!=0;
+            int tid;
+            if (GetNode("tid",reqNode)!=NULL)
             {
-              pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
-              pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
-            };
-          };
+                tid=NodeAsInteger("tid",reqNode);
+                if (tid!=Qry.FieldAsInteger("tid"))
+                    throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+            }
+            else
+                tid=Qry.FieldAsInteger("tid");
 
-
-          if (reqInfo->screen.name == "BRDBUS.EXE" &&
-              boarding && Qry.FieldAsInteger("pr_exam")==0 &&
-              !pr_exam_with_brd && pr_exam)
-          {
-            showErrorMessage("Пассажир не прошел досмотр");
-          }
-          else if
-             (reqInfo->screen.name == "BRDBUS.EXE" &&
-              boarding && Qry.FieldAsInteger("pr_payment")==0 &&
-              pr_check_pay)
-          {
-            showErrorMessage("Пассажир не оплатил багаж");
-          }
-          else
-          {
-
-            if(reqInfo->screen.name == "BRDBUS.EXE" &&
-               boarding &&
-               GetNode("confirmations/seat_no",reqNode)==NULL &&
-               !ChckSt(pax_id, Qry.FieldAsString("seat_no")))
+            if(!boarding && !mark || boarding && mark)
             {
-              xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-              NewTextChild(confirmNode,"reset",true);
-              NewTextChild(confirmNode,"type","seat_no");
-              ostringstream msg;
-              if (Qry.FieldIsNULL("seat_no"))
-                msg << "Номер места пассажира в салоне не определен." << endl;
-              else
-                msg << "Номер места пассажира в салоне был изменен на "
-                    << Qry.FieldAsString("seat_no") << "." << endl;
-
-              msg << "Номер места, указанный в посадочном талоне, недействителен!" << endl
-                  << "Продолжить операцию посадки?";
-              NewTextChild(confirmNode,"message",msg.str());
+                if (reqInfo->screen.name == "BRDBUS.EXE")
+                {
+                    if (mark)
+                        showErrorMessage("Пассажир уже прошел посадку");
+                    else
+                        showErrorMessage("Пассажир не прошел посадку");
+                }
+                else
+                {
+                    if (mark)
+                        showErrorMessage("Пассажир уже прошел досмотр");
+                    else
+                        showErrorMessage("Пассажир не прошел досмотр");
+                };
             }
             else
             {
-              if(reqInfo->screen.name != "BRDBUS.EXE" &&
-                 !boarding &&
-                 GetNode("confirmations/pr_brd",reqNode)==NULL &&
-                 Qry.FieldAsInteger("pr_brd")!=0)
-              {
-                xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
-                NewTextChild(confirmNode,"reset",true);
-                NewTextChild(confirmNode,"type","pr_brd");
-                ostringstream msg;
-                msg << "Пассажир уже прошел посадку." << endl
-                    << "Возвратить на досмотр?";
-                NewTextChild(confirmNode,"message",msg.str());
-              }
-              else
-                // update
-                if (PaxUpdate(point_id,pax_id,tid,!mark,pr_exam_with_brd))
+                if (hall==-1)
                 {
-                  mark = !mark;
-                  if (reqInfo->screen.name == "BRDBUS.EXE")
-                  {
-                    ReplaceTextChild(paxNode, "pr_brd", mark);
-                    if (pr_exam_with_brd)
-                      ReplaceTextChild(paxNode, "pr_exam", mark);
-                  }
-                  else
-                    ReplaceTextChild(paxNode, "pr_exam", mark);
-                  ReplaceTextChild(paxNode, "tid", tid);
-                  ReplaceTextChild(dataNode,"updated");
-                /*  if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                      ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
-                    showProgError("Нет связи с сервером эл. билетов");
-                  else*/
-                    if (reqInfo->screen.name == "BRDBUS.EXE")
+                    if(reqInfo->screen.name == "BRDBUS.EXE")
+                        showErrorMessage("Не указан зал посадки");
+                    else
+                        showErrorMessage("Не указан зал досмотра");
+                    readTripCounters(point_id,dataNode);
+                    return;
+                };
+
+                bool pr_exam_with_brd=false;
+                bool pr_exam=false;
+                bool pr_check_pay=false;
+                if (reqInfo->screen.name == "BRDBUS.EXE")
+                {
+                    TQuery SetsQry(&OraSession);
+                    SetsQry.Clear();
+                    SetsQry.SQLText=
+                        "SELECT pr_misc FROM trip_hall "
+                        "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
+                        "ORDER BY DECODE(hall,NULL,1,0)";
+                    SetsQry.CreateVariable("point_id",otInteger,point_id);
+                    SetsQry.CreateVariable("hall",otInteger,hall);
+                    SetsQry.CreateVariable("type",otInteger,2);
+                    SetsQry.Execute();
+                    if (!SetsQry.Eof) pr_exam_with_brd=SetsQry.FieldAsInteger("pr_misc")!=0;
+
+                    SetsQry.Clear();
+                    SetsQry.SQLText=
+                        "SELECT pr_exam,pr_check_pay FROM trip_sets WHERE point_id=:point_id";
+                    SetsQry.CreateVariable("point_id",otInteger,point_id);
+                    SetsQry.Execute();
+                    if (!SetsQry.Eof)
                     {
-                      if (mark)
-                        showMessage("Пассажир прошел посадку");
-                      else
-                        showMessage("Пассажир высажен");
+                        pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
+                        pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
+                    };
+                };
+
+
+                if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                        boarding && Qry.FieldAsInteger("pr_exam")==0 &&
+                        !pr_exam_with_brd && pr_exam)
+                {
+                    showErrorMessage("Пассажир не прошел досмотр");
+                }
+                else if
+                    (reqInfo->screen.name == "BRDBUS.EXE" &&
+                     boarding && Qry.FieldAsInteger("pr_payment")==0 &&
+                     pr_check_pay)
+                    {
+                        showErrorMessage("Пассажир не оплатил багаж");
+                    }
+                else
+                {
+
+                    if(reqInfo->screen.name == "BRDBUS.EXE" &&
+                            boarding &&
+                            GetNode("confirmations/seat_no",reqNode)==NULL &&
+                            !ChckSt(pax_id, Qry.FieldAsString("seat_no")))
+                    {
+                        xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                        NewTextChild(confirmNode,"reset",true);
+                        NewTextChild(confirmNode,"type","seat_no");
+                        ostringstream msg;
+                        if (Qry.FieldIsNULL("seat_no"))
+                            msg << "Номер места пассажира в салоне не определен." << endl;
+                        else
+                            msg << "Номер места пассажира в салоне был изменен на "
+                                << Qry.FieldAsString("seat_no") << "." << endl;
+
+                        msg << "Номер места, указанный в посадочном талоне, недействителен!" << endl
+                            << "Продолжить операцию посадки?";
+                        NewTextChild(confirmNode,"message",msg.str());
                     }
                     else
                     {
-                      if (mark)
-                        showMessage("Пассажир прошел досмотр");
-                      else
-                        showMessage("Пассажир возвращен на досмотр");
-                    };
+                        if(reqInfo->screen.name != "BRDBUS.EXE" &&
+                                !boarding &&
+                                GetNode("confirmations/pr_brd",reqNode)==NULL &&
+                                Qry.FieldAsInteger("pr_brd")!=0)
+                        {
+                            xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
+                            NewTextChild(confirmNode,"reset",true);
+                            NewTextChild(confirmNode,"type","pr_brd");
+                            ostringstream msg;
+                            msg << "Пассажир уже прошел посадку." << endl
+                                << "Возвратить на досмотр?";
+                            NewTextChild(confirmNode,"message",msg.str());
+                        }
+                        else
+                            // update
+                            if (PaxUpdate(point_id,pax_id,tid,!mark,pr_exam_with_brd))
+                            {
+                                mark = !mark;
+                                if (reqInfo->screen.name == "BRDBUS.EXE")
+                                {
+                                    ReplaceTextChild(paxNode, "pr_brd", mark);
+                                    if (pr_exam_with_brd)
+                                        ReplaceTextChild(paxNode, "pr_exam", mark);
+                                }
+                                else
+                                    ReplaceTextChild(paxNode, "pr_exam", mark);
+                                ReplaceTextChild(paxNode, "tid", tid);
+                                ReplaceTextChild(dataNode,"updated");
+                                /*  if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                                    ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
+                                    showProgError("Нет связи с сервером эл. билетов");
+                                    else*/
+                                if (reqInfo->screen.name == "BRDBUS.EXE")
+                                {
+                                    if (mark)
+                                        showMessage("Пассажир прошел посадку");
+                                    else
+                                        showMessage("Пассажир высажен");
+                                }
+                                else
+                                {
+                                    if (mark)
+                                        showMessage("Пассажир прошел досмотр");
+                                    else
+                                        showMessage("Пассажир возвращен на досмотр");
+                                };
 
-                }
-                else
-                  throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+                            }
+                            else
+                                throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+                    };
+                };
             };
-          };
         };
-      };
     };
+    xmlNodePtr totalNode = NewTextChild(dataNode, "total");
+    NewTextChild(totalNode, "adl", adl);
+    NewTextChild(totalNode, "chd", chd);
+    NewTextChild(totalNode, "inf", inf);
 
     readTripCounters(point_id,dataNode);
 };

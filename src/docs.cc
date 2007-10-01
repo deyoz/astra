@@ -497,10 +497,14 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     BrdInterface::GetPax(reqNode, formDataNode);
     xmlNodeSetName(formDataNode->children, (xmlChar *)"datasets");
+    xmlNodePtr totalNode = GetNode("total", formDataNode->children);
+    if(totalNode == NULL) throw Exception("RunExam: total node not found");
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     // Теперь переменные отчета
-    PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(point_id, pr_lat, variablesNode);
+    xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode->children));
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
