@@ -888,33 +888,37 @@ fmt.infSeatsFmt=1}
   if (grp.large)
   {
     //большая группа
-    sql=
-      "SELECT crs_pnr.pnr_id, "
-      "       MIN(crs_pnr.grp_name) AS grp_name, "
-      "       MIN(DECODE(crs_pax.pers_type,'ВЗ', "
-      "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, "
-      "       COUNT(*) AS seats_all, "
-      "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats "
-      "FROM crs_pnr,crs_pax,pax, "
-      "  (SELECT DISTINCT crs_pnr.pnr_id ";
+    sql=  "SELECT crs_pnr.pnr_id, "
+          "       MIN(crs_pnr.grp_name) AS grp_name, "
+          "       MIN(DECODE(crs_pax.pers_type,'ВЗ', "
+          "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, "
+          "       COUNT(*) AS seats_all, "
+          "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats "
+          "FROM crs_pnr,crs_pax,pax, "
+          "  (SELECT DISTINCT crs_pnr.pnr_id "
+          "   FROM crs_pnr, "
+          "    (SELECT b2.point_id_tlg, "
+          "            airp_arv_tlg,class_tlg,pr_goshow "
+          "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
+          "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
+          "           b1.point_id_spp=b2.point_id_spp AND "
+          "           crs_displace2.point_id_spp=:point_id AND "
+          "           b1.point_id_spp<>:point_id) crs_displace "
+          "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
+          "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
+          "         crs_pnr.class=crs_displace.class_tlg AND "
+          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_pnr.wl_priority IS NULL ";
 
     if (pax_status==psOk)
-    {
-      sql+=
+      sql+="  UNION ";
+    else
+      sql+="  MINUS ";
+
+    sql+= "   SELECT DISTINCT crs_pnr.pnr_id "
           "   FROM crs_pnr,tlg_binding "
           "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
           "         tlg_binding.point_id_spp= :point_id AND "
-          "         crs_pnr.wl_priority IS NULL "
-          "   UNION "
-          "   SELECT DISTINCT crs_pnr.pnr_id ";
-    };
-
-    sql+= "   FROM crs_pnr,tlg_binding,crs_displace "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
-          "         crs_displace.point_to= :point_id AND "
-          "         crs_displace.point_to<>crs_displace.point_from AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
           "         crs_pnr.wl_priority IS NULL) ids "
           "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
           "      crs_pax.pax_id=pax.pax_id(+) AND "
@@ -923,6 +927,26 @@ fmt.infSeatsFmt=1}
           "      crs_pax.seats>0 "
           "GROUP BY crs_pnr.pnr_id "
           "HAVING COUNT(*)>= :seats ";
+
+
+  /*  вариант, не учитывающий переброски со всех телеграмм рейса
+      sql+= "   FROM crs_pnr,crs_displace2 "
+          "   WHERE crs_pnr.point_id=crs_displace2.point_id_tlg AND "
+          "         crs_pnr.target=crs_displace2.airp_arv_tlg AND "
+          "         crs_pnr.class=crs_displace2.class_tlg AND "
+          "         crs_displace2.point_id_spp=:point_id AND "
+          "         crs_displace2.pr_goshow= :pr_goshow AND "
+          "         crs_pnr.wl_priority IS NULL) ids "*/
+
+   /* старый вариант
+      sql+= "   FROM crs_pnr,tlg_binding,crs_displace "
+          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
+          "         crs_displace.point_to= :point_id AND "
+          "         crs_displace.point_to<>crs_displace.point_from AND "
+          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_pnr.wl_priority IS NULL) ids "*/
+
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
@@ -1008,9 +1032,37 @@ fmt.infSeatsFmt=1}
       sql+=
           "  (SELECT DISTINCT crs_pax.pax_id ";
 
+    sql+= "   FROM crs_pnr,crs_pax,pax, "
+          "    (SELECT b2.point_id_tlg, "
+          "            airp_arv_tlg,class_tlg,pr_goshow "
+          "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
+          "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
+          "           b1.point_id_spp=b2.point_id_spp AND "
+          "           crs_displace2.point_id_spp=:point_id AND "
+          "           b1.point_id_spp<>:point_id) crs_displace "
+          "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
+          "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
+          "         crs_pnr.class=crs_displace.class_tlg AND "
+          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
+          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_pnr.wl_priority IS NULL AND "
+          "         crs_pax.pr_del=0 AND "
+          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
+          "         ("+surnames+") ";
+
     if (pax_status==psOk)
-    {
+      sql+="  UNION ";
+    else
+      sql+="  MINUS ";
+
+    if (sum.nPax>1)
       sql+=
+          "   SELECT DISTINCT crs_pnr.pnr_id ";
+      else
+      sql+=
+          "   SELECT DISTINCT crs_pax.pax_id ";
+
+    sql+=
           "   FROM crs_pnr,tlg_binding,crs_pax,pax "
           "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
           "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1018,27 +1070,7 @@ fmt.infSeatsFmt=1}
           "         crs_pnr.wl_priority IS NULL AND"
           "         crs_pax.pr_del=0 AND "
           "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-          "         ("+surnames+") "
-          "   UNION ";
-      if (sum.nPax>1)
-        sql+=
-          "   SELECT DISTINCT crs_pnr.pnr_id ";
-      else
-        sql+=
-          "   SELECT DISTINCT crs_pax.pax_id ";
-    };
-
-    sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax,pax "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
-          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "         crs_displace.point_to= :point_id AND "
-          "         crs_displace.point_to <> crs_displace.point_from AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
-          "         crs_pnr.wl_priority IS NULL AND "
-          "         crs_pax.pr_del=0 AND "
-          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-          "         ("+surnames+")) ids "
+          "         ("+surnames+")) ids  "
           "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
           "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
           "      crs_pax.pax_id=pax.pax_id(+) AND ";
@@ -1052,6 +1084,24 @@ fmt.infSeatsFmt=1}
     sql+= "      crs_pax.pr_del=0 AND "
           "      pax.pax_id IS NULL "
           "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+
+
+
+
+
+
+/*    sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax,pax "
+          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
+          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
+          "         crs_displace.point_to= :point_id AND "
+          "         crs_displace.point_to <> crs_displace.point_from AND "
+          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_pnr.wl_priority IS NULL AND "
+          "         crs_pax.pr_del=0 AND "
+          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
+          "         ("+surnames+")) ids "*/
+
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
@@ -1299,7 +1349,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "WHERE pax_grp.grp_id=pax.grp_id AND "
     "      pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
     "      point_dep=:point_id AND pr_brd IS NOT NULL "
-    "ORDER BY reg_no";
+    "ORDER BY reg_no"; //в будущем убрать ORDER BY
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   xmlNodePtr node=NewTextChild(resNode,"passengers");

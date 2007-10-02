@@ -6,6 +6,7 @@
 #include "test.h"
 #include "stages.h"
 #include "astra_utils.h"
+#include "base_tables.h"
 #include "basic.h"
 #include "exceptions.h"
 #include "stl_utils.h"
@@ -1339,10 +1340,215 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   };
 }
 
+void viewCRSList( int point_id, xmlNodePtr dataNode )
+{
+  TQuery Qry( &OraSession );
+  Qry.SQLText=
+     "SELECT "
+     "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+     "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
+     "      crs_pax.pers_type, "
+     "      crs_pnr.class,crs_pnr.subclass, "
+     "      crs_pax.seat_no AS crs_seat_no, "
+     "      crs_pax.preseat_no, "
+     "      crs_pax.seats seats, "
+     "      crs_pnr.target, "
+     "      crs_pnr.last_target, "
+     "      report.get_PSPT(crs_pax.pax_id) AS document, "
+     "      report.get_TKNO(crs_pax.pax_id) AS ticket, "
+     "      crs_pax.pax_id, "
+     "      crs_pax.tid tid, "
+     "      crs_pnr.pnr_id, "
+     "      crs_pnr.point_id AS point_id_tlg, "
+     "      ids.pr_goshow, "
+     "      pax.reg_no, "
+     "      pax.seat_no, "
+     "      pax.refuse, "
+     "      pax.grp_id "
+     "FROM crs_pnr,crs_pax,pax, "
+     "       ( "
+     "        SELECT DISTINCT crs_pnr.pnr_id,0 AS pr_goshow "
+     "        FROM crs_pnr, "
+     "         (SELECT b2.point_id_tlg, "
+     "                 airp_arv_tlg,class_tlg,pr_goshow "
+     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
+     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
+     "                b1.point_id_spp=b2.point_id_spp AND "
+     "                crs_displace2.point_id_spp=:point_id AND "
+     "                b1.point_id_spp<>:point_id) crs_displace "
+     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
+     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
+     "              crs_pnr.class=crs_displace.class_tlg AND "
+     "              crs_displace.pr_goshow=0 AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "        UNION "
+     "        SELECT DISTINCT crs_pnr.pnr_id,0 "
+     "        FROM crs_pnr,tlg_binding "
+     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+     "              tlg_binding.point_id_spp= :point_id AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "        UNION "
+     "        SELECT DISTINCT crs_pnr.pnr_id,1 "
+     "        FROM crs_pnr, "
+     "         (SELECT b2.point_id_tlg, "
+     "                 airp_arv_tlg,class_tlg,pr_goshow "
+     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
+     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
+     "                b1.point_id_spp=b2.point_id_spp AND "
+     "                crs_displace2.point_id_spp=:point_id AND "
+     "                b1.point_id_spp<>:point_id) crs_displace "
+     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
+     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
+     "              crs_pnr.class=crs_displace.class_tlg AND "
+     "              crs_displace.pr_goshow<>0 AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "        MINUS "
+     "        SELECT DISTINCT crs_pnr.pnr_id,1 "
+     "        FROM crs_pnr,tlg_binding "
+     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+     "              tlg_binding.point_id_spp= :point_id AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "       ) ids "
+     "WHERE crs_pnr.pnr_id=ids.pnr_id AND "
+     "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+     "      crs_pax.pax_id=pax.pax_id(+) AND "
+     "      crs_pax.pr_del=0 "
+     "ORDER BY crs_pnr.point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+
+  //ремарки пассажиров
+  TQuery RQry( &OraSession );
+  RQry.SQLText =
+    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(rem_types.priority,-1) AS priority "
+    "FROM crs_pax_rem,rem_types "
+    "WHERE crs_pax_rem.rem_code=rem_types.code(+) AND crs_pax_rem.pax_id=:pax_id "
+    "ORDER BY priority DESC,rem_code,rem ";
+  RQry.DeclareVariable( "pax_id", otInteger );
+
+  //рейс пассажиров
+  TQuery TlgTripsQry( &OraSession );
+  TlgTripsQry.SQLText=
+    "SELECT airline,flt_no,suffix,scd,airp_dep "
+    "FROM tlg_trips WHERE point_id=:point_id ";
+  TlgTripsQry.DeclareVariable("point_id",otInteger);
+
+  TQuery PointsQry( &OraSession );
+  PointsQry.SQLText=
+    "SELECT point_dep AS point_id FROM pax_grp WHERE grp_id=:grp_id";
+  PointsQry.DeclareVariable("grp_id",otInteger);
+
+  Qry.Execute();
+  dataNode = NewTextChild( dataNode, "tlg_trips" );
+  int point_id_tlg=-1;
+  xmlNodePtr tripNode,paxNode,node;
+  int col_pnr_ref=Qry.FieldIndex("pnr_ref");
+  int col_full_name=Qry.FieldIndex("full_name");
+  int col_pers_type=Qry.FieldIndex("pers_type");
+  int col_class=Qry.FieldIndex("class");
+  int col_subclass=Qry.FieldIndex("subclass");
+  int col_crs_seat_no=Qry.FieldIndex("crs_seat_no");
+  int col_preseat_no=Qry.FieldIndex("preseat_no");
+  int col_seats=Qry.FieldIndex("seats");
+  int col_target=Qry.FieldIndex("target");
+  int col_last_target=Qry.FieldIndex("last_target");
+  int col_document=Qry.FieldIndex("document");
+  int col_ticket=Qry.FieldIndex("ticket");
+  int col_pax_id=Qry.FieldIndex("pax_id");
+  int col_tid=Qry.FieldIndex("tid");
+  int col_pnr_id=Qry.FieldIndex("pnr_id");
+  int col_point_id_tlg=Qry.FieldIndex("point_id_tlg");
+  int col_pr_goshow=Qry.FieldIndex("pr_goshow");
+  int col_reg_no=Qry.FieldIndex("reg_no");
+  int col_seat_no=Qry.FieldIndex("seat_no");
+  int col_refuse=Qry.FieldIndex("refuse");
+  int col_grp_id=Qry.FieldIndex("grp_id");
+
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (!Qry.FieldIsNULL(col_grp_id))
+    {
+      PointsQry.SetVariable("grp_id",Qry.FieldAsInteger(col_grp_id));
+      PointsQry.Execute();
+      if (!PointsQry.Eof&&point_id!=PointsQry.FieldAsInteger("point_id")) continue;
+    };
+
+    if (point_id_tlg!=Qry.FieldAsInteger(col_point_id_tlg))
+    {
+      point_id_tlg=Qry.FieldAsInteger(col_point_id_tlg);
+      tripNode = NewTextChild( dataNode, "tlg_trip" );
+      TlgTripsQry.SetVariable("point_id",point_id_tlg);
+      TlgTripsQry.Execute();
+      if (TlgTripsQry.Eof) throw UserException("Рейс не найден. Повторите запрос");
+      ostringstream trip;
+      trip << TlgTripsQry.FieldAsString("airline")
+           << setw(3) << setfill('0') << TlgTripsQry.FieldAsInteger("flt_no")
+           << TlgTripsQry.FieldAsString("suffix")
+           << "/" << DateTimeToStr(TlgTripsQry.FieldAsDateTime("scd"),"ddmmm")
+           << " " << TlgTripsQry.FieldAsString("airp_dep");
+      NewTextChild(tripNode,"name",trip.str());
+      paxNode = NewTextChild(tripNode,"passengers");
+    };
+    node = NewTextChild(paxNode,"pax");
+
+    NewTextChild( node, "pnr_ref", Qry.FieldAsString( col_pnr_ref ), "" );
+    NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
+    NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
+    NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
+    NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
+    NewTextChild( node, "crs_seat_no", Qry.FieldAsString( col_crs_seat_no ), "" );
+    NewTextChild( node, "preseat_no", Qry.FieldAsString( col_preseat_no ), "" );
+    NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
+    NewTextChild( node, "target", Qry.FieldAsString( col_target ) );
+    if (!Qry.FieldIsNULL(col_last_target))
+    {
+      try
+      {
+        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_last_target )));
+        NewTextChild( node, "last_target", row.code);
+      }
+      catch(EBaseTableError)
+      {
+        NewTextChild( node, "last_target", Qry.FieldAsString( col_last_target ) );
+      };
+    };
+
+    NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
+    NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
+    if (Qry.FieldAsInteger(col_pr_goshow)!=0)
+      NewTextChild( node, "status", EncodePaxStatus(ASTRA::psGoshow) );
+
+    RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
+    RQry.Execute();
+    string rem, rem_code;
+    xmlNodePtr stcrNode = NULL;
+    for(;!RQry.Eof;RQry.Next())
+    {
+      rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
+      rem_code = RQry.FieldAsString( "rem_code" );
+      if ( rem_code == "STCR" && !stcrNode )
+      {
+      	stcrNode = NewTextChild( node, "step", "down" );
+      };
+    };
+    NewTextChild( node, "rem", rem, "" );
+    NewTextChild( node, "pax_id", Qry.FieldAsInteger( col_pax_id ) );
+    NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
+    NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
+
+    if (!Qry.FieldIsNULL(col_grp_id))
+    {
+      NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
+      NewTextChild( node, "seat_no", Qry.FieldAsString( col_seat_no ), "" );
+      NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
+    };
+  };
+
+};
+
 void viewPNL( int point_id, xmlNodePtr dataNode )
 {
   TQuery Qry( &OraSession );
-  TQuery RQry( &OraSession );
   Qry.SQLText =
     "SELECT pax.reg_no, "
     "       ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
@@ -1370,6 +1576,8 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+
+  TQuery RQry( &OraSession );
   RQry.SQLText =
     "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(rem_types.priority,-1) AS priority "\
     " FROM crs_pax_rem,rem_types "\
