@@ -131,21 +131,22 @@ const char* trfer_reg_SQL =
     "WHERE (c.point_from=:point_id OR c.point_to=:point_id) AND "
     "      p1.point_id=c.point_from AND p2.point_id=c.point_to";
 */
-const char* crs_displace_to_SQL =
+const char* crs_displace_from_SQL =
    "SELECT class_spp,airp_arv_spp,airline,flt_no,suffix,scd, "
    "       point_id_tlg,class_tlg,airp_arv_tlg "
    " FROM crs_displace2 "
    " WHERE point_id_spp=:point_id_spp "
    " ORDER BY point_id_tlg,airline,flt_no,suffix,scd ";
 
-const char* crs_displace_from_SQL =
-   "SELECT class_tlg AS class_spp,airp_arv_tlg AS airp_arv_spp,"
-   "       points.airline,points.flt_no,points.suffix,points.scd_out AS scd, "
-   "       class_spp AS class_tlg,airp_arv_spp AS airp_arv_tlg "
-   " FROM crs_displace2,tlg_binding,points "
-   " WHERE crs_displace2.point_id_tlg=:point_id_tlg AND "
-   "       crs_displace2.point_id_tlg=tlg_binding.point_id_tlg AND points.point_id=tlg_binding.point_id_spp "
-   " ORDER BY crs_displace2.point_id_spp,airline,flt_no,suffix,scd ";
+const char* crs_displace_to_SQL =
+  "SELECT class_tlg AS class_spp, airp_arv_tlg AS airp_arv_spp, "
+  "       points.airline,points.flt_no,points.suffix,points.scd_out AS scd, "
+  "       crs_displace2.point_id_spp AS point_id_tlg,class_spp AS class_tlg,airp_arv_spp AS airp_arv_tlg "
+  " FROM tlg_binding, crs_displace2, points "
+  " WHERE tlg_binding.point_id_spp=:point_id_spp AND "
+  "       tlg_binding.point_id_tlg=crs_displace2.point_id_tlg AND "
+  "       points.point_id=tlg_binding.point_id_spp "
+  "ORDER BY points.point_id,points.airline,points.flt_no,points.suffix,points.scd_out ";
 
 struct TDelay {
 	string code;
@@ -296,7 +297,7 @@ struct TCRS_Displaces {
 /*void GetFromTo( int point_id, TCRS_Displaces &crsd, string &str_from, string &str_to );*/
 void read_tripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id );
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode );
-string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry );
+string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry );
 
 
 string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string region )
@@ -602,7 +603,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	CRS_DispltoQry.SQLText = crs_displace_to_SQL;
   	CRS_DispltoQry.DeclareVariable( "point_id_spp", otInteger );
   	CRS_DisplfromQry.SQLText = crs_displace_from_SQL;
-  	CRS_DisplfromQry.DeclareVariable( "point_id_tlg", otInteger );
+  	CRS_DisplfromQry.DeclareVariable( "point_id_spp", otInteger );
   }
   PerfomTest( 666 );
   PointsQry.Execute();
@@ -846,15 +847,20 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         }
       }
       if ( !arx ) {
-       TDateTime desk_time;
-       modf(UTCToLocal( sd, tr->region ),&desk_time);
+       TDateTime local_time;
+       modf(UTCToLocal( sd, tr->region ),&local_time);
 
   	   CRS_DispltoQry.SetVariable( "point_id_spp", tr->point_id );
+  	   tst();
   	   CRS_DispltoQry.Execute();
-  	   tr->crs_disp_to = getCrsDisplace( point_id, desk_time, CRS_DispltoQry );
-  	   CRS_DisplfromQry.SetVariable( "point_id_tlg", tr->point_id );
+  	   tst();
+  	   tr->crs_disp_to = getCrsDisplace( point_id, local_time, true, CRS_DispltoQry );
+  	   tst();
+  	   CRS_DisplfromQry.SetVariable( "point_id_spp", tr->point_id );  	   
   	   CRS_DisplfromQry.Execute();
-  	   tr->crs_disp_from = getCrsDisplace( point_id, desk_time, CRS_DisplfromQry );
+  	   tst();
+  	   tr->crs_disp_from = getCrsDisplace( point_id, local_time, false, CRS_DisplfromQry );
+  	   tst();
 /*        crsd.displaces_from.clear();
         crsd.displaces_to.clear();
       	CRS_DisplQry.SetVariable( "point_id", tr->point_id );
@@ -2881,9 +2887,9 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	if ( Qry.Eof )
 		throw UserException( "Рейс не найден" );
 	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
-	TDateTime desk_time;
-	modf(UTCToLocal( NowUTC(), region ),&desk_time);
-	NewTextChild( crsdNode, "airp_time", DateTimeToStr( desk_time ) );
+	TDateTime local_time;
+	modf(UTCToLocal( NowUTC(), region ),&local_time);
+	NewTextChild( crsdNode, "airp_time", DateTimeToStr( local_time ) );
 
 	Qry.Clear();
 	Qry.SQLText =
@@ -2951,7 +2957,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	}
 }
 
-string getCrsDisplace( int point_id, TDateTime local_time, TQuery &Qry )
+string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry )
 {
   bool ch_class = false;
   bool ch_dest = false;
@@ -3011,8 +3017,8 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	throw UserException( "Рейс не найден" );
   string airp_dep = Qry.FieldAsString( "airp" );
 	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
-	TDateTime desk_time;
-	modf(UTCToLocal( NowUTC(), region ),&desk_time);
+	TDateTime local_time;
+	modf(UTCToLocal( NowUTC(), region ),&local_time);
   Qry.Clear();
   Qry.SQLText = "SELECT DISTINCT id FROM crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id );
@@ -3161,12 +3167,12 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "point_id_spp", otInteger, point_id );
   Qry.Execute();
   xmlNodePtr tripNode = NewTextChild( dataNode, "tripDispl" );
-  NewTextChild( tripNode, "to", getCrsDisplace( point_id, desk_time, Qry ) );
+  NewTextChild( tripNode, "to", getCrsDisplace( point_id, local_time, true, Qry ) );
   Qry.Clear();
   Qry.SQLText = crs_displace_from_SQL;
   Qry.CreateVariable( "point_id_tlg", otInteger, point_id );
   Qry.Execute();
-  NewTextChild( tripNode, "from", getCrsDisplace( point_id, desk_time, Qry ) );
+  NewTextChild( tripNode, "from", getCrsDisplace( point_id, local_time, false, Qry ) );
 
 /*  TCRS_Displaces crsd;
   GetCRS_Displaces( crsd );
