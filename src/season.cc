@@ -1734,7 +1734,17 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                period.days.c_str() );
-    period.first = ClientToUTC( (double)period.first, filter_region );
+ 		try {
+      period.first = ClientToUTC( (double)period.first, filter_region );
+ 	  }
+    catch( boost::local_time::ambiguous_result ) {
+      throw UserException( "Время выполнения рейса не определено однозначно %s",
+                            DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
+    }
+    catch( boost::local_time::time_label_invalid ) {
+      throw UserException( "Время выполнения рейса не существует %s",
+                           DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
+    }
     double utcFirst;
     f3 = modf( (double)period.first, &utcFirst );
     if ( first_day != utcFirst ) {
