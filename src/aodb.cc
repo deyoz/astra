@@ -226,7 +226,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	Qry.SQLText =	
 	 "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	 "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
-	 "       pax.pers_type,pax.seat_no,DECODE(pax.seats,0,0,pax.seats-1) seats,"
+	 "       pax.pers_type,pax.seat_no,pax.seats seats,"
 	 "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
 	 "       ckin.get_rkAmount(pax_grp.grp_id,pax.pax_id,rownum) rkamount,"
 	 "       ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) rkweight,"
@@ -235,7 +235,8 @@ bool createAODBCheckInInfoFile( int point_id,
 	 "       pax.pr_brd,ckin.get_main_pax_id(pax.grp_id) as main_pax_id "
 	 " FROM pax_grp, pax "
 	 " WHERE pax_grp.grp_id=pax.grp_id AND "
-	 "       pax_grp.point_dep=:point_id";
+	 "       pax_grp.point_dep=:point_id"
+	 " ORDER BY seats ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();	
 	TQuery RemQry( &OraSession );
@@ -251,7 +252,13 @@ bool createAODBCheckInInfoFile( int point_id,
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
 	TimeQry.DeclareVariable( "work_mode", otString );
+	vector<string> baby_names;
 	while ( !Qry.Eof ) {
+		if ( Qry.FieldAsInteger( "seats" ) == 0 ) {
+			baby_names.push_back( Qry.FieldAsString( "name" ) );
+			Qry.Next();
+			continue;
+		}
 		ostringstream record;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<setprecision(0)<<aodb_point_id;
 		record<<setfill(' ')<<std::fixed<<setw(10)<<flight;
@@ -303,8 +310,10 @@ bool createAODBCheckInInfoFile( int point_id,
 		if ( !pr_ex )
 			record<<0;
 		record<<setw(1);
+		bool adult = false;
 		switch ( DecodePerson( Qry.FieldAsString( "pers_type" ) ) ) {
 			case ASTRA::adult:
+				  adult = true;
 				  record<<0;
 				  break;
 		  case ASTRA::baby:
@@ -327,8 +336,15 @@ bool createAODBCheckInInfoFile( int point_id,
 			record<<setw(1)<<1;
 		else
 			record<<setw(1)<<0;
-		record<<setw(2)<<0; // РМ количество
-		record<<setw(36)<<""; // Имя ребенка
+		if ( adult && !baby_names.empty() ) {
+		  record<<setw(2)<<1; // РМ количество
+		  record<<setw(36)<<baby_names.begin()->substr(0,36); // Имя ребенка			
+		  baby_names.erase( baby_names.begin() );
+		}
+		else {
+		  record<<setw(2)<<0; // РМ количество
+		  record<<setw(36)<<""; // Имя ребенка
+		}
 		record<<setw(60)<<""; // ДОП. Инфо
 		record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
@@ -1220,7 +1236,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	 " UPDATE aodb_points SET aodb_point_id=aodb_point_id "
 	 " WHERE point_id=:point_id; "
 	 " IF SQL%NOTFOUND THEN "
-	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id) VALUES(:aodb_point_id,:point_addr,:point_id)"
+	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id) VALUES(:aodb_point_id,:point_addr,:point_id);"
 	 " END IF; "
 	 "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -1332,7 +1348,8 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
   	  fd.erase( 0, i + 1 );
   	}
     AODB_Flight fl;
-    try {    	
+    try {  
+    	ProgTrace( TRACE5, "parse line=%s", linestr.c_str() );  	
       ParseFlight( canon_name, linestr, fl );
     }
     catch( Exception &e ) {    	    	
@@ -1354,5 +1371,4 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	Qry.CreateVariable( "point_addr", otString, canon_name );
 	Qry.Execute();
 }
-
 
