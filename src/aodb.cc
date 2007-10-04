@@ -1424,15 +1424,15 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sCloseCheckIn ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sCloseCheckIn ].act, "dd.mm.yy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( stages[ sCloseCheckIn ].act, "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sOpenBoarding ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sOpenBoarding ].act, "dd.mm.yy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( stages[ sOpenBoarding ].act, "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sCloseBoarding ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sCloseBoarding ].act, "dd.mm.yy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( stages[ sCloseBoarding ].act, "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
