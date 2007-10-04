@@ -2944,6 +2944,27 @@ int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
     Qry.Execute();
     point_id=Qry.GetVariableAsInteger("point_id");
     bind_tlg(point_id);
+
+    /* здесь проверим непривязанные сегменты из crs_displace и привяжем */
+    /* но только для PNL/ADL */
+    if (!flt.pr_utc && bind_type==btFirstSeg && *flt.airp_arv==0)
+    {
+      Qry.Clear();
+      Qry.SQLText=
+        "UPDATE crs_displace2 SET point_id_tlg=:point_id "
+        "WHERE airline=:airline AND flt_no=:flt_no AND "
+        "      NVL(suffix,' ')=NVL(:suffix,' ') AND "
+        "      TRUNC(scd)=TRUNC(:scd) AND "
+        "      airp_dep=:airp_dep AND "
+        "      point_id_tlg IS NULL";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.CreateVariable("airline",otString,flt.airline);
+      Qry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+      Qry.CreateVariable("suffix",otString,flt.suffix);
+      Qry.CreateVariable("scd",otDate,flt.scd);
+      Qry.CreateVariable("airp_dep",otString,flt.airp_dep);
+      Qry.Execute();
+    };
   }
   else point_id=Qry.FieldAsInteger("point_id");
 
