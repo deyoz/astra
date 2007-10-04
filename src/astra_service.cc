@@ -628,7 +628,7 @@ void sync_aodb( void )
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
-	Qry.CreateVariable( "stage1", otInteger, sOpenCheckIn );
+	Qry.CreateVariable( "stage1", otInteger, sPrepCheckIn );
 	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
