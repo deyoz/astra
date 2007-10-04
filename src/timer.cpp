@@ -18,7 +18,7 @@
 #include "base_tables.h"
 #include "astra_service.h"
 #include "cfgproc.h"
-const int sleepsec = 5;
+const int sleepsec = 25;
 
 using namespace ASTRA;
 using namespace BASIC;

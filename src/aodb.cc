@@ -98,10 +98,12 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
 	FlightQry.Execute();
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
+	string region = CityTZRegion( "ŒŽ‚" );
+	TDateTime scd_out = UTCToLocal( FlightQry.FieldAsDateTime( "scd_out" ), region );	 		
 	string p = string( FlightQry.FieldAsString( "airline" ) ) +
 	           FlightQry.FieldAsString( "flt_no" ) +
 	           FlightQry.FieldAsString( "suffix" ) +
-	           string( DateTimeToStr( FlightQry.FieldAsDateTime( "scd_out" ), "yymmddhhnn" ) );
+	           string( DateTimeToStr( scd_out, "yymmddhhnn" ) );
 	if ( pr_bag )
 		p += 'b';
   params[ PARAM_FILE_NAME ] =  p + ".txt";
@@ -152,7 +154,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	Qry.SQLText = 
 	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out FROM points, aodb_points "
 	 " WHERE points.point_id=:point_id AND points.point_id=aodb_points.point_id AND "
-	 "       aodb_points.point_addr=:point_addr FOR UPDATE";
+	 "       aodb_points.point_addr=:point_addr";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );	
 	Qry.Execute();
@@ -305,6 +307,12 @@ bool createAODBCheckInInfoFile( int point_id,
 							record<<5;
 							pr_ex=true;
 					  }
+					  else
+					  	if ( rem == "UMNR" ) {
+					  		record<<9;
+					  		pr_ex=true;
+					  	}
+					  		
 			RemQry.Next();
 		}
 		if ( !pr_ex )
@@ -323,7 +331,7 @@ bool createAODBCheckInInfoFile( int point_id,
 				  record<<1;
 		}
 		record<<setw(5)<<Qry.FieldAsString( "seat_no" );
-		record<<setw(2)<<Qry.FieldAsInteger( "seats" );
+		record<<setw(2)<<Qry.FieldAsInteger( "seats" )-1;
 		record<<setw(4)<<Qry.FieldAsInteger( "excess" );
 		record<<setw(3)<<Qry.FieldAsInteger( "rkamount" );
 		record<<setw(4)<<Qry.FieldAsInteger( "rkweight" );
@@ -569,7 +577,7 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
  	 " DELETE aodb_pax WHERE pax_id=:pax_id AND point_addr=:point_addr; "
  	 " UPDATE aodb_files SET rec_no_pax=rec_no_pax+1 WHERE point_id=:point_id AND point_addr=:point_addr; "
  	 " IF SQL%NOTFOUND THEN "
- 	 "  INSERT INTO aodb_files(point_id,point_addr,rec_no_pax,rec_no_bag) VALUES(:point_id,:point_addr,1,0); "
+ 	 "  INSERT INTO aodb_files(point_id,point_addr,rec_no_pax,rec_no_bag,rec_no_trip) VALUES(:point_id,:point_addr,1,0,-1); "
  	 " END IF; "
  	 "END; ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -658,7 +666,7 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
  	 "BEGIN "
  	 " UPDATE aodb_files SET rec_no_bag=:rec_no_bag WHERE point_id=:point_id AND point_addr=:point_addr; "
  	 " IF SQL%NOTFOUND THEN "
- 	 "  INSERT INTO aodb_files(point_id,point_addr,rec_no_pax,rec_no_bag) VALUES(:point_id,:point_addr,0,:rec_no_bag); "
+ 	 "  INSERT INTO aodb_files(point_id,point_addr,rec_no_pax,rec_no_bag,rec_no_trip) VALUES(:point_id,:point_addr,0,:rec_no_bag,-1); "
  	 " END IF; "
  	 "END; ";	
  	PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -1090,8 +1098,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
      "BEGIN "
      " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
      "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg) "
-     "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, "
-     "    NULL, 0, 1, 0, 0, 0); "
+     "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, NULL, 0, 1, 0, 0, 0); "
      " ckin.set_trip_sets(:point_id); "
      " gtimer.puttrip_stages(:point_id); "
      "END;";
@@ -1371,4 +1378,97 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	Qry.CreateVariable( "point_addr", otString, canon_name );
 	Qry.Execute();
 }
+
+bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, std::string &file_data )
+{
+	string point_addr = params[PARAM_CANON_NAME];	
+	TQuery Qry( &OraSession );	
+	Qry.SQLText = 
+	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out FROM points, aodb_points "
+	 " WHERE points.point_id=:point_id AND points.point_id=aodb_points.point_id AND "
+	 "       aodb_points.point_addr=:point_addr";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );	
+	Qry.Execute();
+	if ( Qry.Eof )
+		return false;
+  string flight = Qry.FieldAsString( "trip" );
+	string region = CityTZRegion( "ŒŽ‚" );
+	TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );	 		
+	int aodb_point_id = Qry.FieldAsInteger( "aodb_point_id" );
+	Qry.Clear();		
+	Qry.SQLText = "SELECT rec_no_trip FROM aodb_files WHERE point_id=:point_id AND point_addr=:point_addr";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.Execute();
+	int rec_no;
+	if ( Qry.Eof )
+		rec_no = 0;
+	else
+		rec_no = Qry.FieldAsInteger( "rec_no_trip" ) + 1;	
+	Qry.Clear();	
+	Qry.SQLText =
+	 "SELECT record FROM aodb_trips WHERE point_id=:point_id AND point_addr=:point_addr";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.Execute();
+	string old_res;
+	if ( !Qry.Eof )
+		old_res = Qry.FieldAsString( "record" );
+	TMapTripStages stages;
+	TTripStages::LoadStages( point_id, stages );
+	ostringstream record;
+	record<<setfill(' ');
+	if ( stages[ sOpenCheckIn ].act > NoExists )
+		record<<setw(16)<<DateTimeToStr( stages[ sOpenCheckIn ].act, "dd.mm.yy hh:nn" );
+	else
+		record<<setw(16)<<" ";
+	if ( stages[ sCloseCheckIn ].act > NoExists )
+		record<<setw(16)<<DateTimeToStr( stages[ sCloseCheckIn ].act, "dd.mm.yy hh:nn" );
+	else
+		record<<setw(16)<<" ";
+	if ( stages[ sOpenBoarding ].act > NoExists )
+		record<<setw(16)<<DateTimeToStr( stages[ sOpenBoarding ].act, "dd.mm.yy hh:nn" );
+	else
+		record<<setw(16)<<" ";
+	if ( stages[ sCloseBoarding ].act > NoExists )
+		record<<setw(16)<<DateTimeToStr( stages[ sCloseBoarding ].act, "dd.mm.yy hh:nn" );
+	else
+		record<<setw(16)<<" ";
+	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
+		ostringstream r;
+		r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<setprecision(0)<<aodb_point_id;
+		r<<setw(10)<<flight.substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
+		Qry.Clear();
+  	Qry.SQLText = 
+ 	   "BEGIN "
+   	 " UPDATE aodb_files SET rec_no_trip=rec_no_trip+1 WHERE point_id=:point_id AND point_addr=:point_addr; "
+ 	   " IF SQL%NOTFOUND THEN "
+ 	   "  INSERT INTO aodb_files(point_id,point_addr,rec_no_pax,rec_no_bag,rec_no_trip) "
+ 	   "    VALUES(:point_id,:point_addr,0,0,1); "
+ 	   " END IF; "
+	   " UPDATE aodb_trips SET record=:record WHERE point_id=:point_id AND point_addr=:point_addr; "
+ 	   " IF SQL%NOTFOUND THEN "
+ 	   "  INSERT INTO aodb_trips(point_id,point_addr,record) "
+ 	   "   VALUES(:point_id,:point_addr,:record);"
+ 	   " END IF;" 	   
+ 	   "END; ";
+   	Qry.CreateVariable( "point_id", otInteger, point_id );
+   	Qry.CreateVariable( "point_addr", otString, point_addr );
+   	Qry.CreateVariable( "record", otString, record.str() );
+ 	  Qry.Execute(); 	  	 		
+ 	  file_data = r.str() + "\n";
+	}
+  if ( !file_data.empty() ) {  	
+	  string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
+    params[ PARAM_FILE_NAME ] =  p + "reg.txt";	
+	}
+	return !file_data.empty();
+}
+/*
+alter table aodb_files add column rec_no_trip NUMBER(6);
+UPDATE aodb_files SET rec_no_trip=-1;
+COMMIT;
+ALTER TABLE aodb_files modify rec_no_trip NOT NULL;
+*/
 

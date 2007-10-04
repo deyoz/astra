@@ -521,7 +521,8 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                 if ( 
                         type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, params, file_data ) ||
-                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data/*, bag_params, bag_file_data*/ )
+                        type == FILE_AODB_TYPE && BuildAODBTimes( id, params, file_data ) ||
+                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, params, file_data )
                    ) {
                     ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
                     /* теперь в params еще лежит и имя файла */
