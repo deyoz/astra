@@ -1064,13 +1064,13 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "litera", otString, fl.litera );
     Qry.CreateVariable( "park_in", otString, FNull );
     Qry.CreateVariable( "park_out", otString, FNull/*fl.term*/ );
-    if ( fl.pr_del )
+/*    if ( fl.pr_del )
     	Qry.CreateVariable( "pr_del", otInteger, -1 );
+    else*/
+    if ( fl.pr_cancel )
+    	Qry.CreateVariable( "pr_del", otInteger, 1 );
     else
-    	if ( fl.pr_cancel )
-    		Qry.CreateVariable( "pr_del", otInteger, 1 );
-    	else
-    		Qry.CreateVariable( "pr_del", otInteger, 0 );
+    	Qry.CreateVariable( "pr_del", otInteger, 0 );
     Qry.CreateVariable( "tid", otInteger, new_tid );
     Qry.CreateVariable( "remark", otString, FNull );
     Qry.CreateVariable( "pr_reg", otInteger, 1 );
