@@ -998,7 +998,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "airp", otString, "Ççä" );
   Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "scd_out", otDate, fl.scd );
-	tst();
 	Qry.Execute();
 /*rogTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
@@ -1067,7 +1066,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 /*    if ( fl.pr_del )
     	Qry.CreateVariable( "pr_del", otInteger, -1 );
     else*/
-    if ( fl.pr_cancel )
+   	if ( fl.pr_cancel )
     	Qry.CreateVariable( "pr_del", otInteger, 1 );
     else
     	Qry.CreateVariable( "pr_del", otInteger, 0 );
