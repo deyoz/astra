@@ -2395,7 +2395,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	else
   		id->pr_tranzit = 0;
 
-    id->pr_reg = ( id->scd_out > NoExists && id->act_out == NoExists &&
+    id->pr_reg = ( id->scd_out > NoExists /*&& id->act_out == NoExists*/ &&
                    find( triptypes.begin(), triptypes.end(), id->triptype ) != triptypes.end() &&
                    !id->pr_del && id != dests.end() - 1 );
     if ( id->pr_reg ) {
