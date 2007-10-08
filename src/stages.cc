@@ -99,9 +99,10 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
    "SELECT airp FROM points WHERE points.point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  string region;
+  string region, airp;
+  airp = Qry.FieldAsString( "airp" );
 	if ( reqInfo->user.time_form == tfLocalAll )
- 	  region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
+ 	  region = AirpTZRegion( airp );
   Qry.Clear();
   Qry.SQLText =
    "BEGIN "\
@@ -135,11 +136,25 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      if ( i->second.est == NoExists )
        Qry.SetVariable( "est", FNull );
      else
-    	 Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+   		try {
+    	  Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+    	}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Расчетное время выполнения шага '%s' в пункте %s не определено однозначно",
+                             TStagesRules::Instance()->Graph_Stages[ i->first ].c_str(),
+                             airp.c_str() );
+      }
      if ( i->second.act == NoExists )
        Qry.SetVariable( "act", FNull );
      else
-       Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+     	 try {
+         Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
+       }
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Фактическое время выполнения шага '%s' в пункте %s не определено однозначно",
+                             TStagesRules::Instance()->Graph_Stages[ i->first ].c_str(),
+                             airp.c_str() );
+      }       
      int pr_manual;
      if ( i->second.est == i->second.old_est )
        pr_manual = -1;
@@ -167,7 +182,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      if ( i->second.est == NoExists )
        UpdQry.SetVariable( "est", FNull );
      else
-    	 UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
+   	   UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
      if ( i->second.act == NoExists )
        UpdQry.SetVariable( "act", FNull );
      else
@@ -196,7 +211,6 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      else
         tolog += " не задано";
      reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
-     	tst();
    }
 }
 
