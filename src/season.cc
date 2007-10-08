@@ -790,26 +790,9 @@ ProgTrace( TRACE5, "range.first=%f, range.last=%f, range.days=%s",
   }
   node = GetNode( "time", filterNode );
   if ( node ) {
-//    if ( TReqInfo::Instance()->user.user_type == utAirport ) {
-//      /* если оператор принадлежит одному порту, то переводим времена в UTC по региону порта */
-//      sairpcity = GetCityFromAirp( TReqInfo::Instance()->user.access.airps.front() );
-//      string airRegion = CityTZRegion( sairpcity );
-//      // переводим время начала расписания в UTC
-//      TDateTime t = BoostToDateTime( periods[ season_idx ].period.begin() );
-//      // переводим время во время клиента и для верности удаляем время и добавляем день
-//      double f1;
-//      modf( (double)UTCToClient( t, airRegion ), &f1 );
-//      t = f1 + 1;
-//      // переводим время в UTC
-//      firstTime = ClientToUTC( t + NodeAsDateTime( "first", node ), airRegion ) - t;
-//      lastTime = ClientToUTC( t + NodeAsDateTime( "last", node ), airRegion ) - t;
-//    }
-//    else { /* будем переводить в UTC относительно порта в маршруте */
-
       /* будем переводить в UTC относительно порта в маршруте !!!! */
       firstTime = NodeAsDateTime( "first", node );
       lastTime = NodeAsDateTime( "last", node );
-//    }
   }
   node = GetNode( "company", filterNode );
   if ( node )
@@ -1557,7 +1540,7 @@ ProgTrace( TRACE5, "cod=%s, land=%f, takeoff=%f", id->cod.c_str(), id->Land, id-
 }
 
 // разбор и перевод времен в UTC, в диапазонах выполнения хранятся времена вылета
-void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, string &filter_region )
+bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TDestList> &mapds, string &filter_region )
 {
   TBaseTable &baseairps = base_tables.get( "airps" );		
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1574,7 +1557,7 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
   mapds.clear();
   rangeList.periods.clear();
   if ( !rangelistNode )
-   return;
+   return true;
   xmlNodePtr node = GetNode( "trip_id", rangelistNode );
   if ( !node )
     rangeList.trip_id = NoExists;
@@ -1586,6 +1569,8 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     TPeriod period;
     xmlNodePtr curNode = rangeNode->children;
     string modify = NodeAsStringFast( "modify", curNode );
+//   	ambiguous_timeNode = GetNodeFast( "ambiguous_time", curNode );
+
     if ( modify == "delete" ) {
       rangeNode = rangeNode->next;
       continue;
@@ -1738,8 +1723,18 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       period.first = ClientToUTC( (double)period.first, filter_region );
  	  }
     catch( boost::local_time::ambiguous_result ) {
-      throw UserException( "Время выполнения рейса не определено однозначно %s",
-                            DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
+    	tst();
+    	period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1; //!!!djek
+    	tst();
+/*    	if ( !ambiguous_timeNode ) {
+    	  showErrorMessage( string("Время выполнения рейса не определено однозначно ") + DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
+     	  return fale;   	 
+     	}
+     	else {
+     		period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1; //!!!djek
+     	}*/
+/*      throw UserException( "Время выполнения рейса не определено однозначно %s",
+                            DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );!!!*/
     }
     catch( boost::local_time::time_label_invalid ) {
       throw UserException( "Время выполнения рейса не существует %s",
@@ -1761,13 +1756,15 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       		f2 = modf( (double)id->Land, &f3 );
       		f3 += first_day + fabs( f2 );
           ProgTrace( TRACE5, "local land=%s",DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+          
       		try {
       	    f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
       	  }
           catch( boost::local_time::ambiguous_result ) {
-            throw UserException( "Время прилета рейса в пункте %s не определено однозначно %s",
+          	f2 = modf( (double)ClientToUTC( f3 + 1, id->region ) - 1, &f3 );
+/*!!!            throw UserException( "Время прилета рейса в пункте %s не определено однозначно %s",
                                  id->cod.c_str(),
-                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );
+                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
             throw UserException( "Время прилета рейса в пункте %s не существует %s",
@@ -1792,9 +1789,10 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     	      f2 = modf( (double)ClientToUTC( f3, id->region ), &f3 );
     	    }
           catch( boost::local_time::ambiguous_result ) {
-            throw UserException( "Время вылета рейса в пункте %s не определено однозначно %s",
+          	f2 = modf( (double)ClientToUTC( f3 + 1, id->region ) - 1, &f3 );
+/*            throw UserException( "Время вылета рейса в пункте %s не определено однозначно %s",
                                  id->cod.c_str(),
-                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );
+                                 DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
             throw UserException( "Время вылета рейса в пункте %s не существует %s",
@@ -1821,11 +1819,13 @@ void ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     rangeList.periods.push_back( period );
     rangeNode = rangeNode->next;
   } // END WHILE
+  return true;
 }
 
 void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //TReqInfo::Instance()->user.check_access( amWrite );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );  
   vector<TPeriod> oldperiods;
   TFilter filter;
   xmlNodePtr filterNode = GetNode( "filter", reqNode );
@@ -1834,6 +1834,10 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   map<int,TDestList> mapds;
   xmlNodePtr rangelistNode = GetNode( "SubrangeList", reqNode );
   ParseRangeList( rangelistNode, rangeList, mapds, filter.region );
+/*  if ( !ParseRangeList( rangelistNode, rangeList, mapds, filter.region ) ) {
+  	NewTextChild( dataNode, "ambiguous_time" );
+  	return;
+  }*/
   VerifyRangeList( rangeList, mapds );
   vector<TPeriod> nperiods, speriods;
 
@@ -2175,7 +2179,6 @@ ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
   }
 
   // надо перечитать информацию по экрану редактирования
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   GetEditData( trip_id, filter, true, dataNode );
   showMessage( "Данные успешно сохранены" );
 }
