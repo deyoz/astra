@@ -2131,32 +2131,62 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			d.bort.clear();
 		fnode = GetNodeFast( "scd_in", snode );
 		if ( fnode )
-			d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+      }       			
 		else
 			d.scd_in = NoExists;
 		fnode = GetNodeFast( "est_in", snode );
 		if ( fnode )
-			d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+      }       						
 		else
 			d.est_in = NoExists;
 		fnode = GetNodeFast( "act_in", snode );
 		if ( fnode )
-			d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+      }       			
 		else
 			d.act_in = NoExists;
 		fnode = GetNodeFast( "scd_out", snode );
 		if ( fnode )
-			d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+      }       						
 		else
 			d.scd_out = NoExists;
 		fnode = GetNodeFast( "est_out", snode );
 		if ( fnode )
-			d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+      }       									
 		else
 			d.est_out = NoExists;
 		fnode = GetNodeFast( "act_out", snode );
 		if ( fnode ) {
-			d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			try {
+			  d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
+			}
+      catch( boost::local_time::ambiguous_result ) {
+        throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+      }       									
 		}
 		else
 			d.act_out = NoExists;
@@ -2169,7 +2199,12 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 				dnode = fnode->children;
 				TDelay delay;
 				delay.code = NodeAsStringFast( "delay_code", dnode );
-				delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
+				try {
+				  delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
+				}
+        catch( boost::local_time::ambiguous_result ) {
+          throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
+        }       										
 				d.delays.push_back( delay );
 				fnode = fnode->next;
 		  }
