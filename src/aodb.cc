@@ -1390,7 +1390,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.DeclareVariable( "pr_change", otInteger );
 //rogTrace( TRACE5, "fl.terms.size()=%d, point_id=%d", fl.terms.size(), point_id );
   string reg, brd;
-  bool pr_change_reg = false, pr_change_brd;
+  bool pr_change_reg = false, pr_change_brd = false;
 	for ( vector<AODB_Term>::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
 		Qry.SetVariable( "desk", it->name );
 		Qry.SetVariable( "work_mode", it->type );
