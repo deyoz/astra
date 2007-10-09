@@ -796,7 +796,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		 "SELECT litera as code,2 FROM aodb_liters WHERE aodb_code=:code "
 		 " ORDER BY 2";
 		Qry.CreateVariable( "code", otString, fl.litera );
-		tst();
 		Qry.Execute();
 		if ( !Qry.RowCount() )
 			throw Exception( "Invalid litera, value=%s", fl.litera.c_str() );
@@ -1001,7 +1000,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	    	 "SELECT airp as code, 2 FROM aodb_airps WHERE aodb_code=:code "
 	    	 " ORDER BY 2 ";
 	    	Qry.CreateVariable( "code", otString, dest.airp );
-	    	tst();
 	    	Qry.Execute();
 	    	if ( !Qry.RowCount() )
 	    		throw Exception( "Invalid dest.airp, value=%s", dest.airp.c_str() );
@@ -1035,7 +1033,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		  		term_name = "G" + term.name;
 		  	else
 		  		term_name = "R" + term.name;
-	  		Qry.Clear();
+	  		Qry.Clear();	  		
 	  		Qry.SQLText = "SELECT desk FROM stations WHERE airp=:airp AND work_mode=:work_mode AND name=:code";
 	  		Qry.CreateVariable( "airp", otString, "ВНК" );
 	  		Qry.CreateVariable( "work_mode", otString, term.type );
@@ -1072,7 +1070,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		}
 	}
 	// запись в БД
-	tst();
 	Qry.Clear();
 	Qry.SQLText = 
 	 "SELECT point_id,craft,bort,scd_out,est_out,act_out,litera,park_out,pr_del "
@@ -1104,15 +1101,12 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
      "END;";
     Qry.DeclareVariable( "move_id", otInteger );
     Qry.CreateVariable( "reference", otString, FNull );
-    tst();
     Qry.Execute();
     move_id = Qry.GetVariableAsInteger( "move_id" );
     reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );		
     reqInfo->MsgToLog( string( "Ввод нового пункта " ) + "ВНК", evtDisp, move_id );
-    tst();
     TIDQry.Execute();
     new_tid = TIDQry.FieldAsInteger( "n" );
-    tst();
     POINT_IDQry.Execute();
     point_id = POINT_IDQry.FieldAsInteger( "point_id" );    
     Qry.Clear();
@@ -1167,7 +1161,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     int num = 0;
     for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
     	num++;
-    	tst();
       POINT_IDQry.Execute();
       Qry.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
       Qry.SetVariable( "point_num", num );
@@ -1195,6 +1188,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     		Qry.SetVariable( "pr_del", 0 );
       TIDQry.Execute();
       Qry.SetVariable( "tid", TIDQry.FieldAsInteger( "n" ) );            
+      Qry.Execute();
       tst();
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id );
     }
@@ -1210,7 +1204,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
-		tst();
 		Qry.Execute();		
 	}
 	else { // update
@@ -1340,7 +1333,6 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.SQLText = "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
-    tst();
     Qry.Execute();
 	}
 	
