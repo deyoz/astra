@@ -1723,9 +1723,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       period.first = ClientToUTC( (double)period.first, filter_region );
  	  }
     catch( boost::local_time::ambiguous_result ) {
-    	tst();
     	period.first = ClientToUTC( (double)period.first + 1, filter_region ) - 1; //!!!djek
-    	tst();
 /*    	if ( !ambiguous_timeNode ) {
     	  showErrorMessage( string("Время выполнения рейса не определено однозначно ") + DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
      	  return fale;   	 
