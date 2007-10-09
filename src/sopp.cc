@@ -455,7 +455,6 @@ bool FilterFlightDate( TTrip &tr, TDateTime first_date, TDateTime next_date, boo
           if ( tr.scd_out > NoExists ) {
           	try {
               d = UTCToClient( tr.scd_out, tr.region );
-//              ProgTrace( TRACE5, "d=%f, first_date=%f, next_date=%f", d, first_date, next_date );
             }
             catch( Exception &e ) {
              	if ( errcity.empty() )
