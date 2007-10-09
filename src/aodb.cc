@@ -280,7 +280,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	 " FROM pax_grp, pax "
 	 " WHERE pax_grp.grp_id=pax.grp_id AND "
 	 "       pax_grp.point_dep=:point_id"
-	 " ORDER BY seats ";
+	 " ORDER BY pax_grp.grp_id,seats ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();	
 	TQuery RemQry( &OraSession );
