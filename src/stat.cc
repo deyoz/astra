@@ -2574,7 +2574,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+    TPerfTimer tm;
+    tm.Init();
     Qry.Execute();
+    ProgTrace(TRACE5, "RunFullStat: exec: %s", tm.PrintWithMessage().c_str());
 
     if(!Qry.Eof) {
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
@@ -2647,11 +2650,28 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         int total_bag_amount = 0;
         int total_bag_weight = 0;
         int total_excess = 0;
+        tm.Init();
+
+        int col_airp = Qry.FieldIndex("airp");
+        int col_airline = Qry.FieldIndex("airline");
+        int col_pax_amount = Qry.FieldIndex("pax_amount");
+        int col_adult = Qry.FieldIndex("adult");
+        int col_child = Qry.FieldIndex("child");
+        int col_baby = Qry.FieldIndex("baby");
+        int col_rk_weight = Qry.FieldIndex("rk_weight");
+        int col_bag_amount = Qry.FieldIndex("bag_amount");
+        int col_bag_weight = Qry.FieldIndex("bag_weight");
+        int col_excess = Qry.FieldIndex("excess");
+        int col_flt_no = Qry.FieldIndex("flt_no");
+        int col_scd_out = Qry.FieldIndex("scd_out");
+        int col_places = Qry.FieldIndex("places");
+
+
         while(!Qry.Eof) {
             string region;
             try
             {
-                region = AirpTZRegion(Qry.FieldAsString("airp"));
+                region = AirpTZRegion(Qry.FieldAsString(col_airp));
             }
             catch(UserException &E)
             {
@@ -2662,21 +2682,21 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
             rowNode = NewTextChild(rowsNode, "row");
             if(ap.size()) {
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString(col_airp));
+                NewTextChild(rowNode, "col", Qry.FieldAsString(col_airline));
             } else {
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airline"));
-                NewTextChild(rowNode, "col", Qry.FieldAsString("airp"));
+                NewTextChild(rowNode, "col", Qry.FieldAsString(col_airline));
+                NewTextChild(rowNode, "col", Qry.FieldAsString(col_airp));
             }
 
-            int pax_amount = Qry.FieldAsInteger("pax_amount");
-            int adult = Qry.FieldAsInteger("adult");
-            int child = Qry.FieldAsInteger("child");
-            int baby = Qry.FieldAsInteger("baby");
-            int rk_weight = Qry.FieldAsInteger("rk_weight");
-            int bag_amount = Qry.FieldAsInteger("bag_amount");
-            int bag_weight = Qry.FieldAsInteger("bag_weight");
-            int excess = Qry.FieldAsInteger("excess");
+            int pax_amount = Qry.FieldAsInteger(col_pax_amount);
+            int adult = Qry.FieldAsInteger(col_adult);
+            int child = Qry.FieldAsInteger(col_child);
+            int baby = Qry.FieldAsInteger(col_baby);
+            int rk_weight = Qry.FieldAsInteger(col_rk_weight);
+            int bag_amount = Qry.FieldAsInteger(col_bag_amount);
+            int bag_weight = Qry.FieldAsInteger(col_bag_weight);
+            int excess = Qry.FieldAsInteger(col_excess);
 
             total_pax_amount += pax_amount;
             total_adult += adult;
@@ -2687,11 +2707,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             total_bag_weight += bag_weight;
             total_excess += excess;
 
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("flt_no"));
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger(col_flt_no));
             NewTextChild(rowNode, "col", DateTimeToStr(
-                        UTCToClient(Qry.FieldAsDateTime("scd_out"), region), "dd.mm.yy")
+                        UTCToClient(Qry.FieldAsDateTime(col_scd_out), region), "dd.mm.yy")
                     );
-            NewTextChild(rowNode, "col", Qry.FieldAsString("places"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString(col_places));
             NewTextChild(rowNode, "col", pax_amount);
             NewTextChild(rowNode, "col", adult);
             NewTextChild(rowNode, "col", child);
@@ -2701,6 +2721,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", excess);
             Qry.Next();
         }
+        ProgTrace(TRACE5, "RunFullStat: XML: %s", tm.PrintWithMessage().c_str());
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", "Итого:");
         NewTextChild(rowNode, "col");

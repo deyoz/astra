@@ -505,7 +505,7 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(point_id, pr_lat, variablesNode);
-    xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode->children));
+    xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode));
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
