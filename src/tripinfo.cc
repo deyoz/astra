@@ -16,6 +16,8 @@
 #include "checkin.h"
 #include "prepreg.h"
 #include "telegram.h"
+#include "docs.h"
+#include "stat.h"
 
 using namespace std;
 using namespace BASIC;
@@ -524,12 +526,16 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (reqInfo->screen.name == "BRDBUS.EXE" ||
       reqInfo->screen.name == "EXAM.EXE" )
   {
-    if ( GetNode( "counters", reqNode ) )
-      BrdInterface::readTripCounters( point_id, dataNode );
-    if ( GetNode( "tripdata", reqNode ) )
-      BrdInterface::readTripData( point_id, dataNode );
-    if ( GetNode( "paxdata", reqNode ) )
-      BrdInterface::GetPax(reqNode,resNode);
+      if ( GetNode( "counters", reqNode ) )
+          BrdInterface::readTripCounters( point_id, dataNode );
+      if ( GetNode( "tripdata", reqNode ) )
+          BrdInterface::readTripData( point_id, dataNode );
+      if ( GetNode( "paxdata", reqNode ) )
+          BrdInterface::GetPax(reqNode,resNode);
+      if ( GetNode( "LoadForm", reqNode ) )
+          get_report_form("ExamBrdbus", resNode);
+      if ( GetNode( "LoadVars", reqNode ) )
+          STAT::set_variables(resNode);
   };
   if (reqInfo->screen.name == "AIR.EXE")
   {
@@ -556,7 +562,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
       TelegramInterface::readTripData( point_id, dataNode );
   };
-
+  ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
 bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 {
