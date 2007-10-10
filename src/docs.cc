@@ -10,6 +10,7 @@
 #include "base_tables.h"
 #include "season.h"
 #include "brd.h"
+#include "xml_stuff.h"
 
 #define SALEK
 
@@ -1452,6 +1453,8 @@ void get_report_form(const string name, xmlNodePtr node)
         free(data);
     }
     free(data);
+    form = CP866toUTF8(form);
+    form = b64_encode(form.c_str(), form.size());
     SetProp(ReplaceTextChild(node, "form", form), "name", name);
 }
 
