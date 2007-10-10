@@ -355,6 +355,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     string sqlText = (string)
         "SELECT "
         "    pax_id, "
+        "    pax_grp.class, "
         "    point_dep AS point_id, "
         "    airp_dep, "
         "    pr_brd, "
@@ -407,6 +408,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     int adl = 0;
     int chd = 0;
     int inf = 0;
+    int first_class = 0;
+    int business_class = 0;
+    int economy_class = 0;
     for(;!Qry.Eof;Qry.Next())
     {
         int pax_id=Qry.FieldAsInteger("pax_id");
@@ -424,6 +428,23 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 break;
             default:
                 break;
+        }
+
+        if(!Qry.FieldIsNULL("class")) {
+            char *cls = Qry.FieldAsString("class");
+            switch(*cls) {
+                case 'è':
+                    first_class++;
+                    break;
+                case 'Å':
+                    business_class++;
+                    break;
+                case 'ù':
+                    economy_class++;
+                    break;
+                default:
+                    throw Exception("BrdInterface::GetPax: unexpected class %c", *cls);
+            }
         }
 
         xmlNodePtr paxNode = NewTextChild(listNode, "pax");
@@ -624,6 +645,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(totalNode, "adl", adl);
     NewTextChild(totalNode, "chd", chd);
     NewTextChild(totalNode, "inf", inf);
+    NewTextChild(totalNode, "first_class", first_class);
+    NewTextChild(totalNode, "business_class", business_class);
+    NewTextChild(totalNode, "economy_class", economy_class);
+
 
     readTripCounters(point_id,dataNode);
 };
