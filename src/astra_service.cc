@@ -618,9 +618,8 @@ void sync_aodb( void )
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
 	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
-	 " FROM points, file_param_sets, aodb_points "
+	 " FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-	 "       points.point_id=aodb_points.point_id AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
 	 "       gtimer.get_stage(points.point_id,1) BETWEEN :stage1 AND :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
@@ -667,15 +666,18 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   EncodeQry.CreateVariable( "point_addr", otString, fileparams[ "canon_name" ] );
   EncodeQry.Execute();    	
 
+  string convert_aodb;
   if ( !EncodeQry.Eof )
       try {
-          file_data = ConvertCodePage( "CP866", EncodeQry.FieldAsString( "encoding" ), file_data );
-      } catch(EConvertError &E) {
-          ProgError(STDLOG, E.what());
-          throw UserException("Ошибка конвертации из %s", EncodeQry.FieldAsString( "encoding" ));
+      	  convert_aodb = EncodeQry.FieldAsString( "encoding" );
+          file_data = ConvertCodePage( "CP866", convert_aodb, file_data );
+          convert_aodb.clear();
+      } 
+      catch( EConvertError &E ) {
+        ProgError(STDLOG, E.what());
       }
 
-  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], file_data );
+  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], file_data, convert_aodb );
 }
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
