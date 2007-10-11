@@ -641,15 +641,32 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
         };
     };
-    xmlNodePtr totalNode = NewTextChild(dataNode, "total");
-    NewTextChild(totalNode, "adl", adl);
-    NewTextChild(totalNode, "chd", chd);
-    NewTextChild(totalNode, "inf", inf);
-    NewTextChild(totalNode, "first_class", first_class);
-    NewTextChild(totalNode, "business_class", business_class);
-    NewTextChild(totalNode, "economy_class", economy_class);
-
-
+    ostringstream total;
+    total
+        << "Итого: "
+        << adl
+        << "/"
+        << chd
+        << "/"
+        << inf
+        << " (";
+    ostringstream class_total;
+    if(first_class)
+        class_total << "П" << first_class;
+    if(business_class) {
+        if(class_total.str().size())
+            class_total << "/";
+        class_total << "Б" << business_class;
+    }
+    if(economy_class) {
+        if(class_total.str().size())
+            class_total << "/";
+        class_total << "Э" << economy_class;
+    }
+    total
+        << class_total.str()
+        << ")";
+    NewTextChild(dataNode, "total", total.str());
     readTripCounters(point_id,dataNode);
 };
 
