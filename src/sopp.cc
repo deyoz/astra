@@ -646,7 +646,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
 
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
-      if ( move_id > NoExists ) {
+      if ( move_id > NoExists && dests.size() > 1 ) {
         //create trips
         string airline;
         for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -2404,8 +2404,10 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if ( !r->pr_del )
           break;
       }
-      if ( r == dests.end() )
+      if ( r == dests.end() ) {
+      	tst();
         id->pr_reg = 0;
+      }
     }
   }
 //  } //end move_id==NoExists
