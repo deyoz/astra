@@ -7,7 +7,6 @@
 #include "oralib.h"
 #include "print.h"
 
-std::string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete);
 class PaymentInterface : public JxtInterface
 {
 public:

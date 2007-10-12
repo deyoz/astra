@@ -22,6 +22,7 @@ public:
      AddEvent("SearchPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
      AddEvent("SavePax",evHandle);
+     AddEvent("SaveUnaccompBag",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
      AddEvent("LoadPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
@@ -44,7 +45,7 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   void SavePaxRem(xmlNodePtr paxNode);
-  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms);
+  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
   void SaveTransfer(xmlNodePtr grpNode);
   static void SaveBag(xmlNodePtr grpNode);
   static void SavePaidBag(xmlNodePtr grpNode);
@@ -53,7 +54,7 @@ public:
   void SaveTagPacks(xmlNodePtr node);
 
   void LoadPaxRem(xmlNodePtr paxNode);
-  void LoadPaxNorms(xmlNodePtr paxNode);
+  void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
   void LoadTransfer(xmlNodePtr grpNode);
   static void LoadBag(xmlNodePtr grpNode);
   static void LoadPaidBag(xmlNodePtr grpNode);

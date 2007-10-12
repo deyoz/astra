@@ -30,47 +30,6 @@ int MainPaxRegNo(int grp_id)
     return Qry.FieldAsInteger("reg_no");
 }
 
-string RcptNoList(int grp_id, int pax_id, bool &rcpt_complete)
-{
-    ostringstream result;
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select ckin.get_main_pax_id(:grp_id) pax_id from dual";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-    rcpt_complete = false;
-    if(!Qry.Eof && Qry.FieldAsInteger("pax_id") == pax_id) {
-        Qry.SQLText =
-            "select no from bag_prepay where grp_id = :grp_id";
-        Qry.Execute();
-        while(!Qry.Eof) {
-            result << Qry.FieldAsString("no");
-            Qry.Next();
-            if(Qry.Eof) break;
-            result << ", ";
-        }
-        Qry.SQLText =
-            "select no from bag_receipts where grp_id = :grp_id and annul_date is null";
-        Qry.Execute();
-        for(; !Qry.Eof; Qry.Next()) {
-            ostringstream buf;
-            buf.width(10);
-            buf.fill(0);
-            buf << fixed << setprecision(0);
-            buf << Qry.FieldAsFloat("no");
-            if(result.str().size())
-                result << ", ";
-            result << buf.str();
-        }
-        Qry.SQLText =  
-            "select kassa.pr_payment(:grp_id) pr_complete from dual";
-        Qry.Execute();
-        rcpt_complete = Qry.FieldAsInteger("pr_complete");
-    }
-    Qry.Close();
-    return result.str();
-}
-
 void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
