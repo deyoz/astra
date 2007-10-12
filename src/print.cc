@@ -740,36 +740,22 @@ PrintDataParser::t_field_map::~t_field_map()
 
 void PrintDataParser::t_field_map::fillBTBPMap()
 {
-    int grp_id;
     int trip_id;
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "begin "
             "   select "
-            "      grp_id into :grp_id "
-            "   from "
-            "      pax "
-            "   where "
-            "      pax_id = :pax_id;"
-            "   select "
-            "      point_dep into :point_id "
+            "      point_dep "
             "   from "
             "      pax_grp "
             "   where "
-            "      grp_id = :grp_id; "
-            "end;";
-        Qry.DeclareVariable("pax_id", otInteger);
+            "      grp_id = :grp_id";
         Qry.DeclareVariable("grp_id", otInteger);
-        Qry.DeclareVariable("point_id", otInteger);
-        Qry.SetVariable("pax_id", pax_id);
         Qry.Execute();
-        grp_id = Qry.GetVariableAsInteger("grp_id");
-        trip_id = Qry.GetVariableAsInteger("point_id");
+        trip_id = Qry.FieldAsInteger("point_dep");
     }
 
     TQuery *Qry;
-
     Qry = OraSession.CreateQuery();
     Qry->SQLText =
         "select "
@@ -806,63 +792,101 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
-    Qry->SQLText =
-        "select "
-        "   pax.PAX_ID, "
-        "   pax.SURNAME, "
-        "   system.transliter(pax.SURNAME, 1) surname_lat, "
-        "   pax.NAME, "
-        "   system.transliter(pax.NAME, 1) name_lat, "
-        "   pax.surname||' '||pax.name fullname, "
-        "   system.transliter(pax.surname||' '||pax.name) fullname_lat, "
-        "   pax.pers_type pers_type, "
-        "   pers_types.code_lat pers_type_lat, "
-        "   pers_types.name pers_type_name, "
-        "   LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
-        "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),''), 1) AS seat_no_lat, "
-        "   pax.SEAT_TYPE, "
-        "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
-        "   to_char(DECODE( "
-        "       pax.SEAT_TYPE, "
-        "       'SMSA',1, "
-        "       'SMSW',1, "
-        "       'SMST',1, "
-        "       0)) pr_smoke, "
-        "   to_char(DECODE( "
-        "       pax.SEAT_TYPE, "
-        "       'SMSA',' ', "
-        "       'SMSW',' ', "
-        "       'SMST',' ', "
-        "       'X')) no_smoke, "
-        "   to_char(DECODE( "
-        "       pax.SEAT_TYPE, "
-        "       'SMSA','X', "
-        "       'SMSW','X', "
-        "       'SMST','X', "
-        "       ' ')) smoke, "
-        "   pax.SEATS, "
-        "   pax.REG_NO, "
-        "   pax.TICKET_NO, "
-        "   pax.COUPON_NO, "
-        "   decode(pax.coupon_no, null, '', pax.ticket_no||'/'||pax.coupon_no) eticket_no, "
-        "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
-        "   pax.DOCUMENT, "
-        "   system.transliter(pax.DOCUMENT, 1) document_lat, "
-        "   pax.SUBCLASS, "
-        "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
-        "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
-        "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
-        "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
-        "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id), 1) pnr_lat "
-        "from "
-        "   pax, "
-        "   pers_types "
-        "where "
-        "   pax_id = :pax_id and "
-        "   pax.pers_type = pers_types.code";
-    Qry->CreateVariable("pax_id", otInteger, pax_id);
+    if(pax_id == NoExists) {
+        Qry->SQLText =
+            "select "
+            "   '' SURNAME, "
+            "   '' surname_lat, "
+            "   '' NAME, "
+            "   '' name_lat, "
+            "   '' fullname, "
+            "   '' fullname_lat, "
+            "   '' pers_type, "
+            "   '' pers_type_lat, "
+            "   '' pers_type_name, "
+            "   '' seat_no, "
+            "   '' seat_no_lat, "
+            "   '' SEAT_TYPE, "
+            "   '' seat_type_lat, "
+            "   '' pr_smoke, "
+            "   '' no_smoke, "
+            "   '' smoke, "
+            "   '' SEATS, "
+            "   '' REG_NO, "
+            "   '' TICKET_NO, "
+            "   '' COUPON_NO, "
+            "   '' eticket_no, "
+            "   '' ticket_no_lat, "
+            "   '' DOCUMENT, "
+            "   '' document_lat, "
+            "   '' SUBCLASS, "
+            "   '' subclass_lat, "
+            "   ckin.get_birks(pax.grp_id, NULL, 0) tags, " 
+            "   ckin.get_birks(pax.grp_id, NULL, 1) tags_lat, "
+            "   '' pnr, "
+            "   '' pnr_lat "
+            "from "
+            "   dual ";
+        Qry->CreateVariable("grp_id", otInteger, grp_id);
+    } else {
+        Qry->SQLText =
+            "select "
+            "   pax.PAX_ID, "
+            "   pax.SURNAME, "
+            "   system.transliter(pax.SURNAME, 1) surname_lat, "
+            "   pax.NAME, "
+            "   system.transliter(pax.NAME, 1) name_lat, "
+            "   pax.surname||' '||pax.name fullname, "
+            "   system.transliter(pax.surname||' '||pax.name) fullname_lat, "
+            "   pax.pers_type pers_type, "
+            "   pers_types.code_lat pers_type_lat, "
+            "   pers_types.name pers_type_name, "
+            "   LPAD(seat_no,3,'0')|| "
+            "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+            "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
+            "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),''), 1) AS seat_no_lat, "
+            "   pax.SEAT_TYPE, "
+            "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
+            "   to_char(DECODE( "
+            "       pax.SEAT_TYPE, "
+            "       'SMSA',1, "
+            "       'SMSW',1, "
+            "       'SMST',1, "
+            "       0)) pr_smoke, "
+            "   to_char(DECODE( "
+            "       pax.SEAT_TYPE, "
+            "       'SMSA',' ', "
+            "       'SMSW',' ', "
+            "       'SMST',' ', "
+            "       'X')) no_smoke, "
+            "   to_char(DECODE( "
+            "       pax.SEAT_TYPE, "
+            "       'SMSA','X', "
+            "       'SMSW','X', "
+            "       'SMST','X', "
+            "       ' ')) smoke, "
+            "   pax.SEATS, "
+            "   pax.REG_NO, "
+            "   pax.TICKET_NO, "
+            "   pax.COUPON_NO, "
+            "   decode(pax.coupon_no, null, '', pax.ticket_no||'/'||pax.coupon_no) eticket_no, "
+            "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
+            "   pax.DOCUMENT, "
+            "   system.transliter(pax.DOCUMENT, 1) document_lat, "
+            "   pax.SUBCLASS, "
+            "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
+            "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
+            "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
+            "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
+            "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id), 1) pnr_lat "
+            "from "
+            "   pax, "
+            "   pers_types "
+            "where "
+            "   pax_id = :pax_id and "
+            "   pax.pers_type = pers_types.code";
+        Qry->CreateVariable("pax_id", otInteger, pax_id);
+    }
     Qrys.push_back(Qry);
 
     Qry = OraSession.CreateQuery();
@@ -1597,8 +1621,9 @@ PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
     fillMSOMap(rcpt);
 }
 
-PrintDataParser::t_field_map::t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
+PrintDataParser::t_field_map::t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
 {
+    this->grp_id = grp_id;
     this->pax_id = pax_id;
     this->pr_lat = pr_lat;
     if(tagsNode) {
@@ -2090,10 +2115,11 @@ void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, x
         throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     string Pectab, Print;
     int reg_no = Qry.FieldAsInteger("reg_no");
-    GetPrintData(Qry.FieldAsInteger("grp_id"), prn_type, Pectab, Print);
+    int grp_id = Qry.FieldAsInteger("grp_id");
+    GetPrintData(grp_id, prn_type, Pectab, Print);
     NewTextChild(BPNode, "pectab", Pectab);
     tst();
-    PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+    PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
     tst();
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
@@ -2122,6 +2148,15 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", Pectab);
     TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText="SELECT class FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    if(Qry.FieldIsNULL("class"))
+        throw UserException("Для багажа без сопровождения посадочный талон не печатается.");
+    Qry.Clear();
     Qry.SQLText = "select format from prn_types where code = :prn_type";
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
@@ -2152,7 +2187,7 @@ void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, b
         int pax_id = Qry.FieldAsInteger("pax_id");
         int reg_no = Qry.FieldAsInteger("reg_no");
         tst();
-        PrintDataParser parser(pax_id, pr_lat, clientDataNode);
+        PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
         tst();
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         string prn_form = parser.parse(Print);
@@ -2390,14 +2425,22 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     get_route(tag_key.grp_id, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
+        "SELECT class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
     Qry.Execute();
-    if (Qry.Eof||Qry.FieldIsNULL("pax_id"))
+    if (Qry.Eof)
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    int pax_id = Qry.FieldAsInteger("pax_id");
+    bool pr_unaccomp = Qry.FieldIsNULL("class");
+    int pax_id=NoExists;
+    if(!pr_unaccomp)
+    {    
+      if (Qry.FieldIsNULL("pax_id"))
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");      
+      pax_id = Qry.FieldAsInteger("pax_id");
+    };  
     string SQLText =
         "SELECT "
+        "   bag_tags.num, "
         "   bag_tags.no, "
         "   bag_tags.color, "
         "   bag_tags.tag_type, "
@@ -2441,6 +2484,23 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
 
+    TQuery unaccQry(&OraSession);        
+    unaccQry.SQLText = 
+        "select "
+        "   unaccomp_bag_names.name, "
+        "   unaccomp_bag_name.name_lat "
+        "from "
+        "   bag_tags, "
+        "   bag2, "
+        "   unaccomp_bag_names "
+        "where "
+        "   bag_tags.grp_id=bag2.grp_id and "
+        "   bag_tags.bag_num=bag2.num and "
+        "   bag2.bag_type=unaccomp_bag_names.code and "
+        "   bag_tags.grp_id=:grp_id and bag_tags.num=:tag_num ";
+    unaccQry.CreateVariable("grp_id",otInteger,tag_key.grp_id);
+    unaccQry.DeclareVariable("tag_num",otInteger);
+        
     while(!Qry.Eof) {
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
@@ -2457,13 +2517,28 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         SetProp(tagNode, "type", tag_type);
         SetProp(tagNode, "no", tag_no);
 
-        PrintDataParser parser(pax_id, tag_key.pr_lat, NULL);
+        PrintDataParser parser(tag_key.grp_id, pax_id, tag_key.pr_lat, NULL);
 
         parser.add_tag("aircode", aircode);
         parser.add_tag("no", no);
         parser.add_tag("issued", issued);
         parser.add_tag("bt_amount", Qry.FieldAsString("bag_amount"));
         parser.add_tag("bt_weight", Qry.FieldAsString("bag_weight"));
+
+        if(pr_unaccomp) {
+            unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
+            unaccQry.Execute();
+            string print_name="БЕЗ СОПРОВОЖДЕНИЯ",print_name_lat="UNACCOMPANIED";
+            if (!unaccQry.Eof)
+            {
+                print_name=unaccQry.FieldAsString("name");
+                print_name_lat=unaccQry.FieldAsString("name_lat");
+            };
+            parser.add_tag("surname",print_name );
+            parser.add_tag("surname_lat", print_name_lat);
+            parser.add_tag("fullname",print_name );
+            parser.add_tag("fullname_lat", print_name_lat);
+        }
 
         int VIA_num = prn_forms.size();
         int route_size = route.size();

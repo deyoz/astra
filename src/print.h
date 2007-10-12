@@ -56,6 +56,7 @@ class PrintDataParser {
                 void dump_data();
 
                 std::string class_checked;
+                int grp_id;
                 int pax_id;
                 int pr_lat;
                 typedef std::vector<TQuery*> TQrys;
@@ -67,7 +68,7 @@ class PrintDataParser {
                 bool printed(TData::iterator di);
 
             public:
-                t_field_map(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
+                t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 t_field_map(TBagReceipt &rcpt);
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
                 void add_tag(std::string name, int val);
@@ -92,8 +93,8 @@ class PrintDataParser {
             pectab_format = 0;
             this->pr_lat = rcpt.pr_lat;
         };
-        PrintDataParser(int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
-            field_map(pax_id, pr_lat, tagsNode, map_type)
+        PrintDataParser(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type = mtBTBP):
+            field_map(grp_id, pax_id, pr_lat, tagsNode, map_type)
         {
             pectab_format = 0;
             this->pr_lat = pr_lat;
