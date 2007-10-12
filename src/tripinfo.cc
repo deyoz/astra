@@ -530,12 +530,12 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           BrdInterface::readTripCounters( point_id, dataNode );
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
-      if ( GetNode( "paxdata", reqNode ) )
+      if ( GetNode( "paxdata", reqNode ) ) {
           BrdInterface::GetPax(reqNode,resNode);
-      if ( GetNode( "LoadForm", reqNode ) )
-          get_report_form("ExamBrdbus", resNode);
-      if ( GetNode( "LoadVars", reqNode ) )
-          STAT::set_variables(resNode);
+          xmlNodePtr totalNode = GetNode("data/total", resNode);
+          xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+          xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode));
+      }
   };
   if (reqInfo->screen.name == "AIR.EXE")
   {

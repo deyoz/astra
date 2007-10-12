@@ -504,6 +504,7 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     // Теперь переменные отчета
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
     PaxListVars(point_id, pr_lat, variablesNode);
     xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode));
 }
@@ -1453,20 +1454,17 @@ void get_report_form(const string name, xmlNodePtr node)
         free(data);
     }
     free(data);
-    form = CP866toUTF8(form);
-    form = b64_encode(form.c_str(), form.size());
     SetProp(ReplaceTextChild(node, "form", form), "name", name);
 }
 
 void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string form;
-
     get_report_form(name, resNode);
-    NewTextChild(resNode, "form", form);
 
     // теперь положим данные для отчета
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+
     if(name == "test1") RunTest1(formDataNode);
     // отчет test2 связывание 2-х датасетов это бааалшой вопрос.
     else if(name == "test2") RunTest2(formDataNode);
@@ -1492,7 +1490,6 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "exam") RunExam(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
