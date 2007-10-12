@@ -1279,6 +1279,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );
  	  	}
  	  }
+ 	  string tl;
  	  if ( fl.est > NoExists )
  	    Qry.CreateVariable( "est_out", otDate, fl.est );
  	  else
@@ -1289,6 +1290,41 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	    Qry.CreateVariable( "act_out", otDate, FNull );
  	  Qry.CreateVariable( "litera", otString, fl.litera );
  	  Qry.CreateVariable( "park_out", otString, fl.park_out );
+ 	  if ( fl.est != old_fl.est ) {
+ 	  	if ( fl.est > NoExists )
+ 	  	  tl += string("Расч. время ") + DateTimeToStr( fl.est, "dd hh:nn" );
+ 	  	else
+ 	  		tl += "Удаление расч. времени";
+ 	  }
+ 	  if ( fl.act != old_fl.act ) {
+ 	  	if ( !tl.empty() )
+ 	  		tl += ",";
+ 	  	if ( fl.act > NoExists )
+ 	  	  tl += string("Факт. время ") + DateTimeToStr( fl.act, "dd hh:nn" );
+ 	  	else
+ 	  		tl += "Отмена факта вылета";
+ 	  }
+ 	  if ( fl.litera != old_fl.litera ) {
+ 	  	if ( !tl.empty() )
+ 	  		tl += ",";
+ 	  	tl += string("Литера ") + fl.litera;
+ 	  }
+ 	  if ( fl.park_out != old_fl.park_out ) {
+ 	  	if ( !tl.empty() )
+ 	  		tl += ",";
+  	  tl += "Стоянка " + fl.park_out;	
+ 	  } 	  
+ 	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
+ 	  	if ( !tl.empty() )
+ 	  		tl += ",";
+ 	  	if ( fl.pr_cancel )
+ 	  	  tl += "Отмена рейса "; 	  	
+ 	  	else
+ 	  		tl += "Удаление отмены рейса";
+ 	  }
+ 	  if ( !tl.empty() ) {
+ 	  	reqInfo->MsgToLog( tl, evtDisp, move_id, point_id );
+ 	  }
 /* 	  if ( fl.pr_del )
  	  	 Qry.CreateVariable( "pr_del", otInteger, -1 );
  	  else*/
@@ -1306,7 +1342,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  	if ( fl.pr_cancel )
  	  		reqInfo->MsgToLog( string( "Отмена рейса ВНК" ), evtDisp, move_id, point_id );
  	  	else
- 	  		reqInfo->MsgToLog( string( "Возврат рейса ВНК" ), evtDisp, move_id, point_id ); 	  	
+ 	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id ); 	  	
  	  }
  	  Qry.Execute();
  	  // теперь работа с пунктами посадки
@@ -1548,7 +1584,9 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	 " FROM points, aodb_points "
 	 " WHERE points.point_id=:point_id AND "
 	 "       points.point_id=aodb_points.point_id(+) AND "
-	 "       :point_addr=aodb_points.point_addr(+) ";
+	 "       :point_addr=aodb_points.point_addr(+) AND "
+	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";
+	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );	 
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );	
 	Qry.Execute();
@@ -1572,19 +1610,19 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	ostringstream record;
 	record<<setfill(' ');
 	if ( stages[ sOpenCheckIn ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sOpenCheckIn ].act, "dd.mm.yyyy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( UTCToLocal( stages[ sOpenCheckIn ].act, region ), "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sCloseCheckIn ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sCloseCheckIn ].act, "dd.mm.yyyy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( UTCToLocal( stages[ sCloseCheckIn ].act, region ), "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sOpenBoarding ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sOpenBoarding ].act, "dd.mm.yyyy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( UTCToLocal( stages[ sOpenBoarding ].act, region ), "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
 	if ( stages[ sCloseBoarding ].act > NoExists )
-		record<<setw(16)<<DateTimeToStr( stages[ sCloseBoarding ].act, "dd.mm.yyyy hh:nn" );
+		record<<setw(16)<<DateTimeToStr( UTCToLocal( stages[ sCloseBoarding ].act, region ), "dd.mm.yyyy hh:nn" );
 	else
 		record<<setw(16)<<" ";
   checkin = ( stages[ sOpenCheckIn ].act > NoExists && stages[ sCloseCheckIn ].act == NoExists );

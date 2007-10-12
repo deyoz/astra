@@ -116,12 +116,11 @@ bool errorFile( int id, const string &msg )
 	TQuery ErrQry(&OraSession);
 	ErrQry.SQLText = 
 	 "SELECT in_order FROM file_types, files "
-	 " WHERE files.id=:id AND files.type=file_types.code AND files.type=:BSMtype";
+	 " WHERE files.id=:id AND files.type=file_types.code";
 	ErrQry.CreateVariable( "id", otInteger, id );
-	ErrQry.CreateVariable( "BSMtype", otString, "BSM" );
 	ErrQry.Execute();
 	
-  if ( ( !ErrQry.RowCount() || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) ) {
+  if ( ( ErrQry.Eof || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) ) {
     ErrQry.Clear();
     ErrQry.SQLText=
      "BEGIN "
@@ -621,13 +620,12 @@ void sync_aodb( void )
 	 " FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
 	 "       points.act_out IS NULL AND points.pr_del=0 AND "
-	 "       gtimer.get_stage(points.point_id,1) BETWEEN :stage1 AND :stage2 AND "
+	 "       gtimer.get_stage(points.point_id,1) <= :stage2 AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
-	Qry.CreateVariable( "stage1", otInteger, sPrepCheckIn );
 	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
