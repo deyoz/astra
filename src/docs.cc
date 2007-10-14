@@ -1032,35 +1032,15 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
     NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
 
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT amount,weight,tags FROM unaccomp_bag WHERE point_dep=:point_id AND airp_arv=:target ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.Execute();
-
-    int TotAmount = 0;
-    int TotWeight = 0;
-    string Tags;
-
-    while(!Qry.Eof) {
-        TotAmount += Qry.FieldAsInteger("amount");
-        TotWeight += Qry.FieldAsInteger("weight");
-        if(Tags.size()) Tags += ", ";
-        Tags += Qry.FieldAsString("tags");
-        Qry.Next();
-    }
-
-    if(!(Tags.empty() && TotAmount == 0 && TotWeight == 0)) {
-        NewTextChild(variablesNode, "DosKwit", Tags);
-        NewTextChild(variablesNode, "DosPcs", TotAmount);
-        NewTextChild(variablesNode, "DosWeight", TotWeight);
-    } else {
+    {
+        // delete in future 14.10.07 !!!
         NewTextChild(variablesNode, "DosKwit");
         NewTextChild(variablesNode, "DosPcs");
         NewTextChild(variablesNode, "DosWeight");
     }
 
+    int TotAmount = 0;
+    int TotWeight = 0;
     Qry.Clear();
     SQLText =
         "SELECT NVL(SUM(amount),0) AS amount, "
@@ -1234,30 +1214,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
     NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
 
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT amount,weight,tags FROM unaccomp_bag WHERE point_dep=:point_id AND airp_arv=:target ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.Execute();
-
-    int TotAmount = 0;
-    int TotWeight = 0;
-    string Tags;
-
-    while(!Qry.Eof) {
-        TotAmount += Qry.FieldAsInteger("amount");
-        TotWeight += Qry.FieldAsInteger("weight");
-        if(Tags.size()) Tags += ", ";
-        Tags += Qry.FieldAsString("tags");
-        Qry.Next();
-    }
-
-    if(!(Tags.empty() && TotAmount == 0 && TotWeight == 0)) {
-        NewTextChild(variablesNode, "DosKwit", Tags);
-        NewTextChild(variablesNode, "DosPcs", TotAmount);
-        NewTextChild(variablesNode, "DosWeight", TotWeight);
-    } else {
+    { // for back compatibility 14.10.07 !!!
         NewTextChild(variablesNode, "DosKwit");
         NewTextChild(variablesNode, "DosPcs");
         NewTextChild(variablesNode, "DosWeight");
@@ -1288,6 +1245,8 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("target", otString, target);
     Qry.Execute();
+    int TotAmount = 0;
+    int TotWeight = 0;
     if(Qry.RowCount() > 0) {
         TotAmount += Qry.FieldAsInteger("amount");
         TotWeight += Qry.FieldAsInteger("weight");
