@@ -740,6 +740,7 @@ PrintDataParser::t_field_map::~t_field_map()
 
 void PrintDataParser::t_field_map::fillBTBPMap()
 {
+    ProgTrace(TRACE5, "fillBTBPMap: grp_id = %d", grp_id);
     int trip_id;
     {
         TQuery Qry(&OraSession);
@@ -750,7 +751,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "      pax_grp "
             "   where "
             "      grp_id = :grp_id";
-        Qry.DeclareVariable("grp_id", otInteger);
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
         Qry.Execute();
         trip_id = Qry.FieldAsInteger("point_dep");
     }
@@ -795,12 +796,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     if(pax_id == NoExists) {
         Qry->SQLText =
             "select "
-            "   '' SURNAME, "
-            "   '' surname_lat, "
             "   '' NAME, "
             "   '' name_lat, "
-            "   '' fullname, "
-            "   '' fullname_lat, "
             "   '' pers_type, "
             "   '' pers_type_lat, "
             "   '' pers_type_name, "
@@ -821,8 +818,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   '' document_lat, "
             "   '' SUBCLASS, "
             "   '' subclass_lat, "
-            "   ckin.get_birks(pax.grp_id, NULL, 0) tags, " 
-            "   ckin.get_birks(pax.grp_id, NULL, 1) tags_lat, "
+            "   ckin.get_birks(:grp_id, NULL, 0) tags, " 
+            "   ckin.get_birks(:grp_id, NULL, 1) tags_lat, "
             "   '' pnr, "
             "   '' pnr_lat "
             "from "
@@ -940,7 +937,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "where "
         "   pax_grp.grp_id = :grp_id and "
         "   pax_grp.airp_arv = airps.code and "
-        "   pax_grp.class_grp = cls_grp.id and "
+        "   pax_grp.class_grp = cls_grp.id(+) and "
         "   airps.city = cities.code ";
     Qry->CreateVariable("grp_id", otInteger, grp_id);
     Qrys.push_back(Qry);
@@ -2441,6 +2438,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     string SQLText =
         "SELECT "
         "   bag_tags.num, "
+        "   bag2.pr_liab_limit, "
         "   bag_tags.no, "
         "   bag_tags.color, "
         "   bag_tags.tag_type, "
@@ -2488,7 +2486,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     unaccQry.SQLText = 
         "select "
         "   unaccomp_bag_names.name, "
-        "   unaccomp_bag_name.name_lat "
+        "   unaccomp_bag_names.name_lat "
         "from "
         "   bag_tags, "
         "   bag2, "
@@ -2524,9 +2522,14 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         parser.add_tag("issued", issued);
         parser.add_tag("bt_amount", Qry.FieldAsString("bag_amount"));
         parser.add_tag("bt_weight", Qry.FieldAsString("bag_weight"));
+        bool pr_liab = Qry.FieldAsInteger("pr_liab_limit") == 1;
+        parser.add_tag("liab_limit", (pr_liab ? "é£‡. Æ‚¢•‚·‚¢•≠≠Æ·‚®" : ""));
+        parser.add_tag("liab_limit_lat", (pr_liab ? "Liab. limit" : ""));
 
         if(pr_unaccomp) {
+            tst();
             unaccQry.SetVariable("tag_num",Qry.FieldAsInteger("num"));
+            tst();
             unaccQry.Execute();
             string print_name="ÅÖá ëéèêéÇéÜÑÖçàü",print_name_lat="UNACCOMPANIED";
             if (!unaccQry.Eof)
