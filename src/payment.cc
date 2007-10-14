@@ -39,7 +39,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   string sqlText = (string)
         "SELECT pax_grp.grp_id,point_dep,airp_dep,airp_arv,airps.city AS city_arv, "
-        "       class,pr_refuse,pax_grp.tid, "
+        "       class,bag_refuse,pax_grp.tid, "
         "       RTRIM(pax.surname||' '||pax.name) AS pax_name, "
         "       document AS pax_doc "
         "FROM pax_grp,pax,airps ";
@@ -145,7 +145,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(resNode,"airp_arv",Qry.FieldAsString("airp_arv"));
     NewTextChild(resNode,"city_arv",Qry.FieldAsString("city_arv"));
     NewTextChild(resNode,"class",Qry.FieldAsString("class"));
-    NewTextChild(resNode,"pr_refuse",(int)(Qry.FieldAsInteger("pr_refuse")!=0));
+    NewTextChild(resNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
     NewTextChild(resNode,"pax_name",Qry.FieldAsString("pax_name"));
     NewTextChild(resNode,"pax_doc",Qry.FieldAsString("pax_doc"));
     NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));

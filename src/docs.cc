@@ -254,9 +254,9 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
         NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
       if ( j->takeoff > NoExists )
         NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );*/
-      break;  
+      break;
     }
-  }		
+  }
 }
 
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
@@ -1080,7 +1080,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     SQLText +=
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.airp_arv=:target AND "
-        "      pax_grp.pr_refuse=0 AND "
+        "      pax_grp.bag_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1282,7 +1282,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     SQLText +=
         "      pax_grp.point_dep=:point_id AND "
         "      pax_grp.airp_arv=:target AND "
-        "      pax_grp.pr_refuse=0 AND "
+        "      pax_grp.bag_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1712,6 +1712,6 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	tst();
-  NewTextChild(resNode,"fonts","");	
+  NewTextChild(resNode,"fonts","");
   tst();
 }

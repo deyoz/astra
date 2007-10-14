@@ -1329,27 +1329,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int point_id=NodeAsInteger("point_id",reqNode);
   readPaxLoad( point_id, reqNode, resNode );
 
-  TQuery TrferQry(&OraSession);
-  TrferQry.Clear();
-  TrferQry.SQLText=
-    "SELECT transfer.grp_id, "
-    "       airline,flt_no,suffix,airp_arv,subclass,local_date, "
-    "       SUBSTR(report.get_trfer_airline(airline),1,3)||flt_no||suffix||'/'|| "
-    "       SUBSTR(report.get_trfer_airp(airp_arv),1,3) AS last_trfer "
-    "FROM transfer, "
-    "    (SELECT MAX(transfer_num) AS transfer_num "
-    "     FROM transfer WHERE grp_id=:grp_id AND transfer_num>0) last_transfer "
-    "WHERE transfer.grp_id=:grp_id AND "
-    "      transfer.transfer_num=last_transfer.transfer_num";
-  TrferQry.DeclareVariable("grp_id",otInteger);
-
-
   TQuery Qry(&OraSession);
 
   ostringstream sql;
   sql <<
     "SELECT "
-    "  reg_no,surname,name,pax_grp.airp_arv,class,pax.subclass, "
+    "  reg_no,surname,name,pax_grp.airp_arv, "
+    "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
+    "  class,pax.subclass, "
     "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
@@ -1391,6 +1378,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_surname=Qry.FieldIndex("surname");
   int col_name=Qry.FieldIndex("name");
   int col_airp_arv=Qry.FieldIndex("airp_arv");
+  int col_last_trfer=Qry.FieldIndex("last_trfer");
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
   int col_seat_no=Qry.FieldIndex("seat_no");
@@ -1420,17 +1408,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   for(;!Qry.Eof;Qry.Next())
   {
     xmlNodePtr paxNode=NewTextChild(node,"pax");
-    int grp_id=Qry.FieldAsInteger(col_grp_id);
-    TrferQry.SetVariable("grp_id",grp_id);
-    TrferQry.Execute();
-
     NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger(col_reg_no));
     NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
     NewTextChild(paxNode,"name",Qry.FieldAsString(col_name));
     NewTextChild(paxNode,"airp_arv",Qry.FieldAsString(col_airp_arv));
-    if (!TrferQry.Eof)
-      NewTextChild(paxNode,"last_trfer",
-                   convertLastTrfer(TrferQry.FieldAsString("last_trfer")),"");
+    NewTextChild(paxNode,"last_trfer",
+                 convertLastTrfer(Qry.FieldAsString(col_last_trfer)),"");
     NewTextChild(paxNode,"class",Qry.FieldAsString(col_class));
     NewTextChild(paxNode,"subclass",Qry.FieldAsString(col_subclass),"");
     NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
@@ -1462,6 +1445,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   sql <<
     "SELECT "
     "  pax_grp.airp_arv, "
+    "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
     "  ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
     "  ckin.get_bagWeight(pax_grp.grp_id,NULL) AS bag_weight, "
     "  ckin.get_rkWeight(pax_grp.grp_id,NULL) AS rk_weight, "
@@ -1494,14 +1478,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   for(;!Qry.Eof;Qry.Next())
   {
     xmlNodePtr paxNode=NewTextChild(node,"bag");
-    int grp_id=Qry.FieldAsInteger("grp_id");
-    TrferQry.SetVariable("grp_id",grp_id);
-    TrferQry.Execute();
-
     NewTextChild(paxNode,"airp_arv",Qry.FieldAsString("airp_arv"));
-    if (!TrferQry.Eof)
-      NewTextChild(paxNode,"last_trfer",
-                   convertLastTrfer(TrferQry.FieldAsString("last_trfer")),"");
+    NewTextChild(paxNode,"last_trfer",
+                 convertLastTrfer(Qry.FieldAsString("last_trfer")),"");
     NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
     NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
     NewTextChild(paxNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
@@ -1937,15 +1916,24 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
   {
     grp_id=NodeAsInteger(node);
+    bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
+                     !NodeIsNULL("bag_refuse",reqNode));
 
     Qry.Clear();
     Qry.SQLText=
       "UPDATE pax_grp "
-      "SET excess=:excess,tid=tid__seq.nextval "
+      "SET excess=:excess, "
+      "    bag_refuse=NVL(:bag_refuse,bag_refuse), "
+      "    tid=tid__seq.nextval "
       "WHERE grp_id=:grp_id AND tid=:tid";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",reqNode));
     Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
+    if (GetNode("bag_refuse",reqNode)!=NULL) //потом убрать!!!
+      Qry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
+    else
+      Qry.CreateVariable("bag_refuse",otInteger,FNull);
+
     Qry.Execute();
     if (Qry.RowsProcessed()<=0)
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
@@ -2084,12 +2072,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     else
     {
-      //несопровождаемый багаж
       //запись норм
       string normStr=SavePaxNorms(reqNode,norms,pr_unaccomp);
       if (normStr!="")
         reqInfo->MsgToLog((string)"Багаж без сопровождения. "+
-                          "Баг.нормы: "+normStr,ASTRA::evtPax,point_dep,0,grp_id);
+                          "Баг.нормы: "+normStr,
+                          ASTRA::evtPax,point_dep,0,grp_id);
+      if (bag_refuse)
+        reqInfo->MsgToLog("Багаж без сопровождения удален",
+                          ASTRA::evtPax,point_dep,0,grp_id);
     };
   };
 
@@ -2119,22 +2110,23 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
   };
 
+
+  //обновление counters
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  mvd.sync_pax_grp(:grp_id,:desk); "
+    "  ckin.check_grp(:grp_id); "
+    "  ckin.recount(:point_id); "
+    "END;";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+  Qry.Execute();
+  Qry.Close();
+
   if (!pr_unaccomp)
   {
-    //обновление counters
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  mvd.sync_pax_grp(:grp_id,:desk); "
-      "  ckin.check_grp(:grp_id); "
-      "  ckin.recount(:point_id); "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-    Qry.Execute();
-    Qry.Close();
-
     //посчитаем индекс группы подклассов
     TQuery PaxQry(&OraSession);
     PaxQry.Clear();
@@ -2269,25 +2261,45 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (node==NULL||NodeIsNULL(node))
   {
     int point_id=NodeAsInteger("point_id",reqNode);
-    int reg_no=NodeAsInteger("reg_no",reqNode);
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT pax_grp.grp_id FROM pax_grp,pax "
-      "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "point_dep=:point_id AND reg_no=:reg_no";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("reg_no",otInteger,reg_no);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException(1,"Регистрационный номер не найден");
-    grp_id=Qry.FieldAsInteger("grp_id");
-    Qry.Next();
-    if (!Qry.Eof) throw Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+    node = GetNode("pax_id",reqNode);
+    if (node==NULL||NodeIsNULL(node))
+    {
+      int reg_no=NodeAsInteger("reg_no",reqNode);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT pax_grp.grp_id FROM pax_grp,pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND "
+        "point_dep=:point_id AND reg_no=:reg_no";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.CreateVariable("reg_no",otInteger,reg_no);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException(1,"Регистрационный номер не найден");
+      grp_id=Qry.FieldAsInteger("grp_id");
+      Qry.Next();
+      if (!Qry.Eof) throw Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+    }
+    else
+    {
+      int pax_id=NodeAsInteger(node);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT pax_grp.grp_id,point_dep FROM pax_grp,pax "
+        "WHERE pax_grp.grp_id=pax.grp_id AND pax_id=:pax_id";
+      Qry.CreateVariable("pax_id",otInteger,pax_id);
+      Qry.Execute();
+      if (Qry.Eof)
+        throw UserException("Пассажир не зарегистрирован");
+      if (Qry.FieldAsInteger("point_dep")!=point_id)
+        throw UserException("Пассажир с другого рейса");
+      grp_id=Qry.FieldAsInteger("grp_id");
+    };
   }
   else grp_id=NodeAsInteger(node);
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT point_arv,airp_arv,airps.city AS city_arv,class,status,hall,pax_grp.tid "
+    "SELECT point_arv,airp_arv,airps.city AS city_arv, "
+    "       class,status,hall,bag_refuse,pax_grp.tid "
     "FROM pax_grp,airps "
     "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
@@ -2300,6 +2312,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(resNode,"class",Qry.FieldAsString("class"));
   NewTextChild(resNode,"status",Qry.FieldAsString("status"));
   NewTextChild(resNode,"hall",Qry.FieldAsInteger("hall"));
+  if (Qry.FieldAsInteger("bag_refuse")!=0)
+    NewTextChild(resNode,"bag_refuse","А");
+  else
+    NewTextChild(resNode,"bag_refuse");
   NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
@@ -2352,7 +2368,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
   {
     //несопровождаемый багаж
-    LoadPaxNorms(reqNode,pr_unaccomp);
+    LoadPaxNorms(resNode,pr_unaccomp);
   };
   LoadTransfer(resNode);
   CheckInInterface::LoadBag(resNode);

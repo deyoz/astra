@@ -961,12 +961,12 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (strcmp((char*)node->name,"class")==0)
     {
       pr_class=true;
-      order_by << ", classes.priority";
+      order_by << ", NVL(classes.priority,100)";
     };
     if (strcmp((char*)node->name,"cl_grp")==0)
     {
       pr_cl_grp=true;
-      order_by << ", cls_grp.priority";
+      order_by << ", NVL(cls_grp.priority,100)";
     };
     if (strcmp((char*)node->name,"hall")==0)
     {
@@ -1020,8 +1020,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT a.seats,a.adult,a.child,a.baby, "
-    "       b.bag_amount+d.bag_amount AS bag_amount, "
-    "       b.bag_weight+d.bag_weight AS bag_weight, "
+    "       b.bag_amount, "
+    "       b.bag_weight, "
     "       b.rk_weight, "
     "       c.crs_ok,c.crs_tranzit, "
     "       e.excess,f.cfg "
@@ -1038,18 +1038,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "         NVL(SUM(DECODE(pr_cabin,0,0,weight)),0) AS rk_weight "
     "  FROM pax_grp,bag2 "
     "  WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "        point_dep=:point_id AND pr_refuse=0) b, "
+    "        point_dep=:point_id AND bag_refuse=0) b, "
     " (SELECT NVL(SUM(crs_ok),0) AS crs_ok, "
     "         NVL(SUM(crs_tranzit),0) AS crs_tranzit "
     "  FROM counters2 "
     "  WHERE point_dep=:point_id) c, "
-    " (SELECT NVL(SUM(amount),0) AS bag_amount, "
-    "         NVL(SUM(weight),0) AS bag_weight "
-    "  FROM unaccomp_bag "
-    "  WHERE point_dep=:point_id) d, "
     " (SELECT NVL(SUM(excess),0) AS excess "
     "  FROM pax_grp "
-    "  WHERE point_dep=:point_id AND pr_refuse=0) e, "
+    "  WHERE point_dep=:point_id AND bag_refuse=0) e, "
     " (SELECT NVL(SUM(cfg),0) AS cfg "
     "  FROM trip_classes "
     "  WHERE point_id=:point_id) f";
@@ -1073,8 +1069,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   //строка select для подзапросов
   ostringstream select;
-  if (pr_class) select << ", class";
-  if (pr_cl_grp) select << ", class_grp";
+  if (pr_class) select << ", NVL(class,' ') AS class";
+  if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
   if (pr_hall) select << ", hall";
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer";
@@ -1083,8 +1079,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   //строка group by для подзапросов
   ostringstream group_by;
-  if (pr_class) group_by << ", class";
-  if (pr_cl_grp) group_by << ", class_grp";
+  if (pr_class) group_by << ", NVL(class,' ')";
+  if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
   if (pr_hall) group_by << ", hall";
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
@@ -1098,11 +1094,6 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   if (!pr_rems)
   {
-   /* if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_class)
-      sql << ",NVL(b.bag_amount,0)+NVL(d.bag_amount,0) AS bag_amount" << endl
-          << ",NVL(b.bag_weight,0)+NVL(d.bag_weight,0) AS bag_weight" << endl
-          << ",b.rk_weight,e.excess" << endl;
-    else*/
       sql << ",b.bag_amount,b.bag_weight,b.rk_weight,e.excess" << endl;
 
     if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
@@ -1112,8 +1103,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
   };
 
-  if (pr_class)    sql << ",a.class" << endl;
-  if (pr_cl_grp)   sql << ",a.class_grp AS cl_grp_id,cls_grp.code AS cl_grp_code" << endl;
+  if (pr_class)    sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
+  if (pr_cl_grp)   sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
+                          ",cls_grp.code AS cl_grp_code" << endl;
   if (pr_hall)     sql << ",a.hall AS hall_id,halls2.name AS hall_name" << endl;
   if (pr_airp_arv) sql << ",a.point_arv,points.airp AS airp_arv" << endl;
   if (pr_trfer)    sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
@@ -1143,8 +1135,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   }
   else sql << endl;
 
-  sql << "WHERE pax_grp.grp_id=pax.grp_id AND " << endl
-      << "      point_dep=:point_id AND pr_brd IS NOT NULL " << endl;
+  sql << "WHERE pax_grp.grp_id=pax.grp_id(+) AND " << endl
+      << "      (pax.grp_id IS NULL AND pax_grp.class IS NULL OR " << endl
+      << "       pax.grp_id IS NOT NULL) AND " << endl
+      << "      point_dep=:point_id AND pr_brd(+) IS NOT NULL " << endl;
   if (pr_trfer) sql << "AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
   if (pr_rems) sql << "AND pax.pax_id=rems.pax_id " << endl;
 
@@ -1163,7 +1157,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
     sql << endl
         << "WHERE pax_grp.grp_id=bag2.grp_id AND " << endl
-        << "      point_dep=:point_id AND pr_refuse=0 " << endl;
+        << "      point_dep=:point_id AND bag_refuse=0 " << endl;
     if (pr_trfer) sql << "AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
 
     sql << "GROUP BY " << group_by.str().erase(0,1) << ") b" << endl;
@@ -1176,7 +1170,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_trfer) sql << ",v_last_trfer";
 
     sql << endl
-        << "WHERE point_dep=:point_id AND pr_refuse=0 " << endl;
+        << "WHERE point_dep=:point_id AND bag_refuse=0 " << endl;
     if (pr_trfer) sql << "AND pax_grp.grp_id=v_last_trfer.grp_id(+) " << endl;
 
     sql << "GROUP BY " << group_by.str().erase(0,1) << ") e" << endl;
@@ -1191,17 +1185,6 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
           << "  FROM counters2 " << endl
           << "  WHERE point_dep=:point_id " << endl
           << "  GROUP BY " << group_by.str().erase(0,1) << ") c" << endl;
-
-    /*  if (!pr_class)
-      {
-        //запрос по досылаемому багажу
-        sql << ",(SELECT SUM(amount) AS bag_amount, " << endl
-            << "         SUM(weight) AS bag_weight, " << endl
-            << "         " << select.str().erase(0,1) << endl
-            << "  FROM unaccomp_bag " << endl
-            << "  WHERE point_dep=:point_id " << endl
-            << "  GROUP BY " << group_by.str().erase(0,1) << ") d" << endl;
-      };*/
 
       if (!pr_airp_arv)
       {
@@ -1223,8 +1206,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   sql << endl;
 
   ostringstream where;
-  if (pr_class)    where << " AND a.class=classes.code" << endl;
-  if (pr_cl_grp)   where << " AND a.class_grp=cls_grp.id" << endl;
+  if (pr_class)    where << " AND a.class=classes.code(+)" << endl;
+  if (pr_cl_grp)   where << " AND a.class_grp=cls_grp.id(+)" << endl;
   if (pr_hall)     where << " AND a.hall=halls2.id" << endl;
   if (pr_airp_arv) where << " AND a.point_arv=points.point_id" << endl;
   if (pr_user)     where << " AND a.user_id=users2.user_id" << endl;
@@ -1291,11 +1274,15 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_class)
     {
       NewTextChild(rowNode,"class",Qry.FieldAsString("class"));
+      if (Qry.FieldIsNULL("class"))
+        ReplaceTextChild(rowNode,"title","Несопр");
     };
     if (pr_cl_grp)
     {
       node=NewTextChild(rowNode,"cl_grp",Qry.FieldAsString("cl_grp_code"));
       SetProp(node,"id",Qry.FieldAsInteger("cl_grp_id"));
+      if (Qry.FieldIsNULL("cl_grp_id"))
+        ReplaceTextChild(rowNode,"title","Несопр");
     };
     if (pr_hall)
     {
@@ -1322,27 +1309,6 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       NewTextChild(rowNode,"rems",Qry.FieldAsString("rem_code"));
     };
-  };
-
-  if (!pr_rems)
-  {
-    //отдельная строка по досылаемому багажу
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT NVL(SUM(amount),0) AS bag_amount, "
-      "       NVL(SUM(weight),0) AS bag_weight "
-      "FROM unaccomp_bag "
-      "WHERE point_dep=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof ||
-        Qry.FieldAsInteger("bag_amount")==0 &&
-        Qry.FieldAsInteger("bag_weight")==0) return;
-
-    rowNode=NewTextChild(node2,"row");
-    NewTextChild(rowNode,"title","Досыл");
-    NewTextChild(rowNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
-    NewTextChild(rowNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
   };
 }
 

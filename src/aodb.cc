@@ -56,7 +56,7 @@ struct AODB_Term {
 	int pr_del; //1
 };
 
-const 
+const
   unsigned int REC_NO_IDX = 0;
   unsigned int REC_NO_LEN = 6;
   unsigned int FLT_ID_IDX = 6;
@@ -140,7 +140,7 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
 	string region = CityTZRegion( "МОВ" );
-	TDateTime scd_out = UTCToLocal( FlightQry.FieldAsDateTime( "scd_out" ), region );	 		
+	TDateTime scd_out = UTCToLocal( FlightQry.FieldAsDateTime( "scd_out" ), region );
 	string p = string( FlightQry.FieldAsString( "airline" ) ) +
 	           FlightQry.FieldAsString( "flt_no" ) +
 	           FlightQry.FieldAsString( "suffix" ) +
@@ -178,12 +178,12 @@ void DecodeBagType( int bag_type, int &code, string &name )
 		 	  break;
 		 default:
 		 	  code = 0;
-		 	  name = "ОБЫЧНЫЙ"; 
+		 	  name = "ОБЫЧНЫЙ";
 		 	  break;
 		}
 }
 
-bool createAODBCheckInInfoFile( int point_id, 
+bool createAODBCheckInInfoFile( int point_id,
                                 std::map<std::string,std::string> &params, std::string &file_data/*,
                                 std::map<std::string,std::string> &bag_params, std::string &bag_file_data*/ )
 {
@@ -192,25 +192,25 @@ bool createAODBCheckInInfoFile( int point_id,
 	vector<AODB_STRUCT> prior_aodb_pax, aodb_pax;
 	vector<AODB_STRUCT> prior_aodb_bag, aodb_bag;
 	TQuery Qry(&OraSession);
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out FROM points, aodb_points "
 	 " WHERE points.point_id=:point_id AND "
 	 "       points.point_id=aodb_points.point_id(+) AND "
 	 "       :point_addr=aodb_points.point_addr(+) AND "
 	 "       gtimer.get_stage(points.point_id,1) BETWEEN :stage1 AND :stage2";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, point_addr );	
+	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "stage1", otInteger, sOpenCheckIn );
-	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );	
+	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
 	Qry.Execute();
 	if ( !Qry.RowCount() )
 		return false;
 	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
 	string flight = Qry.FieldAsString( "trip" );
 	string region = CityTZRegion( "МОВ" );
-	string scd_date = DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), "dd.mm.yyyy hh:nn" );	 
-	Qry.Clear();	
-	Qry.SQLText = 
+	string scd_date = DateTimeToStr( UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), "dd.mm.yyyy hh:nn" );
+	Qry.Clear();
+	Qry.SQLText =
 	 "SELECT pax_id, record FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
@@ -219,16 +219,16 @@ bool createAODBCheckInInfoFile( int point_id,
 	while ( !Qry.Eof ) {
   	STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
 		STRAO.record = string( Qry.FieldAsString( "record" ) );
-		prior_aodb_pax.push_back( STRAO );	
+		prior_aodb_pax.push_back( STRAO );
 		Qry.Next();
 	}
-	Qry.Clear();	 
-	Qry.SQLText = 
+	Qry.Clear();
+	Qry.SQLText =
 	 "SELECT aodb_pax.pax_id,aodb_bag.num bag_num,aodb_bag.record bag_record,aodb_bag.pr_cabin "
 	 " FROM aodb_pax,aodb_bag "
 	 " WHERE aodb_pax.point_id=:point_id AND"
 	 "       aodb_pax.point_addr=:point_addr AND "
-	 "       aodb_bag.point_addr=:point_addr AND "	 
+	 "       aodb_bag.point_addr=:point_addr AND "
 	 "       aodb_pax.pax_id=aodb_bag.pax_id "
 	 " ORDER BY pr_cabin DESC, bag_num ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -244,7 +244,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	  prior_aodb_bag.push_back( STRAO );
 		Qry.Next();
 	}
-	// теперь создадим похожую картинку по данным рейса из БД 	 
+	// теперь создадим похожую картинку по данным рейса из БД
 	TQuery BagQry( &OraSession );
 	BagQry.SQLText =
 	 "SELECT weight,tags FROM unaccomp_bag WHERE point_dep=:point_id "
@@ -252,11 +252,11 @@ bool createAODBCheckInInfoFile( int point_id,
 	BagQry.CreateVariable( "point_id", otInteger, point_id );
 	BagQry.Execute();
 	while ( !BagQry.Eof ) {
-		
+
 		BagQry.Next();
 	}
 	BagQry.Clear();
-	BagQry.SQLText = 
+	BagQry.SQLText =
 		 "SELECT bag2.bag_type,bag2.weight,color,no,"
 		 "       bag2.num bag_num "
 		 " FROM bag2,bag_tags "
@@ -268,7 +268,7 @@ bool createAODBCheckInInfoFile( int point_id,
 	BagQry.DeclareVariable( "grp_id", otInteger );
 	BagQry.DeclareVariable( "pr_cabin", otInteger );
 	Qry.Clear();
-	Qry.SQLText =	
+	Qry.SQLText =
 	 "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	 "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
 	 "       pax.pers_type,pax.seat_no,pax.seats seats,"
@@ -283,12 +283,12 @@ bool createAODBCheckInInfoFile( int point_id,
 	 "       pax_grp.point_dep=:point_id"
 	 " ORDER BY pax_grp.grp_id,seats ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();	
+	Qry.Execute();
 	TQuery RemQry( &OraSession );
 	RemQry.SQLText = "SELECT rem_code FROM pax_rem WHERE pax_id=:pax_id";
-	RemQry.DeclareVariable( "pax_id", otInteger );		
+	RemQry.DeclareVariable( "pax_id", otInteger );
 	TQuery TimeQry( &OraSession );
-	TimeQry.SQLText = 
+	TimeQry.SQLText =
 	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
 	 " WHERE type='ПАС' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode=:work_mode "
 	 " AND screen=:screen "
@@ -313,11 +313,11 @@ bool createAODBCheckInInfoFile( int point_id,
 		record<<setw(16)<<scd_date;
 		record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 		record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
-		TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv")); 		
+		TAirpsRow *row=(TAirpsRow*)&base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
 		record<<setw(20)<<row->code.substr(0,20);
 		record<<setw(1);
 		switch ( DecodeClass(Qry.FieldAsString( "class")) ) {
-			case ASTRA::F: 
+			case ASTRA::F:
 				  record<<0;
 				  break;
 			case ASTRA::C:
@@ -325,8 +325,8 @@ bool createAODBCheckInInfoFile( int point_id,
 				  break;
 			case ASTRA::Y:
 				  record<<2;
-				  break;		
-			default:;		            
+				  break;
+			default:;
 		}
 		record<<setw(1);
 		RemQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
@@ -358,7 +358,7 @@ bool createAODBCheckInInfoFile( int point_id,
 					  		record<<9;
 					  		pr_ex=true;
 					  	}
-					  		
+
 			RemQry.Next();
 		}
 		if ( !pr_ex )
@@ -392,7 +392,7 @@ bool createAODBCheckInInfoFile( int point_id,
 			record<<setw(1)<<0;
 		if ( adult && !baby_names.empty() ) {
 		  record<<setw(2)<<1; // РМ количество
-		  record<<setw(36)<<baby_names.begin()->substr(0,36); // Имя ребенка			
+		  record<<setw(36)<<baby_names.begin()->substr(0,36); // Имя ребенка
 		  baby_names.erase( baby_names.begin() );
 		}
 		else {
@@ -403,7 +403,7 @@ bool createAODBCheckInInfoFile( int point_id,
 		record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
 // стойка рег. + время рег. + выход на посадку + время прохода на посадку
-    TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) ); 
+    TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) );
     TimeQry.SetVariable( "screen", "AIR.EXE" );
     TimeQry.SetVariable( "work_mode", "Р" );
     TimeQry.Execute();
@@ -417,7 +417,7 @@ bool createAODBCheckInInfoFile( int point_id,
     	if ( !term.empty() && term[0] == 'R' )
     		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
-    }    	
+    }
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
@@ -425,7 +425,7 @@ bool createAODBCheckInInfoFile( int point_id,
     if ( t == NoExists )
     	record<<setw(16)<<"";
     else {
-    	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 
+    	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );
     }
     TimeQry.SetVariable( "screen", "BRDBUS.EXE" );
     TimeQry.SetVariable( "work_mode", "П" );
@@ -439,7 +439,7 @@ bool createAODBCheckInInfoFile( int point_id,
     	if ( !term.empty() && term[0] == 'G' )
     		term = term.substr( 1, term.length() - 1 );
     	t = TimeQry.FieldAsDateTime( "mtime" );
-    }    	
+    }
     if ( t == NoExists )
       record<<setw(4)<<"";
     else
@@ -448,7 +448,7 @@ bool createAODBCheckInInfoFile( int point_id,
     	record<<setw(16)<<"";
     else {
     	record<<setw(16)<<DateTimeToStr( UTCToLocal( t, region ), "dd.mm.yyyy hh:nn" );	 //время прохода на посадку
-    }    
+    }
 		if ( Qry.FieldIsNULL( "refuse" ) )
 			record<<setw(1)<<0<<";";
 		else
@@ -479,7 +479,7 @@ bool createAODBCheckInInfoFile( int point_id,
 		  	aodb_bag.push_back( STRAO );
 //		  	ProgTrace( TRACE5, "record rk=%s", record_bag.str().c_str() );
 		  	BagQry.Next();
-		  }		  
+		  }
 //!!!		  record<<setw(1)<<";";
 		  // багаж
 		  BagQry.SetVariable( "pr_cabin", 0 );
@@ -491,13 +491,13 @@ bool createAODBCheckInInfoFile( int point_id,
 		  	DecodeBagType( BagQry.FieldAsInteger( "bag_type" ), code, type_name );
 		  	record_bag<<setw(2)<<code<<setw(20)<<type_name.substr(0,20);
 		  	record_bag<<setw(10)<<setprecision(0)<<BagQry.FieldAsFloat( "no" );
-		  	record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);		  	
+		  	record_bag<<setw(2)<<string(BagQry.FieldAsString( "color" )).substr(0,2);
 		 // 	if ( pr_first ) {
 		  		pr_first = false;
 		  		record_bag<<setw(4)<<BagQry.FieldAsInteger( "weight" );
 /*		  	}
 		  	else {
-		  		record_bag<<setw(4)<<0;		  		
+		  		record_bag<<setw(4)<<0;
 		  	}*/
 		  	//record_bag<<setw(10)<<""; // номер контейнера
 	  		//record<<setw(1)<<0; // снятие
@@ -508,7 +508,7 @@ bool createAODBCheckInInfoFile( int point_id,
 		  	aodb_bag.push_back( STRAO );
 //		  	ProgTrace( TRACE5, "record bag=%s", record_bag.str().c_str() );
 		  	BagQry.Next();
-		  }		  
+		  }
 //		  record<<setw(1)<<";";
 		}
 		else {
@@ -517,13 +517,13 @@ bool createAODBCheckInInfoFile( int point_id,
 		Qry.Next();
 	}
 	// далее сравнение 2-х слепков, выяснение, что добавилось, что удалилось, что изменилось
-	// формирование данных для отпавки + их запись как новый слепок?	
+	// формирование данных для отпавки + их запись как новый слепок?
 //	ProgTrace( TRACE5, "aodb_pax.size()=%d, prior_aodb_pax.size()=%d",aodb_pax.size(), prior_aodb_pax.size() );
   string res_checkin, /*res_bag,*/ prior_res_checkin/*, prior_res_bag*/;
   bool ch_pax/*, ch_bag*/;
 	for ( vector<AODB_STRUCT>::iterator p=aodb_pax.begin(); p!=aodb_pax.end(); p++ ) {
 		getRecord( p->pax_id, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
-		getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );		
+		getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
 		ch_pax = res_checkin != prior_res_checkin;
 		//ch_bag = res_bag != prior_res_bag;
 		if ( ch_pax/*|| ch_bag*/ ) {
@@ -534,8 +534,8 @@ bool createAODBCheckInInfoFile( int point_id,
 			if ( ch_pax )
 				file_data += res_checkin;
 /*			if ( ch_bag ) {
-				//ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );				
-				bag_file_data += res_bag;        
+				//ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );
+				bag_file_data += res_bag;
 			}*/
 			ProgTrace(TRACE5, "pax_id=%d", p->pax_id );
 	  }
@@ -544,24 +544,24 @@ bool createAODBCheckInInfoFile( int point_id,
 //		ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
 		if ( !p->doit ) {
   		getRecord( p->pax_id, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
-	  	getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );			
+	  	getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
 		  ch_pax = res_checkin != prior_res_checkin;
-		  //ch_bag = res_bag != prior_res_bag;	  	
-	  	if ( ch_pax /*|| ch_bag*/ ) { 
+		  //ch_bag = res_bag != prior_res_bag;
+	  	if ( ch_pax /*|| ch_bag*/ ) {
 //			   getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) )
 			  createRecord( point_id, p->pax_id, point_addr, aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 			                res_checkin/*, res_bag*/ );
    			if ( ch_pax )
 		  		file_data += res_checkin;
 /*		  	if ( ch_bag ) {
-//			  	ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );				
+//			  	ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );
 				  bag_file_data += res_bag;
 				}*/
-		  }  
+		  }
 		}
-  } 
-   
-  if ( !file_data.empty() ) {  	
+  }
+
+  if ( !file_data.empty() ) {
 	  createFileParamsAODB( point_id, params, 0 );
 	}
 /*	if ( !bag_file_data.empty() ) {
@@ -602,8 +602,8 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
 //	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, point_addr=%s", point_id, pax_id, point_addr.c_str() );
 	res_checkin.clear();
 	//res_bag.clear();
-	TQuery PQry( &OraSession );	
- 	PQry.SQLText = 
+	TQuery PQry( &OraSession );
+ 	PQry.SQLText =
  	 "SELECT NVL(MAX(rec_no_pax),-1) r1, NVL(MAX(rec_no_bag),-1) r2 FROM aodb_points "
  	 " WHERE point_id=:point_id AND point_addr=:point_addr";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
@@ -612,12 +612,12 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
  	int bag_num = PQry.FieldAsInteger( "r2" );
  	{
     ostringstream r;
-    r<<setfill(' ')<<std::fixed<<setw(6)<<PQry.FieldAsInteger( "r1" ) + 1;	
+    r<<setfill(' ')<<std::fixed<<setw(6)<<PQry.FieldAsInteger( "r1" ) + 1;
  	  res_checkin = r.str();
   }
-  	// сохраняем новый слепок  	
+  	// сохраняем новый слепок
  	PQry.Clear();
- 	PQry.SQLText = 
+ 	PQry.SQLText =
  	 "BEGIN "
  	 " DELETE aodb_bag WHERE pax_id=:pax_id AND point_addr=:point_addr; "
  	 " DELETE aodb_pax WHERE pax_id=:pax_id AND point_addr=:point_addr; "
@@ -625,23 +625,23 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
    "  IF SQL%NOTFOUND THEN "
    "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag) "
    "      VALUES(:point_id,:point_addr,NULL,NULL,-1,0,-1); "
-   "  END IF; "   	  	 
+   "  END IF; "
  	 "END; ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
  	PQry.CreateVariable( "pax_id", otInteger, pax_id );
  	PQry.CreateVariable( "point_addr", otString, point_addr );
- 	PQry.Execute(); 	  	 
+ 	PQry.Execute();
 	vector<AODB_STRUCT>::iterator d=aodb_pax.end();
 	vector<AODB_STRUCT>::iterator n=prior_aodb_pax.end();
-	for ( d=aodb_pax.begin(); d!=aodb_pax.end(); d++ ) 
+	for ( d=aodb_pax.begin(); d!=aodb_pax.end(); d++ )
 		if ( d->pax_id == pax_id ) {
 			break;
 		}
-	for ( n=prior_aodb_pax.begin(); n!=prior_aodb_pax.end(); n++ ) 
+	for ( n=prior_aodb_pax.begin(); n!=prior_aodb_pax.end(); n++ )
 		if ( n->pax_id == pax_id ) {
 			break;
 		}
-		
+
 	if ( d == aodb_pax.end() ) { // удаление
 		res_checkin += n->record.substr( 0, n->record.length() - 2 );
 		res_checkin += "1;";
@@ -650,23 +650,23 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
 	else  {
 		res_checkin += d->record;
 		PQry.Clear();
-    PQry.SQLText = 
+    PQry.SQLText =
      "INSERT INTO aodb_pax(point_id,pax_id,point_addr,record) VALUES(:point_id,:pax_id,:point_addr,:record)";
     PQry.CreateVariable( "point_id", otInteger, point_id );
     PQry.CreateVariable( "pax_id", otInteger, pax_id );
     PQry.CreateVariable( "point_addr", otString, point_addr );
-    PQry.CreateVariable( "record", otString, d->record );		
+    PQry.CreateVariable( "record", otString, d->record );
     PQry.Execute();
   }
   PQry.Clear();
   PQry.SQLText = "INSERT INTO aodb_bag(pax_id,point_addr,num,pr_cabin,record) VALUES(:pax_id,:point_addr,:num,:pr_cabin,:record)";
   PQry.CreateVariable( "pax_id", otInteger, pax_id );
   PQry.CreateVariable( "point_addr", otString, point_addr );
-  PQry.DeclareVariable( "num", otInteger );		
-  PQry.DeclareVariable( "pr_cabin", otInteger );		
-  PQry.DeclareVariable( "record", otString );		
+  PQry.DeclareVariable( "num", otInteger );
+  PQry.DeclareVariable( "pr_cabin", otInteger );
+  PQry.DeclareVariable( "record", otString );
   int num=0;
-	for ( int pr_cabin=1; pr_cabin>=0; pr_cabin-- ) {		
+	for ( int pr_cabin=1; pr_cabin>=0; pr_cabin-- ) {
 		PQry.SetVariable( "pr_cabin", pr_cabin );
 	  for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
 	  	if ( i->pr_cabin != pr_cabin || i->pax_id != pax_id )
@@ -677,7 +677,7 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
 	  	num++;
 	  	bool f=false;
 	  	for ( vector<AODB_STRUCT>::iterator j=prior_aodb_bag.begin(); j!= prior_aodb_bag.end(); j++ ) {
-	  		if ( j->pr_cabin == pr_cabin && !j->doit && 
+	  		if ( j->pr_cabin == pr_cabin && !j->doit &&
 	  			   i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
 	  			f=true;
 	  			i->doit=true;
@@ -709,43 +709,43 @@ void createRecord( int point_id, int pax_id, const string &point_addr,
 	if ( n != prior_aodb_pax.end() )
 		n->doit = true;
 	PQry.Clear();
-	PQry.SQLText = 
+	PQry.SQLText =
  	 "BEGIN "
  	 "UPDATE aodb_points SET rec_no_bag=:rec_no_bag WHERE point_id=:point_id AND point_addr=:point_addr; "
    "  IF SQL%NOTFOUND THEN "
    "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag) "
    "      VALUES(:point_id,:point_addr,NULL,NULL,-1,0,:rec_no_bag); "
-   "  END IF; "   	  	 
- 	 "END; "; 	 
+   "  END IF; "
+ 	 "END; ";
  	PQry.CreateVariable( "point_id", otInteger, point_id );
  	PQry.CreateVariable( "point_addr", otString, point_addr );
  	PQry.CreateVariable( "rec_no_bag", otInteger, bag_num );
  	PQry.Execute();
-	res_checkin += "\n";	
+	res_checkin += "\n";
 }
 
 void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flight &fl )
 {
 	fl.invalid_term.clear();
-  fl.rec_no = NoExists;	
+  fl.rec_no = NoExists;
  	if ( linestr.length() < REC_NO_LEN )
- 		throw Exception( "Ошибка формата рейса, длина=%d, значение=%s", linestr.length(), linestr.c_str() );	
- 		
+ 		throw Exception( "Ошибка формата рейса, длина=%d, значение=%s", linestr.length(), linestr.c_str() );
+
 	TReqInfo *reqInfo = TReqInfo::Instance();
-  string region = CityTZRegion( "МОВ" );	  	 	  	
-	TQuery Qry( &OraSession );	
-	TQuery TIDQry( &OraSession );	
-	TQuery POINT_IDQry( &OraSession );	
-	string tmp, tmp1;		
+  string region = CityTZRegion( "МОВ" );
+	TQuery Qry( &OraSession );
+	TQuery TIDQry( &OraSession );
+	TQuery POINT_IDQry( &OraSession );
+	string tmp, tmp1;
 	tmp = linestr.substr( REC_NO_IDX, REC_NO_LEN );
 	tmp = TrimString( tmp );
 	fl.rec_no = NoExists;
 	if ( StrToInt( tmp.c_str(), fl.rec_no ) == EOF || fl.rec_no < 0 ||fl.rec_no > 999999 )
 		throw Exception( "Ошибка в номере строки, значение=%s", tmp.c_str() );
-		
+
  	if ( linestr.length() < 180 + 4 )
  		throw Exception( "Ошибка формата рейса, длина=%d, значение=%s", linestr.length(), linestr.c_str() );
-		
+
 	tmp = linestr.substr( FLT_ID_IDX, FLT_ID_LEN );
 	tmp = TrimString( tmp );
 	if ( StrToFloat( tmp.c_str(), fl.id ) == EOF || fl.id < 0 || fl.id > 9999999999.0 )
@@ -756,14 +756,14 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	int i;
 	if ( IsDigit( tmp[ 2 ] ) ) {
-	  fl.airline = tmp.substr( 0, 2 );	  	
+	  fl.airline = tmp.substr( 0, 2 );
 	  i=2;
 	}
 	else {
-	  fl.airline = tmp.substr( 0, 3 );	  		  	
+	  fl.airline = tmp.substr( 0, 3 );
 	  i=3;
 	}
-	tmp1.clear();	  
+	tmp1.clear();
 	for ( ;i<(int)tmp.length(); i++ ) {
 		if ( IsDigit( tmp[ i ] ) ) {
 			if ( !fl.suffix.empty() ) {
@@ -784,7 +784,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	if ( fl.flt_no > 99999 || fl.flt_no <= 0 )
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT code,1 as f FROM airlines WHERE code=:code AND pr_del=0 "
 	 " UNION "
 	 "SELECT code,2 as f FROM airlines WHERE code_lat=:code AND pr_del=0 "
@@ -794,7 +794,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "code", otString, fl.airline );
 	Qry.Execute();
 	if ( !Qry.RowCount() )
-		throw Exception( "Неизветсная авиакомпания, значение=%s", fl.airline.c_str() ); 
+		throw Exception( "Неизветсная авиакомпания, значение=%s", fl.airline.c_str() );
 	fl.airline = Qry.FieldAsString( "code" );
 	if ( Qry.FieldAsInteger( "f" ) == 2 )
 		fl.trip_type = "м";
@@ -804,7 +804,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	fl.litera = TrimString( tmp );
 	if ( !fl.litera.empty() ) {
 		Qry.Clear();
-		Qry.SQLText = 
+		Qry.SQLText =
 		 "SELECT code,1 FROM trip_liters WHERE code=:code AND pr_del=0"
 		 " UNION "
 		 "SELECT litera as code,2 FROM aodb_liters WHERE aodb_code=:code "
@@ -821,7 +821,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		throw Exception( "Ошибка формата планового времени вылета, значение=%s", tmp.c_str() );
 	else
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.scd ) == EOF )
-			throw Exception( "Ошибка формата планового времени вылета, значение=%s", tmp.c_str() );	
+			throw Exception( "Ошибка формата планового времени вылета, значение=%s", tmp.c_str() );
   try {
 	  fl.scd = LocalToUTC( fl.scd, region );
 	}
@@ -830,14 +830,14 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   }
   catch( boost::local_time::time_label_invalid ) {
     throw Exception( "Плановое время выполнения рейса не существует" );
-  }	
+  }
 	tmp = linestr.substr( EST_IDX, EST_LEN );
 	tmp = TrimString( tmp );
   if ( tmp.empty() )
 		fl.est = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.est ) == EOF )
-			throw Exception( "Ошибка формата расчетного времени вылета, значение=%s", tmp.c_str() );	
+			throw Exception( "Ошибка формата расчетного времени вылета, значение=%s", tmp.c_str() );
 		try {
 		  fl.est = LocalToUTC( fl.est, region );
 		}
@@ -846,7 +846,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Расчетное время выполнения рейса не существует" );
-    }			
+    }
 	}
 	tmp = linestr.substr( ACT_IDX, ACT_LEN );
 	tmp = TrimString( tmp );
@@ -854,7 +854,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		fl.act = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.act ) == EOF )
-			throw Exception( "Ошибка формата фактического времени вылета, значение=%s", tmp.c_str() );				
+			throw Exception( "Ошибка формата фактического времени вылета, значение=%s", tmp.c_str() );
 		try {
 		  fl.act= LocalToUTC( fl.act, region );
 		}
@@ -863,15 +863,15 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Фактическое время выполнения рейса не существует" );
-    }			
+    }
 	}
 	tmp = linestr.substr( HALL_IDX, HALL_LEN );
-	fl.hall = TrimString( tmp );	
+	fl.hall = TrimString( tmp );
 	tmp = linestr.substr( PARK_OUT_IDX, PARK_OUT_LEN );
 	fl.park_out = TrimString( tmp );
 	fl.park_out = fl.park_out.substr( 0, 3 );
-	
-	tmp = linestr.substr( KRM_IDX, KRM_LEN );	
+
+	tmp = linestr.substr( KRM_IDX, KRM_LEN );
 	tmp = TrimString( tmp );
 	if ( tmp.empty() )
 		fl.krm = NoExists;
@@ -890,16 +890,16 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	if ( fl.craft.empty() )
 		throw Exception( "Ошибка формата типа ВС, значение=%s", tmp.c_str() );
 	Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT code, 1 FROM crafts WHERE ( code=:code OR code_lat=:code OR name=:code OR name_lat=:code ) AND pr_del=0 "
 	 " UNION "
 	 "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code";
 	Qry.CreateVariable( "code", otString, fl.craft );
 	Qry.Execute();
-	if ( !Qry.RowCount() )		
+	if ( !Qry.RowCount() )
 		throw Exception( "Неизветсный тип ВС, значение=%s", fl.craft.c_str() );
 	fl.craft = Qry.FieldAsString( "code" );
-  tmp = linestr.substr( BORT_IDX, BORT_LEN );  		
+  tmp = linestr.substr( BORT_IDX, BORT_LEN );
   fl.bort = TrimString( tmp );
 	tmp = linestr.substr( CHECKIN_BEG_IDX, CHECKIN_BEG_LEN );
 	tmp = TrimString( tmp );
@@ -907,7 +907,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		fl.checkin_beg = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.checkin_beg ) == EOF )
-			throw Exception( "Ошибка формата начала регистрации, значение=%s", tmp.c_str() );				
+			throw Exception( "Ошибка формата начала регистрации, значение=%s", tmp.c_str() );
 		try {
 		  fl.checkin_beg = LocalToUTC( fl.checkin_beg, region );
 		}
@@ -916,7 +916,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Начало регистрации рейса не существует" );
-    }					
+    }
 	}
 	tmp = linestr.substr( CHECKIN_END_IDX, CHECKIN_END_LEN );
 	tmp = TrimString( tmp );
@@ -924,7 +924,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		fl.checkin_end = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.checkin_end ) == EOF )
-			throw Exception( "Ошибка формата окончания регистрации, значение=%s", tmp.c_str() );				
+			throw Exception( "Ошибка формата окончания регистрации, значение=%s", tmp.c_str() );
 		try {
 		  fl.checkin_end = LocalToUTC( fl.checkin_end, region );
 		}
@@ -933,7 +933,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Окончание регистрации рейса не существует" );
-    }							
+    }
 	}
 	tmp = linestr.substr( BOARDING_BEG_IDX, BOARDING_BEG_LEN );
 	tmp = TrimString( tmp );
@@ -941,7 +941,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		fl.boarding_beg = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.boarding_beg ) == EOF )
-			throw Exception( "Ошибка формата начала посадки, значение=%s", tmp.c_str() );				
+			throw Exception( "Ошибка формата начала посадки, значение=%s", tmp.c_str() );
 		try {
 		  fl.boarding_beg = LocalToUTC( fl.boarding_beg, region );
 		}
@@ -950,7 +950,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Начало посадки рейса не существует" );
-    }									
+    }
 	}
 	tmp = linestr.substr( BOARDING_END_IDX, BOARDING_END_LEN );
 	tmp = TrimString( tmp );
@@ -958,7 +958,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		fl.boarding_end = NoExists;
 	else {
 		if ( StrToDateTime( tmp.c_str(), "dd.mm.yyyy hh:nn", fl.boarding_end ) == EOF )
-			throw Exception( "Ошибка формата окончания посадки, значение=%s", tmp.c_str() );				  
+			throw Exception( "Ошибка формата окончания посадки, значение=%s", tmp.c_str() );
 		try {
 		  fl.boarding_end = LocalToUTC( fl.boarding_end, region );
 		}
@@ -967,22 +967,22 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
     catch( boost::local_time::time_label_invalid ) {
       throw Exception( "Окончание посадки рейса не существует" );
-    }											
+    }
 	}
 	tmp = linestr.substr( PR_CANCEL_IDX, PR_CANCEL_LEN );
-	tmp = TrimString( tmp );			
+	tmp = TrimString( tmp );
 	if ( tmp.empty() )
 		fl.pr_cancel = NoExists;
 	else
   	if ( StrToInt( tmp.c_str(), fl.pr_cancel ) == EOF )
-	  	throw Exception( "Ошибка формата признака отмены, значение=%s", tmp.c_str() );		
+	  	throw Exception( "Ошибка формата признака отмены, значение=%s", tmp.c_str() );
 	tmp = linestr.substr( PR_DEL_IDX, PR_DEL_LEN );
-	tmp = TrimString( tmp );			
+	tmp = TrimString( tmp );
 	if ( tmp.empty() )
 		fl.pr_del = NoExists;
 	else
   	if ( StrToInt( tmp.c_str(), fl.pr_del ) == EOF )
-	  	throw Exception( "Ошибка формата признака удаления, значение=%s", tmp.c_str() );			  	
+	  	throw Exception( "Ошибка формата признака удаления, значение=%s", tmp.c_str() );
 	int len = linestr.length();
 	i = PR_DEL_IDX + PR_DEL_LEN;
 	tmp = linestr.substr( i, 1 );
@@ -992,13 +992,13 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	bool dest_mode = true;
 	AODB_Dest dest;
 	AODB_Term term;
-	while ( i < len ) {		
+	while ( i < len ) {
 		tmp = linestr.substr( i, 1 );
 		tmp = TrimString( tmp );
 		if ( dest_mode ) {
     	if ( StrToInt( tmp.c_str(), dest.num ) == EOF || dest.num < 0 || dest.num > 9 )
     		if ( fl.dests.empty() )
-	    	  throw Exception( "Ошибка формата номера пункта посадки, значение=%s", tmp.c_str() );					
+	    	  throw Exception( "Ошибка формата номера пункта посадки, значение=%s", tmp.c_str() );
 	      else
 	    	  dest_mode = false;
 	    else {
@@ -1008,7 +1008,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	    	if ( dest.airp.empty() )
 	    		throw Exception( "Ошибка формата кода аэропорта, значение=%s", dest.airp.c_str() );
 	    	Qry.Clear();
-	    	Qry.SQLText = 
+	    	Qry.SQLText =
 	    	 "SELECT code, 1 FROM airps WHERE ( code=:code OR code_lat=:code OR name=:code OR name_lat=:code ) AND pr_del=0 "
 	    	 " UNION "
 	    	 "SELECT airp as code, 2 FROM aodb_airps WHERE aodb_code=:code "
@@ -1022,32 +1022,32 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	    	tmp = linestr.substr( i, 1 );
 	    	tmp = TrimString( tmp );
 	    	if ( tmp.empty() || StrToInt( tmp.c_str(), dest.pr_del ) == EOF || dest.pr_del < 0 || dest.pr_del > 1 )
-	    	  throw Exception( "Ошибка формата признака удаления пункта, значение=%s", tmp.c_str() );					
+	    	  throw Exception( "Ошибка формата признака удаления пункта, значение=%s", tmp.c_str() );
 	    	fl.dests.push_back( dest );
 	    	i++;
 	    	tmp = linestr.substr( i, 1 );
 	      if ( tmp[ 0 ] != ';' )
-		      throw Exception( "Ошибка формата маршрута. Ожидался символ ';', встретился символ	%c", linestr[ i ] );	    	
+		      throw Exception( "Ошибка формата маршрута. Ожидался символ ';', встретился символ	%c", linestr[ i ] );
 		    i++;
 	    }
 		}
 		if ( !dest_mode ) {
-			int old_i = i;			
+			int old_i = i;
 			try {
 			  if ( tmp != "П" && tmp != "Р" )
-			  	throw Exception( "Ошибка формата типа стойки, значение=%s", tmp.c_str() );					
+			  	throw Exception( "Ошибка формата типа стойки, значение=%s", tmp.c_str() );
 			  term.type = tmp;
 			  i++;
     	  tmp = linestr.substr( i, 4 );
 	   	  term.name = TrimString( tmp );
 			  if ( term.name.empty() )
-			  	throw Exception( "Ошибка формата номера стойки, значение=%s", term.name.c_str() );					
+			  	throw Exception( "Ошибка формата номера стойки, значение=%s", term.name.c_str() );
 			  string term_name;
 			  if ( term.type == "П" )
 		  		term_name = "G" + term.name;
 		  	else
 		  		term_name = "R" + term.name;
-	  		Qry.Clear();	  		
+	  		Qry.Clear();
 	  		Qry.SQLText = "SELECT desk FROM stations WHERE airp=:airp AND work_mode=:work_mode AND name=:code";
 	  		Qry.CreateVariable( "airp", otString, "ВНК" );
 	  		Qry.CreateVariable( "work_mode", otString, term.type );
@@ -1057,7 +1057,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     			if ( term.type == "П" )
 	    			term_name = "G0" + term.name;
 		    	else
-		  	  	term_name = "R0" + term.name;				
+		  	  	term_name = "R0" + term.name;
 			    Qry.SetVariable( "code", term_name );
 			    Qry.Execute();
 			    if ( !Qry.RowCount() )
@@ -1068,14 +1068,14 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
        	tmp = linestr.substr( i, 1 );
 	   	  tmp = TrimString( tmp );
 	      if ( tmp.empty() || StrToInt( tmp.c_str(), term.pr_del ) == EOF || term.pr_del < 0 || term.pr_del > 1 )
-	        throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );								
+	        throw Exception( "Ошибка формата признака удаления стойки, значение=%s", tmp.c_str() );
 	      fl.terms.push_back( term );
-		  }				
+		  }
 		  catch( Exception &e ) {
 		  	i = old_i + 1 + 4;
 		  	if ( fl.invalid_term.empty() )
 		  		fl.invalid_term = e.what();
-		  }	      
+		  }
 	    i++;
 	    tmp = linestr.substr( i, 1 );
 	   	if ( tmp[ 0 ] != ';' )
@@ -1085,7 +1085,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	}
 	// запись в БД
 	Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT point_id,craft,bort,scd_out,est_out,act_out,litera,park_out,pr_del "
 	 " FROM points WHERE airline=:airline AND flt_no=:flt_no AND "
 	 "                   ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
@@ -1104,10 +1104,10 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
 	int move_id, new_tid, point_id;
 	bool pr_insert = Qry.Eof;
- 	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";	
+ 	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
 	if ( pr_insert ) { // insert
-    Qry.Clear();		
+    Qry.Clear();
     Qry.SQLText =
      "BEGIN "\
      " SELECT move_id.nextval INTO :move_id from dual; "\
@@ -1117,12 +1117,12 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "reference", otString, FNull );
     Qry.Execute();
     move_id = Qry.GetVariableAsInteger( "move_id" );
-    reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );		
+    reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );
     reqInfo->MsgToLog( string( "Ввод нового пункта " ) + "ВНК", evtDisp, move_id );
     TIDQry.Execute();
     new_tid = TIDQry.FieldAsInteger( "n" );
     POINT_IDQry.Execute();
-    point_id = POINT_IDQry.FieldAsInteger( "point_id" );    
+    point_id = POINT_IDQry.FieldAsInteger( "point_id" );
     Qry.Clear();
     Qry.SQLText =
      "INSERT INTO points(move_id,point_id,point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,"\
@@ -1153,7 +1153,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       Qry.CreateVariable( "est_out", otDate, fl.est );
     else
     	Qry.CreateVariable( "est_out", otDate, FNull );
-    if ( fl.act > NoExists )          
+    if ( fl.act > NoExists )
       Qry.CreateVariable( "act_out", otDate, fl.act );
     else
     	Qry.CreateVariable( "act_out", otDate, FNull );
@@ -1186,7 +1186,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
         Qry.SetVariable( "flt_no", FNull );
         Qry.SetVariable( "suffix", FNull );
         Qry.SetVariable( "craft", FNull );
-        Qry.SetVariable( "bort", FNull );        
+        Qry.SetVariable( "bort", FNull );
         Qry.SetVariable( "park_out", FNull );
         Qry.SetVariable( "trip_type", FNull );
         Qry.SetVariable( "litera", FNull );
@@ -1201,7 +1201,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       else
     		Qry.SetVariable( "pr_del", 0 );
       TIDQry.Execute();
-      Qry.SetVariable( "tid", TIDQry.FieldAsInteger( "n" ) );            
+      Qry.SetVariable( "tid", TIDQry.FieldAsInteger( "n" ) );
       Qry.Execute();
       tst();
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id );
@@ -1218,11 +1218,11 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
-		Qry.Execute();		
+		Qry.Execute();
 	}
 	else { // update
 		string remark;
-	  AODB_Flight old_fl;		
+	  AODB_Flight old_fl;
 		point_id = Qry.FieldAsInteger( "point_id" );
 		old_fl.craft = Qry.FieldAsString( "craft" );
 		old_fl.bort = Qry.FieldAsString( "bort" );
@@ -1245,26 +1245,26 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		Qry.Clear();
     Qry.SQLText =
      "BEGIN "
-     " UPDATE move_ref SET move_id=move_id WHERE move_id=:move_id; "     
+     " UPDATE move_ref SET move_id=move_id WHERE move_id=:move_id; "
      " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "
      "END;";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.Execute(); // лочим
     Qry.Clear();
-    Qry.SQLText = 
+    Qry.SQLText =
      "UPDATE points "
      " SET craft=:craft,bort=:bort,est_out=:est_out,act_out=:act_out,litera=:litera, "
      "     park_out=:park_out,pr_del=:pr_del "
      " WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.CreateVariable( "craft", otString, fl.craft );    
+    Qry.CreateVariable( "craft", otString, fl.craft );
  	  if ( fl.craft != old_fl.craft ) {
 	  	if ( !old_fl.craft.empty() ) {
  	  	  remark += " изм. типа ВС с " + old_fl.craft;
  	  	  if ( !fl.craft.empty() )
  	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
  	  	}
- 	  	else {  	  		
+ 	  	else {
  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
  	  	}
  	  }
@@ -1312,13 +1312,13 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  if ( fl.park_out != old_fl.park_out ) {
  	  	if ( !tl.empty() )
  	  		tl += ",";
-  	  tl += "Стоянка " + fl.park_out;	
- 	  } 	  
+  	  tl += "Стоянка " + fl.park_out;
+ 	  }
  	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
  	  	if ( !tl.empty() )
  	  		tl += ",";
  	  	if ( fl.pr_cancel )
- 	  	  tl += "Отмена рейса "; 	  	
+ 	  	  tl += "Отмена рейса ";
  	  	else
  	  		tl += "Удаление отмены рейса";
  	  }
@@ -1342,7 +1342,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  	if ( fl.pr_cancel )
  	  		reqInfo->MsgToLog( string( "Отмена рейса ВНК" ), evtDisp, move_id, point_id );
  	  	else
- 	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id ); 	  	
+ 	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id );
  	  }
  	  Qry.Execute();
  	  // теперь работа с пунктами посадки
@@ -1362,20 +1362,20 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     }
 /*    for ( vector<AODB_Dest>::iterator it=fl.dests.begin(),
     	    vecto; it!=fl.dests.end(); it++ ) {
-    	
+
     	if ( it->pr_del || it->pr_cancel ) {
     		Qry.Clear();
   		  Qry.SQLText =
   	   	 "SELECT COUNT(*) c FROM pax_grp,points "\
   		   " WHERE points.point_id=:point_id AND "\
-  		   "       point_dep=:point_id AND pr_refuse=0 ";
+  		   "       point_dep=:point_id AND bag_refuse=0 ";
   		  Qry.CreateVariable( "point_id", otInteger, point_id );
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) )
   			if ( id->pr_del == -1 )
   				throw UserException( string( "Нельзя удалить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
   			else
-  				throw UserException( string( "Нельзя отменить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );    		
+  				throw UserException( string( "Нельзя отменить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
     	}
     	num++;
     } 	    	 	  	                     */
@@ -1385,9 +1385,9 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
     Qry.Execute();
 	}
-	
+
   Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "BEGIN "
 	 " UPDATE aodb_points SET aodb_point_id=aodb_point_id WHERE point_id=:point_id; "
 	 " IF SQL%NOTFOUND THEN "
@@ -1399,7 +1399,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "aodb_point_id", otFloat, fl.id );
 	Qry.Execute();
-	
+
 	// обновление времен технологического графика
   Qry.Clear();
 	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id";
@@ -1415,10 +1415,10 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.Execute();
 	Qry.SetVariable( "stage_id", sCloseBoarding );
 	Qry.SetVariable( "scd", fl.boarding_end );
-	Qry.Execute();	
+	Qry.Execute();
 	// обновление стоек регистрации и выходов на покадку
 	Qry.Clear();
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "BEGIN "
 	 " :pr_change := 0; "
 	 " IF :pr_del != 0 THEN "
@@ -1453,7 +1453,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 			pr_change_brd = pr_change_brd || Qry.GetVariableAsInteger( "pr_change" );
 		if ( it->type == "Р" )
 			reg = reg + " " + it->name;
-		else 
+		else
 			brd = brd + " " + it->name;
 	}
 	if ( pr_change_reg )
@@ -1470,25 +1470,25 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  rec_no number(9),
  value varchar2(4000),
  error varchar2(4000) );
- 
+
  create table aodb_airlines (
   code varchar2(5) not null,
   airline varchar2(3) not null );
-  
+
  create table aodb_airps (
   code varchar2(3) not null,
   airp varchar2(3) not null );
-  
-  
+
+
  create table aodb_crafts (
   code varchar2(10) not null,
   craft varchar2(3) not null );
-  
+
  create table aodb_liters (
   code varchar2(3) not null,
   litera varchar2(3) not null );
  */
- 
+
 void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name, std::string &fd, const string &convert_aodb )
 {
 	TQuery QryLog( &OraSession );
@@ -1511,15 +1511,15 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
   		linestr = fd;
   		fd.clear();
   	}
-  	else {  		
+  	else {
   	  linestr = fd.substr( 0, i );
   	  if ( i < fd.length() - 1 && fd[ i + 1 ] == c_a ) {
-  		  i++;  	  
+  		  i++;
   		}
   	  fd.erase( 0, i + 1 );
   	}
     AODB_Flight fl;
-    try {  
+    try {
     	fl.rec_no = NoExists;
     	if ( !convert_aodb.empty() ) {
     		try {
@@ -1532,7 +1532,7 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	      	}
 	        catch( EConvertError &E ) {
 	        	throw Exception( string("Ошибка перекодировки рейса") );
-	        }	      	
+	        }
 	      	throw Exception( string("Ошибка перекодировки рейса, строка ") + l );
 	      }
       }
@@ -1543,9 +1543,9 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       QryLog.SetVariable( "record", linestr );
     	QryLog.SetVariable( "msg", "ok" );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtFlt ) );
-      QryLog.Execute();                	
+      QryLog.Execute();
     }
-    catch( Exception &e ) {    	    	
+    catch( Exception &e ) {
       if ( fl.rec_no == NoExists )
       	QryLog.SetVariable( "rec_no", -1 );
       else
@@ -1562,10 +1562,10 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       	errs += string( "Ошибка разбора строки " ) + IntToString( fl.rec_no ) + " : " + string(e.what()).substr(0,120);
     }
     if ( fl.rec_no > NoExists )
-      max_rec_no = fl.rec_no;     
+      max_rec_no = fl.rec_no;
   }
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr";	
+	Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr";
 	Qry.CreateVariable( "rec_no", otInteger, max_rec_no );
 	Qry.CreateVariable( "filename", otString, filename );
 	Qry.CreateVariable( "point_addr", otString, canon_name );
@@ -1576,9 +1576,9 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 
 bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, std::string &file_data )
 {
-	string point_addr = params[PARAM_CANON_NAME];	
-	TQuery Qry( &OraSession );	
-	Qry.SQLText = 
+	string point_addr = params[PARAM_CANON_NAME];
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
 	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out, "
 	 "       rec_no_flt,record "
 	 " FROM points, aodb_points "
@@ -1586,25 +1586,25 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	 "       points.point_id=aodb_points.point_id(+) AND "
 	 "       :point_addr=aodb_points.point_addr(+) AND "
 	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";
-	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );	 
+	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );
 	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.CreateVariable( "point_addr", otString, point_addr );	
+	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();
 	if ( Qry.Eof )
 		return false;
   string flight = Qry.FieldAsString( "trip" );
 	string region = CityTZRegion( "МОВ" );
-	TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );	 		
+	TDateTime scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
 	double aodb_point_id = Qry.FieldAsFloat( "aodb_point_id" );
 	int rec_no;
-	string old_res;	
+	string old_res;
 	if ( Qry.Eof || Qry.FieldIsNULL( "rec_no_flt" ) )
 		rec_no = 0;
 	else {
-	  rec_no = Qry.FieldAsInteger( "rec_no_flt" ) + 1;	
+	  rec_no = Qry.FieldAsInteger( "rec_no_flt" ) + 1;
 	  old_res = Qry.FieldAsString( "record" );
 	}
-	int checkin = 0, boarding = 0;		
+	int checkin = 0, boarding = 0;
 	TMapTripStages stages;
 	TTripStages::LoadStages( point_id, stages );
 	ostringstream record;
@@ -1628,7 +1628,7 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
   checkin = ( stages[ sOpenCheckIn ].act > NoExists && stages[ sCloseCheckIn ].act == NoExists );
 	boarding = ( stages[ sOpenBoarding ].act > NoExists && stages[ sCloseBoarding ].act == NoExists );
 	record<<setw(1)<<checkin<<setw(1)<<boarding;
-		
+
 	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
 		ostringstream r;
 		if ( aodb_point_id )
@@ -1637,24 +1637,24 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 			r<<std::fixed<<setw(6)<<rec_no<<setw(10)<<"";
 		r<<setw(10)<<flight.substr(0,10)<<setw(16)<<DateTimeToStr( scd_out, "dd.mm.yyyy hh:nn" )<<record.str();
 		Qry.Clear();
-  	Qry.SQLText = 
+  	Qry.SQLText =
   	 "BEGIN "
    	 " UPDATE aodb_points SET record=:record,rec_no_flt=NVL(rec_no_flt,-1)+1 "
    	 "  WHERE point_id=:point_id AND point_addr=:point_addr; "
    	 "  IF SQL%NOTFOUND THEN "
    	 "    INSERT INTO aodb_points(point_id,point_addr,aodb_point_id,record,rec_no_flt,rec_no_pax,rec_no_bag) "
    	 "      VALUES(:point_id,:point_addr,NULL,:record,0,-1,-1); "
-   	 "  END IF; "   	 
+   	 "  END IF; "
    	 "END;";
    	Qry.CreateVariable( "point_id", otInteger, point_id );
    	Qry.CreateVariable( "point_addr", otString, point_addr );
    	Qry.CreateVariable( "record", otString, record.str() );
- 	  Qry.Execute(); 	  	 		
+ 	  Qry.Execute();
  	  file_data = r.str() + "\n";
 	}
-  if ( !file_data.empty() ) {  	
+  if ( !file_data.empty() ) {
 	  string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
-    params[ PARAM_FILE_NAME ] =  p + "reg.txt";	
+    params[ PARAM_FILE_NAME ] =  p + "reg.txt";
 	}
 	return !file_data.empty();
 }

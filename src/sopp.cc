@@ -120,7 +120,7 @@ const char* trfer_in_SQL =
     "WHERE tlg_binding.point_id_spp=:point_id AND tlg_binding.point_id_tlg=tlg_transfer.point_id_out AND rownum<2";
 const char* trfer_reg_SQL =
     "SELECT 1 FROM transfer, pax_grp "
-    "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND pr_refuse=0 AND rownum<2";
+    "WHERE pax_grp.point_dep=:point_id AND transfer.grp_id=pax_grp.grp_id AND bag_refuse=0 AND rownum<2";
 /*const char* crs_displaces_SQL =
     "SELECT point_from,"
     "       p1.airline||p1.flt_no||p1.suffix trip_from,p1.scd_out scd_from,"
@@ -849,7 +849,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	   CRS_DispltoQry.SetVariable( "point_id_spp", tr->point_id );
   	   CRS_DispltoQry.Execute();
   	   tr->crs_disp_to = getCrsDisplace( tr->point_id, local_time, true, CRS_DispltoQry );
-  	   CRS_DisplfromQry.SetVariable( "point_id_spp", tr->point_id );  	   
+  	   CRS_DisplfromQry.SetVariable( "point_id_spp", tr->point_id );
   	   CRS_DisplfromQry.Execute();
   	   tr->crs_disp_from = getCrsDisplace( tr->point_id, local_time, false, CRS_DisplfromQry );
 /*        crsd.displaces_from.clear();
@@ -1307,7 +1307,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       "       'K' AS weight_unit "
       "FROM pax_grp,transfer "
       "WHERE pax_grp.grp_id=transfer.grp_id AND transfer.transfer_num=1 AND "
-      "      pax_grp.point_dep=:point_id AND pr_refuse=0 AND pax_grp.status<>'T' "
+      "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' "
       "ORDER BY transfer.local_date,transfer.airline,transfer.flt_no, "
       "         transfer.suffix,pax_grp.airp_arv,transfer.airp_arv ";
     Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1695,18 +1695,109 @@ void GetLuggage( int point_id, Luggage &lug )
 void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
 {
 	TQuery Qry(&OraSession);
-  Qry.Clear();
+
+	ostringstream sql;
+
+	sql <<
+  	 "SELECT a.point_arv,a.class, "
+  	 "       a.seatsadult,a.seatschild,a.seatsbaby, "
+  	 "       a.adult,a.child,a.baby, "
+  	 "       b.bag_weight,b.rk_weight, "
+  	 "       e.excess "
+  	 "FROM "
+
+  	 //подзапрос по кол-ву пассажиров:
+     "	 (SELECT pax_grp.point_arv, pax_grp.class, "
+     "           SUM(DECODE(pers_type,'ВЗ',seats,0)) AS seatsadult, "
+     "           SUM(DECODE(pers_type,'РБ',seats,0)) AS seatschild, "
+     "           SUM(DECODE(pers_type,'РМ',seats,0)) AS seatsbaby, "
+     "           SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "
+     "           SUM(DECODE(pers_type,'РБ',1,0)) AS child, "
+     "           SUM(DECODE(pers_type,'РМ',1,0)) AS baby "
+     "   FROM pax_grp,pax "
+     "   WHERE pax_grp.grp_id=pax.grp_id(+) AND "
+     "         point_dep=:point_id AND "
+     "         (pax.grp_id IS NULL AND pax_grp.class IS NULL OR "
+     "          pax.grp_id IS NOT NULL) AND ";
+  if (pr_brd)
+    sql << "   pr_brd(+)=1 ";
+  else
+    sql << "   pr_brd(+) IS NOT NULL ";
+  sql <<
+     "   GROUP BY pax_grp.point_arv, pax_grp.class) a, "
+
+     //подзапрос по весу багажа:
+     "   (SELECT pax_grp.point_arv, pax_grp.class, "
+     "           SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "
+     "           SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "
+     "    FROM bag2, "
+     "       (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "
+     "        WHERE pax_grp.grp_id=pax.grp_id AND "
+     "              point_dep=:point_id AND bag_refuse=0 AND ";
+  if (pr_brd)
+    sql << "        pr_brd=1 ";
+  else
+    sql << "        pr_brd IS NOT NULL ";
+  sql <<
+     "        UNION "
+     "        SELECT pax_grp.grp_id,point_arv,class FROM pax_grp "
+     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
+     "       ) pax_grp "
+     "    WHERE bag2.grp_id=pax_grp.grp_id "
+     "    GROUP BY pax_grp.point_arv, pax_grp.class) b, "
+
+     //подзапрос по оплачиваемому весу:
+     "   (SELECT pax_grp.point_arv, pax_grp.class, "
+     "	         SUM(excess) AS excess "
+     "	  FROM "
+     "	     (SELECT DISTINCT pax_grp.grp_id,point_arv,class,excess FROM pax_grp,pax "
+     "        WHERE pax_grp.grp_id=pax.grp_id AND "
+     "              point_dep=:point_id AND bag_refuse=0 AND ";
+  if (pr_brd)
+    sql << "        pr_brd=1 ";
+  else
+    sql << "        pr_brd IS NOT NULL ";
+  sql <<
+     "        UNION "
+     "        SELECT pax_grp.grp_id,point_arv,class,excess FROM pax_grp "
+     "        WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
+     "       ) pax_grp "
+     "    GROUP BY pax_grp.point_arv, pax_grp.class) e "
+     "WHERE a.point_arv=b.point_arv(+) AND "
+     "      a.class=b.class(+) AND "
+     "      a.point_arv=e.point_arv(+) AND "
+     "      a.class=e.class(+) ";
+  Qry.SQLText = sql.str().c_str();
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    PaxLoad paxload;
+    paxload.point_arv = Qry.FieldAsInteger( "point_arv" );
+    paxload.cl = Qry.FieldAsString( "class" );
+    paxload.seatsadult = Qry.FieldAsInteger( "seatsadult" );
+    paxload.seatschild = Qry.FieldAsInteger( "seatschild" );
+    paxload.seatsbaby = Qry.FieldAsInteger( "seatsbaby" );
+    paxload.adult = Qry.FieldAsInteger( "adult" );
+    paxload.child = Qry.FieldAsInteger( "child" );
+    paxload.baby = Qry.FieldAsInteger( "baby" );
+    paxload.bag_weight = Qry.FieldAsInteger( "bag_weight" );
+    paxload.rk_weight = Qry.FieldAsInteger( "rk_weight" );
+    paxload.excess = Qry.FieldAsInteger( "excess" );
+    lug.vpaxload.push_back( paxload );
+  };
+  /*Qry.Clear();
   string sql =
-   "SELECT "\
-   " pax_grp.point_arv, pax_grp.class, "\
+   "SELECT "
+   " pax_grp.point_arv, pax_grp.class, "
    " SUM(DECODE(pers_type,'ВЗ',seats,0)) AS seatsadult, "
    " SUM(DECODE(pers_type,'РБ',seats,0)) AS seatschild, "
    " SUM(DECODE(pers_type,'РМ',seats,0)) AS seatsbaby, "
-   " SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "\
-   " SUM(DECODE(pers_type,'РБ',1,0)) AS child, "\
-   " SUM(DECODE(pers_type,'РМ',1,0)) AS baby, "\
-   " NVL(SUM(excess),0) AS excess "\
-   " FROM pax_grp,pax "\
+   " SUM(DECODE(pers_type,'ВЗ',1,0)) AS adult, "
+   " SUM(DECODE(pers_type,'РБ',1,0)) AS child, "
+   " SUM(DECODE(pers_type,'РМ',1,0)) AS baby, "
+   " NVL(SUM(excess),0) AS excess "
+   "FROM pax_grp,pax "
    "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
    if ( pr_brd )
    	sql += " AND pr_brd=1 ";
@@ -1730,17 +1821,21 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   }
   Qry.Clear();
   sql =
-	 "SELECT "\
+	 "SELECT "
 	 " pax_grp.point_arv, pax_grp.class, "
-   " SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "\
-   " SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "\
-   " FROM bag2, "\
-   "   (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "\
-   "     WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id ";
+   " SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight, "
+   " SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight "
+   " FROM bag2, "
+   "   (SELECT DISTINCT pax_grp.grp_id,point_arv,class FROM pax_grp,pax "
+   "    WHERE pax_grp.grp_id=pax.grp_id AND "
+   "          point_dep=:point_id AND bag_refuse=0 ";
    if ( pr_brd )
    	sql += "  AND   pr_brd=1 ";
    sql+=
-   "   AND pr_refuse=0 ) pax_grp "\
+   "    UNION "
+   "    SELECT pax_grp.grp_id,point_arv,class FROM pax_grp "
+   "    WHERE point_dep=:point_id AND bag_refuse=0 AND class IS NULL "
+   "   ) pax_grp "
    "WHERE bag2.grp_id=pax_grp.grp_id "
    " GROUP BY pax_grp.point_arv, pax_grp.class ";
 	Qry.SQLText = sql;
@@ -1756,7 +1851,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   		}
   	}
     Qry.Next();
-  }
+  }*/
 
   Qry.Clear();
   Qry.SQLText =
@@ -1798,7 +1893,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   	lug.vcargo.push_back( cargo );
   	Qry.Next();
   }
-  Qry.Clear();
+ /* Qry.Clear();
   Qry.SQLText =
    "SELECT point_arv, NVL(SUM(weight),0) AS dosbag_weight "\
    " FROM unaccomp_bag "\
@@ -1820,7 +1915,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   		lug.vcargo.push_back( cargo );
     }
   	Qry.Next();
-  }
+  }*/
 }
 
 void GetLuggage( int point_id, xmlNodePtr dataNode )
@@ -2135,7 +2230,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-      }       			
+      }
 		else
 			d.scd_in = NoExists;
 		fnode = GetNodeFast( "est_in", snode );
@@ -2145,7 +2240,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-      }       						
+      }
 		else
 			d.est_in = NoExists;
 		fnode = GetNodeFast( "act_in", snode );
@@ -2155,7 +2250,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
-      }       			
+      }
 		else
 			d.act_in = NoExists;
 		fnode = GetNodeFast( "scd_out", snode );
@@ -2165,7 +2260,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-      }       						
+      }
 		else
 			d.scd_out = NoExists;
 		fnode = GetNodeFast( "est_out", snode );
@@ -2175,7 +2270,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-      }       									
+      }
 		else
 			d.est_out = NoExists;
 		fnode = GetNodeFast( "act_out", snode );
@@ -2185,7 +2280,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
-      }       									
+      }
 		}
 		else
 			d.act_out = NoExists;
@@ -2203,7 +2298,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 				}
         catch( boost::local_time::ambiguous_result ) {
           throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
-        }       										
+        }
 				d.delays.push_back( delay );
 				fnode = fnode->next;
 		  }
@@ -2818,7 +2913,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		Qry.SQLText =
   		"SELECT COUNT(*) c FROM pax_grp,points "\
   		" WHERE points.point_id=:point_id AND "\
-  		"       point_dep=:point_id AND pr_refuse=0 ";
+  		"       point_dep=:point_id AND bag_refuse=0 ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) )
@@ -2992,7 +3087,7 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
     if ( to_local ) {
     	string region = AirpTZRegion( Qry.FieldAsString( "airp_dep" ), true );
     	scd = UTCToLocal( scd, region );
-    }  	
+    }
   	if ( Qry.FieldAsInteger( "point_id_spp" ) == point_id ) {
   		if ( !to_local && string(Qry.FieldAsString( "class_spp" )) != string(Qry.FieldAsString( "class_tlg" )) )
   			ch_class = true;
@@ -3049,9 +3144,9 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
   Qry.Clear();
-  Qry.SQLText = 
+  Qry.SQLText =
    "SELECT point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,"
-   "       point_id_tlg,airp_arv_tlg,class_tlg,pr_goshow "   
+   "       point_id_tlg,airp_arv_tlg,class_tlg,pr_goshow "
    " FROM crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id );
   Qry.Execute();
@@ -3064,7 +3159,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	t.airline = Qry.FieldAsString( "airline" );
   	t.flt_no = Qry.FieldAsInteger( "flt_no" );
   	t.suffix = Qry.FieldAsString( "suffix" );
-  	t.scd = Qry.FieldAsDateTime( "scd" );  	
+  	t.scd = Qry.FieldAsDateTime( "scd" );
   	if ( Qry.FieldIsNULL( "point_id_tlg" ) )
   		t.point_id_tlg = NoExists;
   	else
@@ -3072,7 +3167,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	t.airp_arv_tlg = Qry.FieldAsString( "airp_arv_tlg" );
   	t.class_tlg = Qry.FieldAsString( "class_tlg" );
   	t.pr_goshow = Qry.FieldAsInteger( "pr_goshow" );
-  	crs_displaces.push_back( t );  	
+  	crs_displaces.push_back( t );
   	Qry.Next();
   }
   Qry.Clear();
@@ -3142,7 +3237,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	  point_id_tlg = TQry.FieldAsInteger( "point_id" );
   	else
   		point_id_tlg = NoExists;
-  	if ( point_id_tlg == NoExists )  		
+  	if ( point_id_tlg == NoExists )
   		Qry.SetVariable( "point_id_tlg", FNull );
   	else
   		Qry.SetVariable( "point_id_tlg", point_id_tlg );
@@ -3180,7 +3275,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
        	tolog += string(",класс ") + class_tlg;
        	if ( class_tlg != r->class_tlg )
        		tolog += string("(") + r->class_tlg + ")";
-       	tolog += string(",подсадка ");	
+       	tolog += string(",подсадка ");
         if ( pr_goshow )
         	tolog += "'ДА'";
         else
@@ -3189,10 +3284,10 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           if ( r->pr_goshow )
         	  tolog += "('ДА')";
           else
-      	    tolog += "('НЕТ')";      	  
-        TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );  			   	
+      	    tolog += "('НЕТ')";
+        TReqInfo::Instance()->MsgToLog( tolog, evtFlt, point_id );
   	  }
-  		crs_displaces.erase( r );  		
+  		crs_displaces.erase( r );
   	}
   	else {
       tolog = "Добавление пересадки пассажиров: ";

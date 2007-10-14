@@ -1045,7 +1045,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
     "SELECT airline,flt_no,suffix,airp,scd_out, "
     "       airp_arv,class "
     "FROM points,pax_grp "
-    "WHERE point_id=point_dep AND grp_id=:grp_id AND pr_refuse=0";
+    "WHERE point_id=point_dep AND grp_id=:grp_id AND bag_refuse=0";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return;
