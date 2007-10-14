@@ -10,13 +10,12 @@ struct Cargo {
 	int cargo;
 	int mail;
 	int point_arv;
-	std::string airp_arv;	
+	std::string airp_arv;
 	int dosbag_weight;
 	Cargo() {
 		cargo = 0;
 		mail = 0;
 		point_arv = 0;
-		dosbag_weight = 0;
 	}
 };
 
@@ -41,7 +40,7 @@ struct PaxLoad {
 	  rk_weight = 0;
 	  adult = 0;
 	  child = 0;
-	  baby = 0;		
+	  baby = 0;
 	  excess = 0;
 	}
 };
@@ -49,8 +48,8 @@ struct PaxLoad {
 struct Luggage {
 	int pr_edit;
 	std::string region;
-		
-	std::vector<PaxLoad> vpaxload;	
+
+	std::vector<PaxLoad> vpaxload;
 	int max_commerce;
 	std::vector<Cargo> vcargo;
 	Luggage() {
@@ -80,17 +79,17 @@ public:
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteTrips);
      AddEvent("WriteTrips",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadTripInfo);
-     AddEvent("ReadTripInfo",evHandle);     
+     AddEvent("ReadTripInfo",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadCRS_Displaces);
-     AddEvent("ReadCRS_Displaces",evHandle);   
+     AddEvent("ReadCRS_Displaces",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteCRS_Displaces);
-     AddEvent("WriteCRS_Displaces",evHandle);            
+     AddEvent("WriteCRS_Displaces",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadDests);
-     AddEvent("ReadDests",evHandle);                 
+     AddEvent("ReadDests",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteDests);
-     AddEvent("WriteDests",evHandle);                      
+     AddEvent("WriteDests",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DropFlightFact);
-     AddEvent("DropFlightFact",evHandle);                           
+     AddEvent("DropFlightFact",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);

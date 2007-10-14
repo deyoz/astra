@@ -2838,14 +2838,15 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();
     BagQry.SQLText=
-      "INSERT INTO bag2 (grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num) "
-      "VALUES (:grp_id,:num,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num)";
+      "INSERT INTO bag2 (grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
+      "VALUES (:grp_id,:num,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit)";
     BagQry.DeclareVariable("num",otInteger);
     BagQry.DeclareVariable("bag_type",otInteger);
     BagQry.DeclareVariable("pr_cabin",otInteger);
     BagQry.DeclareVariable("amount",otInteger);
     BagQry.DeclareVariable("weight",otInteger);
     BagQry.DeclareVariable("value_bag_num",otInteger);
+    BagQry.DeclareVariable("pr_liab_limit",otInteger);
     for(node=bagNode->children;node!=NULL;node=node->next)
     {
       node2=node->children;
@@ -2861,6 +2862,10 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
         BagQry.SetVariable("value_bag_num",NodeAsIntegerFast("value_bag_num",node2));
       else
         BagQry.SetVariable("value_bag_num",FNull);
+      if (GetNodeFast("pr_liab_limit",node2)!=NULL)  //потом убрать!!!
+        BagQry.SetVariable("pr_liab_limit",NodeAsIntegerFast("pr_liab_limit",node2));
+      else
+        BagQry.SetVariable("pr_liab_limit",(int)0);
       BagQry.Execute();
     };
   };
@@ -2942,7 +2947,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
   };
   node=NewTextChild(grpNode,"bags");
   BagQry.Clear();
-  BagQry.SQLText="SELECT num,bag_type,pr_cabin,amount,weight,value_bag_num "
+  BagQry.SQLText="SELECT num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
                  "FROM bag2 WHERE grp_id=:grp_id ORDER BY num";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
@@ -2961,6 +2966,7 @@ void CheckInInterface::LoadBag(xmlNodePtr grpNode)
       NewTextChild(bagNode,"value_bag_num",BagQry.FieldAsInteger("value_bag_num"));
     else
       NewTextChild(bagNode,"value_bag_num");
+    NewTextChild(bagNode,"pr_liab_limit",(int)(BagQry.FieldAsInteger("pr_liab_limit")!=0));
   };
   node=NewTextChild(grpNode,"tags");
   BagQry.Clear();
