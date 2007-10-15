@@ -246,15 +246,6 @@ bool createAODBCheckInInfoFile( int point_id,
 	}
 	// теперь создадим похожую картинку по данным рейса из БД
 	TQuery BagQry( &OraSession );
-	BagQry.SQLText =
-	 "SELECT weight,tags FROM unaccomp_bag WHERE point_dep=:point_id "
-	 " ORDER BY id";
-	BagQry.CreateVariable( "point_id", otInteger, point_id );
-	BagQry.Execute();
-	while ( !BagQry.Eof ) {
-
-		BagQry.Next();
-	}
 	BagQry.Clear();
 	BagQry.SQLText =
 		 "SELECT bag2.bag_type,bag2.weight,color,no,"
