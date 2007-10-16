@@ -1057,6 +1057,8 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   strcpy(con.OutFlt.subcl,Qry.FieldAsString("class"));
   con.OutFlt.scd=UTCToLocal(Qry.FieldAsDateTime("scd_out"),AirpTZRegion(con.OutFlt.airp_dep));
 
+  bool pr_unaccomp=Qry.FieldIsNULL("class");
+
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,flt_no,suffix,airp_arv,local_date,subclass "
@@ -1085,8 +1087,11 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
     strcpy(flt.airp_arv,airp.c_str());
 
     strcpy(flt.subcl,Qry.FieldAsString("subclass"));
-    string subcl=subcls.get_row("code/code_lat",flt.subcl).AsString("code");
-    strcpy(flt.subcl,subcl.c_str());
+    if (*(flt.subcl)!=0)
+    {
+      string subcl=subcls.get_row("code/code_lat",flt.subcl).AsString("code");
+      strcpy(flt.subcl,subcl.c_str());
+    };
 
     flt.scd=DayToDate(Qry.FieldAsInteger("local_date"),d);
     d=flt.scd-1;
@@ -1115,31 +1120,34 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
     con.tags.push_back(tag);
   };
 
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
-  if (!(Qry.Eof||Qry.FieldIsNULL("pax_id")))
+  if (!pr_unaccomp)
   {
-    int pax_id=Qry.FieldAsInteger("pax_id");
     Qry.Clear();
     Qry.SQLText =
-      "SELECT reg_no,surname,name,seat_no, "
-      "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
-      "FROM pax WHERE pax_id=:pax_id";
-    Qry.CreateVariable("pax_id",otInteger,pax_id);
+        "SELECT ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM dual";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
-    if (!Qry.Eof)
+    if (!(Qry.Eof||Qry.FieldIsNULL("pax_id")))
     {
-      con.pax.reg_no=Qry.FieldAsInteger("reg_no");
-      con.pax.surname=Qry.FieldAsString("surname");
-      con.pax.name=Qry.FieldAsString("name");
-      con.pax.seat_no=Qry.FieldAsString("seat_no");
-      con.pax.status=Qry.FieldAsString("status");
+      int pax_id=Qry.FieldAsInteger("pax_id");
+      Qry.Clear();
+      Qry.SQLText =
+        "SELECT reg_no,surname,name,seat_no, "
+        "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
+        "FROM pax WHERE pax_id=:pax_id";
+      Qry.CreateVariable("pax_id",otInteger,pax_id);
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        con.pax.reg_no=Qry.FieldAsInteger("reg_no");
+        con.pax.surname=Qry.FieldAsString("surname");
+        con.pax.name=Qry.FieldAsString("name");
+        con.pax.seat_no=Qry.FieldAsString("seat_no");
+        con.pax.status=Qry.FieldAsString("status");
+      };
+      vector<TPnrAddrItem> pnrs;
+      con.pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
     };
-    vector<TPnrAddrItem> pnrs;
-    con.pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
   };
 
   Qry.Clear();
@@ -1204,6 +1212,8 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
      default: ;
   };
 
+  bool pr_unaccomp=*(con.OutFlt.subcl)==0;
+
   body << ".V/1L"
        << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat) << ENDL;
 
@@ -1213,8 +1223,11 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
        << setw(3) << setfill('0') << con.OutFlt.flt_no
        << convert_suffix(con.OutFlt.suffix,pr_lat) << '/'
        << DateTimeToStr( con.OutFlt.scd, "ddmmm", pr_lat) << '/'
-       << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat) << '/'
-       << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat) << ENDL;
+       << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat);
+  if (*(con.OutFlt.subcl)!=0)
+    body  << '/'
+          << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat);
+  body << ENDL;
 
   for(vector<TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
   {
@@ -1223,8 +1236,11 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
          << setw(3) << setfill('0') << i->flt_no
          << convert_suffix(i->suffix,pr_lat) << '/'
          << DateTimeToStr( i->scd, "ddmmm", pr_lat) << '/'
-         << airps.get_row("code",i->airp_arv).AsString("code",pr_lat) << '/'
-         << subcls.get_row("code",i->subcl).AsString("code",pr_lat) << ENDL;
+         << airps.get_row("code",i->airp_arv).AsString("code",pr_lat);
+    if (*(i->subcl)!=0)
+      body  << '/'
+            << subcls.get_row("code",i->subcl).AsString("code",pr_lat);
+    body << ENDL;
   };
 
   if (!con.tags.empty())
@@ -1305,7 +1321,13 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
     if (!con.pax.pnr_addr.empty())
       body << ".L/" << convert_pnr_addr(con.pax.pnr_addr,pr_lat) << ENDL;
+  }
+  else
+  {
+    if (pr_unaccomp)
+      body << ".P/UNACCOMPANIED" << ENDL;
   };
+
 
   body << "ENDBSM" << ENDL;
 
