@@ -68,22 +68,21 @@ void exec_tasks( void )
 	utcdate += VTime;
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT name,last_exec,interval FROM tasks "\
+	 "SELECT name,last_exec,next_exec,interval FROM tasks "\
 	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate ";
 	Qry.CreateVariable( "utcdate", otDate, utcdate );
-	Qry.Execute();
+	Qry.Execute();	
 	TQuery UQry(&OraSession);
 	UQry.SQLText =
-	 "UPDATE tasks SET last_exec=:utcdate,next_exec=NVL(next_exec,:utcdate)+interval/1440 "\
-	 " WHERE name=:name";
+	 "UPDATE tasks SET last_exec=:utcdate,next_exec=:next_exec WHERE name=:name";
 	UQry.CreateVariable( "utcdate", otDate, utcdate );
+	UQry.DeclareVariable( "next_exec", otDate );
 	UQry.DeclareVariable( "name", otString );
 	string name;
 	while ( !Qry.Eof )
 	{
 	  TReqInfo::Instance()->clear();
-	  try
-	  {
+	  try {
 	    name = Qry.FieldAsString( "name" );
 	    if ( name == "astra_timer" ) astra_timer( utcdate );
 	    else
@@ -98,9 +97,17 @@ void exec_tasks( void )
 	    	      				if ( name == "sync_aodb" ) sync_aodb( );
 	    	      				else
 	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-
+      TDateTime next_exec;
+      if ( Qry.FieldIsNULL( "next_exec" ) )
+      	next_exec = utcdate;
+      else
+      	next_exec = Qry.FieldAsDateTime( "next_exec" );
+      while ( next_exec <= utcdate ) {
+       next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
+      }
+      UQry.SetVariable( "next_exec", next_exec );
 	    UQry.SetVariable( "name", name );
-	    UQry.Execute();	 //???
+	    UQry.Execute();
 	    OraSession.Commit();
 	  }
           catch( Exception &E )
