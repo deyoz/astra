@@ -1820,7 +1820,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         ProgTrace(TRACE5, "Qry.Execute: %s", tm.PrintWithMessage().c_str());
         xmlNodePtr paxListNode = NULL;
         xmlNodePtr rowsNode = NULL;
-        string trip, scd_out;
         if(!Qry.Eof) {
             tm.Init();
             paxListNode = NewTextChild(resNode, "paxList");
@@ -1849,6 +1848,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
 
+            string trip, scd_out;
             while(!Qry.Eof) {
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
@@ -1893,18 +1893,28 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if(part_key == NoExists)  {
             Qry.SQLText=
                 "SELECT "
-                "  pax_grp.airp_arv, "
-                "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
-                "  ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
-                "  ckin.get_bagWeight(pax_grp.grp_id,NULL) AS bag_weight, "
-                "  ckin.get_rkWeight(pax_grp.grp_id,NULL) AS rk_weight, "
-                "  ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-                "  ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
-                "  pax_grp.grp_id, "
-                "  pax_grp.hall AS hall_id, "
-                "  pax_grp.point_arv,pax_grp.user_id "
-                "FROM pax_grp "
-                "WHERE point_dep=:point_id AND class IS NULL ";
+                "   pax_grp.point_dep point_id, "
+                "   points.airline, "
+                "   points.flt_no, "
+                "   points.suffix, "
+                "   points.airp, "
+                "   points.scd_out, "
+                "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
+                "   pax_grp.airp_arv, "
+                "   report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
+                "   ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
+                "   ckin.get_bagWeight(pax_grp.grp_id,NULL) AS bag_weight, "
+                "   ckin.get_rkWeight(pax_grp.grp_id,NULL) AS rk_weight, "
+                "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
+                "   ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
+                "   pax_grp.grp_id, "
+                "   pax_grp.hall AS hall_id, "
+                "   pax_grp.point_arv,pax_grp.user_id "
+                "FROM pax_grp, points "
+                "WHERE "
+                "   pax_grp.point_dep=:point_id AND "
+                "   pax_grp.class IS NULL and "
+                "   pax_grp.point_dep = points.point_id";
         } else {
             Qry.SQLText=
                 "SELECT "
@@ -1927,6 +1937,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
 
+        string trip, scd_out;
         for(;!Qry.Eof;Qry.Next())
         {
             if(!paxListNode) {
@@ -1938,6 +1949,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "airline");
             NewTextChild(paxNode, "flt_no", 0);
             NewTextChild(paxNode, "suffix");
+            if(trip.empty()) {
+                TTripInfo info(Qry);
+                trip = GetTripName(info);
+                scd_out =
+                    DateTimeToStr(
+                            UTCToClient( Qry.FieldAsDateTime("scd_out"), reqInfo->desk.tz_region),
+                            ServerFormatDateTimeAsString
+                            );
+            }
             NewTextChild(paxNode, "trip", trip);
             NewTextChild( paxNode, "scd_out", scd_out);
             NewTextChild(paxNode, "reg_no", 0);
