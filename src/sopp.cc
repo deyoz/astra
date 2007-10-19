@@ -33,7 +33,7 @@ using namespace boost::local_time;
 
 enum TTrferType { trferIn, trferOut, trferCkin };
 
-const char* pointsSQL =
+const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
@@ -43,28 +43,28 @@ const char* pointsSQL =
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
-/*
-    " (SELECT +INDEX(points POINTS__IDX3)move_id FROM points "
-    "   WHERE points.pr_del!=-1 AND "
-    "         NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date "
-    " UNION "
-    " SELECT +INDEX(points POINTS__IDX2)move_id FROM points "
-    "   WHERE points.pr_del!=-1 AND "
-    "         NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) p "*/
-/*    " (SELECT DISTINCT move_id FROM points "
-    "   WHERE points.pr_del!=-1 AND "
-    "         ( :first_date IS NULL OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "*/
-
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
-const char * arx_pointsSQL =
+const char* points_ISG_SQL =
+    "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+    "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, reference ref "
+    " FROM points, move_ref, "
+    " (SELECT DISTINCT move_id FROM points "
+    "   WHERE points.pr_del!=-1 AND "
+    "         ( :first_date IS NULL OR "
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
+    "WHERE points.move_id = p.move_id AND "
+    "      move_ref.move_id = p.move_id AND "
+    "      points.pr_del!=-1 "
+    "ORDER BY points.move_id,point_num,point_id ";    
+const char * arx_points_SOPP_SQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid "
-    " FROM arx_points, "
+    " FROM arx_points,"
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
     "         pr_del!=-1 AND "
@@ -74,6 +74,21 @@ const char * arx_pointsSQL =
     "WHERE arx_points.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
+const char * arx_points_ISG_SQL =
+    "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref "
+    " FROM arx_points, arx_move_ref,"
+    " (SELECT DISTINCT move_id FROM arx_points "
+    "   WHERE part_key>=:first_date AND "
+    "         pr_del!=-1 AND "
+    "         ( :first_date IS NULL OR "
+    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
+    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
+    "WHERE arx_points.move_id = p.move_id AND "
+    "      arx_move_ref.move_id = p.move_id AND "
+    "      arx_points.pr_del!=-1 "
+    "ORDER BY arx_points.move_id,point_num,point_id ";    
 const char* classesSQL =
     "SELECT class,cfg "\
     " FROM trip_classes,classes "\
@@ -201,13 +216,15 @@ struct TStation {
   bool pr_main;
 };
 typedef vector<TStation> tstations;
-
+typedef vector<TDest2> TDests;
 
 struct TTrip {
   int tid;
   int move_id;
   int point_id;
 
+  string ref;
+  
   string airline_in;
   int flt_no_in;
   string suffix_in;
@@ -221,7 +238,7 @@ struct TTrip {
   string park_in;
   string remark_in;
   int pr_del_in;
-  vector<string> places_in;
+  TDests places_in;
 
   string airp;
   string city;
@@ -240,7 +257,7 @@ struct TTrip {
   string remark_out;
   int pr_del_out;
   int pr_reg;
-  vector<string> places_out;
+  TDests places_out;
 
   string classes;
   int reg;
@@ -274,7 +291,6 @@ struct TTrip {
   }
 };
 
-typedef vector<TDest2> TDests;
 typedef vector<TTrip> TTrips;
 typedef map<int,TDests> tmapds;
 
@@ -287,6 +303,7 @@ struct tcrs_displ {
   string suffix;
   TDateTime scd;
   int point_id_tlg;
+  string to_airp_dep;
   string airp_arv_tlg;
   string class_tlg;
   int pr_goshow;
@@ -324,7 +341,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
    				trip.trfer_out_point_id = fd->point_id;
-          trip.places_in.push_back( fd->airp );
+          trip.places_in.push_back( *fd );
           pd = fd;
         }
   		}
@@ -335,7 +352,7 @@ TTrip createTrip( int move_id, TDests::iterator &id, TDests &dests )
       		if ( !next_airp ) {
       			next_airp = true;
           }
-          trip.places_out.push_back( fd->airp );
+          trip.places_out.push_back( *fd );
         }
   }
   if ( !trip.places_in.empty() ) { // trip is landing
@@ -529,7 +546,7 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
   }
 }
 
-string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, bool arx, int point_id = NoExists )
+string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_date, bool arx, bool pr_isg, int point_id = NoExists )
 {
 	string errcity;
 	TReqInfo *reqInfo = TReqInfo::Instance();
@@ -537,9 +554,15 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
   if ( arx )
-  	PointsQry.SQLText = arx_pointsSQL;
+  	if ( pr_isg )
+  		PointsQry.SQLText = arx_points_ISG_SQL;
+  	else
+  	  PointsQry.SQLText = arx_points_SOPP_SQL;
   else
-  	PointsQry.SQLText = pointsSQL;
+  	if ( pr_isg )
+  	  PointsQry.SQLText = points_ISG_SQL;
+  	else
+  		PointsQry.SQLText = points_SOPP_SQL;
   if ( first_date != NoExists ) {
     if ( reqInfo->user.time_form == tfLocalAll ) {
     	// бывает сдвиг 25 часов ???
@@ -612,8 +635,12 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   string rgn;
 
   int move_id = NoExists;
+  string ref; 
 
   int col_move_id = PointsQry.FieldIndex( "move_id" );
+  int col_ref;
+  if ( pr_isg )
+  	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
   int col_point_num = PointsQry.FieldIndex( "point_num" );
   int col_airp = PointsQry.FieldIndex( "airp" );
@@ -671,15 +698,16 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                     ) != reqInfo->user.access.airps.end() ||
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
             TTrip tr = createTrip( move_id, id, dests );
-
+            tr.ref = ref;
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll, errcity ) ) {
-
               trips.push_back( tr );
             }
           }
         }
       }
       move_id = PointsQry.FieldAsInteger( col_move_id );
+      if ( pr_isg )
+        ref = PointsQry.FieldAsString( col_ref );
       dests.clear();
     }
     TDest2 d;
@@ -739,7 +767,6 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
-  PerfomTest( 668 );
   if ( move_id > NoExists ) {
         //create trips
     string airline;
@@ -751,7 +778,6 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         f--;
         airline = f->airline;
       }
-    ProgTrace( TRACE5, " filtered move_id=%d, id->point_id=%d", move_id, id->point_id );
       if ( (!reqInfo->user.access.airlines.empty() &&
              find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
@@ -766,6 +792,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                  ) != reqInfo->user.access.airps.end() ||
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
          TTrip tr = createTrip( move_id, id, dests );
+         tr.ref = ref;
          if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll, errcity  ) ) {
            trips.push_back( tr );
          }
@@ -842,6 +869,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
           StationsQry.Next();
         }
       }
+      //crs_displace2
       if ( !arx ) {
        TDateTime local_time;
        modf(UTCToLocal( sd, tr->region ),&local_time);
@@ -852,63 +880,6 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	   CRS_DisplfromQry.SetVariable( "point_id_spp", tr->point_id );
   	   CRS_DisplfromQry.Execute();
   	   tr->crs_disp_from = getCrsDisplace( tr->point_id, local_time, false, CRS_DisplfromQry );
-/*        crsd.displaces_from.clear();
-        crsd.displaces_to.clear();
-      	CRS_DisplQry.SetVariable( "point_id", tr->point_id );
-      	CRS_DisplQry.Execute();
-      	while ( !CRS_DisplQry.Eof ) {
-  	      if ( col_crs_point_from == -1 ) {
-  		      col_crs_point_from = CRS_DisplQry.FieldIndex( "point_from" );
-  		      col_crs_trip_from = CRS_DisplQry.FieldIndex( "trip_from" );
-  		      col_crs_airp_arv_from = CRS_DisplQry.FieldIndex( "airp_arv_from" );
-  		      col_crs_scd_from = CRS_DisplQry.FieldIndex( "scd_from" );
-  		      col_crs_class_from = CRS_DisplQry.FieldIndex( "class_from" );
-  		      col_crs_point_to = CRS_DisplQry.FieldIndex( "point_to" );
-  		      col_crs_trip_to = CRS_DisplQry.FieldIndex( "trip_to" );
-  		      col_crs_airp_arv_to = CRS_DisplQry.FieldIndex( "airp_arv_to" );
-  		      col_crs_scd_to = CRS_DisplQry.FieldIndex( "scd_to" );
-  		      col_crs_class_to = CRS_DisplQry.FieldIndex( "class_to" );
-  		      col_crs_go_show = CRS_DisplQry.FieldIndex( "go_show" );
-  	      }
-          tcrs_displ dis;
-          dis.point_id =CRS_DisplQry.FieldAsInteger( col_crs_point_from );
-          dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_from );
-          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_from );
-          try {
-            rgn =AirpTZRegion( dis.airp_arv );
-            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_from ), rgn ), &d1 );
-          }
-          catch( Exception &e ) {
-          	if ( errcity.empty() )
-          		errcity = dis.airp_arv;
-          	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
-          	d1 = sd;
-          }
-          if ( sd != d1 )
-            dis.trip += DateTimeToStr( d1, "/dd" );
-          dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_from );
-          crsd.displaces_from[ CRS_DisplQry.FieldAsInteger( col_crs_point_to ) ].push_back( dis );
-          dis.point_id = CRS_DisplQry.FieldAsInteger( col_crs_point_to );
-          dis.trip = CRS_DisplQry.FieldAsString( col_crs_trip_to );
-          dis.airp_arv = CRS_DisplQry.FieldAsString( col_crs_airp_arv_to );
-          try {
-            rgn =AirpTZRegion(dis.airp_arv );
-            modf( UTCToClient( CRS_DisplQry.FieldAsDateTime( col_crs_scd_to ), rgn ), &d1 );
-          }
-          catch( Exception &e ) {
-          	if ( errcity.empty() )
-          		errcity = dis.airp_arv;
-          	ProgError( STDLOG, "error AirpTZRegion %s", e.what() );
-          	d1 = sd;
-          }
-          if ( sd != d1 )
-           dis.trip += DateTimeToStr( d1, "/dd" );
-          dis.cl = CRS_DisplQry.FieldAsString( col_crs_class_to );
-          dis.go_show = CRS_DisplQry.FieldAsInteger( col_crs_go_show );
-          crsd.displaces_to[ CRS_DisplQry.FieldAsInteger( col_crs_point_from ) ].push_back( dis );
-      		CRS_DisplQry.Next();
-      	}
-        GetFromTo( tr->point_id, crsd, tr->crs_disp_from, tr->crs_disp_to );*/
       }
     } // end if (!place_out.empty())
    	if ( tr->trfer_out_point_id != -1 ) {
@@ -922,42 +893,8 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   return errcity;
 }
 
-void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void buildSOPP( TTrips &trips, string &errcity, xmlNodePtr dataNode )
 {
-//  createCentringFile( 13672, "ASTRA", "DMDTST" );
-  ProgTrace( TRACE5, "ReadTrips" );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  if ( GetNode( "CorrectStages", reqNode ) ) {
-    TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
-  }
-  TDateTime vdate, first_date, next_date;
-  xmlNodePtr dNode = GetNode( "flight_date", reqNode );
-  bool arx = false;
-  if ( !dNode ) {
-  	dNode = GetNode( "arx_date", reqNode );
-  	arx = dNode;
-  }
-  if ( dNode ) {
-  	double f;
-  	vdate = NodeAsDateTime( dNode );
-  	modf( (double)vdate, &f );
-  	if ( TReqInfo::Instance()->user.time_form == tfLocalAll ) {
-  		first_date = f;
-  	}
-  	else
-  	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
-    next_date = first_date + 1; // добавляем сутки
-    if ( arx )
-    	NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
-    else
-  	  NewTextChild( dataNode, "flight_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
-  }
-  else {
-    first_date = NoExists;
-    next_date = NoExists;
-  }
-  TTrips trips;
-  string errcity = internal_ReadData( trips, first_date, next_date, arx );
   xmlNodePtr tripsNode = NULL;
   TDateTime fscd_in, fest_in, fact_in, fscd_out, fest_out, fact_out;
   for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
@@ -992,7 +929,9 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	  fact_out = NoExists;
     }
     catch( Exception &e ) {
-      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );
+     	if ( errcity.empty() )
+    	  errcity = tr->city;
+      ProgError( STDLOG, "Exception: %s, point_id=%d, errcity=%s", e.what(), tr->point_id, errcity.c_str() );
       continue;
     }
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
@@ -1025,10 +964,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( tr->pr_del_in )
       NewTextChild( tripNode, "pr_del_in", tr->pr_del_in );
     xmlNodePtr lNode = NULL;
-    for ( vector<string>::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
+    for ( TDests::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places_in" );
-      NewTextChild( lNode, "airp", *sairp );
+      NewTextChild( lNode, "airp", sairp->airp );
     }
 
 
@@ -1078,10 +1017,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( tr->TrferType.isFlag( trferOut ) || tr->TrferType.isFlag( trferIn ) )
     	NewTextChild( tripNode, "trfer_from", "->" );
     lNode = NULL;
-    for ( vector<string>::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
+    for ( TDests::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places_out" );
-      NewTextChild( lNode, "airp", *sairp );
+      NewTextChild( lNode, "airp", sairp->airp );
     }
     if ( !tr->classes.empty() )
       NewTextChild( tripNode, "classes", tr->classes );
@@ -1111,7 +1050,272 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       if ( st->pr_main )
       	NewTextChild( stationNode, "pr_main" );
     }
-  } // end for trip
+  } // end for trip	
+}
+
+void buildISG( TTrips &trips, string &errcity, xmlNodePtr dataNode )
+{
+	ProgTrace( TRACE5, "buildISG" );
+  xmlNodePtr tripsNode = NULL;
+  TDateTime fscd_in, fest_in, fact_in, fscd_out, fest_out, fact_out;
+  string ecity;
+  for ( TTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
+    if ( !tripsNode )
+      tripsNode = NewTextChild( dataNode, "trips" );
+    ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
+    if ( tr->places_in.empty() && tr->places_out.empty() || tr->region.empty() ) // такой рейс не отображаем
+      continue;
+    try {
+    	ecity = tr->city;
+      if ( tr->scd_in > NoExists )
+    	  fscd_in = UTCToClient( tr->scd_in, tr->region );
+      else
+    	  fscd_in = NoExists;
+      if ( tr->est_in > NoExists )
+    	  fest_in = UTCToClient( tr->est_in, tr->region );
+      else
+    	  fest_in = NoExists;
+      if ( tr->act_in > NoExists )
+    	  fact_in = UTCToClient( tr->act_in, tr->region );
+      else
+    	  fact_in = NoExists;
+      if ( tr->scd_out > NoExists )
+    	  fscd_out = UTCToClient( tr->scd_out, tr->region );
+      else
+    	  fscd_out = NoExists;
+      if ( tr->est_out > NoExists )
+    	  fest_out = UTCToClient( tr->est_out, tr->region );
+      else
+    	  fest_out = NoExists;
+      if ( tr->act_out > NoExists )
+    	  fact_out = UTCToClient( tr->act_out, tr->region );
+      else
+    	  fact_out = NoExists;
+      for ( TDests::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
+      	ecity = sairp->city;
+        if ( sairp->scd_in > NoExists ) 
+        	sairp->scd_in = UTCToClient( sairp->scd_in, sairp->region );
+        if ( sairp->est_in > NoExists )
+        	sairp->est_in = UTCToClient( sairp->est_in, sairp->region );
+        if ( sairp->act_in > NoExists )
+        	sairp->act_in = UTCToClient( sairp->act_in, sairp->region );        	
+        if ( sairp->scd_out > NoExists )
+        	sairp->scd_out = UTCToClient( sairp->scd_out, sairp->region );        	
+        if ( sairp->est_out > NoExists )
+        	sairp->est_out = UTCToClient( sairp->est_out, sairp->region );        	
+        if ( sairp->act_out > NoExists )
+        	sairp->act_out = UTCToClient( sairp->act_out, sairp->region );        	
+      }    	      	
+      for ( TDests::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
+      	ecity = sairp->city;
+        if ( sairp->scd_in > NoExists ) 
+        	sairp->scd_in = UTCToClient( sairp->scd_in, sairp->region );
+        if ( sairp->est_in > NoExists )
+        	sairp->est_in = UTCToClient( sairp->est_in, sairp->region );
+        if ( sairp->act_in > NoExists )
+        	sairp->act_in = UTCToClient( sairp->act_in, sairp->region );        	
+        if ( sairp->scd_out > NoExists )
+        	sairp->scd_out = UTCToClient( sairp->scd_out, sairp->region );        	
+        if ( sairp->est_out > NoExists )
+        	sairp->est_out = UTCToClient( sairp->est_out, sairp->region );        	
+        if ( sairp->act_out > NoExists )
+        	sairp->act_out = UTCToClient( sairp->act_out, sairp->region );        	
+      }    	  
+    }
+    catch( Exception &e ) {
+    	if ( errcity.empty() )
+     	  errcity = ecity;
+      ProgError( STDLOG, "Exception: %s, point_id=%d, errcity=%s", e.what(), tr->point_id, errcity.c_str() );
+      continue;
+    }
+    xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+    NewTextChild( tripNode, "move_id", tr->move_id );
+    NewTextChild( tripNode, "point_id", tr->point_id );
+    if ( !tr->airline_in.empty() )
+      NewTextChild( tripNode, "airline_in", tr->airline_in );
+    if ( tr->flt_no_in > NoExists )
+      NewTextChild( tripNode, "flt_no_in", tr->flt_no_in );
+    if ( !tr->suffix_in.empty() )
+      NewTextChild( tripNode, "suffix_in", tr->suffix_in );
+    if ( tr->craft_in != tr->craft_out && !tr->craft_in.empty() )
+      NewTextChild( tripNode, "craft_in", tr->craft_in );
+    if ( tr->bort_in != tr->bort_out  && !tr->bort_in.empty() )
+      NewTextChild( tripNode, "bort_in", tr->bort_in );
+    if ( fscd_in > NoExists )
+      NewTextChild( tripNode, "scd_in", DateTimeToStr( fscd_in, ServerFormatDateTimeAsString ) );
+    if ( fest_in > NoExists )
+      NewTextChild( tripNode, "est_in", DateTimeToStr( fest_in, ServerFormatDateTimeAsString ) );
+    if ( fact_in > NoExists )
+      NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
+    if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
+      NewTextChild( tripNode, "triptype_in", tr->triptype_in );
+    if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
+      NewTextChild( tripNode, "litera_in", tr->litera_in );
+    if ( !tr->park_in.empty() )
+      NewTextChild( tripNode, "park_in", tr->park_in );
+    if ( tr->remark_in != tr->remark_out && !tr->remark_in.empty() )
+      NewTextChild( tripNode, "remark_in", tr->remark_in );
+    if ( tr->pr_del_in )
+      NewTextChild( tripNode, "pr_del_in", tr->pr_del_in );
+    xmlNodePtr lNode = NULL;
+    for ( TDests::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
+      if ( !lNode )
+        lNode = NewTextChild( tripNode, "places_in" );
+      xmlNodePtr destNode = NewTextChild( lNode, "dest" );  
+      NewTextChild( destNode, "airp", sairp->airp );
+      if ( sairp->scd_in > NoExists )
+        NewTextChild( destNode, "scd_in", DateTimeToStr( sairp->scd_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->est_in > NoExists )
+        NewTextChild( destNode, "est_in", DateTimeToStr( sairp->est_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->act_in > NoExists )
+        NewTextChild( destNode, "scd_in", DateTimeToStr( sairp->act_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->scd_out > NoExists )
+        NewTextChild( destNode, "scd_out", DateTimeToStr( sairp->scd_out, ServerFormatDateTimeAsString ) );
+      if ( sairp->est_out > NoExists )
+        NewTextChild( destNode, "est_out", DateTimeToStr( sairp->est_out, ServerFormatDateTimeAsString ) );
+      if ( sairp->act_out > NoExists )
+        NewTextChild( destNode, "act_out", DateTimeToStr( sairp->act_out, ServerFormatDateTimeAsString ) );        
+    }
+
+    NewTextChild( tripNode, "airp", tr->airp );
+    if ( !tr->ref.empty() )
+    	NewTextChild( tripNode, "ref", tr->ref );
+    if ( !tr->airline_out.empty() )
+      NewTextChild( tripNode, "airline_out", tr->airline_out );
+    if ( tr->flt_no_out > NoExists )
+      NewTextChild( tripNode, "flt_no_out", tr->flt_no_out );
+    if ( !tr->suffix_out.empty() )
+      NewTextChild( tripNode, "suffix_out", tr->suffix_out );
+    if ( !tr->craft_out.empty() )
+      NewTextChild( tripNode, "craft_out", tr->craft_out );
+    if ( !tr->bort_out.empty() )
+      NewTextChild( tripNode, "bort_out", tr->bort_out );
+    if ( fscd_out > NoExists )
+      NewTextChild( tripNode, "scd_out", DateTimeToStr( fscd_out, ServerFormatDateTimeAsString ) );
+    if ( fest_out > NoExists )
+      NewTextChild( tripNode, "est_out", DateTimeToStr( fest_out, ServerFormatDateTimeAsString ) );
+    if ( fact_out > NoExists )
+      NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
+    if ( !tr->triptype_out.empty() )
+      NewTextChild( tripNode, "triptype_out", tr->triptype_out );
+    if ( !tr->litera_out.empty() )
+      NewTextChild( tripNode, "litera_out", tr->litera_out );
+    if ( !tr->park_out.empty() )
+      NewTextChild( tripNode, "park_out", tr->park_out );
+    if ( !tr->remark_out.empty() )
+      NewTextChild( tripNode, "remark_out", tr->remark_out );
+    if ( tr->pr_del_out )
+      NewTextChild( tripNode, "pr_del_out", tr->pr_del_out );
+      NewTextChild( tripNode, "pr_reg", tr->pr_reg );
+   	int trfertype = 0x000;
+   	if ( tr->TrferType.isFlag( trferIn ) )
+   		trfertype += 0x00F;
+   	if ( tr->TrferType.isFlag( trferOut ) )
+   		trfertype += 0x0F0;
+   	if ( tr->TrferType.isFlag( trferCkin ) )
+   		trfertype += 0xF00;
+   	if ( trfertype )
+    	NewTextChild( tripNode, "trfertype", trfertype );
+    if ( tr->TrferType.isFlag( trferCkin ) )
+    	NewTextChild( tripNode, "trfer_to", "->" );
+    if ( tr->TrferType.isFlag( trferOut ) || tr->TrferType.isFlag( trferIn ) )
+    	NewTextChild( tripNode, "trfer_from", "->" );      
+    lNode = NULL;
+    for ( TDests::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
+      if ( !lNode )
+        lNode = NewTextChild( tripNode, "places_out" );
+      xmlNodePtr destNode = NewTextChild( lNode, "dest" );              
+      NewTextChild( destNode, "airp", sairp->airp );
+      if ( sairp->scd_in > NoExists )
+        NewTextChild( destNode, "scd_in", DateTimeToStr( sairp->scd_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->est_in > NoExists )
+        NewTextChild( destNode, "est_in", DateTimeToStr( sairp->est_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->act_in > NoExists )
+        NewTextChild( destNode, "scd_in", DateTimeToStr( sairp->act_in, ServerFormatDateTimeAsString ) );
+      if ( sairp->scd_out > NoExists )
+        NewTextChild( destNode, "scd_out", DateTimeToStr( sairp->scd_out, ServerFormatDateTimeAsString ) );
+      if ( sairp->est_out > NoExists )
+        NewTextChild( destNode, "est_out", DateTimeToStr( sairp->est_out, ServerFormatDateTimeAsString ) );
+      if ( sairp->act_out > NoExists )
+        NewTextChild( destNode, "act_out", DateTimeToStr( sairp->act_out, ServerFormatDateTimeAsString ) ); 
+    }    
+    
+    if ( !tr->classes.empty() )
+      NewTextChild( tripNode, "classes", tr->classes );
+    if ( tr->reg )
+      NewTextChild( tripNode, "reg", tr->reg );
+    if ( tr->resa )
+      NewTextChild( tripNode, "resa", tr->resa );
+    if ( tr->reg )
+      NewTextChild( tripNode, "reg", tr->reg );
+    if ( tr->resa )
+      NewTextChild( tripNode, "resa", tr->resa );
+    if ( !tr->crs_disp_from.empty() )
+      NewTextChild( tripNode, "crs_disp_from", tr->crs_disp_from );
+    if ( !tr->crs_disp_to.empty() )
+      NewTextChild( tripNode, "crs_disp_to", tr->crs_disp_to );
+    try {
+      build_TripStages( tr->stages, tr->region, tripNode );
+    }    
+    catch( Exception &e ) {
+    	if ( errcity.empty() )
+    		errcity = tr->city;
+      ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr->point_id );
+    }
+    lNode = NULL;
+    for ( tstations::iterator st=tr->stations.begin(); st!=tr->stations.end(); st++ ) {
+      if ( !lNode )
+        lNode = NewTextChild( tripNode, "stations" );
+      xmlNodePtr stationNode = NewTextChild( lNode, "station" );
+      NewTextChild( stationNode, "name", st->name );
+      NewTextChild( stationNode, "work_mode", st->work_mode );
+      if ( st->pr_main )
+      	NewTextChild( stationNode, "pr_main" );
+    }
+  } // end for trip	
+}
+
+void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+//  createCentringFile( 13672, "ASTRA", "DMDTST" );
+  ProgTrace( TRACE5, "ReadTrips" );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  bool pr_isg = GetNode( "disp_isg", reqNode );
+  if ( GetNode( "CorrectStages", reqNode ) ) {
+    TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
+  }
+  TDateTime vdate, first_date, next_date;
+  xmlNodePtr dNode = GetNode( "flight_date", reqNode );
+  bool arx = false;
+  if ( !dNode ) {
+  	dNode = GetNode( "arx_date", reqNode );
+  	arx = dNode;
+  }
+  if ( dNode ) {
+  	double f;
+  	vdate = NodeAsDateTime( dNode );
+  	modf( (double)vdate, &f );
+  	if ( TReqInfo::Instance()->user.time_form == tfLocalAll ) {
+  		first_date = f;
+  	}
+  	else
+  	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
+    next_date = first_date + 1; // добавляем сутки
+    if ( arx )
+    	NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
+    else
+  	  NewTextChild( dataNode, "flight_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
+  }
+  else {
+    first_date = NoExists;
+    next_date = NoExists;
+  }
+  TTrips trips;
+  string errcity = internal_ReadData( trips, first_date, next_date, arx, pr_isg );
+  if ( pr_isg )
+  	buildISG( trips, errcity, dataNode );
+  else
+    buildSOPP( trips, errcity, dataNode );
   if ( !errcity.empty() )
     showErrorMessage( string("Для города ") + errcity + " не задан регион. Некоторые рейсы не отображаются" );
 }
@@ -2232,6 +2436,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			d.park_out.clear();
 		d.pr_tranzit = NodeAsIntegerFast( "pr_tranzit", snode );
 //		d.pr_reg = NodeAsIntegerFast( "pr_reg", snode );
+    d.pr_reg = 0;
 		fnode = GetNodeFast( "pr_del", snode );
 		if ( fnode )
 			d.pr_del = NodeAsInteger( fnode );
@@ -2915,7 +3120,8 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	Qry.Execute();
 	if ( Qry.Eof )
 		throw UserException( "Рейс не найден" );
-	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
+	string airp_dep = Qry.FieldAsString( "airp" );
+	string region = AirpTZRegion( airp_dep, true );
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
 	NewTextChild( crsdNode, "airp_time", DateTimeToStr( local_time ) );
@@ -2935,8 +3141,9 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( displnode, "airp_arv", Qry.FieldAsString( "airp" ) );
 		Qry.Next();
 	}
+	NewTextChild( crsdNode, "airp_dep", airp_dep );
 	Qry.Clear();
-	Qry.SQLText = /*p1.airline airline_spp,p1.flt_no flt_no_spp,p1.suffux suffix_spp,*/
+	Qry.SQLText = 
 	 "SELECT airp_arv_spp,class_spp,airp_dep,"
 	 "       airline,flt_no,suffix,scd,"
 	 "       airp_arv_tlg,class_tlg, pr_goshow "
@@ -2956,7 +3163,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );
 		string region = AirpTZRegion( Qry.FieldAsString( "airp_dep" ), true );
 		NewTextChild( snode, "scd", DateTimeToStr( /*UTCToLocal( */Qry.FieldAsDateTime( "scd" )/*, region )*/ ) );
-//			NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
+		NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
 		NewTextChild( snode, "airp_arv_tlg", Qry.FieldAsString( "airp_arv_tlg" ) );
 		NewTextChild( snode, "class_tlg", Qry.FieldAsString( "class_tlg" ) );
 		if ( Qry.FieldAsInteger( "pr_goshow" ) )
@@ -3053,7 +3260,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.Clear();
   Qry.SQLText =
    "SELECT point_id_spp,airp_arv_spp,class_spp,airline,flt_no,suffix,scd,"
-   "       point_id_tlg,airp_arv_tlg,class_tlg,pr_goshow "
+   "       point_id_tlg,airp_arv_tlg,class_tlg,pr_goshow,airp_dep "
    " FROM crs_displace2 WHERE point_id_spp=:point_id_spp";
   Qry.CreateVariable( "point_id_spp", otInteger, point_id );
   Qry.Execute();
@@ -3071,6 +3278,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   		t.point_id_tlg = NoExists;
   	else
   		t.point_id_tlg = Qry.FieldAsInteger( "point_id_tlg" );
+  	t.to_airp_dep = Qry.FieldAsString( "airp_dep" );
   	t.airp_arv_tlg = Qry.FieldAsString( "airp_arv_tlg" );
   	t.class_tlg = Qry.FieldAsString( "class_tlg" );
   	t.pr_goshow = Qry.FieldAsInteger( "pr_goshow" );
@@ -3109,6 +3317,8 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   string tolog;
   vector<int>::iterator r;
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  xmlNodePtr airp_depNode;
+  string to_airp_dep;
   while ( node ) {
   	snode = node->children;
   	airp_arv_spp = NodeAsStringFast( "airp_arv_spp", snode );
@@ -3117,6 +3327,11 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	flt_no = NodeAsIntegerFast( "flt_no", snode );
   	suffix = NodeAsStringFast( "suffix", snode );
   	scd = NodeAsDateTimeFast( "scd", snode );
+  	airp_depNode = GetNodeFast( "airp_dep", snode );
+  	if ( airp_depNode )
+  		to_airp_dep = NodeAsString( airp_depNode );
+  	else
+  		to_airp_dep = airp_dep;
   	airp_arv_tlg = NodeAsStringFast( "airp_arv_tlg", snode );
   	class_tlg = NodeAsStringFast( "class_tlg", snode );
   	pr_goshow = NodeAsIntegerFast( "pr_goshow", snode );
@@ -3126,12 +3341,12 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	Qry.SetVariable( "flt_no", flt_no );
   	Qry.SetVariable( "suffix", suffix );
   	Qry.SetVariable( "scd", scd );
-  	Qry.SetVariable( "airp_dep", airp_dep );
+  	Qry.SetVariable( "airp_dep", to_airp_dep );
   	Qry.SetVariable( "airp_arv_tlg", airp_arv_tlg );
   	Qry.SetVariable( "class_tlg", class_tlg );
   	Qry.SetVariable( "pr_goshow", pr_goshow );
 
-    TQry.SetVariable( "airp_dep", airp_dep );
+    TQry.SetVariable( "airp_dep", to_airp_dep );
   	TQry.SetVariable( "airline", airline );
   	TQry.SetVariable( "flt_no", flt_no );
   	if ( suffix.empty() )
@@ -3162,6 +3377,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   			   r->flt_no != flt_no ||
   			   r->suffix != suffix ||
   			   r->scd != scd ||
+  			   r->to_airp_dep != to_airp_dep ||
   			   r->airp_arv_tlg != airp_arv_tlg ||
   			   r->class_tlg != class_tlg ||
   			   r->pr_goshow != pr_goshow ) {
@@ -3176,7 +3392,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         if ( airline + IntToString( flt_no ) + suffix + "/" + DateTimeToStr( scd, "dd.mm" ) !=
         	   r->airline + IntToString( r->flt_no ) + r->suffix + "/" + DateTimeToStr( r->scd, "dd.mm" ) )
           tolog += string("(") + r->airline + IntToString( r->flt_no ) + r->suffix + "/" + DateTimeToStr( r->scd, "dd.mm" ) + ")";
-        tolog += string(",прилет ") + airp_arv_tlg;
+        tolog += string(",вылет ") + to_airp_dep + string(",прилет ") + airp_arv_tlg;
         if ( airp_arv_tlg != r->airp_arv_tlg )
           tolog += string("(") + r->airp_arv_tlg + ")";
        	tolog += string(",класс ") + class_tlg;
@@ -3200,7 +3416,8 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       tolog = "Добавление пересадки пассажиров: ";
       tolog += string("прилет ") + airp_arv_spp + ",класс " + class_spp + ",на рейс ";
       tolog += airline + IntToString( flt_no ) + suffix + "/" + DateTimeToStr( scd, "dd.mm" );
-      tolog += string(",прилет ") + airp_arv_tlg + ",класс " + class_tlg + ", подсадка ";
+      tolog += string( ",вылет ") + to_airp_dep + string(",прилет ") + airp_arv_tlg + 
+               ",класс " + class_tlg + ", подсадка ";
       if ( pr_goshow )
       	tolog += "'ДА'";
       else
@@ -3213,7 +3430,8 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     tolog = "Удаление пересадки пассажиров: ";
     tolog += string("прилет ") + r->airp_arv_spp + ",класс " + r->class_spp + ",на рейс ";
     tolog += r->airline + IntToString( r->flt_no ) + r->suffix + "/" + DateTimeToStr( r->scd, "dd.mm" );
-    tolog += string(",прилет ") + r->airp_arv_tlg + ",класс " + r->class_tlg + ",подсадка ";
+    tolog += string(",вылет ") + r->to_airp_dep + string(",прилет ") + r->airp_arv_tlg + 
+             ",класс " + r->class_tlg + ",подсадка ";
     if ( r->pr_goshow )
     	tolog += "'ДА'";
     else
