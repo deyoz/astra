@@ -73,7 +73,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   int point_id = NodeAsInteger( "point_id", reqNode );
 
   TQuery Qry(&OraSession);
-  string tz_region;
+  string tz_region =  info.desk.tz_region;
   string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive "
              "FROM tlgs_in, ";
   if (point_id!=-1)
@@ -93,7 +93,6 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
   else
   {
-    tz_region =  info.desk.tz_region;
     sql+="( ";
     if (!info.user.access.airlines.empty()||
         !info.user.access.airps.empty())
