@@ -3079,8 +3079,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT DISTINCT airline,flt_no,suffix,scd,airp_arv FROM tlg_trips "
-	 " WHERE pr_utc=0 AND airp_arv IS NULL AND TRUNC(scd) BETWEEN TRUNC(sysdate) - 1 AND TRUNC(sysdate) + 1 "
+	 " WHERE pr_utc=0 AND airp_dep=:airp_dep AND "
+	 "       airp_arv IS NULL AND TRUNC(scd) BETWEEN TRUNC(sysdate) - 1 AND TRUNC(sysdate) + 1 "
 	 " ORDER BY scd,airline,flt_no,suffix,airp_arv ";
+	Qry.CreateVariable( "airp_dep", otString, airp_dep );
 	Qry.Execute();
 	displnode = NULL;
 	while ( !Qry.Eof ) {
