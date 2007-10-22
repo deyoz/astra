@@ -1332,17 +1332,17 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.tid tid, "
      "      crs_pnr.pnr_id, "
      "      crs_pnr.point_id AS point_id_tlg, "
-     "      ids.pr_goshow, "
+     "      ids.status, "
      "      pax.reg_no, "
      "      pax.seat_no, "
      "      pax.refuse, "
      "      pax.grp_id "
      "FROM crs_pnr,crs_pax,pax, "
      "       ( "
-     "        SELECT DISTINCT crs_pnr.pnr_id,0 AS pr_goshow "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
      "        FROM crs_pnr, "
      "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,pr_goshow "
+     "                 airp_arv_tlg,class_tlg,status "
      "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
      "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
      "                b1.point_id_spp=b2.point_id_spp AND "
@@ -1351,19 +1351,19 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
      "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
      "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.pr_goshow=0 AND "
+     "              crs_displace.status=:ps_ok AND "
      "              crs_pnr.wl_priority IS NULL "
      "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,0 "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok "
      "        FROM crs_pnr,tlg_binding "
      "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
      "              tlg_binding.point_id_spp= :point_id AND "
      "              crs_pnr.wl_priority IS NULL "
      "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,1 "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
      "        FROM crs_pnr, "
      "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,pr_goshow "
+     "                 airp_arv_tlg,class_tlg,status "
      "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
      "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
      "                b1.point_id_spp=b2.point_id_spp AND "
@@ -1372,10 +1372,31 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
      "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
      "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.pr_goshow<>0 AND "
+     "              crs_displace.status=:ps_goshow AND "
      "              crs_pnr.wl_priority IS NULL "
      "        MINUS "
-     "        SELECT DISTINCT crs_pnr.pnr_id,1 "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
+     "        FROM crs_pnr,tlg_binding "
+     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+     "              tlg_binding.point_id_spp= :point_id AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "        UNION "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
+     "        FROM crs_pnr, "
+     "         (SELECT b2.point_id_tlg, "
+     "                 airp_arv_tlg,class_tlg,status "
+     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
+     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
+     "                b1.point_id_spp=b2.point_id_spp AND "
+     "                crs_displace2.point_id_spp=:point_id AND "
+     "                b1.point_id_spp<>:point_id) crs_displace "
+     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
+     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
+     "              crs_pnr.class=crs_displace.class_tlg AND "
+     "              crs_displace.status=:ps_transit AND "
+     "              crs_pnr.wl_priority IS NULL "
+     "        MINUS "
+     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
      "        FROM crs_pnr,tlg_binding "
      "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
      "              tlg_binding.point_id_spp= :point_id AND "
@@ -1387,6 +1408,9 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psOk) );
+  Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
+  Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
   Qry.Execute();
 
   //ремарки пассажиров
@@ -1430,7 +1454,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_tid=Qry.FieldIndex("tid");
   int col_pnr_id=Qry.FieldIndex("pnr_id");
   int col_point_id_tlg=Qry.FieldIndex("point_id_tlg");
-  int col_pr_goshow=Qry.FieldIndex("pr_goshow");
+  int col_status=Qry.FieldIndex("status");
   int col_reg_no=Qry.FieldIndex("reg_no");
   int col_seat_no=Qry.FieldIndex("seat_no");
   int col_refuse=Qry.FieldIndex("refuse");
@@ -1487,8 +1511,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
     NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
-    if (Qry.FieldAsInteger(col_pr_goshow)!=0)
-      NewTextChild( node, "status", EncodePaxStatus(ASTRA::psGoshow) );
+    NewTextChild( node, "status", Qry.FieldAsString( col_status ), EncodePaxStatus(ASTRA::psOk) );
 
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
     RQry.Execute();
