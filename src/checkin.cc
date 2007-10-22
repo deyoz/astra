@@ -884,7 +884,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   };
 
-  if (pax_status==psTransit || grp.digCkin ||grp.prefix=='-')
+  if (/*pax_status==psTransit ||*/ grp.digCkin ||grp.prefix=='-')
   {
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","BeforeReg");
@@ -908,7 +908,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "  (SELECT DISTINCT crs_pnr.pnr_id "
           "   FROM crs_pnr, "
           "    (SELECT b2.point_id_tlg, "
-          "            airp_arv_tlg,class_tlg,pr_goshow "
+          "            airp_arv_tlg,class_tlg,status "
           "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
           "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
           "           b1.point_id_spp=b2.point_id_spp AND "
@@ -917,7 +917,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
           "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
           "         crs_pnr.class=crs_displace.class_tlg AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_displace.status= :status AND "
           "         crs_pnr.wl_priority IS NULL ";
 
     if (pax_status==psOk)
@@ -938,29 +938,9 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "GROUP BY crs_pnr.pnr_id "
           "HAVING COUNT(*)>= :seats ";
 
-
-  /*  вариант, не учитывающий переброски со всех телеграмм рейса
-      sql+= "   FROM crs_pnr,crs_displace2 "
-          "   WHERE crs_pnr.point_id=crs_displace2.point_id_tlg AND "
-          "         crs_pnr.target=crs_displace2.airp_arv_tlg AND "
-          "         crs_pnr.class=crs_displace2.class_tlg AND "
-          "         crs_displace2.point_id_spp=:point_id AND "
-          "         crs_displace2.pr_goshow= :pr_goshow AND "
-          "         crs_pnr.wl_priority IS NULL) ids "*/
-
-   /* старый вариант
-      sql+= "   FROM crs_pnr,tlg_binding,crs_displace "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
-          "         crs_displace.point_to= :point_id AND "
-          "         crs_displace.point_to<>crs_displace.point_from AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
-          "         crs_pnr.wl_priority IS NULL) ids "*/
-
-
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    PaxQry.CreateVariable("pr_goshow",otInteger,(int)(pax_status==psGoshow));
+    PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
     PaxQry.CreateVariable("seats",otInteger,sum.nPaxWithPlace);
     PaxQry.Execute();
     if (!PaxQry.Eof)
@@ -1044,7 +1024,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     sql+= "   FROM crs_pnr,crs_pax,pax, "
           "    (SELECT b2.point_id_tlg, "
-          "            airp_arv_tlg,class_tlg,pr_goshow "
+          "            airp_arv_tlg,class_tlg,status "
           "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
           "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
           "           b1.point_id_spp=b2.point_id_spp AND "
@@ -1054,7 +1034,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
           "         crs_pnr.class=crs_displace.class_tlg AND "
           "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
+          "         crs_displace.status= :status AND "
           "         crs_pnr.wl_priority IS NULL AND "
           "         crs_pax.pr_del=0 AND "
           "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
@@ -1095,27 +1075,9 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "      pax.pax_id IS NULL "
           "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
 
-
-
-
-
-
-/*    sql+= "   FROM crs_pnr,tlg_binding,crs_displace,crs_pax,pax "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         tlg_binding.point_id_spp=crs_displace.point_from AND "
-          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "         crs_displace.point_to= :point_id AND "
-          "         crs_displace.point_to <> crs_displace.point_from AND "
-          "         crs_displace.pr_goshow= :pr_goshow AND "
-          "         crs_pnr.wl_priority IS NULL AND "
-          "         crs_pax.pr_del=0 AND "
-          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-          "         ("+surnames+")) ids "*/
-
-
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    PaxQry.CreateVariable("pr_goshow",otInteger,(int)(pax_status==psGoshow));
+    PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
   };
