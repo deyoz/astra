@@ -71,7 +71,7 @@ void exec_tasks( void )
 	 "SELECT name,last_exec,next_exec,interval FROM tasks "\
 	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate ";
 	Qry.CreateVariable( "utcdate", otDate, utcdate );
-	Qry.Execute();	
+	Qry.Execute();
 	TQuery UQry(&OraSession);
 	UQry.SQLText =
 	 "UPDATE tasks SET last_exec=:utcdate,next_exec=:next_exec WHERE name=:name";
@@ -126,7 +126,7 @@ void exec_tasks( void )
 
 void createSPP( TDateTime utcdate )
 {
-  TBaseTable &basecities = base_tables.get( "cities" );	
+  TBaseTable &basecities = base_tables.get( "cities" );
 	string city = "МОВ";
 	utcdate += 1; //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
@@ -662,11 +662,13 @@ void arx_daily(TDateTime utcdate)
   Qry.Execute();
   OraSession.Commit();
 
-  //и наконец чистим tlgs
+  //и наконец чистим tlgs, files и т.п.
   ProgTrace(TRACE5,"arx_daily: clear tlgs");
   Qry.Clear();
   Qry.SQLText=
-    "DELETE FROM tlgs WHERE time<:arx_date";
+    "BEGIN "
+    "  arch.tlgs_files_etc(:arx_date); "
+    "END;";
   Qry.CreateVariable("arx_date",otDate,utcdate-30); //30 дней
   Qry.Execute();
   OraSession.Commit();
