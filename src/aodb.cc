@@ -291,7 +291,8 @@ bool createAODBCheckInInfoFile( int point_id,
 	vector<string> baby_names;
 	while ( !Qry.Eof ) {
 		if ( Qry.FieldAsInteger( "seats" ) == 0 ) {
-			baby_names.push_back( Qry.FieldAsString( "name" ) );
+			if ( Qry.FieldIsNULL( "refuse" ) )
+			  baby_names.push_back( Qry.FieldAsString( "name" ) );
 			Qry.Next();
 			continue;
 		}
