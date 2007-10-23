@@ -12,6 +12,7 @@
 #include "misc.h"
 #include <fstream>
 #include "timer.h"
+#include "astra_utils.h"
 
 #define MAX_STAT_ROWS 2000
 
@@ -2512,6 +2513,8 @@ void STAT::set_variables(xmlNodePtr resNode)
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
+    NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
+    NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)

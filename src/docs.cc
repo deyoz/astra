@@ -236,6 +236,7 @@ enum TState {PMTrfer, PM};
 
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode)
 {
+    NewTextChild(variablesNode, "test_server", get_test_server());
 	vector<SEASON::TViewPeriod> viewp;
 	SEASON::ReadTripInfo( trip_id, viewp, reqNode );
   for ( vector<SEASON::TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
@@ -336,6 +337,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     NewTextChild(variablesNode, "airp_arv_name", airpRow.AsString("name",pr_lat));
     NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat));
     NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
+    NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
 int GetRPEncoding(string target)
@@ -1449,6 +1451,10 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "exam") RunExam(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
+    xmlNodePtr variablesNode = GetNode("variables", formDataNode);
+    if(!variablesNode)
+        variablesNode = NewTextChild(formDataNode, "variables");
+    NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -195,5 +195,6 @@ std::string convert_seat_no(const std::string &value, bool pr_lat);
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);
+bool get_test_server();
 
 #endif /*_ASTRA_UTILS_H_*/
