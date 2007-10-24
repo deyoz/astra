@@ -820,7 +820,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
       }
       ///////////////////////// resa ///////////////////////////
       if ( !arx ) {
-      	ResaQry.SetVariable( "point_id", tr->point_id );
+      	ResaQry.SetVariable( "point_id", tr->point_id );      	
       	ResaQry.Execute();
         if ( !ResaQry.Eof )
           tr->resa = ResaQry.FieldAsInteger( "resa" );
@@ -871,7 +871,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	   tr->crs_disp_from = getCrsDisplace( tr->point_id, local_time, false, CRS_DisplfromQry );
       }
     } // end if (!place_out.empty())
-   	if ( tr->trfer_out_point_id != -1 ) {
+   	if ( !arx && tr->trfer_out_point_id != -1 ) {
    		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
    		Trfer_outQry.Execute();
    		if ( !Trfer_outQry.Eof )
@@ -2514,7 +2514,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           break;
       }
       if ( r == dests.end() ) {
-      	tst();
         id->pr_reg = 0;
       }
     }
@@ -2864,7 +2863,6 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		}
   	}
   	if ( init_trip_stages ) {
-  		tst();
   		Qry.Clear();
   		Qry.SQLText =
        "BEGIN "
