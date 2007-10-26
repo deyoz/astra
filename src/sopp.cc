@@ -2242,7 +2242,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.scd_in = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+        //throw UserException( "Плановое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+        d.scd_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		else
 			d.scd_in = NoExists;
@@ -2252,7 +2253,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.est_in = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+        //throw UserException( "Расчетное время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+        d.est_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		else
 			d.est_in = NoExists;
@@ -2262,7 +2264,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.act_in = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+//        throw UserException( "Фактическое время прибытия в пункте %s не определено однозначно", d.airp.c_str() );
+        d.act_in = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		else
 			d.act_in = NoExists;
@@ -2272,7 +2275,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.scd_out = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        //throw UserException( "Плановое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        d.scd_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		else
 			d.scd_out = NoExists;
@@ -2282,7 +2286,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.est_out = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        //throw UserException( "Расчетное время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        d.est_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		else
 			d.est_out = NoExists;
@@ -2292,7 +2297,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 			  d.act_out = ClientToUTC( NodeAsDateTime( fnode ), region );
 			}
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        //throw UserException( "Фактическое время вылета в пункте %s не определено однозначно", d.airp.c_str() );
+        d.act_out = ClientToUTC( NodeAsDateTime( fnode ) - 1 , region ) + 1;
       }
 		}
 		else
@@ -2310,7 +2316,8 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 				  delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ), region );
 				}
         catch( boost::local_time::ambiguous_result ) {
-          throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
+          //throw UserException( "Время задержки в пункте %s не определено однозначно", d.airp.c_str() );
+          delay.time = ClientToUTC( NodeAsDateTimeFast( "time", dnode ) - 1 , region ) + 1;
         }
 				d.delays.push_back( delay );
 				fnode = fnode->next;
