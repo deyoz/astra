@@ -134,27 +134,27 @@ class TTIDBaseTable: public TCodeBaseTable {
     virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
-class TIKAOBaseTableRow : public TTIDBaseTableRow {
+class TICAOBaseTableRow : public TTIDBaseTableRow {
   public:
-    std::string code_ikao;
-    virtual ~TIKAOBaseTableRow() {};
+    std::string code_icao;
+    virtual ~TICAOBaseTableRow() {};
     virtual std::string AsString(std::string field, bool pr_lat=false)
     {
-      if (lowerc(field)=="code_ikao") return code_ikao;
+      if (lowerc(field)=="code_icao") return code_icao;
       return TTIDBaseTableRow::AsString(field,pr_lat);
     };
 };
 
-class TIKAOBaseTable: public TTIDBaseTable {
+class TICAOBaseTable: public TTIDBaseTable {
   private:
-    std::map<std::string, TBaseTableRow*> code_ikao;
+    std::map<std::string, TBaseTableRow*> code_icao;
   protected:
     virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     virtual void delete_row(TBaseTableRow *row);
     virtual void add_row(TBaseTableRow *row);
   public:
-    TIKAOBaseTable() {};
-    virtual ~TIKAOBaseTable() {};
+    TICAOBaseTable() {};
+    virtual ~TICAOBaseTable() {};
     virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 
 };
@@ -191,7 +191,7 @@ class TCountries: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
-class TAirpsRow: public TIKAOBaseTableRow {
+class TAirpsRow: public TICAOBaseTableRow {
   public:
     std::string name,name_lat,city;
     ~TAirpsRow() {};
@@ -204,18 +204,18 @@ class TAirpsRow: public TIKAOBaseTableRow {
     };
 };
 
-class TAirps: public TIKAOBaseTable {
+class TAirps: public TICAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,name,name_lat,city,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,name,name_lat,city,pr_del,tid "
    	    "FROM airps";
     };
     char *get_refresh_sql_text()
     {
       return
-    	  "SELECT id,code,code_lat,code_ikao,name,name_lat,city,pr_del,tid "
+    	  "SELECT id,code,code_lat,code_icao,name,name_lat,city,pr_del,tid "
     	  "FROM airps WHERE tid>:tid";
     };
   protected:
@@ -260,7 +260,7 @@ class TPersTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
-class TCitiesRow: public TIKAOBaseTableRow {
+class TCitiesRow: public TICAOBaseTableRow {
   public:
     std::string name,name_lat,country,region;
     int tz;
@@ -280,12 +280,12 @@ class TCitiesRow: public TIKAOBaseTableRow {
     };
 };
 
-class TCities: public TIKAOBaseTable {
+class TCities: public TICAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,name,name_lat, "
+        "SELECT id,code,code_lat,code_icao,name,name_lat, "
         "       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -296,7 +296,7 @@ class TCities: public TIKAOBaseTable {
     char *get_refresh_sql_text()
     {
       return
-      	"SELECT id,code,code_lat,code_ikao,name,name_lat, "
+      	"SELECT id,code,code_lat,code_icao,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -305,7 +305,7 @@ class TCities: public TIKAOBaseTable {
       	"      cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+) "
         "UNION "
-        "SELECT id,code,code_lat,code_ikao,name,name_lat, "
+        "SELECT id,code,code_lat,code_icao,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -319,7 +319,7 @@ class TCities: public TIKAOBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
-class TAirlinesRow: public TIKAOBaseTableRow {
+class TAirlinesRow: public TICAOBaseTableRow {
   public:
     std::string aircode,name,name_lat,short_name,short_name_lat;
     ~TAirlinesRow() {};
@@ -333,18 +333,18 @@ class TAirlinesRow: public TIKAOBaseTableRow {
     };
 };
 
-class TAirlines: public TIKAOBaseTable {
+class TAirlines: public TICAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines WHERE tid>:tid";
     };
   protected:
@@ -416,7 +416,7 @@ class TSubcls: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
-class TCraftsRow: public TIKAOBaseTableRow {
+class TCraftsRow: public TICAOBaseTableRow {
   public:
     std::string name,name_lat;
     ~TCraftsRow() {};
@@ -428,18 +428,18 @@ class TCraftsRow: public TIKAOBaseTableRow {
     };
 };
 
-class TCrafts: public TIKAOBaseTable {
+class TCrafts: public TICAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,name,name_lat,pr_del,tid "
         "FROM crafts";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_ikao,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,name,name_lat,pr_del,tid "
         "FROM crafts WHERE tid>:tid";
     };
   protected:
