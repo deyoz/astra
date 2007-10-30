@@ -541,7 +541,7 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
 {
   xmlNodePtr lNode = NULL;
   for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
-  	if ( st->stage_id != sRemovalGangWay )
+  	if ( pr_isg && st->stage_id != sRemovalGangWay )
   		continue;
     if ( !lNode )
       lNode = NewTextChild( tripNode, "stages" );
@@ -2306,7 +2306,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   }
 }
 
-void internal_WriteDests( int move_id, TDests &dests, const string &reference, bool canExcept, 
+void internal_WriteDests( int &move_id, TDests &dests, const string &reference, bool canExcept, 
                           XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	bool ch_point_num = false;	
@@ -2404,9 +2404,12 @@ void internal_WriteDests( int move_id, TDests &dests, const string &reference, b
     Qry.DeclareVariable( "scd_in", otDate );
     Qry.DeclareVariable( "scd_out", otDate );
     TDateTime oldtime, curtime = NoExists;
+    bool pr_time=false;
     for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
     	if ( id->pr_del )
   	    continue;
+  	  if ( id->scd_in > NoExists || id->scd_out > NoExists )
+  	  	pr_time = true;
   	  if ( id->scd_in > NoExists && id->act_in == NoExists ) {
   	  	oldtime = curtime;
   	  	curtime = id->scd_in;
@@ -2444,6 +2447,8 @@ void internal_WriteDests( int move_id, TDests &dests, const string &reference, b
       }
 
     }
+    if ( !pr_time )
+    	throw UserException( string("В маршруте на заданы времена прилета/вылета") );
   }
   catch( UserException &e ) {
   	if ( canExcept ) {
@@ -3138,6 +3143,9 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   } // end while
 
   internal_WriteDests( move_id, dests, reference, canExcept, ctxt, reqNode, resNode );
+  if ( GetNode( "data/notvalid", resNode ) ) {
+  	return;
+  }
   NewTextChild( reqNode, "move_id", move_id );  
   ReadDests( ctxt, reqNode, resNode );  
 }
