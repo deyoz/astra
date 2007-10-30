@@ -667,6 +667,14 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 data["CITY_ARV_NAME_LAT"].StringVal +
                 " " + data["AIRP_ARV_NAME_LAT"].StringVal;
             data["FULL_PLACE_ARV_LAT"] = TagValue;
+
+            string test_server;
+            if(get_test_server())
+                for(int i = 0; i < 150; i++)
+                    test_server += "’…‘’ ";
+            add_tag("test_server", test_server);
+            test_server = transliter(test_server, 1);
+            add_tag("test_server_lat", test_server);
         }
     }
 
