@@ -723,6 +723,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TPerfTimer tm;
     tm.Init();
     int count = 0;
+    ProgTrace(TRACE5, "TRACC");
     for(int i = 0; i < 2; i++) {
         string SQLText;
         if(i == 0) {
@@ -751,7 +752,12 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             if (!reqInfo.user.access.airlines.empty())
                 SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
             if (!reqInfo.user.access.airps.empty())
-                SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+                SQLText +=
+                    "AND aro_airps.airp in ( "
+                    "   points.airp, "
+                    "   ckin.next_airp(DECODE(points.pr_tranzit, "
+                    "   0,points.point_id,points.first_point), "
+                    "   points.point_num)) AND aro_airps.aro_id=:user_id ";
         } else {
             SQLText =
                 "SELECT "
@@ -779,7 +785,12 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             if (!reqInfo.user.access.airlines.empty())
                 SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
             if (!reqInfo.user.access.airps.empty())
-                SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+                SQLText +=
+                    "AND aro_airps.airp in ( "
+                    "   arx_points.airp, "
+                    "   arch.next_airp(DECODE(arx_points.pr_tranzit, "
+                    "   0,arx_points.point_id,arx_points.first_point), "
+                    "   arx_points.point_num, arx_points.part_key)) AND aro_airps.aro_id=:user_id ";
         }
         Qry.SQLText = SQLText;
         try {
