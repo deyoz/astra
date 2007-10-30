@@ -252,6 +252,40 @@ TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_de
   return TBaseTable::get_row(field,value,with_deleted);
 };
 
+void TIKAOBaseTable::delete_row(TBaseTableRow *row)
+{
+  if (row!=NULL) code_ikao.erase(((TIKAOBaseTableRow*)row)->code_ikao);
+  TTIDBaseTable::delete_row(row);
+};
+
+void TIKAOBaseTable::add_row(TBaseTableRow *row)
+{
+  TTIDBaseTable::add_row(row);
+  if (row!=NULL) code_ikao[((TIKAOBaseTableRow*)row)->code_ikao]=row;
+};
+
+TBaseTableRow& TIKAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
+{
+  load_table();
+  if (lowerc(field)=="code_ikao")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=code_ikao.find(value);
+    if (i==code_ikao.end()||
+        !with_deleted && i->second->deleted())
+      throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
+                            get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  return TCodeBaseTable::get_row(field,value,with_deleted);
+};
+
+void TIKAOBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  ((TIKAOBaseTableRow*)*row)->code_ikao=Qry.FieldAsString("code_ikao");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
+};
+
 void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCountriesRow;
@@ -266,7 +300,7 @@ void TAirps::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replac
   ((TAirpsRow*)*row)->name=Qry.FieldAsString("name");
   ((TAirpsRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   ((TAirpsRow*)*row)->city=Qry.FieldAsString("city");
-  TTIDBaseTable::create_row(Qry,row,replaced_row);
+  TIKAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -276,7 +310,6 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
   ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
-
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
@@ -288,7 +321,7 @@ void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   ((TCitiesRow*)*row)->country=Qry.FieldAsString("country");
   ((TCitiesRow*)*row)->region=Qry.FieldAsString("region");
   ((TCitiesRow*)*row)->tz=Qry.FieldAsInteger("tz");
-  TTIDBaseTable::create_row(Qry,row,replaced_row);
+  TIKAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -299,7 +332,7 @@ void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   ((TAirlinesRow*)*row)->short_name=Qry.FieldAsString("short_name");
   ((TAirlinesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
   ((TAirlinesRow*)*row)->aircode=Qry.FieldAsString("aircode");
-  TTIDBaseTable::create_row(Qry,row,replaced_row);
+  TIKAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -316,7 +349,7 @@ void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   *row = new TPayTypesRow;
   ((TPayTypesRow*)*row)->name=Qry.FieldAsString("name");
   ((TPayTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
-  TCodeBaseTable::create_row(Qry,row,replaced_row);
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -324,7 +357,7 @@ void TCurrency::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   *row = new TCurrencyRow;
   ((TCurrencyRow*)*row)->name=Qry.FieldAsString("name");
   ((TCurrencyRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
-  TCodeBaseTable::create_row(Qry,row,replaced_row);
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TSubcls::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
@@ -339,7 +372,7 @@ void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   *row = new TCraftsRow;
   ((TCraftsRow*)*row)->name=Qry.FieldAsString("name");
   ((TCraftsRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
-  TTIDBaseTable::create_row(Qry,row,replaced_row);
+  TIKAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
 TBaseTables base_tables;

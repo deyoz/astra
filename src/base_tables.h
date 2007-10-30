@@ -134,6 +134,31 @@ class TTIDBaseTable: public TCodeBaseTable {
     virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
 };
 
+class TIKAOBaseTableRow : public TTIDBaseTableRow {
+  public:
+    std::string code_ikao;
+    virtual ~TIKAOBaseTableRow() {};
+    virtual std::string AsString(std::string field, bool pr_lat=false)
+    {
+      if (lowerc(field)=="code_ikao") return code_ikao;
+      return TTIDBaseTableRow::AsString(field,pr_lat);
+    };
+};
+
+class TIKAOBaseTable: public TTIDBaseTable {
+  private:
+    std::map<std::string, TBaseTableRow*> code_ikao;
+  protected:
+    virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    virtual void delete_row(TBaseTableRow *row);
+    virtual void add_row(TBaseTableRow *row);
+  public:
+    TIKAOBaseTable() {};
+    virtual ~TIKAOBaseTable() {};
+    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
+
+};
+
 class TCountriesRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat,city;
@@ -166,7 +191,7 @@ class TCountries: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
-class TAirpsRow: public TTIDBaseTableRow {
+class TAirpsRow: public TIKAOBaseTableRow {
   public:
     std::string name,name_lat,city;
     ~TAirpsRow() {};
@@ -179,18 +204,18 @@ class TAirpsRow: public TTIDBaseTableRow {
     };
 };
 
-class TAirps: public TTIDBaseTable {
+class TAirps: public TIKAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat,city,pr_del,tid "
+        "SELECT id,code,code_lat,code_ikao,name,name_lat,city,pr_del,tid "
    	    "FROM airps";
     };
     char *get_refresh_sql_text()
     {
       return
-    	  "SELECT id,code,code_lat,name,name_lat,city,pr_del,tid "
+    	  "SELECT id,code,code_lat,code_ikao,name,name_lat,city,pr_del,tid "
     	  "FROM airps WHERE tid>:tid";
     };
   protected:
@@ -235,7 +260,7 @@ class TPersTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
-class TCitiesRow: public TTIDBaseTableRow {
+class TCitiesRow: public TIKAOBaseTableRow {
   public:
     std::string name,name_lat,country,region;
     int tz;
@@ -255,12 +280,12 @@ class TCitiesRow: public TTIDBaseTableRow {
     };
 };
 
-class TCities: public TTIDBaseTable {
+class TCities: public TIKAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat, "
+        "SELECT id,code,code_lat,code_ikao,name,name_lat, "
         "       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -271,7 +296,7 @@ class TCities: public TTIDBaseTable {
     char *get_refresh_sql_text()
     {
       return
-      	"SELECT id,code,code_lat,name,name_lat, "
+      	"SELECT id,code,code_lat,code_ikao,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -280,7 +305,7 @@ class TCities: public TTIDBaseTable {
       	"      cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+) "
         "UNION "
-        "SELECT id,code,code_lat,name,name_lat, "
+        "SELECT id,code,code_lat,code_ikao,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -294,7 +319,7 @@ class TCities: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
-class TAirlinesRow: public TTIDBaseTableRow {
+class TAirlinesRow: public TIKAOBaseTableRow {
   public:
     std::string aircode,name,name_lat,short_name,short_name_lat;
     ~TAirlinesRow() {};
@@ -308,18 +333,18 @@ class TAirlinesRow: public TTIDBaseTableRow {
     };
 };
 
-class TAirlines: public TTIDBaseTable {
+class TAirlines: public TIKAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_ikao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_ikao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines WHERE tid>:tid";
     };
   protected:
@@ -391,7 +416,7 @@ class TSubcls: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
-class TCraftsRow: public TTIDBaseTableRow {
+class TCraftsRow: public TIKAOBaseTableRow {
   public:
     std::string name,name_lat;
     ~TCraftsRow() {};
@@ -403,18 +428,18 @@ class TCraftsRow: public TTIDBaseTableRow {
     };
 };
 
-class TCrafts: public TTIDBaseTable {
+class TCrafts: public TIKAOBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_ikao,name,name_lat,pr_del,tid "
         "FROM crafts";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_ikao,name,name_lat,pr_del,tid "
         "FROM crafts WHERE tid>:tid";
     };
   protected:
@@ -422,7 +447,7 @@ class TCrafts: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
-class TCurrencyRow: public TCodeBaseTableRow {
+class TCurrencyRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat;
     ~TCurrencyRow() {};
@@ -430,28 +455,30 @@ class TCurrencyRow: public TCodeBaseTableRow {
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      return TTIDBaseTableRow::AsString(field,pr_lat);
     };
 };
 
-class TCurrency: public TCodeBaseTable {
+class TCurrency: public TTIDBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT code,code_lat,name,name_lat FROM currency";
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM currency";
     };
     char *get_refresh_sql_text()
     {
-      return get_select_sql_text();
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM currency WHERE tid>:tid";
     };
   protected:
     char *get_table_name() { return "TCurrency"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-    void Invalidate() {}; //всегда актуальна
 };
 
-class TPayTypesRow: public TCodeBaseTableRow {
+class TPayTypesRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat;
     ~TPayTypesRow() {};
@@ -459,25 +486,27 @@ class TPayTypesRow: public TCodeBaseTableRow {
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      return TTIDBaseTableRow::AsString(field,pr_lat);
     };
 };
 
-class TPayTypes: public TCodeBaseTable {
+class TPayTypes: public TTIDBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT code,code_lat,name,name_lat FROM pay_types";
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM pay_types";
     };
     char *get_refresh_sql_text()
     {
-      return get_select_sql_text();
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM pay_types WHERE tid>:tid";
     };
   protected:
     char *get_table_name() { return "TPayTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
-    void Invalidate() {}; //всегда актуальна
 };
 
 class TBaseTables {
