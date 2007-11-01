@@ -19,6 +19,8 @@
 #include "telegram.h"
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
+#include "docs.h"
+#include "stat.h"
 
 
 #include "perfom.h"
@@ -3651,3 +3653,8 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 }
 
 
+void SoppInterface::GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_report_form(NodeAsString("name", reqNode), resNode);
+    STAT::set_variables(resNode);
+}
