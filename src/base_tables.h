@@ -200,7 +200,7 @@ class TAirpsRow: public TICAOBaseTableRow {
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
       if (lowerc(field)=="city") return city;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      return TICAOBaseTableRow::AsString(field,pr_lat);
     };
 };
 
@@ -260,7 +260,7 @@ class TPersTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
-class TCitiesRow: public TICAOBaseTableRow {
+class TCitiesRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat,country,region;
     int tz;
@@ -280,12 +280,12 @@ class TCitiesRow: public TICAOBaseTableRow {
     };
 };
 
-class TCities: public TICAOBaseTable {
+class TCities: public TTIDBaseTable {
   private:
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,name,name_lat, "
+        "SELECT id,code,code_lat,name,name_lat, "
         "       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -296,7 +296,7 @@ class TCities: public TICAOBaseTable {
     char *get_refresh_sql_text()
     {
       return
-      	"SELECT id,code,code_lat,code_icao,name,name_lat, "
+      	"SELECT id,code,code_lat,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -305,7 +305,7 @@ class TCities: public TICAOBaseTable {
       	"      cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+) "
         "UNION "
-        "SELECT id,code,code_lat,code_icao,name,name_lat, "
+        "SELECT id,code,code_lat,name,name_lat, "
       	"       cities.country,cities.tz, "
         "       DECODE(tz_regions.pr_del,0,region,NULL) AS region,cities.pr_del, "
         "       GREATEST(cities.tid,NVL(tz_regions.tid, cities.tid)) AS tid "
@@ -329,7 +329,7 @@ class TAirlinesRow: public TICAOBaseTableRow {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
       if (lowerc(field)=="short_name") return pr_lat?short_name_lat:short_name;
       if (lowerc(field)=="aircode") return aircode;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      return TICAOBaseTableRow::AsString(field,pr_lat);
     };
 };
 
@@ -424,7 +424,7 @@ class TCraftsRow: public TICAOBaseTableRow {
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      return TICAOBaseTableRow::AsString(field,pr_lat);
     };
 };
 

@@ -321,7 +321,7 @@ void TCities::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   ((TCitiesRow*)*row)->country=Qry.FieldAsString("country");
   ((TCitiesRow*)*row)->region=Qry.FieldAsString("region");
   ((TCitiesRow*)*row)->tz=Qry.FieldAsInteger("tz");
-  TICAOBaseTable::create_row(Qry,row,replaced_row);
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
 void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
