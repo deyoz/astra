@@ -2405,11 +2405,11 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
     Qry.DeclareVariable( "scd_out", otDate );
     TDateTime oldtime, curtime = NoExists;
     bool pr_time=false;
-    for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-    	if ( id->pr_del )
-  	    continue;
+    for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {    	
   	  if ( id->scd_in > NoExists || id->scd_out > NoExists )
   	  	pr_time = true;
+    	if ( id->pr_del )
+  	    continue;
   	  if ( id->scd_in > NoExists && id->act_in == NoExists ) {
   	  	oldtime = curtime;
   	  	curtime = id->scd_in;
@@ -2446,7 +2446,7 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
         existsTrip = Qry.FieldAsInteger( "c" );
       }
 
-    }
+    } // end for
     if ( !pr_time )
     	throw UserException( string("В маршруте на заданы времена прилета/вылета") );
   }
