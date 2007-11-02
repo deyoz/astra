@@ -2851,7 +2851,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   return res;
 };
 
-void bind_tlg(int point_id)
+bool bind_tlg(int point_id)
 {
   TQuery Qry(&OraSession);
   Qry.SQLText=
@@ -2860,7 +2860,7 @@ void bind_tlg(int point_id)
     "WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) return;
+  if (Qry.Eof) return false;
   TFltInfo flt;
   strcpy(flt.airline,Qry.FieldAsString("airline"));
   flt.flt_no=Qry.FieldAsInteger("flt_no");
@@ -2879,7 +2879,7 @@ void bind_tlg(int point_id)
             break;
    default: bind_type=btAllSeg;
   };
-  if (bind_tlg(point_id,flt,bind_type)) return;
+  if (bind_tlg(point_id,flt,bind_type)) return true;
   //не склалось привязать к рейсу на прямую - привяжем через таблицу CRS_CODE_SHARE
   bool res=false;
   Qry.Clear();
@@ -2909,6 +2909,7 @@ void bind_tlg(int point_id)
     };
     break;
   };
+  return res;
 };
 
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
