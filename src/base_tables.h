@@ -136,11 +136,11 @@ class TTIDBaseTable: public TCodeBaseTable {
 
 class TICAOBaseTableRow : public TTIDBaseTableRow {
   public:
-    std::string code_icao;
+    std::string code_icao,code_icao_lat;
     virtual ~TICAOBaseTableRow() {};
     virtual std::string AsString(std::string field, bool pr_lat=false)
     {
-      if (lowerc(field)=="code_icao") return code_icao;
+      if (lowerc(field)=="code_icao") return pr_lat?code_icao_lat:code_icao;
       return TTIDBaseTableRow::AsString(field,pr_lat);
     };
 };
@@ -148,6 +148,7 @@ class TICAOBaseTableRow : public TTIDBaseTableRow {
 class TICAOBaseTable: public TTIDBaseTable {
   private:
     std::map<std::string, TBaseTableRow*> code_icao;
+    std::map<std::string, TBaseTableRow*> code_icao_lat;
   protected:
     virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     virtual void delete_row(TBaseTableRow *row);
@@ -209,13 +210,13 @@ class TAirps: public TICAOBaseTable {
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,name,name_lat,city,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,city,pr_del,tid "
    	    "FROM airps";
     };
     char *get_refresh_sql_text()
     {
       return
-    	  "SELECT id,code,code_lat,code_icao,name,name_lat,city,pr_del,tid "
+    	  "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,city,pr_del,tid "
     	  "FROM airps WHERE tid>:tid";
     };
   protected:
@@ -338,13 +339,13 @@ class TAirlines: public TICAOBaseTable {
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,code_icao_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,code_icao_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines WHERE tid>:tid";
     };
   protected:
@@ -433,13 +434,13 @@ class TCrafts: public TICAOBaseTable {
     char *get_select_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,pr_del,tid "
         "FROM crafts";
     };
     char *get_refresh_sql_text()
     {
       return
-        "SELECT id,code,code_lat,code_icao,name,name_lat,pr_del,tid "
+        "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,pr_del,tid "
         "FROM crafts WHERE tid>:tid";
     };
   protected:

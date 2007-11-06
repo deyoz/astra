@@ -255,13 +255,17 @@ TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_de
 void TICAOBaseTable::delete_row(TBaseTableRow *row)
 {
   if (row!=NULL) code_icao.erase(((TICAOBaseTableRow*)row)->code_icao);
+  if (row!=NULL) code_icao_lat.erase(((TICAOBaseTableRow*)row)->code_icao_lat);
   TTIDBaseTable::delete_row(row);
 };
 
 void TICAOBaseTable::add_row(TBaseTableRow *row)
 {
   TTIDBaseTable::add_row(row);
-  if (row!=NULL) code_icao[((TICAOBaseTableRow*)row)->code_icao]=row;
+  if (row!=NULL && !((TICAOBaseTableRow*)row)->code_icao.empty())
+    code_icao[((TICAOBaseTableRow*)row)->code_icao]=row;
+  if (row!=NULL && !((TICAOBaseTableRow*)row)->code_icao_lat.empty())
+    code_icao_lat[((TICAOBaseTableRow*)row)->code_icao_lat]=row;
 };
 
 TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, bool with_deleted)
@@ -273,8 +277,33 @@ TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, boo
     i=code_icao.find(value);
     if (i==code_icao.end()||
         !with_deleted && i->second->deleted())
+      throw EBaseTableError("%s::get_row: %s=%s not found",
+                            get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  if (lowerc(field)=="code_icao_lat")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=code_icao_lat.find(value);
+    if (i==code_icao_lat.end()||
+        !with_deleted && i->second->deleted())
       throw EBaseTableError("%s::get_row: table '%s': %s=%s not found",
                             get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  if (lowerc(field)=="code_icao/code_icao_lat")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=code_icao_lat.find(value);
+    if (i==code_icao_lat.end()||
+        !with_deleted && i->second->deleted())
+    {
+      i=code_icao.find(value);
+      if (i==code_icao.end()||
+          !with_deleted && i->second->deleted())
+        throw EBaseTableError("%s::get_row: %s=%s not found",
+                              get_table_name(),field.c_str(),value.c_str());
+    };
     return *(i->second);
   };
   return TCodeBaseTable::get_row(field,value,with_deleted);
@@ -283,6 +312,7 @@ TBaseTableRow& TICAOBaseTable::get_row(std::string field, std::string value, boo
 void TICAOBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   ((TICAOBaseTableRow*)*row)->code_icao=Qry.FieldAsString("code_icao");
+  ((TICAOBaseTableRow*)*row)->code_icao_lat=Qry.FieldAsString("code_icao_lat");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
