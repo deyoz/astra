@@ -271,6 +271,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 		return false;
 	TQuery Qry(&OraSession);
 	if ( pr_unaccomp )
+		tst();
 	  Qry.SQLText =
 	   "SELECT grp_id pax_id, NULL record FROM aodb_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr";		
 	else
@@ -314,6 +315,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	  STRAO.record = Qry.FieldAsString( "bag_record" );
 	  STRAO.pr_cabin = Qry.FieldAsInteger( "pr_cabin" );
 	  prior_aodb_bag.push_back( STRAO );
+	  if ( pr_unaccomp )
+	  	ProgTrace( TRACE5, "grp_id=%d", STRAO.pax_id ); 
 		Qry.Next();
 	}
 	// теперь создадим похожую картинку по данным рейса из БД
