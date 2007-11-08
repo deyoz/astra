@@ -1822,7 +1822,11 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
   		if ( max_cNode ) {
  		    Qry.Clear();
-  	    Qry.SQLText = "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
+  	    Qry.SQLText = 
+  	     "UPDATE trip_sets "
+  	     " SET max_commerce=:max_commerce, "
+  	     "     overload_alarm=DECODE(max_commerce,:max_commerce,overload_alarm,0) "
+  	     " WHERE point_id=:point_id";
   	    Qry.CreateVariable( "point_id", otInteger, point_id );
   	    int max_commerce = NodeAsInteger( max_cNode );
   	    Qry.CreateVariable( "max_commerce", otInteger, max_commerce );
@@ -2848,9 +2852,9 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
   		Qry.Clear();
   		Qry.SQLText =
        "BEGIN "
-       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
+       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
        "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg) "
-       "  VALUES(:point_id,0,0,0, NULL, 0, 0, "
+       "  VALUES(:point_id,0,0,0, NULL, 0, 0, 0, "
        "    NULL, 0, 1, 0, 0, 0); "
        " ckin.set_trip_sets(:point_id); "
        " gtimer.puttrip_stages(:point_id); "

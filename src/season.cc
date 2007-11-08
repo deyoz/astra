@@ -909,9 +909,9 @@ void CreateSPP( BASIC::TDateTime localdate )
   TQuery TQry(&OraSession);
   TQry.SQLText =
    "BEGIN "
-   " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,pr_etstatus,pr_stat, "
+   " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
    "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg) "
-   "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, "
+   "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, 0, "
    "    NULL, 0, 1, 0, 0, 0); "
    " ckin.set_trip_sets(:point_id); "
    " gtimer.puttrip_stages(:point_id); "
