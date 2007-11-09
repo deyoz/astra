@@ -22,6 +22,12 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+class OverloadException: public UserException
+{
+  public:
+    OverloadException(const std::string &msg):UserException(msg) {};
+};
+
 void CheckInInterface::LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   //load tag packs
@@ -1218,7 +1224,7 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
       return 0;
 };
 
-void CheckInInterface::CheckFltLoad(int point_id)
+bool CheckInInterface::CheckFltOverload(int point_id)
 {
   TQuery Qry(&OraSession);
   Qry.CreateVariable("point_id", otInteger, point_id);
@@ -1233,12 +1239,12 @@ void CheckInInterface::CheckFltLoad(int point_id)
     "SELECT pr_check_load,pr_overload_reg,max_commerce FROM trip_sets WHERE point_id=:point_id";
   Qry.Execute();
   if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-  if (Qry.FieldIsNULL("max_commerce")) return;
+  if (Qry.FieldIsNULL("max_commerce")) return false;
   int max_commerce=Qry.FieldAsInteger("max_commerce");
   bool pr_check_load=Qry.FieldAsInteger("pr_check_load")!=0;
   bool pr_overload_reg=Qry.FieldAsInteger("pr_overload_reg")!=0;
 
-  if (!pr_check_load && pr_overload_reg) return;
+  if (!pr_check_load && pr_overload_reg) return false;
 
   int load=0;
   Qry.SQLText=
@@ -1280,10 +1286,14 @@ void CheckInInterface::CheckFltLoad(int point_id)
   if (load>max_commerce)
   {
     if (pr_overload_reg)
+    {
       showErrorMessage("Превышение максимальной коммерческой загрузки на рейс");
+      return true;
+    }
     else
-      throw UserException("Превышение максимальной коммерческой загрузки на рейс");
+      throw OverloadException("Превышение максимальной коммерческой загрузки на рейс");
   };
+  return false;
 };
 
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1499,6 +1509,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
   sendInfo.first_point=Qry.FieldAsInteger("first_point");
   sendInfo.tlg_type="BSM";
+
+  //savepoint для отката при превышении загрузки
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  SAVEPOINT CHECKIN; "
+    "END;";
+  Qry.Execute();
 
   //BSM
   map<bool,string> BSMaddrs;
@@ -2087,6 +2105,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   Qry.Close();
 
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  IF :rollback<>0 THEN ROLLBACK TO CHECKIN; END IF; "
+    "  UPDATE trip_sets SET overload_alarm=1 WHERE point_id=:point_id; "
+    "END;";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.DeclareVariable("rollback",otInteger);
+
   if (!pr_unaccomp)
   {
     //посчитаем индекс группы подклассов
@@ -2101,7 +2128,21 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (!PaxQry.Eof)
     {
       //проверим максимальную загрузку
-      CheckFltLoad(point_dep);
+      try
+      {
+        if (CheckFltOverload(point_dep))
+        {
+          Qry.SetVariable("rollback",0);
+          Qry.Execute();
+        };
+      }
+      catch(OverloadException &E)
+      {
+        Qry.SetVariable("rollback",1);
+        Qry.Execute();
+        showErrorMessage(E.what());
+        return;
+      };
 
       Qry.Clear();
       Qry.SQLText=
@@ -2201,7 +2242,21 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     //несопровождаемый багаж
     //проверим максимальную загрузку
-    CheckFltLoad(point_dep);
+    try
+    {
+      if (CheckFltOverload(point_dep))
+      {
+        Qry.SetVariable("rollback",0);
+        Qry.Execute();
+      };
+    }
+    catch(OverloadException &E)
+    {
+      Qry.SetVariable("rollback",1);
+      Qry.Execute();
+      showErrorMessage(E.what());
+      return;
+    };
   };
 
   //BSM
