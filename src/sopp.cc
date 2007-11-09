@@ -1818,7 +1818,10 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	  TTripStages::WriteStages( point_id, stages );
   	}
   	xmlNodePtr luggageNode = GetNode( "luggage", node );
-  	if ( luggageNode ) {
+  	TReqInfo *r = TReqInfo::Instance();  	
+  	if ( luggageNode &&
+	       find( r->user.access.rights.begin(),
+               r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
   		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
   		if ( max_cNode ) {
  		    Qry.Clear();
