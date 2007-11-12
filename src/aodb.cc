@@ -386,7 +386,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 			continue;
 		}
 		ostringstream record;
-		record<<heading;
+		record<<heading.str();
 		if ( !pr_unaccomp ) {
 		  record<<setw(3)<<Qry.FieldAsInteger( "reg_no");
 	  	record<<setw(30)<<string(Qry.FieldAsString( "name" )).substr(0,30);
