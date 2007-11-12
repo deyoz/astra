@@ -3222,6 +3222,24 @@ void SavePNLADLRemarks(int pax_id, std::vector<TRemItem> &rem)
   };
 };
 
+void crs_recount(int point_id_tlg)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "DECLARE "
+    "  CURSOR cur IS "
+    "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
+    "curRow cur%ROWTYPE; "
+    "BEGIN "
+    "  FOR curRow IN cur LOOP "
+    "    ckin.crs_recount(curRow.point_id_spp); "
+    "  END LOOP; "
+    "END;";
+  Qry.CreateVariable("point_id",otInteger,point_id_tlg);
+  Qry.Execute();
+};
+
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
 {
   vector<TRouteItem>::iterator iRouteItem;
@@ -3465,22 +3483,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       };
     };
   };
-  if (pr_recount)
-  {
-    Qry.Clear();
-    Qry.SQLText=
-      "DECLARE "
-      "  CURSOR cur IS "
-      "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
-      "curRow cur%ROWTYPE; "
-      "BEGIN "
-      "  FOR curRow IN cur LOOP "
-      "    ckin.crs_recount(curRow.point_id_spp); "
-      "  END LOOP; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-  };
+  if (pr_recount) crs_recount(point_id);
+
   OraSession.Commit();
 
   try

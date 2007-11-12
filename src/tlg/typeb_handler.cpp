@@ -330,20 +330,11 @@ void handle_tlg(void)
     "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
     "      tlg_binding.point_id_spp IS NULL ";
   Qry.Execute();
-  TQuery CountersQry(&OraSession);
-  CountersQry.SQLText=
-    "BEGIN "
-    "    ckin.crs_recount(:point_id); "
-    "END;";
-  CountersQry.DeclareVariable("point_id",otInteger);
 
   for(;!Qry.Eof;Qry.Next())
   {
     if (bind_tlg(Qry.FieldAsInteger("point_id")))
-    {
-      CountersQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
-      CountersQry.Execute();
-    };
+      crs_recount(Qry.FieldAsInteger("point_id"));
   };
   OraSession.Commit();
 };

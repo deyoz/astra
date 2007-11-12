@@ -508,6 +508,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 bool bind_tlg(int point_id);
+void crs_recount(int point_id_tlg);
 
 #endif
 
