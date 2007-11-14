@@ -407,6 +407,7 @@ void process_tlg(void)
   }
   catch(Exception E)
   {
+    OraSession.Rollback();
     ProgError(STDLOG,"Exception: %s",E.what());
     sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s",E.what());
     OraSession.Commit();
