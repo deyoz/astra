@@ -72,14 +72,17 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
       if (res!=0&&FD_ISSET(sockfd,&rfds))
       {
+        //ProgTrace(TRACE5,"process_tlg begin: %ld",time(NULL));
         base_tables.Invalidate();
         process_tlg();
       };
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        //ProgTrace(TRACE5,"scan_tlg begin: %ld",time(NULL));
         base_tables.Invalidate();
         scan_tlg();
         scan_time=time(NULL);
+        //ProgTrace(TRACE5,"scan_tlg end: %ld",scan_time);
       };
     }; // end of loop
   }

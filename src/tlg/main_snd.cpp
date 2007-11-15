@@ -107,8 +107,8 @@ void scan_tlg(int tlg_id)
   struct sockaddr_in to_addr;
   memset(&to_addr,0,sizeof(to_addr));
   AIRSRV_MSG tlg_out;
-  int len,count;
-  uint16_t ttl;
+  int len,count,ttl;
+  uint16_t ttl16;
   H2H_MSG h2hinf;
 
   TlgQry.Clear();
@@ -163,9 +163,10 @@ void scan_tlg(int tlg_id)
       TlgQry.FieldAsLong("tlg_text",tlg_out.body);
       //проверим TTL
       ttl=0;
-      if (!TlgQry.FieldIsNULL("ttl")&&
-           (ttl=TlgQry.FieldAsInteger("ttl")-
-           (int)((TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60))<=0)
+      if (!TlgQry.FieldIsNULL("ttl"))
+        ttl=TlgQry.FieldAsInteger("ttl")-
+            (int)((TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60);
+      if (ttl<=0)
       {
       	errorTlg(tlg_id,"TTL");
       }
@@ -196,12 +197,13 @@ void scan_tlg(int tlg_id)
           if (len>(int)sizeof(tlg_out.body)) throw Exception("H2H telegram too long");
           strncpy(tlg_out.body,h2hinf.data,len);
         };
-        tlg_out.TTL=htons(ttl);
+        ttl16=ttl;
+        tlg_out.TTL=htons(ttl16);
 
         if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+len,0,
                    (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
           throw Exception("'sendto' error %d: %s",errno,strerror(errno));
-        ProgTrace(TRACE0,"Attempt send telegram (tlg_num=%lu)", ntohl(tlg_out.num));
+        ProgTrace(TRACE0,"Attempt send telegram (tlg_num=%lu)", (unsigned long)ntohl(tlg_out.num));
       };
     }
     catch(EXCEPTIONS::Exception &E)
