@@ -166,7 +166,7 @@ void scan_tlg(int tlg_id)
       if (!TlgQry.FieldIsNULL("ttl"))
         ttl=TlgQry.FieldAsInteger("ttl")-
             (int)((TlgQry.FieldAsDateTime("now")-TlgQry.FieldAsDateTime("time"))*24*60*60);
-      if (ttl<=0)
+      if (!TlgQry.FieldIsNULL("ttl")&&ttl<=0)
       {
       	errorTlg(tlg_id,"TTL");
       }
