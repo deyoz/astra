@@ -3558,29 +3558,30 @@ bool bind_tlg(TQuery &Qry)
   if (bind_tlg(point_id,flt,bind_type)) return true;
   //не склалось привязать к рейсу на прямую - привяжем через таблицу CRS_CODE_SHARE
   bool res=false;
-  Qry.Clear();
-  Qry.SQLText=
+  TQuery CodeShareQry(&OraSession);
+  CodeShareQry.Clear();
+  CodeShareQry.SQLText=
     "SELECT airline,flt_no FROM crs_code_share "
     "WHERE airline_crs=:airline AND "
     "      (flt_no_crs=:flt_no OR flt_no_crs IS NULL AND :flt_no IS NULL) "
     "ORDER BY flt_no_crs,airline,flt_no";
-  Qry.CreateVariable("airline",otString,flt.airline);
-  Qry.DeclareVariable("flt_no",otInteger);
+  CodeShareQry.CreateVariable("airline",otString,flt.airline);
+  CodeShareQry.DeclareVariable("flt_no",otInteger);
   for(int i=0;i<2;i++)
   {
     if (i==0)
       //сначала проверим по а/к и номеру рейса
-      Qry.SetVariable("flt_no",(int)flt.flt_no);
+      CodeShareQry.SetVariable("flt_no",(int)flt.flt_no);
     else
       //потом проверим только по а/к
-      Qry.SetVariable("flt_no",FNull);
-    Qry.Execute();
-    if (Qry.Eof) continue;
-    for(;!Qry.Eof;Qry.Next())
+      CodeShareQry.SetVariable("flt_no",FNull);
+    CodeShareQry.Execute();
+    if (CodeShareQry.Eof) continue;
+    for(;!CodeShareQry.Eof;CodeShareQry.Next())
     {
-      strcpy(flt.airline,Qry.FieldAsString("airline"));
-      if (!Qry.FieldIsNULL("flt_no"))
-        flt.flt_no=Qry.FieldAsInteger("flt_no");
+      strcpy(flt.airline,CodeShareQry.FieldAsString("airline"));
+      if (!CodeShareQry.FieldIsNULL("flt_no"))
+        flt.flt_no=CodeShareQry.FieldAsInteger("flt_no");
       if (bind_tlg(point_id,flt,bind_type)) res=true;
     };
     break;
