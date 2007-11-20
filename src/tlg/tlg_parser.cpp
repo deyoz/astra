@@ -2851,16 +2851,10 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   return res;
 };
 
-bool bind_tlg(int point_id)
+bool bind_tlg(TQuery &Qry)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "SELECT airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
-    "FROM tlg_trips "
-    "WHERE point_id=:point_id";
-  Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.Execute();
   if (Qry.Eof) return false;
+  int point_id=Qry.FieldAsInteger("point_id");
   TFltInfo flt;
   strcpy(flt.airline,Qry.FieldAsString("airline"));
   flt.flt_no=Qry.FieldAsInteger("flt_no");
@@ -2910,6 +2904,18 @@ bool bind_tlg(int point_id)
     break;
   };
   return res;
+};
+
+bool bind_tlg(int point_id)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
+    "FROM tlg_trips "
+    "WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  return bind_tlg(Qry);
 };
 
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)

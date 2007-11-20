@@ -206,13 +206,28 @@ bool deleteTlg(int tlg_id)
     return TlgQry.RowsProcessed()>0;
 };
 
-bool errorTlg(int tlg_id, string err)
+bool errorTlg(int tlg_id, string type, string msg)
 {
     if (deleteTlg(tlg_id))
     {
       TQuery TlgQry(&OraSession);
+      if (!msg.empty())
+      {
+        TlgQry.Clear();
+        TlgQry.SQLText=
+          "BEGIN "
+          "  UPDATE tlg_error SET msg= :msg WHERE id= :id; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO tlg_error(id,msg) VALUES(:id,:msg); "
+          "  END IF; "
+          "END;";
+        TlgQry.CreateVariable("msg",otString,msg.substr(0,1000));
+        TlgQry.CreateVariable("id",otInteger,tlg_id);
+        TlgQry.Execute();
+      };
+      TlgQry.Clear();
       TlgQry.SQLText="UPDATE tlgs SET error= :error WHERE id= :id";
-      TlgQry.CreateVariable("error",otString,err.substr(0,4));
+      TlgQry.CreateVariable("error",otString,type.substr(0,4));
       TlgQry.CreateVariable("id",otInteger,tlg_id);
       TlgQry.Execute();
       return TlgQry.RowsProcessed()>0;

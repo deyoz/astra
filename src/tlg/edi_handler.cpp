@@ -37,7 +37,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     if (init_edifact()<0) throw Exception("'init_edifact' error");
 
     time_t scan_time=0;
-    char buf[2];
+    char buf[10];
     for(;;)
     {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
@@ -80,6 +80,8 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 void handle_tlg(void)
 {
+  time_t time_start=time(NULL);
+
   static TQuery TlgQry(&OraSession);
   if (TlgQry.SQLText.IsEmpty())
   {
@@ -122,14 +124,14 @@ void handle_tlg(void)
           {
               OraSession.Rollback();
               ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
-              errorTlg(tlg_id,"PARS");
+              errorTlg(tlg_id,"PARS",e.what());
               OraSession.Commit();
           }
           catch(std::exception &e)
           {
               OraSession.Rollback();
               ProgError(STDLOG, "std::exception: %s", e.what());
-              errorTlg(tlg_id,"PARS");
+              errorTlg(tlg_id,"PARS",e.what());
               OraSession.Commit();
           }
           catch(...)
@@ -147,6 +149,10 @@ void handle_tlg(void)
     ProgError(STDLOG, "Unknown error");
     throw;
   };
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
+                     time_end-time_start,count);
 }
 
 

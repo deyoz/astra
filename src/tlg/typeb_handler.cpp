@@ -33,7 +33,7 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
             ->connect_db();
 
     time_t scan_time=0;
-    char buf[2];
+    char buf[10];
     for(;;)
     {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
@@ -76,6 +76,8 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 void handle_tlg(void)
 {
+  time_t time_start=time(NULL);
+
   static TQuery TlgIdQry(&OraSession);
   if (TlgIdQry.SQLText.IsEmpty())
   {
@@ -324,19 +326,34 @@ void handle_tlg(void)
     if (buf!=NULL) free(buf);
     throw;
   };
+
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
+                     time_end-time_start,count);
+
+
+  time_start=time(NULL);
   TQuery Qry(&OraSession);
   Qry.SQLText=
-    "SELECT tlg_trips.point_id FROM tlg_binding,tlg_trips "
+    "SELECT point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
+    "FROM tlg_binding,tlg_trips "
     "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
     "      tlg_binding.point_id_spp IS NULL ";
   Qry.Execute();
 
-  for(;!Qry.Eof;Qry.Next())
+  count=0;
+  for(;!Qry.Eof;Qry.Next(),count++)
   {
-    if (bind_tlg(Qry.FieldAsInteger("point_id")))
+    if (bind_tlg(Qry))
       crs_recount(Qry.FieldAsInteger("point_id"));
   };
   OraSession.Commit();
+
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! bind_tlg execute time: %ld secs, count=%d",
+                     time_end-time_start,count);
 };
 
 

@@ -6,6 +6,7 @@
 #include "astra_consts.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "oralib.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -507,6 +508,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
+bool bind_tlg(TQuery &Qry);
 bool bind_tlg(int point_id);
 void crs_recount(int point_id_tlg);
 

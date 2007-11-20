@@ -28,7 +28,7 @@ using namespace std;
 static int sockfd=-1;
 
 void process_tlg(void);
-static int scan_tlg(void);
+static void scan_tlg(void);
 int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
@@ -77,13 +77,8 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-        time_t scan_beg=time(NULL);
         base_tables.Invalidate();
-        int scan_count=scan_tlg();
-        scan_time=time(NULL);
-        if (scan_time-scan_beg>WAIT_INTERVAL)
-          ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, scan_count=%d",
-                           scan_time-scan_beg,scan_count);
+        scan_tlg();
       };
     }; // end of loop
   }
@@ -419,8 +414,10 @@ void process_tlg(void)
   return;
 };
 
-int scan_tlg(void)
+void scan_tlg(void)
 {
+  time_t time_start=time(NULL);
+
   static TQuery TlgQry(&OraSession);
   if (TlgQry.SQLText.IsEmpty())
   {
@@ -480,16 +477,18 @@ int scan_tlg(void)
 
   TQuery Qry(&OraSession);
 
-  int len,count=0,bufLen=0,buf2Len=0,tlg_id;
+  int len,count,bufLen=0,buf2Len=0,tlg_id;
   char *buf=NULL,*buf2=NULL,*ph,c;
   bool pr_typeb_cmd=false;
   TTlgParts parts;
   THeadingInfo *HeadingInfo=NULL;
   TEndingInfo *EndingInfo=NULL;
+
+  count=0;
   TlgQry.Execute();
   try
   {
-    for (count=0;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
+    for (;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
     {
       //проверим TTL
       tlg_id=TlgQry.FieldAsInteger("id");
@@ -679,9 +678,10 @@ int scan_tlg(void)
       	      (orae->Code==4061||orae->Code==4068)) continue;
           ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
                        E.what(),TlgQry.FieldAsInteger("id"));
-          sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s (tlgs.id=%d)",
-                  E.what(),TlgQry.FieldAsInteger("id"));
-          errorTlg(tlg_id,"PARS");
+          errorTlg(tlg_id,"PARS",E.what());
+          sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),
+                       "Exception: %s (tlgs.id=%d)",
+                       E.what(),TlgQry.FieldAsInteger("id"));
         };
     };
     if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","H");
@@ -698,7 +698,12 @@ int scan_tlg(void)
     if (buf2!=NULL) free(buf2);
     throw;
   };
-  return count;
+
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d",
+                     time_end-time_start,count);
+  return;
 };
 
 

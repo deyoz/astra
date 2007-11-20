@@ -52,7 +52,7 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       throw Exception("'bind' error %d: %s",errno,strerror(errno));
 
     time_t scan_time=0;
-    char buf[2];
+    char buf[10];
     for (;;)
     {
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
@@ -97,6 +97,8 @@ int main_snd_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
 void scan_tlg(int tlg_id)
 {
+  time_t time_start=time(NULL);
+
   static TQuery TlgQry(&OraSession);
 
   TQuery Qry(&OraSession);
@@ -138,8 +140,9 @@ void scan_tlg(int tlg_id)
   };
   TlgQry.CreateVariable("sender",otString,OWN_CANON_NAME());
 
+  count=0;
   TlgQry.Execute();
-  for(count=0;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
+  for(;!TlgQry.Eof&&count<SCAN_COUNT;count++,TlgQry.Next(),OraSession.Commit())
   {
     tlg_id=TlgQry.FieldAsInteger("id");
     try
@@ -212,10 +215,16 @@ void scan_tlg(int tlg_id)
       EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       if (orae!=NULL&&
           (orae->Code==4061||orae->Code==4068)) continue;
-      errorTlg(tlg_id,"SEND");
-      ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),TlgQry.FieldAsInteger("id"));
+      ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
+      errorTlg(tlg_id,"SEND",E.what());
+      sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),
+                   "Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
     };
   };
+  time_t time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, count=%d",
+                     time_end-time_start,count);
   return;
 };
 
