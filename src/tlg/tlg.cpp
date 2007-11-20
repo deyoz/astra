@@ -86,7 +86,7 @@ const char* OWN_SITA_ADDR()
 
 void sendCmdTlgSnd()
 {
-  sendCmd("CMD_TLG_SND","HELLO WORLD!");
+  sendCmd("CMD_TLG_SND","H");
 }
 
 void sendTlg(const char* receiver,
@@ -249,10 +249,15 @@ void sendCmd(const char* receiver, const char* cmd)
     };
     strcpy(sock_addr.sun_path,addrs[receiver].c_str());
 
-    if (sendto(sockfd,cmd,strlen(cmd),0,
+    if (sendto(sockfd,cmd,strlen(cmd),MSG_DONTWAIT,
                (struct sockaddr*)&sock_addr,sizeof(sock_addr))==-1)
-      throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
-    ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s",cmd,receiver);
+    {
+      if (errno!=EAGAIN)
+        throw EXCEPTIONS::Exception("sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
+      ProgTrace(TRACE5,"sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
+    }
+    else
+      ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s",cmd,receiver);
   }
   catch(EXCEPTIONS::Exception E)
   {

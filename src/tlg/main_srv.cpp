@@ -28,7 +28,7 @@ using namespace std;
 static int sockfd=-1;
 
 void process_tlg(void);
-static void scan_tlg(void);
+static int scan_tlg(void);
 int h2h_in(char *h2h_tlg, H2H_MSG *h2h);
 
 int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
@@ -72,17 +72,18 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
       if (res!=0&&FD_ISSET(sockfd,&rfds))
       {
-        //ProgTrace(TRACE5,"process_tlg begin: %ld",time(NULL));
         base_tables.Invalidate();
         process_tlg();
       };
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
-        //ProgTrace(TRACE5,"scan_tlg begin: %ld",time(NULL));
+        time_t scan_beg=time(NULL);
         base_tables.Invalidate();
-        scan_tlg();
+        int scan_count=scan_tlg();
         scan_time=time(NULL);
-        //ProgTrace(TRACE5,"scan_tlg end: %ld",scan_time);
+        if (scan_time-scan_beg>WAIT_INTERVAL)
+          ProgTrace(TRACE5,"Attention! scan_tlg execute time: %ld secs, scan_count=%d",
+                           scan_time-scan_beg,scan_count);
       };
     }; // end of loop
   }
@@ -406,7 +407,7 @@ void process_tlg(void)
         throw Exception("'sendto' error %d: %s",errno,strerror(errno));
     };
     OraSession.Commit();
-    if (is_edi) sendCmd("CMD_EDI_HANDLER","HELLO WORLD!");
+    if (is_edi) sendCmd("CMD_EDI_HANDLER","H");
   }
   catch(Exception E)
   {
@@ -418,7 +419,7 @@ void process_tlg(void)
   return;
 };
 
-void scan_tlg(void)
+int scan_tlg(void)
 {
   static TQuery TlgQry(&OraSession);
   if (TlgQry.SQLText.IsEmpty())
@@ -479,7 +480,7 @@ void scan_tlg(void)
 
   TQuery Qry(&OraSession);
 
-  int len,count,bufLen=0,buf2Len=0,tlg_id;
+  int len,count=0,bufLen=0,buf2Len=0,tlg_id;
   char *buf=NULL,*buf2=NULL,*ph,c;
   bool pr_typeb_cmd=false;
   TTlgParts parts;
@@ -683,7 +684,7 @@ void scan_tlg(void)
           errorTlg(tlg_id,"PARS");
         };
     };
-    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","HELLO WORLD");
+    if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","H");
     if (HeadingInfo!=NULL) delete HeadingInfo;
     if (EndingInfo!=NULL) delete EndingInfo;
     if (buf!=NULL) free(buf);
@@ -697,7 +698,7 @@ void scan_tlg(void)
     if (buf2!=NULL) free(buf2);
     throw;
   };
-  return;
+  return count;
 };
 
 
