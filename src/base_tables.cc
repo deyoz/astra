@@ -38,6 +38,10 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TCountries();
         else if(name == "PERS_TYPES")
             base_tables[name] = new TPersTypes();
+        else if(name == "GENDER_TYPES")
+            base_tables[name] = new TGenderTypes();
+        else if(name == "PAX_DOC_TYPES")
+            base_tables[name] = new TPaxDocTypes();
         else if(name == "CITIES")
             base_tables[name] = new TCities();
         else if(name == "AIRLINES")
@@ -316,9 +320,39 @@ void TICAOBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TCountries::delete_row(TBaseTableRow *row)
+{
+  if (row!=NULL) code_iso.erase(((TCountriesRow*)row)->code_iso);
+  TTIDBaseTable::delete_row(row);
+};
+
+void TCountries::add_row(TBaseTableRow *row)
+{
+  TTIDBaseTable::add_row(row);
+  if (row!=NULL && !((TCountriesRow*)row)->code_iso.empty())
+    code_iso[((TCountriesRow*)row)->code_iso]=row;
+};
+
+TBaseTableRow& TCountries::get_row(std::string field, std::string value, bool with_deleted)
+{
+  load_table();
+  if (lowerc(field)=="code_iso")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=code_iso.find(value);
+    if (i==code_iso.end()||
+        !with_deleted && i->second->deleted())
+      throw EBaseTableError("%s::get_row: %s=%s not found",
+                            get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  return TCodeBaseTable::get_row(field,value,with_deleted);
+};
+
 void TCountries::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TCountriesRow;
+  ((TCountriesRow*)*row)->code_iso=Qry.FieldAsString("code_iso");
   ((TCountriesRow*)*row)->name=Qry.FieldAsString("name");
   ((TCountriesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
@@ -340,6 +374,21 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
   ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TGenderTypesRow;
+  ((TGenderTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TGenderTypesRow*)*row)->pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TPaxDocTypesRow;
+  ((TPaxDocTypesRow*)*row)->name=Qry.FieldAsString("name");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 

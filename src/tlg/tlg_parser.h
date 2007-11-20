@@ -48,6 +48,8 @@ extern const char* TTlgElementS[13];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
+enum TElemPresence{epMandatory,epOptional,epNone};
+
 class TTlgPartInfo
 {
   public:
@@ -217,7 +219,7 @@ typedef struct
 class TSeat
 {
   public:
-    long row;
+    int row;
     char line;
     char rem[5];
     TSeat()
@@ -225,6 +227,76 @@ class TSeat
       row=0;
       line=0;
       *rem=0;
+    };
+};
+
+typedef std::pair<TSeat,TSeat> TSeatRange;
+
+class TDocItem
+{
+  public:
+    char rem_code[6],rem_status[3],type[3],issue_country[3],no[16];
+    char nationality[3],gender[3];
+    BASIC::TDateTime birth_date,expiry_date;
+    std::string surname,first_name,second_name;
+    bool pr_multi;
+    TDocItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *rem_code=0;
+      *rem_status=0;
+      *type=0;
+      *issue_country=0;
+      *no=0;
+      *nationality=0;
+      *gender=0;
+      birth_date=ASTRA::NoExists;
+      expiry_date=ASTRA::NoExists;
+      surname.clear();
+      first_name.clear();
+      second_name.clear();
+      pr_multi=false;
+    };
+};
+
+class TTKNItem
+{
+  public:
+    char rem_code[6],rem_status[3],ticket_no[16];
+    int coupon_no;
+    bool pr_inf;
+    TTKNItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *rem_code=0;
+      *rem_status=0;
+      *ticket_no=0;
+      coupon_no=0;
+      pr_inf=false;
+    };
+};
+
+class TFQTItem
+{
+  public:
+    char rem_code[6],airline[4],no[26];
+    std::string extra;
+    TFQTItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *rem_code=0;
+      *airline=0;
+      *no=0;
+      extra.clear();
     };
 };
 
@@ -239,10 +311,28 @@ class TRemItem
     };
 };
 
+typedef std::pair<std::string,std::string> TChdItem;
+
 class TInfItem
 {
   public:
     std::string surname,name;
+    long age;
+    std::vector<TRemItem> rem;
+    std::vector<TDocItem> doc;
+    std::vector<TTKNItem> tkn;
+    TInfItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      surname.clear();
+      name.clear();
+      age=0;
+      doc.clear();
+      tkn.clear();
+    };
 };
 
 class TPaxItem
@@ -254,7 +344,9 @@ class TPaxItem
     TSeat seat;
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
-    std::vector<TRemItem> inf_rem;
+    std::vector<TDocItem> doc;
+    std::vector<TTKNItem> tkn;
+    std::vector<TFQTItem> fqt;
     TPaxItem()
     {
       pers_type=ASTRA::adult;
@@ -291,12 +383,9 @@ class TNameElement
     std::string surname;
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
-    std::vector<TInfItem> inf;
-    std::vector<TRemItem> inf_rem;
     TNameElement()
     {
-      indicator=None;
-      seats=0;
+      Clear();
     };
     void Clear()
     {
@@ -305,8 +394,6 @@ class TNameElement
       surname.clear();
       pax.clear();
       rem.clear();
-      inf.clear();
-      inf_rem.clear();
     };
 };
 
@@ -482,10 +569,12 @@ class TBtmContent
     };
 };
 
+#define MAX_LEXEME_SIZE 70
+
 class TTlgParser
 {
   public:
-    char lex[71];
+    char lex[MAX_LEXEME_SIZE+1];
     char* NextLine(char* p);
     char* GetLexeme(char* p);
     char* GetSlashedLexeme(char* p);

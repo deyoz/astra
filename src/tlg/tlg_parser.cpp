@@ -52,6 +52,18 @@ const char* TTlgElementS[] =
                "TransferPassengerData",
                "EndOfMessage"};
 
+char lexh[MAX_LEXEME_SIZE+1];
+
+void ParseNameElement(TTlgParser &tlg, string str, vector<string> &names, TElemPresence num_presence);
+void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
+void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
+bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
+bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
+bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc);
+bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats);
+bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn);
+bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt);
+
 char* TTlgParser::NextLine(char* p)
 {
   if (p==NULL) return NULL;
@@ -110,7 +122,7 @@ char* TTlgParser::GetWord(char* p)
   else return p+len;
 };
 
-char* TTlgParser::GetNameElement(char* p)
+char* TTlgParser::GetNameElement(char* p) //до первой точки на строке
 {
   int len;
   if (p==NULL) return NULL;
@@ -158,12 +170,24 @@ char GetSalonLine(char line)
   else return *p;
 };
 
-enum TNsiType {ntAirlines,ntAirps,ntClass,ntSubcls};
+enum TNsiType {ntCountries,ntAirlines,ntAirps,ntClass,ntSubcls,ntGenderTypes,ntPaxDocTypes};
 
 char* GetNsiCode(char* value, TNsiType nsi, char* code)
 {
   switch(nsi)
   {
+    case ntCountries:
+      try
+      {
+        TCountriesRow &row=(TCountriesRow&)(base_tables.get("countries").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
+      catch (EBaseTableError)
+      {
+        TCountriesRow &row=(TCountriesRow&)(base_tables.get("countries").get_row("code_iso",value));
+        strcpy(code,row.code.c_str());
+      };
+      break;
     case ntAirlines:
       {
         TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",value));
@@ -188,45 +212,19 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
         strcpy(code,row.cl.c_str());
       }
       break;
-  };
-/*
-  static TQuery Qry(&OraSession);
-  if (Qry.SQLText.IsEmpty()) Qry.DeclareVariable("code",otString);
-  switch(nsi)
-  {
-    case ntAirlines:
-      Qry.SQLText="SELECT code FROM airlines WHERE :code IN (code,code_lat)";
+    case ntGenderTypes:
+      {
+        TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
       break;
-    case ntAirps:
-      Qry.SQLText="SELECT code FROM airps WHERE :code IN (code,code_lat)";
-      break;
-    case ntSubcls:
-      Qry.SQLText="SELECT code FROM subcls WHERE :code IN (code,code_lat)";
-      break;
-    case ntClass:
-      Qry.SQLText="SELECT class AS code FROM subcls WHERE :code IN (code,code_lat)";
+    case ntPaxDocTypes:
+      {
+        TPaxDocTypesRow &row=(TPaxDocTypesRow&)(base_tables.get("pax_doc_types").get_row("code/code_lat",value));
+        strcpy(code,row.code.c_str());
+      }
       break;
   };
-  Qry.SetVariable("code",value);
-  Qry.Execute();
-  if (Qry.RowCount()==0)
-    switch(nsi)
-    {
-      case ntAirlines: throw ETlgError("Airline not found (code=%s)",Qry.GetVariableAsString("code"));
-      case ntAirps:    throw ETlgError("Airport not found (code=%s)",Qry.GetVariableAsString("code"));
-      case ntSubcls:
-      case ntClass:    throw ETlgError("Subclass not found (code=%s)",Qry.GetVariableAsString("code"));
-    };
-  strcpy(code,Qry.FieldAsString("code"));
-  Qry.Next();
-  if (Qry.RowCount()>1)
-    switch(nsi)
-    {
-      case ntAirlines: throw ETlgError("More than one airline found  (code=%s)",Qry.GetVariableAsString("code"));
-      case ntAirps:    throw ETlgError("More than one airport found (code=%s)",Qry.GetVariableAsString("code"));
-      case ntSubcls:
-      case ntClass:    throw ETlgError("More than one subclass found (code=%s)",Qry.GetVariableAsString("code"));
-    };*/
   return code;
 };
 
@@ -342,7 +340,7 @@ class TBSMPax : public TBSMInfo
 
 char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
 {
-  char c,lexh[sizeof(tlg.lex)],id[2];
+  char c,id[2];
   int res;
   *id=0;
   data=NULL;
@@ -492,24 +490,15 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
             data = new TBSMPax;
             TBSMPax& pax = *(TBSMPax*)data;
 
-            c=0;
-            res=sscanf(tlg.lex,"%*3[0-9]%[A-ZА-ЯЁ ]%c",lexh,&c);
-            if (c!=0||res!=1)
+            vector<string> names;
+            ParseNameElement(tlg,tlg.lex,names,epOptional);
+            if (names.empty()) throw ETlgError("Wrong format");
+            for(vector<string>::iterator i=names.begin();i!=names.end();i++)
             {
-              c=0;
-              res=sscanf(tlg.lex,"%[A-ZА-ЯЁ ]%c",lexh,&c);
-              if (c!=0||res!=1) throw ETlgError("Wrong format");
-            };
-            pax.surname=lexh;
-
-            if (tlg.GetToEOLLexeme(p)!=NULL)
-            {
-              c=0;
-              res=sscanf(tlg.lex,"%*[A-ZА-ЯЁ /]%c",&c);
-              if (c!=0||res>0) throw ETlgError("Wrong format");
-              p=tlg.lex;
-              while ((p=tlg.GetSlashedLexeme(p))!=NULL)
-                pax.name.push_back(tlg.lex);
+              if (i==names.begin())
+                pax.surname=*i;
+              else
+                pax.name.push_back(*i);
             };
             break;
           }
@@ -889,7 +878,6 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
         case FlightElement:
           {
             //message flight
-            char lexh[sizeof(tlg.lex)];
             long int day=0;
             char trip[9];
             res=sscanf(tlg.lex,"%11[A-ZА-ЯЁ0-9/].%s",lexh,tlg.lex);
@@ -1229,9 +1217,6 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
-void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
-
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
 {
   vector<TPtmOutFltInfo>::iterator iOut;
@@ -1241,7 +1226,6 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
-  char lexh[sizeof(tlg.lex)];
   TTlgElement e;
   try
   {
@@ -1399,15 +1383,14 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
               throw ETlgError("Checked baggage: wrong format");
 
             //ph указывает на начало NAME-элемента в буфере lexh
-            c=0;
-            res=sscanf(ph,"%*[A-ZА-ЯЁ /]%c",&c);
-            if (c!=0||res>0) throw ETlgError("Name element: wrong format");
-
-            if ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
+            vector<string> names;
+            ParseNameElement(tlg,ph,names,epNone);
+            for(vector<string>::iterator i=names.begin();i!=names.end();i++)
             {
-              data.surname=tlg.lex;
-              while ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
-                data.name.push_back(tlg.lex);
+              if (i==names.begin())
+                data.surname=*i;
+              else
+                data.name.push_back(*i);
             };
 
             //ищем рейс flt в con.OutFlt
@@ -1451,7 +1434,6 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
   int line,res;
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
-  char lexh[sizeof(tlg.lex)];
   TTlgElement e;
   TIndicator Indicator;
   int e_part;
@@ -1854,60 +1836,36 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
               pr_prev_rem=false;
               ne.indicator=Indicator;
 
-              lexh[0]=0;
-              res=sscanf(tlg.lex,"%3lu%[A-ZА-ЯЁ -]%[^.]",&ne.seats,lexh,tlg.lex);
-              if (res<2||lexh[0]==0||ne.seats<=0) throw ETlgError("Wrong format");
-              ne.surname=Trim(lexh);
-//              if (TrimString(ne.surname).size()<2) throw ETlgError("Too short surname");
-              TPaxItem PaxItem;
-              ne.pax.assign(ne.seats,PaxItem);
-
-              if (res==3)
+              vector<string> names;
+              ParseNameElement(tlg,tlg.lex,names,epMandatory);
+              if (names.empty()) throw ETlgError("Wrong format");
+              ne.pax.clear();
+              for(vector<string>::iterator i=names.begin();i!=names.end();i++)
               {
-                //есть имена
-                c=0;
-                res=sscanf(tlg.lex,"%[A-ZА-ЯЁ /-]%c",lexh,&c);
-                if (c!=0||res!=1) throw ETlgError("Wrong format");
+                if (i==names.begin())
+                  ne.surname=*i;
+                else
+                {
+                  TPaxItem PaxItem;
+                  PaxItem.name=*i;
+                  if (i->find("CHD")!=string::npos)
+                    PaxItem.pers_type=child;
 
-                iPaxItem=ne.pax.begin();
-                do
-                {
-                  if (iPaxItem==ne.pax.end()) throw ETlgError("Too many names");
-                  lexh[0]=0;
-                  res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ -]%[A-ZА-ЯЁ /-]",lexh,tlg.lex);
-                  if (res<1) throw ETlgError("Wrong format");
-                  Trim(lexh);
-                  if (lexh[0]!=0)
-                  {
-                    iPaxItem->name=lexh;
-                    iPaxItem++;
-                  };
-                }
-                while (res==2);
-                if (ne.surname=="ZZ"&&!ne.pax.empty())
-                {
-                  TPaxItem& PaxItem=ne.pax.front();
-                  if (!PaxItem.name.empty())
-                  {
-                    for(;iPaxItem!=ne.pax.end();iPaxItem++)
-                      iPaxItem->name=PaxItem.name;
-                  };
+                  ne.pax.push_back(PaxItem);
                 };
-
+              };
+              ne.seats=ne.pax.size();
+              if (ne.surname=="ZZ")
+              {
                 for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
-                {
-                  if (iPaxItem->name.find("CHD")!=string::npos)
-                    iPaxItem->pers_type=child;
-/*                  if (iPaxItem->name=="EXST"||iPaxItem->name=="STCR")
-                    iPaxItem->pers_type=NoPerson;*/
-                };
+                  if (iPaxItem->name.empty()) iPaxItem->name=ne.pax.begin()->name;
               };
             }
             else p=line_p;
 
             while ((p=tlg.GetNameElement(p))!=NULL)
             {
-              ParseNameElement(tlg,con.flt,*iPnrItem,pr_prev_rem);
+              ParsePaxLevelElement(tlg,con.flt,*iPnrItem,pr_prev_rem);
             };
 
             e_part=3;
@@ -1954,9 +1912,9 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
   return;
 };
 
-void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem)
+void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem)
 {
-  char c,lexh[sizeof(tlg.lex)];
+  char c;
   int res;
   if (pnr.ne.empty()) return;
   TNameElement& ne=pnr.ne.back();
@@ -2165,16 +2123,90 @@ void ParseNameElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_pr
   };
 };
 
+void ParseNameElement(TTlgParser &tlg, string str, vector<string> &names, TElemPresence num_presence)
+{
+  char c,numh[4];
+  int res,num;
+  bool pr_num;
+
+  char *p=(char*)str.c_str();
+
+  names.clear();
+  if (p==NULL) return;
+
+  p=tlg.GetSlashedLexeme(p);
+  if (p==NULL) return;
+  //выбираем первую лекскму
+
+  if (*tlg.lex!=0)
+  {
+    c=0;
+    res=sscanf(tlg.lex,"%3[0-9]%[A-ZА-ЯЁ -]%c",numh,lexh,&c);
+    if (c!=0||res!=2)
+    {
+      if (num_presence==epMandatory) throw ETlgError("Wrong format");
+      c=0;
+      res=sscanf(tlg.lex,"%[A-ZА-ЯЁ -]%c",lexh,&c);
+      if (c!=0||res!=1) throw ETlgError("Wrong format");
+      num=1;
+      pr_num=false;
+    }
+    else
+    {
+      if (num_presence==epNone) throw ETlgError("Wrong format");
+      if (StrToInt(numh,num)==EOF) throw ETlgError("Wrong format");
+      if (num<1||num>999) throw ETlgError("Wrong format");
+      pr_num=true;
+    };
+    names.push_back(lexh);
+    p=tlg.GetSlashedLexeme(p);
+  }
+  else
+  {
+    p=tlg.GetSlashedLexeme(p);
+    if (p==NULL) return;
+    throw ETlgError("Wrong format");
+  };
+
+  while(p!=NULL)
+  {
+    if (*tlg.lex==0) throw ETlgError("Wrong format");
+    c=0;
+    res=sscanf(tlg.lex,"%*[A-ZА-ЯЁ ]%c",&c);
+    if (c!=0||res>0) throw ETlgError("Wrong format");
+    names.push_back(tlg.lex);
+    num--;
+    p=tlg.GetSlashedLexeme(p);
+  };
+
+  for(;num>0;num--) names.push_back("");
+
+  if (pr_num && num<0) throw ETlgError("Too many names");
+};
+
+string OnlyAlphaInLexeme(string lex)
+{
+  string::iterator i=lex.begin();
+  while(i!=lex.end())
+  {
+    if (IsLetter(*i))
+      i++;
+    else
+      i=lex.erase(i);
+  };
+  return lex;
+};
+
 void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
 {
-  char c,lexh[sizeof(tlg.lex)];
+  char c;
   int res,k;
-  unsigned int pos,len;
+  unsigned int pos;
   bool pr_parse;
   string strh;
   char *p;
-  char rem_code[7];
-  long num;
+  char rem_code[7],numh[4];
+  int num;
   vector<TRemItem>::iterator iRemItem;
   vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
@@ -2188,12 +2220,17 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
     if (strlen(rem_code)<=5) strcpy(iRemItem->code,rem_code);
 
     num=1;
-    sscanf(rem_code,"%3lu%s",&num,rem_code);
-    if (num<=0) num=1;
+    *numh=0;
+    sscanf(rem_code,"%3[0-9]%s",numh,rem_code);
+    if (*numh!=0)
+    {
+      StrToInt(numh,num);
+      if (num<=0) num=1;
+    };
+
     if (strcmp(rem_code,"CHD")==0||
         strcmp(rem_code,"INF")==0||
         strcmp(rem_code,"VIP")==0) strcpy(iRemItem->code,rem_code);
-
   };
   //попробовать привязать ремарки к конкретным пассажирам
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
@@ -2204,62 +2241,65 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
       iRemItem++;
       continue;
     };
-    strh=iRemItem->text.substr(pos);
+    strh=iRemItem->text.substr(pos+1);
     if (strh.size()>=sizeof(tlg.lex))
     {
       iRemItem++;
       continue;
     };
 
-    res=sscanf(strh.c_str(),"-%*3[0-9]%[A-ZА-ЯЁ ]%[A-ZА-ЯЁ /]",lexh,tlg.lex);
-    if (res==0)
-      res=sscanf(strh.c_str(),"-%[A-ZА-ЯЁ ]%[A-ZА-ЯЁ /]",lexh,tlg.lex);
-    if (res!=2||ne.surname!=Trim(lexh))
+    vector<string> names;
+    try
+    {
+      ParseNameElement(tlg,strh,names,epOptional);
+    }
+    catch(ETlgError &E)
+    {
+      iRemItem++;
+      continue;
+    };
+    if (names.empty()||*(names.begin())!=ne.surname)
     {
       iRemItem++;
       continue;
     };
 
     pr_parse=true;
-    do
+    for(vector<string>::iterator i=names.begin();i!=names.end();i++)
     {
-      lexh[0]=0;
-      res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ ]%[A-ZА-ЯЁ /]",lexh,tlg.lex);
-      if (res<1)
+      if (i!=names.begin())
       {
-        pr_parse=false;
-        break;
-      };
-      Trim(lexh);
-      if (lexh[0]!=0)
-      {
-        for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
+        for(k=0;k<=1;k++)
         {
-          if (iPaxItem->name!=lexh) continue;
-          if (iPaxItem->rem.empty())
+          for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
           {
-            iPaxItem->rem.push_back(TRemItem());
-            break;
-          }
-          else
-          {
-            TRemItem& RemItem=iPaxItem->rem.back();
-            if (RemItem.text.empty()) continue;
-            else
+            if (k==0&&iPaxItem->name!=*i||
+                k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i)) continue;
+            if (iPaxItem->rem.empty())
             {
               iPaxItem->rem.push_back(TRemItem());
               break;
+            }
+            else
+            {
+              TRemItem& RemItem=iPaxItem->rem.back();
+              if (RemItem.text.empty()) continue;
+              else
+              {
+                iPaxItem->rem.push_back(TRemItem());
+                break;
+              };
             };
           };
+          if (iPaxItem!=ne.pax.end()) break;
         };
-        if (iPaxItem==ne.pax.end())
+        if (k>1&&iPaxItem==ne.pax.end())
         {
           pr_parse=false;
           break;
         };
       };
-    }
-    while (res==2);
+    };
 
     if (pr_parse) iRemItem->text.erase(pos); //убрать окончание ремарки после -
 
@@ -2287,146 +2327,139 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
   //сначала пробегаем по ремаркам каждого из пассажиров (из-за номеров мест)
   for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
   {
-    for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
+    for(k=0;k<=1;k++)
     {
-      if (iRemItem->text.empty()) continue;
-      p=tlg.GetWord((char*)iRemItem->text.c_str());
-      c=0;
-      res=sscanf(tlg.lex,"%6[A-ZА-ЯЁ0-9]%c",rem_code,&c);
-      if (c!=0||res!=1) continue;
-
-      if (strcmp(rem_code,"EXST")==0||
-          strcmp(rem_code,"GPST")==0||
-          strcmp(rem_code,"RQST")==0||
-          strcmp(rem_code,"SEAT")==0||
-          strcmp(rem_code,"NSST")==0||
-          strcmp(rem_code,"NSSA")==0||
-          strcmp(rem_code,"NSSB")==0||
-          strcmp(rem_code,"NSSW")==0||
-          strcmp(rem_code,"SMST")==0||
-          strcmp(rem_code,"SMSA")==0||
-          strcmp(rem_code,"SMSB")==0||
-          strcmp(rem_code,"SMSW")==0)
+      for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();iRemItem++)
       {
-        TSeat seat;
-        if (strcmp(rem_code,"NSST")==0||
-            strcmp(rem_code,"NSSA")==0||
-            strcmp(rem_code,"NSSB")==0||
-            strcmp(rem_code,"NSSW")==0||
-            strcmp(rem_code,"SMST")==0||
-            strcmp(rem_code,"SMSA")==0||
-            strcmp(rem_code,"SMSB")==0||
-            strcmp(rem_code,"SMSW")==0)
-          strcpy(seat.rem,rem_code);
-        else
-          strcpy(seat.rem,"");
-        while(iPaxItem->seat.line==0&&tlg.GetWord(p)!=NULL)
+        if (iRemItem->text.empty()) continue;
+
+        if (k==0)
         {
-          pr_parse=true;
-          do
+          if (strcmp(iRemItem->code,"CHD")==0||
+              strcmp(iRemItem->code,"CHLD")==0)
           {
-            lexh[0]=0;
-            res=sscanf(tlg.lex,"%3lu%[A-ZА-ЯЁ]%s",&seat.row,lexh,tlg.lex);
-            if (res<2||lexh[0]==0||seat.row<=0)
-            {
-              pr_parse=false;
-              break;
-            };
-            for(k=0;lexh[k]!=0&&GetSalonLine(lexh[k])!=0;k++);
-            if (lexh[k]!=0)
-            {
-              pr_parse=false;
-              break;
-            };
-          }
-          while (res==3);
-          p=tlg.GetWord(p);
-          if (!pr_parse) continue;
-          do
+            iPaxItem->pers_type=child;
+            continue;
+          };
+          if (strcmp(iRemItem->code,"INF")==0||
+              strcmp(iRemItem->code,"INFT")==0)
           {
-            lexh[0]=0;
-            res=sscanf(tlg.lex,"%3lu%[A-ZА-ЯЁ]%s",&seat.row,lexh,tlg.lex);
-            if (res<2||lexh[0]==0||seat.row<=0) break;
-            for(k=0;lexh[k]!=0&&(/*seat.line=*/GetSalonLine(lexh[k]))!=0;k++)
+                //отдельный массив для INF
+            vector<TInfItem> inf;
+            if (ParseINFRem(tlg,iRemItem->text,inf))
             {
-               seat.line=lexh[k];
-               //записать место из seat, если не найдено ни у кого другого
-               for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                 if (seat.row==iPaxItem2->seat.row&&
-                     seat.line==iPaxItem2->seat.line) break;
-
-               if (iPaxItem2==ne.pax.end())
-               {
-                 iPaxItem->seat=seat;
-                 break;
-               };
+              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();i++)
+                if (i->surname.empty()) i->surname=ne.surname;
+              iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
             };
-            if (lexh[k]!=0) break;
-          }
-          while (iPaxItem->seat.line==0&&res==3);
-        };
-        continue;
-      };
-
-      num=1;
-      sscanf(rem_code,"%3lu%s",&num,rem_code);
-
-      if (strcmp(rem_code,"CHD")==0)
-      {
-        iPaxItem->pers_type=child;
-        continue;
-      };
-
-      if (strcmp(rem_code,"INF")==0||
-          strcmp(rem_code,"INFT")==0)
-      {
-            //отдельный массив для INF ne.inf
-        TInfItem InfItem;
-        InfItem.surname=ne.surname;
-        vector<TInfItem> inf(num,InfItem);
-        vector<TInfItem>::iterator iInfItem;
-        if (p==NULL) continue;
-        pr_parse=false;
-        do
-        {
-          //поискать фамилию/имя внутри ремарки
-          res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-          if (res==0)
-            res=sscanf(p,"%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-          if (res!=2) continue;
-          InfItem.surname=lexh;
-          iInfItem=inf.begin();
-          do
-          {
-            lexh[0]=0;
-            res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
-            if (res<1) break;
-            if (lexh[0]!=0)
-            {
-              iInfItem->surname=InfItem.surname;
-              iInfItem->name=lexh;
-              pr_parse=true;
-              iInfItem++;
-            };
-          }
-          while(iInfItem!=inf.end()&&res==2);
+            continue;
+          };
         }
-        while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
-        iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
-        continue;
-      };
-      if (strcmp(rem_code,"TKNE")==0)
-      {
-        if ((p=tlg.GetWord(p))==NULL) continue;
-        if ((p=tlg.GetWord(p))==NULL) continue;
-        if (strncmp(tlg.lex,"INF",3)==0)
+        else
         {
-          iPaxItem->inf_rem.push_back(*iRemItem);
-          iRemItem->text.clear();
+          if (strcmp(iRemItem->code,"DOCS")==0)
+          {
+            TDocItem doc;
+            if (ParseDOCSRem(tlg,iRemItem->text,doc))
+            {
+              //проверим документ РМ
+              try
+              {
+                TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                if (row.pr_inf)
+                {
+                  if (iPaxItem->inf.size()==1)
+                  {
+                    iPaxItem->inf.begin()->doc.push_back(doc);
+                    iPaxItem->inf.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                else
+                  iPaxItem->doc.push_back(doc);
+              }
+              catch(EBaseTableError)
+              {
+                iPaxItem->doc.push_back(doc);
+              };
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"TKNA")==0||
+              strcmp(iRemItem->code,"TKNE")==0)
+          {
+            TTKNItem tkn;
+            if (ParseTKNRem(tlg,iRemItem->text,tkn))
+            {
+              //проверим билет РМ
+              if (tkn.pr_inf)
+              {
+                if (iPaxItem->inf.size()==1)
+                {
+                  //только если у пассажира один infant - знаем что билет относится к нему
+                  iPaxItem->inf.begin()->tkn.push_back(tkn);
+                  iPaxItem->inf.begin()->rem.push_back(*iRemItem);
+                  iRemItem->text.clear();
+                };
+              }
+              else
+                iPaxItem->tkn.push_back(tkn);
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"EXST")==0||
+              strcmp(iRemItem->code,"GPST")==0||
+              strcmp(iRemItem->code,"RQST")==0||
+              strcmp(iRemItem->code,"SEAT")==0||
+              strcmp(iRemItem->code,"NSST")==0||
+              strcmp(iRemItem->code,"NSSA")==0||
+              strcmp(iRemItem->code,"NSSB")==0||
+              strcmp(iRemItem->code,"NSSW")==0||
+              strcmp(iRemItem->code,"SMST")==0||
+              strcmp(iRemItem->code,"SMSA")==0||
+              strcmp(iRemItem->code,"SMSB")==0||
+              strcmp(iRemItem->code,"SMSW")==0)
+          {
+            vector<TSeatRange> seats;
+            if (ParseSEATRem(tlg,iRemItem->text,seats))
+            {
+              for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+              {
+                if (i->first.line!=0 && i->first.row>0)
+                {
+                  //записать место из seat, если не найдено ни у кого другого
+                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                     if (i->first.row==iPaxItem2->seat.row&&
+                         i->first.line==iPaxItem2->seat.line) break;
+
+                   if (iPaxItem2==ne.pax.end())
+                   {
+                     iPaxItem->seat=i->first;
+                     break;
+                   };
+                };
+              };
+
+            };
+            continue;
+          };
+
+          if (strcmp(iRemItem->code,"FQTV")==0||
+              strcmp(iRemItem->code,"FQTR")==0||
+              strcmp(iRemItem->code,"FQTU")==0||
+              strcmp(iRemItem->code,"FQTS")==0)
+          {
+            TFQTItem fqt;
+            if (ParseFQTRem(tlg,iRemItem->text,fqt))
+              iPaxItem->fqt.push_back(fqt);
+            continue;
+          };
         };
-        continue;
       };
     };
+
     for(iRemItem=iPaxItem->rem.begin();iRemItem!=iPaxItem->rem.end();)
     {
       if (iRemItem->text.empty())
@@ -2436,200 +2469,196 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
     };
   };
 
-  //пробегаем по ремаркам группы
-  for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
+  vector<TInfItem> infs;
+  for(k=0;k<=1;k++)
   {
-    if (iRemItem->text.empty()) continue;
-    p=tlg.GetWord((char*)iRemItem->text.c_str());
-    c=0;
-    res=sscanf(tlg.lex,"%6[A-ZА-ЯЁ0-9]%c",rem_code,&c);
-    if (c!=0||res!=1) continue;
-
-    if (strcmp(rem_code,"EXST")==0||
-        strcmp(rem_code,"GPST")==0||
-        strcmp(rem_code,"RQST")==0||
-        strcmp(rem_code,"SEAT")==0||
-        strcmp(rem_code,"NSST")==0||
-        strcmp(rem_code,"NSSA")==0||
-        strcmp(rem_code,"NSSB")==0||
-        strcmp(rem_code,"NSSW")==0||
-        strcmp(rem_code,"SMST")==0||
-        strcmp(rem_code,"SMSA")==0||
-        strcmp(rem_code,"SMSB")==0||
-        strcmp(rem_code,"SMSW")==0)
+    //пробегаем по ремаркам группы
+    for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
     {
-      TSeat seat;
-      if (strcmp(rem_code,"NSST")==0||
-          strcmp(rem_code,"NSSA")==0||
-          strcmp(rem_code,"NSSB")==0||
-          strcmp(rem_code,"NSSW")==0||
-          strcmp(rem_code,"SMST")==0||
-          strcmp(rem_code,"SMSA")==0||
-          strcmp(rem_code,"SMSB")==0||
-          strcmp(rem_code,"SMSW")==0)
-        strcpy(seat.rem,rem_code);
-      else
-        strcpy(seat.rem,"");
-      while(tlg.GetWord(p)!=NULL)
-      {
-        pr_parse=true;
-        do
-        {
-          lexh[0]=0;
-          res=sscanf(tlg.lex,"%3lu%[A-ZА-ЯЁ]%s",&seat.row,lexh,tlg.lex);
-          if (res<2||lexh[0]==0||seat.row<=0)
-          {
-            pr_parse=false;
-            break;
-          };
-          for(k=0;lexh[k]!=0&&GetSalonLine(lexh[k])!=0;k++);
-          if (lexh[k]!=0)
-          {
-            pr_parse=false;
-            break;
-          };
-        }
-        while (res==3);
-        p=tlg.GetWord(p);
-        if (!pr_parse) continue;
-        do
-        {
-          lexh[0]=0;
-          res=sscanf(tlg.lex,"%3lu%[A-ZА-ЯЁ]%s",&seat.row,lexh,tlg.lex);
-          if (res<2||lexh[0]==0||seat.row<=0) break;
-          for(k=0;lexh[k]!=0&&(/*seat.line=*/GetSalonLine(lexh[k]))!=0;k++)
-          {
-             seat.line=lexh[k];
-             //записать место из seat, если не найдено ни у кого другого
-             for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                 if (seat.row==iPaxItem2->seat.row&&
-                     seat.line==iPaxItem2->seat.line) break;
+      if (iRemItem->text.empty()) continue;
 
-             if (iPaxItem2==ne.pax.end())
-               //найти пассажира, которому не проставлено место
-               if (strcmp(rem_code,"EXST")==0)
-               {
-                 for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                   if (iPaxItem2->seat.line==0&&
-                       iPaxItem2->name=="EXST")
-                   {
-                     iPaxItem2->seat=seat;
-                     break;
-                   };
-               };
-             if (iPaxItem2==ne.pax.end())
-               for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                 if (iPaxItem2->seat.line==0)
-                 {
-                   iPaxItem2->seat=seat;
-                   break;
-                 };
-          };
-          if (lexh[k]!=0) break;
-        }
-        while (res==3);
-      };
-      continue;
-    };
-
-    num=1;
-    sscanf(rem_code,"%3lu%s",&num,rem_code);
-    if (strcmp(rem_code,"CHD")==0)
-    {
-      if (ne.pax.size()==1) ne.pax.begin()->pers_type=child;
-      else
+      if (k==0)
       {
-        if (p==NULL) continue;
-        pr_parse=false;
-        do
+        if (strcmp(iRemItem->code,"CHD")==0||
+            strcmp(iRemItem->code,"CHLD")==0)
         {
-          //поискать фамилию/имя внутри ремарки
-          res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%*[0-9]%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex);
-          if (res==0)
-            res=sscanf(p,"%*[0-9]%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex);
-          if (res==0)
-            res=sscanf(p,"%64[A-ZА-ЯЁ ]%64[A-ZА-ЯЁ /]",lexh,tlg.lex);
-          if (res!=2||ne.surname!=Trim(lexh)) continue;
-          do
+          vector<TChdItem> chd;
+          if (ParseCHDRem(tlg,iRemItem->text,chd))
           {
-            lexh[0]=0;
-            res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ ]%[A-ZА-ЯЁ /]",lexh,tlg.lex);
-            if (res<1) break;
-            Trim(lexh);
-            if (lexh[0]!=0)
+            for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
             {
-              for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
-                if (!iPaxItem->name.empty())
+              for(vector<TChdItem>::iterator i=chd.begin();i!=chd.end();i++)
+                if (i->first==ne.surname &&
+                    (i->second==iPaxItem2->name ||
+                     OnlyAlphaInLexeme(i->second)==OnlyAlphaInLexeme(iPaxItem->name)))
                 {
-                  len=iPaxItem->name.size();
-                  if (strncmp(iPaxItem->name.c_str(),lexh,len)==0&&
-                      (lexh[len]==0||lexh[len]==' '))
-                  {
-                    iPaxItem->pers_type=child;
-                    pr_parse=true;
-                    break;
-                  };
+                  iPaxItem2->pers_type=child;
+                  break;
                 };
             };
-          }
-          while (res==2);
-        }
-        while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
-      };
-      continue;
-    };
-    if (strcmp(rem_code,"INF")==0||
-        strcmp(rem_code,"INFT")==0)
-    {
-          //отдельный массив для INF ne.inf
-      TInfItem InfItem;
-      InfItem.surname=ne.surname;
-      vector<TInfItem> inf(num,InfItem);
-      vector<TInfItem>::iterator iInfItem;
-      if (p==NULL) continue;
-      pr_parse=false;
-      do
-      {
-        //поискать фамилию/имя внутри ремарки
-        res=sscanf(p,"%*[^A-ZА-ЯЁ0-9]%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-        if (res==0)
-          res=sscanf(p,"%64[A-ZА-ЯЁ]%64[A-ZА-ЯЁ/]",lexh,tlg.lex);
-        if (res!=2) continue;
-        InfItem.surname=lexh;
-        iInfItem=inf.begin();
-        do
-        {
-          lexh[0]=0;
-          res=sscanf(tlg.lex,"/%[A-ZА-ЯЁ]%[A-ZА-ЯЁ/]",lexh,tlg.lex);
-          if (res<1) break;
-          if (lexh[0]!=0)
-          {
-            iInfItem->surname=InfItem.surname;
-            iInfItem->name=lexh;
-            pr_parse=true;
-            iInfItem++;
           };
-        }
-        while(iInfItem!=inf.end()&&res==2);
-      }
-      while(!pr_parse&&(p=tlg.GetWord(p))!=NULL);
-      ne.inf.insert(ne.inf.end(),inf.begin(),inf.end());
-      continue;
-    };
-    if (strcmp(rem_code,"TKNE")==0)
-    {
+          continue;
+        };
 
-      if ((p=tlg.GetWord(p))==NULL) continue;
-      if ((p=tlg.GetWord(p))==NULL) continue;
-      if (strncmp(tlg.lex,"INF",3)==0)
+        if (strcmp(iRemItem->code,"INF")==0||
+            strcmp(iRemItem->code,"INFT")==0)
+        {
+              //отдельный массив для INF
+          vector<TInfItem> inf;
+          if (ParseINFRem(tlg,iRemItem->text,inf))
+          {
+            for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();i++)
+              if (i->surname.empty()) i->surname=ne.surname;
+
+            if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
+                inf.size()==1)
+              ne.pax.begin()->inf.insert(ne.pax.begin()->inf.end(),inf.begin(),inf.end());
+            else
+              infs.insert(infs.end(),inf.begin(),inf.end());
+          };
+          continue;
+        };
+      }
+      else
       {
-        ne.inf_rem.push_back(*iRemItem);
-        iRemItem->text.clear();
+        if (strcmp(iRemItem->code,"EXST")==0||
+            strcmp(iRemItem->code,"GPST")==0||
+            strcmp(iRemItem->code,"RQST")==0||
+            strcmp(iRemItem->code,"SEAT")==0||
+            strcmp(iRemItem->code,"NSST")==0||
+            strcmp(iRemItem->code,"NSSA")==0||
+            strcmp(iRemItem->code,"NSSB")==0||
+            strcmp(iRemItem->code,"NSSW")==0||
+            strcmp(iRemItem->code,"SMST")==0||
+            strcmp(iRemItem->code,"SMSA")==0||
+            strcmp(iRemItem->code,"SMSB")==0||
+            strcmp(iRemItem->code,"SMSW")==0)
+        {
+          vector<TSeatRange> seats;
+          if (ParseSEATRem(tlg,iRemItem->text,seats))
+          {
+            for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+            {
+              if (i->first.line!=0 && i->first.row>0)
+              {
+                //хорошо бы поискать среди всего pnr
+
+
+                //записать место из seat, если не найдено ни у кого другого
+                 for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                   if (i->first.row==iPaxItem2->seat.row&&
+                       i->first.line==iPaxItem2->seat.line) break;
+
+                 if (iPaxItem2==ne.pax.end())
+                   //найти пассажира, которому не проставлено место
+                   if (strcmp(iRemItem->code,"EXST")==0)
+                   {
+                     for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                       if (iPaxItem2->seat.line==0&&
+                           iPaxItem2->name=="EXST")
+                       {
+                         iPaxItem->seat=i->first;
+                         break;
+                       };
+                   };
+                 if (iPaxItem2==ne.pax.end())
+                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                     if (iPaxItem2->seat.line==0)
+                     {
+                       iPaxItem2->seat=i->first;
+                       break;
+                     };
+              };
+            };
+
+          };
+          continue;
+        };
+
+        if (strcmp(iRemItem->code,"DOCS")==0)
+        {
+          if (ne.pax.size()==1)
+          {
+            TDocItem doc;
+            if (ParseDOCSRem(tlg,iRemItem->text,doc))
+            {
+              //проверим документ РМ
+              try
+              {
+                TGenderTypesRow &row=(TGenderTypesRow&)(base_tables.get("gender_types").get_row("code/code_lat",doc.gender));
+                if (row.pr_inf)
+                {
+                  if (ne.pax.begin()->inf.size()==1)
+                  {
+                    ne.pax.begin()->inf.begin()->doc.push_back(doc);
+                    ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
+                    iRemItem->text.clear();
+                  };
+                }
+                else
+                {
+                  ne.pax.begin()->doc.push_back(doc);
+                  ne.pax.begin()->rem.push_back(*iRemItem);
+                  iRemItem->text.clear();
+                };
+              }
+              catch(EBaseTableError) {};
+            };
+          };
+          continue;
+        };
+
+        if (strcmp(iRemItem->code,"TKNA")==0||
+            strcmp(iRemItem->code,"TKNE")==0)
+        {
+          if (ne.pax.size()==1)
+          {
+            TTKNItem tkn;
+            if (ParseTKNRem(tlg,iRemItem->text,tkn))
+            {
+              //проверим билет РМ
+              if (tkn.pr_inf)
+              {
+                if (ne.pax.begin()->inf.size()==1)
+                {
+                  //только если у пассажира один infant - знаем что билет относится к нему
+                  ne.pax.begin()->inf.begin()->tkn.push_back(tkn);
+                  ne.pax.begin()->inf.begin()->rem.push_back(*iRemItem);
+                  iRemItem->text.clear();
+                };
+              }
+              else
+              {
+                ne.pax.begin()->tkn.push_back(tkn);
+                ne.pax.begin()->rem.push_back(*iRemItem);
+                iRemItem->text.clear();
+              };
+
+            };
+          };
+          continue;
+        };
+
+        if (strcmp(iRemItem->code,"FQTV")==0||
+            strcmp(iRemItem->code,"FQTR")==0||
+            strcmp(iRemItem->code,"FQTU")==0||
+            strcmp(iRemItem->code,"FQTS")==0)
+        {
+          if (ne.pax.size()==1)
+          {
+            TFQTItem fqt;
+            if (ParseFQTRem(tlg,iRemItem->text,fqt))
+            {
+              ne.pax.begin()->fqt.push_back(fqt);
+              ne.pax.begin()->rem.push_back(*iRemItem);
+              iRemItem->text.clear();
+            };
+          };
+          continue;
+        };
       };
-      continue;
     };
   };
-
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
   {
     if (iRemItem->text.empty())
@@ -2637,6 +2666,659 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
     else
       iRemItem++;
   };
+
+  //раскидаем непривязанных РМ
+  for(vector<TInfItem>::iterator iInfItem=infs.begin();iInfItem!=infs.end();iInfItem++)
+  {
+    for(int k=0;k<=3;k++)
+    {
+      //0. привязываем к первому ВЗ свободному от inf
+      //1. привязываем к первому ВЗ
+      //2. привязываем к первому свободному от inf
+      //3. привязываем к первому
+      for(vector<TPaxItem>::iterator i=ne.pax.begin();i!=ne.pax.end();i++)
+      {
+        if (k==0 && i->pers_type==adult && i->inf.empty() ||
+            k==1 && i->pers_type==adult ||
+            k==2 && i->inf.empty() ||
+            k==3)
+        {
+          i->inf.push_back(*iInfItem);
+          break;
+        };
+      };
+    };
+  };
+};
+
+bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
+{
+  char c;
+  int res;
+  char rem_code[6];
+  pair<char[4],char[4]> row;
+  pair<char,char> line;
+
+  char *p=(char*)rem_text.c_str();
+
+  seats.clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(rem_code,"EXST")==0||
+      strcmp(rem_code,"GPST")==0||
+      strcmp(rem_code,"RQST")==0||
+      strcmp(rem_code,"SEAT")==0||
+      strcmp(rem_code,"NSST")==0||
+      strcmp(rem_code,"NSSA")==0||
+      strcmp(rem_code,"NSSB")==0||
+      strcmp(rem_code,"NSSW")==0||
+      strcmp(rem_code,"SMST")==0||
+      strcmp(rem_code,"SMSA")==0||
+      strcmp(rem_code,"SMSB")==0||
+      strcmp(rem_code,"SMSW")==0)
+  {
+    while((p=tlg.GetLexeme(p))!=NULL)
+    {
+
+      //проверим диапазон
+      c=0;
+      res=sscanf(tlg.lex,"%3[0-9]%c-%3[0-9]%c%c",
+                 row.first,&line.first,
+                 row.second,&line.second,
+                 &c);
+      if (c==0&&res==4)
+      {
+        TSeatRange seatr;
+        if (StrToInt(row.first,seatr.first.row)==EOF ||
+            StrToInt(row.second,seatr.second.row)==EOF ||
+            (seatr.first.line=GetSalonLine(line.first))==0 ||
+            (seatr.second.line=GetSalonLine(line.second))==0) continue;
+
+        strcpy(seatr.first.rem,rem_code);
+        strcpy(seatr.second.rem,rem_code);
+        seats.push_back(seatr);
+        continue;
+      };
+
+      //проверим ROW
+      c=0;
+      *lexh=0;
+      res=sscanf(tlg.lex,"%3[0-9]%[ROW]%c",row.first,lexh,&c);
+      if (c==0&&res==2&&strcmp(lexh,"ROW")==0)
+      {
+        TSeat seat;
+        strcpy(seat.rem,rem_code);
+        if (StrToInt(row.first,seat.row)==EOF) continue;
+
+        TSeatRange seatr(seat,seat);
+        seats.push_back(seatr);
+        continue;
+      };
+
+      //проверим перечисление
+      bool pr_parse=true;
+      vector<TSeat> seatsh;
+      do
+      {
+        TSeat seat;
+        strcpy(seat.rem,rem_code);
+        *row.first=0;
+        *lexh=0;
+        res=sscanf(tlg.lex,"%3[0-9]%[A-ZА-ЯЁ]%s",row.first,lexh,tlg.lex);
+        if (res<2||*row.first==0||*lexh==0||
+            StrToInt(row.first,seat.row)==EOF)
+        {
+          pr_parse=false;
+          break;
+        };
+        char *pline=lexh;
+        for(;*pline!=0;pline++)
+        {
+          if ((seat.line=GetSalonLine(*pline))==0) break;
+          seatsh.push_back(seat);
+        };
+        if (*pline!=0)
+        {
+          pr_parse=false;
+          break;
+        };
+      }
+      while(res==3);
+      if (pr_parse)
+      {
+        for(vector<TSeat>::iterator i=seatsh.begin();i!=seatsh.end();i++)
+        {
+          TSeatRange seatr(*i,*i);
+          seats.push_back(seatr);
+        };
+      };
+    };
+    return true;
+  };
+  return false;
+};
+
+bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
+{
+  char c;
+  int res;
+  char rem_code[7],numh[4];
+
+  char *p=(char*)rem_text.c_str();
+
+  chd.clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%6[A-ZА-ЯЁ0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  int num=1;
+  if (strcmp(rem_code,"CHD")==0)
+  {
+    *numh=0;
+    sscanf(rem_code,"%3[0-9]%s",numh,rem_code);
+    if (*numh!=0)
+    {
+      StrToInt(numh,num);
+      if (num<=0) num=1;
+    };
+  };
+
+  if (strcmp(rem_code,"CHD")==0||
+      strcmp(rem_code,"CHLD")==0)
+  {
+    vector<string> names;
+    vector<string>::iterator i;
+    while((p=tlg.GetLexeme(p))!=NULL)
+    {
+      try
+      {
+        ParseNameElement(tlg,tlg.lex,names,epNone);
+      }
+      catch(ETlgError &E)
+      {
+        continue;
+      };
+      for(i=names.begin();i!=names.end();i++)
+        if (i->empty()) break;
+      if (i!=names.end()) continue;
+      for(i=names.begin();i!=names.end();i++)
+      {
+        if (i!=names.begin())
+        {
+          TChdItem chdItem(*names.begin(),*i);
+          chd.push_back(chdItem);
+        };
+      };
+    };
+    return true;
+  };
+
+  return false;
+};
+
+
+bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
+{
+  char c;
+  int res;
+  char rem_code[7],numh[4];
+
+  char *p=(char*)rem_text.c_str();
+
+  inf.clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%6[A-ZА-ЯЁ0-9]%c",rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+
+  int num=1;
+  if (strcmp(rem_code,"INF")==0)
+  {
+    *numh=0;
+    sscanf(rem_code,"%3[0-9]%s",numh,rem_code);
+    if (*numh!=0)
+    {
+      StrToInt(numh,num);
+      if (num<=0) num=1;
+    };
+  };
+
+  if (strcmp(rem_code,"INF")==0||
+      strcmp(rem_code,"INFT")==0)
+  {
+    vector<string> names;
+    vector<string>::iterator i;
+    while((p=tlg.GetLexeme(p))!=NULL)
+    {
+      try
+      {
+        ParseNameElement(tlg,tlg.lex,names,epNone);
+      }
+      catch(ETlgError &E)
+      {
+        continue;
+      };
+      if ((int)names.size()!=num+1) continue;
+      for(i=names.begin();i!=names.end();i++)
+        if (i->empty()) break;
+      if (i!=names.end()) continue;
+      for(i=names.begin();i!=names.end();i++)
+      {
+        if (i!=names.begin())
+        {
+          TInfItem infItem;
+          infItem.surname=*names.begin();
+          infItem.name=*i;
+          inf.push_back(infItem);
+        };
+      };
+      break;
+    };
+
+    for(int i=inf.size();i<num;i++)
+    {
+      //добавим пустых младенцев по кол-ву num
+      TInfItem infItem;
+      inf.push_back(infItem);
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  doc.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",doc.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(doc.rem_code,"DOCS")==0)
+  {
+    for(k=0;k<=11;k++)
+    try
+    {
+      try
+      {
+        p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=11) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",doc.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.type,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetNsiCode(doc.type,ntPaxDocTypes,doc.type);
+            break;
+          case 2:
+          case 4:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            if (k==2)
+              GetNsiCode(lexh,ntCountries,doc.issue_country);
+            else
+              GetNsiCode(lexh,ntCountries,doc.nationality);
+            break;
+          case 3:
+            res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 5:
+            if (StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,false)==EOF)
+              throw ETlgError("Wrong format");
+            break;
+          case 6:
+            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetNsiCode(doc.gender,ntGenderTypes,doc.gender);
+            break;
+          case 7:
+            if (StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",doc.expiry_date,false)==EOF)
+              throw ETlgError("Wrong format");
+            break;
+          case 8:
+            doc.surname=tlg.lex;
+            break;
+          case 9:
+            doc.first_name=tlg.lex;
+            break;
+          case 10:
+            doc.second_name=tlg.lex;
+            break;
+          case 11:
+            res=sscanf(tlg.lex,"%1[H]%c",lexh,&c);
+            if (c!=0||res!=2||strcmp(lexh,"H")!=0) throw ETlgError("Wrong format");
+            doc.pr_multi=true;
+            break;
+        }
+      }
+      catch(logic_error &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doc.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            *doc.type=0;
+            throw ETlgError("document type: %s",E.what());
+          case 2:
+            *doc.issue_country=0;
+            throw ETlgError("document issuing country/state: %s",E.what());
+          case 3:
+            *doc.no=0;
+            throw ETlgError("travel document number: %s",E.what());
+          case 4:
+            *doc.nationality=0;
+            throw ETlgError("passenger nationality: %s",E.what());
+          case 5:
+            doc.birth_date=NoExists;
+            throw ETlgError("date of birth: %s",E.what());
+          case 6:
+            *doc.gender=0;
+            throw ETlgError("gender code: %s",E.what());
+          case 7:
+            doc.expiry_date=NoExists;;
+            throw ETlgError("travel document expiry date: %s",E.what());
+          case 8:
+            doc.surname.clear();
+            throw ETlgError("travel document surname: %s",E.what());
+          case 9:
+            doc.first_name.clear();
+            throw ETlgError("travel document first given name: %s",E.what());
+          case 10:
+            doc.second_name.clear();
+            throw ETlgError("travel document second given name: %s",E.what());
+          case 11:
+            doc.pr_multi=false;
+            throw ETlgError("multi-passenger passport holder indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",doc.rem_code,E.what());
+    };
+    return true;
+  };
+
+  if (strcmp(doc.rem_code,"PSPT")==0)
+  {
+    for(k=0;k<=7;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=7) break;
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        if (*tlg.lex==0) continue;
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",doc.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9 ]%c",doc.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",lexh,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetNsiCode(lexh,ntCountries,doc.issue_country);
+            break;
+          case 3:
+            if (StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,false)==EOF)
+              throw ETlgError("Wrong format");
+            break;
+          case 4:
+            doc.surname=tlg.lex;
+            break;
+          case 5:
+            doc.first_name=tlg.lex;
+            break;
+          case 6:
+            res=sscanf(tlg.lex,"%2[A-Z]%c",doc.gender,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            GetNsiCode(doc.gender,ntGenderTypes,doc.gender);
+            break;
+          case 7:
+            res=sscanf(tlg.lex,"%1[H]%c",lexh,&c);
+            if (c!=0||res!=2||strcmp(lexh,"H")!=0) throw ETlgError("Wrong format");
+            doc.pr_multi=true;
+            break;
+        }
+      }
+      catch(logic_error &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *doc.rem_status=0;
+            throw ETlgError("action/status code: %s",E.what());
+          case 1:
+            *doc.no=0;
+            throw ETlgError("passport number: %s",E.what());
+          case 2:
+            *doc.issue_country=0;
+            throw ETlgError("country code: %s",E.what());
+          case 3:
+            doc.birth_date=NoExists;
+            throw ETlgError("date of birth: %s",E.what());
+          case 4:
+            doc.surname.clear();
+            throw ETlgError("surname: %s",E.what());
+          case 5:
+            doc.first_name.clear();
+            throw ETlgError("name: %s",E.what());
+          case 6:
+            *doc.gender=0;
+            throw ETlgError("gender code: %s",E.what());
+          case 7:
+            doc.pr_multi=false;
+            throw ETlgError("multi-passenger passport holder indicator: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",doc.rem_code,E.what());
+    };
+    return true;
+  };
+
+  return false;
+};
+
+bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  tkn.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",tkn.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(tkn.rem_code,"TKNA")==0||
+      strcmp(tkn.rem_code,"TKNE")==0)
+  {
+    for(k=0;k<=2;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL && k>=2 && strcmp(tkn.rem_code,"TKNA")==0) break; //купон не обязателен для TKNA
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%2[A-Z]%1[1]%c",tkn.rem_status,lexh,&c);
+            if (c!=0||res!=2) throw ETlgError("Wrong format");
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"INF%15[A-ZА-ЯЁ0-9]%c",tkn.ticket_no,&c);
+            if (c!=0||res!=1)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%15[A-ZА-ЯЁ0-9]%c",tkn.ticket_no,&c);
+              if (c!=0||res!=1) throw ETlgError("Wrong format");
+              tkn.pr_inf=false;
+            }
+            else
+              tkn.pr_inf=true;
+            break;
+          case 2:
+            res=sscanf(tlg.lex,"%1[0-9]%c",lexh,&c);
+            if (c!=0||res!=2||StrToInt(lexh,tkn.coupon_no)==EOF) throw ETlgError("Wrong format");
+            break;
+        };
+      }
+      catch(logic_error &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *tkn.rem_status=0;
+            throw ETlgError("status code: %s",E.what());
+          case 1:
+            *tkn.ticket_no=0;
+            tkn.pr_inf=false;
+            throw ETlgError("ticket number: %s",E.what());
+          case 2:
+            tkn.coupon_no=0;
+            throw ETlgError("coupon number: %s",E.what());
+        };
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",tkn.rem_code,E.what());
+      return false;
+    };
+
+    return true;
+  };
+  return false;
+};
+
+bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  fqt.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",fqt.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(fqt.rem_code,"FQTV")==0||
+      strcmp(fqt.rem_code,"FQTR")==0||
+      strcmp(fqt.rem_code,"FQTU")==0||
+      strcmp(fqt.rem_code,"FQTS")==0)
+  {
+    for(k=0;k<=1;k++)
+    try
+    {
+      try
+      {
+        if (k==0)
+          p=tlg.GetLexeme(p);
+        else
+          p=tlg.GetSlashedLexeme(p);
+        if (p==NULL) throw ETlgError("Lexeme not found");
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",fqt.airline,&c);
+            if (c!=0||res!=1)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c",fqt.airline,&c);
+              if (c!=0||res!=1) throw ETlgError("Wrong format");
+            };
+            GetAirline(fqt.airline);
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%25[A-ZА-ЯЁ0-9]%c",fqt.no,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong format");
+            fqt.extra=Trim(p);
+            break;
+        };
+      }
+      catch(logic_error &E)
+      {
+        switch(k)
+        {
+          case 0:
+            *fqt.airline=0;
+            throw ETlgError("airline: %s",E.what());
+          case 1:
+            *fqt.no=0;
+            throw ETlgError("frequent traveller number/identification: %s",E.what());
+        };
+
+      };
+    }
+    catch(ETlgError &E)
+    {
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",fqt.rem_code,E.what());
+      return false;
+    };
+
+    return true;
+  };
+  return false;
 };
 
 TTlgParts GetParts(char* tlg_p)
@@ -3205,13 +3887,14 @@ void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con)
   };
 };
 
-void SavePNLADLRemarks(int pax_id, std::vector<TRemItem> &rem)
+void SavePNLADLRemarks(int pax_id, vector<TRemItem> &rem)
 {
+  if (rem.empty()) return;
   TQuery CrsPaxRemQry(&OraSession);
   CrsPaxRemQry.Clear();
   CrsPaxRemQry.SQLText=
-    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code)\
-     VALUES(:pax_id,:rem,:rem_code)";
+    "INSERT INTO crs_pax_rem(pax_id,rem,rem_code) "
+    "VALUES(:pax_id,:rem,:rem_code)";
   CrsPaxRemQry.DeclareVariable("pax_id",otInteger);
   CrsPaxRemQry.DeclareVariable("rem",otString);
   CrsPaxRemQry.DeclareVariable("rem_code",otString);
@@ -3225,6 +3908,104 @@ void SavePNLADLRemarks(int pax_id, std::vector<TRemItem> &rem)
     CrsPaxRemQry.SetVariable("rem",iRemItem->text);
     CrsPaxRemQry.SetVariable("rem_code",iRemItem->code);
     CrsPaxRemQry.Execute();
+  };
+};
+
+void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
+{
+  if (doc.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_doc "
+    "  (pax_id,rem_code,rem_status,type,issue_country,no,nationality, "
+    "   birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi) "
+    "VALUES "
+    "  (:pax_id,:rem_code,:rem_status,:type,:issue_country,:no,:nationality, "
+    "   :birth_date,:gender,:expiry_date,:surname,:first_name,:second_name,:pr_multi) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_code",otString);
+  Qry.DeclareVariable("rem_status",otString);
+  Qry.DeclareVariable("type",otString);
+  Qry.DeclareVariable("issue_country",otString);
+  Qry.DeclareVariable("no",otString);
+  Qry.DeclareVariable("nationality",otString);
+  Qry.DeclareVariable("birth_date",otDate);
+  Qry.DeclareVariable("gender",otString);
+  Qry.DeclareVariable("expiry_date",otDate);
+  Qry.DeclareVariable("surname",otString);
+  Qry.DeclareVariable("first_name",otString);
+  Qry.DeclareVariable("second_name",otString);
+  Qry.DeclareVariable("pr_multi",otInteger);
+  for(vector<TDocItem>::iterator i=doc.begin();i!=doc.end();i++)
+  {
+    Qry.SetVariable("rem_code",i->rem_code);
+    Qry.SetVariable("rem_status",i->rem_status);
+    Qry.SetVariable("type",i->type);
+    Qry.SetVariable("issue_country",i->issue_country);
+    Qry.SetVariable("no",i->no);
+    Qry.SetVariable("nationality",i->nationality);
+    Qry.SetVariable("birth_date",i->birth_date);
+    Qry.SetVariable("gender",i->gender);
+    Qry.SetVariable("expiry_date",i->expiry_date);
+    if (i->surname.size()>64) i->surname.erase(64);
+    Qry.SetVariable("surname",i->surname);
+    if (i->first_name.size()>64) i->first_name.erase(64);
+    Qry.SetVariable("first_name",i->first_name);
+    if (i->second_name.size()>64) i->second_name.erase(64);
+    Qry.SetVariable("second_name",i->second_name);
+    Qry.SetVariable("pr_multi",(int)i->pr_multi);
+    Qry.Execute();
+  };
+};
+
+void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
+{
+  if (tkn.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_tkn "
+    "  (pax_id,rem_code,ticket_no,coupon_no,pr_inf) "
+    "VALUES "
+    "  (:pax_id,:rem_code,:ticket_no,:coupon_no,:pr_inf) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_code",otString);
+  Qry.DeclareVariable("ticket_no",otString);
+  Qry.DeclareVariable("coupon_no",otInteger);
+  Qry.DeclareVariable("pr_inf",otInteger);
+  for(vector<TTKNItem>::iterator i=tkn.begin();i!=tkn.end();i++)
+  {
+    Qry.SetVariable("rem_code",i->rem_code);
+    Qry.SetVariable("ticket_no",i->ticket_no);
+    Qry.SetVariable("coupon_no",i->coupon_no);
+    Qry.SetVariable("pr_inf",(int)i->pr_inf);
+    Qry.Execute();
+  };
+};
+
+void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
+{
+  if (fqt.empty()) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO crs_pax_fqt "
+    "  (pax_id,rem_code,airline,no,extra) "
+    "VALUES "
+    "  (:pax_id,:rem_code,:airline,:no,:extra) ";
+  Qry.CreateVariable("pax_id",otInteger,pax_id);
+  Qry.DeclareVariable("rem_code",otString);
+  Qry.DeclareVariable("airline",otString);
+  Qry.DeclareVariable("no",otString);
+  Qry.DeclareVariable("extra",otString);
+  for(vector<TFQTItem>::iterator i=fqt.begin();i!=fqt.end();i++)
+  {
+    Qry.SetVariable("rem_code",i->rem_code);
+    Qry.SetVariable("airline",i->airline);
+    Qry.SetVariable("no",i->no);
+    Qry.SetVariable("extra",i->extra);
+    Qry.Execute();
   };
 };
 
@@ -3600,6 +4381,13 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
 
+        TQuery CrsInfInsQry(&OraSession);
+        CrsInfInsQry.Clear();
+        CrsInfInsQry.SQLText=
+          "INSERT INTO crs_inf(inf_id,pax_id) VALUES(:inf_id,:pax_id)";
+        CrsInfInsQry.DeclareVariable("pax_id",otInteger);
+        CrsInfInsQry.DeclareVariable("inf_id",otInteger);
+
         TQuery CrsTransferQry(&OraSession);
         CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
@@ -3820,7 +4608,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   if (iPaxItem->seat.line!=0)
                   {
                     char buf[20];
-                    sprintf(buf,"%lu%c",iPaxItem->seat.row,iPaxItem->seat.line);
+                    sprintf(buf,"%d%c",iPaxItem->seat.row,iPaxItem->seat.line);
                     CrsPaxInsQry.SetVariable("seat_no",buf);
                   }
                   else
@@ -3842,7 +4630,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 pax_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
                 if (ne.indicator==CHG||ne.indicator==DEL)
                 {
-                  //младенцы без мест
+                  //удаляем все по пассажиру
                   Qry.Clear();
                   Qry.SQLText=
                     "DECLARE "
@@ -3852,15 +4640,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "  FOR curRow IN cur LOOP "
                     "    DELETE FROM crs_inf WHERE inf_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax_rem WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_doc WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_tkn WHERE pax_id=curRow.inf_id; "
+                    "    DELETE FROM crs_pax_fqt WHERE pax_id=curRow.inf_id; "
                     "    DELETE FROM crs_pax WHERE pax_id=curRow.inf_id; "
                     "  END LOOP; "
+                    "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
+                    "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "END;";
-                  Qry.CreateVariable("pax_id",otInteger,pax_id);
-                  Qry.Execute();
-                  //ремарки
-                  //удаляем все ремарки этого пассажира
-                  Qry.Clear();
-                  Qry.SQLText="DELETE FROM crs_pax_rem WHERE pax_id= :pax_id";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
                 };
@@ -3868,11 +4657,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 {
                   //обработка младенцев
                   int inf_id;
-                  Qry.Clear();
-                  Qry.SQLText=
-                    "INSERT INTO crs_inf(inf_id,pax_id) VALUES(:inf_id,:pax_id)";
-                  Qry.CreateVariable("pax_id",otInteger,pax_id);
-                  Qry.DeclareVariable("inf_id",otInteger);
 
                   CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
                   CrsPaxInsQry.SetVariable("seat_no",FNull);
@@ -3881,6 +4665,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   CrsPaxInsQry.SetVariable("pr_del",0);
                   CrsPaxInsQry.SetVariable("last_op",info.time_create);
                   //младенцы пассажира
+                  CrsInfInsQry.SetVariable("pax_id",pax_id);
                   for(iInfItem=iPaxItem->inf.begin();iInfItem!=iPaxItem->inf.end();iInfItem++)
                   {
                     CrsPaxInsQry.SetVariable("pax_id",FNull);
@@ -3888,29 +4673,18 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     CrsPaxInsQry.SetVariable("name",iInfItem->name);
                     CrsPaxInsQry.Execute();
                     inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
-                    Qry.SetVariable("inf_id",inf_id);
-                    Qry.Execute();
-                    SavePNLADLRemarks(inf_id,iPaxItem->inf_rem);
-                    SavePNLADLRemarks(inf_id,ne.inf_rem);
+                    CrsInfInsQry.SetVariable("inf_id",inf_id);
+                    CrsInfInsQry.Execute();
+                    SavePNLADLRemarks(inf_id,iInfItem->rem);
+                    SaveDOCSRem(inf_id,iInfItem->doc);
+                    SaveTKNRem(inf_id,iInfItem->tkn);
                   };
 
-                  //младенцы, не привязанные к пассажиру - привязываем к первому в NameElement
-                  if (iPaxItem==ne.pax.begin())
-                  {
-                    for(iInfItem=ne.inf.begin();iInfItem!=ne.inf.end();iInfItem++)
-                    {
-                      CrsPaxInsQry.SetVariable("pax_id",FNull);
-                      CrsPaxInsQry.SetVariable("surname",iInfItem->surname);
-                      CrsPaxInsQry.SetVariable("name",iInfItem->name);
-                      CrsPaxInsQry.Execute();
-                      inf_id=CrsPaxInsQry.GetVariableAsInteger("pax_id");
-                      Qry.SetVariable("inf_id",inf_id);
-                      Qry.Execute();
-                      SavePNLADLRemarks(inf_id,ne.inf_rem);
-                    };
-                  };
                   //ремарки пассажира
                   SavePNLADLRemarks(pax_id,iPaxItem->rem);
+                  SaveDOCSRem(pax_id,iPaxItem->doc);
+                  SaveTKNRem(pax_id,iPaxItem->tkn);
+                  SaveFQTRem(pax_id,iPaxItem->fqt);
                   //ремарки, не привязанные к пассажиру
                   SavePNLADLRemarks(pax_id,ne.rem);
                 };
