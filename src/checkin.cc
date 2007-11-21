@@ -1550,7 +1550,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
   
-  TQuery CrsQry(&OraSession)
+  TQuery CrsQry(&OraSession);
   CrsQry.Clear();
   CrsQry.SQLText=
     "DECLARE "
@@ -1559,7 +1559,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi "
     "    FROM crs_pax_doc "
     "    WHERE pax_id=:pax_id "
-    "    ORDER BY ... "
+    "--    ORDER BY ... "
     "  row1 cur1%ROWTYPE; "
     "  CURSOR cur2 IS "
     "    SELECT airline,no,extra "
@@ -1594,7 +1594,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "      prior_airline:=row2.airline; "  
     "    END IF; "
     "  END LOOP; "
-    "END;"  
+    "END;";
   CrsQry.DeclareVariable("pax_id",otInteger);   
     
 
