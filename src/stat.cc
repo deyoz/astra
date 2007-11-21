@@ -1012,7 +1012,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
             "       ev_user, station, ev_order "
             "FROM events "
-            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
             "      events.id1 = :point_id ";
     } else {    
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
@@ -1025,7 +1025,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM arx_events "
             "WHERE "
             "      arx_events.part_key = :part_key and "
-            "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
+            "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
             "      arx_events.id1 = :point_id ";
         Qry.CreateVariable("part_key", otDate, part_key);
     }
@@ -1035,6 +1035,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
     Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
     Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
     Qry.CreateVariable("point_id", otInteger, point_id);
 
     TPerfTimer tm;
