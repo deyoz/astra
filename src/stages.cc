@@ -12,6 +12,7 @@
 #include "xml_unit.h"
 #include "telegram.h"
 #include "astra_service.h"
+#include "timer.h"
 
 using namespace std;
 using namespace BASIC;
@@ -93,7 +94,7 @@ void TTripStages::ParseStages( xmlNodePtr node, TMapTripStages &ts )
 
 void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 {
-	TReqInfo *reqInfo = TReqInfo::Instance();		
+	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
   Qry.SQLText =
    "SELECT airp FROM points WHERE points.point_id=:point_id";
@@ -154,7 +155,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
         throw UserException( "Фактическое время выполнения шага '%s' в пункте %s не определено однозначно",
                              TStagesRules::Instance()->Graph_Stages[ i->first ].c_str(),
                              airp.c_str() );
-      }       
+      }
      int pr_manual;
      if ( i->second.est == i->second.old_est )
        pr_manual = -1;
@@ -633,7 +634,7 @@ void Takeoff( int point_id )
 	  "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-	
+
   vector<string> tlg_types;
   tlg_types.push_back("PTM");
   tlg_types.push_back("BTM");
@@ -642,6 +643,8 @@ void Takeoff( int point_id )
   tlg_types.push_back("FTL");
   tlg_types.push_back("PRL");
   tlg_types.push_back("ETL");
-  TelegramInterface::SendTlg(point_id,tlg_types);  	
+  TelegramInterface::SendTlg(point_id,tlg_types);
+
+  create_czech_police_file(point_id);
 }
 

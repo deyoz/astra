@@ -9,6 +9,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist);
 #include "basic.h"
 void ETCheckStatusFlt(void);
 void sync_mvd(void);
+void create_czech_police_file(int point_id);
 void createSPP( BASIC::TDateTime utcdate );
 void exec_tasks( void );
 void arx_daily( BASIC::TDateTime utcdate );
