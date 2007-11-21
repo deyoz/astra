@@ -1538,6 +1538,54 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   map<int,string> norms;
 
   bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
+  
+  TQuery CrsQry(&OraSession)
+  CrsQry.Clear();
+  CrsQry.SQLText=
+    "DECLARE "
+    "  CURSOR cur1 IS "
+    "    SELECT type,issue_country,no,nationality, "
+    "           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi "
+    "    FROM crs_pax_doc "
+    "    WHERE pax_id=:pax_id "
+    "    ORDER BY ... "
+    "  row1 cur1%ROWTYPE; "
+    "  CURSOR cur2 IS "
+    "    SELECT airline,no,extra "
+    "    FROM crs_pax_fqt "
+    "    WHERE pax_id=:pax_id "
+    "    ORDER BY airline,no,extra; "
+    "  row2 cur2%ROWTYPE; "  
+    "  prior_airline crs_pax_fqt.airline%TYPE; "
+    "BEGIN "
+    "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
+    "  DELETE FROM pax_fqt WHERE pax_id=:pax_id; "
+    "  OPEN cur1; "
+    "  FETCH cur1 INTO row1; "
+    "  IF cur1%FOUND THEN "
+    "    INSERT INTO pax_doc "
+    "      (pax_id,type,issue_country,no,nationality, "
+    "       birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi) "
+    "    VALUES "
+    "      (:pax_id,row1.type,row1.issue_country,row1.no,row1.nationality, "
+    "       row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi); "
+    "  END IF; "
+    "  CLOSE cur1; "
+    "  prior_airline:=NULL; "
+    "  FOR row2 IN cur2 LOOP "
+    "    IF prior_airline=row2.airline THEN "
+    "      NULL; "
+    "    ELSE " 
+    "      INSERT INTO pax_fqt "
+    "        (pax_id,airline,no,extra) "
+    "      VALUES "
+    "        (:pax_id,row2.airline,row2.no,row2.extra); "
+    "      prior_airline:=row2.airline; "  
+    "    END IF; "
+    "  END LOOP; "
+    "END;"  
+  CrsQry.DeclareVariable("pax_id",otInteger);   
+    
 
   //определим - новая регистрация или запись изменений
   xmlNodePtr node,node2,remNode;
@@ -1775,8 +1823,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
 
       Qry.Clear();
-      Qry.SQLText=
-        "BEGIN "
+      Qry.SQLText=        
+        "BEGIN "        
         "  IF :pax_id IS NULL THEN "
         "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
         "  END IF; "
@@ -1851,8 +1899,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             else
               throw;
           };
-          ReplaceTextChild(node,"pax_id",Qry.GetVariableAsInteger("pax_id"));
-
+          int pax_id=Qry.GetVariableAsInteger("pax_id");
+          ReplaceTextChild(node,"pax_id",pax_id);
+          
+          CrsQry.SetVariable("pax_id",pax_id);
+          CrsQry.Execute();          
           //запись ремарок
           SavePaxRem(node);
           //запись норм
@@ -2040,6 +2091,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
                                           " производились с другой стойки. Обновите данные");
           };
+          CrsQry.SetVariable("pax_id",pax_id);
+          CrsQry.Execute();          
           //запись ремарок
           SavePaxRem(node);
           //запись норм
