@@ -19,9 +19,11 @@ using namespace EXCEPTIONS;
 
 #define WAIT_INTERVAL           10      //seconds
 #define TLG_SCAN_INTERVAL       60   	  //seconds
+#define TLG_BIND_INTERVAL       60   	  //seconds
 #define SCAN_COUNT             100      //кол-во разбираемых телеграмм за одно сканирование
 
 static void handle_tlg(void);
+static void bind_tlg(void);
 
 int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
@@ -33,6 +35,7 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
             ->connect_db();
 
     time_t scan_time=0;
+    time_t bind_time=0;
     char buf[10];
     for(;;)
     {
@@ -41,6 +44,12 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         base_tables.Invalidate();
         handle_tlg();
         scan_time=time(NULL);
+      };
+      if (time(NULL)-bind_time>=TLG_BIND_INTERVAL)
+      {
+        base_tables.Invalidate();
+        bind_tlg();
+        bind_time=time(NULL);
       };
       if (waitCmd("CMD_TYPEB_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
       {
@@ -331,18 +340,22 @@ void handle_tlg(void)
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! handle_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
+  return;
+};
 
-
-  time_start=time(NULL);
+void bind_tlg(void)
+{
+  time_t time_start=time(NULL);
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT point_id,airline,flt_no,suffix,scd,pr_utc,airp_dep,airp_arv,bind_type "
     "FROM tlg_binding,tlg_trips "
     "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
-    "      tlg_binding.point_id_spp IS NULL ";
+    "      tlg_binding.point_id_spp IS NULL AND "
+    "      scd>=TRUNC(system.UTCSYSDATE)-3";
   Qry.Execute();
 
-  count=0;
+  int count=0;
   for(;!Qry.Eof;Qry.Next(),count++)
   {
     if (bind_tlg(Qry))
@@ -350,10 +363,11 @@ void handle_tlg(void)
   };
   OraSession.Commit();
 
-  time_end=time(NULL);
+  time_t time_end=time(NULL);
   if (time_end-time_start>1)
     ProgTrace(TRACE5,"Attention! bind_tlg execute time: %ld secs, count=%d",
                      time_end-time_start,count);
+  return;
 };
 
 

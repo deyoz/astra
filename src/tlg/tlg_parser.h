@@ -580,7 +580,7 @@ class TTlgParser
     char* GetSlashedLexeme(char* p);
     char* GetToEOLLexeme(char* p);
     char* GetWord(char* p);
-    char* GetNameElement(char* p);
+    char* GetNameElement(char* p, bool trimRight);
 };
 
 TTlgCategory GetTlgCategory(char *tlg_type);

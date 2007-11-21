@@ -293,7 +293,7 @@ void create_czech_police_file(int point_id)
       "       country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-      "      point_id=:point_id AND pr_reg<>0 ";
+      "      point_id=:point_id AND points.pr_del=0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) return;
@@ -311,10 +311,9 @@ void create_czech_police_file(int point_id)
       "SELECT point_id,airp,scd_in,NVL(act_in,NVL(est_in,scd_in)) AS act_in,country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-      "      first_point=:first_point AND point_num>:point_num AND pr_reg<>0 ";
+      "      first_point=:first_point AND point_num>:point_num AND points.pr_del=0";
     PointsQry.CreateVariable("first_point",otInteger,Qry.FieldAsInteger("first_point"));
     PointsQry.CreateVariable("point_num",otInteger,Qry.FieldAsInteger("point_num"));
-    PointsQry.Execute();
 
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
@@ -334,17 +333,17 @@ void create_czech_police_file(int point_id)
     PaxQry.CreateVariable("point_dep",otInteger,point_id);
     PaxQry.DeclareVariable("point_arv",otInteger);
 
+    PointsQry.Execute();
     for(;!PointsQry.Eof;PointsQry.Next())
     {
     	if (/*strcmp(Qry.FieldAsString("country"),"–‡")!=0 &&*/
     		  strcmp(PointsQry.FieldAsString("country"),"–‡")!=0) continue;
 
-
     	TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",PointsQry.FieldAsString("airp"));
     	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",PointsQry.FieldAsString("airp"));
     	tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-      //TDateTime scd_in_local	= UTCToLocal(Qry.FieldAsDateTime("scd_in"),tz_region);
-      TDateTime act_in_local	= UTCToLocal(Qry.FieldAsDateTime("act_in"),tz_region);
+      //TDateTime scd_in_local	= UTCToLocal(PointsQry.FieldAsDateTime("scd_in"),tz_region);
+      TDateTime act_in_local	= UTCToLocal(PointsQry.FieldAsDateTime("act_in"),tz_region);
 
     	ostringstream file_name;
     	file_name << FilesQry.FieldAsString("dir")
@@ -403,7 +402,7 @@ void create_czech_police_file(int point_id)
     	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
     	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
     	    << count << ";" << ENDL
-    	    << body;
+    	    << body.str();
 
       	f.close();
       }

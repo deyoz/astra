@@ -1550,7 +1550,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   map<int,string> norms;
 
   bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
-  
+
   TQuery CrsQry(&OraSession);
   CrsQry.Clear();
   CrsQry.SQLText=
@@ -1560,14 +1560,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi "
     "    FROM crs_pax_doc "
     "    WHERE pax_id=:pax_id "
-    "--    ORDER BY ... "
+    "    ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no; "
     "  row1 cur1%ROWTYPE; "
     "  CURSOR cur2 IS "
     "    SELECT airline,no,extra "
     "    FROM crs_pax_fqt "
     "    WHERE pax_id=:pax_id "
     "    ORDER BY airline,no,extra; "
-    "  row2 cur2%ROWTYPE; "  
+    "  row2 cur2%ROWTYPE; "
     "  prior_airline crs_pax_fqt.airline%TYPE; "
     "BEGIN "
     "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
@@ -1587,17 +1587,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  FOR row2 IN cur2 LOOP "
     "    IF prior_airline=row2.airline THEN "
     "      NULL; "
-    "    ELSE " 
+    "    ELSE "
     "      INSERT INTO pax_fqt "
     "        (pax_id,airline,no,extra) "
     "      VALUES "
     "        (:pax_id,row2.airline,row2.no,row2.extra); "
-    "      prior_airline:=row2.airline; "  
+    "      prior_airline:=row2.airline; "
     "    END IF; "
     "  END LOOP; "
     "END;";
-  CrsQry.DeclareVariable("pax_id",otInteger);   
-    
+  CrsQry.DeclareVariable("pax_id",otInteger);
+
 
   //определим - новая регистрация или запись изменений
   xmlNodePtr node,node2,remNode;
@@ -1835,8 +1835,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
 
       Qry.Clear();
-      Qry.SQLText=        
-        "BEGIN "        
+      Qry.SQLText=
+        "BEGIN "
         "  IF :pax_id IS NULL THEN "
         "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
         "  END IF; "
@@ -1913,9 +1913,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           };
           int pax_id=Qry.GetVariableAsInteger("pax_id");
           ReplaceTextChild(node,"pax_id",pax_id);
-          
+
           CrsQry.SetVariable("pax_id",pax_id);
-          CrsQry.Execute();          
+          CrsQry.Execute();
           //запись ремарок
           SavePaxRem(node);
           //запись норм
@@ -2104,7 +2104,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                                           " производились с другой стойки. Обновите данные");
           };
           CrsQry.SetVariable("pax_id",pax_id);
-          CrsQry.Execute();          
+          CrsQry.Execute();
           //запись ремарок
           SavePaxRem(node);
           //запись норм

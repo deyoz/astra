@@ -122,14 +122,20 @@ char* TTlgParser::GetWord(char* p)
   else return p+len;
 };
 
-char* TTlgParser::GetNameElement(char* p) //до первой точки на строке
+char* TTlgParser::GetNameElement(char* p, bool trimRight) //до первой точки на строке
 {
   int len;
   if (p==NULL) return NULL;
   for(;*p>0&&*p<=' '&&*p!='\n';p++);
   for(len=0;*(p+len)!=0&&*(p+len)!='\n';len++)
     if (*(unsigned char*)(p+len)<=' '&&*(p+len+1)=='.') break;
-  for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  if (trimRight)
+    //удаляем пустые символы с конца лексемы
+    for(len--;len>=0&&*(unsigned char*)(p+len)<=' ';len--);
+  else
+    //удаляем символы с конца лексемы кроме пробелов
+    for(len--;len>=0&&*(unsigned char*)(p+len)<' ';len--);
+
   len++;
   if (len>(int)sizeof(lex)-1)
     throw ETlgError("Too long lexeme");
@@ -1792,7 +1798,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
           {
             if (!(tlg.lex[0]=='.'&&e_part>2))
             {
-              if ((p=tlg.GetNameElement(line_p))==NULL) continue;
+              if ((p=tlg.GetNameElement(line_p,true))==NULL) continue;
 
               char grp_ref[3];
               long grp_seats;
@@ -1863,7 +1869,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
             }
             else p=line_p;
 
-            while ((p=tlg.GetNameElement(p))!=NULL)
+            while ((p=tlg.GetNameElement(p,false))!=NULL)
             {
               ParsePaxLevelElement(tlg,con.flt,*iPnrItem,pr_prev_rem);
             };
@@ -1947,16 +1953,14 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
       ne.rem.push_back(TRemItem());
 
     TRemItem& RemItem=ne.rem.back();
-    if (!RemItem.text.empty())
-    {
-      c=RemItem.text.at(RemItem.text.size()-1);
-      if ((IsUpperLetter(c)||IsDigit(c))&&
-          (IsUpperLetter(tlg.lex[4])||IsDigit(tlg.lex[4])))
-        RemItem.text+=" ";
-    };
     RemItem.text+=tlg.lex+4;
     return;
   };
+
+  //сделаем trimRight если не относится к ремаркам
+  for(int len=strlen(tlg.lex);len>=0&&*(unsigned char*)(tlg.lex+len)<=' ';len--)
+    *(tlg.lex+len)=0;
+
   pr_prev_rem=false;
   if (strcmp(lexh,"C")==0)
   {
@@ -2211,6 +2215,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
   vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
   {
+    TrimString(iRemItem->text);
     if (iRemItem->text.empty()) continue;
     p=tlg.GetWord((char*)iRemItem->text.c_str());
     c=0;
@@ -2961,7 +2966,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
       try
       {
         p=tlg.GetSlashedLexeme(p);
-        if (p==NULL && k>=11) break;
+        if (p==NULL && k>=10) break;
         if (p==NULL) throw ETlgError("Lexeme not found");
         if (*tlg.lex==0) continue;
         c=0;
@@ -3065,7 +3070,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
     }
     catch(ETlgError &E)
     {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",doc.rem_code,E.what());
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
     return true;
   };
@@ -3156,7 +3161,7 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
     }
     catch(ETlgError &E)
     {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",doc.rem_code,E.what());
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",doc.rem_code,E.what(),rem_text.c_str());
     };
     return true;
   };
@@ -3214,7 +3219,7 @@ bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
             break;
           case 2:
             res=sscanf(tlg.lex,"%1[0-9]%c",lexh,&c);
-            if (c!=0||res!=2||StrToInt(lexh,tkn.coupon_no)==EOF) throw ETlgError("Wrong format");
+            if (c!=0||res!=1||StrToInt(lexh,tkn.coupon_no)==EOF) throw ETlgError("Wrong format");
             break;
         };
       }
@@ -3237,7 +3242,7 @@ bool ParseTKNRem(TTlgParser &tlg,string &rem_text,TTKNItem &tkn)
     }
     catch(ETlgError &E)
     {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",tkn.rem_code,E.what());
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",tkn.rem_code,E.what(),rem_text.c_str());
       return false;
     };
 
@@ -3312,7 +3317,7 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
     }
     catch(ETlgError &E)
     {
-      ProgTrace(TRACE0,"Non-critical .R/%s error: %s",fqt.rem_code,E.what());
+      ProgTrace(TRACE0,"Non-critical .R/%s error: %s (%s)",fqt.rem_code,E.what(),rem_text.c_str());
       return false;
     };
 
@@ -3428,6 +3433,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
   TripsQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
   TripsQry.CreateVariable("suffix",otString,flt.suffix);
   TripsQry.CreateVariable("airp_dep",otString,flt.airp_dep);
+  TripsQry.CreateVariable("scd",otDate,flt.scd);
 
   if (!flt.pr_utc)
   {
@@ -3438,6 +3444,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
+      "      scd_out >= TO_DATE(:scd)-1 AND scd_out < TO_DATE(:scd)+2 AND "
       "      pr_del>=0 ";
   }
   else
@@ -3448,8 +3455,7 @@ bool bind_tlg(int point_id, TFltInfo &flt, TBindType bind_type)
       "FROM points "
       "WHERE airline=:airline AND flt_no=:flt_no AND airp=:airp_dep AND "
       "      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) AND "
-      "      TRUNC(scd)= :scd AND pr_del>=0 ";
-    TripsQry.CreateVariable("scd",otDate,flt.scd);
+      "      scd_out >= TO_DATE(:scd) AND scd_out < TO_DATE(:scd)+1 AND pr_del>=0 ";
   };
   TripsQry.Execute();
   TDateTime scd;
@@ -4614,7 +4620,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   }
                   else
                     CrsPaxInsQry.SetVariable("seat_no",FNull);
-                  CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat.rem);
+
+                  if (strcmp(iPaxItem->seat.rem,"NSST")==0||
+                      strcmp(iPaxItem->seat.rem,"NSSA")==0||
+                      strcmp(iPaxItem->seat.rem,"NSSW")==0||
+                      strcmp(iPaxItem->seat.rem,"SMST")==0||
+                      strcmp(iPaxItem->seat.rem,"SMSA")==0||
+                      strcmp(iPaxItem->seat.rem,"SMSW")==0)
+                    CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat.rem);
+                  else
+                    CrsPaxInsQry.SetVariable("seat_type",FNull);
                 }
                 else
                 {
