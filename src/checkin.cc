@@ -1383,7 +1383,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   {
     int tmp_grp_id = Qry.FieldAsInteger("grp_id");
     if(grp_id != tmp_grp_id) {
-        rcpt_exists = !Qry.FieldIsNULL(col_receipts);
+        if(col_receipts != -1)
+            rcpt_exists = !Qry.FieldIsNULL(col_receipts);
         grp_id = tmp_grp_id;
     }
 
@@ -1406,7 +1407,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
     NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
     NewTextChild(paxNode,"rems",Qry.FieldAsString(col_rems),"");
-    if (strcmp((char *)reqNode->name, "BagPaxList")==0)
+    if(col_receipts != -1)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
       if(rcpt_exists)
