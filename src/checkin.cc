@@ -1376,9 +1376,17 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     col_pr_payment=Qry.FieldIndex("pr_payment");
   };
 
+  int grp_id = -1;
+  bool rcpt_exists = false;
   xmlNodePtr node=NewTextChild(resNode,"passengers");
   for(;!Qry.Eof;Qry.Next())
   {
+    int tmp_grp_id = Qry.FieldAsInteger("grp_id");
+    if(grp_id != tmp_grp_id) {
+        rcpt_exists = !Qry.FieldIsNULL(col_receipts);
+        grp_id = tmp_grp_id;
+    }
+
     xmlNodePtr paxNode=NewTextChild(node,"pax");
     NewTextChild(paxNode,"reg_no",Qry.FieldAsInteger(col_reg_no));
     NewTextChild(paxNode,"surname",Qry.FieldAsString(col_surname));
@@ -1401,7 +1409,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
-      NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger(col_pr_payment));
+      if(rcpt_exists)
+          NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger(col_pr_payment));
+      else
+          NewTextChild(paxNode,"rcpt_complete",2);
     };
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
