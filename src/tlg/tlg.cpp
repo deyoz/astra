@@ -272,7 +272,7 @@ void sendCmd(const char* receiver, const char* cmd)
       ProgTrace(TRACE5,"sendCmd: 'sendto' error %d: %s",errno,strerror(errno));
     }
     else
-      ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s",cmd,receiver);
+      ProgTrace(TRACE5,"sendCmd: cmd '%s' sended to %s (time=%ld)",cmd,receiver,time(NULL));
   }
   catch(EXCEPTIONS::Exception E)
   {
@@ -339,7 +339,7 @@ bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
       }
       else
       {
-        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s",buf,receiver);
+        ProgTrace(TRACE5,"waitCmd: cmd '%s' received from %s (time=%ld)",buf,receiver,time(NULL));
         return true;
       };
     };
