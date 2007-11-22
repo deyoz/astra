@@ -3071,10 +3071,12 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     filterNode = NewTextChild( dataNode, "filter" );
     filter.Build( filterNode );
   }
+  string mode;
   if ( reqInfo->user.user_type == utAirport  )
-    NewTextChild( dataNode, "mode", "port" );
+      mode = "port";
   else
-    NewTextChild( dataNode, "mode", "airline" );
+      mode = "airline";
+  NewTextChild( dataNode, "mode", mode );
 
   vector<TViewPeriod> viewp;
   internalRead( filter, viewp );
@@ -3083,6 +3085,8 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   if ( GetNode( "LoadForm", reqNode ) ) {
     get_report_form("SeasonList", resNode);
     STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
+    NewTextChild(variablesNode, "mode", mode);
   }
 }
 
