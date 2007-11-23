@@ -3952,9 +3952,15 @@ void SaveDOCSRem(int pax_id, vector<TDocItem> &doc)
     Qry.SetVariable("issue_country",i->issue_country);
     Qry.SetVariable("no",i->no);
     Qry.SetVariable("nationality",i->nationality);
-    Qry.SetVariable("birth_date",i->birth_date);
+    if (i->birth_date!=NoExists)
+      Qry.SetVariable("birth_date",i->birth_date);
+    else
+      Qry.SetVariable("birth_date",FNull);
     Qry.SetVariable("gender",i->gender);
-    Qry.SetVariable("expiry_date",i->expiry_date);
+    if (i->expiry_date!=NoExists)
+      Qry.SetVariable("expiry_date",i->expiry_date);
+    else
+      Qry.SetVariable("expiry_date",FNull);
     if (i->surname.size()>64) i->surname.erase(64);
     Qry.SetVariable("surname",i->surname);
     if (i->first_name.size()>64) i->first_name.erase(64);
@@ -3985,7 +3991,10 @@ void SaveTKNRem(int pax_id, vector<TTKNItem> &tkn)
   {
     Qry.SetVariable("rem_code",i->rem_code);
     Qry.SetVariable("ticket_no",i->ticket_no);
-    Qry.SetVariable("coupon_no",i->coupon_no);
+    if (i->coupon_no!=0)
+      Qry.SetVariable("coupon_no",i->coupon_no);
+    else
+      Qry.SetVariable("coupon_no",FNull);
     Qry.SetVariable("pr_inf",(int)i->pr_inf);
     Qry.Execute();
   };
@@ -4011,6 +4020,7 @@ void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
     Qry.SetVariable("rem_code",i->rem_code);
     Qry.SetVariable("airline",i->airline);
     Qry.SetVariable("no",i->no);
+    if (i->extra.size()>250) i->extra.erase(250);
     Qry.SetVariable("extra",i->extra);
     Qry.Execute();
   };

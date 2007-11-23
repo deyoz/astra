@@ -303,7 +303,9 @@ void create_czech_police_file(int point_id)
     TAirpsRow &airp_dep = (TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp"));
     if (airp_dep.code_lat.empty()) throw Exception("airp_dep.code_lat empty (code=%s)",Qry.FieldAsString("airp"));
     string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
+    if (Qry.FieldIsNULL("scd_out")) throw Exception("scd_out empty (airp_dep=%s)",Qry.FieldAsString("airp"));
     TDateTime scd_out_local	= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
+    if (Qry.FieldIsNULL("act_out")) throw Exception("act_out empty (airp_dep=%s)",Qry.FieldAsString("airp"));
     TDateTime act_out_local	= UTCToLocal(Qry.FieldAsDateTime("act_out"),tz_region);
 
     TQuery PointsQry(&OraSession);
@@ -342,8 +344,9 @@ void create_czech_police_file(int point_id)
     	TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",PointsQry.FieldAsString("airp"));
     	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",PointsQry.FieldAsString("airp"));
     	tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
-      //TDateTime scd_in_local	= UTCToLocal(PointsQry.FieldAsDateTime("scd_in"),tz_region);
-      TDateTime act_in_local	= UTCToLocal(PointsQry.FieldAsDateTime("act_in"),tz_region);
+
+      if (PointsQry.FieldIsNULL("act_in")) throw Exception("act_in empty (airp_arv=%s)",PointsQry.FieldAsString("airp"));
+      TDateTime act_in_local = UTCToLocal(PointsQry.FieldAsDateTime("act_in"),tz_region);
 
     	ostringstream file_name;
     	file_name << FilesQry.FieldAsString("dir")
@@ -368,26 +371,52 @@ void create_czech_police_file(int point_id)
   	    }
   	    else
   	    {
-  	    	TGenderTypesRow &gender = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
-  	    	if (gender.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
-  	    	TPaxDocTypesRow &doc_type = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("type"));
-  	    	if (gender.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("type"));
-  	    	TCountriesRow &nationality = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("nationality"));
-  	    	if (nationality.code_iso.empty()) throw Exception("nationality.code_iso empty (code=%s)",PaxQry.FieldAsString("nationality"));
-  	    	TCountriesRow &issue_country = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("issue_country"));
-  	    	if (issue_country.code_iso.empty()) throw Exception("issue_country.code_iso empty (code=%s)",PaxQry.FieldAsString("issue_country"));
+  	      string gender;
+  	      if (!PaxQry.FieldIsNULL("gender"))
+  	      {
+  	    	  TGenderTypesRow &gender_row = (TGenderTypesRow&)base_tables.get("gender_types").get_row("code",PaxQry.FieldAsString("gender"));
+  	    	  if (gender_row.code_lat.empty()) throw Exception("gender.code_lat empty (code=%s)",PaxQry.FieldAsString("gender"));
+  	    	  gender=gender_row.code_lat;
+  	    	};
+  	    	string doc_type;
+  	    	if (!PaxQry.FieldIsNULL("type"))
+  	    	{
+  	    	  TPaxDocTypesRow &doc_type_row = (TPaxDocTypesRow&)base_tables.get("pax_doc_types").get_row("code",PaxQry.FieldAsString("type"));
+  	    	  if (doc_type_row.code_lat.empty()) throw Exception("doc_type.code_lat empty (code=%s)",PaxQry.FieldAsString("type"));
+  	    	  doc_type=doc_type_row.code_lat;
+  	    	};
+  	    	string nationality;
+  	    	if (!PaxQry.FieldIsNULL("nationality"))
+  	    	{
+  	    	  TCountriesRow &nationality_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("nationality"));
+  	    	  if (nationality_row.code_iso.empty()) throw Exception("nationality.code_iso empty (code=%s)",PaxQry.FieldAsString("nationality"));
+  	    	  nationality=nationality_row.code_iso;
+  	    	};
+  	    	string issue_country;
+  	    	if (!PaxQry.FieldIsNULL("issue_country"))
+  	    	{
+  	    	  TCountriesRow &issue_country_row = (TCountriesRow&)base_tables.get("countries").get_row("code",PaxQry.FieldAsString("issue_country"));
+  	    	  if (issue_country_row.code_iso.empty()) throw Exception("issue_country.code_iso empty (code=%s)",PaxQry.FieldAsString("issue_country"));
+  	    	  issue_country=issue_country_row.code_iso;
+  	    	};
+  	    	string birth_date;
+  	    	if (!PaxQry.FieldIsNULL("birth_date"))
+  	    	  birth_date=DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"ddmmmyy",true);
 
+  	    	string expiry_date;
+  	    	if (!PaxQry.FieldIsNULL("expiry_date"))
+  	    	  expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
 
   	    	body << PaxQry.FieldAsString("doc_surname") << ";"
   	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
   	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
-  	  		     << DateTimeToStr(PaxQry.FieldAsDateTime("birth_date"),"ddmmmyy",true) << ";"
-  	  		     << gender.code_lat << ";"
-  	  		     << nationality.code_iso  << ";"
-  	  		     << doc_type.code_lat << ";"
+  	  		     << birth_date << ";"
+  	  		     << gender << ";"
+  	  		     << nationality << ";"
+  	  		     << doc_type << ";"
   	  		     << PaxQry.FieldAsString("no") << ";"
-  	  		     << DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true) << ";"
-  	  		     << issue_country.code_iso  << ";"
+  	  		     << expiry_date << ";"
+  	  		     << issue_country << ";"
   	  		     << ENDL;
   	    };
   	  };
@@ -845,3 +874,5 @@ void sync_sirena_codes( void )
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
+
+
