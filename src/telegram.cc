@@ -99,8 +99,6 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     {
       sql+="SELECT DISTINCT ids.id "
            "FROM tlg_trips ";
-      if (!info.user.access.airlines.empty()) sql+=",aro_airlines ";
-      if (!info.user.access.airps.empty()) sql+=",aro_airps ";
       sql+=",( ";
 
     };
@@ -119,13 +117,19 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
            "WHERE ids.point_id_tlg=tlg_trips.point_id ";
       if (!info.user.access.airlines.empty())
       {
-        sql+="AND aro_airlines.airline=tlg_trips.airline AND aro_airlines.aro_id=:user_id ";
-        Qry.CreateVariable("user_id",otInteger,info.user.user_id);
+        if (info.user.access.airlines_permit)
+          sql+="AND tlg_trips.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+          sql+="AND tlg_trips.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
       };
       if (!info.user.access.airps.empty())
       {
-        sql+="AND aro_airps.airp IN (tlg_trips.airp_dep,tlg_trips.airp_arv) AND aro_airps.aro_id=:user_id ";
-        Qry.CreateVariable("user_id",otInteger,info.user.user_id);
+        if (info.user.access.airps_permit)
+          sql+="AND (tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+               "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
+        else
+          sql+="AND NOT(tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+               "        tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
       };
     };
     sql+=" UNION "
@@ -139,8 +143,8 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
        "ORDER BY id,num ";
 
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
-  if (info.user.user_type==utAirport && info.user.access.airps.empty() ||
-      info.user.user_type==utAirline && info.user.access.airlines.empty() ) return;
+  if (info.user.access.airps_permit && info.user.access.airps.empty() ||
+      info.user.access.airlines_permit && info.user.access.airlines.empty() ) return;
 
   Qry.SQLText=sql;
   Qry.Execute();
