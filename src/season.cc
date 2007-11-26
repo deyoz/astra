@@ -1055,15 +1055,17 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
 
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
-  if ( reqInfo->user.user_type == utSupport ) {
+/*  if ( reqInfo->user.user_type == utSupport ) {*/
     /* все права - все рейсы доступны если не указаны конкретные ак и ап*/
-    canUseAirline = reqInfo->user.access.airlines.empty();
+/*    canUseAirline = reqInfo->user.access.airlines.empty();
     canUseAirp = reqInfo->user.access.airps.empty();
   }
   else {
     canUseAirline = ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() );
     canUseAirp = ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() );
-  }
+  }*/
+  canUseAirline = false; // new
+  canUseAirp = false; //new
   // имеем move_id, vd на период выполнения
   // получим маршрут и проверим на права доступа к этому маршруту
   TQuery Qry(&OraSession);
@@ -1129,11 +1131,11 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
     d.c = Qry.FieldAsInteger( "c" );
     d.y = Qry.FieldAsInteger( "y" );
     d.suffix = Qry.FieldAsString( "suffix" );
-    if ( !canUseAirp && /* если это не полный представитель аэропорта */
+/*    if ( !canUseAirp && // если это не полный представитель аэропорта 
          find( reqInfo->user.access.airps.begin(),
                reqInfo->user.access.airps.end(),
                d.cod
-             ) != reqInfo->user.access.airps.end() ) { /* пытаемся найти у него в правах просмотр порта */
+             ) != reqInfo->user.access.airps.end() ) { // пытаемся найти у него в правах просмотр порта 
       canUseAirp = true;
     }
     if ( !canUseAirline &&
@@ -1141,7 +1143,11 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
                reqInfo->user.access.airlines.end(),
                d.company
              ) != reqInfo->user.access.airlines.end() )
-      canUseAirline = true;
+      canUseAirline = true;*/
+    if ( reqInfo->CheckAirp( d.cod ) ) // new
+    	canUseAirp = true; //new
+    if ( reqInfo->CheckAirline( d.company ) ) //new
+    	canUseAirline = true; //new
     // фильтр по временам прилета/вылета в каждом п.п.
     ds.dests.push_back( d );
     Qry.Next();
@@ -1175,7 +1181,8 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
     for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
           s!=reqInfo->user.access.airps.end(); s++ ) {
       int vcount = (int)ds.trips.size();
-      createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date );
+      // создаем рейсы относительно разрешенных портов reqInfo->user.access.airps
+      createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date ); 
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
         ds.trips[ i ].trap = NoExists;
         if ( ds.trips[ i ].takeoff > NoExists ) {
@@ -1545,15 +1552,17 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
   TBaseTable &baseairps = base_tables.get( "airps" );		
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool canUseAirline, canUseAirp; /* можно ли использовать данный рейс */
-  if ( reqInfo->user.user_type == utSupport ) {
-   /* все права - все рейсы доступны если не указаны конкретные ак и ап*/
+/*  if ( reqInfo->user.user_type == utSupport ) {
+   // все права - все рейсы доступны если не указаны конкретные ак и ап
     canUseAirline = reqInfo->user.access.airlines.empty();
     canUseAirp = reqInfo->user.access.airps.empty();
   }
   else {
     canUseAirline = ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() );
     canUseAirp = ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() );
-  }
+  } new*/
+  canUseAirline = false; // new
+  canUseAirp = false; //new
   mapds.clear();
   rangeList.periods.clear();
   if ( !rangelistNode )
@@ -1680,11 +1689,11 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         if ( node )
           dest.suffix = NodeAsString( node );
 
-        if ( !canUseAirp && /* если это не полный представитель аэропорта */
+/*        if ( !canUseAirp && // если это не полный представитель аэропорта 
            find( reqInfo->user.access.airps.begin(),
                  reqInfo->user.access.airps.end(),
                  dest.cod
-                ) != reqInfo->user.access.airps.end() ) { /* пытаемся найти у него в правах просмотр порта */
+                ) != reqInfo->user.access.airps.end() ) { // пытаемся найти у него в правах просмотр порта 
           canUseAirp = true;
         }
         if ( !canUseAirline &&
@@ -1692,8 +1701,11 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                    reqInfo->user.access.airlines.end(),
                    dest.company
                   ) != reqInfo->user.access.airlines.end() )
-          canUseAirline = true;
-
+          canUseAirline = true;*/
+        if ( reqInfo->CheckAirp( dest.cod ) ) // new
+        	canUseAirp = true; //new
+        if ( reqInfo->CheckAirline( dest.company ) ) //new
+    	    canUseAirline = true; //new         
         ds.dests.push_back( dest );
         destNode = destNode->next;
       } // while ( destNode )
@@ -2690,26 +2702,28 @@ tst();
         timeKey = filter.firstTime == NoExists;
 //      }
       move_id = RQry.FieldAsInteger( idx_rmove_id );
-      if ( reqInfo->user.user_type == utSupport ) {
-      	/* все права - все рейсы доступны если не указаны конкретные ак и ап*/
+/*      if ( reqInfo->user.user_type == utSupport ) {
+      	// все права - все рейсы доступны если не указаны конкретные ак и ап
       	canUseAirline = reqInfo->user.access.airlines.empty();
       	canUseAirp = reqInfo->user.access.airps.empty();
       }
       else {
         canUseAirline = ( reqInfo->user.user_type == utAirport && reqInfo->user.access.airlines.empty() );
         canUseAirp = ( reqInfo->user.user_type == utAirline && reqInfo->user.access.airps.empty() );
-      }
+      }new*/
+      canUseAirline = false; // new
+      canUseAirp = false; //new      
     }
     d.num = RQry.FieldAsInteger( idx_num );
     d.cod = RQry.FieldAsString( idx_cod );
     airpKey = airpKey || d.cod == filter.airp;
     d.company = RQry.FieldAsString( idx_company );
     compKey = compKey  || d.company == filter.company;
-    if ( !canUseAirp && /* если это не полный представитель аэропорта */
+/*    if ( !canUseAirp && // если это не полный представитель аэропорта 
          find( reqInfo->user.access.airps.begin(),
                reqInfo->user.access.airps.end(),
                d.cod
-              ) != reqInfo->user.access.airps.end() ) { /* пытаемся найти у него в правах просмотр порта */
+              ) != reqInfo->user.access.airps.end() ) { // пытаемся найти у него в правах просмотр порта 
       canUseAirp = true;
     }
     if ( !canUseAirline &&
@@ -2717,7 +2731,11 @@ tst();
                reqInfo->user.access.airlines.end(),
                d.company
              ) != reqInfo->user.access.airlines.end() )
-      canUseAirline = true;
+      canUseAirline = true;new*/
+    if ( reqInfo->CheckAirp( d.cod ) ) // new
+     	canUseAirp = true; //new
+    if ( reqInfo->CheckAirline( d.company ) ) //new
+ 	    canUseAirline = true; //new               
     d.city = RQry.FieldAsString( idx_city );
     cityKey = cityKey || d.city == filter.city;
     d.region = AirpTZRegion( RQry.FieldAsString( idx_cod ), false );
