@@ -285,10 +285,7 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport)
     sql+=",trip_stations";
-  if (!info.user.access.airlines.empty())
-    sql+=",aro_airlines";
-  if (!info.user.access.airps.empty())
-    sql+=",aro_airps";
+
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
@@ -306,23 +303,40 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   };
 
   if (!info.user.access.airlines.empty())
-    sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+  {
+    if (info.user.access.airlines_permit)
+      sql+="AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+    else
+      sql+="AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+  };
+
+    //sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
   {
     if ( info.screen.name != "TLG.EXE" )
-      sql+="AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    {
+      if (info.user.access.airps_permit)
+        sql+="AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+      else
+        sql+="AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
     else
-      sql+="AND aro_airps.airp IN "
-           "     (points.airp,ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point), "
-           "                                 points.point_num)) AND "
-           "aro_airps.aro_id=:user_id ";
+    {
+      if (info.user.access.airps_permit)
+        sql+="AND (points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                   GetSQLEnum(info.user.access.airps)+")";
+      else
+        sql+="AND NOT(points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                      GetSQLEnum(info.user.access.airps)+")";
+    };
   };
   sql+="ORDER BY TRUNC(real_out) DESC,flt_no,airline, "
        "         NVL(suffix,' '),move_id,point_num";
   Qry.SQLText = sql;
   p.setVariables( Qry );
-  if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-    Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport)
   {
@@ -399,10 +413,7 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport)
     sql+=",trip_stations";
-  if (!info.user.access.airlines.empty())
-    sql+=",aro_airlines";
-  if (!info.user.access.airps.empty())
-    sql+=",aro_airps";
+
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
@@ -420,21 +431,38 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   };
 
   if (!info.user.access.airlines.empty())
-    sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
+  {
+    if (info.user.access.airlines_permit)
+      sql+="AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+    else
+      sql+="AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+  };
+
   if (!info.user.access.airps.empty())
   {
     if ( info.screen.name != "TLG.EXE" )
-      sql+="AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    {
+      if (info.user.access.airps_permit)
+        sql+="AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+      else
+        sql+="AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
     else
-      sql+="AND aro_airps.airp IN "
-           "     (points.airp,ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point), "
-           "                                 points.point_num)) AND "
-           "aro_airps.aro_id=:user_id ";
+    {
+      if (info.user.access.airps_permit)
+        sql+="AND (points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                   GetSQLEnum(info.user.access.airps)+")";
+      else
+        sql+="AND NOT(points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                      GetSQLEnum(info.user.access.airps)+")";
+    };
   };
+
   Qry.SQLText = sql;
   p.setVariables( Qry );
-  if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-    Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
+
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport)
   {
@@ -468,9 +496,6 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr tripsNode = NewTextChild( dataNode, "trips" );
   xmlNodePtr tripNode;
-  //если по компаниям и портам полномочий нет - пустой список рейсов
-  if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
-      reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
 
   if (reqInfo->screen.name=="TLG.EXE")
   {
@@ -479,9 +504,12 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild( tripNode, "str", "Непривязанные" );
   };
 
+  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
+      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return;
+
+  vector<TTripListItem> list;
   TQuery Qry( &OraSession );
   TSQL::setSQLTripList( Qry, *reqInfo );
-  vector<TTripListItem> list;
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
@@ -569,9 +597,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   ProgTrace(TRACE5, "TripsInterface::readTripHeader" );
   TReqInfo *reqInfo = TReqInfo::Instance();
   //reqInfo->user.check_access( amRead );
-  //если по компаниям и портам полномочий нет - пустой список рейсов
-  if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
-      reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return false;
 
   if (reqInfo->screen.name=="TLG.EXE" && point_id==-1)
   {
@@ -579,6 +604,11 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "point_id", -1 );
     return true;
   };
+
+  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
+      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit)
+    return false;
+
   TQuery Qry( &OraSession );
   TSQL::setSQLTripInfo( Qry, *reqInfo );
   Qry.CreateVariable( "point_id", otInteger, point_id );

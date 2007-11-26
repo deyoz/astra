@@ -57,6 +57,7 @@ class TAccess {
     std::vector<int> rights;
     std::vector<std::string> airlines;
     std::vector<std::string> airps;
+    bool airlines_permit,airps_permit;
     void clear();
 };
 
@@ -120,6 +121,8 @@ class TReqInfo
     void clearPerform();
     long getExecuteMSec();
 };
+
+std::string GetSQLEnum(std::vector<std::string> &values);
 
 ASTRA::TDocType DecodeDocType(char* s);
 char* EncodeDocType(ASTRA::TDocType doc);

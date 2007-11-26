@@ -16,6 +16,7 @@
 #include "cfgproc.h"
 #include "misc.h"
 #include "base_tables.h"
+#include "jxt_cont.h"
 
 #include "tcl_utils.h"
 
@@ -98,6 +99,8 @@ void TAccess::clear()
   rights.clear();
   airlines.clear();
   airps.clear();
+  airlines_permit=true;
+  airps_permit=true;
 }
 
 TReqInfo::TReqInfo()
@@ -253,7 +256,52 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.SQLText="SELECT airp FROM aro_airps WHERE aro_id=:user_id";
   for(Qry.Execute();!Qry.Eof;Qry.Next())
     user.access.airps.push_back(Qry.FieldAsString("airp"));
+  if (user.access.airlines.empty() &&
+      (user.user_type==utSupport||
+       user.user_type==utAirport)) user.access.airlines_permit=false;
+  if (user.access.airps.empty() &&
+      (user.user_type==utSupport||
+       user.user_type==utAirline)) user.access.airps_permit=false;
+
+  if (!(user.access.airlines.empty() && user.access.airlines_permit))
+  {
+    //проверим ограничение доступа по авиакомпании
+    vector<string> airlines;
+    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
+    if (!airlines.empty())
+    {
+      if (user.access.airlines.empty())
+      {
+        user.access.airlines.assign(airlines.begin(),airlines.end());
+      }
+      else
+      {
+        for(vector<string>::iterator i=user.access.airlines.begin();i!=user.access.airlines.end();)
+        {
+          if (find(airlines.begin(),airlines.end(),*i) == airlines.end())
+            i=user.access.airlines.erase(i);
+          else
+            i++;
+        };
+      };
+      user.access.airlines_permit=true;
+    };
+  };
+
 }
+
+string GetSQLEnum(vector<string> &values)
+{
+  string res;
+  for(vector<string>::iterator i=values.begin();i!=values.end();i++)
+  {
+    if (i->empty()) continue;
+    if (!res.empty()) res.append(",");
+    res.append("'"+(*i)+"'");
+  };
+  if (!res.empty()) res=" ("+res+") ";
+  return res;
+};
 
 long TReqInfo::getExecuteMSec()
 {
