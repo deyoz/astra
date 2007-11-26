@@ -1678,7 +1678,9 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
   };
   if (scd_out_local_date!=info.real_out_local_date)
     trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
-  if (!(reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.size()==1)||showAirp)
+  if (!(reqInfo->user.user_type==utAirport &&
+        reqInfo->user.access.airps_permit &&
+        reqInfo->user.access.airps.size()==1)||showAirp)
     trip << " " << info.airp;
 
   return trip.str();

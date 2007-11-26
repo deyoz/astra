@@ -290,6 +290,38 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
 
 }
 
+bool TReqInfo::CheckAirline(const string &airline)
+{
+  if (user.access.airlines_permit)
+  {
+    //список разрешенных
+    return find(user.access.airlines.begin(),
+                user.access.airlines.end(),airline)!=user.access.airlines.end();
+  }
+  else
+  {
+    //список запрещенных
+    return find(user.access.airlines.begin(),
+                user.access.airlines.end(),airline)==user.access.airlines.end();
+  };
+};
+
+bool TReqInfo::CheckAirp(const string &airp)
+{
+  if (user.access.airps_permit)
+  {
+    //список разрешенных
+    return find(user.access.airps.begin(),
+                user.access.airps.end(),airp)!=user.access.airps.end();
+  }
+  else
+  {
+    //список запрещенных
+    return find(user.access.airps.begin(),
+                user.access.airps.end(),airp)==user.access.airps.end();
+  };
+};
+
 string GetSQLEnum(vector<string> &values)
 {
   string res;

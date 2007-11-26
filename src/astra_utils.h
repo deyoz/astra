@@ -120,6 +120,9 @@ class TReqInfo
     void setPerform();
     void clearPerform();
     long getExecuteMSec();
+
+    bool CheckAirline(const std::string &airline);
+    bool CheckAirp(const std::string &airp);
 };
 
 std::string GetSQLEnum(std::vector<std::string> &values);
