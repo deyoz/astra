@@ -342,6 +342,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
 
 int GetRPEncoding(string target)
 {
+    if(target.empty()) return 0;
     TBaseTable &airps = base_tables.get("AIRPS");
     TBaseTable &cities = base_tables.get("CITIES");
     return cities.get_row("code",
@@ -912,6 +913,19 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = GetRPEncoding(target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
+    //TODO: get_report_form in each report handler, not once!
+    if(target.empty()) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        // внутри get_report_form вызывается ReplaceTextChild, в котором в свою
+        // очередь вызывается xmlNodeSetContent, который, судя по всему, кладет string 
+        // иначе чем xmlNewTextChild, что лично меня не устраивает. Поэтому удалим узел
+        // form, чтобы get_report_form создал его заново. (c) Den. 26.11.07
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("BMTotal", resNode);
+    }
+
     TQuery Qry(&OraSession);
 
     string SQLText =
@@ -940,13 +954,18 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    v_bm  ";
     SQLText +=
         "where "
-        "    trip_id = :point_id and "
-        "    target = :target ";
+        "    trip_id = :point_id ";
+    if(target.size())
+        SQLText +=
+            "    and target = :target ";
     if(pr_vip != 2)
         SQLText +=
             "    and pr_vip = :pr_vip ";
     SQLText +=
         "order by ";
+    if(target.empty())
+        SQLText +=
+            "    target, ";
     if(pr_vip != 2)
         SQLText +=
             "    pr_vip, ";
@@ -958,7 +977,8 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
@@ -977,6 +997,10 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         }
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        string airp_arv = Qry.FieldAsString("target");
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
         NewTextChild(rowNode, "birk_range", Qry.FieldAsString("birk_range"));
         NewTextChild(rowNode, "color", Qry.FieldAsString("color"));
         NewTextChild(rowNode, "num", Qry.FieldAsInteger("num"));
@@ -1013,7 +1037,9 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
+    tst();
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    tst();
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
 //    TCrafts crafts;
 
@@ -1032,7 +1058,10 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
+    string airp_arv_name;
+    if(target.size())
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat);
+    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     {
         // delete in future 14.10.07 !!!
@@ -1060,13 +1089,17 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
     SQLText +=
-        "      pax_grp.point_dep=:point_id AND "
-        "      pax_grp.airp_arv=:target AND "
+        "      pax_grp.point_dep=:point_id and ";
+    if(target.size())
+        SQLText +=
+            "      pax_grp.airp_arv=:target and ";
+    SQLText +=
         "      pax_grp.bag_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
     Qry.Execute();
     if(Qry.RowCount() > 0) {
         TotAmount += Qry.FieldAsInteger("amount");
@@ -1085,6 +1118,8 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
+    if(target.empty())
+        throw UserException("Временно не работает");
     int pr_lat = GetRPEncoding(target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
@@ -1195,7 +1230,9 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
+    tst();
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    tst();
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
 //    TCrafts crafts;
 
@@ -1214,6 +1251,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    tst();
     NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
 
     { // for back compatibility 14.10.07 !!!
@@ -1455,6 +1493,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(!variablesNode)
         variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "test_server", get_test_server());
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1671,6 +1710,14 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             }
             Qry.Next();
         }
+    }
+    if(rpType == "BM" || rpType == "TBM") {
+        xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+        NewTextChild(SegNode, "status");
+        NewTextChild(SegNode, "airp_dep_code", curr_airp);
+        NewTextChild(SegNode, "airp_arv_code");
+        NewTextChild(SegNode, "pr_vip", 2);
+        NewTextChild(SegNode, "item", "Общая");
     }
 }
 
