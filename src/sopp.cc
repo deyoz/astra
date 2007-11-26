@@ -2367,7 +2367,7 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
         	}
         }
         if ( !pr_last &&
-        	   !reqInfo->CheckAirline( airline )
+        	   !reqInfo->CheckAirline( id->airline ) )
              /*find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
                    id->airline
