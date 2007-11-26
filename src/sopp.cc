@@ -721,7 +721,9 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         		f--;
         		airline = f->airline;
         	}
-        	if ( (!reqInfo->user.access.airlines.empty() &&
+        	if ( reqInfo->CheckAirline( airline ) &&
+        		   reqInfo->CheckAirp( id->airp ) )
+        		/*(!reqInfo->user.access.airlines.empty() &&
                 find( reqInfo->user.access.airlines.begin(),
                       reqInfo->user.access.airlines.end(),
                       airline
@@ -733,7 +735,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                       reqInfo->user.access.airps.end(),
                       id->airp
                     ) != reqInfo->user.access.airps.end() ||
-                reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
+                reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
             TTrip tr = createTrip( move_id, id, dests );
             tr.ref = ref;
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll,
@@ -828,7 +830,9 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
         f--;
         airline = f->airline;
       }
-      if ( (!reqInfo->user.access.airlines.empty() &&
+      if ( reqInfo->CheckAirline( airline ) &&
+        	 reqInfo->CheckAirp( id->airp ) )
+      	/*(!reqInfo->user.access.airlines.empty() &&
              find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
                    airline
@@ -840,7 +844,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                    reqInfo->user.access.airps.end(),
                    id->airp
                  ) != reqInfo->user.access.airps.end() ||
-             reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) ) {
+             reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
          TTrip tr = createTrip( move_id, id, dests );
          tr.ref = ref;
          if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll,
@@ -2347,11 +2351,12 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
       for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       	if ( id->pr_del == -1 )
       		continue;
-        if ( reqInfo->user.user_type == utAirport &&
+        if ( reqInfo->CheckAirp( id->airp ) )
+        	/*reqInfo->user.user_type == utAirport &&
              find( reqInfo->user.access.airps.begin(),
                    reqInfo->user.access.airps.end(),
                    id->airp
-                 ) != reqInfo->user.access.airps.end() ) {
+                 ) != reqInfo->user.access.airps.end() )*/ {
           canDo = true;
         }
         pr_last = true;
@@ -2361,30 +2366,44 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
         		break;
         	}
         }
-        if ( reqInfo->user.user_type == utAirline &&
-        	   !pr_last &&
-             find( reqInfo->user.access.airlines.begin(),
+        if ( !pr_last &&
+        	   !reqInfo->CheckAirline( airline )
+             /*find( reqInfo->user.access.airlines.begin(),
                    reqInfo->user.access.airlines.end(),
                    id->airline
-                 ) == reqInfo->user.access.airlines.end() ) {
+                 ) == reqInfo->user.access.airlines.end() )*/ {
           if ( !id->airline.empty() )
-            throw UserException( "Заданная авиакомпания запрещена для использования текущему пользователю" );
+            throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
           else
-          	throw UserException( "Не задана авиакомпания" );
+          	throw UserException( "Не задана авиакомпания" );                 	
         }
       } // end for
       if ( !canDo )
-      	if ( reqInfo->user.access.airps.size() == 1 )
-      	  throw UserException( string( "Маршрут должен содержать аэропорт " ) + *reqInfo->user.access.airps.begin() );
-      	else {
+      	if ( reqInfo->user.access.airps_permit ) {
+      	  if ( reqInfo->user.access.airps.size() == 1 )
+      	    throw UserException( string( "Маршрут должен содержать аэропорт " ) + *reqInfo->user.access.airps.begin() );
+      	  else {
+      		  string airps;
+      		  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
+      		    if ( !airps.empty() )
+      		      airps += " ";
+      		    airps += *s;
+      		  }
+      		  if ( airps.empty() )
+      		  	throw UserException( "Нет доступа ни к одному аэропорту" );
+      		  else	
+      		    throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
+      	  }      		
+      	}
+      	else { // список запрещенных аэропортов
       		string airps;
       		for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
       		  if ( !airps.empty() )
       		    airps += " ";
       		  airps += *s;
-      		}
-      		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
-      	}
+      		}      		
+      		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );      		 	
+      	}      	
     }
     // проверка на отмену
     for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
