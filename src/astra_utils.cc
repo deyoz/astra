@@ -644,6 +644,22 @@ void showBasicInfo(void)
     for(vector<string>::const_iterator i=reqInfo->user.access.airps.begin();
                                        i!=reqInfo->user.access.airps.end();i++)
       NewTextChild(node,"airp",*i);
+    //авиакомпании сессии
+    node = NewTextChild(accessNode, "session_airlines");
+    vector<string> airlines;
+    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
+    for(vector<string>::iterator i=airlines.begin();i!=airlines.end();i++)
+    {
+    	try
+    	{
+    	  TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",*i);
+    	  xmlNodePtr node2 = NewTextChild(node,"airline");
+    	  NewTextChild(node2,"code",row.code);
+    	  NewTextChild(node2,"code_lat",row.code_lat);
+    	  NewTextChild(node2,"aircode",row.aircode);    	  
+    	}
+    	catch	(EBaseTableError) {};  
+    };	  
   };
   if (!reqInfo->desk.code.empty())
   {
