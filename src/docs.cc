@@ -728,7 +728,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    grp_id, "
         "    REG_NO ASC ";
 
-    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
 
     Qry.SQLText = SQLText;
 
@@ -739,11 +738,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("status", otString, status);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
 
-    tst();
-    ProgTrace(TRACE5, "DEN WAS HERE BEFORE");
     Qry.Execute();
-    tst();
-    ProgTrace(TRACE5, "DEN WAS HERE AFTER");
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
@@ -841,11 +836,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         if(status.size())
             Qry.CreateVariable("status", otString, status);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
-        tst();
-        ProgTrace(TRACE5, "DEN WAS HERE BEFORE1");
         Qry.Execute();
-        ProgTrace(TRACE5, "DEN WAS HERE After1");
-        tst();
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
         while(!Qry.Eof) {
             string cls = Qry.FieldAsString("class");
@@ -914,9 +905,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         if(status.size())
             Qry.CreateVariable("status", otString, status);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
-        ProgTrace(TRACE5, "DEN WAS HERE BEFORE2");
         Qry.Execute();
-        ProgTrace(TRACE5, "DEN WAS HERE After2");
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_total");
         while(!Qry.Eof) {
             string cls = Qry.FieldAsString("class");
@@ -957,9 +946,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "where "
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
-        ProgTrace(TRACE5, "DEN WAS HERE BEFORE3");
     Qry.Execute();
-        ProgTrace(TRACE5, "DEN WAS HERE AFTER3");
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
 
     string airp = Qry.FieldAsString("airp");
@@ -1063,7 +1050,6 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    tag_type, "
         "    color_name ";
 
-    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     if(target.size())
@@ -1582,7 +1568,6 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     if(!variablesNode)
         variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "test_server", get_test_server());
-    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
