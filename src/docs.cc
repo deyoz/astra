@@ -651,6 +651,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = GetRPEncoding(target);
     string status = NodeAsString("status", reqNode);
 
+    if(target.empty()) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("PMTotalEL", resNode);
+    }
+
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT  "
@@ -667,8 +675,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    decode(:pr_lat, 0, full_name, full_name_lat) full_name, "
         "    PERS_TYPE, "
         "    SEAT_NO, "
-        "    SEATS, "
-        "    remarks, "
+        "    SEATS, ";
+    if(target.size())
+        SQLText +=
+            "    remarks, ";
+    else
+        SQLText +=
+            "   ticket_no||'/'||coupon_no remarks, ";
+    SQLText +=
         "    RK_WEIGHT, "
         "    BAG_AMOUNT, "
         "    BAG_WEIGHT, "
@@ -685,10 +699,26 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    V_PM ";
     SQLText +=
         "WHERE "
-        "    TRIP_ID = :point_id AND "
-        "    TARGET = :target AND "
-        "    STATUS = :status "
+        "    TRIP_ID = :point_id AND ";
+    if(target.size())
+        SQLText +=
+            "    TARGET = :target AND ";
+    else
+        SQLText +=
+            "   pr_brd = 1 and "
+            "   ticket_no is not null and "
+            "   coupon_no is not null and ";
+    if(status.size())
+        SQLText +=
+            "    STATUS = :status ";
+    else
+        SQLText +=
+            "    STATUS in ('T', 'N') ";
+    SQLText +=
         "ORDER BY ";
+    if(target.empty())
+        SQLText +=
+            "   target, ";
     if(name == "PMTrfer")
         SQLText +=
             "    PR_TRFER ASC, "
@@ -698,14 +728,22 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    grp_id, "
         "    REG_NO ASC ";
 
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+
     Qry.SQLText = SQLText;
 
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
-    Qry.CreateVariable("status", otString, status);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
+    if(status.size())
+        Qry.CreateVariable("status", otString, status);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
 
+    tst();
+    ProgTrace(TRACE5, "DEN WAS HERE BEFORE");
     Qry.Execute();
+    tst();
+    ProgTrace(TRACE5, "DEN WAS HERE AFTER");
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
@@ -723,6 +761,11 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "last_target", last_target);
         NewTextChild(rowNode, "pr_trfer", pr_trfer);
 
+        string airp_arv = Qry.FieldAsString("target");
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
         NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
         NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
@@ -739,6 +782,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         else if(pers_type == "РМ")
             NewTextChild(rowNode, "pers_type", "INF");
         else
+            throw Exception("RunPM: unknown pers_type " + pers_type);
         NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
@@ -752,7 +796,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     if(name == "PMTrfer") {
         Qry.Clear();
-        Qry.SQLText =
+        SQLText =
             "SELECT  "
             "    POINT_ID, "
             "    TARGET, "
@@ -772,17 +816,36 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "FROM "
             "    V_PM_TRFER_TOTAL "
             "WHERE "
-            "    POINT_ID = :point_id AND "
-            "    TARGET = :target AND "
-            "    STATUS = :status "
-            "ORDER BY "
+            "    POINT_ID = :point_id AND ";
+        if(target.size())
+            SQLText +=
+                "    TARGET = :target AND ";
+        if(status.size())
+            SQLText +=
+                "    STATUS = :status ";
+        else
+            SQLText +=
+                "    STATUS in ('T', 'N') ";
+        SQLText +=
+            "ORDER BY ";
+        if(target.empty())
+            SQLText +=
+                "   target, ";
+        SQLText +=
             "    PR_TRFER, "
             "    LVL ";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("target", otString, target);
-        Qry.CreateVariable("status", otString, status);
+        if(target.size())
+            Qry.CreateVariable("target", otString, target);
+        if(status.size())
+            Qry.CreateVariable("status", otString, status);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+        tst();
+        ProgTrace(TRACE5, "DEN WAS HERE BEFORE1");
         Qry.Execute();
+        ProgTrace(TRACE5, "DEN WAS HERE After1");
+        tst();
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
         while(!Qry.Eof) {
             string cls = Qry.FieldAsString("class");
@@ -807,7 +870,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         }
     } else {
         Qry.Clear();
-        Qry.SQLText =
+        SQLText =
             "SELECT  "
             "    POINT_ID, "
             "    STATUS, "
@@ -822,17 +885,38 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    BAG_AMOUNT, "
             "    BAG_WEIGHT, "
             "    EXCESS "
-            "FROM "
-            "    V_PM_TOTAL "
+            "FROM ";
+        if(target.size())
+            SQLText +=
+                "    V_PM_TARGET_TOTAL ";
+        else
+            SQLText +=
+                "    V_PM_EL_TOTAL ";
+        SQLText +=
             "WHERE "
-            "    POINT_ID = :point_id AND "
-            "    STATUS = :status "
+            "    POINT_ID = :point_id ";
+        if(target.size())
+            SQLText +=
+                "   and airp_arv = :target ";
+        if(status.size())
+            SQLText +=
+                "    and STATUS = :status ";
+        else
+            SQLText +=
+                "    and STATUS in ('T', 'N') ";
+        SQLText +=
             "ORDER BY "
             "    LVL ";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.CreateVariable("status", otString, status);
+        if(target.size())
+            Qry.CreateVariable("target", otString, target);
+        if(status.size())
+            Qry.CreateVariable("status", otString, status);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+        ProgTrace(TRACE5, "DEN WAS HERE BEFORE2");
         Qry.Execute();
+        ProgTrace(TRACE5, "DEN WAS HERE After2");
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_total");
         while(!Qry.Eof) {
             string cls = Qry.FieldAsString("class");
@@ -873,7 +957,9 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "where "
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
+        ProgTrace(TRACE5, "DEN WAS HERE BEFORE3");
     Qry.Execute();
+        ProgTrace(TRACE5, "DEN WAS HERE AFTER3");
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
 
     string airp = Qry.FieldAsString("airp");
@@ -900,7 +986,10 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
+    string airp_arv_name;
+    if(target.size())
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat);
+    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
@@ -1711,13 +1800,20 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.Next();
         }
     }
-    if(rpType == "BM" || rpType == "TBM") {
+    if(rpType == "PM" || rpType == "BM") {
+        string item;
+        if(rpType == "PM")
+            item = "Общая ЭБ";
+        else if(rpType == "BM")
+            item = "Общая";
+        else
+            throw Exception("Unknown rpType '%s'", item.c_str());
         xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
         NewTextChild(SegNode, "status");
         NewTextChild(SegNode, "airp_dep_code", curr_airp);
         NewTextChild(SegNode, "airp_arv_code");
         NewTextChild(SegNode, "pr_vip", 2);
-        NewTextChild(SegNode, "item", "Общая");
+        NewTextChild(SegNode, "item", item);
     }
 }
 
