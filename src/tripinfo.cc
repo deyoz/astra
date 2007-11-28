@@ -616,7 +616,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (Qry.Eof) return false;
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
-  NewTextChild( node, "airline", Qry.FieldAsString( "airline" ) );
+  string airline=Qry.FieldAsString( "airline" );
+  NewTextChild( node, "airline", airline );
+  try
+  {
+    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline);
+    NewTextChild( node, "airline_lat", row.code_lat );
+    NewTextChild( node, "aircode", row.aircode );
+  }
+  catch(EBaseTableError) {};
+
   NewTextChild( node, "flt_no", Qry.FieldAsInteger( "flt_no" ) );
   NewTextChild( node, "suffix", Qry.FieldAsString( "suffix" ) );
   NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
