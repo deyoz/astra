@@ -342,7 +342,12 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
 
 int GetRPEncoding(string target)
 {
-    if(target.empty()) return 0;
+    if(
+            target.empty() ||
+            target == "tot" ||
+            target == "etm" ||
+            target == "tpm"
+            ) return 0;
     TBaseTable &airps = base_tables.get("AIRPS");
     TBaseTable &cities = base_tables.get("CITIES");
     return cities.get_row("code",
@@ -651,12 +656,26 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = GetRPEncoding(target);
     string status = NodeAsString("status", reqNode);
 
-    if(target.empty()) {
+    if(
+            target.empty() ||
+            target == "tot"
+      ) {
         xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
         get_report_form("PMTotalEL", resNode);
+    }
+
+    if(
+            target == "tpm" ||
+            target == "etm"
+      ) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("PMTrferTotalEL", resNode);
     }
 
     TQuery Qry(&OraSession);
@@ -666,8 +685,8 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    TARGET, ";
     if(name == "PMTrfer")
         SQLText +=
-        "    PR_TRFER, "
-        "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, ";
+            "    PR_TRFER, "
+            "    decode(:pr_lat, 0, last_target, last_target_lat) last_target, ";
     SQLText +=
         "    class, "
         "    DECODE(:pr_lat,0,class_name,class_name_lat) AS class_name, "
@@ -676,12 +695,16 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    PERS_TYPE, "
         "    SEAT_NO, "
         "    SEATS, ";
-    if(target.size())
-        SQLText +=
-            "    remarks, ";
-    else
+    if(
+            target.empty() ||
+            target == "etm"
+      ) { //ЭБ
         SQLText +=
             "   ticket_no||'/'||coupon_no remarks, ";
+    } else {
+        SQLText +=
+            "    remarks, ";
+    }
     SQLText +=
         "    RK_WEIGHT, "
         "    BAG_AMOUNT, "
@@ -700,14 +723,22 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     SQLText +=
         "WHERE "
         "    TRIP_ID = :point_id AND ";
-    if(target.size())
-        SQLText +=
-            "    TARGET = :target AND ";
-    else
+    if(
+            target.empty() ||
+            target == "etm"
+      ) { //ЭБ
         SQLText +=
             "   pr_brd = 1 and "
             "   ticket_no is not null and "
             "   coupon_no is not null and ";
+    } else if(
+            target == "tot" ||
+            target == "tpm"
+            ) { //ОБЩАЯ
+    } else { // сегмент
+        SQLText +=
+            "    TARGET = :target AND ";
+    }
     if(status.size())
         SQLText +=
             "    STATUS = :status ";
@@ -716,7 +747,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    STATUS in ('T', 'N') ";
     SQLText +=
         "ORDER BY ";
-    if(target.empty())
+    if(
+            target.empty() ||
+            target == "tot" ||
+            target == "etm" ||
+            target == "tpm"
+      )
         SQLText +=
             "   target, ";
     if(name == "PMTrfer")
@@ -732,7 +768,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.SQLText = SQLText;
 
     Qry.CreateVariable("point_id", otInteger, point_id);
-    if(target.size())
+    if(
+            target.size() &&
+            target != "tot" &&
+            target != "etm" &&
+            target != "tpm"
+      )
         Qry.CreateVariable("target", otString, target);
     if(status.size())
         Qry.CreateVariable("status", otString, status);
@@ -742,6 +783,10 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
+    // следующие 2 переменные введены для нужд FastReport
+    map<string, int> fr_target_ref;
+    int fr_target_ref_idx = 0;
+
     while(!Qry.Eof) {
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -757,8 +802,11 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "pr_trfer", pr_trfer);
 
         string airp_arv = Qry.FieldAsString("target");
+        if(fr_target_ref.find(airp_arv) == fr_target_ref.end())
+            fr_target_ref[airp_arv] = fr_target_ref_idx++;
         TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
         NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
         NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
 
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
@@ -812,7 +860,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    V_PM_TRFER_TOTAL "
             "WHERE "
             "    POINT_ID = :point_id AND ";
-        if(target.size())
+        if(
+                target.size() &&
+                target != "tot" &&
+                target != "etm" &&
+                target != "tpm"
+          )
             SQLText +=
                 "    TARGET = :target AND ";
         if(status.size())
@@ -823,7 +876,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
                 "    STATUS in ('T', 'N') ";
         SQLText +=
             "ORDER BY ";
-        if(target.empty())
+        if(
+                target.empty() ||
+                target == "tot" ||
+                target == "etm" ||
+                target == "tpm"
+          )
             SQLText +=
                 "   target, ";
         SQLText +=
@@ -831,7 +889,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    LVL ";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
-        if(target.size())
+        if(
+                target.size() &&
+                target != "tot" &&
+                target != "etm" &&
+                target != "tpm"
+          )
             Qry.CreateVariable("target", otString, target);
         if(status.size())
             Qry.CreateVariable("status", otString, status);
@@ -843,7 +906,9 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
-            NewTextChild(rowNode, "target", Qry.FieldAsString("TARGET"));
+            string airp_arv = Qry.FieldAsString("TARGET");
+            NewTextChild(rowNode, "target", airp_arv);
+            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
             NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
             NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
             NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
@@ -877,16 +942,27 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    BAG_WEIGHT, "
             "    EXCESS "
             "FROM ";
-        if(target.size())
-            SQLText +=
-                "    V_PM_TARGET_TOTAL ";
-        else
+        if(target.empty()) { //ЭБ
             SQLText +=
                 "    V_PM_EL_TOTAL ";
+        } else if(
+                target == "tot" ||
+                target == "tpm"
+                ) { //ОБЩАЯ
+            SQLText +=
+                "    V_PM_TOTAL ";
+        } else { // сегмент
+            SQLText +=
+                "    V_PM_TARGET_TOTAL ";
+        }
         SQLText +=
             "WHERE "
             "    POINT_ID = :point_id ";
-        if(target.size())
+        if(
+                target.size() &&
+                target != "tot" &&
+                target != "tpm"
+          )
             SQLText +=
                 "   and airp_arv = :target ";
         if(status.size())
@@ -900,7 +976,11 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    LVL ";
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
-        if(target.size())
+        if(
+                target.size() &&
+                target != "tot" &&
+                target != "tpm"
+          )
             Qry.CreateVariable("target", otString, target);
         if(status.size())
             Qry.CreateVariable("status", otString, status);
@@ -956,7 +1036,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-//    TCrafts crafts;
+    //    TCrafts crafts;
 
     NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
@@ -974,12 +1054,18 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
     string airp_arv_name;
-    if(target.size())
+    if(
+            target.size() &&
+            target != "tot" &&
+            target != "etm" &&
+            target != "tpm"
+      )
         airp_arv_name = base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat);
     NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
 void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1785,20 +1871,48 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.Next();
         }
     }
-    if(rpType == "PM" || rpType == "BM") {
-        string item;
-        if(rpType == "PM")
-            item = "Общая ЭБ";
-        else if(rpType == "BM")
-            item = "Общая";
-        else
-            throw Exception("Unknown rpType '%s'", item.c_str());
-        xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
-        NewTextChild(SegNode, "status");
-        NewTextChild(SegNode, "airp_dep_code", curr_airp);
-        NewTextChild(SegNode, "airp_arv_code");
-        NewTextChild(SegNode, "pr_vip", 2);
-        NewTextChild(SegNode, "item", item);
+    if(
+            rpType == "PM" ||
+            rpType == "TPM" ||
+            rpType == "BM"
+      ) {
+        xmlNodePtr SegNode;
+        if(
+                rpType == "PM" ||
+                rpType == "TPM"
+          ) {
+            string item;
+            if(rpType == "TPM")
+                item = "etm";
+            else
+                item = "";
+            SegNode = NewTextChild(SegListNode, "seg");
+            NewTextChild(SegNode, "status");
+            NewTextChild(SegNode, "airp_dep_code", curr_airp);
+            NewTextChild(SegNode, "airp_arv_code", item);
+            NewTextChild(SegNode, "pr_vip", 2);
+            NewTextChild(SegNode, "item", "Список ЭБ");
+        }
+
+        if(
+                rpType == "BM" ||
+                rpType == "PM" ||
+                rpType == "TPM"
+          ) {
+            string item;
+            if(rpType == "PM")
+                item = "tot";
+            else if(rpType == "TPM")
+                item = "tpm";
+            else
+                item = "";
+            SegNode = NewTextChild(SegListNode, "seg");
+            NewTextChild(SegNode, "status");
+            NewTextChild(SegNode, "airp_dep_code", curr_airp);
+            NewTextChild(SegNode, "airp_arv_code", item);
+            NewTextChild(SegNode, "pr_vip", 2);
+            NewTextChild(SegNode, "item", "Общая");
+        }
     }
 }
 
