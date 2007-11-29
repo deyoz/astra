@@ -2607,7 +2607,16 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
                   iRemItem->text.clear();
                 };
               }
-              catch(EBaseTableError) {};
+              catch(EBaseTableError)
+              {
+                if (*doc.gender==0)
+                {
+                  //неизвестный тип пассажира
+                  ne.pax.begin()->doc.push_back(doc);
+                  ne.pax.begin()->rem.push_back(*iRemItem);
+                  iRemItem->text.clear();
+                }
+              };
             };
           };
           continue;
@@ -2825,7 +2834,8 @@ bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
   if (c!=0||res!=1) return false;
 
   int num=1;
-  if (strcmp(rem_code,"CHD")==0)
+  if (!(strcmp(rem_code,"CHD")==0||
+        strcmp(rem_code,"CHLD")==0))
   {
     *numh=0;
     sscanf(rem_code,"%3[0-9]%s",numh,rem_code);
@@ -2888,7 +2898,8 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
 
 
   int num=1;
-  if (strcmp(rem_code,"INF")==0)
+  if (!(strcmp(rem_code,"INF")==0||
+        strcmp(rem_code,"INFT")==0))
   {
     *numh=0;
     sscanf(rem_code,"%3[0-9]%s",numh,rem_code);
@@ -2905,7 +2916,7 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
     vector<string> names;
     vector<string>::iterator i;
     while((p=tlg.GetLexeme(p))!=NULL)
-    {
+    { 
       try
       {
         ParseNameElement(tlg,tlg.lex,names,epNone);
@@ -2914,9 +2925,12 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
       {
         continue;
       };
+
       if ((int)names.size()!=num+1) continue;
       for(i=names.begin();i!=names.end();i++)
+      {
         if (i->empty()) break;
+      };
       if (i!=names.end()) continue;
       for(i=names.begin();i!=names.end();i++)
       {
