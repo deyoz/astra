@@ -131,7 +131,7 @@ void sendTlg(const char* receiver,
     }
     catch(...)
     {
-        ProgError(STDLOG, "sendTlg: Unknown error while trying to send tlg");
+        ProgError(STDLOG, "sendTlg: Unknown error");
         throw;
     };
 }
@@ -171,32 +171,41 @@ void loadTlg(const std::string &text)
     }
     catch(...)
     {
-        ProgError(STDLOG, "loadTlg: Unknown error while trying to load tlg");
+        ProgError(STDLOG, "loadTlg: Unknown error");
         throw;
     };
 };
 
-void sendErrorTlg(const char* receiver, const char* sender, const char *format, ...)
+void sendErrorTlg(const char *format, ...)
 {
   try
   {
     char Message[500];
-    if (receiver==NULL||sender==NULL||format==NULL||*receiver==0) return;
+    if (format==NULL) return;
     va_list ap;
     va_start(ap, format);
-    sprintf(Message,"Sender: %s\n",sender);
+    sprintf(Message,"Sender: %s\n",OWN_CANON_NAME());
     int len=strlen(Message);
     vsnprintf(Message+len, sizeof(Message)-len, format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
 
-    sendTlg(receiver,sender,false,0,Message);
+    sendTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),false,0,Message);
   }
-  catch(...) {};
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "sendErrorTlg: Unknown error");
+  };
 };
 
 bool deleteTlg(int tlg_id)
 {
+  try
+  {
     TQuery TlgQry(&OraSession);
     TlgQry.Clear();
     TlgQry.SQLText=
@@ -204,10 +213,23 @@ bool deleteTlg(int tlg_id)
     TlgQry.CreateVariable("id",otInteger,tlg_id);
     TlgQry.Execute();
     return TlgQry.RowsProcessed()>0;
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "deleteTlg: Unknown error");
+      throw;
+  };
 };
 
 bool errorTlg(int tlg_id, string type, string msg)
 {
+  try
+  {
     if (deleteTlg(tlg_id))
     {
       TQuery TlgQry(&OraSession);
@@ -233,6 +255,17 @@ bool errorTlg(int tlg_id, string type, string msg)
       return TlgQry.RowsProcessed()>0;
     }
     else return false;
+  }
+  catch( std::exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
+  }
+  catch(...)
+  {
+      ProgError(STDLOG, "errorTlg: Unknown error");
+      throw;
+  };
 };
 
 void sendCmd(const char* receiver, const char* cmd)

@@ -165,7 +165,7 @@ void handle_tlg(void)
       	if (orae!=NULL&&
       	    (orae->Code==4061||orae->Code==4068)) continue;
         ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
-        sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
+        sendErrorTlg("Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
         continue;
@@ -315,13 +315,17 @@ void handle_tlg(void)
       {
         count++;
       	OraSession.Rollback();
-      	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      	if (orae!=NULL&&
-      	    (orae->Code==4061||orae->Code==4068)) continue;
-        ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-        sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-        TlgInUpdQry.Execute();
-        OraSession.Commit();
+      	try
+      	{
+        	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+        	if (orae!=NULL&&
+        	    (orae->Code==4061||orae->Code==4068)) continue;
+          ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+          sendErrorTlg("Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+          TlgInUpdQry.Execute();
+          OraSession.Commit();
+        }
+        catch(...) {};
       };
     };
     if (HeadingInfo!=NULL) delete HeadingInfo;

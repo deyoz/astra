@@ -123,23 +123,35 @@ void handle_tlg(void)
           catch(edi_exception &e)
           {
               OraSession.Rollback();
-              ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
-              errorTlg(tlg_id,"PARS",e.what());
-              OraSession.Commit();
+              try
+              {
+                ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
+                errorTlg(tlg_id,"PARS",e.what());
+                OraSession.Commit();
+              }
+              catch(...) {};
           }
           catch(std::exception &e)
           {
               OraSession.Rollback();
-              ProgError(STDLOG, "std::exception: %s", e.what());
-              errorTlg(tlg_id,"PARS",e.what());
-              OraSession.Commit();
+              try
+              {
+                ProgError(STDLOG, "std::exception: %s", e.what());
+                errorTlg(tlg_id,"PARS",e.what());
+                OraSession.Commit();
+              }
+              catch(...) {};
           }
           catch(...)
           {
               OraSession.Rollback();
-              ProgError(STDLOG, "Unknown error");
-              errorTlg(tlg_id,"UNKN");
-              OraSession.Commit();
+              try
+              {
+                ProgError(STDLOG, "Unknown error");
+                errorTlg(tlg_id,"UNKN");
+                OraSession.Commit();
+              }
+              catch(...) {};
           }
           ProgTrace(TRACE1,"========= %d TLG: DONE HANDLE =============",tlg_id);
       };

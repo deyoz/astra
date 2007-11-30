@@ -407,9 +407,13 @@ void process_tlg(void)
   catch(Exception E)
   {
     OraSession.Rollback();
-    ProgError(STDLOG,"Exception: %s",E.what());
-    sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Exception: %s",E.what());
-    OraSession.Commit();
+    try
+    {
+      ProgError(STDLOG,"Exception: %s",E.what());
+      sendErrorTlg("Exception: %s",E.what());
+      OraSession.Commit();
+    }
+    catch(...) {};
   };
   return;
 };
@@ -600,88 +604,88 @@ void scan_tlg(void)
             InsQry.SetLongVariable("body",parts.body.p,strlen(parts.body.p));
             InsQry.SetVariable("ending",FNull);
           };
-          try
+          if (deleteTlg(tlg_id))
           {
-            if (deleteTlg(tlg_id))
+            try
             {
               InsQry.Execute();
               pr_typeb_cmd=true;
-            };
-          }
-          catch(EOracleError E)
-          {
-            if (E.Code==1)
+            }
+            catch(EOracleError E)
             {
-              Qry.Clear();
-              Qry.SQLText=
-                "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
-              Qry.CreateVariable("id",otInteger,InsQry.GetVariableAsInteger("id"));
-              Qry.CreateVariable("num",otInteger,InsQry.GetVariableAsInteger("part_no"));
-              Qry.Execute();
-              if (Qry.RowCount()!=0)
+              if (E.Code==1)
               {
-                len=strlen(Qry.FieldAsString("addr"))+
-                    strlen(Qry.FieldAsString("heading"))+
-                    Qry.GetSizeLongField("body")+
-                    strlen(Qry.FieldAsString("ending"))+1;
-                if (len>buf2Len)
+                Qry.Clear();
+                Qry.SQLText=
+                  "SELECT addr,heading,body,ending FROM tlgs_in WHERE id=:id AND num=:num";
+                Qry.CreateVariable("id",otInteger,InsQry.GetVariableAsInteger("id"));
+                Qry.CreateVariable("num",otInteger,InsQry.GetVariableAsInteger("part_no"));
+                Qry.Execute();
+                if (Qry.RowCount()!=0)
                 {
-                  if (buf2==NULL)
-                    ph=(char*)malloc(len);
-                  else
-                    ph=(char*)realloc(buf2,len);
-                  if (ph==NULL) throw EMemoryError("Out of memory");
-                  buf2=ph;
-                  buf2Len=len;
-                };
-                strcpy(buf2,Qry.FieldAsString("addr"));
-                strcat(buf2,Qry.FieldAsString("heading"));
-                len=strlen(buf2);
-                Qry.FieldAsLong("body",buf2+len);
-                len+=Qry.GetSizeLongField("body");
-                buf2[len]=0;
-                strcat(buf2,Qry.FieldAsString("ending"));
-                if (strcmp(buf,buf2)!=0)
-                {
-                  long part_no;
-                  if (HeadingInfo->tlg_cat==tcDCS)
-                    part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
-                  else
-                    part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
-                  if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
+                  len=strlen(Qry.FieldAsString("addr"))+
+                      strlen(Qry.FieldAsString("heading"))+
+                      Qry.GetSizeLongField("body")+
+                      strlen(Qry.FieldAsString("ending"))+1;
+                  if (len>buf2Len)
                   {
-                    InsQry.SetVariable("id",FNull);
-                    InsQry.SetVariable("merge_key",FNull);
-                    if (deleteTlg(tlg_id))
+                    if (buf2==NULL)
+                      ph=(char*)malloc(len);
+                    else
+                      ph=(char*)realloc(buf2,len);
+                    if (ph==NULL) throw EMemoryError("Out of memory");
+                    buf2=ph;
+                    buf2Len=len;
+                  };
+                  strcpy(buf2,Qry.FieldAsString("addr"));
+                  strcat(buf2,Qry.FieldAsString("heading"));
+                  len=strlen(buf2);
+                  Qry.FieldAsLong("body",buf2+len);
+                  len+=Qry.GetSizeLongField("body");
+                  buf2[len]=0;
+                  strcat(buf2,Qry.FieldAsString("ending"));
+                  if (strcmp(buf,buf2)!=0)
+                  {
+                    long part_no;
+                    if (HeadingInfo->tlg_cat==tcDCS)
+                      part_no=dynamic_cast<TDCSHeadingInfo*>(HeadingInfo)->part_no;
+                    else
+                      part_no=dynamic_cast<TBSMHeadingInfo*>(HeadingInfo)->part_no;
+                    if (part_no==1&&EndingInfo->pr_final_part)  //телеграмма состоит из одной части
                     {
+                      InsQry.SetVariable("id",FNull);
+                      InsQry.SetVariable("merge_key",FNull);
                       InsQry.Execute();
                       pr_typeb_cmd=true;
-                    };
+                    }
+                    else throw ETlgError("Duplicate part number");
                   }
-                  else throw ETlgError("Duplicate part number");
+                  else
+                  {
+                    errorTlg(tlg_id,"DUP");
+                  };
                 }
-                else
-                {
-                  errorTlg(tlg_id,"DUP");
-                };
+                else throw ETlgError("Duplicate part number");
               }
-              else throw ETlgError("Duplicate part number");
-            }
-            else throw;
+              else throw;
+            };
           };
         }
         catch(EXCEPTIONS::Exception &E)
         {
           OraSession.Rollback();
-          EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      	  if (orae!=NULL&&
-      	      (orae->Code==4061||orae->Code==4068)) continue;
-          ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
-                       E.what(),TlgQry.FieldAsInteger("id"));
-          errorTlg(tlg_id,"PARS",E.what());
-          sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),
-                       "Exception: %s (tlgs.id=%d)",
-                       E.what(),TlgQry.FieldAsInteger("id"));
+          try
+          {
+            EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+        	  if (orae!=NULL&&
+        	      (orae->Code==4061||orae->Code==4068)) continue;
+            ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",
+                         E.what(),TlgQry.FieldAsInteger("id"));
+            errorTlg(tlg_id,"PARS",E.what());
+            sendErrorTlg("Exception: %s (tlgs.id=%d)",
+                         E.what(),TlgQry.FieldAsInteger("id"));
+          }
+          catch(...) {};
         };
     };
     if (pr_typeb_cmd) sendCmd("CMD_TYPEB_HANDLER","H");

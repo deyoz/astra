@@ -212,13 +212,16 @@ void scan_tlg(int tlg_id)
     catch(EXCEPTIONS::Exception &E)
     {
       OraSession.Rollback();
-      EOracleError *orae=dynamic_cast<EOracleError*>(&E);
-      if (orae!=NULL&&
-          (orae->Code==4061||orae->Code==4068)) continue;
-      ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
-      errorTlg(tlg_id,"SEND",E.what());
-      sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),
-                   "Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
+      try
+      {
+        EOracleError *orae=dynamic_cast<EOracleError*>(&E);
+        if (orae!=NULL&&
+            (orae->Code==4061||orae->Code==4068)) continue;
+        ProgError(STDLOG,"Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
+        errorTlg(tlg_id,"SEND",E.what());
+        sendErrorTlg("Exception: %s (tlgs.id=%d)",E.what(),tlg_id);
+      }
+      catch(...) {};
     };
   };
   time_t time_end=time(NULL);
