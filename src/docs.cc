@@ -651,6 +651,7 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
@@ -665,6 +666,13 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
         get_report_form("PMTotalEL", resNode);
+        string et, et_lat;
+        if(target.empty()) {
+            et = "(ЭБ)";
+            et_lat = "(ET)";
+        }
+        NewTextChild(variablesNode, "et", et);
+        NewTextChild(variablesNode, "et_lat", et_lat);
     }
 
     if(
@@ -676,6 +684,13 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
         get_report_form("PMTrferTotalEL", resNode);
+        string et, et_lat;
+        if(target == "etm") {
+            et = "(ЭБ)";
+            et_lat = "(ET)";
+        }
+        NewTextChild(variablesNode, "et", et);
+        NewTextChild(variablesNode, "et_lat", et_lat);
     }
 
     TQuery Qry(&OraSession);
@@ -1009,7 +1024,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
 
     // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     Qry.Clear();
     Qry.SQLText =
         "select "
