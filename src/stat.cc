@@ -516,19 +516,22 @@ void GetFltLogSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    points ";
-    if (!info.user.access.airlines.empty())
-        res += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        res += ",aro_airps ";
-    res +=
+        "    points "
         "WHERE "
         "    points.pr_del >= 0 and "
         "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     res +=
         "union "
         "SELECT "
@@ -542,20 +545,23 @@ void GetFltLogSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    arx_points ";
-    if (!info.user.access.airlines.empty())
-        res += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        res += ",aro_airps ";
-    res +=
+        "    arx_points "
         "WHERE "
         "    arx_points.pr_del >= 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "    arx_points.part_key >= :FirstDate ";
-    if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     res +=
         "ORDER BY "
         "   real_out DESC, "
@@ -564,8 +570,6 @@ void GetFltLogSQL(TQuery &Qry)
         "   suffix, "
         "   move_id, "
         "   point_num ";
-    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.SQLText = res;
 }
 
@@ -585,20 +589,23 @@ void GetPaxListSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    points ";
-    if (!info.user.access.airlines.empty())
-        res += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        res += ",aro_airps ";
-    res +=
+        "    points "
         "WHERE "
         "    points.pr_del >= 0 and "
         "    points.pr_reg <> 0 and "
         "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     res +=
         "union "
         "SELECT "
@@ -612,21 +619,24 @@ void GetPaxListSQL(TQuery &Qry)
         "    move_id, "
         "    point_num "
         "FROM "
-        "    arx_points ";
-    if (!info.user.access.airlines.empty())
-        res += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        res += ",aro_airps ";
-    res +=
+        "    arx_points "
         "WHERE "
         "    arx_points.pr_del >= 0 and "
         "    arx_points.pr_reg <> 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "    arx_points.part_key >= :FirstDate ";
-    if (!info.user.access.airlines.empty())
-        res += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        res += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     res +=
         "ORDER BY "
         "   flt_no, "
@@ -634,8 +644,6 @@ void GetPaxListSQL(TQuery &Qry)
         "   suffix, "
         "   move_id, "
         "   point_num ";
-    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.SQLText = res;
 }
 
@@ -712,8 +720,6 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);        
-    if (!reqInfo.user.access.airlines.empty() || !reqInfo.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, reqInfo.user.user_id );
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
     TTripInfo tripInfo;
@@ -740,24 +746,26 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 "    move_id, "
                 "    point_num "
                 "FROM "
-                "    points ";
-            if (!reqInfo.user.access.airlines.empty())
-                SQLText += ",aro_airlines ";
-            if (!reqInfo.user.access.airps.empty())
-                SQLText += ",aro_airps ";
-            SQLText +=
+                "    points "
                 "WHERE "
                 "    points.pr_del >= 0 and "
                 "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-            if (!reqInfo.user.access.airlines.empty())
-                SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-            if (!reqInfo.user.access.airps.empty())
-                SQLText +=
-                    "AND aro_airps.airp in ( "
-                    "   points.airp, "
-                    "   ckin.next_airp(DECODE(points.pr_tranzit, "
-                    "   0,points.point_id,points.first_point), "
-                    "   points.point_num)) AND aro_airps.aro_id=:user_id ";
+            if (!reqInfo.user.access.airlines.empty()) {
+                if (reqInfo.user.access.airlines_permit)
+                    SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
+                else
+                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
+            }
+            if (!reqInfo.user.access.airps.empty()) {
+                if (reqInfo.user.access.airps_permit)
+                    SQLText+="AND (points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                        "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                        GetSQLEnum(reqInfo.user.access.airps)+")";
+                else
+                    SQLText+="AND NOT(points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                        "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                        GetSQLEnum(reqInfo.user.access.airps)+")";
+            }
         } else {
             SQLText =
                 "SELECT "
@@ -772,25 +780,27 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 "    move_id, "
                 "    point_num "
                 "FROM "
-                "    arx_points ";
-            if (!reqInfo.user.access.airlines.empty())
-                SQLText += ",aro_airlines ";
-            if (!reqInfo.user.access.airps.empty())
-                SQLText += ",aro_airps ";
-            SQLText +=
+                "    arx_points "
                 "WHERE "
                 "    arx_points.pr_del >= 0 and "
                 "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                 "    arx_points.part_key >= :FirstDate ";
-            if (!reqInfo.user.access.airlines.empty())
-                SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-            if (!reqInfo.user.access.airps.empty())
-                SQLText +=
-                    "AND aro_airps.airp in ( "
-                    "   arx_points.airp, "
-                    "   arch.next_airp(DECODE(arx_points.pr_tranzit, "
-                    "   0,arx_points.point_id,arx_points.first_point), "
-                    "   arx_points.point_num, arx_points.part_key)) AND aro_airps.aro_id=:user_id ";
+            if (!reqInfo.user.access.airlines.empty()) {
+                if (reqInfo.user.access.airlines_permit)
+                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
+                else
+                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
+            }
+            if (!reqInfo.user.access.airps.empty()) {
+                if (reqInfo.user.access.airps_permit)
+                    SQLText+="AND (arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                        "     ckin.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
+                        GetSQLEnum(reqInfo.user.access.airps)+")";
+                else
+                    SQLText+="AND NOT(arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                        "        arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
+                        GetSQLEnum(reqInfo.user.access.airps)+")";
+            }
         }
         Qry.SQLText = SQLText;
         try {
@@ -2573,19 +2583,22 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  points, "
-        "  stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and points.airp = :ap ";
@@ -2620,21 +2633,24 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(excess) excess "
         "from "
         "  arx_points, "
-        "  arx_stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and arx_points.airp = :ap ";
@@ -2675,9 +2691,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    places ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
-
-    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
 
     Qry.SQLText = SQLText;
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2883,19 +2896,22 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  points, "
-        "  stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and points.airp = :ap ";
@@ -2927,21 +2943,24 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    sum(adult + child + baby) pax_amount "
         "from  "
         "  arx_points, "
-        "  arx_stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and arx_points.airp = :ap ";
@@ -2977,9 +2996,6 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airline ";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
-
-    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
 
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
@@ -3061,19 +3077,22 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  points, "
-        "  stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  stat "
         "where "
         "  points.point_id = stat.point_id and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and points.airp = :ap ";
@@ -3095,21 +3114,24 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  sum(adult + child + baby) pax_amount "
         "from "
         "  arx_points, "
-        "  arx_stat ";
-    if (!info.user.access.airlines.empty())
-        SQLText += ",aro_airlines ";
-    if (!info.user.access.airps.empty())
-        SQLText += ",aro_airps ";
-    SQLText +=
+        "  arx_stat "
         "where "
         "  arx_points.point_id = arx_stat.point_id and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
-    if (!info.user.access.airlines.empty())
-        SQLText += "AND aro_airlines.airline=arx_points.airline AND aro_airlines.aro_id=:user_id ";
-    if (!info.user.access.airps.empty())
-        SQLText += "AND aro_airps.airp=arx_points.airp AND aro_airps.aro_id=:user_id ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            SQLText += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            SQLText += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
     if(ap.size()) {
         SQLText +=
             " and arx_points.airp = :ap ";
@@ -3140,8 +3162,6 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
-    if (!info.user.access.airlines.empty() || !info.user.access.airps.empty())
-        Qry.CreateVariable( "user_id", otInteger, info.user.user_id );
     Qry.Execute();
 
     if(!Qry.Eof) {
