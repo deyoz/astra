@@ -180,17 +180,21 @@ void sendErrorTlg(const char *format, ...)
 {
   try
   {
+    const char *sender=OWN_CANON_NAME();
+    const char *receiver=ERR_CANON_NAME();
+
+    if (*receiver==0) return;
     char Message[500];
     if (format==NULL) return;
     va_list ap;
     va_start(ap, format);
-    sprintf(Message,"Sender: %s\n",OWN_CANON_NAME());
+    sprintf(Message,"Sender: %s\n",sender);
     int len=strlen(Message);
     vsnprintf(Message+len, sizeof(Message)-len, format, ap);
     Message[sizeof(Message)-1]=0;
     va_end(ap);
 
-    sendTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),false,0,Message);
+    sendTlg(receiver,sender,false,0,Message);
   }
   catch( std::exception &e)
   {
