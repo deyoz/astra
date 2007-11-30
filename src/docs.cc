@@ -1143,6 +1143,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
@@ -1190,6 +1191,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "where "
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(point_id));
 
@@ -1261,6 +1263,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.CreateVariable("point_id", otInteger, point_id);
     if(target.size())
         Qry.CreateVariable("target", otString, target);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     if(Qry.RowCount() > 0) {
         TotAmount += Qry.FieldAsInteger("amount");
@@ -1279,14 +1282,22 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
-    if(target.empty())
-        throw UserException("Временно не работает");
+
+    if(target.empty()) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("BMTrferTotal", resNode);
+    }
+
     int pr_lat = GetRPEncoding(target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
 
     TQuery Qry(&OraSession);
     string SQLText =
-        "SELECT ";
+        "SELECT "
+        "    target, ";
     if(pr_vip != 2)
         SQLText +=
             "    pr_vip, ";
@@ -1305,19 +1316,28 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   amount, "
         "   weight "
         "FROM ";
-    if(pr_vip == 2)
+    if(target.empty())
+        SQLText +=
+            "    v_bm_trfer_total  ";
+    else if(pr_vip == 2)
         SQLText +=
             "    v_bm_trfer_total  ";
     else
         SQLText +=
             "    v_bm_trfer  ";
     SQLText +=
-        "WHERE trip_id=:point_id AND target=:target ";
+        "WHERE trip_id=:point_id ";
+    if(target.size())
+        SQLText +=
+            "   and target=:target ";
     if(pr_vip != 2)
         SQLText +=
             "    and pr_vip = :pr_vip ";
     SQLText +=
         "ORDER BY ";
+    if(target.empty())
+        SQLText +=
+            "    target, ";
     if(pr_vip != 2)
         SQLText +=
             "    pr_vip, ";
@@ -1331,10 +1351,12 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   birk_range ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm_trfer");
@@ -1350,6 +1372,10 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         }
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        string airp_arv = Qry.FieldAsString("target");
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
         NewTextChild(rowNode, "pr_vip", pr_vip);
         NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("pr_trfer"));
         NewTextChild(rowNode, "last_target", Qry.FieldAsString("last_target"));
@@ -1383,6 +1409,7 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "where "
         "   point_id = :point_id ";
     Qry.CreateVariable("point_id", otInteger, point_id);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBMTrfer: variables fetch failed for point_id " + IntToString(point_id));
 
@@ -1413,7 +1440,9 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
     tst();
-    NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
+
+    if(target.size())
+        NewTextChild(variablesNode, "airp_arv_name", base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat));
 
     { // for back compatibility 14.10.07 !!!
         NewTextChild(variablesNode, "DosKwit");
@@ -1438,13 +1467,18 @@ void RunBMTrfer(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
     SQLText +=
-        "      pax_grp.point_dep=:point_id AND "
-        "      pax_grp.airp_arv=:target AND "
+        "      pax_grp.point_dep=:point_id AND ";
+    if(target.size())
+        SQLText +=
+            "      pax_grp.airp_arv=:target AND ";
+    SQLText +=
         "      pax_grp.bag_refuse=0 AND "
         "      bag2.pr_cabin=0 ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("target", otString, target);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
     int TotAmount = 0;
     int TotWeight = 0;
@@ -1874,6 +1908,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(
             rpType == "PM" ||
             rpType == "TPM" ||
+            rpType == "TBM" ||
             rpType == "BM"
       ) {
         xmlNodePtr SegNode;
@@ -1896,6 +1931,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         if(
                 rpType == "BM" ||
+                rpType == "TBM" ||
                 rpType == "PM" ||
                 rpType == "TPM"
           ) {
