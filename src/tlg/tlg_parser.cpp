@@ -54,7 +54,7 @@ const char* TTlgElementS[] =
 
 char lexh[MAX_LEXEME_SIZE+1];
 
-void ParseNameElement(TTlgParser &tlg, string str, vector<string> &names, TElemPresence num_presence);
+void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence);
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
 void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
@@ -359,7 +359,11 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
       throw ETlgError("Wrong element identifier");
     try
     {
-      if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Wrong format");
+      if (*id!='P')
+      {
+        //в tlg.lex первая лекскма
+        if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Wrong format");
+      };
       switch (*id)
       {
         case 'V':
@@ -497,7 +501,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
             TBSMPax& pax = *(TBSMPax*)data;
 
             vector<string> names;
-            ParseNameElement(tlg,tlg.lex,names,epOptional);
+            ParseNameElement(p,names,epOptional);
             if (names.empty()) throw ETlgError("Wrong format");
             for(vector<string>::iterator i=names.begin();i!=names.end();i++)
             {
@@ -1390,7 +1394,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
 
             //ph указывает на начало NAME-элемента в буфере lexh
             vector<string> names;
-            ParseNameElement(tlg,ph,names,epNone);
+            ParseNameElement(ph,names,epNone);
             for(vector<string>::iterator i=names.begin();i!=names.end();i++)
             {
               if (i==names.begin())
@@ -1843,7 +1847,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
               ne.indicator=Indicator;
 
               vector<string> names;
-              ParseNameElement(tlg,tlg.lex,names,epMandatory);
+              ParseNameElement(tlg.lex,names,epMandatory);
               if (names.empty()) throw ETlgError("Wrong format");
               ne.pax.clear();
               for(vector<string>::iterator i=names.begin();i!=names.end();i++)
@@ -1854,8 +1858,8 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
                 {
                   TPaxItem PaxItem;
                   PaxItem.name=*i;
-                  if (i->find("CHD")!=string::npos)
-                    PaxItem.pers_type=child;
+                  /*if (i->find("CHD")!=string::npos)
+                    PaxItem.pers_type=child;*/
 
                   ne.pax.push_back(PaxItem);
                 };
@@ -2127,20 +2131,20 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
   };
 };
 
-void ParseNameElement(TTlgParser &tlg, string str, vector<string> &names, TElemPresence num_presence)
+void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence)
 {
   char c,numh[4];
   int res,num;
   bool pr_num;
-
-  char *p=(char*)str.c_str();
+  TTlgParser tlg;
+  char lexh[MAX_LEXEME_SIZE+1];
 
   names.clear();
   if (p==NULL) return;
 
   p=tlg.GetSlashedLexeme(p);
   if (p==NULL) return;
-  //выбираем первую лекскму
+  //выбираем первую лексему
 
   if (*tlg.lex!=0)
   {
@@ -2176,7 +2180,7 @@ void ParseNameElement(TTlgParser &tlg, string str, vector<string> &names, TElemP
   {
     if (*tlg.lex==0) throw ETlgError("Wrong format");
     c=0;
-    res=sscanf(tlg.lex,"%*[A-ZА-ЯЁ ]%c",&c);
+    res=sscanf(tlg.lex,"%*[A-ZА-ЯЁ -]%c",&c);
     if (c!=0||res>0) throw ETlgError("Wrong format");
     names.push_back(tlg.lex);
     num--;
@@ -2240,31 +2244,31 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
   //попробовать привязать ремарки к конкретным пассажирам
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();)
   {
-    if (iRemItem->text.empty()||
-        (pos=iRemItem->text.find_last_of('-'))==string::npos)
-    {
-      iRemItem++;
-      continue;
-    };
-    strh=iRemItem->text.substr(pos+1);
-    if (strh.size()>=sizeof(tlg.lex))
+    if (iRemItem->text.empty())
     {
       iRemItem++;
       continue;
     };
 
+    //ищем ссылку на пассажира до совпадения фамилий
     vector<string> names;
-    try
+    pos=iRemItem->text.find_last_of('-');
+    while(pos!=string::npos)
     {
-      ParseNameElement(tlg,strh,names,epOptional);
-    }
-    catch(ETlgError &E)
-    {
-      iRemItem++;
-      continue;
+      strh=iRemItem->text.substr(pos+1);
+      try
+      {
+        ParseNameElement((char*)strh.c_str(),names,epOptional);
+        if (!names.empty()&&*(names.begin())==ne.surname) break; //нашли
+      }
+      catch(ETlgError &E) {};
+
+      pos=iRemItem->text.find_last_of('-',pos-1);
     };
-    if (names.empty()||*(names.begin())!=ne.surname)
+
+    if (pos==string::npos)
     {
+      //не нашли ссылку на пассажира
       iRemItem++;
       continue;
     };
@@ -2855,7 +2859,7 @@ bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd)
     {
       try
       {
-        ParseNameElement(tlg,tlg.lex,names,epNone);
+        ParseNameElement(tlg.lex,names,epNone);
       }
       catch(ETlgError &E)
       {
@@ -2916,10 +2920,10 @@ bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf)
     vector<string> names;
     vector<string>::iterator i;
     while((p=tlg.GetLexeme(p))!=NULL)
-    { 
+    {
       try
       {
-        ParseNameElement(tlg,tlg.lex,names,epNone);
+        ParseNameElement(tlg.lex,names,epNone);
       }
       catch(ETlgError &E)
       {
