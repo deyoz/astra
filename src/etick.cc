@@ -41,7 +41,8 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   if (Qry.Eof||
       !set_edi_addrs(Qry.FieldAsString("airline"),
                      Qry.FieldAsInteger("flt_no")))
-    throw EXCEPTIONS::Exception("ETSearch: edifact UNB-adresses not defined ");
+    throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",Qry.FieldAsString("airline"),Qry.FieldAsInteger("flt_no"));
+    //  EXCEPTIONS::Exception("ETSearch: edifact UNB-adresses not defined ");
 
   string oper_carrier=Qry.FieldAsString("airline");
 

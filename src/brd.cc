@@ -284,7 +284,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.CreateVariable("pax_id",otInteger,NodeAsInteger("pax_id",reqNode));
       Qry.Execute();
       if (Qry.Eof)
-        throw UserException("Пассажир не зарегистрирован");
+        throw UserException("Получены неверные данные");
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
@@ -296,7 +296,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       {
         point_id=Qry.FieldAsInteger("point_dep");
         Qry.Clear();
-        if (TripsInterface::readTripHeader( point_id, dataNode ))
+        if (reqInfo->screen.name != "BRDBUS.EXE" &&
+            TripsInterface::readTripHeader( point_id, dataNode ))
         {
           //проверим hall
           if (hall!=-1)
