@@ -2910,9 +2910,6 @@ bool ComparePeriod1( TViewPeriod t1, TViewPeriod t2 )
 bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
 {
     if ( !t1.trips.empty() && !t2.trips.empty() ) {
-        if ( t1.trips.begin()->takeoff < t2.trips.begin()->takeoff )
-            return true;
-        else
             if ( t1.trips.begin()->name.size() < t2.trips.begin()->name.size() )
                 return true;
             else
