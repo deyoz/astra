@@ -2276,6 +2276,12 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
     if ( OwnDest == NULL && NDest->cod == airp ) {
       PriorDest = PDest;
       OwnDest = NDest;
+
+      // Den was here!!!
+      if ( !portsFrom.empty() )
+        portsFrom += "/";
+      portsFrom += NDest->cod;
+      // end of Den was here
     }
     else { /* наш порт в маршруте не надо отображать */
 //!!!      if ( ports.find( NDest->cod ) == string::npos ) {
@@ -2882,25 +2888,47 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
 //  ProgError( STDLOG, ">>>> error GetTZTimeDiff not found" );
 }
 
+bool ComparePeriod1( TViewPeriod t1, TViewPeriod t2 )
+{
+    if ( !t1.trips.empty() && !t2.trips.empty() ) {
+        bool result;
+        if ( t1.trips.begin()->takeoff == t2.trips.begin()->takeoff ) {
+            if(t1.trips.begin()->name.size() == t2.trips.begin()->name.size()) {
+                if ( t1.trips.begin()->name == t2.trips.begin()->name ) {
+                    result = t1.trips.begin()->move_id < t2.trips.begin()->move_id;
+                } else
+                    result = t1.trips.begin()->name < t2.trips.begin()->name;
+            } else
+                result = t1.trips.begin()->name.size() < t2.trips.begin()->name.size();
+        } else
+            result = t1.trips.begin()->takeoff < t2.trips.begin()->takeoff;
+        return result;
+    }
+    return false;
+}
+
 bool ComparePeriod( TViewPeriod t1, TViewPeriod t2 )
 {
-	if ( !t1.trips.empty() && !t2.trips.empty() ) {
-		if ( t1.trips.begin()->name.size() < t2.trips.begin()->name.size() )
-			return true;
-		else
-			if ( t1.trips.begin()->name.size() > t2.trips.begin()->name.size() )
-				return false;
-			else
-		    if ( t1.trips.begin()->name < t2.trips.begin()->name )
-		      return true;
+    if ( !t1.trips.empty() && !t2.trips.empty() ) {
+        if ( t1.trips.begin()->takeoff < t2.trips.begin()->takeoff )
+            return true;
         else
-        	if ( t1.trips.begin()->name > t2.trips.begin()->name )
-        		return false;
-        	else
-   		      if ( t1.trips.begin()->move_id < t2.trips.begin()->move_id )
-  	  		    return true;
-  }
-  return false;
+            if ( t1.trips.begin()->name.size() < t2.trips.begin()->name.size() )
+                return true;
+            else
+                if ( t1.trips.begin()->name.size() > t2.trips.begin()->name.size() )
+                    return false;
+                else
+                    if ( t1.trips.begin()->name < t2.trips.begin()->name )
+                        return true;
+                    else
+                        if ( t1.trips.begin()->name > t2.trips.begin()->name )
+                            return false;
+                        else
+                            if ( t1.trips.begin()->move_id < t2.trips.begin()->move_id )
+                                return true;
+    }
+    return false;
 }
 
 void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = NoExists )
@@ -3098,7 +3126,7 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
   vector<TViewPeriod> viewp;
   internalRead( filter, viewp );
-  sort( viewp.begin(), viewp.end(), ComparePeriod );
+  sort( viewp.begin(), viewp.end(), ComparePeriod1 );
   buildViewTrips( viewp, dataNode );
   if ( GetNode( "LoadForm", reqNode ) ) {
     get_report_form("SeasonList", resNode);
