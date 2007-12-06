@@ -1443,9 +1443,17 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  if ( fl.act != old_fl.act ) {
  	  	if ( !tl.empty() )
  	  		tl += ",";
- 	  	if ( fl.act > NoExists )
- 	  	  tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
- 	  	else
+        if ( fl.act > NoExists ) {
+            TQuery Qry(&OraSession);
+            Qry.Clear();
+            Qry.SQLText=
+                "BEGIN "
+                "  statist.get_full_stat(:point_id); "
+                "END;";
+            Qry.CreateVariable( "point_id", otInteger, point_id );
+            Qry.Execute();
+            tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
+        } else
  	  		tl += "Отмена факта вылета";
  	  }
  	  if ( fl.litera != old_fl.litera ) {
