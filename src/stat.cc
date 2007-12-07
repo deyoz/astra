@@ -504,72 +504,78 @@ const int CategorySize = sizeof(Category)/sizeof(Category[0]);
 void GetFltLogSQL(TQuery &Qry)
 {
     TReqInfo &info = *(TReqInfo::Instance());
-    string res =
-        "SELECT "
-        "    points.point_id, "
-        "    points.airp, "
-        "    points.airline, "
-        "    points.flt_no, "
-        "    nvl(points.suffix, ' ') suffix, "
-        "    points.scd_out, "
-        "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
-        "    move_id, "
-        "    point_num "
-        "FROM "
-        "    points "
-        "WHERE "
-        "    points.pr_del >= 0 and "
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    string res;
+    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
+            info.user.access.airps.empty() && info.user.access.airps_permit)
+        res = "select * from dual where 0 = 1";
+    else {
+        res =
+            "SELECT "
+            "    points.point_id, "
+            "    points.airp, "
+            "    points.airline, "
+            "    points.flt_no, "
+            "    nvl(points.suffix, ' ') suffix, "
+            "    points.scd_out, "
+            "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+            "    move_id, "
+            "    point_num "
+            "FROM "
+            "    points "
+            "WHERE "
+            "    points.pr_del >= 0 and "
+            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        if (!info.user.access.airps.empty()) {
+            if (info.user.access.airps_permit)
+                res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+            else
+                res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+        }
+        if (!info.user.access.airlines.empty()) {
+            if (info.user.access.airlines_permit)
+                res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            else
+                res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+        }
+        res +=
+            "union "
+            "SELECT "
+            "    arx_points.point_id, "
+            "    arx_points.airp, "
+            "    arx_points.airline, "
+            "    arx_points.flt_no, "
+            "    nvl(arx_points.suffix, ' ') suffix, "
+            "    arx_points.scd_out, "
+            "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+            "    move_id, "
+            "    point_num "
+            "FROM "
+            "    arx_points "
+            "WHERE "
+            "    arx_points.pr_del >= 0 and "
+            "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+            "    arx_points.part_key >= :FirstDate ";
+        if (!info.user.access.airps.empty()) {
+            if (info.user.access.airps_permit)
+                res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+            else
+                res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+        }
+        if (!info.user.access.airlines.empty()) {
+            if (info.user.access.airlines_permit)
+                res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+            else
+                res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+        }
+        res +=
+            "ORDER BY "
+            "   real_out DESC, "
+            "   flt_no, "
+            "   airline, "
+            "   suffix, "
+            "   move_id, "
+            "   point_num ";
     }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "union "
-        "SELECT "
-        "    arx_points.point_id, "
-        "    arx_points.airp, "
-        "    arx_points.airline, "
-        "    arx_points.flt_no, "
-        "    nvl(arx_points.suffix, ' ') suffix, "
-        "    arx_points.scd_out, "
-        "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
-        "    move_id, "
-        "    point_num "
-        "FROM "
-        "    arx_points "
-        "WHERE "
-        "    arx_points.pr_del >= 0 and "
-        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "    arx_points.part_key >= :FirstDate ";
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "ORDER BY "
-        "   real_out DESC, "
-        "   flt_no, "
-        "   airline, "
-        "   suffix, "
-        "   move_id, "
-        "   point_num ";
     Qry.SQLText = res;
 }
 
@@ -730,139 +736,143 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     tm.Init();
     int count = 0;
     ProgTrace(TRACE5, "TRACC");
-    for(int i = 0; i < 2; i++) {
-        string SQLText;
-        if(i == 0) {
-            SQLText =
-                "SELECT "
-                "    null part_key, "
-                "    points.point_id, "
-                "    points.airp, "
-                "    points.airline, "
-                "    points.flt_no, "
-                "    nvl(points.suffix, ' ') suffix, "
-                "    points.scd_out, "
-                "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
-                "    move_id, "
-                "    point_num "
-                "FROM "
-                "    points "
-                "WHERE "
-                "    points.pr_del >= 0 and "
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-            if (!reqInfo.user.access.airlines.empty()) {
-                if (reqInfo.user.access.airlines_permit)
-                    SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
-                else
-                    SQLText += " AND points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
-            }
-            if (!reqInfo.user.access.airps.empty()) {
-                if (reqInfo.user.access.airps_permit)
-                    SQLText+="AND (points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                        "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                        GetSQLEnum(reqInfo.user.access.airps)+")";
-                else
-                    SQLText+="AND NOT(points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                        "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                        GetSQLEnum(reqInfo.user.access.airps)+")";
-            }
-        } else {
-            SQLText =
-                "SELECT "
-                "    arx_points.part_key, "
-                "    arx_points.point_id, "
-                "    arx_points.airp, "
-                "    arx_points.airline, "
-                "    arx_points.flt_no, "
-                "    nvl(arx_points.suffix, ' ') suffix, "
-                "    arx_points.scd_out, "
-                "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
-                "    move_id, "
-                "    point_num "
-                "FROM "
-                "    arx_points "
-                "WHERE "
-                "    arx_points.pr_del >= 0 and "
-                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                "    arx_points.part_key >= :FirstDate ";
-            if (!reqInfo.user.access.airlines.empty()) {
-                if (reqInfo.user.access.airlines_permit)
-                    SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
-                else
-                    SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
-            }
-            if (!reqInfo.user.access.airps.empty()) {
-                if (reqInfo.user.access.airps_permit)
-                    SQLText+="AND (arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                        "     ckin.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
-                        GetSQLEnum(reqInfo.user.access.airps)+")";
-                else
-                    SQLText+="AND NOT(arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                        "        arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
-                        GetSQLEnum(reqInfo.user.access.airps)+")";
-            }
-        }
-        Qry.SQLText = SQLText;
-        try {
-            Qry.Execute();
-        } catch (EOracleError E) {
-            if(E.Code == 376)
-                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
-            else
-                throw;
-        }
-        if(!Qry.Eof) {
-            int col_airline=Qry.FieldIndex("airline");
-            int col_flt_no=Qry.FieldIndex("flt_no");
-            int col_suffix=Qry.FieldIndex("suffix");
-            int col_airp=Qry.FieldIndex("airp");
-            int col_scd_out=Qry.FieldIndex("scd_out");
-            int col_real_out=Qry.FieldIndex("real_out");
-            int col_move_id=Qry.FieldIndex("move_id");
-            int col_point_num=Qry.FieldIndex("point_num");
-            int col_point_id=Qry.FieldIndex("point_id");
-            int col_part_key=Qry.FieldIndex("part_key");
-            for( ; !Qry.Eof; Qry.Next()) {
-                tripInfo.airline = Qry.FieldAsString(col_airline);
-                tripInfo.flt_no = Qry.FieldAsInteger(col_flt_no);
-                tripInfo.suffix = Qry.FieldAsString(col_suffix);
-                tripInfo.airp = Qry.FieldAsString(col_airp);
-                tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
-                tripInfo.real_out_local_date=ASTRA::NoExists;
-                try
-                {
-                    trip_name = GetTripName(tripInfo,false,true);
+    if (!(reqInfo.user.access.airlines.empty() && reqInfo.user.access.airlines_permit ||
+            reqInfo.user.access.airps.empty() && reqInfo.user.access.airps_permit))
+    {
+        for(int i = 0; i < 2; i++) {
+            string SQLText;
+            if(i == 0) {
+                SQLText =
+                    "SELECT "
+                    "    null part_key, "
+                    "    points.point_id, "
+                    "    points.airp, "
+                    "    points.airline, "
+                    "    points.flt_no, "
+                    "    nvl(points.suffix, ' ') suffix, "
+                    "    points.scd_out, "
+                    "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+                    "    move_id, "
+                    "    point_num "
+                    "FROM "
+                    "    points "
+                    "WHERE "
+                    "    points.pr_del >= 0 and "
+                    "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+                if (!reqInfo.user.access.airlines.empty()) {
+                    if (reqInfo.user.access.airlines_permit)
+                        SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
+                    else
+                        SQLText += " AND points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
                 }
-                catch(UserException &E)
-                {
-                    showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
-                    continue;
-                };
-                TPointsRow pointsRow;
-                if(Qry.FieldIsNULL(col_part_key))
-                    pointsRow.part_key = NoExists;
+                if (!reqInfo.user.access.airps.empty()) {
+                    if (reqInfo.user.access.airps_permit)
+                        SQLText+="AND (points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                            GetSQLEnum(reqInfo.user.access.airps)+")";
+                    else
+                        SQLText+="AND NOT(points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                            GetSQLEnum(reqInfo.user.access.airps)+")";
+                }
+            } else {
+                SQLText =
+                    "SELECT "
+                    "    arx_points.part_key, "
+                    "    arx_points.point_id, "
+                    "    arx_points.airp, "
+                    "    arx_points.airline, "
+                    "    arx_points.flt_no, "
+                    "    nvl(arx_points.suffix, ' ') suffix, "
+                    "    arx_points.scd_out, "
+                    "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+                    "    move_id, "
+                    "    point_num "
+                    "FROM "
+                    "    arx_points "
+                    "WHERE "
+                    "    arx_points.pr_del >= 0 and "
+                    "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                    "    arx_points.part_key >= :FirstDate ";
+                if (!reqInfo.user.access.airlines.empty()) {
+                    if (reqInfo.user.access.airlines_permit)
+                        SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
+                    else
+                        SQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(reqInfo.user.access.airlines);
+                }
+                if (!reqInfo.user.access.airps.empty()) {
+                    if (reqInfo.user.access.airps_permit)
+                        SQLText+="AND (arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "     arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
+                            GetSQLEnum(reqInfo.user.access.airps)+")";
+                    else
+                        SQLText+="AND NOT(arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "        arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num) IN "+
+                            GetSQLEnum(reqInfo.user.access.airps)+")";
+                }
+            }
+            Qry.SQLText = SQLText;
+            try {
+                Qry.Execute();
+            } catch (EOracleError E) {
+                if(E.Code == 376)
+                    throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
                 else
-                    pointsRow.part_key = Qry.FieldAsDateTime(col_part_key);
-                pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
-                pointsRow.real_out_local_date = tripInfo.real_out_local_date;
-                pointsRow.airline = tripInfo.airline;
-                pointsRow.suffix = tripInfo.suffix;
-                pointsRow.name = trip_name;
-                pointsRow.flt_no = tripInfo.flt_no;
-                pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
-                pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
-                points.push_back(pointsRow);
+                    throw;
+            }
+            if(!Qry.Eof) {
+                int col_airline=Qry.FieldIndex("airline");
+                int col_flt_no=Qry.FieldIndex("flt_no");
+                int col_suffix=Qry.FieldIndex("suffix");
+                int col_airp=Qry.FieldIndex("airp");
+                int col_scd_out=Qry.FieldIndex("scd_out");
+                int col_real_out=Qry.FieldIndex("real_out");
+                int col_move_id=Qry.FieldIndex("move_id");
+                int col_point_num=Qry.FieldIndex("point_num");
+                int col_point_id=Qry.FieldIndex("point_id");
+                int col_part_key=Qry.FieldIndex("part_key");
+                for( ; !Qry.Eof; Qry.Next()) {
+                    tripInfo.airline = Qry.FieldAsString(col_airline);
+                    tripInfo.flt_no = Qry.FieldAsInteger(col_flt_no);
+                    tripInfo.suffix = Qry.FieldAsString(col_suffix);
+                    tripInfo.airp = Qry.FieldAsString(col_airp);
+                    tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
+                    tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
+                    tripInfo.real_out_local_date=ASTRA::NoExists;
+                    try
+                    {
+                        trip_name = GetTripName(tripInfo,false,true);
+                    }
+                    catch(UserException &E)
+                    {
+                        showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                        continue;
+                    };
+                    TPointsRow pointsRow;
+                    if(Qry.FieldIsNULL(col_part_key))
+                        pointsRow.part_key = NoExists;
+                    else
+                        pointsRow.part_key = Qry.FieldAsDateTime(col_part_key);
+                    pointsRow.point_id = Qry.FieldAsInteger(col_point_id);
+                    pointsRow.real_out_local_date = tripInfo.real_out_local_date;
+                    pointsRow.airline = tripInfo.airline;
+                    pointsRow.suffix = tripInfo.suffix;
+                    pointsRow.name = trip_name;
+                    pointsRow.flt_no = tripInfo.flt_no;
+                    pointsRow.move_id = Qry.FieldAsInteger(col_move_id);
+                    pointsRow.point_num = Qry.FieldAsInteger(col_point_num);
+                    points.push_back(pointsRow);
 
-                count++;
-                if(count >= MAX_STAT_ROWS) {
-                    showErrorMessage(
-                            "Выбрано слишком много рейсов. Показано " +
-                            IntToString(MAX_STAT_ROWS) +
-                            " произвольных рейсов."
-                            " Уточните период поиска."
-                            );
-                    break;
+                    count++;
+                    if(count >= MAX_STAT_ROWS) {
+                        showErrorMessage(
+                                "Выбрано слишком много рейсов. Показано " +
+                                IntToString(MAX_STAT_ROWS) +
+                                " произвольных рейсов."
+                                " Уточните период поиска."
+                                );
+                        break;
+                    }
                 }
             }
         }
@@ -2542,6 +2552,9 @@ void STAT::set_variables(xmlNodePtr resNode)
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
+            info.user.access.airps.empty() && info.user.access.airps_permit)
+        throw UserException("Не найдено ни одной операции.");
     get_report_form("FullStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -2865,6 +2878,9 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
+            info.user.access.airps.empty() && info.user.access.airps_permit)
+        throw UserException("Не найдено ни одной операции.");
     get_report_form("ShortStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -3049,13 +3065,17 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", "Итого:");
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
-    }
+    } else
+        throw UserException("Не найдено ни одной операции.");
     STAT::set_variables(resNode);
 }
 
 void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
+            info.user.access.airps.empty() && info.user.access.airps_permit)
+        throw UserException("Не найдено ни одной операции.");
     get_report_form("DetailStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -3224,7 +3244,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
-    }
+    } else
+        throw UserException("Не найдено ни одной операции.");
     STAT::set_variables(resNode);
 }
 
