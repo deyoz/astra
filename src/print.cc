@@ -846,6 +846,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
+            "   get_seat_no(pax.pax_id, 'voland') str_seat_no, "
+            "   tlg.convert_seat_no(get_seat_no(pax.pax_id, 'voland'), 1) str_seat_no_lat, "
             "   LPAD(seat_no,3,'0')|| "
             "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
             "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
