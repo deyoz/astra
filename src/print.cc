@@ -784,7 +784,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat, "
-        "   to_char(points.FLT_NO) flt_no, "
+        "   to_char(points.FLT_NO)||points.litera flt_no, "
         "   points.SUFFIX, "
         "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
