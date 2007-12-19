@@ -128,7 +128,7 @@ void createSPP( TDateTime utcdate )
 {
   TBaseTable &basecities = base_tables.get( "cities" );
 	string city = "МОВ";
-	utcdate += 1; //  на следующий день
+	utcdate += 2; //  через день
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->clear();
 	reqInfo->user.time_form = tfUTC;
