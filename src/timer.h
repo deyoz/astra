@@ -14,6 +14,8 @@ void createSPP( BASIC::TDateTime utcdate );
 void exec_tasks( void );
 void arx_daily( BASIC::TDateTime utcdate );
 void sync_sirena_codes( void );
+const int ARX_MIN_DAYS();
 const int ARX_MAX_DAYS();
+const int CREATE_SPP_DAYS();
 
 #endif

@@ -124,11 +124,62 @@ void exec_tasks( void )
 	};
 };
 
+const int ARX_MIN_DAYS()
+{
+	static bool init=false;
+  static int VAR;
+  if (!init) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "ARX_MIN_DAYS", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param ARX_MIN_DAYS" );
+    if (StrToInt(r,VAR)==EOF||VAR<2)
+      throw EXCEPTIONS::Exception("Wrong param ARX_MIN_DAYS=%s",r);
+    init=true;
+    ProgTrace( TRACE5, "ARX_MIN_DAYS=%d", VAR );
+  }
+  return VAR;
+};
+
+const int ARX_MAX_DAYS()
+{
+	static bool init=false;
+  static int VAR;
+  if (!init) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "ARX_MAX_DAYS", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param ARX_MAX_DAYS" );
+    if (StrToInt(r,VAR)==EOF||VAR<2)
+      throw EXCEPTIONS::Exception("Wrong param ARX_MAX_DAYS=%s",r);
+    init=true;
+    ProgTrace( TRACE5, "ARX_MAX_DAYS=%d", VAR );
+  }
+  return VAR;
+};
+
+const int CREATE_SPP_DAYS()
+{
+	static bool init=false;
+  static int VAR;
+  if (!init) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "CREATE_SPP_DAYS", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param CREATE_SPP_DAYS" );
+    if (StrToInt(r,VAR)==EOF||VAR<1||VAR>9)
+      throw EXCEPTIONS::Exception("Wrong param CREATE_SPP_DAYS=%s",r);
+    init=true;
+    ProgTrace( TRACE5, "CREATE_SPP_DAYS=%d", VAR );
+  }
+  return VAR;
+};
+
 void createSPP( TDateTime utcdate )
 {
   TBaseTable &basecities = base_tables.get( "cities" );
 	string city = "МОВ";
-	utcdate += 2; //  через день
+	utcdate += CREATE_SPP_DAYS(); //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->clear();
 	reqInfo->user.time_form = tfUTC;
@@ -534,40 +585,6 @@ void sync_mvd(void)
       OraSession.Commit();
     };
   };
-};
-
-const int ARX_MIN_DAYS()
-{
-	static bool init=false;
-  static int VAR;
-  if (!init) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "ARX_MIN_DAYS", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param ARX_MIN_DAYS" );
-    if (StrToInt(r,VAR)==EOF||VAR<2)
-      throw EXCEPTIONS::Exception("Wrong param ARX_MIN_DAYS");
-    init=true;
-    ProgTrace( TRACE5, "ARX_MIN_DAYS=%d", VAR );
-  }
-  return VAR;
-};
-
-const int ARX_MAX_DAYS()
-{
-	static bool init=false;
-  static int VAR;
-  if (!init) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "ARX_MAX_DAYS", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param ARX_MAX_DAYS" );
-    if (StrToInt(r,VAR)==EOF||VAR<2)
-      throw EXCEPTIONS::Exception("Wrong param ARX_MAX_DAYS");
-    init=true;
-    ProgTrace( TRACE5, "ARX_MAX_DAYS=%d", VAR );
-  }
-  return VAR;
 };
 
 void arx_move(int move_id, TDateTime part_key)
