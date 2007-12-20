@@ -579,8 +579,12 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     tst();
     ProgTrace(TRACE5, "TAG: %s", name.c_str());
     string result;
-    if(name == "ONE_CHAR")
-        result = AlignString("X", len, align);
+    if(name == "ONE_CHAR" || print_mode == 2) {
+        if(len)
+            result = AlignString("X", len, align);
+        else
+            result = "X";
+    }
     if(name == "HUGE_CHAR") result.append(len, 'X');
     if(result.size()) return result;
 
@@ -728,11 +732,21 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
         if(!len) len = buf.str().size();
         result = AlignString(buf.str(), len, align);
+        if(print_mode == 1) {
+            size_t result_size = result.size();
+            result = "";
+            result.append(result_size, 'X');
+        }
+        if(print_mode == 3) {
+            size_t result_size = result.size();
+            result = "";
+            result.append(result_size, ' ');
+        }
     }
     {
         string buf = result;
         TrimString(buf);
-        if(buf.empty()) {
+        if(buf.empty() && print_mode != 3) {
             if(name == "GATE") throw UserException("Не указан выход на посадку");
         }
     }
@@ -1624,12 +1638,14 @@ void PrintDataParser::t_field_map::fillMSOMap()
 
 PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
 {
+    print_mode = 0;
     this->pr_lat = rcpt.pr_lat;
     fillMSOMap(rcpt);
 }
 
 PrintDataParser::t_field_map::t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type)
 {
+    print_mode = 0;
     this->grp_id = grp_id;
     this->pax_id = pax_id;
     this->pr_lat = pr_lat;
@@ -1895,6 +1911,16 @@ string PrintDataParser::parse(string &form)
     if(form.substr(0, 2) == "1\xa") {
         i = 2;
         pectab_format = 1;
+    }
+    if(form.substr(0, 2) == "XX") {
+        i = 2;
+        field_map.print_mode = 1;
+    } else if(form.substr(0, 1) == "X") {
+        i = 1;
+        field_map.print_mode = 2;
+    } else if(form.substr(0, 1) == "S") {
+        i = 1;
+        field_map.print_mode = 3;
     }
     for(; i < form.size(); i++) {
         switch(Mode) {

@@ -68,6 +68,7 @@ class PrintDataParser {
                 bool printed(TData::iterator di);
 
             public:
+                int print_mode;
                 t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 t_field_map(TBagReceipt &rcpt);
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
