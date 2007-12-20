@@ -2890,9 +2890,13 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
 
 bool ComparePeriod1( TViewPeriod t1, TViewPeriod t2 )
 {
+	double f;
     if ( !t1.trips.empty() && !t2.trips.empty() ) {
         bool result;
         if ( t1.trips.begin()->takeoff == t2.trips.begin()->takeoff ) {
+        	if ( t1.trips.begin()->land != t2.trips.begin()->land )
+        		result = modf((double)t1.trips.begin()->land, &f) < modf((double)t2.trips.begin()->land, &f);
+        	else	
             if(t1.trips.begin()->name.size() == t2.trips.begin()->name.size()) {
                 if ( t1.trips.begin()->name == t2.trips.begin()->name ) {
                     result = t1.trips.begin()->move_id < t2.trips.begin()->move_id;
@@ -2900,8 +2904,9 @@ bool ComparePeriod1( TViewPeriod t1, TViewPeriod t2 )
                     result = t1.trips.begin()->name < t2.trips.begin()->name;
             } else
                 result = t1.trips.begin()->name.size() < t2.trips.begin()->name.size();
-        } else
-            result = t1.trips.begin()->takeoff < t2.trips.begin()->takeoff;
+        } 
+        else
+            result = modf((double)t1.trips.begin()->takeoff, &f) < modf((double)t2.trips.begin()->takeoff, &f);
         return result;
     }
     return false;
@@ -3065,6 +3070,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
 void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
 {
   xmlNodePtr rangeListNode;
+  double f;
   for ( vector<TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
   	rangeListNode = NewTextChild(dataNode, "rangeList");
     NewTextChild( rangeListNode, "trip_id", i->trip_id );
@@ -3079,10 +3085,11 @@ void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
       NewTextChild( tripNode, "name", j->name );
       NewTextChild( tripNode, "crafts", j->crafts );
       NewTextChild( tripNode, "ports", j->ports );
-      if ( j->land > NoExists )
-        NewTextChild( tripNode, "land", DateTimeToStr( j->land ) );
+      if ( j->land > NoExists ) {
+        NewTextChild( tripNode, "land", DateTimeToStr( modf((double)j->land, &f ) ) );
+      }
       if ( j->takeoff > NoExists )
-        NewTextChild( tripNode, "takeoff", DateTimeToStr( j->takeoff ) );
+        NewTextChild( tripNode, "takeoff", DateTimeToStr( modf((double)j->takeoff, &f ) ) );
     }
   }
 }
