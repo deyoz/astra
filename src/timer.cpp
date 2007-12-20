@@ -184,6 +184,8 @@ void createSPP( TDateTime utcdate )
 	reqInfo->clear();
 	reqInfo->user.time_form = tfUTC;
 	reqInfo->user.user_type = utSupport;
+	reqInfo->user.access.airlines_permit = false;
+	reqInfo->user.access.airps_permit = false;
 	reqInfo->desk.tz_region = ((TCitiesRow&)basecities.get_row( "code", city )).region;
 	CreateSPP( utcdate );
 	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
