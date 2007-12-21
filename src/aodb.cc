@@ -37,6 +37,7 @@ using namespace ASTRA;
 
 struct AODB_STRUCT{
 	int pax_id;
+	int reg_no;
 	int num;
 	int pr_cabin;
 	bool unaccomp;
@@ -124,9 +125,10 @@ struct AODB_Flight {
 	string invalid_term;
 };
 
-void getRecord( int pax_id, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag,
+void getRecord( int pax_id, int reg_no, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax, 
+                const vector<AODB_STRUCT> &aodb_bag,
                 string &res_checkin );
-void createRecord( int point_id, int pax_id, const string &point_addr, bool pr_unaccomp,
+void createRecord( int point_id, int pax_id, int reg_no, const string &point_addr, bool pr_unaccomp,
                    const string unaccomp_header, 
                    vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
@@ -281,10 +283,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	TQuery Qry(&OraSession);
 	if ( pr_unaccomp )
 	  Qry.SQLText =
-	   "SELECT grp_id pax_id, NULL record FROM aodb_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr";		
+	   "SELECT grp_id pax_id, 0 reg_no, NULL record FROM aodb_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr";		
 	else
 	  Qry.SQLText =
-	   "SELECT pax_id, record FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr";
+	   "SELECT pax_id, reg_no, record FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();
@@ -292,6 +294,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	STRAO.unaccomp = pr_unaccomp;
 	while ( !Qry.Eof ) {
   	STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
+  	STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
 		STRAO.record = string( Qry.FieldAsString( "record" ) );
 		prior_aodb_pax.push_back( STRAO );
 		Qry.Next();
@@ -343,7 +346,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	Qry.Clear();
 	if ( pr_unaccomp )
 	  Qry.SQLText =
-	   "SELECT grp_id pax_id, grp_id FROM pax_grp "
+	   "SELECT grp_id pax_id, grp_id, 0 reg_no FROM pax_grp "
 	   " WHERE point_dep=:point_id AND class IS NULL "
 	   " ORDER BY grp_id";		
   else
@@ -533,6 +536,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
     } // end if !pr_unaccomp
 	 	STRAO.record = record.str();
 	  STRAO.pax_id = Qry.FieldAsInteger( "pax_id" );
+	  STRAO.reg_no = Qry.FieldAsInteger( "reg_no" );
 		aodb_pax.push_back( STRAO );
 //!!!		record<<setw(1)<<";"; // конец записи по пассажиру
 		// ручная кладь
@@ -595,17 +599,34 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	// далее сравнение 2-х слепков, выяснение, что добавилось, что удалилось, что изменилось
 	// формирование данных для отпавки + их запись как новый слепок?
 //	ProgTrace( TRACE5, "aodb_pax.size()=%d, prior_aodb_pax.size()=%d",aodb_pax.size(), prior_aodb_pax.size() );
-  string res_checkin, /*res_bag,*/ prior_res_checkin/*, prior_res_bag*/;
-  bool ch_pax/*, ch_bag*/;
+  string res_checkin, prior_res_checkin;
+  bool ch_pax;
+  // вначале идет проверка на удаленных и измененных пассажиров
+	for ( vector<AODB_STRUCT>::iterator p=prior_aodb_pax.begin(); p!=prior_aodb_pax.end(); p++ ) {
+ 		getRecord( p->pax_id, p->reg_no, pr_unaccomp, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
+  	getRecord( p->pax_id, p->reg_no, pr_unaccomp, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
+	  ch_pax = res_checkin != prior_res_checkin;
+  	if ( ch_pax ) {
+		  createRecord( point_id, p->pax_id, p->reg_no, point_addr, pr_unaccomp, 
+		                heading.str(), 
+		                aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
+		                res_checkin/*, res_bag*/ );
+ 			if ( ch_pax )
+	  		file_data += res_checkin;
+	  }
+  }
+  // потом идет проверка на новых пассажиров
 	for ( vector<AODB_STRUCT>::iterator p=aodb_pax.begin(); p!=aodb_pax.end(); p++ ) {
-		getRecord( p->pax_id, pr_unaccomp, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
-		getRecord( p->pax_id, pr_unaccomp, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
+		if ( p->doit )
+			continue;
+		getRecord( p->pax_id, p->reg_no, pr_unaccomp, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
+		getRecord( p->pax_id, p->reg_no, pr_unaccomp, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
 		ch_pax = res_checkin != prior_res_checkin;		
 		//ch_bag = res_bag != prior_res_bag;
 		if ( ch_pax/*|| ch_bag*/ ) {
 //		if ( getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) ) {
 //			ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
-			createRecord( point_id, p->pax_id, point_addr, pr_unaccomp, 
+			createRecord( point_id, p->pax_id, p->reg_no, point_addr, pr_unaccomp, 
 			              heading.str(),
 			              aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 			              res_checkin/*, res_bag*/ );
@@ -617,28 +638,6 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 			}*/
 //			ProgTrace(TRACE5, "create record pax_id=%d", p->pax_id );
 	  }
-  }
-	for ( vector<AODB_STRUCT>::iterator p=prior_aodb_pax.begin(); p!=prior_aodb_pax.end(); p++ ) {
-//		ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
-		if ( !p->doit ) {
-  		getRecord( p->pax_id, pr_unaccomp, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
-	  	getRecord( p->pax_id, pr_unaccomp, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
-		  ch_pax = res_checkin != prior_res_checkin;
-		  //ch_bag = res_bag != prior_res_bag;
-	  	if ( ch_pax /*|| ch_bag*/ ) {
-//			   getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) )
-			  createRecord( point_id, p->pax_id, point_addr, pr_unaccomp, 
-			                heading.str(), 
-			                aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
-			                res_checkin/*, res_bag*/ );
-   			if ( ch_pax )
-		  		file_data += res_checkin;
-/*		  	if ( ch_bag ) {
-//			  	ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );
-				  bag_file_data += res_bag;
-				}*/
-		  }
-		}
   }
 
   if ( !file_data.empty() ) {
@@ -654,13 +653,13 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 }
 
 
-void getRecord( int pax_id, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag,
+void getRecord( int pax_id, int reg_no, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pax, const vector<AODB_STRUCT> &aodb_bag,
                 string &res_checkin/*, string &res_bag*/  )
 {
 	res_checkin.clear();
 //	res_bag.clear();
 	for ( vector<AODB_STRUCT>::const_iterator i=aodb_pax.begin(); i!=aodb_pax.end(); i++ ) {
-	  if ( i->pax_id == pax_id ) {
+	  if ( i->pax_id == pax_id && i->reg_no == reg_no ) {
 	  	if ( !pr_unaccomp )
 		    res_checkin = i->record;
 		  for ( vector<AODB_STRUCT>::const_iterator b=aodb_bag.begin(); b!=aodb_bag.end(); b++ ) {
@@ -672,16 +671,16 @@ void getRecord( int pax_id, bool pr_unaccomp, const vector<AODB_STRUCT> &aodb_pa
 	    break;
 	  }
 	}
-//	ProgTrace( TRACE5, "getRecord pax_id=%d, return res=%s", pax_id, res.c_str() );
+//	ProgTrace( TRACE5, "getRecord pax_id=%d, reg_no=%d,return res=%s", pax_id, reg_no, res_checkin.c_str() );
 }
 
-void createRecord( int point_id, int pax_id, const string &point_addr, bool pr_unaccomp, 
+void createRecord( int point_id, int pax_id, int reg_no, const string &point_addr, bool pr_unaccomp, 
                    const string unaccomp_header,
                    vector<AODB_STRUCT> &aodb_pax, vector<AODB_STRUCT> &aodb_bag,
                    vector<AODB_STRUCT> &prior_aodb_pax, vector<AODB_STRUCT> &prior_aodb_bag,
                    string &res_checkin/*, string &res_bag*/ )
 {
-//	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, point_addr=%s", point_id, pax_id, point_addr.c_str() );
+	ProgTrace( TRACE5, "point_id=%d, pax_id=%d, reg_no=%d, point_addr=%s", point_id, pax_id, reg_no, point_addr.c_str() );
 	res_checkin.clear();
 	//res_bag.clear();
 	TQuery PQry( &OraSession );
@@ -728,26 +727,28 @@ void createRecord( int point_id, int pax_id, const string &point_addr, bool pr_u
   d=aodb_pax.end();
   n=prior_aodb_pax.end();
 	for ( d=aodb_pax.begin(); d!=aodb_pax.end(); d++ )
- 		if ( d->pax_id == pax_id ) {
+ 		if ( d->pax_id == pax_id && d->reg_no == reg_no ) {
  			break;
  		}
   for ( n=prior_aodb_pax.begin(); n!=prior_aodb_pax.end(); n++ )
- 		if ( n->pax_id == pax_id ) {
+ 		if ( n->pax_id == pax_id && n->reg_no == reg_no ) {
  			break;
  		}
  	if ( !pr_unaccomp ) {
     if ( d == aodb_pax.end() ) { // удаление
   	  res_checkin += n->record.substr( 0, n->record.length() - 2 );
   	  res_checkin += "1;";
-//  		ProgTrace( TRACE5, "delete record, record=%s", res.c_str() );
+  		ProgTrace( TRACE5, "delete record, record=%s", res_checkin.c_str() );
     }
 	  else  {
   	  res_checkin += d->record;
     	PQry.Clear();
        PQry.SQLText =
-        "INSERT INTO aodb_pax(point_id,pax_id,point_addr,record) VALUES(:point_id,:pax_id,:point_addr,:record)";
+        "INSERT INTO aodb_pax(point_id,pax_id,reg_no,point_addr,record) "
+        " VALUES(:point_id,:pax_id,:reg_no,:point_addr,:record)";
       PQry.CreateVariable( "point_id", otInteger, point_id );
       PQry.CreateVariable( "pax_id", otInteger, pax_id );
+      PQry.CreateVariable( "reg_no", otInteger, reg_no );
       PQry.CreateVariable( "point_addr", otString, point_addr );
       PQry.CreateVariable( "record", otString, d->record );
       PQry.Execute();
