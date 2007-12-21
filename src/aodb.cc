@@ -1032,18 +1032,19 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	  	throw Exception( "Ошибка формата МКЗ, значение=%s", tmp.c_str() );
 	tmp = linestr.substr( CRAFT_IDX, CRAFT_LEN );
 	fl.craft = TrimString( tmp );
-	if ( fl.craft.empty() )
-		throw Exception( "Ошибка формата типа ВС, значение=%s", tmp.c_str() );
-	Qry.Clear();
-	Qry.SQLText =
-	 "SELECT code, 1 FROM crafts WHERE ( code=:code OR code_lat=:code OR name=:code OR name_lat=:code ) AND pr_del=0 "
-	 " UNION "
-	 "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code";
-	Qry.CreateVariable( "code", otString, fl.craft );
-	Qry.Execute();
-	if ( !Qry.RowCount() )
-		throw Exception( "Неизветсный тип ВС, значение=%s", fl.craft.c_str() );
-	fl.craft = Qry.FieldAsString( "code" );
+	bool pr_craft_error = true;
+	if ( !fl.craft.empty() ) {
+	  Qry.Clear();
+  	Qry.SQLText =
+	   "SELECT code, 1 FROM crafts WHERE ( code=:code OR code_lat=:code OR name=:code OR name_lat=:code OR code_icao=:code OR code_icao_lat=:code ) AND pr_del=0 "
+	   " UNION "
+	   "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code";
+	  Qry.CreateVariable( "code", otString, fl.craft );
+	  Qry.Execute();
+	  pr_craft_error = !Qry.RowCount();		
+	  if ( !pr_craft_error )
+	    fl.craft = Qry.FieldAsString( "code" );	  
+	}
   tmp = linestr.substr( BORT_IDX, BORT_LEN );
   fl.bort = TrimString( tmp );
 	tmp = linestr.substr( CHECKIN_BEG_IDX, CHECKIN_BEG_LEN );
@@ -1249,6 +1250,16 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
 	int move_id, new_tid, point_id;
 	bool pr_insert = Qry.Eof;
+	if ( pr_insert ) {
+		if ( fl.craft.empty() )
+			throw Exception( "Не задан тип ВС" );
+		else
+			if ( pr_craft_error )
+				throw Exception( "Неизвестный тип ВС, значение=%s", fl.craft.c_str() );			
+	}
+	else 
+		if ( pr_craft_error )
+			fl.craft.clear(); // очищаем значение типа ВС - это не должно попасть в БД
  	TIDQry.SQLText = "SELECT tid__seq.nextval n FROM dual ";
 	POINT_IDQry.SQLText = "SELECT point_id.nextval point_id FROM dual";
 	if ( pr_insert ) { // insert
@@ -1397,16 +1408,16 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.Clear();
     Qry.SQLText =
      "UPDATE points "
-     " SET craft=:craft,bort=:bort,est_out=:est_out,act_out=:act_out,litera=:litera, "
+     " SET craft=NVL(craft,:craft),bort=NVL(bort,:bort),est_out=:est_out,act_out=:act_out,litera=:litera, "
      "     park_out=:park_out,pr_del=:pr_del "
      " WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "craft", otString, fl.craft );
  	  if ( fl.craft != old_fl.craft ) {
 	  	if ( !old_fl.craft.empty() ) {
- 	  	  remark += " изм. типа ВС с " + old_fl.craft;
+/* 	  	  remark += " изм. типа ВС с " + old_fl.craft;
  	  	  if ( !fl.craft.empty() )
- 	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
+ 	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );*/
  	  	}
  	  	else {
  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
@@ -1415,9 +1426,9 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  Qry.CreateVariable( "bort", otString, fl.bort );
  	  if ( fl.bort != old_fl.bort ) {
  	  	if ( !old_fl.bort.empty() ) {
- 	  	  remark += " изм. борта с " + old_fl.bort;
+/* 	  	  remark += " изм. борта с " + old_fl.bort;
  	  	  if ( !fl.bort.empty() )
- 	  	    reqInfo->MsgToLog( string( "Изменение борта на " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );
+ 	  	    reqInfo->MsgToLog( string( "Изменение борта на " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );*/
  	  	}
  	  	else {
  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );
