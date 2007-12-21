@@ -581,11 +581,11 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     string result;
     if(name == "ONE_CHAR" || print_mode == 2) {
         if(len)
-            result = AlignString("X", len, align);
+            result = AlignString("8", len, align);
         else
-            result = "X";
+            result = "8";
     }
-    if(name == "HUGE_CHAR") result.append(len, 'X');
+    if(name == "HUGE_CHAR") result.append(len, '8');
     if(result.size()) return result;
 
     if(Qrys.size() && !(*Qrys.begin())->FieldsCount()) {
@@ -735,7 +735,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(print_mode == 1) {
             size_t result_size = result.size();
             result = "";
-            result.append(result_size, 'X');
+            result.append(result_size, '8');
         }
         if(print_mode == 3) {
             size_t result_size = result.size();
