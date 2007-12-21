@@ -2263,7 +2263,10 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
       }
       catch(ETlgError &E) {};
 
-      pos=iRemItem->text.find_last_of('-',pos-1);
+      if (pos!=0)
+        pos=iRemItem->text.find_last_of('-',pos-1);
+      else
+        pos=string::npos;
     };
 
     if (pos==string::npos)
@@ -2499,7 +2502,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
               for(vector<TChdItem>::iterator i=chd.begin();i!=chd.end();i++)
                 if (i->first==ne.surname &&
                     (i->second==iPaxItem2->name ||
-                     OnlyAlphaInLexeme(i->second)==OnlyAlphaInLexeme(iPaxItem->name)))
+                     OnlyAlphaInLexeme(i->second)==OnlyAlphaInLexeme(iPaxItem2->name)))
                 {
                   iPaxItem2->pers_type=child;
                   break;
