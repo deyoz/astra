@@ -106,9 +106,9 @@ void handle_tlg(void)
   {
     TlgInQry.Clear();
     TlgInQry.SQLText=
-      "SELECT id,num,heading,ending,body FROM tlgs_in\
-       WHERE id=:id AND time_parse IS NULL\
-       ORDER BY num DESC FOR UPDATE";
+      "SELECT id,num,heading,ending,body FROM tlgs_in "
+      "WHERE id=:id "
+      "ORDER BY num DESC FOR UPDATE";
     TlgInQry.DeclareVariable("id",otInteger);
   };
 
