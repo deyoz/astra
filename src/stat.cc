@@ -1091,7 +1091,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "       ev_user, station, ev_order "
             "FROM events "
             "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
-            "      events.id1 = :point_id ";
+            "       DECODE(type,:evtDisp,events.id2,events.id1)=:point_id ";
     } else {    
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
         Qry.SQLText =
@@ -1105,7 +1105,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
-            "      arx_events.id1 = :point_id ";
+            "       DECODE(type,:evtDisp,events.id2,events.id1)=:point_id ";
         Qry.CreateVariable("part_key", otDate, part_key);
     }
 
