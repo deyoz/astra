@@ -674,10 +674,8 @@ void GetSystemLogStationSQL(TQuery &Qry)
         "union "
         "select 'Система' station, 0 view_order from dual "
         "union "
-        "select desks.code, 1 from desks, desk_grp where "
-        "desks.grp_id=desk_grp.grp_id AND "
-        "adm.check_airline_access(desk_grp.airline,:SYS_user_id)<>0 AND "
-        "adm.check_airp_access(desk_grp.airp,:SYS_user_id)<>0 "
+        "select code, 1 from desks where "
+        "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 "
         "order by "
         "   view_order, station";
     Qry.CreateVariable("SYS_user_id", otInteger, TReqInfo::Instance()->user.user_id);
@@ -1073,9 +1071,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         throw UserException("Рейс перемещен в архив. Выберите заново из списка");
 
     typedef map<string, string> TScreenMap;
-    typedef map<string, bool> TAccessMap;
-    TAccessMap user_access;
-    TAccessMap desk_access;
     TScreenMap screen_map;
     if(!Qry.Eof) {
         int col_point_id=Qry.FieldIndex("point_id");
@@ -1092,38 +1087,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         for( ; !Qry.Eof; Qry.Next()) {
             string ev_user = Qry.FieldAsString(col_ev_user);
             string station = Qry.FieldAsString(col_station);
-
-            if(ev_user != "") {
-                if(user_access.find(ev_user) == user_access.end()) {
-                    TQuery Qry(&OraSession);        
-                    Qry.SQLText = 
-                        "select descr from users2 where "
-                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
-                        "   descr = :ev_user";
-                    Qry.CreateVariable("ev_user", otString, ev_user);
-                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                    Qry.Execute();
-                    user_access[ev_user] = !Qry.Eof;
-                }
-                if(!user_access[ev_user]) continue;
-            }
-
-            if(station != "") {
-                if(desk_access.find(station) == desk_access.end()) {
-                    TQuery Qry(&OraSession);        
-                    Qry.SQLText = 
-                        "select desks.code from desks, desk_grp where "
-                        "desks.grp_id=desk_grp.grp_id AND "
-                        "adm.check_airline_access(desk_grp.airline,:SYS_user_id)<>0 AND "
-                        "adm.check_airp_access(desk_grp.airp,:SYS_user_id)<>0 and "
-                        "desks.code = :station ";
-                    Qry.CreateVariable("station", otString, station);
-                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                    Qry.Execute();
-                    desk_access[station] = !Qry.Eof;
-                }
-                if(!desk_access[station]) continue;
-            }
 
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
@@ -1268,9 +1231,6 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     if(Qry.Eof && part_key == NoExists)
         throw UserException("Рейс перемещен в архив. Выберите заново из списка");
 
-    typedef map<string, bool> TAccessMap;
-    TAccessMap user_access;
-    TAccessMap desk_access;
     if(!Qry.Eof) {
         int col_point_id=Qry.FieldIndex("point_id");
         int col_ev_user=Qry.FieldIndex("ev_user");
@@ -1286,38 +1246,6 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         for( ; !Qry.Eof; Qry.Next()) {
             string ev_user = Qry.FieldAsString(col_ev_user);
             string station = Qry.FieldAsString(col_station);
-
-            if(ev_user != "") {
-                if(user_access.find(ev_user) == user_access.end()) {
-                    TQuery Qry(&OraSession);        
-                    Qry.SQLText = 
-                        "select descr from users2 where "
-                        "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
-                        "   descr = :ev_user";
-                    Qry.CreateVariable("ev_user", otString, ev_user);
-                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                    Qry.Execute();
-                    user_access[ev_user] = !Qry.Eof;
-                }
-                if(!user_access[ev_user]) continue;
-            }
-
-            if(station != "") {
-                if(desk_access.find(station) == desk_access.end()) {
-                    TQuery Qry(&OraSession);        
-                    Qry.SQLText = 
-                        "select desks.code from desks, desk_grp where "
-                        "desks.grp_id=desk_grp.grp_id AND "
-                        "adm.check_airline_access(desk_grp.airline,:SYS_user_id)<>0 AND "
-                        "adm.check_airp_access(desk_grp.airp,:SYS_user_id)<>0 and "
-                        "desks.code = :station ";
-                    Qry.CreateVariable("station", otString, station);
-                    Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
-                    Qry.Execute();
-                    desk_access[station] = !Qry.Eof;
-                }
-                if(!desk_access[station]) continue;
-            }
 
             xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
@@ -1529,11 +1457,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                     if(desk_access.find(station) == desk_access.end()) {
                         TQuery Qry(&OraSession);        
                         Qry.SQLText = 
-                            "select desks.code from desks, desk_grp where "
-                            "desks.grp_id=desk_grp.grp_id AND "
-                            "adm.check_airline_access(desk_grp.airline,:SYS_user_id)<>0 AND "
-                            "adm.check_airp_access(desk_grp.airp,:SYS_user_id)<>0 and "
-                            "desks.code = :station ";
+                            "select code from desks where "
+                            "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 and "
+                            "   code = :station ";
                         Qry.CreateVariable("station", otString, station);
                         Qry.CreateVariable("SYS_user_id", otInteger, reqInfo->user.user_id);
                         Qry.Execute();
