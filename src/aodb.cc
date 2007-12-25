@@ -771,7 +771,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
   PQry.DeclareVariable( "pr_cabin", otInteger );
   PQry.DeclareVariable( "record", otString );
   int num=0;
-	for ( int pr_cabin=1; pr_cabin>=0; pr_cabin-- ) {
+	for ( int pr_cabin=1; pr_cabin>=0 && d != aodb_pax.end(); pr_cabin-- ) {
 		PQry.SetVariable( "pr_cabin", pr_cabin );
 	  for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
 	  	if ( i->pr_cabin != pr_cabin || i->pax_id != pax_id )
@@ -1810,7 +1810,17 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
   checkin = ( stages[ sOpenCheckIn ].act > NoExists && stages[ sCloseCheckIn ].act == NoExists );
 	boarding = ( stages[ sOpenBoarding ].act > NoExists && stages[ sCloseBoarding ].act == NoExists );
 	record<<setw(1)<<checkin<<setw(1)<<boarding<<setw(1)<<Qry.FieldAsInteger( "overload_alarm" );
-
+	TQuery StationsQry( &OraSession );
+	StationsQry.SQLText = 
+	 "SELECT name, start_time FROM trip_stations, stations "
+	 " WHERE point_id=:point_id AND trip_stations.work_mode='' AND "
+	 "       trip_stations.desk=stations.desk AND trip_stations.work_mode=stations.work_mode";	 
+	StationsQry.CreateVariable( "point_id", otInteger, point_id );
+	StationsQry.Execute();
+	while ( !StationsQry.Eof ) {
+		record<<";"<<setw(3)<<StationsQry.FieldAsString( "name" )<<setw(1)<<(int)StationsQry.FieldIsNULL( "start_time" );
+		StationsQry.Next();
+	}
 	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
 		ostringstream r;
 		if ( aodb_point_id )
