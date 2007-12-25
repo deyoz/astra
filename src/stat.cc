@@ -20,6 +20,8 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+void GetPaxSrcDestSQL(TQuery &Qry);
+void GetPaxSrcAwkSQL(TQuery &Qry);
 void GetPaxListSQL(TQuery &Qry);
 void GetFltLogSQL(TQuery &Qry);
 void GetSystemLogAgentSQL(TQuery &Qry);
@@ -443,10 +445,9 @@ TCategory Category[] = {
                 "      (:dest IS NULL OR place.city= :dest) "
                 "ORDER BY trip  ",
 
-                {"Dest",   "Awk"}
             },
             {
-                NULL,
+                GetPaxSrcAwkSQL,
                 "Awk",
 
                 "select company from "
@@ -465,12 +466,10 @@ TCategory Category[] = {
                 "    trips.trip_id=place.trip_id AND "
                 "    place.num>0 AND "
                 "    (:dest IS NULL OR place.city= :dest) and "
-                "    (:flt IS NULL OR trips.trip= :flt) ",
-
-                {"Flt",    "Dest"}
+                "    (:flt IS NULL OR trips.trip= :flt) "
             },
             {
-                NULL,
+                GetPaxSrcDestSQL,
                 "Dest",
 
                 "SELECT place.city AS dest "
@@ -492,7 +491,6 @@ TCategory Category[] = {
                 "      (:flt IS NULL OR trips.trip= :flt) "
                 "ORDER BY dest  ",
 
-                {"Awk",    "Flt"}
             }
         }
     },
@@ -576,6 +574,64 @@ void GetFltLogSQL(TQuery &Qry)
             "   move_id, "
             "   point_num ";
     }
+    Qry.SQLText = res;
+}
+
+void GetPaxSrcDestSQL(TQuery &Qry)
+{
+
+}
+
+void GetPaxSrcAwkSQL(TQuery &Qry)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    string res =
+        "select "
+        "   airline "
+        "from "
+        "   points "
+        "where "
+        "    points.pr_del >= 0 and "
+        "    points.pr_reg <> 0 and "
+        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
+    res +=
+        "union "
+        "select "
+        "   airline "
+        "from "
+        "   arx_points "
+        "where "
+        "    arx_points.pr_del >= 0 and "
+        "    arx_points.pr_reg <> 0 and "
+        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+        "    arx_points.part_key >= :FirstDate ";
+    if (!info.user.access.airps.empty()) {
+        if (info.user.access.airps_permit)
+            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
+        else
+            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
+    }
+    if (!info.user.access.airlines.empty()) {
+        if (info.user.access.airlines_permit)
+            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
+        else
+            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+    }
+    res +=
+        "order by "
+        "   airline ";
     Qry.SQLText = res;
 }
 
@@ -909,7 +965,10 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     cbox_data->GetSQL(Qry);
     ProgTrace(TRACE5, "%s", Qry.SQLText.SQLText());
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if(cbox == "FltCBox") {
+    if(
+            cbox == "FltCBox" ||
+            cbox == "AwkCBox"
+            ) {
         Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
         Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
     }
@@ -1024,7 +1083,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (part_key == NoExists) {
         ProgTrace(TRACE5, "FltLogRun: work base qry");
         Qry.SQLText =
-            "SELECT msg, time, id1 AS point_id, "
+            "SELECT msg, time, "
+            "       DECODE(type,:evtDisp,id2,id1) AS point_id, "
             "       events.screen, "
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
@@ -1036,6 +1096,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, "
+            "       DECODE(type,:evtDisp,id2,id1) AS point_id, "
             "       arx_events.screen, "
             "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
             "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
