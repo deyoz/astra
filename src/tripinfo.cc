@@ -408,6 +408,11 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   if ( info.screen.name == "TLG.EXE" )
     sql+="DECODE(points.act_out,NULL,gtimer.get_stage( points.point_id, :craft_stage_type ),
                                      :takeoff_stage_id) AS craft_stage "*/
+                                     
+  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
+       info.user.user_type==utAirport) // система информирования
+    sql+=",start_time ";        
+                                     
   sql+=
     "FROM " + p.sqlfrom;
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
@@ -732,6 +737,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   {
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
+  
+  if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
+       reqInfo->user.user_type==utAirport) { // система информирования
+    NewTextChild( node, "start_check_info", (int)!Qry.FieldIsNULL( "start_time" ) );
+  }
+
 
   if (reqInfo->screen.name == "AIR.EXE" ||
       reqInfo->screen.name == "DOCS.EXE" ||
