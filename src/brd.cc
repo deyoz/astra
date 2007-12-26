@@ -47,6 +47,16 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
+  TQuery ClassesQry(&OraSession);
+  ClassesQry.Clear();
+  ClassesQry.SQLText=
+    "SELECT trip_classes.class "
+    "FROM trip_classes,classes "
+    "WHERE trip_classes.class=classes.code AND "
+    "      point_id=:point_id "
+    "ORDER BY classes.priority";
+  ClassesQry.CreateVariable( "point_id", otInteger, point_id );
+  ClassesQry.Execute();
 
   TQuery Qry(&OraSession);
   string sql=
@@ -61,19 +71,33 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
             "    pax "
             "WHERE "
             "    pax_grp.grp_id=pax.grp_id AND "
-            "    point_dep=:point_id AND "
+            "    point_dep=:point_id AND class=:class AND "
             "    pr_brd IS NOT NULL ";
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-  if(!Qry.Eof)
+  Qry.DeclareVariable( "class", otString );
+
+  ostringstream reg_str,brd_str;
+  int reg=0,brd=0;
+  for(;!ClassesQry.Eof;ClassesQry.Next())
   {
-      xmlNodePtr countersNode = GetNode("counters", dataNode);
-      if (countersNode==NULL)
-        countersNode=NewTextChild(dataNode, "counters");
-      ReplaceTextChild(countersNode, "reg", Qry.FieldAsInteger("reg"));
-      ReplaceTextChild(countersNode, "brd", Qry.FieldAsInteger("brd"));
+    char* cl=ClassesQry.FieldAsString("class");
+    Qry.SetVariable("class",cl);
+    Qry.Execute();
+    if(Qry.Eof) continue;
+    reg_str << cl << Qry.FieldAsInteger("reg") << " ";
+    brd_str << cl << Qry.FieldAsInteger("brd") << " ";
+    reg+=Qry.FieldAsInteger("reg");
+    brd+=Qry.FieldAsInteger("brd");
   };
+
+  xmlNodePtr countersNode = GetNode("counters", dataNode);
+  if (countersNode==NULL)
+    countersNode=NewTextChild(dataNode, "counters");
+  ReplaceTextChild(countersNode, "reg", reg);
+  ReplaceTextChild(countersNode, "brd", brd);
+  ReplaceTextChild(countersNode, "reg_str", reg_str.str());
+  ReplaceTextChild(countersNode, "brd_str", brd_str.str());
 };
 
 int get_new_tid(int point_id)
