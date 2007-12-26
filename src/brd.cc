@@ -356,7 +356,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     string sqlText = (string)
         "SELECT "
         "    pax_id, "
-        "    pax_grp.class, "
         "    point_dep AS point_id, "
         "    airp_dep, "
         "    pr_brd, "
@@ -366,6 +365,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    surname, "
         "    name, "
         "    pers_type, "
+        "    class, "
         "    seat_no, "
         "    seats, "
         "    ticket_no, "
@@ -415,9 +415,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     for(;!Qry.Eof;Qry.Next())
     {
         int pax_id=Qry.FieldAsInteger("pax_id");
-        char *pers_type = Qry.FieldAsString("pers_type");
+        TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+        TClass cl = DecodeClass(Qry.FieldAsString("class"));
 
-        switch(DecodePerson(pers_type)) {
+        switch(pers_type)
+        {
             case adult:
                 adl++;
                 break;
@@ -431,22 +433,20 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 break;
         }
 
-        if(!Qry.FieldIsNULL("class")) {
-            char *cls = Qry.FieldAsString("class");
-            switch(*cls) {
-                case 'è':
-                    first_class++;
-                    break;
-                case 'Å':
-                    business_class++;
-                    break;
-                case 'ù':
-                    economy_class++;
-                    break;
-                default:
-                    throw Exception("BrdInterface::GetPax: unexpected class %c", *cls);
-            }
-        }
+        switch(cl)
+        {
+          case F:
+            first_class++;
+            break;
+          case C:
+            business_class++;
+            break;
+          case Y:
+            economy_class++;
+            break;
+          default:
+            break;
+        };
 
         xmlNodePtr paxNode = NewTextChild(listNode, "pax");
         NewTextChild(paxNode, "pax_id", pax_id);
@@ -456,7 +456,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(paxNode, "surname", Qry.FieldAsString("surname"));
         NewTextChild(paxNode, "name", Qry.FieldAsString("name"), "");
-        NewTextChild(paxNode, "pers_type", pers_type, EncodePerson(adult));
+        NewTextChild(paxNode, "pers_type", Qry.FieldAsString("pers_type"), EncodePerson(adult));
+        NewTextChild(paxNode, "class", Qry.FieldAsString("class"), EncodeClass(Y));
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no_str"), "");
         NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"), 1);
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"), "");
