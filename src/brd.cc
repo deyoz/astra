@@ -283,11 +283,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     if ( GetNode( "LoadForm", reqNode ) )
         get_report_form("ExamBrdbus", resNode);
 
-    if ( GetNode( "LoadVars", reqNode ) ) {
-        xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-        PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
-    }
-
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
       dataNode = NewTextChild(resNode, "data");
@@ -693,6 +688,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         << class_total.str()
         << ")";
     NewTextChild(dataNode, "total", total.str());
+
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(point_id, 0, variablesNode);
+    NewTextChild(variablesNode, "total", total.str());
+
     readTripCounters(point_id,dataNode);
 };
 

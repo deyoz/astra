@@ -565,9 +565,6 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           BrdInterface::readTripData( point_id, dataNode );
       if ( GetNode( "paxdata", reqNode ) ) {
           BrdInterface::GetPax(reqNode,resNode);
-          xmlNodePtr totalNode = GetNode("data/total", resNode);
-          xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-          xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode));
       }
   };
   if (reqInfo->screen.name == "AIR.EXE")
