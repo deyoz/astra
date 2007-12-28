@@ -3076,8 +3076,8 @@ void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
     NewTextChild( rangeListNode, "trip_id", i->trip_id );
     NewTextChild( rangeListNode, "exec", i->exec );
     NewTextChild( rangeListNode, "noexec", i->noexec );
+    xmlNodePtr tripsNode = NULL;    
     for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-    	xmlNodePtr tripsNode = NULL;
     	if ( !tripsNode )
         tripsNode = NewTextChild( rangeListNode, "trips" );
       xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
