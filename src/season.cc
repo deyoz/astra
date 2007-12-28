@@ -2277,11 +2277,11 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       PriorDest = PDest;
       OwnDest = NDest;
 
-      // Den was here!!!
+/*      // Den was here!!!
       if ( !portsFrom.empty() )
         portsFrom += "/";
       portsFrom += NDest->cod;
-      // end of Den was here
+      // end of Den was here*/
     }
     else { /* наш порт в маршруте не надо отображать */
 //!!!      if ( ports.find( NDest->cod ) == string::npos ) {
