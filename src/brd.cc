@@ -77,7 +77,7 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.DeclareVariable( "class", otString );
 
-  ostringstream reg_str,brd_str;
+  ostringstream reg_str,brd_str, fr_reg_str, fr_brd_str, fr_not_brd_str;
   int reg=0,brd=0;
   for(;!ClassesQry.Eof;ClassesQry.Next())
   {
@@ -85,10 +85,21 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     Qry.SetVariable("class",cl);
     Qry.Execute();
     if(Qry.Eof) continue;
-    reg_str << cl << Qry.FieldAsInteger("reg") << " ";
-    brd_str << cl << Qry.FieldAsInteger("brd") << " ";
-    reg+=Qry.FieldAsInteger("reg");
-    brd+=Qry.FieldAsInteger("brd");
+    int vreg = Qry.FieldAsInteger("reg");
+    int vbrd = Qry.FieldAsInteger("brd");
+    reg_str << cl << vreg << " ";
+    brd_str << cl << vbrd << " ";
+    reg+=vreg;
+    brd+=vbrd;
+    if(fr_reg_str.str().size())
+        fr_reg_str << "/";
+    fr_reg_str << cl << vreg;
+    if(fr_brd_str.str().size())
+        fr_brd_str << "/";
+    fr_brd_str << cl << vbrd;
+    if(fr_not_brd_str.str().size())
+        fr_not_brd_str << "/";
+    fr_not_brd_str << cl << vreg - vbrd;
   };
 
   xmlNodePtr countersNode = GetNode("counters", dataNode);
@@ -98,6 +109,62 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   ReplaceTextChild(countersNode, "brd", brd);
   ReplaceTextChild(countersNode, "reg_str", reg_str.str());
   ReplaceTextChild(countersNode, "brd_str", brd_str.str());
+
+  xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
+  if(variablesNode) {
+      Qry.Clear();
+      string SQLText =
+          "select "
+          " nvl(sum(decode(pers_type, 'ВЗ', 1, 0)), 0) adl, "
+          " nvl(sum(decode(pers_type, 'РБ', 1, 0)), 0) chd, "
+          " nvl(sum(decode(pers_type, 'РМ', 1, 0)), 0) inf, ";
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+          SQLText +=
+              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'ВЗ', 1, 0))),0) AS brd_adl, "
+              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'РБ', 1, 0))),0) AS brd_chd, "
+              " NVL(SUM(DECODE(pr_brd,0,0,decode(pers_type, 'РМ', 1, 0))),0) AS brd_inf ";
+      else
+          SQLText +=
+              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'ВЗ', 1, 0))),0) AS brd_adl, "
+              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'РБ', 1, 0))),0) AS brd_chd, "
+              " NVL(SUM(DECODE(pr_exam,0,0,decode(pers_type, 'РМ', 1, 0))),0) AS brd_inf ";
+      SQLText +=
+          "from "
+          " pax_grp, "
+          " pax "
+          "where "
+          " pax_grp.grp_id=pax.grp_id AND "
+          " point_dep = :point_id and "
+          " pr_brd is not null ";
+      Qry.SQLText = SQLText;
+      Qry.CreateVariable("point_id", otInteger, point_id);
+      Qry.Execute();
+      if(!Qry.Eof) {
+          ostringstream pax_str, brd_pax_str, not_brd_pax_str;
+          int adl = Qry.FieldAsInteger("adl");
+          int chd = Qry.FieldAsInteger("chd");
+          int inf = Qry.FieldAsInteger("inf");
+          int brd_adl = Qry.FieldAsInteger("brd_adl");
+          int brd_chd = Qry.FieldAsInteger("brd_chd");
+          int brd_inf = Qry.FieldAsInteger("brd_inf");
+          pax_str
+              << adl << "/"
+              << chd << "/"
+              << inf;
+          brd_pax_str
+              << brd_adl << "/"
+              << brd_chd << "/"
+              << brd_inf;
+          not_brd_pax_str
+              << adl - brd_adl << "/"
+              << chd - brd_chd << "/"
+              << inf - brd_inf;
+
+          ReplaceTextChild(variablesNode, "total", pax_str.str() + "(" + fr_reg_str.str() + ")");
+          ReplaceTextChild(variablesNode, "total_brd", brd_pax_str.str() + "(" + fr_brd_str.str() + ")");
+          ReplaceTextChild(variablesNode, "total_not_brd", not_brd_pax_str.str() + "(" + fr_not_brd_str.str() + ")");
+      }
+  }
 };
 
 int get_new_tid(int point_id)
@@ -282,6 +349,11 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     if ( GetNode( "LoadForm", reqNode ) )
         get_report_form("ExamBrdbus", resNode);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    if ( GetNode( "LoadVars", reqNode ) ) {
+        PaxListVars(point_id, 0, variablesNode);
+    }
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -425,47 +497,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       throw UserException("Пассажир не зарегистрирован");
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
-    int adl = 0;
-    int chd = 0;
-    int inf = 0;
-    int first_class = 0;
-    int business_class = 0;
-    int economy_class = 0;
     for(;!Qry.Eof;Qry.Next())
     {
         int pax_id=Qry.FieldAsInteger("pax_id");
-        TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
-        TClass cl = DecodeClass(Qry.FieldAsString("class"));
-
-        switch(pers_type)
-        {
-            case adult:
-                adl++;
-                break;
-            case child:
-                chd++;
-                break;
-            case baby:
-                inf++;
-                break;
-            default:
-                break;
-        }
-
-        switch(cl)
-        {
-          case F:
-            first_class++;
-            break;
-          case C:
-            business_class++;
-            break;
-          case Y:
-            economy_class++;
-            break;
-          default:
-            break;
-        };
 
         xmlNodePtr paxNode = NewTextChild(listNode, "pax");
         NewTextChild(paxNode, "pax_id", pax_id);
@@ -662,38 +696,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
         };
     };
-    ostringstream total;
-    total
-        << "Итого: "
-        << adl
-        << "/"
-        << chd
-        << "/"
-        << inf
-        << " (";
-    ostringstream class_total;
-    if(first_class)
-        class_total << "П" << first_class;
-    if(business_class) {
-        if(class_total.str().size())
-            class_total << "/";
-        class_total << "Б" << business_class;
-    }
-    if(economy_class) {
-        if(class_total.str().size())
-            class_total << "/";
-        class_total << "Э" << economy_class;
-    }
-    total
-        << class_total.str()
-        << ")";
-    NewTextChild(dataNode, "total", total.str());
-
-    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
-    PaxListVars(point_id, 0, variablesNode);
-    NewTextChild(variablesNode, "total", total.str());
-
     readTripCounters(point_id,dataNode);
 };
 
