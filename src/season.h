@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include "basic.h"
+#include "astra_consts.h"
 #include "JxtInterface.h"
 
 namespace SEASON {
@@ -17,6 +18,12 @@ struct TViewTrip {
 	std::string ports;
 	BASIC::TDateTime land;
 	BASIC::TDateTime takeoff;
+	BASIC::TDateTime first; 
+	BASIC::TDateTime last;
+	std::string days;		
+	TViewTrip() {
+		first = ASTRA::NoExists;
+	}		
 };
 
 struct TViewPeriod {
@@ -42,6 +49,8 @@ public:
      AddEvent("filter",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Read);
      AddEvent("season_read",evHandle);
+     evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Slots);
+     AddEvent("season_slots",evHandle);     
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Write);
      AddEvent("write",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::GetSPP);
@@ -58,6 +67,7 @@ public:
 
   void Filter(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

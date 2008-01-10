@@ -244,12 +244,9 @@ void TFilter::GetSeason()
 {
   ptime utcd = second_clock::universal_time();
   int year = utcd.date().year();
-  ProgTrace( TRACE5, "utc year=%d", year );
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
-  ProgTrace( TRACE5, "utctime=%s, localtime=%s, summer=%d", DateTimeToStr( BoostToDateTime(utcd) ).c_str(),
-             DateTimeToStr( BoostToDateTime(ld.local_time()) ).c_str(), ld.is_dst() );
   bool summer = true;
   /* устанавливаем первый год и признак периода */
   if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
@@ -327,7 +324,6 @@ inline TDateTime getDiff( int dst_offset, bool ssummer, bool psummer )
       diff = (double)dst_offset*3600000/(double)MSecsPerDay;
     else {
       diff = 0.0 - (double)dst_offset*3600000/(double)MSecsPerDay;
-      ProgTrace( TRACE5, "diff=%f", diff );
     }
   return diff;
 }
@@ -368,15 +364,11 @@ inline void setDestsDiffTime( TFilter *filter, TDests &dests, int dst_offset, TD
       }
 
     	diff = getDiff( dst_offset, filter->isSummer( f1 ), filter->isSummer( f2 ) );
-    ProgTrace( TRACE5, "takeoff=%s, takeoff=%f",
-               DateTimeToStr( id->Takeoff,"dd.mm.yyyy hh:nn" ).c_str(), id->Takeoff );
 
       if ( id->Takeoff >= 0 )
         id->Takeoff += diff;
       else
       	id->Takeoff -= diff;
-    ProgTrace( TRACE5, "takeoff=%s, takeoff=%f",
-               DateTimeToStr( id->Takeoff,"dd.mm.yyyy hh:nn" ).c_str(), id->Takeoff );
 
     }
   }
@@ -566,19 +558,42 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
     return true;
   /* переводим времена в фильтре во время UTC относительно города в маршруте */
   // переводим время начала расписания в UTC
-  TDateTime t = vd;
   // переводим время во время клиента и для верности удаляем время и добавляем день
   double f1,f2,f3;
-  modf( t, &f1 );
+  //???modf( t, &f1 );
+  modf( first_day, &f1 );
   TDateTime f,l;
   // переводим время фильтра в UTC
   // normilize date
-  f2 = modf( (double)ClientToUTC( f1 + firstTime, vregion ), &f3 );
+  try {
+    f2 = modf( (double)ClientToUTC( f1 + firstTime, vregion ), &f3 );
+  }
+  catch( boost::local_time::ambiguous_result ) {
+  	f2 = modf( (double)ClientToUTC( f1 + 1 + firstTime, vregion ), &f3  );
+  	f3--;
+/*!!! 	  throw UserException( string("Время начала выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" ).c_str() );*/
+  }
+  catch( boost::local_time::time_label_invalid ) {
+    throw UserException( "Время начала выполнения рейса не существует %s",
+                         DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" ).c_str() );
+  }
+    
   if ( f3 < f1 )
     f = f3 - f1 - f2;
   else
     f = f3 - f1 + f2;
-  f2 = modf( (double)ClientToUTC( f1 + lastTime, vregion ), &f3 );
+  try {
+    f2 = modf( (double)ClientToUTC( f1 + lastTime, vregion ), &f3 );
+  }  
+  catch( boost::local_time::ambiguous_result ) {
+  	f2 = modf( (double)ClientToUTC( f1 + 1 + lastTime, vregion ), &f3 );
+  	f3--;
+ 	  /*!!!throw UserException( string("Время окончания выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" ).c_str() );*/
+  }
+  catch( boost::local_time::time_label_invalid ) {
+    throw UserException( "Время окончания выполнения рейса не существует %s",
+                         DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" ).c_str() );
+  }  
   if ( f3 < f1 )
     l = f3 - f1 - f2;
   else
@@ -590,12 +605,16 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
 
   if ( f < 0 )
     f = fabs( f );
-  else
-    f += 1.0;
+  if ( f < 1.0 )
+  	f += 1.0;  
+/*  else
+    f += 1.0;*/
   if ( l < 0 )
     l = fabs( l );
-  else
-    l += 1.0;
+  if ( l < 1.0 )
+  	l += 1.0;
+/*  else
+    l += 1.0;*/
 
   f -= (double)1000/(double)MSecsPerDay;
   l +=  (double)1000/(double)MSecsPerDay;
@@ -605,8 +624,10 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
     f1 = modf( (double)Land, &f2 );
     if ( f1 < 0 )
       f1 = fabs( f1 );
-    else
-      f1 += 1.0;
+    if ( f1 < 1.0 )
+    	f1 += 1.0;  
+/*    else
+      f1 += 1.0;*/      
   }
   if ( Takeoff == NoExists )
     f2 = NoExists;
@@ -614,13 +635,15 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
     f2 = modf( (double)Takeoff, &f3 );
     if ( f2 < 0 )
       f2 = fabs( f2 );
-    else
-      f2 += 1.0;
+    if ( f2 < 1.0 )
+    	f2 += 1.0;
+/*    else
+      f2 += 1.0;*/
   }
 
 
   //учет перехода времени
-  TDateTime diff = getDiff( dst_offset, isSummer( first_day ), isSummer( t ) );
+  TDateTime diff = getDiff( dst_offset, isSummer( first_day ), isSummer( vd ) );
   f1 += diff;
   f2 += diff;
 
@@ -631,7 +654,6 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
 
 bool TFilter::isFilteredTime( TDateTime first_day, TDateTime Land, TDateTime Takeoff, int dst_offset, string vregion )
 {
-  ProgTrace( TRACE5, "season_idx=%d", season_idx );
 
 
 /*, DateTimeToStr( BoostToDateTime( periods[ season_idx ].period.begin() ) + 10, "dd.mm.yy hh:nn" ).c_str()  */
@@ -3040,8 +3062,15 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
             else
               vt.ports = tr->ports_in + tr->ports_out;
             vt.land = tr->land;
-            vt.takeoff = tr->takeoff;
-            viewperiod.trips.push_back( vt );
+            vt.takeoff = tr->takeoff;            
+            if ( TReqInfo::Instance()->user.user_type == utAirport && // только для работников аэропорта
+            	   !pr_cancel &&
+            	   vt.takeoff > NoExists ) { // для расчета загрузки слотов
+            	vt.first = first;
+            	vt.last = last;
+            	vt.days = days;
+            }
+            viewperiod.trips.push_back( vt );            
           }
           mapds[ move_id ].dests.clear(); /* уже использовали маршрут */
           mapds[ move_id ].trips.clear();
@@ -3094,6 +3123,27 @@ void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
   }
 }
 
+void buildViewSlots( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
+{
+  double f;
+  xmlNodePtr tripsNode = NULL;      
+  for ( vector<TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
+    for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
+      if ( j->takeoff == NoExists ) // только на вылет
+      	continue;
+    	if ( !tripsNode )
+        tripsNode = NewTextChild( dataNode, "trips" );
+      xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
+      NewTextChild( tripNode, "move_id", j->move_id );
+      NewTextChild( tripNode, "name", j->name );
+      NewTextChild( tripNode, "takeoff", DateTimeToStr( modf((double)j->takeoff, &f ) ) );
+      NewTextChild( tripNode, "first", DateTimeToStr( j->first ) );
+      NewTextChild( tripNode, "last", DateTimeToStr( j->last ) );
+      NewTextChild( tripNode, "days", j->days );      
+    }
+  }
+}
+
 namespace SEASON {
 void ReadTripInfo( int trip_id, vector<TViewPeriod> &viewp, xmlNodePtr reqNode )
 {
@@ -3138,6 +3188,29 @@ void SeasonInterface::Read(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "mode", mode);
   }
+}
+
+void SeasonInterface::Slots(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();	
+  if ( reqInfo->user.user_type != utAirport  ) // only for airport
+  	return;	
+  map<int,TDestList> mapds;
+//  ri->user.check_access( amRead );
+  xmlNodePtr filterNode = GetNode( "filter", reqNode );
+  TFilter filter;
+  bool init = filterNode;
+  filter.Parse( filterNode );
+
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  if ( !init ) {
+    filterNode = NewTextChild( dataNode, "filter" );
+    filter.Build( filterNode );
+  }
+  string mode;
+  vector<TViewPeriod> viewp;
+  internalRead( filter, viewp );
+  buildViewSlots( viewp, dataNode );
 }
 
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode )
@@ -3547,8 +3620,17 @@ void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
            ProgTrace( TRACE5, "f=%f,l=%f, f1=%f, f2=%f", f, l, f1, f2 );
 
+           timeKey = f1 >= f1, f2 );
+
+           timeKey = f1 >= f1, f2 );
+
+           timeKey = f1 >= f1, f2 );
+
            timeKey = f1 >= f && f1 <= l ||
                      f2 >= f && f2 <= l;
          }
+       } // end !timeKey
+*/
+/*        }
        } // end !timeKey
 */
