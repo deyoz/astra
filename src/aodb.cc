@@ -1818,7 +1818,10 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	StationsQry.CreateVariable( "point_id", otInteger, point_id );
 	StationsQry.Execute();
 	while ( !StationsQry.Eof ) {
-		record<<";"<<setw(3)<<StationsQry.FieldAsString( "name" )<<setw(1)<<(int)StationsQry.FieldIsNULL( "start_time" );
+    string term = StationsQry.FieldAsString( "name" );
+    if ( !term.empty() && term[0] == 'R' )
+    	term = term.substr( 1, term.length() - 1 );		
+		record<<";"<<""<<setw(4)<<term.substr(0,4)<<setw(1)<<(int)StationsQry.FieldIsNULL( "start_time" );
 		StationsQry.Next();
 	}
 	if ( Qry.Eof || record.str() != string( Qry.FieldAsString( "record" ) ) ) {
