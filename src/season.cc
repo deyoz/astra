@@ -2357,7 +2357,6 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       else
         takeoff = NoExists;*/
 
-tst();
       if ( cantrip && filter.isFilteredTime( ds.flight_time, OwnDest->Land, OwnDest->Takeoff, offset, OwnDest->region ) ) {
 /*           ( filter.firstTime == NoExists ||
              land >= filter.firstTime && land <= filter.lastTime ||
@@ -3106,7 +3105,11 @@ void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
     NewTextChild( rangeListNode, "exec", i->exec );
     NewTextChild( rangeListNode, "noexec", i->noexec );
     xmlNodePtr tripsNode = NULL;    
+    vector<TViewTrip>::const_iterator e; // передаем только последний рейс, который ссылается на trip_id
     for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
+    	e = j + 1; // следующий рейс
+    	if ( e != i->trips.end() && e->trip_id == j->trip_id && e->move_id != j->move_id )
+    		continue;
     	if ( !tripsNode )
         tripsNode = NewTextChild( rangeListNode, "trips" );
       xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
