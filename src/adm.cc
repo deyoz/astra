@@ -43,7 +43,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   Qry.SetVariable( "user_id", ri->user.user_id );
   Qry.Execute();
   xmlNodePtr node = NewTextChild( resNode, "CacheTables" );
-  xmlNodePtr rowNode;
+  xmlNodePtr rowNode=NULL;
   for(;!Qry.Eof;Qry.Next())
   {
     rowNode = NewTextChild( node, "CacheTable" );
@@ -52,6 +52,23 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );
   };
   Qry.Close();
+
+  int depth=-1;
+  for(;rowNode!=NULL;)
+  {
+    if (!NodeIsNULL("cache",rowNode) ||
+        depth>NodeAsInteger("depth",rowNode))
+    {
+      depth=NodeAsInteger("depth",rowNode);
+      rowNode=rowNode->prev;
+      continue;
+    };
+    //удалить заголовок
+    xmlNodePtr node2=rowNode;
+    rowNode=rowNode->prev;
+    xmlUnlinkNode(node2);
+    xmlFreeNode(node2);
+  };
 };
 
 void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

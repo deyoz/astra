@@ -4120,8 +4120,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   else
   {
     Qry.SQLText=
-      "INSERT INTO crs_set(airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
-      "VALUES(:airline,:flt_no,:airp_dep,:crs,0,1)";
+      "INSERT INTO crs_set(id,airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
+      "VALUES(id__seq.nextval,:airline,:flt_no,:airp_dep,:crs,0,1)";
     Qry.SetVariable("flt_no",FNull);
     try
     {
