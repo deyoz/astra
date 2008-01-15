@@ -4095,28 +4095,42 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   {
     Qry.Execute();
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
     if (E.Code!=1) throw;
   };
 
+  bool pr_numeric_pnl=true;
   Qry.Clear();
   Qry.SQLText=
-    "SELECT priority FROM crs_set\
-     WHERE crs=:crs AND airline=:airline AND \
-           (flt_no=:flt_no OR flt_no IS NULL) AND\
-           (airp_dep=:airp_dep OR airp_dep IS NULL) AND rownum=1";
+    "SELECT pr_numeric_pnl FROM crs_set "
+    "WHERE crs=:crs AND airline=:airline AND "
+    "      (flt_no=:flt_no OR flt_no IS NULL) AND "
+    "      (airp_dep=:airp_dep OR airp_dep IS NULL) "
+    "ORDER BY flt_no,airp_dep";
   Qry.CreateVariable("crs",otString,crs);
   Qry.CreateVariable("airline",otString,con.flt.airline);
   Qry.CreateVariable("flt_no",otInteger,(int)con.flt.flt_no);
   Qry.CreateVariable("airp_dep",otString,con.flt.airp_dep);
   Qry.Execute();
-  if (Qry.RowCount()==0)
+  if (!Qry.Eof)
+  {
+    pr_numeric_pnl=Qry.FieldAsInteger("pr_numeric_pnl")!=0;
+  }
+  else
   {
     Qry.SQLText=
-      "INSERT INTO crs_set(airline,flt_no,airp_dep,crs,priority)\
-       VALUES(:airline,:flt_no,:airp_dep,:crs,0)";
-    Qry.Execute();
+      "INSERT INTO crs_set(airline,flt_no,airp_dep,crs,priority,pr_numeric_pnl) "
+      "VALUES(:airline,:flt_no,:airp_dep,:crs,0,1)";
+    Qry.SetVariable("flt_no",FNull);
+    try
+    {
+      Qry.Execute();
+    }
+    catch(EOracleError &E)
+    {
+      if (E.Code!=1) throw;
+    };
   };
 
   TDateTime last_resa=0,last_tranzit=0,last_cfg=0;
@@ -4129,7 +4143,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("crs",otString,crs);
   Qry.Execute();
-  if (Qry.RowCount()>0)
+  if (!Qry.Eof)
   {
     if (!Qry.FieldIsNULL("last_resa"))
       last_resa=Qry.FieldAsDateTime("last_resa");
@@ -4866,7 +4880,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       if (strcmp(info.tlg_type,"PNL")==0)
       {
         //PNL
-        if (pr_ne || seats==0)
+        if (pr_ne || !pr_numeric_pnl)
           //нецифровой
           pr_pnl_new=2;
         else
