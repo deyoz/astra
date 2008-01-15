@@ -3261,11 +3261,37 @@ typedef struct {
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    TPerfTimer tm;
     TReqInfo &reqInfo = *(TReqInfo::Instance());
+    TDateTime FirstDate = ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region);
+    TDateTime LastDate = ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region);
+    if(IncMonth(FirstDate, 3) < LastDate)
+        throw UserException("Период поиска не должен превышать 3 месяца");
+    TPerfTimer tm;
     TQuery Qry(&OraSession);        
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
+    xmlNodePtr paramNode = reqNode->children;
+    string airline = NodeAsStringFast("airline", paramNode, "");
+    if(!airline.empty())
+        Qry.CreateVariable("airline", otString, airline);
+    string city = NodeAsStringFast("dest", paramNode, "");
+    if(!city.empty())
+        Qry.CreateVariable("city", otString, city);
+    string flt_no = NodeAsStringFast("flt_no", paramNode, "");
+    if(!flt_no.empty())
+        Qry.CreateVariable("flt_no", otString, flt_no);
+    string surname = NodeAsStringFast("surname", paramNode, "");
+    if(!surname.empty())
+        Qry.CreateVariable("surname", otString, surname);
+    string document = NodeAsStringFast("document", paramNode, "");
+    if(!document.empty())
+        Qry.CreateVariable("document", otString, document);
+    string ticket_no = NodeAsStringFast("ticket_no", paramNode, "");
+    if(!ticket_no.empty())
+        Qry.CreateVariable("ticket_no", otString, ticket_no);
+    string tag_no = NodeAsStringFast("tag_no", paramNode, "");
+    if(!tag_no.empty())
+        Qry.CreateVariable("tag_no", otString, tag_no);
     int count = 0;
     xmlNodePtr paxListNode = NULL;
     xmlNodePtr rowsNode = NULL;
@@ -3304,6 +3330,26 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id AND "
                 "   pax_grp.class_grp = cls_grp.id ";
+            if(!airline.empty())
+                SQLText += " and points.airline = :airline ";
+            if(!city.empty())
+                SQLText += " and pax_grp.airp_arv = :city ";
+            if(!flt_no.empty())
+                SQLText += " and points.flt_no = :flt_no ";
+            if(!surname.empty()) {
+                if(FirstDate + 1 < LastDate && surname.size() < 4)
+                    SQLText += " and pax.surname = :surname ";
+                else
+                    SQLText += " and pax.surname like :surname||'%' ";
+            }
+            if(!document.empty())
+                SQLText += " and pax.document = :document ";
+            if(!ticket_no.empty())
+                SQLText += " and pax.ticket_no = :ticket_no ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " and pax_grp.grp_id in( "
+                    "   select grp_id from bag_tags where no like '%'||:tag_no) ";
         } else {
             ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
             SQLText =
@@ -3342,7 +3388,31 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.part_key >= :FirstDate and "
                 "   arx_pax.part_key >= :FirstDate and "
                 "   pr_brd IS NOT NULL ";
+            if(!airline.empty())
+                SQLText += " and arx_points.airline = :airline ";
+            if(!city.empty())
+                SQLText += " and arx_pax_grp.airp_arv = :city ";
+            if(!flt_no.empty())
+                SQLText += " and arx_points.flt_no = :flt_no ";
+            if(!surname.empty()) {
+                if(FirstDate + 1 < LastDate && surname.size() < 4)
+                    SQLText += " and arx_pax.surname = :surname ";
+                else
+                    SQLText += " and arx_pax.surname like :surname||'%' ";
+            }
+            if(!document.empty())
+                SQLText += " and arx_pax.document = :document ";
+            if(!ticket_no.empty())
+                SQLText += " and arx_pax.ticket_no = :ticket_no ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " and arx_pax_grp.grp_id in( "
+                    "   select grp_id from arx_bag_tags where "
+                    "       no like '%'||:tag_no and "
+                    "       arx_bag_tags.part_key >= :FirstDate "
+                    "   ) ";
         }
+        ProgTrace(TRACE5, "Qry.SQLText [%d] : %s", i, SQLText.c_str());
         Qry.SQLText = SQLText;
         try {
             tm.Init();
@@ -3385,55 +3455,53 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
             tm.Init();
             for( ; !Qry.Eof; Qry.Next()) {
-//                xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
+                xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
-//                int point_id = Qry.FieldAsInteger(col_point_id);
-//
-//                NewTextChild(paxNode, "point_id", point_id);
-//                NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
-//                NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
-//                NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
-//                if(TripItems.find(point_id) == TripItems.end()) {
-//                    TTripInfo info(Qry);
-//                    TTripItem trip_item;
-//                    trip_item.trip = GetTripName(info);
-//                    trip_item.scd_out =
-//                        DateTimeToStr(
-//                                UTCToClient( Qry.FieldAsDateTime(col_scd_out), reqInfo.desk.tz_region),
-//                                ServerFormatDateTimeAsString
-//                                );
-//                    TripItems[point_id] = trip_item;
-//                }
-//                NewTextChild(paxNode, "trip", TripItems[point_id].trip);
-//                NewTextChild( paxNode, "scd_out", TripItems[point_id].scd_out);
-//                NewTextChild(paxNode, "trip"); //!!!
-//                NewTextChild( paxNode, "scd_out"); //!!!
-//                NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-//                NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
-//                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
-//                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
-//                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
-//                NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
-//                NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-//                NewTextChild(paxNode, "airp_arv", Qry.FieldAsString(col_airp_arv));
-//                NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-//                NewTextChild(paxNode, "status", Qry.FieldAsString(col_status));
-//                NewTextChild(paxNode, "class", Qry.FieldAsString(col_class));
-//                NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
-//                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
-//                NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-//                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
+                int point_id = Qry.FieldAsInteger(col_point_id);
+
+                NewTextChild(paxNode, "point_id", point_id);
+                NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
+                NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
+                NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
+                if(TripItems.find(point_id) == TripItems.end()) {
+                    TTripInfo info(Qry);
+                    TTripItem trip_item;
+                    trip_item.trip = GetTripName(info);
+                    trip_item.scd_out =
+                        DateTimeToStr(
+                                UTCToClient( Qry.FieldAsDateTime(col_scd_out), reqInfo.desk.tz_region),
+                                ServerFormatDateTimeAsString
+                                );
+                    TripItems[point_id] = trip_item;
+                }
+                NewTextChild(paxNode, "trip", TripItems[point_id].trip);
+                NewTextChild( paxNode, "scd_out", TripItems[point_id].scd_out);
+                NewTextChild(paxNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(paxNode, "full_name", Qry.FieldAsString(col_full_name));
+                NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger(col_bag_amount));
+                NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger(col_bag_weight));
+                NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
+                NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
+                NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+                NewTextChild(paxNode, "airp_arv", Qry.FieldAsString(col_airp_arv));
+                NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
+                NewTextChild(paxNode, "status", Qry.FieldAsString(col_status));
+                NewTextChild(paxNode, "class", Qry.FieldAsString(col_class));
+                NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
+                NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
+                NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
+                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
 
                 count++;
-//                if(count >= MAX_STAT_ROWS) {
-//                    showErrorMessage(
-//                            "Выбрано слишком много строк. Показано " +
-//                            IntToString(MAX_STAT_ROWS) +
-//                            " произвольных строк."
-//                            " Уточните параметры поиска."
-//                            );
-//                    break;
-//                }
+                if(count >= MAX_STAT_ROWS) {
+                    showErrorMessage(
+                            "Выбрано слишком много строк. Показано " +
+                            IntToString(MAX_STAT_ROWS) +
+                            " произвольных строк."
+                            " Уточните параметры поиска."
+                            );
+                    break;
+                }
             }
             ProgTrace(TRACE5, "XML%d: %s", i, tm.PrintWithMessage().c_str());
             ProgTrace(TRACE5, "count: %d", count);
