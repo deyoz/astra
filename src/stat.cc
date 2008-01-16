@@ -3290,8 +3290,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(!ticket_no.empty())
         Qry.CreateVariable("ticket_no", otString, ticket_no);
     string tag_no = NodeAsStringFast("tag_no", paramNode, "");
-    if(!tag_no.empty())
-        Qry.CreateVariable("tag_no", otString, tag_no);
+    if(!tag_no.empty()) {
+        Qry.CreateVariable("tag_no", otInteger, StrToInt(tag_no));
+    }
     int count = 0;
     xmlNodePtr paxListNode = NULL;
     xmlNodePtr rowsNode = NULL;
