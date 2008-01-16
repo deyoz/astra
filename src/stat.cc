@@ -1760,6 +1760,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             ProgTrace(TRACE5, "PaxListRun: current base qry");
             SQLText =
                 "SELECT "
+                "   null part_key, "
                 "   pax_grp.point_dep point_id, "
                 "   points.airline, "
                 "   points.flt_no, "
@@ -1793,6 +1794,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
                 "SELECT "
+                "   arx_points.part_key, "
                 "   arx_pax_grp.point_dep point_id, "
                 "   arx_points.airline, "
                 "   arx_points.flt_no, "
@@ -1867,11 +1869,15 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
+            int col_part_key=Qry.FieldIndex("part_key");
 
             string trip, scd_out;
             while(!Qry.Eof) {
                 xmlNodePtr paxNode = NewTextChild(rowsNode, "pax");
 
+                if(!Qry.FieldIsNULL(col_part_key))
+                    NewTextChild(paxNode, "part_key",
+                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", Qry.FieldAsInteger(col_point_id));
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
@@ -1913,6 +1919,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if(part_key == NoExists)  {
             Qry.SQLText=
                 "SELECT "
+                "   null part_key, "
                 "   pax_grp.point_dep point_id, "
                 "   points.airline, "
                 "   points.flt_no, "
@@ -1938,6 +1945,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         } else {
             Qry.SQLText=
                 "SELECT "
+                "  arx_pax_grp.part_key, "
                 "  arx_pax_grp.airp_arv, "
                 "  report.get_last_trfer(arx_pax_grp.grp_id) AS last_trfer, "
                 "  ckin.get_bagAmount(arx_pax_grp.grp_id,NULL) AS bag_amount, "
@@ -1965,6 +1973,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 rowsNode = NewTextChild(paxListNode, "rows");
             }
             xmlNodePtr paxNode=NewTextChild(rowsNode,"pax");
+            if(!Qry.FieldIsNULL("part_key"))
+                NewTextChild(paxNode, "part_key",
+                        DateTimeToStr(Qry.FieldAsDateTime("part_key"), ServerFormatDateTimeAsString));
             NewTextChild(paxNode, "point_id", point_id);
             NewTextChild(paxNode, "airline");
             NewTextChild(paxNode, "flt_no", 0);
@@ -3302,6 +3313,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             ProgTrace(TRACE5, "PaxSrcRun: current base qry");
             SQLText =
                 "SELECT "
+                "   null part_key, "
                 "   pax_grp.point_dep point_id, "
                 "   points.airline, "
                 "   points.flt_no, "
@@ -3355,6 +3367,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
             SQLText =
                 "SELECT "
+                "   arx_points.part_key, "
                 "   arx_pax_grp.point_dep point_id, "
                 "   arx_points.airline, "
                 "   arx_points.flt_no, "
@@ -3451,6 +3464,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_document = Qry.FieldIndex("document");
             int col_ticket_no = Qry.FieldIndex("ticket_no");
             int col_hall = Qry.FieldIndex("hall");
+            int col_part_key=Qry.FieldIndex("part_key");
 
             map<int, TTripItem> TripItems;
 
@@ -3460,6 +3474,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
                 int point_id = Qry.FieldAsInteger(col_point_id);
 
+                if(!Qry.FieldIsNULL(col_part_key))
+                    NewTextChild(paxNode, "part_key",
+                            DateTimeToStr(Qry.FieldAsDateTime(col_part_key), ServerFormatDateTimeAsString));
                 NewTextChild(paxNode, "point_id", point_id);
                 NewTextChild(paxNode, "airline", Qry.FieldAsString(col_airline));
                 NewTextChild(paxNode, "flt_no", Qry.FieldAsInteger(col_flt_no));
