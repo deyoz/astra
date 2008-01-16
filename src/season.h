@@ -21,6 +21,7 @@ struct TViewTrip {
 	BASIC::TDateTime first; 
 	BASIC::TDateTime last;
 	std::string days;		
+	bool pr_cancel;
 	TViewTrip() {
 		first = ASTRA::NoExists;
 	}		

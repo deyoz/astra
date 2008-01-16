@@ -3063,11 +3063,11 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
             vt.land = tr->land;
             vt.takeoff = tr->takeoff;            
             if ( TReqInfo::Instance()->user.user_type == utAirport && // только для работников аэропорта
-            	   !pr_cancel &&
             	   vt.takeoff > NoExists ) { // для расчета загрузки слотов
             	vt.first = first;
             	vt.last = last;
             	vt.days = days;
+            	vt.pr_cancel = pr_cancel;
             }
             viewperiod.trips.push_back( vt );            
           }
@@ -3132,7 +3132,7 @@ void buildViewSlots( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
   xmlNodePtr tripsNode = NULL;      
   for ( vector<TViewPeriod>::const_iterator i=viewp.begin(); i!=viewp.end(); i++ ) {
     for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-      if ( j->takeoff == NoExists ) // только на вылет
+      if ( j->takeoff == NoExists || j->pr_cancel ) // только на вылет
       	continue;
     	if ( !tripsNode )
         tripsNode = NewTextChild( dataNode, "trips" );
