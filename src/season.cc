@@ -166,8 +166,9 @@ class TFilter {
     TFilter();
 };
 
-bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TDestList &ds, TDateTime vdate );
-bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds );
+bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TDestList &ds, 
+                        TDateTime vdate, bool viewOwnPort, bool UTCFilter );
+bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds, bool viewOwnPort );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds, TDateTime localdate );
 TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int tz, map<int,TTimeDiff> &v );
@@ -554,6 +555,12 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
 bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land, TDateTime Takeoff,
                               int dst_offset, string vregion )
 {
+	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, first_day=%s, Land=%s, Takeoff=%s", 
+	           DateTimeToStr( firstTime, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( lastTime, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( first_day, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( Land, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( Takeoff, "dd.mm hh:nn" ).c_str());
   if ( firstTime == NoExists || region.empty() )
     return true;
   /* переводим времена в фильтре во время UTC относительно города в маршруте */
@@ -605,16 +612,16 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
 
   if ( f < 0 )
     f = fabs( f );
-  if ( f < 1.0 )
-  	f += 1.0;  
-/*  else
-    f += 1.0;*/
+/*  if ( f < 1.0 )
+  	f += 1.0;  */
+  else
+    f += 1.0;
   if ( l < 0 )
     l = fabs( l );
-  if ( l < 1.0 )
-  	l += 1.0;
-/*  else
-    l += 1.0;*/
+/*  if ( l < 1.0 )
+  	l += 1.0;*/
+  else
+    l += 1.0;
 
   f -= (double)1000/(double)MSecsPerDay;
   l +=  (double)1000/(double)MSecsPerDay;
@@ -624,10 +631,10 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
     f1 = modf( (double)Land, &f2 );
     if ( f1 < 0 )
       f1 = fabs( f1 );
-    if ( f1 < 1.0 )
-    	f1 += 1.0;  
-/*    else
-      f1 += 1.0;*/      
+/*    if ( f1 < 1.0 )
+    	f1 += 1.0;  */
+    else
+      f1 += 1.0;
   }
   if ( Takeoff == NoExists )
     f2 = NoExists;
@@ -635,10 +642,10 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
     f2 = modf( (double)Takeoff, &f3 );
     if ( f2 < 0 )
       f2 = fabs( f2 );
-    if ( f2 < 1.0 )
-    	f2 += 1.0;
-/*    else
-      f2 += 1.0;*/
+/*    if ( f2 < 1.0 )
+    	f2 += 1.0;*/
+    else
+      f2 += 1.0;
   }
 
 
@@ -649,6 +656,12 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime Land,
 
 
   ProgTrace( TRACE5, "f=%f,l=%f, f1=%f, f2=%f", f, l, f1, f2 );
+	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, Land=%s, Takeoff=%s", 
+	           DateTimeToStr( f, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( l, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( f1, "dd.mm hh:nn" ).c_str(),
+	           DateTimeToStr( f2, "dd.mm hh:nn" ).c_str());
+  
   return ( f1 >= f && f1 <= l || f2 >= f && f2 <= l );
 }
 
@@ -1196,15 +1209,12 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
     createAirlineTrip( NoExists, filter, offset, ds, localdate );
   }
   else {
-    ProgTrace( TRACE5, "filter.firstTime=%s, filter.lastTime=%s",
-               DateTimeToStr( filter.firstTime, "dd.mm.yy  hh:nn" ).c_str(),
-               DateTimeToStr( filter.lastTime, "dd.mm.yy  hh:nn" ).c_str() );
-
     for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
           s!=reqInfo->user.access.airps.end(); s++ ) {
       int vcount = (int)ds.trips.size();
       // создаем рейсы относительно разрешенных портов reqInfo->user.access.airps
-      createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date ); 
+      
+      createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date, false, true ); 
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
         ds.trips[ i ].trap = NoExists;
         if ( ds.trips[ i ].takeoff > NoExists ) {
@@ -1292,8 +1302,8 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
      }
      else {
        filter.firstTime = 0.0;
-       filter.lastTime = f4;
-     }
+       filter.lastTime = f4 - 1.0/1440.0;
+     }  
      ProgTrace( TRACE5, "date=%s",
                 DateTimeToStr( d, "dd.mm.yy  hh:nn" ).c_str() );
      Qry.SetVariable( "vd", d );
@@ -1321,10 +1331,6 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
               ds.tz = ptz;
               ds.region = pregion;
 
-              ProgTrace( TRACE5, "first_day=%s, move_id=%d",
-                         DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
-                         vmove_id );
-
              ProgTrace( TRACE5, "canspp trip vmove_id=%d,vd=%s,d=%s spp[ *vd ][ vold_move_id ].trips.size()=%d",
                         vmove_id,
                         DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
@@ -1332,7 +1338,7 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
                         (int)spp[ *vd ][ vmove_id ].trips.size() );
              if ( createViewer )
                if ( spp[ *vd ][ vmove_id ].trips.empty() ) {
-
+  
                  createTrips( d, localdate, filter, offset, stagetimes, ds );
 
                  ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
@@ -1388,14 +1394,15 @@ bool CompareAirlineTrip( trip t1, trip t2 )
 bool CompareAirpTrip( trip t1, trip t2 )
 {
 	TDateTime f1, f2;
+	double d;
 	if ( t1.takeoff > NoExists )
-		f1 = t1.takeoff;
+		f1 = modf( t1.takeoff, &d );
 	else
-		f1 = t1.land;
+		f1 = modf( t1.land, &d );
 	if ( t2.takeoff > NoExists )
-		f2 = t2.takeoff;
+		f2 = modf( t2.takeoff, &d );
 	else
-		f2 = t2.land;
+		f2 = modf( t2.land, &d );
 	if ( f1 < f2 )
 		return true;
 	else
@@ -2275,7 +2282,8 @@ string GetTextTime( TDateTime Fact, TDateTime VDate )
 
 
 /* UTCTIME */
-bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TDestList &ds, TDateTime utc_spp_date )
+bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TDestList &ds, 
+                        TDateTime utc_spp_date, bool viewOwnPort, bool UTCFilter )
 {
   if ( ds.dests.empty() )
     return false;
@@ -2299,11 +2307,13 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       PriorDest = PDest;
       OwnDest = NDest;
 
-/*      // Den was here!!!
-      if ( !portsFrom.empty() )
-        portsFrom += "/";
-      portsFrom += NDest->cod;
-      // end of Den was here*/
+/*      // Den was here!!!*/
+      if ( viewOwnPort ) {
+        if ( !portsFrom.empty() )
+          portsFrom += "/";
+        portsFrom += NDest->cod;
+      }  
+/*      // end of Den was here*/
     }
     else { /* наш порт в маршруте не надо отображать */
 //!!!      if ( ports.find( NDest->cod ) == string::npos ) {
@@ -2357,7 +2367,12 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       else
         takeoff = NoExists;*/
 
-      if ( cantrip && filter.isFilteredTime( ds.flight_time, OwnDest->Land, OwnDest->Takeoff, offset, OwnDest->region ) ) {
+      if ( cantrip && 
+      	   ( UTCFilter &&
+      	      ( filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->Land, offset ) ||
+      	        filter.isFilteredUTCTime( utc_spp_date, ds.flight_time, OwnDest->Takeoff, offset ) ) ||
+      	     !UTCFilter && filter.isFilteredTime( ds.flight_time, OwnDest->Land, OwnDest->Takeoff, offset, OwnDest->region ) )
+      	 ) {
 /*           ( filter.firstTime == NoExists ||
              land >= filter.firstTime && land <= filter.lastTime ||
              takeoff >= filter.firstTime && takeoff <= filter.lastTime ) ) {*/
@@ -2428,13 +2443,13 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 
 
 /* UTCTIME */
-bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds )
+bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds, bool viewOwnPort )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool res = false;
   for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
         s!=reqInfo->user.access.airps.end(); s++ ) {
-    res = res || createAirportTrip( *s, trip_id, filter, offset, ds, NoExists );
+    res = res || createAirportTrip( *s, trip_id, filter, offset, ds, NoExists, viewOwnPort, false );
   }
   return res;
 }
@@ -3041,7 +3056,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
              CommonDays( days, filter.range.days ) && /* !!! в df.intersects надо посмотреть есть ли дни выполнения */
             ( ds.dests.empty() ||
               TReqInfo::Instance()->user.user_type == utAirport &&
-              createAirportTrip( viewperiod.trip_id, filter, GetTZOffSet( first, ptz, v ), ds ) /*??? isfiltered */ ||
+              createAirportTrip( viewperiod.trip_id, filter, GetTZOffSet( first, ptz, v ), ds, true ) /*??? isfiltered */ ||
               TReqInfo::Instance()->user.user_type != utAirport &&
       	      createAirlineTrip( viewperiod.trip_id, filter, GetTZOffSet( utc_first, ptz, v ), ds ) ) ) {
           rangeListEmpty = false;
@@ -3285,7 +3300,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
           mapds[ move_id ].region = pregion;
           tst();
           if ( TReqInfo::Instance()->user.user_type == utAirport )
-            canTrips = !createAirportTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ] );
+            canTrips = !createAirportTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ], false );
           else
             canTrips = !createAirlineTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ] );
 /*        } */
