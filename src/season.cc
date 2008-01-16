@@ -3053,6 +3053,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
             AddRefPeriod( viewperiod.exec, first, last, (int)delta_out, days, tlg );
           for ( vector<trip>::iterator tr=ds.trips.begin(); tr!=ds.trips.end(); tr++ ) {
             TViewTrip vt;
+            vt.trip_id = viewperiod.trip_id;
             vt.move_id = move_id;
             vt.name = tr->name;
             vt.crafts = tr->crafts;
@@ -3105,11 +3106,10 @@ void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
     NewTextChild( rangeListNode, "exec", i->exec );
     NewTextChild( rangeListNode, "noexec", i->noexec );
     xmlNodePtr tripsNode = NULL;    
-    vector<TViewTrip>::const_iterator e; // передаем только последний рейс, который ссылается на trip_id
-    for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end(); j++ ) {
-    	e = j + 1; // следующий рейс
-    	if ( e != i->trips.end() && e->trip_id == j->trip_id && e->move_id != j->move_id )
-    		continue;
+    int move_id;
+    if ( i->trips.size() )
+    	move_id = i->trips.begin()->move_id; // беру первый маршрут он можетсодержать несколько рейсов, их надо отображать 1019, 1020
+    for ( vector<TViewTrip>::const_iterator j=i->trips.begin(); j!=i->trips.end() && move_id==j->move_id; j++ ) {
     	if ( !tripsNode )
         tripsNode = NewTextChild( rangeListNode, "trips" );
       xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
