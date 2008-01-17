@@ -504,17 +504,32 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
-    BrdInterface::GetPax(reqNode, formDataNode);
-    xmlNodeSetName(formDataNode->children, (xmlChar *)"datasets");
-    xmlNodePtr totalNode = GetNode("total", formDataNode->children);
-    if(totalNode == NULL) throw Exception("RunExam: total node not found");
+    xmlNodePtr resNode = formDataNode->parent;
+    xmlUnlinkNode(formDataNode);
+    xmlFreeNode(formDataNode);
+    BrdInterface::GetPax(reqNode, resNode);
+    xmlNodePtr currNode = resNode->children;
+    formDataNode = NodeAsNodeFast("form_data", currNode);
+    xmlNodePtr dataNode = NodeAsNodeFast("data", currNode);
+    currNode = formDataNode->children;
+    xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
+    xmlUnlinkNode(dataNode);
+    xmlNodeSetName(dataNode, (xmlChar *)"datasets");
+    while(currNode) {
+        if(currNode->next == NULL) {
+            currNode->next = dataNode;
+            break;
+        }
+        currNode = currNode->next;
+    }
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     // Теперь переменные отчета
-    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
     PaxListVars(point_id, pr_lat, variablesNode);
-    xmlAddChildList(variablesNode, xmlCopyNodeList(totalNode));
+    currNode = variablesNode->children;
+    xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
+    NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
