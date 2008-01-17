@@ -940,7 +940,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "code", otString, fl.airline );
 	Qry.Execute();
 	if ( !Qry.RowCount() )
-		throw Exception( "Неизветсная авиакомпания, значение=%s", fl.airline.c_str() );
+		throw Exception( "Неизвестная авиакомпания, значение=%s", fl.airline.c_str() );
 	fl.airline = Qry.FieldAsString( "code" );
 	if ( Qry.FieldAsInteger( "f" ) == 2 )
 		fl.trip_type = "м";
