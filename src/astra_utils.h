@@ -121,6 +121,8 @@ class TReqInfo
     void clearPerform();
     long getExecuteMSec();
 
+    void MergeAccess(std::vector<std::string> &a, bool &ap,
+                     std::vector<std::string> b, bool bp);
     bool CheckAirline(const std::string &airline);
     bool CheckAirp(const std::string &airp);
 };

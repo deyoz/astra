@@ -157,7 +157,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT pr_denial, city "
+    "SELECT city "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -165,8 +165,6 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
-  if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-    throw UserException( "Пульт отключен" );
   desk.city = Qry.FieldAsString( "city" );
 
   Qry.Clear();
@@ -263,31 +261,39 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
       (user.user_type==utSupport||
        user.user_type==utAirline)) user.access.airps_permit=false;
 
-  if (!(user.access.airlines.empty() && user.access.airlines_permit))
+  //проверим ограничение доступа по сессии
+  vector<string> airlines;
+  SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
+
+  if (!airlines.empty())
+    MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,true);
+
+  //проверим ограничение доступа по собственникам пульта
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,pr_denial FROM desk_owners "
+    "WHERE desk=:desk ORDER BY DECODE(airline,NULL,0,1)";
+  Qry.CreateVariable("desk",otString,vpult);
+  Qry.Execute();
+  bool pr_denial_all=true;
+  if (!Qry.Eof && Qry.FieldIsNULL("airline"))
   {
-    //проверим ограничение доступа по авиакомпании
-    vector<string> airlines;
-    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
-    if (!airlines.empty())
-    {
-      if (user.access.airlines.empty())
-      {
-        user.access.airlines.assign(airlines.begin(),airlines.end());
-      }
-      else
-      {
-        for(vector<string>::iterator i=user.access.airlines.begin();i!=user.access.airlines.end();)
-        {
-          if (find(airlines.begin(),airlines.end(),*i) == airlines.end())
-            i=user.access.airlines.erase(i);
-          else
-            i++;
-        };
-      };
-      user.access.airlines_permit=true;
-    };
+    pr_denial_all=Qry.FieldAsInteger("pr_denial")!=0;
+    Qry.Next();
   };
 
+  airlines.clear();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (Qry.FieldIsNULL("airline")) continue;
+    bool pr_denial=Qry.FieldAsInteger("pr_denial")!=0;
+    if (!pr_denial_all && pr_denial ||
+        pr_denial_all && !pr_denial)
+      airlines.push_back(Qry.FieldAsString("airline"));
+  };
+  MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
+  if (airlines.empty() && pr_denial_all)
+    throw UserException( "Пульт отключен" );
 }
 
 bool TReqInfo::CheckAirline(const string &airline)
@@ -319,6 +325,88 @@ bool TReqInfo::CheckAirp(const string &airp)
     //список запрещенных
     return find(user.access.airps.begin(),
                 user.access.airps.end(),airp)==user.access.airps.end();
+  };
+};
+
+void TReqInfo::MergeAccess(vector<string> &a, bool &ap,
+                           vector<string> b, bool bp)
+{
+  if (a.empty() && ap ||
+      b.empty() && bp)
+  {
+    //все запрещено
+    a.clear();
+    ap=true;
+  }
+  else
+  {
+    if (a.empty() && !ap ||
+        b.empty() && !bp)
+    {
+      //копируем доступ
+      if (a.empty())
+      {
+        a.swap(b);
+        ap=bp;
+      };
+    }
+    else
+    {
+      //4 случая
+      if (ap)
+      {
+        if (bp)
+        {
+          //a and b
+          for(vector<string>::iterator i=a.begin();i!=a.end();)
+          {
+            if (find(b.begin(),b.end(),*i)!=b.end())
+              i++;
+            else
+              i=a.erase(i);
+          };
+          ap=true;
+        }
+        else
+        {
+          //a minus b
+          for(vector<string>::iterator i=a.begin();i!=a.end();)
+          {
+            if (find(b.begin(),b.end(),*i)!=b.end())
+              i=a.erase(i);
+            else
+              i++;
+          };
+          ap=true;
+        };
+      }
+      else
+      {
+        if (bp)
+        {
+          //b minus a
+          for(vector<string>::iterator i=b.begin();i!=b.end();)
+          {
+            if (find(a.begin(),a.end(),*i)!=a.end())
+              i=b.erase(i);
+            else
+              i++;
+          };
+          a.swap(b);
+          ap=true;
+        }
+        else
+        {
+          //a or b
+          for(vector<string>::iterator i=b.begin();i!=b.end();i++)
+          {
+            if (find(a.begin(),a.end(),*i)==a.end())
+              a.push_back(*i);
+          };
+          ap=false;
+        };
+      };
+    };
   };
 };
 
@@ -656,10 +744,10 @@ void showBasicInfo(void)
     	  xmlNodePtr node2 = NewTextChild(node,"airline");
     	  NewTextChild(node2,"code",row.code);
     	  NewTextChild(node2,"code_lat",row.code_lat);
-    	  NewTextChild(node2,"aircode",row.aircode);    	  
+    	  NewTextChild(node2,"aircode",row.aircode);
     	}
-    	catch	(EBaseTableError) {};  
-    };	  
+    	catch	(EBaseTableError) {};
+    };
   };
   if (!reqInfo->desk.code.empty())
   {
