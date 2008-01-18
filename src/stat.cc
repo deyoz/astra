@@ -3295,13 +3295,21 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(!surname.empty())
         Qry.CreateVariable("surname", otString, surname);
     string document = NodeAsStringFast("document", paramNode, "");
-    if(!document.empty())
+    if(!document.empty()) {
+        if(document.size() < 6)
+            throw UserException("Номер паспорта должен содержать не менее 6-и символов");
         Qry.CreateVariable("document", otString, document);
+    }
     string ticket_no = NodeAsStringFast("ticket_no", paramNode, "");
-    if(!ticket_no.empty())
+    if(!ticket_no.empty()) {
+        if(ticket_no.size() < 6)
+            throw UserException("Номер билета должен содержать не менее 6-и символов");
         Qry.CreateVariable("ticket_no", otString, ticket_no);
+    }
     string tag_no = NodeAsStringFast("tag_no", paramNode, "");
     if(!tag_no.empty()) {
+        if(tag_no.size() < 3)
+            throw UserException("Номер бирки должен содержать не менее 3-х последних цифр");
         Qry.CreateVariable("tag_no", otInteger, StrToInt(tag_no));
     }
     int count = 0;
@@ -3356,9 +3364,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                     SQLText += " and pax.surname like :surname||'%' ";
             }
             if(!document.empty())
-                SQLText += " and pax.document = :document ";
+                SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
-                SQLText += " and pax.ticket_no = :ticket_no ";
+                SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
             if(!tag_no.empty())
                 SQLText +=
                     " and pax_grp.grp_id in( "
