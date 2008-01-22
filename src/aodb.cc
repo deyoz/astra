@@ -1119,7 +1119,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	tmp = linestr.substr( PR_CANCEL_IDX, PR_CANCEL_LEN );
 	tmp = TrimString( tmp );
 	if ( tmp.empty() )
-		fl.pr_cancel = NoExists;
+		fl.pr_cancel = 0;
 	else
   	if ( StrToInt( tmp.c_str(), fl.pr_cancel ) == EOF )
 	  	throw Exception( "Ошибка формата признака отмены, значение=%s", tmp.c_str() );
@@ -1410,7 +1410,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.SQLText =
      "UPDATE points "
      " SET craft=NVL(craft,:craft),bort=NVL(bort,:bort),est_out=:est_out,act_out=:act_out,litera=:litera, "
-     "     park_out=:park_out,pr_del=:pr_del "
+     "     park_out=:park_out "
      " WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "craft", otString, fl.craft );
@@ -1491,28 +1491,28 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  	else
   	    tl += "Стоянка " + fl.park_out;
  	  }
- 	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
+/* 	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
  	  	if ( !tl.empty() )
  	  		tl += ",";
  	  	if ( fl.pr_cancel )
  	  	  tl += "Отмена рейса ";
  	  	else
  	  		tl += "Удаление отмены рейса";
- 	  }
+ 	  }*/
  	  if ( !tl.empty() ) {
  	  	reqInfo->MsgToLog( tl, evtDisp, move_id, point_id );
  	  }
 /* 	  if ( fl.pr_del )
  	  	 Qry.CreateVariable( "pr_del", otInteger, -1 );
- 	  else*/
+ 	  else
  	  	if ( fl.pr_cancel )
  	  		Qry.CreateVariable( "pr_del", otInteger, 1 );
  	  	else
  	  		Qry.CreateVariable( "pr_del", otInteger, 0 );
  	  if ( fl.pr_del != old_fl.pr_del ) {
  	  	if ( fl.pr_del )
- 	  		;/*reqInfo->MsgToLog( string( "Удаление рейса ВНК" ), evtDisp, move_id, point_id );*/
- 	  	else
+ 	  		;*//*reqInfo->MsgToLog( string( "Удаление рейса ВНК" ), evtDisp, move_id, point_id );*/
+/* 	  	else
  	  		reqInfo->MsgToLog( string( "Добавление рейса ВНК" ), evtDisp, move_id, point_id );
  	  }
  	  if ( fl.pr_cancel != old_fl.pr_cancel ) {
@@ -1520,7 +1520,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  		reqInfo->MsgToLog( string( "Отмена рейса ВНК" ), evtDisp, move_id, point_id );
  	  	else
  	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id );
- 	  }
+ 	  }*/
  	  Qry.Execute();
  	  // теперь работа с пунктами посадки
 /*    int num = 0;
