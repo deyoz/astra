@@ -504,6 +504,8 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
+    tst();
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
     xmlNodePtr resNode = formDataNode->parent;
     xmlUnlinkNode(formDataNode);
     xmlFreeNode(formDataNode);
@@ -514,14 +516,10 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     currNode = formDataNode->children;
     xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
     xmlUnlinkNode(dataNode);
+    tst();
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
-    while(currNode) {
-        if(currNode->next == NULL) {
-            currNode->next = dataNode;
-            break;
-        }
-        currNode = currNode->next;
-    }
+    xmlAddChild(formDataNode, dataNode);
+    tst();
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     // Теперь переменные отчета
@@ -530,6 +528,7 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
 void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -1713,10 +1712,12 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "exam") RunExam(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
+    tst();
     xmlNodePtr variablesNode = GetNode("variables", formDataNode);
     if(!variablesNode)
         variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "test_server", get_test_server());
+    tst();
 }
 
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
