@@ -1,0 +1,33 @@
+#!/bin/sh
+if [  -z "$1" ] ; then
+	port=`awk '/tclmode/ {print $3}' sirena.pid`
+else
+	port=$1
+fi
+if [ -z "$port" ] ; then
+	echo "no port given"
+else
+expect <<EOF
+EOF
+if [ $? -eq 0 ] ; then
+expect  <<EOF
+exit -onexit {
+close stdout
+}
+set timeout 30
+spawn telnet localhost $port
+expect  {=>\$} {
+    sleep .5
+    send "restart_obr all\r"
+    exp_continue;
+} default {
+}
+EOF
+else
+(sleep 10 ; cat <<EOF ; sleep 10 )|
+restart_obr all
+EOF
+telnet localhost $port
+fi
+fi
+

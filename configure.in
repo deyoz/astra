@@ -1,0 +1,66 @@
+AC_INIT(configure.in)
+
+if test "x$LIBROOT" = "x" ; then
+        export LIBROOT=$HOME
+fi
+echo "use LIBROOT=$LIBROOT"
+
+AC_PREFIX_DEFAULT(${HOME}/local)
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(Astra2007, 0.1)
+
+AC_LANG_C
+AC_LANG_CPLUSPLUS
+AC_PROG_CC
+AC_PROG_CXX
+
+#check for oracle
+MRJ_CHECK_ORACLE
+#check for serverlib
+MRJ_CHECK_SERVERLIB
+#check for eticklib
+CHECK_ETICKLIB
+#check for edilib
+MRJ_CHECK_EDILIB
+#check for jxtlib
+MRJ_CHECK_JXTLIB
+#check for tclmon
+MRJ_CHECK_TCLMON
+#check for shared
+MRJ_CHECK_SHARED
+#check for libxml
+AM_PATH_XML2
+#check for socket type
+#MRJ_CHECK_SOCKET_T
+AX_BOOST_BASE
+
+AC_ARG_ENABLE([xp-testing],
+        [  --enable-xp-testing       Enable xp testing],
+        [ AM_PATH_CHECK
+                [if test x$no_check != xyes; then enable_xp_testing=yes; fi]
+                AM_CONDITIONAL([XP_TESTING], [test x$enable_xp_testing = xyes])
+        ],\
+        [AM_CONDITIONAL([XP_TESTING], [test 1 = 0])] )
+
+if test x$enable_xp_testing = xyes; then
+AC_DEFINE([XP_TESTING],,[XP TESTING support])
+fi
+
+AC_PROG_LIBTOOL
+AC_PROG_RANLIB
+
+CFLAGS="-Wall -g -O0 $TCH_ETC_FLAGS $ORACLE_CXXFLAGS $EDILIB_CXXFLAGS $JXTLIB_CXXFLAGS $SERVERLIB_CXXFLAGS \
+ $ETICKLIB_CXXFLAGS $SHARED_CXXFLAGS $TCLMON_CXXFLAGS $XML_CPPFLAGS $CHECK_CFLAGS \
+ -I\$(top_builddir)/src -D ASTRA2007"
+CXXFLAGS="$CFLAGS $BOOST_CPPFLAGS"
+AC_OUTPUT(Makefile src/Makefile src/tlg/Makefile m4/Makefile)
+
+if ! test -f $srcdir/src/local_after.tcl ; then
+	cp $srcdir/src/local_after.example.tcl $srcdir/src/local_after.tcl
+fi
+if ! test -f $srcdir/src/local_before.tcl ; then
+	cp $srcdir/src/local_before.example.tcl $srcdir/src/local_before.tcl
+fi
+echo "================================="
+echo "Done. Run make"
+echo "================================="
