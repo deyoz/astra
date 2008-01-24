@@ -18,6 +18,7 @@
 #include "base_tables.h"
 #include "astra_service.h"
 #include "cfgproc.h"
+#include "posthooks.h"
 const int sleepsec = 25;
 
 using namespace ASTRA;
@@ -82,6 +83,8 @@ void exec_tasks( void )
 	while ( !Qry.Eof )
 	{
 	  TReqInfo::Instance()->clear();
+	  emptyHookTables();
+
 	  try {
 	    name = Qry.FieldAsString( "name" );
 	    if ( name == "astra_timer" ) astra_timer( utcdate );
@@ -109,17 +112,19 @@ void exec_tasks( void )
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();
 	    OraSession.Commit();
+	    callPostHooksAfter();
 	  }
-          catch( Exception &E )
-          {
-    	    try { OraSession.Rollback(); } catch(...) {};
-            ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
-          }
-          catch( ... )
-          {
-    	    try { OraSession.Rollback(); } catch(...) {};
-            ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
-          };
+    catch( Exception &E )
+    {
+    try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
+    }
+    catch( ... )
+    {
+    try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
+    };
+    callPostHooksAlways();
 	  Qry.Next();
 	};
 };
@@ -196,9 +201,15 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
+    Qry.Clear();
+    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/24";
+    Qry.Execute();
+    OraSession.Commit();
+
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
+    Qry.Clear();
     Qry.SQLText=
      "SELECT p.point_id "
      "FROM points, "
