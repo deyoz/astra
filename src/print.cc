@@ -891,6 +891,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
             "   decode(pax.coupon_no, null, '', pax.ticket_no||'/'||pax.coupon_no) eticket_no, "
+            "   decode(pax.coupon_no, null, '', 'ETKT'||pax.ticket_no||'/'||pax.coupon_no) etkt, "
             "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
             "   system.transliter(pax.DOCUMENT, 1) document_lat, "

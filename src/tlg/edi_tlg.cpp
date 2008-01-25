@@ -207,7 +207,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         sendTlg(get_canon_name(edi_addr).c_str(), OWN_CANON_NAME(), true, 20, tlg);
         registerHookAfter(sendCmdTlgSnd);
     }
-    catch (edilib::Exception &x){
+    catch (std::exception &x){
         ProgError(STDLOG, "%s", x.what());
         *err=1;//PROG_ERR;
     }
