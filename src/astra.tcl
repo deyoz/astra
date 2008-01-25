@@ -166,6 +166,7 @@ set CMD_WAIT_PNR $SOCKDIR/wait_pnr_cmd
 set CMD_EDI_HANDLER $SOCKDIR/edi_handler_cmd
 set CMD_TYPEB_HANDLER $SOCKDIR/typeb_handler_cmd
 set CMD_TLG_SND $SOCKDIR/tlg_snd_cmd
+set CMD_TICKET $SOCKDIR/file_srv_cmd
 
 set env(NLS_DATE_FORMAT) RRMMDD
 
@@ -175,7 +176,7 @@ set log1(SOCKET_SHM) $SOCKDIR/logger-socket-shm
 if { ! [ info exists LOGGERMETHOD ] } {
     set LOGGERMETHOD LOGGER_SYSTEM_WRITE
 }
-set log1(FILE)	astra.log
+set log1(FILE)	txtastra.log
 if { ! [  info exists log1(LEVEL) ] } {
 	set log1(LEVEL)	19
 }
@@ -184,6 +185,12 @@ set loginet(SOCKET_SHM) $SOCKDIR/loginet-socket-shm
 set loginet(FILE)	internet.log
 if { ! [  info exists loginet(LEVEL) ] } {
 	set loginet(LEVEL)	19
+}
+set logjxt(SOCKET) $SOCKDIR/logjxt-socket
+set logjxt(SOCKET_SHM) $SOCKDIR/logjxt-socket-shm
+set logjxt(FILE)	astra.log
+if { ! [  info exists logjxt(LEVEL) ] } {
+	set logjxt(LEVEL)	19
 }
 
 set logdaemon(SOCKET) $SOCKDIR/logdaemon-socket
@@ -254,6 +261,11 @@ proc astra_init {} {
     if { ! $::ONE_LOGGER } {
         if { [lsearch -exact $::GROUPS_TO_RUN astra_init2 ] != -1 } {
             start_obr [ list logger loginet $::SOCKDIR/loginet-signal ]
+        }
+    }
+    if { ! $::ONE_LOGGER } {
+        if { [lsearch -exact $::GROUPS_TO_RUN astra_init3 ] != -1 } {
+            start_obr [ list logger logjxt $::SOCKDIR/logjxt-signal ]
         }
     }
     if { ! $::ONE_LOGGER } {
@@ -338,7 +350,6 @@ proc astra_init_other {} {
      start_obr [ list typeb_handler ]
      start_obr [ list edi_handler ]
      start_obr [ list timer ]
-     start_obr [ list file_srv ]
 }
 
 proc start_obr1 { a } {
