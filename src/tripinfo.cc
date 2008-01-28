@@ -414,14 +414,15 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     sql+="DECODE(points.act_out,NULL,gtimer.get_stage( points.point_id, :craft_stage_type ),
                                      :takeoff_stage_id) AS craft_stage "*/
 
+  vector<int> &rights=info.user.access.rights;
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport) // система информирования
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end()) // система информирования
     sql+=",start_time ";
 
   sql+=
     "FROM " + p.sqlfrom;
 
-  vector<int> &rights=info.user.access.rights;
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport &&
        find(rights.begin(),rights.end(),335)==rights.end())
@@ -744,9 +745,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   {
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
-
+  vector<int> &rights=reqInfo->user.access.rights;
   if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
-       reqInfo->user.user_type==utAirport) { // система информирования
+       reqInfo->user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end()) { // система информирования
     NewTextChild( node, "start_check_info", (int)!Qry.FieldIsNULL( "start_time" ) );
   }
 
