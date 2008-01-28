@@ -282,23 +282,27 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   sql+=
     "FROM " + p.sqlfrom;
 
+  vector<int> &rights=info.user.access.rights;
+
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
     sql+=",trip_stations";
 
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 ";
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
     sql+="AND points.point_id=trip_stations.point_id "
          "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
-    for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==320||*i==330) break;
-    if (i==info.user.access.rights.end())
+    for(i=rights.begin();i!=rights.end();i++)
+      if (*i==320||*i==330||*i==335) break;
+    if (i==rights.end())
       sql+="AND points.act_out IS NULL ";
   };
 
@@ -338,7 +342,8 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
   {
     Qry.CreateVariable( "desk", otString, info.desk.code );
     if (info.screen.name == "BRDBUS.EXE")
@@ -408,30 +413,34 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   if ( info.screen.name == "TLG.EXE" )
     sql+="DECODE(points.act_out,NULL,gtimer.get_stage( points.point_id, :craft_stage_type ),
                                      :takeoff_stage_id) AS craft_stage "*/
-                                     
+
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport) // система информирования
-    sql+=",start_time ";        
-                                     
+    sql+=",start_time ";
+
   sql+=
     "FROM " + p.sqlfrom;
+
+  vector<int> &rights=info.user.access.rights;
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
     sql+=",trip_stations";
 
   sql+=" WHERE " + p.sqlwhere + " AND pr_reg<>0 AND points.point_id=:point_id ";
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
     sql+="AND points.point_id=trip_stations.point_id "
          "AND trip_stations.desk= :desk AND trip_stations.work_mode=:work_mode ";
 
   if ( info.screen.name == "AIR.EXE" )
   {
     vector<int>::iterator i;
-    for(i=info.user.access.rights.begin();i!=info.user.access.rights.end();i++)
-      if (*i==320||*i==330) break;
-    if (i==info.user.access.rights.end())
+    for(i=rights.begin();i!=rights.end();i++)
+      if (*i==320||*i==330||*i==335) break;
+    if (i==rights.end())
       sql+="AND points.act_out IS NULL ";
   };
 
@@ -469,7 +478,8 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   p.setVariables( Qry );
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport)
+       info.user.user_type==utAirport &&
+       find(rights.begin(),rights.end(),335)==rights.end())
   {
     Qry.CreateVariable( "desk", otString, info.desk.code );
     if (info.screen.name == "BRDBUS.EXE")
@@ -734,7 +744,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   {
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
-  
+
   if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
        reqInfo->user.user_type==utAirport) { // система информирования
     NewTextChild( node, "start_check_info", (int)!Qry.FieldIsNULL( "start_time" ) );
