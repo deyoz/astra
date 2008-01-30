@@ -2595,6 +2595,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
           }
       }
       tr.portsForAirline += NDest->cod;
+      tr.vecportsTo.push_back( *NDest ); // нужно для вывода на 1 экран в сезонке
       str_dests += NDest->cod;
       if ( localdate > NoExists && NDest->Takeoff > NoExists ) {
           ProgTrace( TRACE5, "cod=%s,localdate=%s, utctakeoff=%s",
