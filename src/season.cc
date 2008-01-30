@@ -99,8 +99,8 @@ struct trip {
   string crafts;
   string ownbc;
   string ownport;
-  string ports_in;
-  string ports_out;
+  string portsForAirline;
+  vector<TDest> vecportsFrom, vecportsTo;
   string bold_ports;
   TDateTime land;
   TDateTime takeoff;
@@ -1470,15 +1470,60 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     }
     NewTextChild( tripNode, "triptype", tr->triptype );
     if ( reqInfo->user.user_type == utAirport  ) {
-      NewTextChild( tripNode, "ports", tr->ports_in );
-      NewTextChild( tripNode, "ports_out", tr->ports_out );
+      /* only for prior version */
+  	  string ports_in, ports_out;
+     	for ( vector<TDest>::iterator h=tr->vecportsFrom.begin(); h!=tr->vecportsFrom.end(); h++ ) {
+         if ( !ports_in.empty() )
+           ports_in += "/";
+         ports_in += h->cod;    			
+  	  }
+  	  for ( vector<TDest>::iterator h=tr->vecportsTo.begin(); h!=tr->vecportsTo.end(); h++ ) {
+         if ( !ports_out.empty() )
+           ports_out += "/";
+         ports_out += h->cod;    			
+   	  }    	       	
+      NewTextChild( tripNode, "ports", ports_in );
+      NewTextChild( tripNode, "ports_out", ports_out );
     }
     else {
-      if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
-        NewTextChild( tripNode, "ports_out", tr->ports_in + "/" + tr->ports_out );
+      /*old if ( !ports_in.empty() && !ports_out.empty() )
+        NewTextChild( tripNode, "ports_out", ports_in + "/" + ports_out );
       else
-        NewTextChild( tripNode, "ports_out", tr->ports_in + tr->ports_out );
+        NewTextChild( tripNode, "ports_out", ports_in + ports_out );*/
+    }   	
+   	/* end old version */
+   	
+   	/* new version */
+   	if ( reqInfo->user.user_type != utAirport )
+   		NewTextChild( tripNode, "ports_out", tr->portsForAirline ); /* очень трудно рассчитывается это поле, поэтому так */
+   	if ( !tr->vecportsFrom.empty() ) {
+   	  xmlNodePtr psNode = NewTextChild( tripNode, "portsFrom" );
+   	  for ( vector<TDest>::iterator h=tr->vecportsFrom.begin(); h!=tr->vecportsFrom.end(); h++ ) {
+   	  	xmlNodePtr pNode = NewTextChild( psNode, "port" );
+   	  	NewTextChild( pNode, "airp", h->cod );
+   	  	if ( h->Land > NoExists )
+   	  	  NewTextChild( pNode, "land", DateTimeToStr( h->Land ) );
+   	  	if ( h->Takeoff > NoExists )
+   	  		NewTextChild( pNode, "takeoff", DateTimeToStr( h->Takeoff ) );
+   	  	if( h->pr_cancel )
+   	  		NewTextChild( pNode, "pr_cancel", h->pr_cancel );   	  		
+      }
     }
+   	if ( !tr->vecportsTo.empty() ) {
+   	  xmlNodePtr psNode = NewTextChild( tripNode, "portsTo" );
+   	  for ( vector<TDest>::iterator h=tr->vecportsTo.begin(); h!=tr->vecportsTo.end(); h++ ) {
+   	  	xmlNodePtr pNode = NewTextChild( psNode, "port" );
+   	  	NewTextChild( pNode, "airp", h->cod );
+   	  	if ( h->Land > NoExists )
+   	  	  NewTextChild( pNode, "land", DateTimeToStr( h->Land ) );
+   	  	if ( h->Takeoff > NoExists )
+   	  		NewTextChild( pNode, "takeoff", DateTimeToStr( h->Takeoff ) );
+   	  	if( h->pr_cancel )
+   	  		NewTextChild( pNode, "pr_cancel", h->pr_cancel );
+      }
+    } 
+   	/* end new version */
+   	
     if ( !tr->bold_ports.empty() )
       NewTextChild( tripNode, "bold_ports", tr->bold_ports );
     if ( tr->land > NoExists )
@@ -2280,6 +2325,21 @@ string GetTextTime( TDateTime Fact, TDateTime VDate )
   return res;
 }
 
+TDateTime TDateTimeToClient( TDateTime flight_time, TDateTime dest_time, const string &dest_region )
+{
+  double f1, f2, f3;
+  modf( (double)flight_time, &f1 );
+  if ( dest_time > NoExists ) {
+    f3 = modf( (double)dest_time, &f2 );
+    f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), dest_region ), &f3 ); //!!!
+    if ( f3 < f1 )
+      return f3 - f1 - f2;
+    else
+      return f3 - f1 + f2;
+  }
+  else
+    return NoExists;
+}
 
 /* UTCTIME */
 bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TDestList &ds, 
@@ -2293,7 +2353,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
   TDest *PDest = NULL;
   TDest *NDest;
   string crafts;
-  string portsFrom, portsTo;
+  vector<TDest> vecportsFrom, vecportsTo;
   int i=0;
   ProgTrace( TRACE5, "createAirporttrip trip_id=%d", trip_id );
   do {
@@ -2309,23 +2369,28 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 
 /*      // Den was here!!!*/
       if ( viewOwnPort ) {
-        if ( !portsFrom.empty() )
-          portsFrom += "/";
-        portsFrom += NDest->cod;
+      	TDest d = *NDest;
+      	d.Land = TDateTimeToClient( ds.flight_time, d.Land, d.region );
+      	d.Takeoff = TDateTimeToClient( ds.flight_time, d.Takeoff, d.region );
+        vecportsFrom.push_back( d );
       }  
 /*      // end of Den was here*/
     }
     else { /* наш порт в маршруте не надо отображать */
 //!!!      if ( ports.find( NDest->cod ) == string::npos ) {
         if ( !OwnDest ) {
-          if ( !portsFrom.empty() )
-            portsFrom += "/";
-          portsFrom += NDest->cod;
+        	TDest d = *NDest;
+      	  ProgTrace( TRACE5, "d.Land=%f", d.Land );        	
+      	  d.Land = TDateTimeToClient( ds.flight_time, d.Land, d.region );
+        	ProgTrace( TRACE5, "d.Land=%f", d.Land );
+      	  d.Takeoff = TDateTimeToClient( ds.flight_time, d.Takeoff, d.region );        	
+          vecportsFrom.push_back( d );
         }
         else {
-          if ( !portsTo.empty() )
-            portsTo += "/";
-          portsTo += NDest->cod;
+        	TDest d = *NDest;
+        	d.Land = TDateTimeToClient( ds.flight_time, d.Land, d.region );
+        	d.Takeoff = TDateTimeToClient( ds.flight_time, d.Takeoff, d.region );        	
+          vecportsTo.push_back( d );
         }
 //      }
       createTrip = ( OwnDest && ( PDest->trip != NDest->trip || PDest->company != NDest->company ) );
@@ -2385,11 +2450,11 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
         tr.trip_id = trip_id;
         tr.name = GetTrip( PriorDest, OwnDest );
         tr.print_name = GetPrintName( PriorDest, OwnDest );
-        ProgTrace( TRACE5, "tr.name=%s", tr.name.c_str() );
         tr.ownport = airp;
         tr.crafts = crafts;
-        tr.ports_in = portsFrom;
-        tr.ports_out = portsTo;
+        tr.vecportsFrom = vecportsFrom;
+        tr.vecportsTo = vecportsTo;
+        
         if ( OwnDest == NDest ) {
           tr.ownbc = PriorDest->bc;
           tr.triptype = PriorDest->triptype;
@@ -2400,28 +2465,8 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
         }
         tr.cancel = OwnDest->pr_cancel; //!!! неправильно так, надо расчитывать
         /* переводим времена вылета прилета в локальные */ //!!! error tz
-        double f1, f2, f3;
-        modf( (double)ds.flight_time, &f1 );
-        if ( OwnDest->Land > NoExists ) {
-          f3 = modf( (double)OwnDest->Land, &f2 );
-          f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), OwnDest->region ), &f3 ); //!!!
-          if ( f3 < f1 )
-            tr.land = f3 - f1 - f2;
-          else
-            tr.land = f3 - f1 + f2;
-        }
-        else
-          tr.land = NoExists;
-        if ( OwnDest->Takeoff > NoExists ) {
-          f3 = modf( (double)OwnDest->Takeoff, &f2 );
-          f2 = modf( (double)UTCToClient( f1 + fabs( f3 ), OwnDest->region ), &f3 ); //!!!
-          if ( f3 < f1 )
-            tr.takeoff = f3 - f1 - f2;
-          else
-            tr.takeoff = f3 - f1 + f2;
-        }
-        else
-          tr.takeoff = NoExists;
+        tr.land = TDateTimeToClient( ds.flight_time, OwnDest->Land, OwnDest->region ); 
+        tr.takeoff = TDateTimeToClient( ds.flight_time, OwnDest->Takeoff, OwnDest->region ); 
 
         ds.trips.push_back( tr );
         tst();
@@ -2429,8 +2474,8 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
       createTrip = false;
       PriorDest = NULL;
       OwnDest = NULL;
-      portsFrom.clear();
-      portsTo.clear();
+      vecportsFrom.clear();
+      vecportsTo.clear();
     }
     else
       i++;
@@ -2495,8 +2540,8 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
       tr.triptype += NDest->triptype;
     }
     //!!!if ( tr.ports.find( NDest->cod ) == string::npos ) {
-      if ( !tr.ports_out.empty() ) {
-         tr.ports_out += "/";
+      if ( !tr.portsForAirline.empty() ) {
+         tr.portsForAirline += "/";
          str_dests += "/";
       }
 
@@ -2531,25 +2576,25 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
                      DateTimeToStr( land, "dd hh:nn" ).c_str() );
           ptime = DateTimeToStr( land, "(hh:nn)" );
           if ( own_date == 0 ) {
-            bold_begin = tr.ports_out.size();
-            tr.ports_out += ptime;
+            bold_begin = tr.portsForAirline.size();
+            tr.portsForAirline += ptime;
             own_date = 1;
           }
           else
-            p = tr.ports_out.size();
-          bold_end = tr.ports_out.size();
+            p = tr.portsForAirline.size();
+          bold_end = tr.portsForAirline.size();
         }
         else
           if ( own_date == 1 ) {
             if ( p > 0 ) {
-              tr.ports_out.insert( p, ptime );
+              tr.portsForAirline.insert( p, ptime );
               p += ptime.size();
               bold_end = p;
             }
             own_date = 2;
           }
       }
-      tr.ports_out += NDest->cod;
+      tr.portsForAirline += NDest->cod;
       str_dests += NDest->cod;
       if ( localdate > NoExists && NDest->Takeoff > NoExists ) {
           ProgTrace( TRACE5, "cod=%s,localdate=%s, utctakeoff=%s",
@@ -2570,18 +2615,18 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
           ptime = DateTimeToStr( takeoff, "(hh:nn)" );
           if ( own_date == 0 ) {
             if ( i )
-              bold_begin = tr.ports_out.size();
-            tr.ports_out += ptime;
+              bold_begin = tr.portsForAirline.size();
+            tr.portsForAirline += ptime;
             own_date = 1;
           }
           else
-            p = tr.ports_out.size();
-          bold_end = tr.ports_out.size();
+            p = tr.portsForAirline.size();
+          bold_end = tr.portsForAirline.size();
         }
         else
           if ( own_date == 1 ) {
             if ( p > 0 ) {
-              tr.ports_out.insert( p, ptime );
+              tr.portsForAirline.insert( p, ptime );
               p += ptime.size();
               bold_end = p;
             }
@@ -2618,11 +2663,11 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
 
   if ( !bold_end || own_date == 1 ) {
   	if ( !bold_begin )
-      tr.ports_out = str_dests;
-    bold_end = tr.ports_out.size();
+      tr.portsForAirline = str_dests;
+    bold_end = tr.portsForAirline.size();
   }
 
-  tr.bold_ports.assign( tr.ports_out, bold_begin, bold_end - bold_begin );
+  tr.bold_ports.assign( tr.portsForAirline, bold_begin, bold_end - bold_begin );
 
 
   if ( timeKey ) {
@@ -3072,10 +3117,21 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
             vt.move_id = move_id;
             vt.name = tr->name;
             vt.crafts = tr->crafts;
-            if ( !tr->ports_in.empty() && !tr->ports_out.empty() )
-              vt.ports = tr->ports_in + "/" + tr->ports_out;
+   	        string ports_in, ports_out;
+   	        for ( vector<TDest>::iterator h=tr->vecportsFrom.begin(); h!=tr->vecportsFrom.end(); h++ ) {
+              if ( !ports_in.empty() )
+                ports_in += "/";
+              ports_in += h->cod;    			
+  	        }
+  	        for ( vector<TDest>::iterator h=tr->vecportsTo.begin(); h!=tr->vecportsTo.end(); h++ ) {
+              if ( !ports_out.empty() )
+                ports_out += "/";
+              ports_out += h->cod;    			
+   	        }    	   
+            if ( !ports_in.empty() && !ports_out.empty() )
+              vt.ports = ports_in + "/" + ports_out;
             else
-              vt.ports = tr->ports_in + tr->ports_out;
+              vt.ports = ports_in + ports_out;
             vt.land = tr->land;
             vt.takeoff = tr->takeoff;            
             if ( TReqInfo::Instance()->user.user_type == utAirport && // только для работников аэропорта
