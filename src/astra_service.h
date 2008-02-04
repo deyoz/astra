@@ -10,11 +10,11 @@ const char* OWN_POINT_ADDR();
 
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 bool deleteFile( int id );
-void putFile(const std::string &receiver,
-             const std::string &sender,
-             const std::string &type,
-             std::map<std::string,std::string> &params,
-             const std::string &file_data);
+int putFile(const std::string &receiver,
+            const std::string &sender,
+            const std::string &type,
+            std::map<std::string,std::string> &params,
+            const std::string &file_data);
 bool errorFile( int id, std::string err, std::string msg );
 bool sendFile( int id );
 bool doneFile( int id );
@@ -23,6 +23,8 @@ void CreateCentringFileDATA( int point_id );
 void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
+void sync_sppcek( void );
+
 
 class AstraServiceInterface : public JxtInterface
 {
