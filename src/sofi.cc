@@ -23,7 +23,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void createFileParamsSofi( int receipt_id, string pult, map<string,string> &params )
+void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string,string> &params )
 {
 	//!!! надо считать
 	TQuery Qry( &OraSession );
@@ -63,6 +63,8 @@ void createFileParamsSofi( int receipt_id, string pult, map<string,string> &para
         ProgTrace(TRACE5, "params[%s] = %s", im->first.c_str(), im->second.c_str());
     }
   params[ PARAM_FILE_NAME ] =  res.str();
+  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+	params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
 }
 
 bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams, 
@@ -78,7 +80,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
     "      bag_receipts.exch_rate,bag_receipts.exch_pay_rate,bag_receipts.pay_rate_cur, "
     "      bag_receipts.ex_weight,bag_receipts.issue_user_id, bag_receipts.issue_desk, "
     "      desks.code pult, desk_grp.city as sale_city,  "
-    "      points.scd_out, users2.descr  "
+    "      points.scd_out, users2.descr, points.point_id point_id  "
     "FROM bag_receipts, desks, desk_grp, pax_grp, points, users2  "
     "WHERE receipt_id= :id AND  "
     "      bag_receipts.service_type IN (1,2) AND "
@@ -92,6 +94,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
 	tst();
 	if ( Qry.Eof )
 		return false;
+	int point_id = Qry.FieldAsInteger( "point_id" );
   TQuery QryAgency(&OraSession);		
   for(map<string,string>::iterator im = inparams.begin(); im != inparams.end(); im++) {	
  	  if ( im->first == SOFI_AGENCY_PARAMS ) {
@@ -219,7 +222,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<dlmt; //15
  res<<dlmt; //15
  file_data = res.str();
- createFileParamsSofi( receipt_id, Qry.FieldAsString( "pult" ), params );
+ createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), params );
  tst();
  return true;
 }

@@ -9,6 +9,7 @@
 #include "xml_unit.h"
 #include "oralib.h"
 #include "str_utils.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "basic.h"
 #include "stl_utils.h"
@@ -16,6 +17,7 @@
 #include "flight_cent_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
+/*#include "spp_cek.h"*/
 #include "stages.h"
 #include "cfgproc.h"
 
@@ -54,20 +56,25 @@ bool deleteFile( int id )
     return Qry.RowsProcessed()>0;
 };
 
-void putFile( const string &receiver,
-              const string &sender,
-              const string &type,
-              map<string,string> &params,
-              const string &file_data )
+int putFile( const string &receiver,
+             const string &sender,
+             const string &type,
+             map<string,string> &params,
+             const string &file_data )
 {
+	int file_id = ASTRA::NoExists;
     try
     {
         TQuery Qry(&OraSession);
+        Qry.SQLText = "SELECT tlgs_id.nextval id FROM dual";
+        Qry.Execute();
+        file_id = Qry.FieldAsInteger( "id" );
+        Qry.Clear();
         Qry.SQLText=
                 "INSERT INTO "
                 "file_queue(id,sender,receiver,type,status,time) "
                 "VALUES"
-                "(tlgs_id.nextval,:sender,:receiver,"
+                "(tlgs_id.currval,:sender,:receiver,"
                 ":type,'PUT',system.UTCSYSDATE)";
         Qry.CreateVariable("sender",otString,sender);
         Qry.CreateVariable("receiver",otString,receiver);
@@ -109,6 +116,7 @@ void putFile( const string &receiver,
         ProgError(STDLOG, "putFile: Unknown error while trying to put file");
         throw;
     };
+  return file_id;
 };
 
 bool errorFile( int id, const string &msg )
@@ -177,10 +185,14 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 			else
 				if ( ParamQry.FieldAsString( "name" ) == NS_PARAM_FLT_NO )
 					flt_no = ParamQry.FieldAsString( "value" );
-				else {
-					fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
+				else
+					if ( ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_TYPE &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID1 &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID2 &&
+						   ParamQry.FieldAsString( "name" ) != NS_PARAM_EVENT_ID3 ) {
+					  fileparams[ string( ParamQry.FieldAsString( "name" ) ) ] = ParamQry.FieldAsString( "value" );
 //		      ProgTrace( TRACE5, "name=%s, value=%s", ParamQry.FieldAsString( "name" ), ParamQry.FieldAsString( "value" ) );
-			  }
+			    }
 		ParamQry.Next();
 	}
 	ParamQry.Clear();
@@ -267,8 +279,9 @@ void parseFileParams( xmlNodePtr dataNode, map<string,string> &fileparams )
 	}
 }
 
-void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name )
+int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name )
 {
+	int file_id;
 	TQuery ScanQry( &OraSession );
 	ScanQry.SQLText =
 		"SELECT file_queue.id,file_queue.sender,file_queue.receiver,file_queue.type,"
@@ -292,7 +305,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
   vector<string> vecType;
   string in_order_key;
 	while ( !ScanQry.Eof ) {
-  	int file_id = ScanQry.FieldAsInteger( "id" );
+  	file_id = ScanQry.FieldAsInteger( "id" );
   	in_order_key = string( ScanQry.FieldAsString( "type" ) ) + ScanQry.FieldAsString( "receiver" );
     try
     { 
@@ -352,6 +365,7 @@ void buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name
   }	 // end while
   if ( p )
     free( p );
+  return file_id;
 }
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
@@ -405,17 +419,96 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	string client_canon_name = NodeAsString( node );
 	string curmode = NodeAsString( "curmode", reqNode );	
 	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
-	if ( curmode == "OUT" )	
-	  buildSaveFileData( resNode, client_canon_name );
+	if ( curmode == "OUT" )	{
+	  int file_id = buildSaveFileData( resNode, client_canon_name );
+    int id1, id2, id3;
+    string event_type;
+    TQuery Qry( &OraSession );
+    Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
+    Qry.CreateVariable( "id", otInteger, file_id );
+    Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
+    Qry.Execute();  
+    if ( !Qry.Eof ) {
+    	event_type = Qry.FieldAsString( "value" );
+      Qry.SetVariable( "name", PARAM_CANON_NAME );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    TReqInfo::Instance()->desk.code = Qry.FieldAsString( "value" );
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    id1 = StrToInt( Qry.FieldAsString( "value" ) );
+      else
+  	    id1 = 0;
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    id2 = StrToInt( Qry.FieldAsString( "value" ) );
+      else
+  	    id2 = 0;
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    id3 = StrToInt( Qry.FieldAsString( "value" ) );
+      else
+  	    id3 = 0;  
+  	  Qry.Clear();
+  	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
+  	  Qry.CreateVariable( "id", otInteger, file_id );
+  	  Qry.Execute();
+      TReqInfo::Instance()->MsgToLog( string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
+      	                              IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
+    }
+	}
 	else
 		buildLoadFileData( resNode, client_canon_name );
 }
 
 void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-  int file_id = NodeAsInteger( "file_id", reqNode );
+  int file_id = NodeAsInteger( "file_id", reqNode );  
+  int id1, id2, id3;
+  string event_type;
   ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
+  TQuery Qry( &OraSession );
+  Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
+  Qry.CreateVariable( "id", otInteger, file_id );
+  Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
+  Qry.Execute();  
+  if ( !Qry.Eof )
+  	event_type = Qry.FieldAsString( "value" );
+  Qry.SetVariable( "name", PARAM_CANON_NAME );
+  Qry.Execute();
+  if ( !Qry.Eof )
+  	TReqInfo::Instance()->desk.code = Qry.FieldAsString( "value" );
+  Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
+  Qry.Execute();
+  if ( !Qry.Eof )
+  	id1 = StrToInt( Qry.FieldAsString( "value" ) );
+  else
+  	id1 = 0;
+  Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
+  Qry.Execute();
+  if ( !Qry.Eof )
+  	id2 = StrToInt( Qry.FieldAsString( "value" ) );
+  else
+  	id2 = 0;
+  Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
+  Qry.Execute();
+  if ( !Qry.Eof )
+  	id3 = StrToInt( Qry.FieldAsString( "value" ) );
+  else
+  	id3 = 0;  
+  Qry.Clear();
+  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
+  Qry.CreateVariable( "id", otInteger, file_id );
+  Qry.Execute();
+  string ftype = Qry.FieldAsString( "type" );  	
   doneFile( file_id );
+  if ( !event_type.empty() ) {  	
+    TReqInfo::Instance()->MsgToLog( string("Файл доставлен (тип=" + ftype + ", ид.=") + 
+    	                              IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
+  }
 }
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -522,8 +615,8 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, params, file_data ) ||
                         type == FILE_AODB_TYPE && BuildAODBTimes( id, params, file_data ) ||
                         type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, false, params, file_data ) ||
-                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, true, params, file_data )
-                   ) {
+                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, true, params, file_data ) /*||
+                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, params, file_data )*/ ) {
                     ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
                     /* теперь в params еще лежит и имя файла */
                     params[ NS_PARAM_AIRP ] = airp;
@@ -539,7 +632,27 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                             ProgError(STDLOG, E.what());
                             throw UserException("Ошибка конвертации в %s", EncodeQry.FieldAsString( "encoding" ));
                         }
-                    putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
+                    int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
+                    ProgTrace( TRACE5, "file create id=%d", file_id );
+                    if ( params.find( NS_PARAM_EVENT_TYPE ) != params.end() ) {
+                    	string event_type = params[ NS_PARAM_EVENT_TYPE ];
+                    	int id1, id2, id3;
+                    	if ( params.find( NS_PARAM_EVENT_ID1 ) != params.end() )
+                    		id1 = StrToInt( params[ NS_PARAM_EVENT_ID1 ] );
+                    	else
+                    		id1 = 0;
+                    	if ( params.find( NS_PARAM_EVENT_ID2 ) != params.end() )
+                    		id2 = StrToInt( params[ NS_PARAM_EVENT_ID2 ] );
+                    	else
+                    		id2 = 0;
+                    	if ( params.find( NS_PARAM_EVENT_ID3 ) != params.end() )
+                    		id3 = StrToInt( params[ NS_PARAM_EVENT_ID3 ] );
+                    	else
+                    		id3 = 0;
+                    	TReqInfo::Instance()->desk.code = client_canon_name;                    		
+                      TReqInfo::Instance()->MsgToLog( string("Файл создан (тип=" + type + ", ид.=") + 
+      	                                              IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
+                    }
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
@@ -617,17 +730,20 @@ void sync_aodb( void )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
-	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
-	 " FROM points, file_param_sets "
-	 " WHERE file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-	 "       points.act_out IS NULL AND points.pr_del=0 AND "
-	 "       gtimer.get_stage(points.point_id,1) <= :stage2 AND "
-	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
-	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
-	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
+		 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
+		 " FROM points, file_param_sets "
+		 " WHERE gtimer.is_final_stage( points.point_id, :ckin_stage_type, :prep_checkin_stage_id)=0 AND "
+     "       gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "		 
+		 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
+		 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
+		 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
+		 "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
+		 "       points.act_out IS NULL AND points.pr_del=0 ";		 
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
-	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
+	Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
+	Qry.CreateVariable( "no_active_stage_id", otInteger, sNoActive );
+	Qry.CreateVariable( "prep_checkin_stage_id", otInteger, sPrepCheckIn );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
@@ -635,6 +751,29 @@ void sync_aodb( void )
 		Qry.Next();
 	}
 }
+
+/*void sync_sppcek( void )
+{
+	TQuery Qry( &OraSession );
+	Qry.SQLText = 
+	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
+	 " FROM points, file_param_sets "
+	 " WHERE file_param_sets.type=:file_type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
+	 "       ( TRUNC(NVL(points.act_in,NVL(points.est_in,points.scd_in))) >= TRUNC(system.UTCSYSDATE) OR"
+	 "         TRUNC(NVL(points.act_out,NVL(points.est_out,points.scd_out))) >= TRUNC(system.UTCSYSDATE) ) AND "
+	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
+	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
+	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
+	Qry.Execute();
+	while ( !Qry.Eof ) {
+		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
+  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
+		Qry.Next();
+	}
+}*/
+
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {

@@ -9,6 +9,7 @@
 #include "basic.h"
 #include "develop_dbf.h"
 #include "sopp.h"
+#include "astra_consts.h"
 //#include "base_tables.h"
 #include "astra_utils.h"
 
@@ -223,6 +224,8 @@ void createFileParams( int point_id, map<string,string> &params )
 	  params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
 	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";	
+	  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+	  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
 }
 
 void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data )

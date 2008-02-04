@@ -151,6 +151,8 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
 	if ( pr_bag )
 		p += 'b';
   params[ PARAM_FILE_NAME ] =  p + ".txt";
+  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
 }
 
 void DecodeBagType( int bag_type, int &code, string &name )
@@ -1852,6 +1854,8 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
   if ( !file_data.empty() ) {
 	  string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
     params[ PARAM_FILE_NAME ] =  p + "reg.txt";
+	  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+	  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
 	}
 	return !file_data.empty();
 }
