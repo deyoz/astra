@@ -541,9 +541,10 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 	createCentringFile( point_id, params, data );
 }
 
-void CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
+bool CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
 	                         const std::string &flt_no )
 {
+	bool res = false;
     TQuery EncodeQry( &OraSession );
     EncodeQry.SQLText =
         "select encoding from file_encoding where "
@@ -613,9 +614,9 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                 if ( 
                         type == FILE_CENT_TYPE && createCentringFile( id, params, file_data ) || 
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, params, file_data ) ||
-                        type == FILE_AODB_TYPE && BuildAODBTimes( id, params, file_data ) ||
                         type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, false, params, file_data ) ||
-                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, true, params, file_data ) /*||
+                        type == FILE_AODB_TYPE && createAODBCheckInInfoFile( id, true, params, file_data ) ||
+                        type == FILE_AODB_TYPE && BuildAODBTimes( id, params, file_data ) /* ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, params, file_data )*/ ) {
                     ProgTrace( TRACE5, "createFiledata type=%s, id=%d", type.c_str(), id );
                     /* теперь в params еще лежит и имя файла */
@@ -632,6 +633,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
                             ProgError(STDLOG, E.what());
                             throw UserException("Ошибка конвертации в %s", EncodeQry.FieldAsString( "encoding" ));
                         }
+                    res = true;
                     int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, params, file_data );
                     ProgTrace( TRACE5, "file create id=%d", file_id );
                     if ( params.find( NS_PARAM_EVENT_TYPE ) != params.end() ) {
@@ -685,6 +687,7 @@ void CreateCommonFileData( int id, const std::string type, const std::string &ai
         }
         Qry.Next();
     }	
+  return res;  
 }
 
 void CreateCentringFileDATA( int point_id )
@@ -746,8 +749,11 @@ void sync_aodb( void )
 	Qry.CreateVariable( "prep_checkin_stage_id", otInteger, sPrepCheckIn );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
-		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
-  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
+		int i=0; // сделано для того, чтобы прошла синхрогизация по 2-м разным данным (результ. регистрации + инфо по рейсу)
+		while ( i<3 && CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
+  	                                     Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) ) ) {
+  	  i++;
+  	}
 		Qry.Next();
 	}
 }
