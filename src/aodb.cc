@@ -151,7 +151,7 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
 	if ( pr_bag )
 		p += 'b';
   params[ PARAM_FILE_NAME ] =  p + ".txt";
-  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtPax );
   params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
 }
 
