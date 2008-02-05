@@ -264,6 +264,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
                                 std::map<std::string,std::string> &params, std::string &file_data/*,
                                 std::map<std::string,std::string> &bag_params, std::string &bag_file_data*/ )
 {
+	TDateTime execTask = NowUTC(); 
 	string point_addr = params[PARAM_CANON_NAME];
   double aodb_point_id;
 	string flight;
@@ -601,6 +602,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	// далее сравнение 2-х слепков, выяснение, что добавилось, что удалилось, что изменилось
 	// формирование данных для отпавки + их запись как новый слепок?
 //	ProgTrace( TRACE5, "aodb_pax.size()=%d, prior_aodb_pax.size()=%d",aodb_pax.size(), prior_aodb_pax.size() );
+	if ( NowUTC() - execTask > 1.0/1440.0 ) {
+		ProgTrace( TRACE5, "Attention execute task aodb time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
+		ProgTrace( TRACE5, "pr_unaccomp=%d", pr_unaccomp );
+	}
+
   string res_checkin, prior_res_checkin;
   bool ch_pax;
   // вначале идет проверка на удаленных и измененных пассажиров
