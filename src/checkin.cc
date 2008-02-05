@@ -3473,16 +3473,22 @@ void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	ProgTrace( TRACE5, "Open=%d", NodeAsInteger("Open",reqNode) );
+	int open = NodeAsInteger("Open",reqNode);
+	ProgTrace( TRACE5, "Open=%d", open );
   TQuery Qry(&OraSession);
   Qry.SQLText = 
    "UPDATE trip_stations SET start_time=DECODE(:open, 1, system.UTCSYSDATE, NULL) "
    " WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";
   Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", reqNode ) );
-  Qry.CreateVariable( "open", otInteger, NodeAsInteger("Open",reqNode) );
+  Qry.CreateVariable( "open", otInteger, open );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.CreateVariable( "work_mode", otString, "Р" ); 
   Qry.Execute();
+  if ( open == 1 )
+    TReqInfo::Instance()->MsgToLog( "Открытие регистрации для системы информирования", evtDisp, move_id );
+  else
+  	TReqInfo::Instance()->MsgToLog( "Закрытие регистрации для системы информирования", evtDisp, move_id );
+  
 }
 
 
