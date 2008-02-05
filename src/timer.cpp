@@ -112,7 +112,7 @@ void exec_tasks( void )
       while ( next_exec <= utcdate ) {
        next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
       }
-      if ( NowUTC() - execTask > 5.0/(1440.0*60) )
+      if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
       	ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
       UQry.SetVariable( "next_exec", next_exec );
 	    UQry.SetVariable( "name", name );
