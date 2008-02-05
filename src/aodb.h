@@ -5,6 +5,9 @@
 #include <map>
 
 const std::string FILE_AODB_TYPE = "AODB";
+const std::string FILE_AODB1_TYPE = "AODB1";
+const std::string FILE_AODB2_TYPE = "AODB2";
+const std::string FILE_AODB3_TYPE = "AODB3";	
 	
 bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, 
                                 std::map<std::string,std::string> &checkin_params, std::string &checkin_file_data/*,
