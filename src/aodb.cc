@@ -293,6 +293,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();
+	ProgTrace( TRACE5, "SELECT * FROM aodb_pax, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	STRAO.doit = false;
 	STRAO.unaccomp = pr_unaccomp;
 	while ( !Qry.Eof ) {
@@ -302,6 +303,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 		prior_aodb_pax.push_back( STRAO );
 		Qry.Next();
 	}
+	ProgTrace( TRACE5, "put data, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	Qry.Clear();
 	if ( pr_unaccomp )
 	  Qry.SQLText =
@@ -322,6 +324,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();
+	ProgTrace( TRACE5, "SELECT FROM aodb_pax, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	STRAO.doit = false;
 	STRAO.unaccomp = pr_unaccomp;
 	while ( !Qry.Eof ) {
@@ -332,6 +335,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	  prior_aodb_bag.push_back( STRAO );
 		Qry.Next();
 	}
+	ProgTrace( TRACE5, "put data aodb_bag, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	// теперь создадим похожую картинку по данным рейса из БД
 	TQuery BagQry( &OraSession );
 	BagQry.Clear();
@@ -369,6 +373,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	   " ORDER BY pax_grp.grp_id,seats ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
+	ProgTrace( TRACE5, "SELECT FROM pax, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	TQuery RemQry( &OraSession );
 	RemQry.SQLText = "SELECT rem_code FROM pax_rem WHERE pax_id=:pax_id";
 	RemQry.DeclareVariable( "pax_id", otInteger );
@@ -602,6 +607,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 	// далее сравнение 2-х слепков, выяснение, что добавилось, что удалилось, что изменилось
 	// формирование данных для отпавки + их запись как новый слепок?
 //	ProgTrace( TRACE5, "aodb_pax.size()=%d, prior_aodb_pax.size()=%d",aodb_pax.size(), prior_aodb_pax.size() );
+  ProgTrace( TRACE5, "put all data, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	if ( NowUTC() - execTask > 1.0/1440.0 ) {
 		ProgTrace( TRACE5, "Attention execute task aodb time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 		ProgTrace( TRACE5, "pr_unaccomp=%d", pr_unaccomp );
@@ -611,14 +617,19 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
   bool ch_pax;
   // вначале идет проверка на удаленных и измененных пассажиров
 	for ( vector<AODB_STRUCT>::iterator p=prior_aodb_pax.begin(); p!=prior_aodb_pax.end(); p++ ) {
+		ProgTrace( TRACE5, "before get1 record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
  		getRecord( p->pax_id, p->reg_no, pr_unaccomp, aodb_pax, aodb_bag, res_checkin/*, res_bag*/ );
+ 		ProgTrace( TRACE5, "after get1 record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
   	getRecord( p->pax_id, p->reg_no, pr_unaccomp, prior_aodb_pax, prior_aodb_bag, prior_res_checkin/*, prior_res_bag*/ );
+  	ProgTrace( TRACE5, "after get2 record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 	  ch_pax = res_checkin != prior_res_checkin;
   	if ( ch_pax ) {
+  		ProgTrace( TRACE5, "before create record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 		  createRecord( point_id, p->pax_id, p->reg_no, point_addr, pr_unaccomp, 
 		                heading.str(), 
 		                aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 		                res_checkin/*, res_bag*/ );
+      ProgTrace( TRACE5, "after create record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );		                
  			if ( ch_pax )
 	  		file_data += res_checkin;
 	  }
@@ -634,10 +645,12 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 		if ( ch_pax/*|| ch_bag*/ ) {
 //		if ( getRecord( p->pax_id, aodb_pax, aodb_bag ) != getRecord( p->pax_id, prior_aodb_pax, prior_aodb_bag ) ) {
 //			ProgTrace(TRACE5, "p->doit=%d, pax_id=%d", p->doit, p->pax_id );
+      ProgTrace( TRACE5, "before create record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
 			createRecord( point_id, p->pax_id, p->reg_no, point_addr, pr_unaccomp, 
 			              heading.str(),
 			              aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 			              res_checkin/*, res_bag*/ );
+      ProgTrace( TRACE5, "after create record, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );		                			              
 			if ( ch_pax )
 				file_data += res_checkin;
 /*			if ( ch_bag ) {
@@ -647,10 +660,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 //			ProgTrace(TRACE5, "create record pax_id=%d", p->pax_id );
 	  }
   }
-
+ProgTrace( TRACE5, "end create data, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );		                
   if ( !file_data.empty() ) {
 	  createFileParamsAODB( point_id, params, pr_unaccomp );
 	}
+ProgTrace( TRACE5, "end create params, time=%s", DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );		                	
 /*	if ( !bag_file_data.empty() ) {
 		createFileParamsAODB( point_id, bag_params, 1 );
 	}*/
