@@ -1788,9 +1788,9 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
 	 " WHERE points.point_id=:point_id AND "
 	 "       points.point_id=trip_sets.point_id AND " 
 	 "       points.point_id=aodb_points.point_id(+) AND "
-	 "       :point_addr=aodb_points.point_addr(+) AND "
-	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";
-	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );
+	 "       :point_addr=aodb_points.point_addr(+) ";	 
+/*	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";
+	Qry.CreateVariable( "stage2", otInteger, sPrepCheckIn );*/
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.Execute();

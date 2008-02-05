@@ -60,8 +60,15 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           "       ev_user, station, ev_order "
           "FROM arx_events "
           "WHERE part_key>=:arx_date AND "
-          "       ( DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id OR "
-          "         DECODE(type,:evtDisp,arx_events.id1,NULL)=:move_id ) "
+          " type=:evtDisp AND arx_events.id2=:point_id AND arx_events.id1=:move_id "
+          "UNION "
+          "SELECT arx_events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM arx_events "
+          "WHERE part_key>=:arx_date AND "
+          " type IN(:evtSeason,:evtFlt,:evtGraph,:evtPax,:evtPay,:evtComp,:evtTlg) AND arx_events.id1=:point_id "
           " ORDER BY ev_order";    	
   	  modf( (double)NodeAsDateTime( arx_date ), &f );
   	  f=f-2;
@@ -74,8 +81,14 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
           "       ev_user, station, ev_order "
           "FROM events "
-          "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id OR "
-          "      DECODE(type,:evtDisp,events.id1,NULL)=:move_id "
+          "WHERE type=:evtDisp AND events.id1=:move_id AND events.id2=:point_id "
+          "UNION "
+          "SELECT events.type type, msg, time, id1 AS point_id, "
+          "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+          "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+          "       ev_user, station, ev_order "
+          "FROM events "
+          "WHERE type IN(:evtSeason,:evtFlt,:evtGraph,:evtPax,:evtPay,:evtComp,:evtTlg) AND events.id1=:point_id "
           " ORDER BY ev_order";
     //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
     if ( move_id > NoExists )
@@ -83,9 +96,14 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     else
     	Qry.CreateVariable("move_id",otInteger,FNull);
     Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));       
+    Qry.CreateVariable("evtSeason",otString,EncodeEventType(ASTRA::evtSeason));
+    Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+    Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
     Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
     Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
+    Qry.CreateVariable("evtComp",otString,EncodeEventType(ASTRA::evtComp));
+    Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
 
     /*  Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
         Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));

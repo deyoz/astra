@@ -439,20 +439,32 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText=
+    Qry.SQLText=   
         "SELECT events.type type, msg, time, id1 AS point_id, "
         "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
         "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
         "       ev_user, station, ev_order "
         "FROM events "
-        "WHERE DECODE(type,:evtDisp,events.id2,events.id1)=:point_id "
+        "WHERE type=:evtDisp AND events.id1=:move_id AND events.id2=:point_id "
+        "UNION "
+        "SELECT events.type type, msg, time, id1 AS point_id, "
+        "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
+        "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
+        "       ev_user, station, ev_order "
+        "FROM events "
+        "WHERE type IN(:evtSeason,:evtFlt,:evtGraph,:evtPax,:evtPay,:evtComp,:evtTlg) AND events.id1=:point_id "
         " ORDER BY ev_order";
     //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
     int point_id = NodeAsInteger("point_id",reqNode);
     Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));       
+    Qry.CreateVariable("evtSeason",otString,EncodeEventType(ASTRA::evtSeason));
+    Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+    Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
     Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
     Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
+    Qry.CreateVariable("evtComp",otString,EncodeEventType(ASTRA::evtComp));
+    Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
     xmlNodePtr etNode = GetNode( "EventsTypes", reqNode );
     vector<string> eventsTypes;
     if ( etNode ) {
@@ -462,12 +474,6 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             etNode = etNode->next;
         }
     }
-
-    /*  Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
-        Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
-        Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-        Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-        Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));*/
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
