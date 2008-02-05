@@ -80,12 +80,14 @@ void exec_tasks( void )
 	UQry.DeclareVariable( "next_exec", otDate );
 	UQry.DeclareVariable( "name", otString );
 	string name;
+	TDateTime execTasks = NowUTC();
 	while ( !Qry.Eof )
 	{
 	  TReqInfo::Instance()->clear();
 	  emptyHookTables();
 
 	  try {
+	  	TDateTime execTask = NowUTC();
 	    name = Qry.FieldAsString( "name" );
 	    if ( name == "astra_timer" ) astra_timer( utcdate );
 	    else
@@ -100,7 +102,7 @@ void exec_tasks( void )
 	    	      				if ( name == "sync_aodb" ) sync_aodb( );
 	    	      				else
 	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-/*	    	      				  else
+	    	      				  /*else
 	    	      				  	if ( name == "sync_sppcek" ) sync_sppcek( ); */
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
@@ -110,6 +112,8 @@ void exec_tasks( void )
       while ( next_exec <= utcdate ) {
        next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
       }
+      if ( NowUTC() - execTask > 5.0/(1440.0*60) )
+      	ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
       UQry.SetVariable( "next_exec", next_exec );
 	    UQry.SetVariable( "name", name );
 	    UQry.Execute();
@@ -129,6 +133,8 @@ void exec_tasks( void )
     callPostHooksAlways();
 	  Qry.Next();
 	};
+	if ( NowUTC() - execTasks > 1.0/1440.0 )
+		ProgTrace( TRACE5, "Attention execute all tasks time > 1 min !!!, time=%s", DateTimeToStr( NowUTC() - execTasks, "nn:ss" ).c_str() );
 };
 
 const int ARX_MIN_DAYS()
