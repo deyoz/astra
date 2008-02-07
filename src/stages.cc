@@ -102,7 +102,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
   Qry.Execute();
   string region, airp;
   airp = Qry.FieldAsString( "airp" );
-	if ( reqInfo->user.time_form == tfLocalAll )
+	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
  	  region = AirpTZRegion( airp );
   Qry.Clear();
   Qry.SQLText =

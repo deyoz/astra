@@ -590,7 +590,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
   	else
   		PointsQry.SQLText = points_SOPP_SQL;
   if ( first_date != NoExists ) {
-    if ( reqInfo->user.time_form == tfLocalAll ) {
+    if ( reqInfo->user.sets.time == ustTimeLocalAirp ) {
     	// бывает сдвиг 25 часов ???
       PointsQry.CreateVariable( "first_date", otDate, first_date - 2 );
       PointsQry.CreateVariable( "next_date", otDate, next_date + 2 );
@@ -738,7 +738,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
                 reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
             TTrip tr = createTrip( move_id, id, dests );
             tr.ref = ref;
-            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll,
+            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
             	                     errcity, pr_isg ) ) {
               trips.push_back( tr );
             }
@@ -847,7 +847,7 @@ string internal_ReadData( TTrips &trips, TDateTime first_date, TDateTime next_da
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
          TTrip tr = createTrip( move_id, id, dests );
          tr.ref = ref;
-         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.time_form == tfLocalAll,
+         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
          	                      errcity, pr_isg ) ) {
            trips.push_back( tr );
          }
@@ -1381,7 +1381,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	double f;
   	vdate = NodeAsDateTime( dNode );
   	modf( (double)vdate, &f );
-  	if ( TReqInfo::Instance()->user.time_form == tfLocalAll ) {
+  	if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
   		first_date = f;
   	}
   	else
@@ -2193,7 +2193,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TDests &dests, string 
  	  d.suffix = Qry.FieldAsString( "suffix" );
  	  d.craft = Qry.FieldAsString( "craft" );
  	  d.bort = Qry.FieldAsString( "bort" );
-  	if ( reqInfo->user.time_form == tfLocalAll )
+  	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
   	  d.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
   	else
   		d.region.clear();
@@ -2375,7 +2375,7 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
           if ( !id->airline.empty() )
             throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
           else
-          	throw UserException( "Не задана авиакомпания" );                 	
+          	throw UserException( "Не задана авиакомпания" );
         }
       } // end for
       if ( !canDo )
@@ -2391,9 +2391,9 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
       		  }
       		  if ( airps.empty() )
       		  	throw UserException( "Нет доступа ни к одному аэропорту" );
-      		  else	
+      		  else
       		    throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
-      	  }      		
+      	  }
       	}
       	else { // список запрещенных аэропортов
       		string airps;
@@ -2401,9 +2401,9 @@ void internal_WriteDests( int &move_id, TDests &dests, const string &reference, 
       		  if ( !airps.empty() )
       		    airps += " ";
       		  airps += *s;
-      		}      		
-      		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );      		 	
-      	}      	
+      		}
+      		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
+      	}
     }
     // проверка на отмену
     for( TDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {

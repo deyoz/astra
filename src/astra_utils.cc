@@ -51,67 +51,6 @@ string AlignString(string str, int len, string align)
         result += buf;
     }
     return result;
-}
-
-TScreen::TScreen()
-{
-  id=0;
-  version=0;
-};
-
-void TScreen::clear()
-{
-  id=0;
-  version=0;
-  name.clear();
-};
-
-TDesk::TDesk()
-{
-  time = 0;
-};
-
-void TDesk::clear()
-{
-  code.clear();
-  city.clear();
-  tz_region.clear();
-  time = 0;
-};
-
-TUser::TUser()
-{
-  time_form = tfUnknown;
-  user_id = -1;
-};
-
-void TUser::clear()
-{
-  login.clear();
-  descr.clear();
-  access.clear();
-  time_form = tfUnknown;
-  user_id=-1;
-};
-
-void TAccess::clear()
-{
-  rights.clear();
-  airlines.clear();
-  airps.clear();
-  airlines_permit=true;
-  airps_permit=true;
-}
-
-TReqInfo::TReqInfo()
-{
-};
-
-void TReqInfo::clear()
-{
-  desk.clear();
-  user.clear();
-  screen.clear();
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -187,7 +126,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
 
   Qry.Clear();
   Qry.SQLText =
-    "SELECT user_id, login, descr, type, pr_denial, time_form "
+    "SELECT user_id, login, descr, type, pr_denial "
     "FROM users2 "
     "WHERE desk = UPPER(:pult) ";
   Qry.DeclareVariable( "pult", otString );
@@ -211,10 +150,6 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
   user.login = Qry.FieldAsString( "login" );
-  user.time_form = tfUnknown;
-  if (strcmp(Qry.FieldAsString( "time_form" ),"UTC")==0)        user.time_form = tfUTC;
-  if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_DESK")==0) user.time_form = tfLocalDesk;
-  if (strcmp(Qry.FieldAsString( "time_form" ),"LOCAL_ALL")==0)  user.time_form = tfLocalAll;
 
   //если служащий порта - проверим пульт с которого он заходит
   /*if (user.user_type==utAirport)
@@ -294,6 +229,58 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
   if (airlines.empty() && pr_denial_all)
     throw UserException( "Пульт отключен" );
+
+  //пользовательские настройки
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT time,disp_airline,disp_airp,disp_craft,disp_suffix "
+    "FROM user_sets "
+    "WHERE user_id=:user_id";
+  Qry.CreateVariable("user_id",otInteger,user.user_id);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    for(int i=0;i<5;i++)
+    {
+      char* field;
+      switch(i)
+      {
+        case 0: field="time"; break;
+        case 1: field="disp_airline"; break;
+        case 2: field="disp_airp"; break;
+        case 3: field="disp_craft"; break;
+        case 4: field="disp_suffix"; break;
+      };
+      if (!Qry.FieldIsNULL(field))
+      {
+        switch(Qry.FieldAsInteger(field))
+        {
+          case ustTimeUTC:
+          case ustTimeLocalDesk:
+          case ustTimeLocalAirp:
+            if (i==0)
+              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+            break;
+          case ustCodeNative:
+          case ustCodeIATA:
+          case ustCodeNativeICAO:
+          case ustCodeIATAICAO:
+          case ustCodeMixed:
+            if (i==1||i==2||i==3)
+              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+            break;
+          case ustEncNative:
+          case ustEncLatin:
+          case ustEncMixed:
+            if (i==4)
+              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+            break;
+          default: ;
+        };
+      };
+
+    };
+  };
 }
 
 bool TReqInfo::CheckAirline(const string &airline)
@@ -715,7 +702,15 @@ void showBasicInfo(void)
     node = NewTextChild(resNode,"user");
     NewTextChild(node, "login",reqInfo->user.login);
     NewTextChild(node, "type",reqInfo->user.user_type);
-    NewTextChild(node, "time_form",reqInfo->user.time_form);
+    NewTextChild(node, "time_form",reqInfo->user.sets.time);
+    //настройки пользователя
+    xmlNodePtr setsNode = NewTextChild(node, "settings");
+    NewTextChild(setsNode, "time", reqInfo->user.sets.time);
+    NewTextChild(setsNode, "disp_airline", reqInfo->user.sets.disp_airline);
+    NewTextChild(setsNode, "disp_airp", reqInfo->user.sets.disp_airp);
+    NewTextChild(setsNode, "disp_craft", reqInfo->user.sets.disp_craft);
+    NewTextChild(setsNode, "disp_suffix", reqInfo->user.sets.disp_suffix);
+    //доступ
     xmlNodePtr accessNode = NewTextChild(node, "access");
     //права доступа к операциям
     node = NewTextChild(accessNode, "rights");
@@ -852,34 +847,393 @@ TDateTime LocalToUTC(TDateTime d, string region)
 TDateTime UTCToClient(TDateTime d, string region)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  switch (reqInfo->user.time_form)
+  switch (reqInfo->user.sets.time)
   {
-    case tfUTC:
+    case ustTimeUTC:
       return d;
-    case tfLocalDesk:
+    case ustTimeLocalDesk:
       return UTCToLocal(d,reqInfo->desk.tz_region);
-    case tfLocalAll:
+    case ustTimeLocalAirp:
       return UTCToLocal(d,region);
     default:
-      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
 
 TDateTime ClientToUTC(TDateTime d, string region)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
-  switch (reqInfo->user.time_form)
+  switch (reqInfo->user.sets.time)
   {
-    case tfUTC:
+    case ustTimeUTC:
       return d;
-    case tfLocalDesk:
+    case ustTimeLocalDesk:
       return LocalToUTC(d,reqInfo->desk.tz_region);
-    case tfLocalAll:
+    case ustTimeLocalAirp:
       return LocalToUTC(d,region);
     default:
-      throw Exception("Unknown time_form for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
+
+//форматы:
+//  fmt=0 вн.код (рус. кодировка)
+//  fmt=1 IATA код (лат. кодировка)
+//  fmt=2 код ИКАО вн.
+//  fmt=3 код ИKAO IATA
+//  fmt=4 код ISO
+
+string& ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code,
+                         int &fmt, string &id, bool with_deleted)
+{
+  id.clear();
+  fmt=-1;
+
+  if (code.empty()) return id;
+
+  ElemToElemId(type,code,fmt,id,with_deleted);
+
+  //далее проверим а вообще имели ли мы право вводить в таком формате
+  if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
+                           type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
+      ctxt==ecCkin && (fmt!=0) ||
+      ctxt==ecTrfer && (fmt!=0))
+  {
+    //проблемы
+  };
+  if (ctxt==ecDisp)
+  {
+    if(type==etAirline ||
+       type==etAirp ||
+       type==etCraft ||
+       type==etSuffix)
+    {
+      TReqInfo *reqInfo = TReqInfo::Instance();
+      TUserSettingType user_fmt;
+      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
+      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
+      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
+      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+      if (type==etAirline ||
+          type==etAirp ||
+          type==etCraft)
+      {
+        if (!(user_fmt==ustCodeNative && fmt==0 ||
+              user_fmt==ustCodeIATA && fmt==1 ||
+              user_fmt==ustCodeNativeICAO && fmt==2 ||
+              user_fmt==ustCodeIATAICAO && fmt==3 ||
+              user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
+        {
+          //проблемы
+        };
+      }
+      else
+      {
+        if (!(user_fmt==ustEncNative && fmt==0 ||
+              user_fmt==ustEncLatin && fmt==1 ||
+              user_fmt==ustEncMixed && (fmt==0||fmt==1)))
+        {
+          //проблемы
+        };
+      };
+
+    }
+    else
+      if (fmt!=0)
+      {
+        //проблемы
+      };
+  };
+
+  return id;
+};
+
+string& ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
+                         int fmt, string &code, bool with_deleted)
+{
+  int fmt2=0;
+  if (ctxt==ecDisp)
+  {
+    if(type==etAirline ||
+       type==etAirp ||
+       type==etCraft ||
+       type==etSuffix)
+    {
+      TReqInfo *reqInfo = TReqInfo::Instance();
+      TUserSettingType user_fmt;
+      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
+      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
+      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
+      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+      if (type==etAirline ||
+          type==etAirp ||
+          type==etCraft)
+      {
+        switch(user_fmt)
+        {
+          case ustCodeNative:     fmt2=0; break;
+          case ustCodeIATA:       fmt2=1; break;
+          case ustCodeNativeICAO: fmt2=2; break;
+          case ustCodeIATAICAO:   fmt2=3; break;
+          case ustCodeMixed:      fmt2=fmt; break;
+          default: ;
+        };
+      }
+      else
+      {
+        switch(user_fmt)
+        {
+          case ustEncNative: fmt2=0; break;
+          case ustEncLatin:  fmt2=1; break;
+          case ustEncMixed:  fmt2=fmt; break;
+          default: ;
+        };
+      };
+    };
+  };
+
+  ElemIdToElem(type,id,fmt2,code,with_deleted);
+
+  return code;
+};
+
+string& ElemToElemId(TElemType type, string code, int &fmt, string &id, bool with_deleted)
+{
+  id.clear();
+  fmt=-1;
+
+  if (code.empty()) return id;
+
+  char* table_name=NULL;
+  switch(type)
+  {
+    case etCountry:
+      table_name="countries";
+      break;
+    case etCity:
+      table_name="cities";
+      break;
+    case etAirline:
+      table_name="airlines";
+      break;
+    case etAirp:
+      table_name="airps";
+      break;
+    case etCraft:
+      table_name="crafts";
+      break;
+    case etClass:
+      table_name="classes";
+      break;
+    case etSubcls:
+      table_name="subcls";
+      break;
+    case etPersType:
+      table_name="pers_types";
+      break;
+    case etGenderType:
+      table_name="gender_types";
+      break;
+    case etPaxDocType:
+      table_name="pax_doc_types";
+      break;
+    case etPayType:
+      table_name="pay_types";
+      break;
+    case etCurrency:
+      table_name="currency";
+      break;
+    default: ;
+  };
+
+  if (table_name!=NULL)
+  {
+    //это коды
+    TBaseTable& BaseTable=base_tables.get(table_name);
+    try
+    {
+      TCodeBaseTable& CodeBaseTable=dynamic_cast<TCodeBaseTable&>(BaseTable);
+      //это code/code_lat
+      try
+      {
+        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code",code,with_deleted)).code;
+        fmt=0;
+        return id;
+      }
+      catch (EBaseTableError) {};
+      try
+      {
+        id=((TCodeBaseTableRow&)CodeBaseTable.get_row("code_lat",code,with_deleted)).code;
+        fmt=1;
+        return id;
+      }
+      catch (EBaseTableError) {};
+    }
+    catch (bad_cast) {};
+
+    try
+    {
+      TICAOBaseTable& ICAOBaseTable=dynamic_cast<TICAOBaseTable&>(BaseTable);
+      //это code_icao,code_icao_lat
+      try
+      {
+        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao",code,with_deleted)).code;
+        fmt=2;
+        return id;
+      }
+      catch (EBaseTableError) {};
+      try
+      {
+        id=((TICAOBaseTableRow&)ICAOBaseTable.get_row("code_icao_lat",code,with_deleted)).code;
+        fmt=3;
+        return id;
+      }
+      catch (EBaseTableError) {};
+    }
+    catch (bad_cast) {};
+
+    try
+    {
+      TCountries& Countries=dynamic_cast<TCountries&>(BaseTable);
+      //это code_iso
+      try
+      {
+        id=((TCountriesRow&)Countries.get_row("code_iso",code,with_deleted)).code;
+        fmt=4;
+        return id;
+      }
+      catch (EBaseTableError) {};
+    }
+    catch (bad_cast) {};
+  }
+  else
+  {
+    //это просто данные
+    switch(type)
+    {
+      case etSuffix:
+
+        break;
+      default: ;
+    };
+  };
+  return id;
+};
+
+string& ElemIdToElem(TElemType type, string id, int fmt, string &code, bool with_deleted)
+{
+  code=id;
+
+  if (id.empty()||fmt==0) return code;
+
+  char* table_name=NULL;
+  switch(type)
+  {
+    case etCountry:
+      table_name="countries";
+      break;
+    case etCity:
+      table_name="cities";
+      break;
+    case etAirline:
+      table_name="airlines";
+      break;
+    case etAirp:
+      table_name="airps";
+      break;
+    case etCraft:
+      table_name="crafts";
+      break;
+    case etClass:
+      table_name="classes";
+      break;
+    case etSubcls:
+      table_name="subcls";
+      break;
+    case etPersType:
+      table_name="pers_types";
+      break;
+    case etGenderType:
+      table_name="gender_types";
+      break;
+    case etPaxDocType:
+      table_name="pax_doc_types";
+      break;
+    case etPayType:
+      table_name="pay_types";
+      break;
+    case etCurrency:
+      table_name="currency";
+      break;
+    default: ;
+  };
+
+  if (table_name!=NULL)
+  {
+    //это коды
+    try
+    {
+      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,with_deleted);
+
+      try
+      {
+        TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
+        if (fmt==0)
+        {
+          if (!row.code.empty()) code=row.code;
+          return code;
+        };
+        if (fmt==1)
+        {
+          if (!row.code_lat.empty()) code=row.code_lat;
+          return code;
+        };
+
+      }
+      catch (bad_cast) {};
+      try
+      {
+        TICAOBaseTableRow& row=dynamic_cast<TICAOBaseTableRow&>(BaseTableRow);
+        if (fmt==2)
+        {
+          if (!row.code_icao.empty()) code=row.code_icao;
+          return code;
+        };
+        if (fmt==3)
+        {
+          if (!row.code_icao_lat.empty()) code=row.code_icao_lat;
+          return code;
+        };
+
+      }
+      catch (bad_cast) {};
+      try
+      {
+        TCountriesRow& row=dynamic_cast<TCountriesRow&>(BaseTableRow);
+        if (fmt==4)
+        {
+          if (!row.code_iso.empty()) code=row.code_iso;
+          return code;
+        };
+      }
+      catch (bad_cast) {};
+    }
+    catch (EBaseTableError) {};
+  }
+  else
+  {
+    //это просто данные
+    switch(type)
+    {
+      case etSuffix:
+
+        break;
+      default: ;
+    };
+  };
+  return code;
+};
+
 
 bool is_dst(TDateTime d, string region)
 {

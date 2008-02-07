@@ -439,7 +439,7 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.Clear();
-    Qry.SQLText=   
+    Qry.SQLText=
         "SELECT events.type type, msg, time, id1 AS point_id, "
         "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
         "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
@@ -457,7 +457,7 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
     int point_id = NodeAsInteger("point_id",reqNode);
     Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));       
+    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
     Qry.CreateVariable("evtSeason",otString,EncodeEventType(ASTRA::evtSeason));
     Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
     Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
@@ -491,7 +491,7 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
 
         TDateTime time;
-        if (reqInfo->user.time_form==tfUTC)
+        if (reqInfo->user.sets.time==ustTimeUTC)
             time = Qry.FieldAsDateTime("time");
         else
             time = UTCToLocal(Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region);
@@ -1114,7 +1114,7 @@ void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(target.empty()) {
         xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         // внутри get_report_form вызывается ReplaceTextChild, в котором в свою
-        // очередь вызывается xmlNodeSetContent, который, судя по всему, кладет string 
+        // очередь вызывается xmlNodeSetContent, который, судя по всему, кладет string
         // иначе чем xmlNewTextChild, что лично меня не устраивает. Поэтому удалим узел
         // form, чтобы get_report_form создал его заново. (c) Den. 26.11.07
         xmlNodePtr formNode = NodeAsNode("form", resNode);

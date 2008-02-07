@@ -31,7 +31,22 @@ struct TLogMsg {
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
-enum TTimeForm { tfUTC, tfLocalDesk, tfLocalAll, tfUnknown };
+enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
+                        ustCodeNative=5, ustCodeIATA=6,
+                        ustCodeNativeICAO=7, ustCodeIATAICAO=8, ustCodeMixed=9,
+                        ustEncNative=15, ustEncLatin=16, ustEncMixed=17 };
+
+enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
+                 etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
+                 etSuffix };
+enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
+
+std::string& ElemToElemId(TElemType type, std::string code, int &fmt, std::string &id, bool with_deleted=false);
+std::string& ElemIdToElem(TElemType type, std::string id, int fmt, std::string &code, bool with_deleted=true);
+std::string& ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
+                              int &fmt, std::string &id, bool with_deleted=false);
+std::string& ElemIdToElemCtxt(TElemContext ctxt,TElemType type, std::string id,
+                              int fmt, std::string &code, bool with_deleted=true);
 
 template <class T>
 class BitSet
@@ -58,7 +73,31 @@ class TAccess {
     std::vector<std::string> airlines;
     std::vector<std::string> airps;
     bool airlines_permit,airps_permit;
-    void clear();
+    void clear()
+    {
+      rights.clear();
+      airlines.clear();
+      airps.clear();
+      airlines_permit=true;
+      airps_permit=true;
+    };
+};
+
+class TUserSettings {
+  public:
+    TUserSettingType time,disp_airline,disp_airp,disp_craft,disp_suffix;
+    TUserSettings()
+    {
+      clear();
+    };
+    void clear()
+    {
+      time=ustTimeLocalDesk;
+      disp_airline=ustCodeMixed;
+      disp_airp=ustCodeMixed;
+      disp_craft=ustCodeMixed;
+      disp_suffix=ustEncMixed;
+    };
 };
 
 class TUser {
@@ -68,9 +107,20 @@ class TUser {
     std::string descr;
     TUserType user_type;
     TAccess access;
-    TTimeForm time_form;
-    TUser();
-    void clear();
+    TUserSettings sets;
+    TUser()
+    {
+      clear();
+    };
+    void clear()
+    {
+      login.clear();
+      descr.clear();
+      access.clear();
+      sets.clear();
+      user_id=-1;
+    };
+
 };
 
 class TDesk {
@@ -79,8 +129,17 @@ class TDesk {
     std::string city;
     std::string tz_region;
     BASIC::TDateTime time;
-    TDesk();
-    void clear();
+    TDesk()
+    {
+      clear();
+    };
+    void clear()
+    {
+      code.clear();
+      city.clear();
+      tz_region.clear();
+      time = 0;
+    };
 };
 
 class TScreen {
@@ -88,8 +147,16 @@ class TScreen {
     int id;
     int version;
     std::string name;
-    TScreen();
-    void clear();
+    TScreen()
+    {
+      clear();
+    };
+    void clear()
+    {
+      id=0;
+      version=0;
+      name.clear();
+    };
 };
 
 class TReqInfo
@@ -97,12 +164,16 @@ class TReqInfo
 	private:
 		boost::posix_time::ptime execute_time;
   public:
-    void clear();
-    TReqInfo();
-    virtual ~TReqInfo() {}
     TUser user;
     TDesk desk;
     TScreen screen;
+    void clear()
+    {
+      desk.clear();
+      user.clear();
+      screen.clear();
+    };
+    virtual ~TReqInfo() {}
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      bool checkUserLogon );
