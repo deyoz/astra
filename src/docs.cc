@@ -735,7 +735,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "etm"
       ) { //ùÅ
         SQLText +=
-            "   ticket_no||'/'||coupon_no remarks, ";
+            "    report.get_tkno(pax_id, '/', 1) remarks, ";
     } else {
         SQLText +=
             "    remarks, ";
@@ -764,8 +764,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
       ) { //ùÅ
         SQLText +=
             "   pr_brd = 1 and "
-            "   ticket_no is not null and "
-            "   coupon_no is not null and ";
+            "   report.get_tkno(pax_id, '/', 1) is not null and ";
     } else if(
             target == "tot" ||
             target == "tpm"
