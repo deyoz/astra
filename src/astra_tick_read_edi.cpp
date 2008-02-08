@@ -327,25 +327,29 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
         AmountCode::AmCode Ac = GetDBNumCast<AmountCode::AmCode>
                 (EdiCast::AmountCodeCast("MISS_MONETARY_INF"), pMes, 5025,0,
                  "MISS_MONETARY_INF");
-        TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
-                (EdiCast::AmountCast("INV_AMOUNT"),
-                 pMes, 1230,0, "INV_AMOUNT"); //Amount
-        string curr;
-        if (Am.amValue()){
-            curr = GetDBNum(pMes, 6345,0, "INV_CURRENCY"); //Currency
+
+        std::string AmStr = GetDBNum(pMes, DataElement(1230), "INV_AMOUNT"); //Amount
+
+        if(MonetaryType::checkExistence(AmStr))
+        {
+            lmon.push_back(MonetaryInfo(Ac, MonetaryType(AmStr)));
         }
-        lmon.push_back(MonetaryInfo(Ac, Am, curr));
+        else
+        {
+            TaxAmount::Amount::AmountType_e type = Ac.codeInt() == AmountCode::CommissionRate?
+                    TaxAmount::Amount::Percents : TaxAmount::Amount::Ordinary;
+            TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
+                    (EdiCast::AmountCast("INV_AMOUNT", type),
+                     pMes, DataElement(1230), "INV_AMOUNT"); //Amount
+
+            std::string curr;
+            if (!Am.isPercents() && Ac.codeInt() != AmountCode::ExchRate)
+            {
+                curr = GetDBNum(pMes, DataElement(6345), "INV_CURRENCY"); //Currency
+            }
+            lmon.push_back(MonetaryInfo(Ac, Am, curr));
+        }
         PopEdiPoint_wdG(pMes);
-        switch(Ac.codeInt()){
-            case AmountCode::Total:
-                have_total=true;
-                break;
-            case AmountCode::Base_fare:
-                have_base=true;
-                break;
-            default:
-                break;
-        }
     }
     PopEdiPointG(pMes);
     PopEdiPointG(pMes);
