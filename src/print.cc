@@ -2560,8 +2560,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         parser.add_tag("bt_amount", Qry.FieldAsString("bag_amount"));
         parser.add_tag("bt_weight", Qry.FieldAsString("bag_weight"));
         bool pr_liab = Qry.FieldAsInteger("pr_liab_limit") == 1;
-        parser.add_tag("liab_limit", (pr_liab ? "Огр. ответственности" : ""));
-        parser.add_tag("liab_limit_lat", (pr_liab ? "Liab. limit" : ""));
+        parser.add_tag("liab_limit", upperc((pr_liab ? "Огр. ответственности" : "")));
+        parser.add_tag("liab_limit_lat", upperc((pr_liab ? "Liab. limit" : "")));
 
         if(pr_unaccomp) {
             tst();
