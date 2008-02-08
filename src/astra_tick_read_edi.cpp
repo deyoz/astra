@@ -317,9 +317,6 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
     }
     unsigned MonNum = GetNumComposite(pMes, "C663", "MISS_MONETARY_INF");
 
-    bool have_base=false;
-    bool have_total=false;
-
     PushEdiPointG(pMes);
     for(unsigned i=0;i<MonNum;i++)
     {
@@ -353,15 +350,6 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
     }
     PopEdiPointG(pMes);
     PopEdiPointG(pMes);
-
-    if(!have_total){
-        ProgError(STDLOG, "Missing total ticket amount");
-        throw Exception("Missing total ticket amount");
-    }
-    if(!have_base){
-        ProgError(STDLOG,"Missing base ticket amount");
-        throw Exception("Missing base ticket amount");
-    }
 }
 
 void FormOfPaymentEdiR::operator () (ReaderData &RData, list<FormOfPayment> &lfop) const
