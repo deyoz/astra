@@ -283,6 +283,9 @@ void TaxDetailsEdiR::operator () (ReaderData &RData, list<TaxDetails> &ltax) con
         SetEdiPointToSegmentG(pMes, "TXD", t);
         unsigned tax_num=GetNumComposite(pMes, "C668","INV_TAX_AMOUNT");
         PushEdiPointG(pMes);
+        TaxCategory TCat = GetDBNumCast<TaxCategory>
+                (EdiCast::TaxCategoryCast(EtErr::INV_TAX_AMOUNT, TaxCategory::Current),
+                 pMes, DataElement(5305)); //Category
         for (unsigned i=0; i<tax_num; i++){
             SetEdiPointToCompositeG(pMes, "C668",i, "INV_TAX_AMOUNT");
             TaxAmount::Amount Am =
@@ -291,7 +294,7 @@ void TaxDetailsEdiR::operator () (ReaderData &RData, list<TaxDetails> &ltax) con
                      "INV_TAX_AMOUNT"); //Amount
             std::string Type =
                     GetDBNum(pMes, 5153,0, "INV_TAX_CODE"); //Code
-            ltax.push_back(TaxDetails(Am, Type));
+            ltax.push_back(TaxDetails(Am, TCat, Type));
             PopEdiPoint_wdG(pMes);
         }
         PopEdiPointG(pMes);
@@ -376,40 +379,44 @@ void FormOfPaymentEdiR::operator () (ReaderData &RData, list<FormOfPayment> &lfo
         SetEdiPointToCompositeG(pMes, "C641", i, "PROG_ERR");
 
         //FOP type
-    string FOPcode = GetDBNum(pMes, 9888,0, "PROG_ERR");
+        string FOPcode = GetDBNum(pMes, 9888,0, "PROG_ERR");
+
+        FopIndicator FopInd = GetDBNumCast<FopIndicator>
+                (EdiCast::FopIndicatorCast("INV_FOP", FopIndicator::New), pMes,
+                 DataElement(9988)); //Indicator
 
         // Amount
-	TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
-            (EdiCast::AmountCast("INV_AMOUNT"), pMes, 5004); //Amount
+        TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
+                (EdiCast::AmountCast("INV_AMOUNT"), pMes, 5004); //Amount
 
-    string Vendor = GetDBNum(pMes, 9906);
-    if(Vendor.size() && (Vendor.size()>FormOfPayment::VCMax ||
-       Vendor.size()<FormOfPayment::VCMin))
-    {
-        ProgError(STDLOG, "Invalid vendor code");
-        throw Exception("Invalid vendor code");
-    }
-    string AccountNum = GetDBNum(pMes, 1154);
-    if(AccountNum.size() && Vendor.size() &&
-       (AccountNum.size()>FormOfPayment::CrdNoMax ||
-       AccountNum.size()<FormOfPayment::CrdNoMin))
-    {
-        ProgError(STDLOG,"Invalid account number");
-        throw Exception("Invalid account number");
-    }
+        string Vendor = GetDBNum(pMes, 9906);
+        if(Vendor.size() && (Vendor.size()>FormOfPayment::VCMax ||
+           Vendor.size()<FormOfPayment::VCMin))
+        {
+            ProgError(STDLOG, "Invalid vendor code");
+            throw Exception("Invalid vendor code");
+        }
+        string AccountNum = GetDBNum(pMes, 1154);
+        if(AccountNum.size() && Vendor.size() &&
+           (AccountNum.size()>FormOfPayment::CrdNoMax ||
+           AccountNum.size()<FormOfPayment::CrdNoMin))
+        {
+            ProgError(STDLOG,"Invalid account number");
+            throw Exception("Invalid account number");
+        }
 
-    date date1=GetDBNumCast<date>(EdiCast::DateCast("%m%y","INV_DATE"),
-                                  pMes, 9916);
+        date date1=GetDBNumCast<date>(EdiCast::DateCast("%m%y","INV_DATE"),
+                                      pMes, 9916);
 
-    string AppCode = GetDBNum(pMes, 9889);
-    if(AppCode.size()>FormOfPayment::AppCodeMax){
-        ProgError(STDLOG, "Invalid approval code");
-        throw Exception("Invalid approval code");
-    }
+        string AppCode = GetDBNum(pMes, 9889);
+        if(AppCode.size()>FormOfPayment::AppCodeMax){
+            ProgError(STDLOG, "Invalid approval code");
+            throw Exception("Invalid approval code");
+        }
 
-    lfop.push_back(FormOfPayment(FOPcode, Am, Vendor, AccountNum, date1, AppCode));
+        lfop.push_back(FormOfPayment(FOPcode, FopInd, Am, Vendor, AccountNum, date1, AppCode));
 
-    PopEdiPoint_wdG(pMes); // Point to FOP
+        PopEdiPoint_wdG(pMes); // Point to FOP
     }
 
     PopEdiPointG(pMes);
@@ -492,13 +499,13 @@ Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
     int num = GetDBNumCast<int>(EdiDigitCast<int>("INV_COUPON"),
                                 pMes, 1050,0, "INV_COUPON");
 
-    char media=*GetDBNum(pMes, 1159);
+    TicketMedia media=GetDBNumCast<TicketMedia>(EdiCast::TicketMediaCast("INV_MEDIA"),pMes, 1159);
     if(!media){
-        media=TicketMedia::Media::Electro;
+        media=TicketMedia::Electro;
     }
-    if(media != TicketMedia::Media::Electro &&
-       media != TicketMedia::Media::Paper){
-        ProgError(STDLOG,"Invalid coupon media [%c]", media);
+    if(media != TicketMedia::Electro &&
+       media != TicketMedia::Paper){
+        LogError(STDLOG) << "Invalid coupon media [" << media << "]";
         throw Exception("Invalid coupon media");
        }
 
@@ -508,7 +515,7 @@ Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
                    (EdiCast::CoupStatCast("INV_COUPON"),
                     pMes, 4405,0, "INV_COUPON");
        } else {
-           if(media == TicketMedia::Media::Electro){
+           if(media == TicketMedia::Electro){
                Status = CouponStatus(CouponStatus::OriginalIssue);
            } else {
                Status = CouponStatus(CouponStatus::Paper);
@@ -649,8 +656,8 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
                                         pMes, 9908,0, "INV_FL_NUM");
     }
     //Reservation Booking Designator
-    int Class = GetDBNumCast <int> (EdiCast::RBDCast("INV_RBD"),
-                                    pMes, 7037,0, "INV_RBD");
+    SubClass Class =GetDBNumCast <SubClass> (EdiCast::RBDCast("INV_RBD"),
+                                         pMes, DataElement(7037), "INV_RBD");
     //PopEdiPoint_wdG();
 //     SetEdiPointToCompositeG(pMes, "C309",0, );
 //     LineNum = GetDBNumCast<EdiDigitCast, int> (pMes, 1082);
@@ -659,13 +666,13 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
 
     //Status
     PopEdiPoint_wdG(pMes);
-    ItinStatus::itin_status RpiStat;
+    ItinStatus RpiStat;
     if(SetEdiPointToSegmentG(pMes, "RPI")){
-        RpiStat = GetDBNumCast <ItinStatus::itin_status>
+        RpiStat = GetDBNumCast <ItinStatus>
                 (EdiCast::ItinStatCast("INV_ITIN_STATUS"),
                  pMes, 4405,0, "INV_ITIN_STATUS");
 
-        if (open && RpiStat.codeInt() != ItinStatus::OpenDate){
+        if (open && RpiStat != ItinStatus::OpenDate){
 
         }
     }

@@ -379,7 +379,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     // дата вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_date",
-               itin.date1().is_special()?ItinStatus::itin_status::Open:
+               itin.date1().is_special()?ItinStatus::Open:
                HelpCpp::string_cast(itin.date1(), "%d%m%y",Lang::ENGLISH)),
                 "index",col_num++);
     // время вылета
@@ -403,11 +403,13 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
                    itin.flightnum()),"index",col_num++);
     } else {
         xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",
-                   ItinStatus::itin_status::Open),"index",col_num++);
+                   ItinStatus::Open),"index",col_num++);
     }
 
-    xmlSetProp(xmlNewTextChild(rowNode,NULL,"cls",itin.classCode((Lang::Language)currLang())),"index",col_num++); // класс бронирования
-    xmlSetProp(xmlNewTextChild(rowNode,NULL,"seg_status",itin.rpistat().code()),"index",col_num++); // статус сегмента
+    xmlSetProp(xmlNewTextChild(rowNode,NULL,"cls",
+               itin.classCodeStr((Lang::Language)currLang())),"index",col_num++); // класс бронирования
+    xmlSetProp(xmlNewTextChild(rowNode,NULL,"seg_status",
+               itin.rpistat()->code()),"index",col_num++); // статус сегмента
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"fare_basis",itin.fareBasis()),"index",col_num++); // Тариф
 
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"valid_before",
@@ -424,7 +426,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
 
     ostringstream ebd;
     if(itin.luggage().haveLuggage()){
-        ebd<<itin.luggage().quantity()<<itin.luggage().code();
+        ebd<<itin.luggage()->quantity()<<itin.luggage()->code();
     } else {
         ebd<<"НЕТ";
     }

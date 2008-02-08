@@ -30,7 +30,7 @@ public:
          const std::string &oper_air,
          int flight,
          int oper_flight,
-         int cls,
+         const SubClass &cls,
          const boost::gregorian::date  &date1,
          const boost::posix_time::time_duration &time1,
          const std::string &depPoint,
@@ -48,8 +48,8 @@ public:
                           boost::posix_time::time_duration(),
                           depPoint,
                           arrPoint,
-                          pair<boost::gregorian::date, boost::gregorian::date>(),
-                          ItinStatus::itin_status(),
+                          std::pair<boost::gregorian::date, boost::gregorian::date>(),
+                          ItinStatus(),
                           "",// Fare Basis
                           -1, // Version
                           Luggage())
@@ -61,15 +61,15 @@ public:
          const std::string &oper_air,
          int flight,
          int oper_flight,
-         int cls,
+         const SubClass &cls,
          const boost::gregorian::date  &date1,
          const boost::posix_time::time_duration &time1,
          const boost::gregorian::date  &date2,
          const boost::posix_time::time_duration &time2,
          const std::string &depPoint,
          const std::string &arrPoint,
-         const pair<boost::gregorian::date, boost::gregorian::date> &VldDates,
-         const ItinStatus::itin_status &rpiStat,
+         const std::pair<boost::gregorian::date, boost::gregorian::date> &VldDates,
+         const ItinStatus &rpiStat,
          const std::string &Fare,
          int ver,
          const Luggage &lugg)
@@ -108,7 +108,7 @@ public:
     }
     Coupon(const Coupon_info &ci,
            const Itin &i,
-           const list<FrequentPass> &fPass,
+           const std::list<FrequentPass> &fPass,
            const std::string &tnum)
     :BaseCoupon<Coupon_info, Itin, FrequentPass, FreeTextInfo>
             (ci,i,fPass,tnum)
