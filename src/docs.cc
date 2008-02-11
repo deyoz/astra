@@ -508,14 +508,14 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
 }
 
-void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 {
     tst();
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
     xmlNodePtr resNode = formDataNode->parent;
 
-//    xmlUnlinkNode(formDataNode);
-//    xmlFreeNode(formDataNode);
+    xmlUnlinkNode(formDataNode);
+    xmlFreeNode(formDataNode);
 
     BrdInterface::GetPax(reqNode, resNode);
     xmlNodePtr currNode = resNode->children;
@@ -524,7 +524,7 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     currNode = formDataNode->children;
     xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
 
-//    xmlUnlinkNode(dataNode);
+    xmlUnlinkNode(dataNode);
 
     tst();
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
@@ -739,7 +739,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "etm"
       ) { //ùÅ
         SQLText +=
-            "   ticket_no||'/'||coupon_no remarks, ";
+            "    nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) remarks, ";
     } else {
         SQLText +=
             "    remarks, ";
@@ -768,8 +768,9 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
       ) { //ùÅ
         SQLText +=
             "   pr_brd = 1 and "
-            "   ticket_no is not null and "
-            "   coupon_no is not null and ";
+            "   ((ticket_no is not null and "
+            "   coupon_no is not null) or "
+            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
     } else if(
             target == "tot" ||
             target == "tpm"

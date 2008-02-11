@@ -1105,7 +1105,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
-            "       DECODE(type,:evtDisp,events.id2,events.id1)=:point_id ";
+            "       DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id ";
         Qry.CreateVariable("part_key", otDate, part_key);
     }
 
