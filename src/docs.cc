@@ -508,7 +508,7 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
 }
 
-void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 {
     tst();
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
