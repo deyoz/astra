@@ -1116,7 +1116,24 @@ string& ElemToElemId(TElemType type, string code, int &fmt, string &id, bool wit
     switch(type)
     {
       case etSuffix:
-
+        if (code.size()==1)
+        {
+          char *p;
+          p=strchr(rus_suffix,*code.c_str());
+          if (p!=NULL)
+          {
+            id=*p;
+            fmt=0;
+            return id;
+          };
+          p=strchr(lat_suffix,*code.c_str());
+          if (p!=NULL)
+          {
+            id=rus_suffix[p-lat_suffix];
+            fmt=1;
+            return id;
+          };
+        };
         break;
       default: ;
     };
@@ -1230,7 +1247,24 @@ string& ElemIdToElem(TElemType type, string id, int fmt, string &code, bool with
     switch(type)
     {
       case etSuffix:
-
+        if (id.size()==1)
+        {
+          char *p;
+          p=strchr(rus_suffix,*code.c_str());
+          if (p!=NULL)
+          {
+            if (fmt==0)
+            {
+              code=*p;
+              return code;
+            };
+            if (fmt==1)
+            {
+              code=lat_suffix[p-rus_suffix];
+              return code;
+            };
+          };
+        };
         break;
       default: ;
     };
