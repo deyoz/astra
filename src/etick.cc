@@ -259,7 +259,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
           Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
                   Qry.FieldAsInteger("flt_no"),0,
-                  -1,
+                  SubClass(),
                   scd.date(),
                   time_duration(not_a_date_time), // not a date time
                   airp_dep,
@@ -329,7 +329,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
       Itin itin(Qry.FieldAsString("oper_carrier"), //marketing carrier
                   "",                                  //operating carrier
                   Qry.FieldAsInteger("flt_no"),0,
-                  -1,
+                  SubClass(),
                   scd.date(),
                   time_duration(not_a_date_time), // not a date time
                   Qry.FieldAsString("airp_dep"),

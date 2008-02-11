@@ -9,6 +9,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "cont_tools.h"
+#include "ocilocal.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -121,7 +122,7 @@ int FuncBeforeEdiProc(edi_mes_head *pHead, void *udata, int *err)
     edi_udata * data = ((edi_udata *)udata);
     int ret=0;
     try{
-        UpdateEdiSession(&dynamic_cast<EdiSessRdData &>(*data->sessData()));
+        dynamic_cast<EdiSessRdData &>(*data->sessData()).UpdateEdiSession();
         ProgTrace(TRACE1,"Check edifact session - Ok");
         /* ВСЕ ХОРОШО, ПРОДОЛЖАЕМ ... */
         last_session_ref = pHead->our_ref;
@@ -142,7 +143,7 @@ int FuncAfterEdiProc(edi_mes_head *pHead, void *udata, int *err)
     if(pHead->msg_type_req == RESPONSE){
         /*Если обрабатываем ответ*/
         try{
-            CommitEdiSession(data->sessData()->ediSession());
+            data->sessData()->ediSession()->CommitEdiSession();
         }
         catch (edilib::Exception &x){
             *err=ret=-110;
@@ -200,7 +201,7 @@ int FuncAfterEdiSend(edi_mes_head *pHead, void *udata, int *err)
         last_session_ref = pHead->our_ref;
 
         // Создает запись в БД
-        CommitEdiSession(ed->sessData()->ediSession());
+        ed->sessData()->ediSession()->CommitEdiSession();
         DeleteMesOutgoing();
 
         ProgTrace(TRACE1,"tlg out: %s", tlg.c_str());
@@ -418,8 +419,8 @@ void makeItin(EDI_REAL_MES_STRUCT *pMes, const Itin &itin, int cpnnum=0)
     if(itin.flightnum())
         tmp << itin.flightnum();
     else
-        tmp << ItinStatus::itin_status::Open;
-    tmp << ":" << itin.classCode();
+        tmp << ItinStatus::Open;
+    tmp << ":" << itin.classCodeStr();
     if (cpnnum)
         tmp << "++" << cpnnum;
 
@@ -490,7 +491,8 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     chngStatAns.Trace(TRACE2);
     if (chngStatAns.isGlobErr())
     {
-        throw2UserLevel(udata.sessData()->ediSession()->pult, "ChangeOfStatusError", chngStatAns.globErr().second);
+        throw2UserLevel(udata.sessData()->ediSession()->pult(),
+                        "ChangeOfStatusError", chngStatAns.globErr().second);
         return;
     }
     std::list<Ticket>::const_iterator currTick;
@@ -534,7 +536,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
-    confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
+    confirm_notify_levb(udata.sessData()->ediSession()->pult().c_str());
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -570,10 +572,10 @@ void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *d
 {
     // Запись телеграммы в контекст, для связи с obrzap'ом
     // вызов переспроса
-    confirm_notify_levb(udata.sessData()->ediSession()->pult.c_str());
+    confirm_notify_levb(udata.sessData()->ediSession()->pult().c_str());
 
     edi_udata_rd &udata_rd = dynamic_cast<edi_udata_rd &>(udata);
-    saveTlgSource(udata.sessData()->ediSession()->pult, udata_rd.tlgText());
+    saveTlgSource(udata.sessData()->ediSession()->pult(), udata_rd.tlgText());
 }
 
 
@@ -628,7 +630,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
 
-        SetEdiSessMesAttrOnly(ed->sessDataWr());
+        ed->sessDataWr()->SetEdiSessMesAttrOnly();
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {

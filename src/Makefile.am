@@ -2,6 +2,7 @@ include $(TCLMON_PATH)/tclconfig
 
 # set the include path found by configure
 INCLUDES = $(all_includes)
+export ASTRA_SRC=$(top_srcdir)
 
 bin_PROGRAMS = astra
 

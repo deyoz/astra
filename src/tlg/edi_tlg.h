@@ -24,7 +24,7 @@ class AstraEdiSessWR : public edilib::EdiSess::EdiSessWrData
     std::string Pult;
 public:
     AstraEdiSessWR(const std::string &pult)
-    : EdiSess(edilib::EdiSess::CreateEdiSess()), Pult(pult)
+    : Pult(pult)
     {
         memset(&EdiHead, 0, sizeof(EdiHead));
     }
