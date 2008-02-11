@@ -266,14 +266,18 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
           case ustCodeNativeICAO:
           case ustCodeIATAICAO:
           case ustCodeMixed:
-            if (i==1||i==2||i==3)
-              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+            if (i==1)
+              user.sets.disp_airline=(TUserSettingType)Qry.FieldAsInteger(field);
+            if (i==2)
+              user.sets.disp_airp=(TUserSettingType)Qry.FieldAsInteger(field);
+            if (i==3)
+              user.sets.disp_craft=(TUserSettingType)Qry.FieldAsInteger(field);
             break;
           case ustEncNative:
           case ustEncLatin:
           case ustEncMixed:
             if (i==4)
-              user.sets.time=(TUserSettingType)Qry.FieldAsInteger(field);
+              user.sets.disp_suffix=(TUserSettingType)Qry.FieldAsInteger(field);
             break;
           default: ;
         };
