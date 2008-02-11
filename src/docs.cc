@@ -514,8 +514,8 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
     xmlNodePtr resNode = formDataNode->parent;
 
-//    xmlUnlinkNode(formDataNode);
-//    xmlFreeNode(formDataNode);
+    xmlUnlinkNode(formDataNode);
+    xmlFreeNode(formDataNode);
 
     BrdInterface::GetPax(reqNode, resNode);
     xmlNodePtr currNode = resNode->children;
@@ -524,7 +524,7 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     currNode = formDataNode->children;
     xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
 
-//    xmlUnlinkNode(dataNode);
+    xmlUnlinkNode(dataNode);
 
     tst();
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
