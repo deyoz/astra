@@ -847,7 +847,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     fmt.infSeatsFmt=0;
 
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if (reqInfo->desk.city=="СУР")
+    if (reqInfo->desk.city=="СУР"||
+        reqInfo->desk.city=="КЗН")
     {
       fmt.persCountFmt=1;
       fmt.infSeatsFmt=1;
@@ -3477,19 +3478,19 @@ void CheckInInterface::OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	ProgTrace( TRACE5, "Open=%d", open );
   TQuery Qry(&OraSession);
-  Qry.SQLText = 
+  Qry.SQLText =
    "UPDATE trip_stations SET start_time=DECODE(:open, 1, system.UTCSYSDATE, NULL) "
    " WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "open", otInteger, open );
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
-  Qry.CreateVariable( "work_mode", otString, "Р" ); 
+  Qry.CreateVariable( "work_mode", otString, "Р" );
   Qry.Execute();
   if ( open == 1 )
     TReqInfo::Instance()->MsgToLog( "Открытие регистрации для системы информирования", evtFlt, point_id );
   else
   	TReqInfo::Instance()->MsgToLog( "Закрытие регистрации для системы информирования", evtFlt, point_id );
-  
+
 }
 
 
