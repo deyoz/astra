@@ -105,6 +105,7 @@ void Develop_dbf::BuildFields()
    // далее 16 байт - описывает длину поля: до запятой + запятая + после
    putbinary_tostream( descrField, i->len, 1 );
    // 17 байт - кол-во десятичных разрядов
+   ProgTrace( TRACE5, "i->name=%s, i->len=%d, i->precision=%d", i->name, i->len, i->precision );
    putbinary_tostream( descrField, i->precision, 1 );
    // далее 13 зарезервированных байт
    putbinary_tostream( descrField, tmp_zero, 4 );
@@ -186,7 +187,7 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
                field.type = type;
 	       break;
      default:
-	       throw Exception( "Invalid Field type" );
+	       throw Exception( "Invalid Field type, field name= " + name );
    }
   if ( len > 255 )
     throw Exception( "Invalid Field size>255" );

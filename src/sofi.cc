@@ -65,10 +65,11 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string
   params[ PARAM_FILE_NAME ] =  res.str();
   params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
 	params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+  params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
 }
 
 bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams, 
-	                   std::map<std::string,std::string> &params, std::string &file_data )
+	                   const std::string &point_addr, TFileDatas &fds )
 {
 	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );	
   TQuery Qry(&OraSession);	
@@ -221,8 +222,10 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<Qry.FieldAsString( "pult" );
  res<<dlmt; //15
  res<<dlmt; //15
- file_data = res.str();
- createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), params );
- tst();
- return true;
+ TFileData fd;
+ fd.file_data = res.str();
+ createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), fd.params );
+ if ( !fd.file_data.empty() )
+	fds.push_back( fd );
+ return !fds.empty();
 }

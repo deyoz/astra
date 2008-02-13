@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <map>
 
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_WORK_DIR = "WORKDIR";
@@ -12,6 +13,8 @@ const std::string PARAM_IN_ORDER = "IN_ORDER";
 const std::string PARAM_TYPE = "type";
 const std::string PARAM_FILE_TYPE = "FILE_TYPE";	
 const std::string VALUE_TYPE_FILE = "FILE";
+const std::string VALUE_TYPE_SQL = "SQL";	
+const std::string VALUE_END_SQL( ";\n" );
 const std::string VALUE_TYPE_BSM = "BSM";
 const std::string NS_PARAM_AIRP = "AIRP";
 const std::string NS_PARAM_AIRLINE = "AIRLINE";
@@ -21,6 +24,13 @@ const std::string NS_PARAM_EVENT_ID1 = "EVENT_ID1";
 const std::string NS_PARAM_EVENT_ID2 = "EVENT_ID2";	
 const std::string NS_PARAM_EVENT_ID3 = "EVENT_ID3";			
 const std::string PARAM_FILE_REC_NO = "rec_no";
+	
+struct TFileData {
+	std::string file_data;
+	std::map<std::string,std::string> params;
+};
+
+typedef std::vector<TFileData> TFileDatas;
 
 
 struct TField {

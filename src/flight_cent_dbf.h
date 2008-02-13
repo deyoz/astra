@@ -3,9 +3,10 @@
 #define flight_cent_dbfH
 #include <string>
 #include <map>
+#include "develop_dbf.h"
 
 const std::string FILE_CENT_TYPE = "CENTR";
 
-bool createCentringFile( int point_id, std::map<std::string,std::string> &params, std::string &file_data  );
+bool createCentringFile( int point_id, const std::string &point_addr, TFileDatas &fds );
 
 #endif /* cent_dbfH */

@@ -153,6 +153,7 @@ void createFileParamsAODB( int point_id, map<string,string> &params, bool pr_bag
   params[ PARAM_FILE_NAME ] =  p + ".txt";
   params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtPax );
   params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+  params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE  
 }
 
 void DecodeBagType( int bag_type, int &code, string &name )
@@ -260,12 +261,10 @@ bool getFlightData( int point_id, const string &point_addr,
 }
 */
 
-bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
-                                std::map<std::string,std::string> &params, std::string &file_data/*,
-                                std::map<std::string,std::string> &bag_params, std::string &bag_file_data*/ )
+bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::string &point_addr, TFileDatas &fds )
 {
+	TFileData fd;	
 	TDateTime execTask = NowUTC(); 
-	string point_addr = params[PARAM_CANON_NAME];
   double aodb_point_id;
 	string flight;
 	string region = CityTZRegion( "МОВ" );
@@ -616,7 +615,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 		                aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 		                res_checkin/*, res_bag*/ );
  			if ( ch_pax )
-	  		file_data += res_checkin;
+	  		fd.file_data += res_checkin;
 	  }
   }
   // потом идет проверка на новых пассажиров
@@ -635,7 +634,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 			              aodb_pax, aodb_bag, prior_aodb_pax, prior_aodb_bag,
 			              res_checkin/*, res_bag*/ );
 			if ( ch_pax )
-				file_data += res_checkin;
+				fd.file_data += res_checkin;
 /*			if ( ch_bag ) {
 				//ProgTrace( TRACE5, "res_bag=%s, prior_res_bag=%s", res_bag.c_str(), prior_res_bag.c_str() );
 				bag_file_data += res_bag;
@@ -643,16 +642,11 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp,
 //			ProgTrace(TRACE5, "create record pax_id=%d", p->pax_id );
 	  }
   }
-  if ( !file_data.empty() ) {
-	  createFileParamsAODB( point_id, params, pr_unaccomp );
+  if ( !fd.file_data.empty() ) {
+	  createFileParamsAODB( point_id, fd.params, pr_unaccomp );
+		fds.push_back( fd );	  
 	}
-/*	if ( !bag_file_data.empty() ) {
-		createFileParamsAODB( point_id, bag_params, 1 );
-	}*/
-//	ProgTrace( TRACE5, "file_data.empty()=%d", file_data.empty() );
-/*  reso = codec.encode( bag_file_data );
-  bag_file_data = reso;*/
-	return !file_data.empty()/* || !bag_file_data.empty()*/;
+	return !fds.empty();	
 }
 
 
@@ -1758,9 +1752,9 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
 	 showProgError( errs );
 }
 
-bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, std::string &file_data )
+bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fds )
 {
-	string point_addr = params[PARAM_CANON_NAME];
+	TFileData fd;		
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
 	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,overload_alarm, "
@@ -1850,13 +1844,24 @@ bool BuildAODBTimes( int point_id, std::map<std::string,std::string> &params, st
    	Qry.CreateVariable( "point_addr", otString, point_addr );
    	Qry.CreateVariable( "record", otString, record.str() );
  	  Qry.Execute();
- 	  file_data = r.str() + "\n";
+ 	  fd.file_data = r.str() + "\n";
 	}
-  if ( !file_data.empty() ) {
+  if ( !fd.file_data.empty() ) {
 	  string p = flight + DateTimeToStr( scd_out, "yymmddhhnn" );
-    params[ PARAM_FILE_NAME ] =  p + "reg.txt";
-	  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
-	  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+    fd.params[ PARAM_FILE_NAME ] =  p + "reg.txt";
+	  fd.params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
+	  fd.params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+    fd.params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE	  
+    fds.push_back( fd );	  
 	}
-	return !file_data.empty();
+	return !fds.empty();	
 }
+
+bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &fds )
+{
+	createAODBCheckInInfoFile( point_id, false, point_addr, fds );
+	createAODBCheckInInfoFile( point_id, true, point_addr, fds );
+	BuildAODBTimes( point_id, point_addr, fds );
+	return !fds.empty();
+}
+
