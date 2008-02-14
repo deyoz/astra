@@ -17,7 +17,7 @@
 #include "flight_cent_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
-#include "spp_cek.h"
+//#include "spp_cek.h"
 #include "timer.h"
 #include "stages.h"
 #include "cfgproc.h"
@@ -604,8 +604,8 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                 if ( 
                         type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) || 
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||                        
-                        type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
-                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) {
+                        type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) /*||
+                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds )*/ ) {
                     /* теперь в params еще лежит и имя файла */
                     EncodeQry.SetVariable( "point_addr", client_canon_name );
                     EncodeQry.Execute();
@@ -745,7 +745,7 @@ void sync_aodb( void )
 	}
 }
 
-void sync_sppcek( void )
+/*void sync_sppcek( void )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
@@ -767,7 +767,7 @@ void sync_sppcek( void )
     break;  	                      
 		Qry.Next();
 	}
-}
+}*/
 
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
