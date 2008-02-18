@@ -108,7 +108,8 @@ class PrintDataParser {
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
 };
 
-
+void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node);
+void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
 void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);

@@ -72,7 +72,7 @@ void TReqInfo::clearPerform()
 }
 
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
-                           const std::string &vopr, bool checkUserLogon )
+                           const std::string &vopr, const std::string &vmode, bool checkUserLogon )
 {
 	if ( execute_time.is_not_a_date_time() )
 		setPerform();
@@ -81,6 +81,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   screen.name = upperc( vscreen );
   desk.code = vpult;
+  if (vmode=="CUSE") desk.mode = omCUSE;
+  if (vmode=="CUTE") desk.mode = omCUTE;
   string sql;
 
   Qry.Clear();
@@ -726,33 +728,75 @@ void showBasicInfo(void)
     for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
                                        i!=reqInfo->user.access.airlines.end();i++)
       NewTextChild(node,"airline",*i);
+    NewTextChild(accessNode, "airlines_permit", (int)reqInfo->user.access.airlines_permit);
     //права доступа к аэропортам
     node = NewTextChild(accessNode, "airps");
     for(vector<string>::const_iterator i=reqInfo->user.access.airps.begin();
                                        i!=reqInfo->user.access.airps.end();i++)
       NewTextChild(node,"airp",*i);
-    //авиакомпании сессии
-    node = NewTextChild(accessNode, "session_airlines");
-    vector<string> airlines;
-    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines"),'/',airlines);
-    for(vector<string>::iterator i=airlines.begin();i!=airlines.end();i++)
-    {
-    	try
-    	{
-    	  TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",*i);
-    	  xmlNodePtr node2 = NewTextChild(node,"airline");
-    	  NewTextChild(node2,"code",row.code);
-    	  NewTextChild(node2,"code_lat",row.code_lat);
-    	  NewTextChild(node2,"aircode",row.aircode);
-    	}
-    	catch	(EBaseTableError) {};
-    };
+    NewTextChild(accessNode, "airps_permit", (int)reqInfo->user.access.airps_permit);
   };
   if (!reqInfo->desk.code.empty())
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    if (reqInfo->desk.mode==omCUTE)
+    {
+      //передаем параметры для CUTE
+      xmlNodePtr cuteNode=NewTextChild(node,"CUTE");
+      xmlNodePtr accessNode=NewTextChild(cuteNode,"airlines");
+      TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
+      if (reqInfo->user.access.airlines_permit)
+        for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
+                                           i!=reqInfo->user.access.airlines.end();i++)
+        {
+          try
+          {
+            TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
+            xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
+            NewTextChild(airlineNode,"code",row.code);
+            NewTextChild(airlineNode,"code_lat",row.code_lat,"");
+            int aircode;
+            if (StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
+              NewTextChild(airlineNode,"aircode",row.aircode,"");
+          }
+          catch(EBaseTableError) {}
+        };
+      xmlNodePtr devNode,paramNode;
+      //ATB
+      devNode=NewTextChild(cuteNode,"ATB");
+      paramNode=NewTextChild(devNode,"fmt_params");
+      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"encoding","WINDOWS-1251");
+      paramNode=NewTextChild(devNode,"mode_params");
+      NewTextChild(paramNode,"multisession",(int)true,(int)false);
+      NewTextChild(paramNode,"smode","S","S");
+      NewTextChild(paramNode,"prn_type",90);
+      //BTP
+      devNode=NewTextChild(cuteNode,"BTP");
+      paramNode=NewTextChild(devNode,"fmt_params");
+      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"encoding","WINDOWS-1251");
+      paramNode=NewTextChild(devNode,"mode_params");
+      NewTextChild(paramNode,"multisession",(int)true,(int)false);
+      NewTextChild(paramNode,"smode","S","S");
+      NewTextChild(paramNode,"logonum","01","01");
+      NewTextChild(paramNode,"prn_type",91);
+      //DCP
+      devNode=NewTextChild(cuteNode,"DCP");
+      paramNode=NewTextChild(devNode,"fmt_params");
+      NewTextChild(paramNode,"encoding","WINDOWS-1251");
+      paramNode=NewTextChild(devNode,"mode_params");
+      NewTextChild(paramNode,"multisession",(int)true,(int)true);
+      //LSR
+      devNode=NewTextChild(cuteNode,"LSR");
+      paramNode=NewTextChild(devNode,"fmt_params");
+      NewTextChild(paramNode,"prefix","");
+      NewTextChild(paramNode,"postfix","0D");
+      paramNode=NewTextChild(devNode,"mode_params");
+      NewTextChild(paramNode,"multisession",(int)true,(int)true);
+    };
   };
   node = NewTextChild( resNode, "screen" );
   NewTextChild( node, "version", reqInfo->screen.version );

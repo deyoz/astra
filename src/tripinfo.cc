@@ -18,6 +18,7 @@
 #include "telegram.h"
 #include "docs.h"
 #include "stat.h"
+#include "print.h"
 
 using namespace std;
 using namespace BASIC;
@@ -584,6 +585,19 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
       CheckInInterface::readTripData( point_id, dataNode );
+    xmlNodePtr node;
+    node=GetNode( "tripBPpectabs", reqNode );
+    if (node!=NULL)
+    {
+      int prn_type=NodeAsInteger("prn_type",node);
+      GetTripBPPectabs( point_id, prn_type, dataNode );
+    };
+    node=GetNode( "tripBTpectabs", reqNode );
+    if (node!=NULL)
+    {
+      int prn_type=NodeAsInteger("prn_type",node);
+      GetTripBTPectabs( point_id, prn_type, dataNode );
+    };
   };
   if (reqInfo->screen.name == "CENT.EXE")
   {

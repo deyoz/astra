@@ -30,6 +30,7 @@ struct TLogMsg {
   }
 };
 
+enum TOperMode { omCUSE, omCUTE, omSTAND };
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
                         ustCodeNative=5, ustCodeIATA=6,
@@ -129,6 +130,7 @@ class TDesk {
     std::string city;
     std::string tz_region;
     BASIC::TDateTime time;
+    TOperMode mode;
     TDesk()
     {
       clear();
@@ -139,6 +141,7 @@ class TDesk {
       city.clear();
       tz_region.clear();
       time = 0;
+      mode = omSTAND;
     };
 };
 
@@ -176,7 +179,7 @@ class TReqInfo
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
-                     bool checkUserLogon );
+                     const std::string &vmode, bool checkUserLogon );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {

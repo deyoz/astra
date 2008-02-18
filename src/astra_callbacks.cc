@@ -79,6 +79,11 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     xmlNodePtr node=NodeAsNode("/term/query",xmlRC->reqDoc);
     std::string screen = NodeAsString("@screen", node);
     std::string opr = NodeAsString("@opr", node);
+    xmlNodePtr modeNode = GetNode("@mode", node);
+    std::string mode;
+    if (modeNode!=NULL)
+      mode = NodeAsString(modeNode);
+
     bool checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
@@ -86,7 +91,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
 
     try
     {
-      reqInfo->Initialize( screen, xmlRC->pult, opr, checkUserLogon );
+      reqInfo->Initialize( screen, xmlRC->pult, opr, mode, checkUserLogon );
     }
     catch(EXCEPTIONS::UserException)
     {
