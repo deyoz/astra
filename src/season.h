@@ -16,12 +16,12 @@ struct TViewTrip {
 	std::string name;
 	std::string crafts;
 	std::string ports;
-	BASIC::TDateTime land;
-	BASIC::TDateTime takeoff;
+	BASIC::TDateTime scd_in;
+	BASIC::TDateTime scd_out;
 	BASIC::TDateTime first; 
 	BASIC::TDateTime last;
 	std::string days;		
-	bool pr_cancel;
+	bool pr_del;
 	TViewTrip() {
 		first = ASTRA::NoExists;
 	}		

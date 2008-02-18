@@ -887,24 +887,89 @@ TDateTime ClientToUTC(TDateTime d, string region)
 //  fmt=3 код ИKAO IATA
 //  fmt=4 код ISO
 
-string& ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code,
-                         int &fmt, string &id, bool with_deleted)
+inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
 {
-  id.clear();
+	string msg1, msg2;
+	switch( ctxt ) {
+		case ecDisp:
+			msg1 = "ecDisp";
+			break;
+		case ecCkin:
+			msg1 = "ecCkin";
+			break;			
+		case ecTrfer:
+			msg1 = "ecTrfer";
+			break;			
+		case ecTlgTypeB:
+			msg1 = "ecTlgTypeB";
+			break;			
+	}
+  switch( type ) {
+  	case etCountry:
+  		msg2 = "etCountry";
+  		break;
+  	case etCity:
+  		msg2 = "etCity";
+  		break;  		
+  	case etAirline:
+  		msg2 = "etAirline";
+  		break;  		  		
+  	case etAirp:
+  		msg2 = "etAirp";
+  		break;  		  		  		
+  	case etCraft:
+  		msg2 = "etCraft";
+  		break;  		  		  		  		
+  	case etClass:
+  		msg2 = "etClass";
+  		break;  		  		  		  		  		
+  	case etSubcls:
+  		msg2 = "etSubcls";
+  		break;  		  		  		  		  		  		
+  	case etPersType:
+  		msg2 = "etPersType";
+  		break;  		  		  		  		  		  		  		
+  	case etGenderType:
+  		msg2 = "etGenderType";
+  		break;  		  		  		  		  		  		  		  		
+  	case etPaxDocType:
+  		msg2 = "etPaxDocType";
+  		break;  		  		  		  		  		  		  		  		  		
+  	case etPayType:
+  		msg2 = "etPayType";
+  		break;  		  		  		  		  		  		  		  		  		  		
+  	case etCurrency:
+  		msg2 = "etCurrency";
+  		break;  		  		  		  		  		  		  		  		  		  		  		
+    case etSuffix:
+  		msg2 = "etSuffix";
+  		break;  		  		  		  		  		  		  		  		  		  		  		    	
+  }
+  msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
+  throw EConvertError( msg1.c_str() );  
+}
+
+string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt, 
+                        bool hard_verify, bool with_deleted)
+{
+  string id;
   fmt=-1;
 
   if (code.empty()) return id;
 
-  ElemToElemId(type,code,fmt,id,with_deleted);
+  id = ElemToElemId(type,code,fmt,with_deleted);
 
   //далее проверим а вообще имели ли мы право вводить в таком формате
-  if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
-                           type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
-      ctxt==ecCkin && (fmt!=0) ||
-      ctxt==ecTrfer && (fmt!=0))
-  {
-    //проблемы
-  };
+  if ( hard_verify ) {
+    if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
+                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
+        ctxt==ecCkin && (fmt!=0) ||
+        ctxt==ecTrfer && (fmt!=0))
+    {
+      //проблемы 
+      DoElemEConvertError( ctxt, type, code ); 	
+    };
+  }
   if (ctxt==ecDisp)
   {
     if(type==etAirline ||
@@ -922,40 +987,81 @@ string& ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code,
           type==etAirp ||
           type==etCraft)
       {
-        if (!(user_fmt==ustCodeNative && fmt==0 ||
-              user_fmt==ustCodeIATA && fmt==1 ||
-              user_fmt==ustCodeNativeICAO && fmt==2 ||
-              user_fmt==ustCodeIATAICAO && fmt==3 ||
-              user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
-        {
-          //проблемы
-        };
+      	if ( hard_verify || fmt == -1 ) {
+          if (!(user_fmt==ustCodeNative && fmt==0 ||
+                user_fmt==ustCodeIATA && fmt==1 ||
+                user_fmt==ustCodeNativeICAO && fmt==2 ||
+                user_fmt==ustCodeIATAICAO && fmt==3 ||
+                user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
+          {
+            //проблемы
+            DoElemEConvertError( ctxt, type, code ); 	
+          }
+        }
+        else {
+          switch( user_fmt )  {
+          	case ustCodeNative: 
+          		fmt = 0;
+          		break;
+          	case ustCodeIATA:
+          		fmt = 1;
+          		break;
+          	case ustCodeNativeICAO:
+          		fmt = 2;
+          		break;
+          	case ustCodeIATAICAO:
+          		fmt = 3;
+          		break;
+          	default:;
+          }      	        	
+        }
       }
       else
       {
-        if (!(user_fmt==ustEncNative && fmt==0 ||
-              user_fmt==ustEncLatin && fmt==1 ||
-              user_fmt==ustEncMixed && (fmt==0||fmt==1)))
-        {
-          //проблемы
-        };
+      	if ( hard_verify || fmt == -1 ) {
+          if (!(user_fmt==ustEncNative && fmt==0 ||
+                user_fmt==ustEncLatin && fmt==1 ||
+                user_fmt==ustEncMixed && (fmt==0||fmt==1)))
+          {
+            //проблемы
+            DoElemEConvertError( ctxt, type, code ); 	
+          }
+        }
+        else {
+          switch( user_fmt )  {
+          	case ustEncNative: 
+          		fmt = 0;
+          		break;
+          	case ustEncLatin:
+          		fmt = 1;
+          		break;
+          	default:;
+          }      	        	        	
+        	
+        }
       };
 
     }
     else
-      if (fmt!=0)
-      {
-        //проблемы
-      };
+    	if ( hard_verify || fmt == -1 ) {
+        if (fmt!=0)
+        {
+          //проблемы
+            DoElemEConvertError( ctxt, type, code ); 	
+        };
+      }
+      else {
+      	fmt = 0;
+      }
   };
 
   return id;
 };
 
-string& ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
-                         int fmt, string &code, bool with_deleted)
+string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
+                         int fmt, bool with_deleted)
 {
-  int fmt2=0;
+	int fmt2=0;
   if (ctxt==ecDisp)
   {
     if(type==etAirline ||
@@ -996,14 +1102,12 @@ string& ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
     };
   };
 
-  ElemIdToElem(type,id,fmt2,code,with_deleted);
-
-  return code;
+  return ElemIdToElem(type,id,fmt2,with_deleted);
 };
 
-string& ElemToElemId(TElemType type, string code, int &fmt, string &id, bool with_deleted)
+string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
 {
-  id.clear();
+  string id;
   fmt=-1;
 
   if (code.empty()) return id;
@@ -1141,8 +1245,9 @@ string& ElemToElemId(TElemType type, string code, int &fmt, string &id, bool wit
   return id;
 };
 
-string& ElemIdToElem(TElemType type, string id, int fmt, string &code, bool with_deleted)
+string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {
+	string code;
   code=id;
 
   if (id.empty()||fmt==0) return code;
@@ -1397,6 +1502,26 @@ string transliter(const string &value, bool pr_lat)
   else  result=value;
   return result;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
