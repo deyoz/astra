@@ -34,7 +34,8 @@ using namespace ASTRA;
 using namespace boost::local_time;
 
 const char* points_SOPP_SQL =
-    "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
     " FROM points, "
@@ -55,7 +56,8 @@ const char* points_id_SOPP_SQL =
     "   WHERE pr_del!=-1 AND points.move_id=a.move_id "
     "ORDER BY points.move_id,point_num,point_id ";    
 const char* points_ISG_SQL =
-    "SELECT points.move_id,points.point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, reference ref "
     " FROM points, move_ref, "
@@ -70,7 +72,8 @@ const char* points_ISG_SQL =
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
 const char * arx_points_SOPP_SQL =
-    "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid "
     " FROM arx_points,"
@@ -84,7 +87,8 @@ const char * arx_points_SOPP_SQL =
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
 const char * arx_points_ISG_SQL =
-    "SELECT arx_points.move_id,point_id,point_num,airp,first_point,airline,flt_no,suffix,craft,bort,"
+    "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
+    "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref "
     " FROM arx_points, arx_move_ref,"
@@ -240,9 +244,12 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   }
   if ( !trip.places_in.empty() ) { // trip is landing
     trip.airline_in = pd->airline;
+    trip.airline_in_fmt = pd->airline_fmt;
     trip.flt_no_in = pd->flt_no;
     trip.suffix_in = pd->suffix;
+    trip.suffix_in_fmt = pd->suffix_fmt;
     trip.craft_in = pd->craft;
+    trip.craft_in_fmt = pd->craft_fmt;
     trip.bort_in = pd->bort;
     trip.triptype_in = pd->triptype;
     trip.litera_in = pd->litera;
@@ -255,14 +262,18 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   }
 
   trip.airp = id->airp;
+  trip.airp_fmt = id->airp_fmt;
   trip.city = id->city;
   trip.pr_del = id->pr_del;
 
   if ( !trip.places_out.empty() ) { // trip is takeoffing
     trip.airline_out = id->airline;
+    trip.airline_out_fmt = id->airline_fmt;
     trip.flt_no_out = id->flt_no;
     trip.suffix_out = id->suffix;
+    trip.suffix_out_fmt = id->suffix_fmt;
     trip.craft_out = id->craft;
+    trip.craft_out_fmt = id->craft_fmt;
     trip.bort_out = id->bort;
     trip.scd_out = id->scd_out;
     trip.est_out = id->est_out;
@@ -563,11 +574,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int col_point_id = PointsQry.FieldIndex( "point_id" );
   int col_point_num = PointsQry.FieldIndex( "point_num" );
   int col_airp = PointsQry.FieldIndex( "airp" );
+  int col_airp_fmt = PointsQry.FieldIndex( "airp_fmt" );  
   int col_first_point = PointsQry.FieldIndex( "first_point" );
   int col_airline = PointsQry.FieldIndex( "airline" );
+  int col_airline_fmt = PointsQry.FieldIndex( "airline_fmt" );  
   int col_flt_no = PointsQry.FieldIndex( "flt_no" );
   int col_suffix = PointsQry.FieldIndex( "suffix" );
+  int col_suffix_fmt = PointsQry.FieldIndex( "suffix_fmt" );  
   int col_craft = PointsQry.FieldIndex( "craft" );
+  int col_craft_fmt = PointsQry.FieldIndex( "craft_fmt" );  
   int col_bort = PointsQry.FieldIndex( "bort" );
   int col_scd_in = PointsQry.FieldIndex( "scd_in" );
   int col_est_in = PointsQry.FieldIndex( "est_in" );
@@ -604,20 +619,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		airline = f->airline;
         	}
         	if ( reqInfo->CheckAirline( airline ) &&
-        		   reqInfo->CheckAirp( id->airp ) )
-        		/*(!reqInfo->user.access.airlines.empty() &&
-                find( reqInfo->user.access.airlines.begin(),
-                      reqInfo->user.access.airlines.end(),
-                      airline
-                    ) != reqInfo->user.access.airlines.end() ||
-                reqInfo->user.access.airlines.empty() && reqInfo->user.user_type != utAirline) &&
-
-               (!reqInfo->user.access.airps.empty() &&
-                find( reqInfo->user.access.airps.begin(),
-                      reqInfo->user.access.airps.end(),
-                      id->airp
-                    ) != reqInfo->user.access.airps.end() ||
-                reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
+        		   reqInfo->CheckAirp( id->airp ) ) {
             TSOPPTrip tr = createTrip( move_id, id, dests );
             tr.ref = ref;
             if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
@@ -637,6 +639,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.point_num = PointsQry.FieldAsInteger( col_point_num );
 
     d.airp = PointsQry.FieldAsString( col_airp );
+    d.airp_fmt = PointsQry.FieldAsInteger( col_airp_fmt );
     d.city = ((TAirpsRow&)airps.get_row( "code", d.airp )).city;
 
     if ( PointsQry.FieldIsNULL( col_first_point ) )
@@ -644,12 +647,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     else
       d.first_point = PointsQry.FieldAsInteger( col_first_point );
     d.airline = PointsQry.FieldAsString( col_airline );
+    d.airline_fmt = PointsQry.FieldAsInteger( col_airline_fmt );
     if ( PointsQry.FieldIsNULL( col_flt_no ) )
       d.flt_no = NoExists;
     else
       d.flt_no = PointsQry.FieldAsInteger( col_flt_no );
     d.suffix = PointsQry.FieldAsString( col_suffix );
+    d.suffix_fmt = PointsQry.FieldAsInteger( col_suffix_fmt );
     d.craft = PointsQry.FieldAsString( col_craft );
+    d.craft_fmt = PointsQry.FieldAsInteger( col_craft_fmt );
     d.bort = PointsQry.FieldAsString( col_bort );
     if ( PointsQry.FieldIsNULL( col_scd_in ) )
       d.scd_in = NoExists;
@@ -884,13 +890,13 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
     if ( !tr->airline_in.empty() )
-      NewTextChild( tripNode, "airline_in", tr->airline_in );
+      NewTextChild( tripNode, "airline_in", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_in, tr->airline_in_fmt ) );
     if ( tr->flt_no_in > NoExists )
       NewTextChild( tripNode, "flt_no_in", tr->flt_no_in );
     if ( !tr->suffix_in.empty() )
-      NewTextChild( tripNode, "suffix_in", tr->suffix_in );
+      NewTextChild( tripNode, "suffix_in", ElemIdToElemCtxt( ecDisp, etSuffix, tr->suffix_in, tr->suffix_in_fmt ) );
     if ( tr->craft_in != tr->craft_out && !tr->craft_in.empty() )
-      NewTextChild( tripNode, "craft_in", tr->craft_in );
+      NewTextChild( tripNode, "craft_in", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_in, tr->craft_in_fmt ) );
     if ( tr->bort_in != tr->bort_out  && !tr->bort_in.empty() )
       NewTextChild( tripNode, "bort_in", tr->bort_in );
     if ( fscd_in > NoExists )
@@ -913,20 +919,20 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     for ( TSOPPDests::iterator sairp=tr->places_in.begin(); sairp!=tr->places_in.end(); sairp++ ) {
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places_in" );
-      NewTextChild( lNode, "airp", sairp->airp );
+      NewTextChild( lNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
     }
 
 
-    NewTextChild( tripNode, "airp", tr->airp );
+    NewTextChild( tripNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt ) );
 
     if ( !tr->airline_out.empty() )
-      NewTextChild( tripNode, "airline_out", tr->airline_out );
+      NewTextChild( tripNode, "airline_out", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_out, tr->airline_out_fmt ) );
     if ( tr->flt_no_out > NoExists )
       NewTextChild( tripNode, "flt_no_out", tr->flt_no_out );
     if ( !tr->suffix_out.empty() )
-      NewTextChild( tripNode, "suffix_out", tr->suffix_out );
+      NewTextChild( tripNode, "suffix_out", ElemIdToElemCtxt( ecDisp, etSuffix, tr->suffix_out, tr->suffix_out_fmt ) );
     if ( !tr->craft_out.empty() )
-      NewTextChild( tripNode, "craft_out", tr->craft_out );
+      NewTextChild( tripNode, "craft_out", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_out, tr->craft_out_fmt ) );
     if ( !tr->bort_out.empty() )
       NewTextChild( tripNode, "bort_out", tr->bort_out );
     if ( fscd_out > NoExists ) {
@@ -966,7 +972,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     for ( TSOPPDests::iterator sairp=tr->places_out.begin(); sairp!=tr->places_out.end(); sairp++ ) {
       if ( !lNode )
         lNode = NewTextChild( tripNode, "places_out" );
-      NewTextChild( lNode, "airp", sairp->airp );
+      NewTextChild( lNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
     }
     if ( !tr->classes.empty() )
       NewTextChild( tripNode, "classes", tr->classes );
@@ -1087,13 +1093,13 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
     if ( !tr->airline_in.empty() )
-      NewTextChild( tripNode, "airline_in", tr->airline_in );
+      NewTextChild( tripNode, "airline_in", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_in, tr->airline_in_fmt ) );
     if ( tr->flt_no_in > NoExists )
       NewTextChild( tripNode, "flt_no_in", tr->flt_no_in );
     if ( !tr->suffix_in.empty() )
-      NewTextChild( tripNode, "suffix_in", tr->suffix_in );
+      NewTextChild( tripNode, "suffix_in", ElemIdToElemCtxt( ecDisp, etSuffix, tr->suffix_in, tr->suffix_in_fmt ) );
     if ( tr->craft_in != tr->craft_out && !tr->craft_in.empty() )
-      NewTextChild( tripNode, "craft_in", tr->craft_in );
+      NewTextChild( tripNode, "craft_in", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_in, tr->craft_in_fmt ) );
     if ( tr->bort_in != tr->bort_out  && !tr->bort_in.empty() )
       NewTextChild( tripNode, "bort_in", tr->bort_in );
     if ( fscd_in > NoExists )
@@ -1116,7 +1122,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         lNode = NewTextChild( tripNode, "places_in" );
       xmlNodePtr destNode = NewTextChild( lNode, "dest" );
       NewTextChild( destNode, "point_id", sairp->point_id );
-      NewTextChild( destNode, "airp", sairp->airp );
+      NewTextChild( destNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
       if ( sairp->pr_del )
       	NewTextChild( destNode, "pr_del", sairp->pr_del );
       if ( sairp->scd_in > NoExists )
@@ -1141,7 +1147,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       }
     }
 
-    NewTextChild( tripNode, "airp", tr->airp );
+    NewTextChild( tripNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt ) );
     NewTextChild( tripNode, "pr_del", tr->pr_del );
    	dnode = NULL;
    	for ( vector<TSOPPDelay>::iterator delay=tr->delays.begin(); delay!=tr->delays.end(); delay++ ) {
@@ -1156,13 +1162,13 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( !tr->ref.empty() )
     	NewTextChild( tripNode, "ref", tr->ref );
     if ( !tr->airline_out.empty() )
-      NewTextChild( tripNode, "airline_out", tr->airline_out );
+      NewTextChild( tripNode, "airline_out", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_out, tr->airline_out_fmt ) );
     if ( tr->flt_no_out > NoExists )
       NewTextChild( tripNode, "flt_no_out", tr->flt_no_out );
     if ( !tr->suffix_out.empty() )
-      NewTextChild( tripNode, "suffix_out", tr->suffix_out );
+      NewTextChild( tripNode, "suffix_out", ElemIdToElemCtxt( ecDisp, etSuffix, tr->suffix_out, tr->suffix_out_fmt ) );
     if ( !tr->craft_out.empty() )
-      NewTextChild( tripNode, "craft_out", tr->craft_out );
+      NewTextChild( tripNode, "craft_out", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_out, tr->craft_out_fmt ) );
     if ( !tr->bort_out.empty() )
       NewTextChild( tripNode, "bort_out", tr->bort_out );
     if ( fscd_out > NoExists )
@@ -1201,7 +1207,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         lNode = NewTextChild( tripNode, "places_out" );
       xmlNodePtr destNode = NewTextChild( lNode, "dest" );
       NewTextChild( destNode, "point_id", sairp->point_id );
-      NewTextChild( destNode, "airp", sairp->airp );
+      NewTextChild( destNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
       if ( sairp->pr_del )
       	NewTextChild( destNode, "pr_del", sairp->pr_del );
       if ( sairp->scd_in > NoExists )
@@ -1969,7 +1975,7 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
   	xmlNodePtr fn = NewTextChild( loadNode, "load" );
   	NewTextChild( fn, "cargo", c->cargo );
   	NewTextChild( fn, "mail", c->mail );
-  	NewTextChild( fn, "airp_arv", c->airp_arv );
+  	NewTextChild( fn, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, c->airp_arv, TReqInfo::Instance()->user.sets.disp_airp ) );
   	NewTextChild( fn, "point_arv", c->point_arv );
   }
 }
@@ -2028,7 +2034,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   Qry.Clear();
   if ( arx_date > NoExists ) {
 	  Qry.SQLText =
-    "SELECT point_id,point_num,first_point,airp,airline,flt_no,suffix,craft,bort,"
+    "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del "
     " FROM arx_points "
@@ -2039,7 +2045,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   }
   else
 	  Qry.SQLText =
-    "SELECT point_id,point_num,first_point,airp,airline,flt_no,suffix,craft,bort,"\
+    "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"\
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"\
     "       pr_tranzit,pr_reg,points.pr_del pr_del "\
     " FROM points "
@@ -2067,13 +2073,17 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   	else
   		d.first_point = NoExists;
   	d.airp = Qry.FieldAsString( "airp" );
+  	d.airp_fmt = Qry.FieldAsInteger( "airp_fmt" );
  	  d.airline = Qry.FieldAsString( "airline" );
+ 	  d.airline_fmt = Qry.FieldAsInteger( "airline_fmt" );
   	if ( !Qry.FieldIsNULL( "flt_no" ) )
   	  d.flt_no = Qry.FieldAsInteger( "flt_no" );
   	else
   		d.flt_no = NoExists;
  	  d.suffix = Qry.FieldAsString( "suffix" );
+ 	  d.suffix_fmt = Qry.FieldAsInteger( "suffix_fmt" );
  	  d.craft = Qry.FieldAsString( "craft" );
+ 	  d.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
  	  d.bort = Qry.FieldAsString( "bort" );
   	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
   	  d.region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
@@ -2149,15 +2159,15 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	NewTextChild( snode, "point_num", d->point_num );
   	if ( d->first_point > NoExists )
   	  NewTextChild( snode, "first_point", d->first_point );
-  	NewTextChild( snode, "airp", d->airp );
+  	NewTextChild( snode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt ) );
   	if ( !d->airline.empty() )
-  	  NewTextChild( snode, "airline", d->airline );
+  	  NewTextChild( snode, "airline", ElemIdToElemCtxt( ecDisp, etAirline, d->airline, d->airline_fmt ) );
   	if ( d->flt_no > NoExists )
   	  NewTextChild( snode, "flt_no", d->flt_no );
   	if ( !d->suffix.empty() )
-  	  NewTextChild( snode, "suffix", d->suffix );
+  	  NewTextChild( snode, "suffix", ElemIdToElemCtxt( ecDisp, etSuffix, d->suffix, d->suffix_fmt ) );
   	if ( !d->craft.empty() )
-  	  NewTextChild( snode, "craft", d->craft );
+  	  NewTextChild( snode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, d->craft, d->craft_fmt ) );
   	if ( !d->bort.empty() )
   	  NewTextChild( snode, "bort", d->bort );
   	try {
@@ -2233,12 +2243,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       	if ( id->pr_del == -1 )
       		continue;
-        if ( reqInfo->CheckAirp( id->airp ) )
-        	/*reqInfo->user.user_type == utAirport &&
-             find( reqInfo->user.access.airps.begin(),
-                   reqInfo->user.access.airps.end(),
-                   id->airp
-                 ) != reqInfo->user.access.airps.end() )*/ {
+        if ( reqInfo->CheckAirp( id->airp ) ) {
           canDo = true;
         }
         pr_last = true;
@@ -2249,11 +2254,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         	}
         }
         if ( !pr_last &&
-        	   !reqInfo->CheckAirline( id->airline ) )
-             /*find( reqInfo->user.access.airlines.begin(),
-                   reqInfo->user.access.airlines.end(),
-                   id->airline
-                 ) == reqInfo->user.access.airlines.end() )*/ {
+        	   !reqInfo->CheckAirline( id->airline ) ) {
           if ( !id->airline.empty() )
             throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
           else
@@ -2307,7 +2308,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.Clear();
     Qry.SQLText =
      "SELECT COUNT(*) c FROM points "\
-     " WHERE airline||flt_no||suffix=:name AND move_id!=:move_id AND "\
+     " WHERE airline||flt_no||suffix=:name AND move_id!=:move_id AND pr_del!=-1 AND "\
      "       ( TRUNC(scd_in)=TRUNC(:scd_in) OR TRUNC(scd_out)=TRUNC(:scd_out) )";
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.DeclareVariable( "name", otString );
@@ -2338,7 +2339,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         for ( TSOPPDests::iterator xd=id+1; xd!=dests.end(); xd++ ) {
         	if ( xd->pr_del )
         		continue;
-          throw UserException( string("Не задан тип ВС") );
+          throw UserException( string("Не задан код воздушного судна") );
         }
       }
 
@@ -2503,19 +2504,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + id->airp, evtDisp, move_id );
       Qry.Clear();
       Qry.SQLText =
-       "INSERT INTO points(move_id,point_id,point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,"\
-       "                   craft,bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"\
-       "                   park_in,park_out,pr_del,tid,remark,pr_reg) "\
-       " VALUES(:move_id,:point_id,:point_num,:airp,:pr_tranzit,:first_point,:airline,:flt_no,:suffix,"\
-       "        :craft,:bort,:scd_in,:est_in,:act_in,:scd_out,:est_out,:act_out,:trip_type,:litera,"\
+       "INSERT INTO points(move_id,point_id,point_num,airp,airp_fmt,pr_tranzit,first_point,"
+       "                   airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,"
+       "                   bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"
+       "                   park_in,park_out,pr_del,tid,remark,pr_reg) "
+       " VALUES(:move_id,:point_id,:point_num,:airp,:airp_fmt,:pr_tranzit,:first_point,"
+       "        :airline,:airline_fmt,:flt_no,:suffix,:suffix_fmt,:craft,:craft_fmt,"
+       "        :bort,:scd_in,:est_in,:act_in,:scd_out,:est_out,:act_out,:trip_type,:litera,"
        "        :park_in,:park_out,:pr_del,:tid,:remark,:pr_reg)";
        init_trip_stages = id->pr_reg;
   	}
   	else { //update
   	 Qry.Clear();
   	 Qry.SQLText =
-  	  "SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix, "\
-  	  "       craft,bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"\
+  	  "SELECT point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix, "
+  	  "       craft,bort,scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,"
   	  "       pr_del,pr_reg,remark "\
   	  " FROM points WHERE point_id=:point_id ";
   	  Qry.CreateVariable( "point_id", otInteger, id->point_id );
@@ -2636,9 +2639,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
-       " SET point_num=:point_num,airp=:airp,pr_tranzit=:pr_tranzit,"\
-       "     first_point=:first_point,airline=:airline,flt_no=:flt_no,suffix=:suffix,"\
-       "     craft=:craft,bort=:bort,scd_in=:scd_in,est_in=:est_in,act_in=:act_in,"\
+       " SET point_num=:point_num,airp=:airp,airp_fmt=:airp_fmt,pr_tranzit=:pr_tranzit,"\
+       "     first_point=:first_point,airline=:airline,airline_fmt=:airline_fmt,flt_no=:flt_no,"
+       "     suffix=:suffix,suffix_fmt=:suffix_fmt,craft=:craft,craft_fmt=:craft_fmt,"\
+       "     bort=:bort,scd_in=:scd_in,est_in=:est_in,act_in=:act_in,"\
        "     scd_out=:scd_out,est_out=:est_out,act_out=:act_out,trip_type=:trip_type,"\
        "     litera=:litera,park_in=:park_in,park_out=:park_out,pr_del=:pr_del,tid=:tid,"\
        "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
@@ -2651,6 +2655,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
+  	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
+               id->airp.c_str(), id->airp_fmt, id->airline.c_str(), id->airline_fmt, id->craft.c_str(), id->craft_fmt, id->suffix.c_str(), id->suffix_fmt );  	
   	Qry.CreateVariable( "move_id", otInteger, move_id );
   	Qry.CreateVariable( "point_id", otInteger, id->point_id );
   	if ( ch_point_num )
@@ -2658,27 +2664,40 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else
   		Qry.CreateVariable( "point_num", otInteger, id->point_num );
   	Qry.CreateVariable( "airp", otString, id->airp );
+  	Qry.CreateVariable( "airp_fmt", otInteger, id->airp_fmt );
   	Qry.CreateVariable( "pr_tranzit", otInteger, id->pr_tranzit );
   	if ( id->first_point == NoExists )
   		Qry.CreateVariable( "first_point", otInteger, FNull );
   	else
   	  Qry.CreateVariable( "first_point", otInteger, id->first_point );
-  	if ( id->airline.empty() )
+  	if ( id->airline.empty() ) {
   		Qry.CreateVariable( "airline", otString, FNull );
-  	else
+  		Qry.CreateVariable( "airline_fmt", otInteger, FNull );
+    }
+  	else {
   	  Qry.CreateVariable( "airline", otString, id->airline );
+  	  Qry.CreateVariable( "airline_fmt", otInteger, id->airline_fmt );
+  	}
   	if ( id->flt_no == NoExists )
   		Qry.CreateVariable( "flt_no", otInteger, FNull );
   	else
   		Qry.CreateVariable( "flt_no", otInteger, id->flt_no );
-  	if ( id->suffix.empty() )
+  	if ( id->suffix.empty() ) {
   		Qry.CreateVariable( "suffix", otString, FNull );
-  	else
+  		Qry.CreateVariable( "suffix_fmt", otInteger, FNull );
+    }
+  	else {
   		Qry.CreateVariable( "suffix", otString, id->suffix );
-  	if ( id->craft.empty() )
+  		Qry.CreateVariable( "suffix_fmt", otInteger, id->suffix_fmt );
+  	}  	
+  	if ( id->craft.empty() ) {
   		Qry.CreateVariable( "craft", otString, FNull );
-  	else
+  		Qry.CreateVariable( "craft_fmt", otInteger, FNull );
+  	}
+  	else {
   		Qry.CreateVariable( "craft", otString, id->craft );
+  		Qry.CreateVariable( "craft_fmt", otInteger, id->craft_fmt );
+  	}
   	if ( id->bort.empty() )
   		Qry.CreateVariable( "bort", otString, FNull );
   	else
@@ -2905,12 +2924,23 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		  d.first_point = NodeAsInteger( fnode );
 		else
 			d.first_point = NoExists;
-		d.airp = NodeAsStringFast( "airp", snode );
+   	try {
+      d.airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsStringFast( "airp", snode ), d.airp_fmt, false );
+    }
+    catch( EConvertError &e ) {
+      throw UserException( "Неправильно задан код аэропорта" );
+    }                    	
 		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp )).city;
 		region = CityTZRegion( city );
 		fnode = GetNodeFast( "airline", snode );
-		if ( fnode )
-			d.airline = NodeAsString( fnode );
+		if ( fnode ) {
+     	try {
+        d.airline = ElemCtxtToElemId( ecDisp, etAirline, NodeAsString( fnode ), d.airline_fmt, false );
+      }
+      catch( EConvertError &e ) {
+    	  throw UserException( "Неправильно задан код авиакомпании" );
+      }                    	
+	  }
 		else
 			d.airline.clear();
 	  fnode = GetNodeFast( "flt_no", snode );
@@ -2919,13 +2949,25 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	  else
 	  	d.flt_no = NoExists;
 		fnode = GetNodeFast( "suffix", snode );
-		if ( fnode )
-			d.suffix = NodeAsString( fnode );
+		if ( fnode ) {
+     	try {
+        d.suffix = ElemCtxtToElemId( ecDisp, etSuffix, NodeAsString( fnode ), d.suffix_fmt, false );
+      }
+      catch( EConvertError &e ) {
+    	  throw UserException( "Неправильно задан суффикс рейса" );
+      }                    	        	
+	  }
 		else
 			d.suffix.clear();
 		fnode = GetNodeFast( "craft", snode );
-		if ( fnode )
-			d.craft = NodeAsString( fnode );
+		if ( fnode ) {
+     	try {
+        d.craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( fnode ), d.craft_fmt, false );
+      }
+      catch( EConvertError &e ) {
+    	  throw UserException( "Неправильно задан код воздушного судна" );
+      }                    	
+	  }
 		else
 			d.craft.clear();
 		fnode = GetNodeFast( "bort", snode );
@@ -3178,6 +3220,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry )
 {
+	
   bool ch_class = false;
   bool ch_dest = false;
   string str_to, trip;
@@ -3195,7 +3238,11 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
   			ch_dest = true;
   	}
   	else {
-  		trip = string(Qry.FieldAsString( "airline" )) + Qry.FieldAsString( "flt_no" ) + Qry.FieldAsString( "suffix" );
+  		trip = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ), 
+  		                         TReqInfo::Instance()->user.sets.disp_airline ) + 
+  		       Qry.FieldAsString( "flt_no" ) + 
+  		       ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ),
+  		                         TReqInfo::Instance()->user.sets.disp_suffix );
   		TDateTime  f1, f2;
   		modf( local_time, &f1 );
   		modf( scd, &f2 );
@@ -3471,7 +3518,12 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    			l = d;
 	    		snode = GetNodeFast( "craft", tripNode );
 	    		if ( snode ) {
-	    		  l->craft = NodeAsString( snode );
+           	try {
+              l->craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( snode ), l->craft_fmt, false );
+            }
+            catch( EConvertError &e ) {
+    	        throw UserException( "Неправильно задан код воздушного судна" );
+            }                    		    			
 	    		  l->modify = true;
 	    		}
 	    		snode = GetNodeFast( "bort", tripNode );
