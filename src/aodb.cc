@@ -1289,11 +1289,18 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
     Qry.CreateVariable( "reference", otString, FNull );
     Qry.Execute();
     move_id = Qry.GetVariableAsInteger( "move_id" );
-    reqInfo->MsgToLog( "Вводнового рейса ", evtDisp, move_id );
     TIDQry.Execute();
     new_tid = TIDQry.FieldAsInteger( "n" );
     POINT_IDQry.Execute();
     point_id = POINT_IDQry.FieldAsInteger( "point_id" );
+    string lmes = "Ввод нового рейса ";
+    lmes +=  fl.airline + IntToString( fl.flt_no ) + fl.suffix + ", маршрут ";
+    for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {    	
+    	if ( it != fl.dests.begin() )
+    		lmes += "-";
+      lmes += it->airp;
+    }
+    reqInfo->MsgToLog( lmes, evtDisp, move_id, point_id );
     reqInfo->MsgToLog( string( "Ввод нового пункта " ) + "ВНК", evtDisp, move_id, point_id );    
     Qry.Clear();
     Qry.SQLText =
