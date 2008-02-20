@@ -935,6 +935,10 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   }	
  	try {
     fl.airline = ElemCtxtToElemId( ecDisp, etAirline, fl.airline, fmt, false );
+	  if ( fmt == 1 || fmt == 3 )
+		  fl.trip_type = "м";
+    else
+  	  fl.trip_type = "п";    
   }
   catch( EConvertError &e ) {
   	Qry.Clear();
@@ -945,11 +949,8 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	  if ( !Qry.RowCount() )
 	  	throw Exception( "Неизвестная авиакомпания, значение=%s", fl.airline.c_str() );
 	  fl.airline = Qry.FieldAsString( "code" );
+	  fl.trip_type = "п"; //???
   }                    	
-	if ( Qry.FieldAsInteger( "f" ) == 2 )
-		fl.trip_type = "м";
-  else
-  	fl.trip_type = "п";
 	tmp = linestr.substr( LITERA_IDX, LITERA_LEN );
 	fl.litera = TrimString( tmp );
 	if ( !fl.litera.empty() ) {

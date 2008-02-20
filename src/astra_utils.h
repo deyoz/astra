@@ -41,7 +41,12 @@ enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
                  etSuffix };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
-
+//форматы:
+//  fmt=0 вн.код (рус. кодировка)
+//  fmt=1 IATA код (лат. кодировка)
+//  fmt=2 код ИКАО вн.
+//  fmt=3 код ИKAO IATA
+//  fmt=4 код ISO
 std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_deleted=false);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
