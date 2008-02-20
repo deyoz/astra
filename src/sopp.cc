@@ -2635,7 +2635,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  		}
   	  }
-
+  	  else
+  	    if ( old_dest.pr_del == 0 && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
+  	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  	    }
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
