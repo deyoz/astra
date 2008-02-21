@@ -767,7 +767,7 @@ void showBasicInfo(void)
       //ATB
       devNode=NewTextChild(cuteNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -776,7 +776,7 @@ void showBasicInfo(void)
       //BTP
       devNode=NewTextChild(cuteNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -792,7 +792,7 @@ void showBasicInfo(void)
       //LSR
       devNode=NewTextChild(cuteNode,"LSR");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"prefix","");
+      NewTextChild(paramNode,"prefix","31");
       NewTextChild(paramNode,"postfix","0D");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
@@ -940,13 +940,13 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
 			break;
 		case ecCkin:
 			msg1 = "ecCkin";
-			break;			
+			break;
 		case ecTrfer:
 			msg1 = "ecTrfer";
-			break;			
+			break;
 		case ecTlgTypeB:
 			msg1 = "ecTlgTypeB";
-			break;			
+			break;
 	}
   switch( type ) {
   	case etCountry:
@@ -954,46 +954,46 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
   		break;
   	case etCity:
   		msg2 = "etCity";
-  		break;  		
+  		break;
   	case etAirline:
   		msg2 = "etAirline";
-  		break;  		  		
+  		break;
   	case etAirp:
   		msg2 = "etAirp";
-  		break;  		  		  		
+  		break;
   	case etCraft:
   		msg2 = "etCraft";
-  		break;  		  		  		  		
+  		break;
   	case etClass:
   		msg2 = "etClass";
-  		break;  		  		  		  		  		
+  		break;
   	case etSubcls:
   		msg2 = "etSubcls";
-  		break;  		  		  		  		  		  		
+  		break;
   	case etPersType:
   		msg2 = "etPersType";
-  		break;  		  		  		  		  		  		  		
+  		break;
   	case etGenderType:
   		msg2 = "etGenderType";
-  		break;  		  		  		  		  		  		  		  		
+  		break;
   	case etPaxDocType:
   		msg2 = "etPaxDocType";
-  		break;  		  		  		  		  		  		  		  		  		
+  		break;
   	case etPayType:
   		msg2 = "etPayType";
-  		break;  		  		  		  		  		  		  		  		  		  		
+  		break;
   	case etCurrency:
   		msg2 = "etCurrency";
-  		break;  		  		  		  		  		  		  		  		  		  		  		
+  		break;
     case etSuffix:
   		msg2 = "etSuffix";
-  		break;  		  		  		  		  		  		  		  		  		  		  		    	
+  		break;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
-  throw EConvertError( msg1.c_str() );  
+  throw EConvertError( msg1.c_str() );
 }
 
-string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt, 
+string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
                         bool hard_verify, bool with_deleted)
 {
   string id;
@@ -1010,8 +1010,8 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
         ctxt==ecCkin && (fmt!=0) ||
         ctxt==ecTrfer && (fmt!=0))
     {
-      //проблемы 
-      DoElemEConvertError( ctxt, type, code ); 	
+      //проблемы
+      DoElemEConvertError( ctxt, type, code );
     };
   }
   if (ctxt==ecDisp)
@@ -1039,12 +1039,12 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
                 user_fmt==ustCodeMixed && (fmt==0||fmt==1||fmt==2||fmt==3)))
           {
             //проблемы
-            DoElemEConvertError( ctxt, type, code ); 	
+            DoElemEConvertError( ctxt, type, code );
           }
         }
         else {
           switch( user_fmt )  {
-          	case ustCodeNative: 
+          	case ustCodeNative:
           		fmt = 0;
           		break;
           	case ustCodeIATA:
@@ -1057,7 +1057,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
           		fmt = 3;
           		break;
           	default:;
-          }      	        	
+          }
         }
       }
       else
@@ -1068,20 +1068,20 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
                 user_fmt==ustEncMixed && (fmt==0||fmt==1)))
           {
             //проблемы
-            DoElemEConvertError( ctxt, type, code ); 	
+            DoElemEConvertError( ctxt, type, code );
           }
         }
         else {
           switch( user_fmt )  {
-          	case ustEncNative: 
+          	case ustEncNative:
           		fmt = 0;
           		break;
           	case ustEncLatin:
           		fmt = 1;
           		break;
           	default:;
-          }      	        	        	
-        	
+          }
+
         }
       };
 
@@ -1091,7 +1091,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
         if (fmt!=0)
         {
           //проблемы
-            DoElemEConvertError( ctxt, type, code ); 	
+            DoElemEConvertError( ctxt, type, code );
         };
       }
       else {
