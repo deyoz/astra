@@ -46,11 +46,15 @@ const char* OWN_POINT_ADDR()
 bool deleteFile( int id )
 {
     TQuery Qry(&OraSession);
-    Qry.SQLText=
+/*    Qry.SQLText=
       " BEGIN "
       " DELETE file_queue WHERE id= :id; "
       " DELETE file_params WHERE id= :id; "
-      "END; ";
+      "END; ";*/
+    Qry.SQLText=
+      " BEGIN "
+      " DELETE file_queue WHERE id= :id; "
+      "END; ";      
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     return Qry.RowsProcessed()>0;
