@@ -23,7 +23,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string,string> &params )
+void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
 {
 	//!!! надо считать
 	TQuery Qry( &OraSession );
@@ -49,7 +49,7 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string
 	 "   INSERT INTO sofi_files(file_no, point_addr, desk, time) VALUES( 1, :point_addr, :desk, sysdate ); "
 	 "END; ";
 	Qry.CreateVariable( "file_no", otInteger, 0 );
-	Qry.CreateVariable( "point_addr", otString, params[PARAM_CANON_NAME] );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "desk", otString, pult );
 	tst();
 	Qry.Execute();
@@ -224,7 +224,7 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<dlmt; //15
  TFileData fd;
  fd.file_data = res.str();
- createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), fd.params );
+ createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), point_addr, fd.params );
  if ( !fd.file_data.empty() )
 	fds.push_back( fd );
  return !fds.empty();
