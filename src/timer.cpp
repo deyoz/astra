@@ -190,16 +190,10 @@ const int CREATE_SPP_DAYS()
 
 void createSPP( TDateTime utcdate )
 {
-  TBaseTable &basecities = base_tables.get( "cities" );
-	string city = "МОВ";
 	utcdate += CREATE_SPP_DAYS(); //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
-	reqInfo->clear();
+	reqInfo->Initialize("МОВ");
 	reqInfo->user.sets.time = ustTimeUTC;
-	reqInfo->user.user_type = utSupport;
-	reqInfo->user.access.airlines_permit = false;
-	reqInfo->user.access.airps_permit = false;
-	reqInfo->desk.tz_region = ((TCitiesRow&)basecities.get_row( "code", city )).region;
 	CreateSPP( utcdate );
 	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
 }
