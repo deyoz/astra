@@ -120,13 +120,13 @@ class TUser {
     };
     void clear()
     {
+      user_id=-1;
       login.clear();
       descr.clear();
+      user_type=utSupport;
       access.clear();
       sets.clear();
-      user_id=-1;
     };
-
 };
 
 class TDesk {
@@ -183,6 +183,7 @@ class TReqInfo
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
+    void Initialize( const std::string &city );
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      const std::string &vmode, bool checkUserLogon );
     void MsgToLog(TLogMsg &msg);
@@ -207,6 +208,7 @@ class TReqInfo
 };
 
 std::string GetSQLEnum(std::vector<std::string> &values);
+void MsgToLog(TLogMsg &msg, std::string &screen, std::string &user, std::string &desk);
 
 ASTRA::TDocType DecodeDocType(char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
