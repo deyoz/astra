@@ -1593,10 +1593,10 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   Qry.Clear();
 	Qry.SQLText =
 	 "BEGIN "
-	 " UPDATE aodb_points SET aodb_point_id=aodb_point_id WHERE point_id=:point_id; "
+	 " UPDATE aodb_points SET aodb_point_id=:aodb_point_id WHERE point_id=:point_id AND point_addr=:point_addr; "
 	 " IF SQL%NOTFOUND THEN "
-	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,record,rec_no_pax,rec_no_bag,rec_no_flt) "
-	 "    VALUES(:aodb_point_id,:point_addr,:point_id,NULL,-1,-1,-1);"
+	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,record,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp) "
+	 "    VALUES(:aodb_point_id,:point_addr,:point_id,NULL,-1,-1,-1,-1);"
 	 " END IF; "
 	 "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
