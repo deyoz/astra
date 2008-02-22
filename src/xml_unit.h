@@ -11,7 +11,7 @@
 class EXMLError: public EXCEPTIONS::Exception
 {
   public:
-    EXMLError(const std::string &msg):Exception(msg) {};	
+    EXMLError(const std::string &msg):Exception(msg) {};
 };
 
 xmlNodePtr GetNode(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
@@ -38,7 +38,7 @@ BASIC::TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNod
 BASIC::TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur);
 //оптимизированные по быстродействию функции
-//node - любой брат(сосед) искомого 
+//node - любой брат(сосед) искомого
 xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node);
 xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node);
 bool NodeIsNULLFast(char *expr, xmlNodePtr &node);
@@ -76,6 +76,9 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value);
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src);
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 
+xmlDocPtr CreateXMLDoc(const char *encoding, const char *root);
+xmlDocPtr TextToXMLTree( const std::string& str );
+std::string XMLTreeToText( xmlDocPtr doc);
 std::string GetXMLDocText( xmlDocPtr doc);
 
 #endif
