@@ -20,12 +20,14 @@
 //#include "spp_cek.h"
 #include "timer.h"
 #include "stages.h"
+#include "cont_tools.h"
 #include "cfgproc.h"
 
 
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
+using namespace JxtContext;
 
 const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
 const string PARAM_FILE_ID = "file_id";
@@ -374,46 +376,112 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name 
 }
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
-{
+{ /* теперь есть разделение по а/к */	
+	JxtCont *sysCont = getJxtContHandler()->sysContext();	
+	int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request	
+	ProgTrace( TRACE5, "get prior_id=%d", prior_id );
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
-	 "SELECT type,param_name, param_value FROM file_param_sets "
-	 " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send";
+	 "SELECT type,airline,param_name,param_value FROM file_param_sets "
+	 " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send "
+	 " ORDER BY type,airline ";
 	Qry.CreateVariable( "point_addr", otString, client_canon_name );
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "send", otInteger, 0 );
 	Qry.Execute();
-	if ( !Qry.RowCount() )
+  if ( Qry.Eof )
 		return;		
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-	map<string,string> fileparams;
-	while ( !Qry.Eof ) {
-		if ( Qry.FieldAsString( "type" ) == FILE_AODB_TYPE ) {
-			fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
+	map<string,string> fileparams, first_fileparams;
+	string airline, first_airline;
+	int new_id = -1, first_new_id;
+	int id=0;
+	while ( !Qry.Eof ) {		
+		ProgTrace( TRACE5, "new_id=%d", id );
+		if ( fileparams.find( PARAM_FILE_TYPE ) == fileparams.end() ) {
+		  fileparams[ PARAM_FILE_TYPE ] = Qry.FieldAsString( "type" );
+			airline = Qry.FieldAsString( "airline" );
+			new_id = id;		
+			ProgTrace( TRACE5, "new_id=%d", new_id  );
 		}
+		ProgTrace( TRACE5, "airline1=%s, type1=%s, airline2=%s, type2=%s",
+		           fileparams[ PARAM_FILE_TYPE ].c_str(), airline.c_str(), Qry.FieldAsString( "type" ), Qry.FieldAsString( "airline" ) );
+		if ( fileparams[ PARAM_FILE_TYPE ] != Qry.FieldAsString( "type" ) ||
+			   airline != Qry.FieldAsString( "airline" ) ) {
+			tst();
+			//next type or airline
+			if ( first_fileparams.empty() ) {
+				first_fileparams = fileparams;
+				first_new_id = new_id;
+				first_airline = airline;
+				ProgTrace( TRACE5, "airline=%s, first_new_id=%d", airline.c_str(), first_new_id );
+			}
+			ProgTrace( TRACE5, "prior_id=%d, new_id=%d", prior_id, new_id );
+			if ( prior_id >= new_id || fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {
+				tst();
+				fileparams.clear();				
+				continue;
+		  }
+		  else {
+		  	tst();
+		  	break;
+		  }
+		}
+		else {
+	    fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );			   	
+	    tst();
+	  }	    
+	  id++;
 		Qry.Next();
-	}	
-	fileparams[ PARAM_FILE_TYPE ] = FILE_AODB_TYPE;
-	string region = CityTZRegion( "МОВ" );
-	TDateTime d = UTCToLocal( NowUTC(), region );	 
-	string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
-	fileparams[ PARAM_FILE_NAME ] = filename;
-	Qry.Clear();
-	Qry.SQLText = 
-	 "BEGIN "
-	 " SELECT rec_no INTO :rec_no FROM aodb_spp_files WHERE filename=:filename AND point_addr=:point_addr;"
-	 " EXCEPTION WHEN NO_DATA_FOUND THEN "
-	 " BEGIN "
-	 "  :rec_no := -1; "
-	 "  INSERT INTO aodb_spp_files(filename,point_addr,rec_no) VALUES(:filename,:point_addr,:rec_no); "
-	 " END;"
-	 "END;";	 
-	Qry.CreateVariable( "filename", otString, filename );
-	Qry.CreateVariable( "point_addr", otString, client_canon_name );
-	Qry.DeclareVariable( "rec_no", otInteger );
-	Qry.Execute();
-	fileparams[ PARAM_FILE_REC_NO ] = Qry.GetVariableAsString( "rec_no" );
+	}
+	tst();
+	ProgTrace( TRACE5, "new_id=%d", new_id );
+	if ( Qry.Eof ) // next find from first row
+		new_id = -1;
+	ProgTrace( TRACE5, "new_id=%d", new_id );
+	
+	if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() && !first_fileparams.empty() ) {
+		fileparams = first_fileparams;
+		airline = first_airline;
+		new_id = first_new_id;
+		tst();
+	}
+		
+  if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {  	
+  	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 );	  	
+  	if ( Qry.RowCount() )
+  	  ProgError( STDLOG, "AstraService Exception: invalid value of table file_params_sets, param LOADDIR not found" );
+  	return;
+  }
+	ProgTrace( TRACE5, "write prior_id=%d", new_id );
+	if ( fileparams[ PARAM_FILE_TYPE ] == FILE_AODB_TYPE ) {
+		if ( airline.empty() )
+			return;
+	  string region = CityTZRegion( "МОВ" );
+	  TDateTime d = UTCToLocal( NowUTC(), region );	 
+	  string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
+	  fileparams[ PARAM_FILE_NAME ] = filename;
+	  Qry.Clear();
+	  Qry.SQLText = 
+	   "BEGIN "
+	   " SELECT rec_no INTO :rec_no FROM aodb_spp_files "
+	   "  WHERE filename=:filename AND point_addr=:point_addr AND NVL(airline,'Z')=NVL(:airline,'Z');"
+	   " EXCEPTION WHEN NO_DATA_FOUND THEN "
+	   " BEGIN "
+	   "  :rec_no := -1; "
+	   "  INSERT INTO aodb_spp_files(filename,point_addr,airline,rec_no) VALUES(:filename,:point_addr,:airline,:rec_no); "
+	   " END;"
+	   "END;";	 
+	  Qry.CreateVariable( "filename", otString, filename );
+	  Qry.CreateVariable( "point_addr", otString, client_canon_name );
+	  Qry.CreateVariable( "airline", otString, airline );
+	  Qry.DeclareVariable( "rec_no", otInteger );
+	  Qry.Execute();
+	  fileparams[ PARAM_FILE_REC_NO ] = Qry.GetVariableAsString( "rec_no" );
+	}
 	buildFileParams( dataNode, fileparams );	
+	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", new_id );	
+	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline", airline );	
 }
 
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -813,8 +881,9 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       catch( EConvertError &E ) {
         ProgError(STDLOG, E.what());
       }
-
-  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], file_data, convert_aodb );
+  JxtCont *sysCont = getJxtContHandler()->sysContext();
+  string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );	
+  ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb );
 }
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

@@ -24,7 +24,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "base_tables.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "develop_dbf.h"
+#include "astra_service.h"
 #include "helpcpp.h"
 #include "misc.h"
 #include "stages.h"
@@ -1693,14 +1693,16 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   litera varchar2(3) not null );
  */
 
-void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name, std::string &fd, const string &convert_aodb )
+void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name, const std::string airline, 
+	                    std::string &fd, const string &convert_aodb )
 {
 	TQuery QryLog( &OraSession );
 	QryLog.SQLText =
-	 "INSERT INTO aodb_events(filename,point_addr,rec_no,record,msg,time,type) "
-	 " SELECT :filename,:point_addr,:rec_no,:record,:msg,system.UTCSYSDATE,:type FROM dual ";
+	 "INSERT INTO aodb_events(filename,point_addr,airline,rec_no,record,msg,time,type) "
+	 " SELECT :filename,:point_addr,:airline,:rec_no,:record,:msg,system.UTCSYSDATE,:type FROM dual ";
  	QryLog.CreateVariable( "filename", otString, filename );
 	QryLog.CreateVariable( "point_addr", otString, canon_name );
+	QryLog.CreateVariable( "airline", otString, airline );
 	QryLog.DeclareVariable( "rec_no", otInteger );
 	QryLog.DeclareVariable( "record", otString );
 	QryLog.DeclareVariable( "msg", otString );
@@ -1769,10 +1771,11 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       max_rec_no = fl.rec_no;
   }
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr";
+	Qry.SQLText = "UPDATE aodb_spp_files SET rec_no=:rec_no WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline";
 	Qry.CreateVariable( "rec_no", otInteger, max_rec_no );
 	Qry.CreateVariable( "filename", otString, filename );
 	Qry.CreateVariable( "point_addr", otString, canon_name );
+	Qry.CreateVariable( "airline", otString, airline );
 	Qry.Execute();
 	if ( !errs.empty() )
 	 showProgError( errs );

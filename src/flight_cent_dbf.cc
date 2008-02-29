@@ -8,9 +8,9 @@
 #include "stl_utils.h"
 #include "basic.h"
 #include "develop_dbf.h"
+#include "astra_service.h"
 #include "sopp.h"
 #include "astra_consts.h"
-//#include "base_tables.h"
 #include "astra_utils.h"
 
 

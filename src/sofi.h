@@ -3,7 +3,7 @@
 
 #include <string>
 #include <map>
-#include "develop_dbf.h"
+#include "astra_service.h"
 
 const std::string FILE_SOFI_TYPE = "SOFI";
 const std::string SOFI_AGENCY_PARAMS = "DEP_AGENCY";
