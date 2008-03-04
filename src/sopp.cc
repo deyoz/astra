@@ -3528,7 +3528,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     	        throw UserException( "Неправильно задан код воздушного судна" );
             }                    		    			
 	    		  l->modify = true;
-	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end(); b++ ) {
+	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end()-1; b++ ) {
 	    		  	if ( b->craft.empty() ) { // set craft in all dests
 	    		  		b->craft = l->craft;
 	    		  		b->modify = true;
@@ -3539,7 +3539,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    		if ( snode ) {
 	    		  l->bort = NodeAsString( snode );
 	    		  l->modify = true;
-	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end(); b++ ) {
+	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end()-1; b++ ) {
 	    		  	if ( b->bort.empty() ) { // set bort in all dests
 	    		  		b->bort = l->bort;
 	    		  		b->modify = true;
