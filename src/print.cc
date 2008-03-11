@@ -799,6 +799,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat, "
         "   to_char(points.FLT_NO)||points.suffix flt_no, "
+        "   to_char(points.FLT_NO)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
         "   points.SUFFIX, "
         "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
@@ -2811,6 +2812,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   prn_types.code in ( "
         "       select distinct prn_type from " + table +
         "   ) and "
+        "   prn_types.iface <> 'CUT' and "
         "   prn_types.format = prn_formats.id(+) "
         "order by "
         "   prn_types.name ";
