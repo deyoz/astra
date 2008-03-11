@@ -1779,7 +1779,7 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0 ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-	xmlNodePtr node = NewTextChild( dataNode, "birks" );
+	xmlNodePtr node = NewTextChild( dataNode, "birks", Qry.FieldAsString( "birks" ) );
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
