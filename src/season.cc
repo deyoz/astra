@@ -3599,13 +3599,14 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT * FROM drop_sched_days ORDER BY trip_id,move_id,num";
+   "SELECT trip_id,num,move_id,first_day,last_day,days,pr_cancel pr_del,tlg,reference FROM drop_sched_days ORDER BY trip_id,move_id,num";
   Qry.Execute();
   tst();
 
   TQuery DQry( &OraSession );
   DQry.SQLText =
-   "SELECT move_id,num,airp,pr_del,scd_in+delta_in scd_in,airline,flt_no,craft,litera,trip_type,scd_out+delta_out scd_out,f,c,y,unitrip,suffix "\
+   "SELECT move_id,num,cod airp,pr_cancel pr_del,land+delta_in scd_in,company airline,trip flt_no,bc craft,"
+   "       litera,triptype trip_type,takeoff+delta_out scd_out,f,c,y,unitrip,suffix "\
    " FROM drop_routes WHERE move_id=:move_id ORDER BY num";
   DQry.DeclareVariable( "move_id", otInteger );
 
