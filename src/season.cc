@@ -3614,10 +3614,10 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	      Write( ctxt, reqn, resNode );
         }
         catch( std::exception &E ) {
-          ProgError( STDLOG, "Exception: %s", E.what() );
+          ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
         }
         catch( ... ) {
-          ProgError( STDLOG, "Unknown error" );
+          ProgError( STDLOG, "Unknown error, trip_id=%d", trip_id );
         };
         xmlUnlinkNode( node );
         xmlFreeNode( node );
@@ -3678,10 +3678,10 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	Write( ctxt, reqn, resNode );
   }
   catch( std::exception &E ) {
-    ProgError( STDLOG, "Exception: %s", E.what() );
+    ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
   }
   catch( ... ) {
-    ProgError( STDLOG, "Unknown error" );
+    ProgError( STDLOG, "Unknown error, trip_id=%d", trip_id );
   };
  }
 
