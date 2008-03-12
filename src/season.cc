@@ -3592,7 +3592,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   TQuery Qry( &OraSession );
   Qry.SQLText =
    "SELECT trip_id,num,move_id,first_day,last_day,days,pr_cancel pr_del,tlg,reference "
-   "FROM drop_sched_days WHERE first_day >='24.03.07' ORDER BY trip_id,move_id,num ";
+   " FROM drop_sched_days WHERE first_day >=to_date('24.03.07') ORDER BY trip_id,move_id,num ";
   Qry.Execute();
   
   TQuery DQry( &OraSession );
