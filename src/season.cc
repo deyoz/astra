@@ -2293,7 +2293,6 @@ ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
           RQry.SetVariable( "suffix_fmt", id->suffix_fmt );
         }
         RQry.Execute();
-        tst();
         dnum++;
       }
       mapds[ ip->move_id ].dests.clear();
@@ -2810,7 +2809,7 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, stri
 
 void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int vmove_id )
 {
-  ProgTrace( TRACE5, "GetDests vmove_id=%d", vmove_id );
+//  ProgTrace( TRACE5, "GetDests vmove_id=%d", vmove_id );
   TPerfTimer tm;
   tm.Init();
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -3409,7 +3408,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/
-    tst();
     if ( vtrip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       canTrips = true;
       vtrip_id = SQry.FieldAsInteger( idx_trip_id );
@@ -3426,7 +3424,6 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
           mapds[ move_id ].flight_time = first;
           mapds[ move_id ].tz = ptz;
           mapds[ move_id ].region = pregion;
-          tst();
           if ( TReqInfo::Instance()->user.user_type == utAirport )
             canTrips = !createAirportTrip( vtrip_id, filter, GetTZOffSet( first, ptz, v ), mapds[ move_id ], false, err_airp );
           else
@@ -3442,11 +3439,6 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       double utcf;
       double f2, f3;
       modf( (double)first, &utcf );
-
-
-  ProgTrace( TRACE5, "first=%s, last=%s",
-             DateTimeToStr( first ).c_str(),
-             DateTimeToStr( last ).c_str() );
 
       double first_day;
       modf( (double)UTCToClient( first, pregion ), &first_day );        
@@ -3647,7 +3639,6 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   			xmlNodePtr dnode = NewTextChild( rangeNode, "dests" );
   			DQry.SetVariable( "move_id", move_id );
   			DQry.Execute();
-  			tst();
   			while (!DQry.Eof) {
   			 xmlNodePtr d = NewTextChild( dnode, "dest" );
   			 NewTextChild( d, "cod", DQry.FieldAsString( "airp" ) );
