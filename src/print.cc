@@ -1158,6 +1158,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   if(rcpt.bag_type != -1) {
       if(
               rcpt.form_type == "451" ||
+              rcpt.form_type == "ž•" ||
               rcpt.form_type == "35"
               ) {
           switch(rcpt.bag_type) {
