@@ -495,7 +495,7 @@ int PaymentInterface::PutReceipt(TBagReceipt &rcpt, int grp_id)
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.CreateVariable("status",otString,"è");
   Qry.CreateVariable("pr_lat",otInteger,(int)rcpt.pr_lat);
-  Qry.CreateVariable("form_type",otString,rcpt.form_type.substr(0, 3));
+  Qry.CreateVariable("form_type",otString,rcpt.form_type.substr(0, 7));
   Qry.CreateVariable("no",otFloat,rcpt.no);
   Qry.CreateVariable("pax_name",otString,rcpt.pax_name.substr(0, 50));
   Qry.CreateVariable("pax_doc",otString,rcpt.pax_doc.substr(0, 50));
