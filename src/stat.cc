@@ -1128,8 +1128,14 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             throw;
     }
 
-    if(Qry.Eof && part_key == NoExists)
-        throw UserException("Рейс перемещен в архив. Выберите заново из списка");
+    if(Qry.Eof && part_key == NoExists) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select point_id from points where point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+    }
 
     typedef map<string, string> TScreenMap;
     TScreenMap screen_map;
@@ -1289,8 +1295,14 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             throw;
     }
 
-    if(Qry.Eof && part_key == NoExists)
-        throw UserException("Рейс перемещен в архив. Выберите заново из списка");
+    if(Qry.Eof && part_key == NoExists) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select point_id from points where point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+    }
 
     if(!Qry.Eof) {
         int col_point_id=Qry.FieldIndex("point_id");
