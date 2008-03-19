@@ -799,6 +799,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat, "
         "   to_char(points.FLT_NO)||points.suffix flt_no, "
+        "   to_char(points.FLT_NO)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
         "   points.SUFFIX, "
         "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
@@ -1080,6 +1081,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
             rcpt.form_type != "M61" &&
             rcpt.form_type != "Z61" &&
             rcpt.form_type != "451" &&
+            rcpt.form_type != "ЮХ" &&
             rcpt.form_type != "35"
             )
         throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
@@ -1156,6 +1158,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   if(rcpt.bag_type != -1) {
       if(
               rcpt.form_type == "451" ||
+              rcpt.form_type == "ЮХ" ||
               rcpt.form_type == "35"
               ) {
           switch(rcpt.bag_type) {
@@ -1909,18 +1912,18 @@ string PrintDataParser::parse(string &form)
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
-    if(form.substr(0, 2) == "1\xa") {
-        i = 2;
+    if(form.substr(i, 2) == "1\xa") {
+        i += 2;
         pectab_format = 1;
     }
-    if(form.substr(0, 2) == "XX") {
-        i = 2;
+    if(form.substr(i, 2) == "XX") {
+        i += 2;
         field_map.print_mode = 1;
-    } else if(form.substr(0, 1) == "X") {
-        i = 1;
+    } else if(form.substr(i, 1) == "X") {
+        i += 1;
         field_map.print_mode = 2;
-    } else if(form.substr(0, 1) == "S") {
-        i = 1;
+    } else if(form.substr(i, 1) == "S") {
+        i += 1;
         field_map.print_mode = 3;
     }
     for(; i < form.size(); i++) {
@@ -2734,6 +2737,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   prn_types.code in ( "
         "       select distinct prn_type from " + table +
         "   ) and "
+        "   prn_types.iface <> 'CUT' and "
         "   prn_types.format = prn_formats.id(+) "
         "order by "
         "   prn_types.name ";
@@ -2883,6 +2887,7 @@ string get_validator(TBagReceipt &rcpt)
         validator << endl; // empty string for this type
     } else if(
             validator_type == "ЮТ" ||
+            validator_type == "ЮХ" ||
             validator_type == "ИАТА") {
         validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
         validator << agency_name.substr(0, 19) << endl;

@@ -15,30 +15,48 @@ void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
     int delta = NodeAsInteger("delta", reqNode);
     TQuery Qry(&OraSession);        
-    if(doc == dtBP)
-        Qry.SQLText =
-            "select "
-            "   form, "
-            "   data "
-            "from "
-            "   bp_forms "
-            "where "
-            "   prn_type = :prn_type and "
-            "   bp_type = :bp_type and "
-            "   version = :version";
-    else {
-        Qry.SQLText =
-            "select "
-            "   form, "
-            "   data "
-            "from "
-            "   bt_forms "
-            "where "
-            "   prn_type = :prn_type and "
-            "   tag_type = :bp_type and "
-            "   num = :num and "
-            "   version = :version";
-        Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+    switch (doc) {
+        case dtBP:
+            Qry.SQLText =
+                "select "
+                "   form, "
+                "   data "
+                "from "
+                "   bp_forms "
+                "where "
+                "   prn_type = :prn_type and "
+                "   bp_type = :bp_type and "
+                "   version = :version";
+            break;
+        case dtBT:
+            Qry.SQLText =
+                "select "
+                "   form, "
+                "   data "
+                "from "
+                "   bt_forms "
+                "where "
+                "   prn_type = :prn_type and "
+                "   tag_type = :bp_type and "
+                "   num = :num and "
+                "   version = :version";
+            Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+            break;
+        case dtReceipt:
+            Qry.SQLText =
+                "select "
+                "   null form, "
+                "   data "
+                "from "
+                "   br_forms "
+                "where "
+                "   prn_type = :prn_type and "
+                "   form_type = :bp_type and "
+                "   version = :version";
+            break;
+            default:
+                throw Exception("DesignBlankInterface::PrevNext: unsupported doc type %d", (int)doc);
+                break;
     }
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.CreateVariable("bp_type", otString, NodeAsString("blank_type", reqNode));
@@ -58,70 +76,110 @@ void DesignBlankInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     TQuery Qry(&OraSession);
     string SQLText;
     if(formNode) {
-        if(doc == dtBP)
-            SQLText =
-                "begin "
-                "   delete from bp_forms where "
-                "       bp_type = :bp_type and "
-                "       prn_type = :prn_type and "
-                "       version > :version; "
-                "   insert into bp_forms ( "
-                "       bp_type, "
-                "       prn_type, "
-                "       version, "
-                "       form, "
-                "       data "
-                "   ) values ( "
-                "       :bp_type, "
-                "       :prn_type, "
-                "       :version + 1, "
-                "       :form, "
-                "       :data "
-                "   ); "
-                "end;";
-        else {
-            SQLText =
-                "begin "
-                "   delete from bt_forms where "
-                "       tag_type = :bp_type and "
-                "       prn_type = :prn_type and "
-                "       num = :num and "
-                "       version > :version; "
-                "   insert into bt_forms ( "
-                "       tag_type, "
-                "       prn_type, "
-                "       num, "
-                "       version, "
-                "       form, "
-                "       data "
-                "   ) values ( "
-                "       :bp_type, "
-                "       :prn_type, "
-                "       :num, "
-                "       :version + 1, "
-                "       :form, "
-                "       :data "
-                "   ); "
-                "end;";
-            Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+        switch(doc) {
+            case dtBP:
+                SQLText =
+                    "begin "
+                    "   delete from bp_forms where "
+                    "       bp_type = :bp_type and "
+                    "       prn_type = :prn_type and "
+                    "       version > :version; "
+                    "   insert into bp_forms ( "
+                    "       bp_type, "
+                    "       prn_type, "
+                    "       version, "
+                    "       form, "
+                    "       data "
+                    "   ) values ( "
+                    "       :bp_type, "
+                    "       :prn_type, "
+                    "       :version + 1, "
+                    "       :form, "
+                    "       :data "
+                    "   ); "
+                    "end;";
+                Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
+                break;
+            case dtBT:
+                SQLText =
+                    "begin "
+                    "   delete from bt_forms where "
+                    "       tag_type = :bp_type and "
+                    "       prn_type = :prn_type and "
+                    "       num = :num and "
+                    "       version > :version; "
+                    "   insert into bt_forms ( "
+                    "       tag_type, "
+                    "       prn_type, "
+                    "       num, "
+                    "       version, "
+                    "       form, "
+                    "       data "
+                    "   ) values ( "
+                    "       :bp_type, "
+                    "       :prn_type, "
+                    "       :num, "
+                    "       :version + 1, "
+                    "       :form, "
+                    "       :data "
+                    "   ); "
+                    "end;";
+                Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
+                Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+                break;
+            case dtReceipt:
+                SQLText =
+                    "begin "
+                    "   delete from br_forms where "
+                    "       form_type = :bp_type and "
+                    "       prn_type = :prn_type and "
+                    "       version > :version; "
+                    "   insert into br_forms ( "
+                    "       form_type, "
+                    "       prn_type, "
+                    "       version, "
+                    "       data "
+                    "   ) values ( "
+                    "       :bp_type, "
+                    "       :prn_type, "
+                    "       :version + 1, "
+                    "       :data "
+                    "   ); "
+                    "end;";
+                break;
+            default:
+                throw Exception("DesignBlankInterface::Save: unsupported doc type %d", (int)doc);
+                break;
         }
-        Qry.CreateVariable("form", otString, NodeAsString("form", reqNode));
         Qry.CreateVariable("data", otString, NodeAsString("data", reqNode));
     } else {
-        if(doc == dtBP)
-        SQLText =
-            "delete from bp_forms where "
-            "    bp_type = :bp_type and "
-            "    prn_type = :prn_type and "
-            "    version > :version ";
-        else {
-        SQLText =
-            "delete from bt_forms where "
-            "    tag_type = :bp_type and "
-            "    prn_type = :prn_type and "
-            "    num = :num and "
-            "    version > :version ";
-            Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+        switch(doc) {
+            case dtBP:
+                SQLText =
+                    "delete from bp_forms where "
+                    "    bp_type = :bp_type and "
+                    "    prn_type = :prn_type and "
+                    "    version > :version ";
+                break;
+            case dtBT:
+                SQLText =
+                    "delete from bt_forms where "
+                    "    tag_type = :bp_type and "
+                    "    prn_type = :prn_type and "
+                    "    num = :num and "
+                    "    version > :version ";
+                Qry.CreateVariable("num", otInteger, NodeAsInteger("num", reqNode));
+                break;
+            case dtReceipt:
+                SQLText =
+                    "delete from br_forms where "
+                    "    form_type = :bp_type and "
+                    "    prn_type = :prn_type and "
+                    "    version > :version ";
+                break;
+            default:
+                throw Exception("DesignBlankInterface::Save: (1) unsupported doc type %d", (int)doc);
+                break;
         }
     }
     Qry.SQLText = SQLText;
@@ -138,65 +196,98 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
 
     TQuery Qry(&OraSession);        
-    if(doc == dtBP)
-        Qry.SQLText =
-            "select  "
-            "   bp_forms.version, "
-            "   bp_forms.bp_type,  "
-            "   0 num, "
-            "   bp_forms.form,  "
-            "   bp_forms.data  "
-            "from  "
-            "   bp_forms, "
-            "   ( "
-            "    select "
-            "        bp_type, "
-            "        prn_type, "
-            "        max(version) version "
-            "    from "
-            "        bp_forms "
-            "    group by "
-            "        bp_type, "
-            "        prn_type "
-            "   ) a "
-            "where  "
-            "   a.prn_type = :prn_type and "
-            "   a.bp_type = bp_forms.bp_type and "
-            "   a.prn_type = bp_forms.prn_type and "
-            "   a.version = bp_forms.version ";
-    else
-        Qry.SQLText =
-            "select  "
-            "   bt_forms.version, "
-            "   bt_forms.tag_type bp_type,  "
-            "   bt_forms.num, "
-            "   bt_forms.form,  "
-            "   bt_forms.data  "
-            "from  "
-            "   bt_forms, "
-            "   ( "
-            "    select "
-            "        tag_type, "
-            "        prn_type, "
-            "        num, "
-            "        max(version) version "
-            "    from "
-            "        bt_forms "
-            "    group by "
-            "        tag_type, "
-            "        prn_type, "
-            "        num "
-            "   ) a "
-            "where  "
-            "   a.prn_type = :prn_type and "
-            "   a.tag_type = bt_forms.tag_type and "
-            "   a.prn_type = bt_forms.prn_type and "
-            "   a.num = bt_forms.num and "
-            "   a.version = bt_forms.version "
-            "order by "
-            "   bt_forms.tag_type, "
-            "   bt_forms.num ";
-
+    switch(doc) {
+        case dtBP:
+            Qry.SQLText =
+                "select  "
+                "   bp_forms.version, "
+                "   bp_forms.bp_type,  "
+                "   0 num, "
+                "   bp_forms.form,  "
+                "   bp_forms.data  "
+                "from  "
+                "   bp_forms, "
+                "   ( "
+                "    select "
+                "        bp_type, "
+                "        prn_type, "
+                "        max(version) version "
+                "    from "
+                "        bp_forms "
+                "    group by "
+                "        bp_type, "
+                "        prn_type "
+                "   ) a "
+                "where  "
+                "   a.prn_type = :prn_type and "
+                "   a.bp_type = bp_forms.bp_type and "
+                "   a.prn_type = bp_forms.prn_type and "
+                "   a.version = bp_forms.version ";
+            break;
+        case dtBT:
+            Qry.SQLText =
+                "select  "
+                "   bt_forms.version, "
+                "   bt_forms.tag_type bp_type,  "
+                "   bt_forms.num, "
+                "   bt_forms.form,  "
+                "   bt_forms.data  "
+                "from  "
+                "   bt_forms, "
+                "   ( "
+                "    select "
+                "        tag_type, "
+                "        prn_type, "
+                "        num, "
+                "        max(version) version "
+                "    from "
+                "        bt_forms "
+                "    group by "
+                "        tag_type, "
+                "        prn_type, "
+                "        num "
+                "   ) a "
+                "where  "
+                "   a.prn_type = :prn_type and "
+                "   a.tag_type = bt_forms.tag_type and "
+                "   a.prn_type = bt_forms.prn_type and "
+                "   a.num = bt_forms.num and "
+                "   a.version = bt_forms.version "
+                "order by "
+                "   bt_forms.tag_type, "
+                "   bt_forms.num ";
+            break;
+        case dtReceipt:
+            Qry.SQLText =
+                "select "
+                "   br_forms.version, "
+                "   br_forms.form_type bp_type, "
+                "   0 num, "
+                "   null form, "
+                "   br_forms.data "
+                "from "
+                "   br_forms, "
+                "   ( "
+                "    select "
+                "        form_type, "
+                "        prn_type, "
+                "        max(version) version "
+                "    from "
+                "        br_forms "
+                "    group by "
+                "        form_type, "
+                "        prn_type "
+                "   ) a "
+                "where "
+                "   a.prn_type = :prn_type and "
+                "   a.form_type = br_forms.form_type and "
+                "   a.prn_type = br_forms.prn_type and "
+                "   a.version = br_forms.version ";
+            break;
+        default:
+            throw Exception("DesignBlankInterface::GetBlanksList: unsupported doc type %d", (int)doc);
+            break;
+    }
     Qry.CreateVariable("prn_type", otInteger, NodeAsInteger("prn_type", reqNode));
     Qry.Execute();
     if(Qry.Eof) throw Exception("Нет бланков для редактирования");
