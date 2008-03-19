@@ -1080,8 +1080,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
     if(
             rcpt.form_type != "M61" &&
             rcpt.form_type != "Z61" &&
-            rcpt.form_type != "451" &&
-            rcpt.form_type != "ЮХ" &&
+            rcpt.form_type != "298 451" &&
+            rcpt.form_type != "ЮХ 451" &&
             rcpt.form_type != "35"
             )
         throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
@@ -1157,8 +1157,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
   if(rcpt.bag_type != -1) {
       if(
-              rcpt.form_type == "451" ||
-              rcpt.form_type == "ЮХ" ||
+              rcpt.form_type == "298 451" ||
+              rcpt.form_type == "ЮХ 451" ||
               rcpt.form_type == "35"
               ) {
           switch(rcpt.bag_type) {
