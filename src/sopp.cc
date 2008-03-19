@@ -1891,7 +1891,7 @@ void GetBirks( int point_id, xmlNodePtr dataNode )
 	 "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=0 ";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
-	xmlNodePtr node = NewTextChild( dataNode, "birks" );
+	xmlNodePtr node = NewTextChild( dataNode, "birks", Qry.FieldAsString( "birks" ) );
 	NewTextChild( node, "nobrd", Qry.FieldAsInteger( "nobrd" ) );
 	NewTextChild( node, "birks", Qry.FieldAsString( "birks" ) );
 }
@@ -3591,11 +3591,23 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    		if ( snode ) {
 	    		  l->craft = NodeAsString( snode );
 	    		  l->modify = true;
+	    		  for( TDests::iterator b=dests.begin(); b!=dests.end(); b++ ) {
+	    		  	if ( b->craft.empty() ) { // set craft in all dests
+	    		  		b->craft = l->craft;
+	    		  		b->modify = true;
+	    		  	}
+	    		  }	    		  
 	    		}
 	    		snode = GetNodeFast( "bort", tripNode );
 	    		if ( snode ) {
 	    		  l->bort = NodeAsString( snode );
 	    		  l->modify = true;
+	    		  for( TDests::iterator b=dests.begin(); b!=dests.end(); b++ ) {
+	    		  	if ( b->bort.empty() ) { // set bort in all dests
+	    		  		b->bort = l->bort;
+	    		  		b->modify = true;
+	    		  	}
+	    		  }
 	    		}
 	    		snode = GetNodeFast( "park_in", tripNode );
 	    		if ( snode ) {
