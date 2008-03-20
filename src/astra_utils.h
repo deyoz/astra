@@ -286,4 +286,6 @@ std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);
 bool get_test_server();
 
+std::string& EOracleError2UserException(std::string& msg);
+
 #endif /*_ASTRA_UTILS_H_*/

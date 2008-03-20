@@ -1579,7 +1579,20 @@ string transliter(const string &value, bool pr_lat)
   return result;
 }
 
-
+string& EOracleError2UserException(string& msg)
+{
+  if (msg.substr( 0, 3 ) == "ORA")
+  {
+    size_t p = msg.find( ": " );
+    if ( p != string::npos )
+    {
+      msg.erase( 0, p+2 );
+      p = msg.find_first_of("\n\r");
+      if ( p != string::npos ) msg.erase( p );
+    };
+  };
+  return msg;
+};
 
 
 
