@@ -677,12 +677,15 @@ void Takeoff( int point_id )
   {
     vector<string> tlg_types;
     tlg_types.push_back("PTM");
+    tlg_types.push_back("PTMN");
     tlg_types.push_back("BTM");
     tlg_types.push_back("PSM");
     tlg_types.push_back("PFS");
+    tlg_types.push_back("PFSN");
     tlg_types.push_back("FTL");
     tlg_types.push_back("PRL");
     tlg_types.push_back("ETL");
+    tlg_types.push_back("LDM");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
   catch(std::exception &E)
