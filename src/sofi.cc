@@ -68,11 +68,11 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, const stri
   params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
 }
 
-bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams, 
+bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams,
 	                   const std::string &point_addr, TFileDatas &fds )
 {
-	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );	
-  TQuery Qry(&OraSession);	
+	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );
+  TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT TO_CHAR(bag_receipts.no) no,bag_receipts.form_type,bag_receipts.aircode,bag_receipts.issue_date, "
     "      bag_receipts.pax_name,bag_receipts.tickets,bag_receipts.airp_dep,bag_receipts.airp_arv, "
@@ -81,9 +81,11 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
     "      bag_receipts.exch_rate,bag_receipts.exch_pay_rate,bag_receipts.pay_rate_cur, "
     "      bag_receipts.ex_weight,bag_receipts.issue_user_id, bag_receipts.issue_desk, "
     "      desks.code pult, desk_grp.city as sale_city,  "
-    "      points.scd_out, users2.descr, points.point_id point_id  "
-    "FROM bag_receipts, desks, desk_grp, pax_grp, points, users2  "
-    "WHERE receipt_id= :id AND  "
+    "      points.scd_out, users2.descr, points.point_id point_id,  "
+    "      form_types.basic_type AS basic_form_type,form_types.validator "
+    "FROM bag_receipts, form_types, desks, desk_grp, pax_grp, points, users2  "
+    "WHERE bag_receipts.form_type=form_types.code AND "
+    "      receipt_id= :id AND  "
     "      bag_receipts.service_type IN (1,2) AND "
     "      bag_receipts.issue_desk=desks.code AND  "
     "      desks.grp_id=desk_grp.grp_id AND  "
@@ -92,52 +94,43 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
     "      bag_receipts.issue_user_id=users2.user_id";
 	Qry.CreateVariable( "id", otInteger, receipt_id );
 	Qry.Execute();
-	tst();
 	if ( Qry.Eof )
 		return false;
 	int point_id = Qry.FieldAsInteger( "point_id" );
-  TQuery QryAgency(&OraSession);		
-  for(map<string,string>::iterator im = inparams.begin(); im != inparams.end(); im++) {	
+
+  for(map<string,string>::iterator im = inparams.begin(); im != inparams.end(); im++) {
  	  if ( im->first == SOFI_AGENCY_PARAMS ) {
-      QryAgency.SQLText="SELECT validator FROM form_types WHERE code=:code";
-      QryAgency.CreateVariable( "code", otString, Qry.FieldAsString( "form_type" ) );
-      QryAgency.Execute();
-      if ( QryAgency.Eof ) 
-      	throw Exception("get_validator: unknown form_type %s", Qry.FieldAsString( "form_type" ) );
-      string validator_type=QryAgency.FieldAsString("validator");
-      QryAgency.Clear();
-      QryAgency.SQLText=
+ 	    TQuery AgencyQry(&OraSession);
+      AgencyQry.Clear();
+      AgencyQry.SQLText=
        "SELECT sale_points.agency FROM sale_desks, sale_points "
        "WHERE sale_desks.code=:code AND sale_desks.validator=:validator AND "
        " sale_points.code=sale_desks.sale_point AND sale_points.validator=sale_desks.validator";
-      QryAgency.CreateVariable( "code", otString, Qry.FieldAsString( "issue_desk" ) );
-      QryAgency.CreateVariable("validator", otString, validator_type );
-      QryAgency.Execute();
-      tst();
-      if ( im->second != QryAgency.FieldAsString("agency") )
-      	return false;
-      tst();
+      AgencyQry.CreateVariable( "code", otString, Qry.FieldAsString( "issue_desk" ) );
+      AgencyQry.CreateVariable( "validator", otString, Qry.FieldAsString("validator") );
+ 	    AgencyQry.Execute();
+ 	    if (AgencyQry.Eof ||
+ 	        im->second != AgencyQry.FieldAsString("agency")) return false;
  	  	break;
  	  }
  	}
-  tst();
 	const string dlmt = "``|``";
 	ostringstream res;
-	res<<setfill(' ')<<std::fixed<<setw(3)<<"КПБ";
-	res<<dlmt; //1 ВИД ДЕЯТЕЛЬНОСТИ CHAR(3) СП(Страховые полисы), КПБ(платный багаж)
-	res<<"_BAGGAGE_";
-	res<<dlmt; //2 Служебная информация CHAR(X)
-	string t = Qry.FieldAsString( "form_type" );
-    res<<setw(3)<<t;
- res<<dlmt; //3 Серия бланка Z, M, CHA, CБА CHAR(3)
- res<<trim(string(Qry.FieldAsString( "no" )).substr(0,10));
- res<<dlmt; //4 Номер бланка NUMBER(10)
- res<<Qry.FieldAsString( "aircode" );
- res<<dlmt; //5 Расчетный код CHAR(3)
- string val = CityTZRegion( Qry.FieldAsString( "sale_city" ) );
- TDateTime d = UTCToLocal( Qry.FieldAsDateTime( "issue_date" ), val );
- res<<DateTimeToStr( d, "dd.mm.yyyy");
- res<<dlmt; //6 Дата продажи CHAR(10) 10.10.2006
+	//1 ВИД ДЕЯТЕЛЬНОСТИ CHAR(3) СП(Страховые полисы), КПБ(платный багаж)
+	res << setfill(' ') << std::fixed << setw(3) << "КПБ" << dlmt;
+	//2 Служебная информация CHAR(X)
+	res << "_BAGGAGE_" << dlmt;
+	//3 Серия бланка Z, M, CHA, CБА CHAR(3)
+  res << setw(3) << Qry.FieldAsString( "basic_form_type" ) << dlmt;
+  //4 Номер бланка NUMBER(10)
+  res << trim(string(Qry.FieldAsString( "no" )).substr(0,10)) << dlmt;
+  //5 Расчетный код CHAR(3)
+  res<<Qry.FieldAsString( "aircode" ) << dlmt;
+
+  string val = CityTZRegion( Qry.FieldAsString( "sale_city" ) );
+  TDateTime d = UTCToLocal( Qry.FieldAsDateTime( "issue_date" ), val );
+  //6 Дата продажи CHAR(10) 10.10.2006
+  res << DateTimeToStr( d, "dd.mm.yyyy") << dlmt;
 
  // surname & name
  {
