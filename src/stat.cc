@@ -2240,27 +2240,13 @@ TTagQryParts::TTagQryParts(int state)
     if(ctarget_trfer) {
         astra_from =
             "( "
-            "  SELECT transfer.grp_id, "
-            "         airline,flt_no,suffix,airp_arv,subclass "
-            "  FROM astra.transfer, "
-            "      (SELECT grp_id,MAX(transfer_num) AS transfer_num "
-            "       FROM astra.transfer WHERE transfer_num>0 GROUP BY grp_id) last_transfer "
-            "  WHERE "
-            "      transfer.grp_id=last_transfer.grp_id AND "
-            "      transfer.transfer_num=last_transfer.transfer_num "
+            "  SELECT grp_id,airline,flt_no,suffix,airp_arv,subclass "
+            "  FROM trfer_trips,transfer "
+            "  WHERE transfer.point_id_trfer=trfer_trips.point_id AND pr_final<>0 "
             ") lt, ";
         arx_from =
             "( "
-            "  SELECT transfer.grp_id, "
-            "         airline,flt_no,suffix,airp_arv,subclass "
-            "  FROM arx.transfer, "
-            "      (SELECT grp_id,MAX(transfer_num) AS transfer_num "
-            "       FROM arx.transfer WHERE transfer_num>0 GROUP BY grp_id) last_transfer "
-            "  WHERE "
-            "      transfer.part_key >= :FirstDate and "
-            "      transfer.part_key < :LastDate and "
-            "      transfer.grp_id=last_transfer.grp_id AND "
-            "      transfer.transfer_num=last_transfer.transfer_num "
+            "  пока не знаю как будет!!! "
             ") lt, ";
         where = "pax_grp.grp_id = lt.grp_id(+) and ";
     }

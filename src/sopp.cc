@@ -55,7 +55,7 @@ const char* points_id_SOPP_SQL =
     " FROM points, "
     " ( SELECT move_id FROM points WHERE point_id=:point_id AND pr_del!=-1 AND ROWNUM<2 ) a "
     "   WHERE pr_del!=-1 AND points.move_id=a.move_id "
-    "ORDER BY points.move_id,point_num,point_id ";    
+    "ORDER BY points.move_id,point_num,point_id ";
 const char* points_ISG_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
     "       suffix,suffix_fmt,craft,craft_fmt,bort,"
@@ -477,9 +477,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   	else
   		if ( point_id == NoExists )
 	  		PointsQry.SQLText = points_SOPP_SQL;
-  		else {  			
+  		else {
   			PointsQry.SQLText = points_id_SOPP_SQL;
-  			PointsQry.CreateVariable( "point_id", otInteger, point_id );  			
+  			PointsQry.CreateVariable( "point_id", otInteger, point_id );
   	  }
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
@@ -575,15 +575,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   int col_point_id = PointsQry.FieldIndex( "point_id" );
   int col_point_num = PointsQry.FieldIndex( "point_num" );
   int col_airp = PointsQry.FieldIndex( "airp" );
-  int col_airp_fmt = PointsQry.FieldIndex( "airp_fmt" );  
+  int col_airp_fmt = PointsQry.FieldIndex( "airp_fmt" );
   int col_first_point = PointsQry.FieldIndex( "first_point" );
   int col_airline = PointsQry.FieldIndex( "airline" );
-  int col_airline_fmt = PointsQry.FieldIndex( "airline_fmt" );  
+  int col_airline_fmt = PointsQry.FieldIndex( "airline_fmt" );
   int col_flt_no = PointsQry.FieldIndex( "flt_no" );
   int col_suffix = PointsQry.FieldIndex( "suffix" );
-  int col_suffix_fmt = PointsQry.FieldIndex( "suffix_fmt" );  
+  int col_suffix_fmt = PointsQry.FieldIndex( "suffix_fmt" );
   int col_craft = PointsQry.FieldIndex( "craft" );
-  int col_craft_fmt = PointsQry.FieldIndex( "craft_fmt" );  
+  int col_craft_fmt = PointsQry.FieldIndex( "craft_fmt" );
   int col_bort = PointsQry.FieldIndex( "bort" );
   int col_scd_in = PointsQry.FieldIndex( "scd_in" );
   int col_est_in = PointsQry.FieldIndex( "est_in" );
@@ -633,7 +633,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       if ( pr_isg )
         ref = PointsQry.FieldAsString( col_ref );
       dests.clear();
-    }    
+    }
     TSOPPDest d;
     d.point_id = PointsQry.FieldAsInteger( col_point_id );
     d.point_num = PointsQry.FieldAsInteger( col_point_num );
@@ -733,7 +733,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
                    id->airp
                  ) != reqInfo->user.access.airps.end() ||
              reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
-         TSOPPTrip tr = createTrip( move_id, id, dests );      
+         TSOPPTrip tr = createTrip( move_id, id, dests );
          tr.ref = ref;
          if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
          	                      errcity, pr_isg ) ) {
@@ -1389,18 +1389,20 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   else
   {
     Qry.SQLText=
-      "SELECT transfer.airline,transfer.flt_no,transfer.suffix,transfer.local_date, "
+      "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
       "       pax_grp.airp_arv AS airp_dep,transfer.airp_arv,transfer.subclass, "
       "       pax_grp.grp_id,pax_grp.class AS subcl, "
       "       NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
       "       NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
       "       NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
       "       'K' AS weight_unit "
-      "FROM pax_grp,transfer "
-      "WHERE pax_grp.grp_id=transfer.grp_id AND transfer.transfer_num=1 AND "
+      "FROM pax_grp,transfer,trfer_trips "
+      "WHERE pax_grp.grp_id=transfer.grp_id AND "
+      "      transfer.point_id_trfer=trfer_trips.point_id AND "
+      "      transfer.transfer_num=1 AND "
       "      pax_grp.point_dep=:point_id AND bag_refuse=0 AND pax_grp.status<>'T' "
-      "ORDER BY transfer.local_date,transfer.airline,transfer.flt_no, "
-      "         transfer.suffix,pax_grp.airp_arv,transfer.airp_arv ";
+      "ORDER BY trfer_trips.scd,trfer_trips.airline,trfer_trips.flt_no, "
+      "         trfer_trips.suffix,pax_grp.airp_arv,transfer.airp_arv ";
     Qry.CreateVariable("point_id",otInteger,point_id);
 
     PaxQry.SQLText=
@@ -1428,11 +1430,8 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     ostringstream trip;
     trip << Qry.FieldAsString("airline")
          << Qry.FieldAsInteger("flt_no")
-         << Qry.FieldAsString("suffix") << "/";
-    if (pr_tlg)
-      trip << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
-    else
-      trip << setw(2) << setfill('0') << Qry.FieldAsInteger("local_date");
+         << Qry.FieldAsString("suffix") << "/"
+         << DateTimeToStr(Qry.FieldAsDateTime("scd"),"dd");
 
     if (prev_trip!=trip.str() ||
         strcmp(airp_dep,Qry.FieldAsString("airp_dep"))!=0 ||
@@ -2314,8 +2313,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.CreateVariable( "move_id", otInteger, move_id );
     Qry.DeclareVariable( "airp", otString );
     Qry.DeclareVariable( "airline", otString );
-    Qry.DeclareVariable( "flt_no", otInteger );    
-    Qry.DeclareVariable( "suffix", otString );    
+    Qry.DeclareVariable( "flt_no", otInteger );
+    Qry.DeclareVariable( "suffix", otString );
     Qry.DeclareVariable( "scd_in", otDate );
     Qry.DeclareVariable( "scd_out", otDate );
     TDateTime oldtime, curtime = NoExists;
@@ -2373,7 +2372,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         else scd_in = NoExists;
         if ( id->scd_out > NoExists ) {
         	if ( region.empty () )
-            region = AirpTZRegion( id->airp );        		
+            region = AirpTZRegion( id->airp );
         	ProgTrace( TRACE5, "id->airp=%s, region=%s, id->point_id=%d", id->airp.c_str(), region.c_str(), id->point_id );
           d1 = UTCToLocal( id->scd_out, region );
           tst();
@@ -2387,7 +2386,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         			ProgTrace( TRACE5, "d1=%f, scd_in=%f", d1, scd_in );
         			existsTrip = true;
         			break;
-        		}        		
+        		}
         	}
         	if ( !Qry.FieldIsNULL( "scd_out" ) && scd_out > NoExists ) {
         		modf( (double)UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), &d1 );
@@ -2395,8 +2394,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         			ProgTrace( TRACE5, "d1=%f, scd_out=%f", d1, scd_out );
         			existsTrip = true;
         			break;
-        		}        		
-        	}        	
+        		}
+        	}
         	Qry.Next();
         }
       }
@@ -2704,7 +2703,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
-               id->airp.c_str(), id->airp_fmt, id->airline.c_str(), id->airline_fmt, id->craft.c_str(), id->craft_fmt, id->suffix.c_str(), id->suffix_fmt );  	
+               id->airp.c_str(), id->airp_fmt, id->airline.c_str(), id->airline_fmt, id->craft.c_str(), id->craft_fmt, id->suffix.c_str(), id->suffix_fmt );
   	Qry.CreateVariable( "move_id", otInteger, move_id );
   	Qry.CreateVariable( "point_id", otInteger, id->point_id );
   	if ( ch_point_num )
@@ -2725,11 +2724,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else {
   	  Qry.CreateVariable( "airline", otString, id->airline );
   	  Qry.CreateVariable( "airline_fmt", otInteger, id->airline_fmt );
-  	}	
+  	}
   	if ( id->flt_no == NoExists )
   		Qry.CreateVariable( "flt_no", otInteger, FNull );
     else
-  		Qry.CreateVariable( "flt_no", otInteger, id->flt_no );  		
+  		Qry.CreateVariable( "flt_no", otInteger, id->flt_no );
   	if ( id->suffix.empty() ) {
   		Qry.CreateVariable( "suffix", otString, FNull );
   		Qry.CreateVariable( "suffix_fmt", otInteger, FNull );
@@ -2737,7 +2736,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else {
   		Qry.CreateVariable( "suffix", otString, id->suffix );
   		Qry.CreateVariable( "suffix_fmt", otInteger, id->suffix_fmt );
-  	}  	
+  	}
   	if ( id->craft.empty() ) {
   		Qry.CreateVariable( "craft", otString, FNull );
   		Qry.CreateVariable( "craft_fmt", otInteger, FNull );
@@ -2747,7 +2746,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.CreateVariable( "craft_fmt", otInteger, id->craft_fmt );
   	}
   	if ( id->bort.empty() )
-  		Qry.CreateVariable( "bort", otString, FNull );  		  	
+  		Qry.CreateVariable( "bort", otString, FNull );
   	else
   		Qry.CreateVariable( "bort", otString, id->bort );
   	if ( id->scd_in == NoExists )
@@ -2789,7 +2788,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.CreateVariable( "park_in", otString, id->park_in );
   	if ( id->park_out.empty() )
   		Qry.CreateVariable( "park_out", otString, FNull );
-  	else  		
+  	else
  		Qry.CreateVariable( "park_out", otString, id->park_out );
   	Qry.CreateVariable( "pr_del", otInteger, id->pr_del );
   	Qry.CreateVariable( "tid", otInteger, new_tid );
@@ -2977,7 +2976,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     }
     catch( EConvertError &e ) {
       throw UserException( "Неправильно задан код аэропорта" );
-    }                    	
+    }
 		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp )).city;
 		region = CityTZRegion( city );
 		d.region = region;
@@ -2988,7 +2987,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       catch( EConvertError &e ) {
     	  throw UserException( "Неправильно задан код авиакомпании" );
-      }                    	
+      }
 	  }
 		else
 			d.airline.clear();
@@ -3004,7 +3003,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       catch( EConvertError &e ) {
     	  throw UserException( "Неправильно задан суффикс рейса" );
-      }                    	        	
+      }
 	  }
 		else
 			d.suffix.clear();
@@ -3015,7 +3014,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       catch( EConvertError &e ) {
     	  throw UserException( "Неправильно задан код воздушного судна" );
-      }                    	
+      }
 	  }
 		else
 			d.craft.clear();
@@ -3268,7 +3267,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry )
 {
-	
+
   bool ch_class = false;
   bool ch_dest = false;
   string str_to, trip;
@@ -3286,9 +3285,9 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
   			ch_dest = true;
   	}
   	else {
-  		trip = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ), 
-  		                         TReqInfo::Instance()->user.sets.disp_airline ) + 
-  		       Qry.FieldAsString( "flt_no" ) + 
+  		trip = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ),
+  		                         TReqInfo::Instance()->user.sets.disp_airline ) +
+  		       Qry.FieldAsString( "flt_no" ) +
   		       ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ),
   		                         TReqInfo::Instance()->user.sets.disp_suffix );
   		TDateTime  f1, f2;
@@ -3322,7 +3321,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   TQry.SQLText =
    "SELECT point_id FROM tlg_trips "
    " WHERE pr_utc=0 AND bind_type=0 AND airp_dep=:airp_dep AND airp_arv IS NULL AND "
-   "       airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "  
+   "       airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
    "       scd >= TRUNC(TO_DATE(:scd)) AND scd < TRUNC(TO_DATE(:scd))+1";
   TQry.DeclareVariable( "airp_dep", otString );
   TQry.DeclareVariable( "airline", otString );
@@ -3571,14 +3570,14 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             }
             catch( EConvertError &e ) {
     	        throw UserException( "Неправильно задан код воздушного судна" );
-            }                    		    			
+            }
 	    		  l->modify = true;
 	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end()-1; b++ ) {
 	    		  	if ( b->craft.empty() ) { // set craft in all dests
 	    		  		b->craft = l->craft;
 	    		  		b->modify = true;
 	    		  	}
-	    		  }	    		  
+	    		  }
 	    		}
 	    		snode = GetNodeFast( "bort", tripNode );
 	    		if ( snode ) {
@@ -3614,7 +3613,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    	        	setDestTime( GetNodeFast( "scd_in", destNode ), d->scd_in, d->region );
 	    	        	setDestTime( GetNodeFast( "est_in", destNode ), d->est_in, d->region );
 	    	        	setDestTime( GetNodeFast( "act_in", destNode ), d->act_in, d->region );
-	    	        	setDestTime( GetNodeFast( "scd_out", destNode ), d->scd_out, d->region );	    	        	  
+	    	        	setDestTime( GetNodeFast( "scd_out", destNode ), d->scd_out, d->region );
 	    	        	setDestTime( GetNodeFast( "est_out", destNode ), d->est_out, d->region );
     	        	  setDestTime( GetNodeFast( "act_out", destNode ), d->act_out, d->region );
 	    	        	tmNode = GetNodeFast( "pr_del", destNode );
@@ -3627,7 +3626,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    	        	if ( tmNode ) {
 	    	        		tmNode = tmNode->children;
 	    	        		while ( tmNode ) {
-                      TSOPPDelay delay;	    	        			
+                      TSOPPDelay delay;
 	    	        		  xmlNodePtr N = tmNode->children;
 	    	    	    		delay.code = NodeAsStringFast( "code", N );
 	    	        			setDestTime( GetNodeFast( "time", N ), delay.time, d->region );

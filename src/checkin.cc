@@ -12,6 +12,7 @@
 #include "telegram.h"
 #include "misc.h"
 #include "payment.h"
+#include "astra_misc.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1955,7 +1956,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               ". Баг.нормы: "+normStr;
       reqInfo->MsgToLog(msg);
     };
-    SaveTransfer(reqNode);
+    TLogMsg msg;
+    msg.ev_type=ASTRA::evtPax;
+    msg.id1=point_dep;
+    msg.id2=0;
+    msg.id3=grp_id;
+    msg.msg=SaveTransfer(reqNode);
+    if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
   }
   else
   {
@@ -2664,45 +2671,218 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   return logStr;
 };
 
-void CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
+void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  if (grpNode==NULL) return;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT grp_id,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass "
+    "FROM drop_transfer ORDER BY grp_id,transfer_num";
+  Qry.Execute();
+  int grp_id=-1;
+  xmlNodePtr trferNode=NULL,segNode;
+  if (!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (grp_id!=Qry.FieldAsInteger("grp_id"))
+      {
+        if (grp_id!=-1)
+        try
+        {
+          SaveTransfer(resNode);
+        }
+        catch(UserException &E)
+        {
+          ProgError(STDLOG,"ConvertTransfer (grp_id=%d): %s",grp_id,E.what());
+        };
+
+        grp_id=Qry.FieldAsInteger("grp_id");
+
+        ReplaceTextChild(resNode,"grp_id",grp_id);
+        trferNode=GetNode("transfer",resNode);
+        if (trferNode!=NULL)
+        {
+          xmlUnlinkNode(trferNode);
+          xmlFreeNode(trferNode);
+          trferNode=NULL;
+        };
+      };
+      if (trferNode==NULL)
+        trferNode=NewTextChild(resNode,"transfer");
+      segNode=NewTextChild(trferNode,"segment");
+      NewTextChild(segNode,"airline",Qry.FieldAsString("airline"));
+      NewTextChild(segNode,"flt_no",Qry.FieldAsInteger("flt_no"));
+      NewTextChild(segNode,"suffix",Qry.FieldAsString("suffix"));
+      NewTextChild(segNode,"local_date",Qry.FieldAsInteger("local_date"));
+      NewTextChild(segNode,"airp_arv",Qry.FieldAsString("airp_arv"));
+      NewTextChild(segNode,"subclass",Qry.FieldAsString("subclass"));
+    };
+    try
+    {
+      SaveTransfer(resNode);
+    }
+    catch(UserException &E)
+    {
+      ProgError(STDLOG,"ConvertTransfer (grp_id=%d): %s",grp_id,E.what());
+    };
+  };
+};
+
+string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
+{
+  if (grpNode==NULL) return "";
   xmlNodePtr node2=grpNode->children;
   int grp_id=NodeAsIntegerFast("grp_id",node2);
 
   xmlNodePtr trferNode=GetNodeFast("transfer",node2);
-  if (trferNode==NULL) return;
+  if (trferNode==NULL) return "";
 
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
-  TrferQry.SQLText="DELETE FROM transfer WHERE grp_id=:grp_id";
+  TrferQry.SQLText=
+    "BEGIN "
+    "  :rows:=ckin.delete_grp_trfer(:grp_id); "
+    "END;";
+  TrferQry.CreateVariable("rows",otInteger,0);
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
 
+  trferNode=trferNode->children;
+  if (trferNode==NULL)
+  {
+    if (TrferQry.GetVariableAsInteger("rows")>0)
+      return "Отменен трансфер пассажиров и багажа";
+    else
+      return "";
+  };
+
+  TrferQry.Clear();
   TrferQry.SQLText=
-    "INSERT INTO transfer(grp_id,transfer_num,airline,flt_no,suffix,local_date,airp_arv,subclass) "
-    "VALUES(:grp_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_arv,:subclass)";
+    "SELECT scd_out,airp AS airp_dep,airp_arv FROM points,pax_grp "
+    "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id";
+  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
+  TrferQry.Execute();
+  if (TrferQry.Eof) throw Exception("Passenger group not found (grp_id=%d)",grp_id);
+
+  string airp_arv=TrferQry.FieldAsString("airp_arv");
+  TDateTime local_scd=UTCToLocal(TrferQry.FieldAsDateTime("scd_out"),
+                                 AirpTZRegion(TrferQry.FieldAsString("airp_dep")));
+
+  TrferQry.Clear();
+  TrferQry.SQLText=
+    "BEGIN "
+    "  BEGIN "
+    "    SELECT point_id INTO :point_id_trfer FROM trfer_trips "
+    "    WHERE scd=:scd AND airline=:airline AND flt_no=:flt_no AND airp_dep=:airp_dep AND "
+    "          (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) for UPDATE; "
+    "  EXCEPTION "
+    "    WHEN NO_DATA_FOUND THEN "
+    "      SELECT id__seq.nextval INTO :point_id_trfer FROM dual; "
+    "      INSERT INTO trfer_trips(point_id,airline,flt_no,suffix,scd,airp_dep,point_id_spp) "
+    "      VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
+    "  END; "
+    "  INSERT INTO transfer(grp_id,transfer_num,point_id_trfer, "
+    "    airline_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,subclass,subclass_fmt,pr_final) "
+    "  VALUES(:grp_id,:transfer_num,:point_id_trfer, "
+    "    :airline_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:subclass,:subclass_fmt,:pr_final); "
+    "END;";
+  TrferQry.DeclareVariable("point_id_trfer",otInteger);
+  TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.DeclareVariable("transfer_num",otInteger);
   TrferQry.DeclareVariable("airline",otString);
+  TrferQry.DeclareVariable("airline_fmt",otInteger);
   TrferQry.DeclareVariable("flt_no",otInteger);
   TrferQry.DeclareVariable("suffix",otString);
-  TrferQry.DeclareVariable("local_date",otInteger);
+  TrferQry.DeclareVariable("scd",otDate);
+  TrferQry.DeclareVariable("airp_dep",otString);
+  TrferQry.DeclareVariable("airp_dep_fmt",otInteger);
   TrferQry.DeclareVariable("airp_arv",otString);
+  TrferQry.DeclareVariable("airp_arv_fmt",otInteger);
   TrferQry.DeclareVariable("subclass",otString);
-  int i=1;
-  for(trferNode=trferNode->children;trferNode!=NULL;trferNode=trferNode->next,i++)
+  TrferQry.DeclareVariable("subclass_fmt",otInteger);
+  TrferQry.DeclareVariable("pr_final",otInteger);
+  int i,num=1,fmt;
+  string str;
+  TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+  ostringstream msg;
+  msg << "Оформлен трансфер по маршруту:";
+  for(;trferNode!=NULL;trferNode=trferNode->next,num++)
   {
+    msg << " -> ";
+
     node2=trferNode->children;
-    TrferQry.SetVariable("transfer_num",i);
-    TrferQry.SetVariable("airline",NodeAsStringFast("airline",node2));
-    TrferQry.SetVariable("flt_no",NodeAsIntegerFast("flt_no",node2));
-    TrferQry.SetVariable("suffix",NodeAsStringFast("suffix",node2));
-    TrferQry.SetVariable("local_date",NodeAsIntegerFast("local_date",node2));
-    TrferQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
-    TrferQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+    TrferQry.SetVariable("transfer_num",num);
+
+    ostringstream flt;
+    flt << NodeAsStringFast("airline",node2)
+        << setw(3) << setfill('0') << NodeAsIntegerFast("flt_no",node2)
+        << NodeAsStringFast("suffix",node2) << "/"
+        << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
+
+    //авиакомпания
+    str=NodeAsStringFast("airline",node2);
+    str=ElemToElemId(etAirline,str,fmt);
+    if (!(fmt==0 || fmt==1))
+      throw UserException("Неизвестный код а/к %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    TrferQry.SetVariable("airline",str);
+    TrferQry.SetVariable("airline_fmt",fmt);
+    msg << str;
+
+    i=NodeAsIntegerFast("flt_no",node2);
+    TrferQry.SetVariable("flt_no",i);
+    msg << setw(3) << setfill('0') << i;
+
+    str=NodeAsStringFast("suffix",node2);
+    TrferQry.SetVariable("suffix",str);
+    msg << str << "/";
+
+    i=NodeAsIntegerFast("local_date",node2);
+    try
+    {
+      local_scd=DayToDate(i,base_date);
+    }
+    catch(EConvertError &E)
+    {
+      throw UserException("Неверно указана локальная дата вылета стыковочного рейса %s",flt.str().c_str());
+    };
+    TrferQry.SetVariable("scd",local_scd);
+    base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+    msg << setw(2) << setfill('0') << i << ":";
+
+    //аэропорт вылета
+    str=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
+    str=ElemToElemId(etAirp,str,fmt);
+    if (!(fmt==0 || fmt==1))
+      throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    TrferQry.SetVariable("airp_dep",str);
+    TrferQry.SetVariable("airp_dep_fmt",fmt);
+    msg << str << "-";
+
+    //аэропорт прилета
+    airp_arv=NodeAsStringFast("airp_arv",node2);
+    str=ElemToElemId(etAirp,airp_arv,fmt);
+    if (!(fmt==0 || fmt==1))
+      throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    TrferQry.SetVariable("airp_arv",str);
+    TrferQry.SetVariable("airp_arv_fmt",fmt);
+    msg << str << ":";
+
+    //подкласс
+    str=NodeAsStringFast("subclass",node2);
+    str=ElemToElemId(etSubcls,str,fmt);
+    if (!(fmt==0 || fmt==1))
+      throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    TrferQry.SetVariable("subclass",str);
+    TrferQry.SetVariable("subclass_fmt",fmt);
+    msg << str;
+
+    TrferQry.SetVariable("pr_final",(int)(trferNode->next==NULL));
+
     TrferQry.Execute();
   };
-  TrferQry.Close();
+
+  return msg.str();
 };
 
 void CheckInInterface::LoadTransfer(xmlNodePtr grpNode)
@@ -2715,19 +2895,40 @@ void CheckInInterface::LoadTransfer(xmlNodePtr grpNode)
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
-    "SELECT airline,flt_no,suffix,local_date,airp_arv,subclass FROM transfer "
-    "WHERE grp_id=:grp_id AND transfer_num>0 ORDER BY transfer_num";
+    "SELECT airline,airline_fmt,flt_no,suffix,scd, "
+    "       airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,subclass,subclass_fmt "
+    "FROM transfer,trfer_trips "
+    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
+    "      grp_id=:grp_id AND transfer_num>0 "
+    "ORDER BY transfer_num";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
+  int iDay,iMonth,iYear;
   for(;!TrferQry.Eof;TrferQry.Next())
   {
     xmlNodePtr trferNode=NewTextChild(node,"segment");
-    NewTextChild(trferNode,"airline",TrferQry.FieldAsString("airline"));
+    NewTextChild(trferNode,"airline",
+                 ElemIdToElem(etAirline,
+                              TrferQry.FieldAsString("airline"),
+                              TrferQry.FieldAsInteger("airline_fmt")));
     NewTextChild(trferNode,"flt_no",TrferQry.FieldAsInteger("flt_no"));
     NewTextChild(trferNode,"suffix",TrferQry.FieldAsString("suffix"));
-    NewTextChild(trferNode,"local_date",TrferQry.FieldAsInteger("local_date"));
-    NewTextChild(trferNode,"airp_arv",TrferQry.FieldAsString("airp_arv"));
-    NewTextChild(trferNode,"subclass",TrferQry.FieldAsString("subclass"));
+    //дата
+    DecodeDate(TrferQry.FieldAsDateTime("scd"),iYear,iMonth,iDay);
+    NewTextChild(trferNode,"local_date",iDay);
+
+    NewTextChild(trferNode,"airp_dep",
+                 ElemIdToElem(etAirp,
+                              TrferQry.FieldAsString("airp_dep"),
+                              TrferQry.FieldAsInteger("airp_dep_fmt")));
+    NewTextChild(trferNode,"airp_arv",
+                 ElemIdToElem(etAirp,
+                              TrferQry.FieldAsString("airp_arv"),
+                              TrferQry.FieldAsInteger("airp_arv_fmt")));
+    NewTextChild(trferNode,"subclass",
+                 ElemIdToElem(etSubcls,
+                              TrferQry.FieldAsString("subclass"),
+                              TrferQry.FieldAsInteger("subclass_fmt")));
   };
   TrferQry.Close();
 };

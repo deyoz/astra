@@ -30,10 +30,12 @@ public:
      AddEvent("BagPaxList",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::GetTripCounters);
      AddEvent("GetTripCounters",evHandle);
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::OpenCheckInInfo);
+     AddEvent("OpenCheckInInfo",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::TestDateTime);
      AddEvent("TestDateTime",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::OpenCheckInInfo);
-     AddEvent("OpenCheckInInfo",evHandle);     
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ConvertTransfer);
+     AddEvent("ConvertTransfer",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -43,13 +45,16 @@ public:
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   void SavePaxRem(xmlNodePtr paxNode);
   std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
-  void SaveTransfer(xmlNodePtr grpNode);
+  std::string SaveTransfer(xmlNodePtr grpNode);
   static void SaveBag(xmlNodePtr grpNode);
   static void SavePaidBag(xmlNodePtr grpNode);
 
