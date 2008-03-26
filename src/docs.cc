@@ -1736,7 +1736,16 @@ void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(NodeIsNULL("name", reqNode))
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
-    RunRpt(name, reqNode, resNode);
+    try {
+        RunRpt(name, reqNode, resNode);
+    } catch( EOracleError E ) {
+        if ( E.Code >= 20000 ) {
+            string str = E.what();
+            EOracleError2UserException(str);
+            throw UserException( str.c_str() );
+        } else
+            throw;
+    }
 }
 
 void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
