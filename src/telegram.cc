@@ -1290,16 +1290,17 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,flt_no,suffix,airp_arv,local_date,subclass "
-    "FROM transfer "
-    "WHERE grp_id=:grp_id "
+
+    "SELECT airline,flt_no,suffix,scd,airp_dep,airp_arv,subclass "
+    "FROM transfer,trfer_trips "
+    "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
+    "      grp_id=:grp_id AND transfer_num>0 "
     "ORDER BY transfer_num";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   TBaseTable &airlines=base_tables.get("airlines");
   TBaseTable &airps=base_tables.get("airps");
   TBaseTable &subcls=base_tables.get("subcls");
-  TDateTime d=con.OutFlt.scd-1;
   for(;!Qry.Eof;Qry.Next())
   {
     TTransferItem flt;
@@ -1322,8 +1323,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
       strcpy(flt.subcl,subcl.c_str());
     };
 
-    flt.scd=DayToDate(Qry.FieldAsInteger("local_date"),d);
-    d=flt.scd-1;
+    flt.scd=Qry.FieldAsDateTime("scd");
 
     con.OnwardFlt.push_back(flt);
   };
