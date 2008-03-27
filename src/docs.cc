@@ -883,7 +883,6 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.Next();
     }
 
-
     if(name == "PMTrfer") {
         Qry.Clear();
         SQLText =
@@ -903,8 +902,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    BAG_AMOUNT, "
             "    BAG_WEIGHT, "
             "    EXCESS "
-            "FROM "
-            "    V_PM_TRFER_TOTAL "
+            "FROM ";
+        if(pr_vip == 2)
+            SQLText +=
+                "    V_PM_TRFER_TOTAL ";
+        else
+            SQLText +=
+                "    V_VIP_PM_TRFER_TOTAL ";
+        SQLText +=
             "WHERE "
             "    POINT_ID = :point_id AND ";
         if(
@@ -912,9 +917,13 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
                 target != "tot" &&
                 target != "etm" &&
                 target != "tpm"
-          )
+          ) {
             SQLText +=
                 "    TARGET = :target AND ";
+            if(pr_vip != 2)
+                SQLText +=
+                    "    pr_vip = :pr_vip AND ";
+        }
         if(status.size())
             SQLText +=
                 "    STATUS = :status ";
@@ -945,7 +954,10 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             Qry.CreateVariable("target", otString, target);
         if(status.size())
             Qry.CreateVariable("status", otString, status);
+        if(pr_vip != 2)
+            Qry.CreateVariable("pr_vip", otInteger, pr_vip);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+        ProgTrace(TRACE5, "V_VIP_PM_TRFER_TOTAL SQLText: %s", SQLText.c_str());
         Qry.Execute();
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer_total");
         while(!Qry.Eof) {
