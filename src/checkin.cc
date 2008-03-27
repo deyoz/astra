@@ -13,6 +13,7 @@
 #include "misc.h"
 #include "payment.h"
 #include "astra_misc.h"
+#include "base_tables.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2143,26 +2144,31 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SaveTagPacks(reqNode);
 
   //проверим дублирование билетов
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT COUNT(*),ticket_no,coupon_no FROM pax "
-    "WHERE ticket_no IS NOT NULL AND coupon_no IS NOT NULL "
-    "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
-  Qry.Execute();
-  for(;!Qry.Eof;Qry.Next())
+  if (!pr_unaccomp)
   {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT ticket_no,coupon_no FROM pax "
+      "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no "
+      "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
+    Qry.DeclareVariable("ticket_no",otString);
+    Qry.DeclareVariable("coupon_no",otInteger);
     node=NodeAsNode("passengers",reqNode);
     for(node=node->children;node!=NULL;node=node->next)
     {
       node2=node->children;
-      if (!NodeIsNULLFast("coupon_no",node2) &&
-          strcmp(Qry.FieldAsString("ticket_no"),NodeAsStringFast("ticket_no",node2))==0)
+      if (NodeIsNULLFast("ticket_no",node2,true)||
+          NodeIsNULLFast("coupon_no",node2,true)) continue;
+
+      Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+      Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+      Qry.Execute();
+      if (!Qry.Eof)
         throw UserException("Эл. билет №%s/%s дублируется",
                             NodeAsStringFast("ticket_no",node2),
                             NodeAsStringFast("coupon_no",node2));
     };
   };
-
 
   //обновление counters
   Qry.Clear();
@@ -2759,11 +2765,55 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
 
   TrferQry.Clear();
   TrferQry.SQLText=
-    "SELECT scd_out,airp AS airp_dep,airp_arv FROM points,pax_grp "
+    "SELECT airline,flt_no,scd_out,airp AS airp_dep,airp_arv, "
+    "       point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "FROM points,pax_grp "
     "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
   if (TrferQry.Eof) throw Exception("Passenger group not found (grp_id=%d)",grp_id);
+
+  TTypeBSendInfo sendInfo;
+  sendInfo.airline=TrferQry.FieldAsString("airline");
+  sendInfo.flt_no=TrferQry.FieldAsInteger("flt_no");
+  sendInfo.airp_dep=TrferQry.FieldAsString("airp_dep");
+  sendInfo.first_point=TrferQry.FieldAsInteger("first_point");
+  sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
+
+  TTypeBAddrInfo addrInfo;
+  addrInfo.airline=sendInfo.airline;
+  addrInfo.flt_no=sendInfo.flt_no;
+  addrInfo.airp_dep=sendInfo.airp_dep;
+  addrInfo.first_point=sendInfo.first_point;
+  addrInfo.point_num=sendInfo.point_num;
+  addrInfo.airp_trfer=sendInfo.airp_arv;
+  addrInfo.pr_lat=true;
+
+  //проверка формирования трансфера в латинских телеграммах
+  enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
+
+  vector< pair<string,int> > tlgs;
+  vector< pair<string,int> >::iterator iTlgs;
+
+  tlgs.push_back( pair<string,int>("BTM",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("BSM",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("PRL",checkAllSeg) );
+  tlgs.push_back( pair<string,int>("PTM",checkFirstSeg) );
+  tlgs.push_back( pair<string,int>("PTMN",checkFirstSeg) );
+  tlgs.push_back( pair<string,int>("PSM",checkFirstSeg) );
+
+  int checkType=checkNone;
+
+  for(iTlgs=tlgs.begin();iTlgs!=tlgs.end();iTlgs++)
+  {
+    if (checkType==checkAllSeg) break;
+    if (iTlgs->second==checkNone ||
+        iTlgs->second==checkFirstSeg && checkType==checkFirstSeg) continue;
+    sendInfo.tlg_type=iTlgs->first;
+    addrInfo.tlg_type=iTlgs->first;
+    if (!TelegramInterface::GetTypeBAddrs(addrInfo).empty()&&
+        TelegramInterface::IsTypeBSend(sendInfo)) checkType=iTlgs->second;
+  };
 
   string airp_arv=TrferQry.FieldAsString("airp_arv");
   TDateTime local_scd=UTCToLocal(TrferQry.FieldAsDateTime("scd_out"),
@@ -2825,6 +2875,13 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     str=ElemToElemId(etAirline,str,fmt);
     if (!(fmt==0 || fmt==1))
       throw UserException("Неизвестный код а/к %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    if (checkType==checkAllSeg ||
+        checkType==checkFirstSeg && i==1)
+    {
+      TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",str);
+      if (row.code_lat.empty())
+        throw UserException("Не найден лат. код а/к %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    };
     TrferQry.SetVariable("airline",str);
     TrferQry.SetVariable("airline_fmt",fmt);
     msg << str;
@@ -2855,6 +2912,13 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     str=ElemToElemId(etAirp,str,fmt);
     if (!(fmt==0 || fmt==1))
       throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    if (checkType==checkAllSeg ||
+        checkType==checkFirstSeg && i==1)
+    {
+      TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
+      if (row.code_lat.empty())
+        throw UserException("Не найден лат. код а/п вылета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    };
     TrferQry.SetVariable("airp_dep",str);
     TrferQry.SetVariable("airp_dep_fmt",fmt);
     msg << str << "-";
@@ -2864,6 +2928,13 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     str=ElemToElemId(etAirp,airp_arv,fmt);
     if (!(fmt==0 || fmt==1))
       throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    if (checkType==checkAllSeg ||
+        checkType==checkFirstSeg && i==1)
+    {
+      TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
+      if (row.code_lat.empty())
+        throw UserException("Не найден лат. код а/п прилета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    };
     TrferQry.SetVariable("airp_arv",str);
     TrferQry.SetVariable("airp_arv_fmt",fmt);
     msg << str << ":";
@@ -2873,6 +2944,13 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     str=ElemToElemId(etSubcls,str,fmt);
     if (!(fmt==0 || fmt==1))
       throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    if (checkType==checkAllSeg ||
+        checkType==checkFirstSeg && i==1)
+    {
+      TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code",str);
+      if (row.code_lat.empty())
+        throw UserException("Не найден лат. код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+    };
     TrferQry.SetVariable("subclass",str);
     TrferQry.SetVariable("subclass_fmt",fmt);
     msg << str;
