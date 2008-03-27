@@ -679,6 +679,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
+    int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
 
     if(
@@ -778,6 +779,9 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     } else { // сегмент
         SQLText +=
             "    TARGET = :target AND ";
+        if(pr_vip != 2)
+            SQLText +=
+                "    pr_vip = :pr_vip AND ";
     }
     if(status.size())
         SQLText +=
@@ -805,6 +809,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    REG_NO ASC ";
 
 
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
 
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -817,6 +822,8 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("target", otString, target);
     if(status.size())
         Qry.CreateVariable("status", otString, status);
+    if(pr_vip != 2)
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
 
     Qry.Execute();
@@ -992,8 +999,12 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             SQLText +=
                 "    V_PM_TOTAL ";
         } else { // сегмент
-            SQLText +=
-                "    V_PM_TARGET_TOTAL ";
+            if(pr_vip == 2)
+                SQLText +=
+                    "    V_PM_TARGET_TOTAL ";
+            else
+                SQLText +=
+                    "    V_VIP_PM_TARGET_TOTAL ";
         }
         SQLText +=
             "WHERE "
@@ -1002,9 +1013,13 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
                 target.size() &&
                 target != "tot" &&
                 target != "tpm"
-          )
+          ) {
             SQLText +=
                 "   and airp_arv = :target ";
+            if(pr_vip != 2)
+                SQLText +=
+                    " and pr_vip = :pr_vip ";
+        }
         if(status.size())
             SQLText +=
                 "    and STATUS = :status ";
@@ -1014,6 +1029,7 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             "ORDER BY "
             "    LVL ";
+        ProgTrace(TRACE5, "V_PM_TARGET_TOTAL SQLText: %s", SQLText.c_str());
         Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, point_id);
         if(
@@ -1024,6 +1040,8 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             Qry.CreateVariable("target", otString, target);
         if(status.size())
             Qry.CreateVariable("status", otString, status);
+        if(pr_vip != 2)
+            Qry.CreateVariable("pr_vip", otInteger, pr_vip);
         Qry.CreateVariable("pr_lat", otInteger, pr_lat);
         Qry.Execute();
         dataSetNode = NewTextChild(dataSetsNode, "v_pm_total");
@@ -1104,6 +1122,8 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+
+    NewTextChild(variablesNode, "pr_vip", pr_vip);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
@@ -1910,7 +1930,12 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM") {
+                    if(
+                            rpType == "BM" ||
+                            rpType == "TBM" ||
+                            rpType == "PM" ||
+                            rpType == "TPM"
+                            ) {
                         string hall;
                         switch(pr_vip) {
                             case 0:
@@ -1932,7 +1957,12 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
 #ifdef SALEK
-                    if(rpType == "BM" || rpType == "TBM") {
+                    if(
+                            rpType == "BM" ||
+                            rpType == "TBM" ||
+                            rpType == "PM" ||
+                            rpType == "TPM"
+                            ) {
                         string hall;
                         switch(pr_vip) {
                             case 0:
@@ -1948,7 +1978,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp);
                 }
 #ifdef SALEK
-                if(!(rpType == "BM" || rpType == "TBM"))
+                if(!(rpType == "BM" || rpType == "TBM" || rpType == "PM" || rpType == "TPM"))
 #endif
                     break;
             }
@@ -2000,6 +2030,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(SegNode, "item", "Общая");
         }
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void DocsInterface::GetFonts(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
