@@ -197,9 +197,20 @@ struct tcrs_displ {
   string status;
 };
 
+struct change_act {
+  int point_id;
+  TDateTime old_act;
+  TDateTime act;
+  bool pr_land;
+};
+
+
 void read_tripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id );
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode, bool pr_isg );
 string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry );
+
+void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act );
+void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act );
 
 
 string GetRemark( string remark, TDateTime scd_out, TDateTime est_out, string region )
@@ -2213,6 +2224,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &reference, bool canExcept,
                           XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
+  vector<change_act> vchangeAct;
 	bool ch_point_num = false;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ )
   	if ( id->point_num == NoExists ) {
@@ -2680,8 +2692,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 	  	  		}
   	  }
   	  else
-  	    if ( old_dest.pr_del == 0 && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
+  	    if ( !id->pr_del && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
   	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+   		    change_act A;
+  		    A.point_id = id->point_id;
+  		    A.old_act = old_dest.act_out;
+  		    A.act = id->act_out;
+  		    A.pr_land = false;
+  		    vchangeAct.push_back( A );
   	    }
   	  Qry.Clear();
       Qry.SQLText =
@@ -2699,6 +2717,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
   		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		change_act A;
+  		A.point_id = id->point_id;
+  		A.old_act = old_dest.act_in;
+  		A.act = id->act_in;
+  		A.pr_land = true;
+  		vchangeAct.push_back( A );
+  	}
+  	if ( !id->pr_del && id->act_in != old_dest.act_in && old_dest.act_in > NoExists ) {
+  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		change_act A;
+  		A.point_id = id->point_id;
+  		A.old_act = old_dest.act_in;
+  		A.act = id->act_in;
+  		A.pr_land = true;
+  		vchangeAct.push_back( A );
   	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
@@ -2874,6 +2907,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
          ProgError( STDLOG, "Unknown error" );
        };
     	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		change_act A;
+  		A.point_id = id->point_id;
+  		A.old_act = old_dest.act_out;
+  		A.act = id->act_out;
+  		A.pr_land = false;
+  		vchangeAct.push_back( A );
  	  }
   	if ( set_pr_del ) {
   		ch_dests = true;
@@ -2927,6 +2966,15 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
  }
  else
    showMessage( "Данные успешно сохранены" );
+
+ for( vector<change_act>::iterator i=vchangeAct.begin(); i!=vchangeAct.end(); i++ ){
+  if ( i->pr_land )
+    ChangeACT_IN( i->point_id, i->old_act, i->act );
+  else
+    ChangeACT_OUT( i->point_id, i->old_act, i->act );
+ }
+
+
 /*   "BEGIN "\
    " SELECT move_id.nextval INTO :move_id from dual; "\
    " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
@@ -3154,7 +3202,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   int point_id = NodeAsInteger( "point_id", reqNode );
   TQuery Qry(&OraSession);
 	Qry.SQLText=
-	  "SELECT move_id,airline||flt_no||suffix as trip,point_num "
+	  "SELECT move_id,airline||flt_no||suffix as trip,act_out,point_num "
     "FROM points "
     "WHERE point_id=:point_id AND pr_del=0 AND act_out IS NOT NULL FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -3163,6 +3211,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	int point_num = Qry.FieldAsInteger( "point_num" );
 	int move_id = Qry.FieldAsInteger( "move_id" );
 	string trip = Qry.FieldAsString( "trip" );
+	TDateTime act_out = Qry.FieldAsDateTime( "act_out" );
 	Qry.Clear();
 	Qry.SQLText =
 	 "UPDATE points "
@@ -3173,6 +3222,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	Qry.Execute();
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->MsgToLog( string( "Отмена факт. вылета рейса " ) + trip, evtDisp, move_id, point_id );
+	ChangeACT_OUT( point_id, act_out, NoExists );
 	ReadTrips( ctxt, reqNode, resNode );
 }
 
@@ -3686,4 +3736,52 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips )
 {
 	internal_ReadData( trips, NoExists, NoExists, false, false, point_id );
 }
+
+void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
+{
+  try
+  {
+    if ( act > NoExists ) {
+      vector<string> tlg_types;
+      tlg_types.push_back("MVTA");
+      TelegramInterface::SendTlg(point_id,tlg_types);
+    }
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
+}
+
+void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
+{
+  try
+  {
+    if ( act > NoExists ) {
+      //телеграммы на прилет
+      TQuery Qry(&OraSession);
+  	  Qry.SQLText =
+  	    "SELECT points.point_id "
+  	    "FROM points, "
+  	    "     (SELECT point_num, first_point "
+        "      FROM points WHERE point_id=:point_id) a "
+        "WHERE a.first_point IN (point_id,points.first_point) AND points.point_num<a.point_num AND pr_del=0 "
+        "ORDER BY points.point_num DESC ";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+  	  if (!Qry.Eof)
+  	  {
+  	    int point_dep=Qry.FieldAsInteger("point_id");
+        vector<string> tlg_types;
+        tlg_types.push_back("MVTB");
+        TelegramInterface::SendTlg(point_dep,tlg_types);
+      };
+    };
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"ChangeACT_IN.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
+}
+
 

@@ -1707,7 +1707,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           const char *subclass=NodeAsStringFast("subclass",node2);
           TPassenger pas;
           pas.clname=cl;
-          if (place_status=="FP"&&!NodeIsNULLFast("pax_id",node2)) {
+          if (place_status=="FP"&&
+              !NodeIsNULLFast("pax_id",node2)&&
+              !NodeIsNULLFast("seat_no",node2)) {
             pas.placeStatus="BR";
             pas.pax_id = NodeAsIntegerFast( "pax_id", node2 );
           }
@@ -1962,7 +1964,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     msg.id1=point_dep;
     msg.id2=0;
     msg.id3=grp_id;
-    msg.msg=SaveTransfer(reqNode);
+    msg.msg=SaveTransfer(reqNode,pr_unaccomp);
     if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
   }
   else
@@ -2682,10 +2684,21 @@ void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT grp_id,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass "
-    "FROM drop_transfer ORDER BY grp_id,transfer_num";
+    "SELECT pax_grp.class, "
+    "       drop_transfer.grp_id, "
+    "       drop_transfer.airline, "
+    "       drop_transfer.flt_no, "
+    "       drop_transfer.suffix, "
+    "       drop_transfer.local_date, "
+    "       drop_transfer.airp_dep, "
+    "       drop_transfer.airp_arv, "
+    "       drop_transfer.subclass "
+    "FROM drop_transfer,pax_grp "
+    "WHERE pax_grp.grp_id=drop_transfer.grp_id "
+    "ORDER BY grp_id,transfer_num";
   Qry.Execute();
   int grp_id=-1;
+  string cl;
   xmlNodePtr trferNode=NULL,segNode;
   if (!Qry.Eof)
   {
@@ -2696,7 +2709,7 @@ void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         if (grp_id!=-1)
         try
         {
-          SaveTransfer(resNode);
+          SaveTransfer(resNode,cl.empty());
         }
         catch(UserException &E)
         {
@@ -2704,6 +2717,7 @@ void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         };
 
         grp_id=Qry.FieldAsInteger("grp_id");
+        cl=Qry.FieldAsString("class");
 
         ReplaceTextChild(resNode,"grp_id",grp_id);
         trferNode=GetNode("transfer",resNode);
@@ -2726,7 +2740,7 @@ void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     };
     try
     {
-      SaveTransfer(resNode);
+      SaveTransfer(resNode,cl.empty());
     }
     catch(UserException &E)
     {
@@ -2735,7 +2749,7 @@ void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   };
 };
 
-string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
+string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
 {
   if (grpNode==NULL) return "";
   xmlNodePtr node2=grpNode->children;
@@ -2905,7 +2919,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     };
     TrferQry.SetVariable("scd",local_scd);
     base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
-    msg << setw(2) << setfill('0') << i << ":";
+    msg << setw(2) << setfill('0') << i;
 
     //аэропорт вылета
     str=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
@@ -2921,7 +2935,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     };
     TrferQry.SetVariable("airp_dep",str);
     TrferQry.SetVariable("airp_dep_fmt",fmt);
-    msg << str << "-";
+    msg << ":" << str;
 
     //аэропорт прилета
     airp_arv=NodeAsStringFast("airp_arv",node2);
@@ -2937,23 +2951,31 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode)
     };
     TrferQry.SetVariable("airp_arv",str);
     TrferQry.SetVariable("airp_arv_fmt",fmt);
-    msg << str << ":";
+    msg << "-" << str;
 
-    //подкласс
-    str=NodeAsStringFast("subclass",node2);
-    str=ElemToElemId(etSubcls,str,fmt);
-    if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
-    if (checkType==checkAllSeg ||
-        checkType==checkFirstSeg && i==1)
+    if (!pr_unaccomp)
     {
-      TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code",str);
-      if (row.code_lat.empty())
-        throw UserException("Не найден лат. код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      //подкласс
+      str=NodeAsStringFast("subclass",node2);
+      str=ElemToElemId(etSubcls,str,fmt);
+      if (!(fmt==0 || fmt==1))
+        throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      if (checkType==checkAllSeg ||
+          checkType==checkFirstSeg && i==1)
+      {
+        TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code",str);
+        if (row.code_lat.empty())
+          throw UserException("Не найден лат. код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      };
+      TrferQry.SetVariable("subclass",str);
+      TrferQry.SetVariable("subclass_fmt",fmt);
+      msg << ":" << str;
+    }
+    else
+    {
+      TrferQry.SetVariable("subclass",FNull);
+      TrferQry.SetVariable("subclass_fmt",FNull);
     };
-    TrferQry.SetVariable("subclass",str);
-    TrferQry.SetVariable("subclass_fmt",fmt);
-    msg << str;
 
     TrferQry.SetVariable("pr_final",(int)(trferNode->next==NULL));
 
@@ -3003,10 +3025,15 @@ void CheckInInterface::LoadTransfer(xmlNodePtr grpNode)
                  ElemIdToElem(etAirp,
                               TrferQry.FieldAsString("airp_arv"),
                               TrferQry.FieldAsInteger("airp_arv_fmt")));
-    NewTextChild(trferNode,"subclass",
-                 ElemIdToElem(etSubcls,
-                              TrferQry.FieldAsString("subclass"),
-                              TrferQry.FieldAsInteger("subclass_fmt")));
+
+    if (!TrferQry.FieldIsNULL("subclass"))
+      NewTextChild(trferNode,"subclass",
+                   ElemIdToElem(etSubcls,
+                                TrferQry.FieldAsString("subclass"),
+                                TrferQry.FieldAsInteger("subclass_fmt")));
+    else
+      NewTextChild(trferNode,"subclass");
+
   };
   TrferQry.Close();
 };

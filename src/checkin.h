@@ -54,7 +54,7 @@ public:
 
   void SavePaxRem(xmlNodePtr paxNode);
   std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
-  std::string SaveTransfer(xmlNodePtr grpNode);
+  std::string SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp);
   static void SaveBag(xmlNodePtr grpNode);
   static void SavePaidBag(xmlNodePtr grpNode);
 
