@@ -798,8 +798,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat, "
-        "   to_char(points.FLT_NO)||points.suffix flt_no, "
-        "   to_char(points.FLT_NO)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
+        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||points.suffix flt_no, "
+        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
         "   points.SUFFIX, "
         "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
@@ -2435,7 +2435,9 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
     int via_idx = 1;
     for(int j = start_idx; j < end_idx; ++j) {
         string str_via_idx = IntToString(via_idx);
-        parser.add_tag("flt_no" + str_via_idx, route[j].flt_no);
+        ostringstream flt_no;
+        flt_no << setw(3) << setfill('0') << route[j].flt_no;
+        parser.add_tag("flt_no" + str_via_idx, flt_no.str());
         parser.add_tag("local_date" + str_via_idx, route[j].local_date);
         parser.add_tag("airline" + str_via_idx, route[j].airline);
         parser.add_tag("airline" + str_via_idx + "_lat", route[j].airline_lat);
