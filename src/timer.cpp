@@ -893,16 +893,34 @@ void arx_daily(TDateTime utcdate)
   ProgTrace(TRACE5,"arx_daily stopped");
 };
 
+#include <boost/date_time/local_time/local_time.hpp>
+using namespace boost::local_time;
+
 void sync_sirena_codes( void )
 {
 	ProgTrace(TRACE5,"sync_sirena_codes started");
+
+	//вычисляем признак летней/зимней навигации
+	bool pr_summer=false;
+	string tz_region=CityTZRegion("МОВ");
+  tz_database &tz_db = get_tz_database();
+  time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
+  if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
+  if (tz->has_dst())
+  {
+    local_date_time ld(DateTimeToBoost(NowUTC()),tz);
+    pr_summer=ld.is_dst();
+  };
+
 	TQuery Qry(&OraSession);
 	Qry.Clear();
-  Qry.SQLText= /*04068*/
+  Qry.SQLText= //04068
     "BEGIN "
-    "  utils.sync_sirena_codes; "
+    "  utils.sync_sirena_codes(:pr_summer); "
     "END;";
+  Qry.CreateVariable("pr_summer",otInteger,(int)pr_summer);
   Qry.Execute();
+
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
