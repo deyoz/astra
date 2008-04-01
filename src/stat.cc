@@ -711,7 +711,7 @@ void GetPaxListSQL(TQuery &Qry)
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
-    Qry.SQLText = 
+    Qry.SQLText =
         "select null agent, -1 view_order from dual "
         "union "
         "select 'Система' agent, 0 view_order from dual "
@@ -725,7 +725,7 @@ void GetSystemLogAgentSQL(TQuery &Qry)
 
 void GetSystemLogStationSQL(TQuery &Qry)
 {
-    Qry.SQLText = 
+    Qry.SQLText =
         "select null station, -1 view_order from dual "
         "union "
         "select 'Система' station, 0 view_order from dual "
@@ -739,7 +739,7 @@ void GetSystemLogStationSQL(TQuery &Qry)
 
 void GetSystemLogModuleSQL(TQuery &Qry)
 {
-    Qry.SQLText = 
+    Qry.SQLText =
         "select null module, -1 view_order from dual "
         "union "
         "select 'Система' module, 0 view_order from dual "
@@ -779,7 +779,7 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &reqInfo = *(TReqInfo::Instance());
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
     TTripInfo tripInfo;
@@ -1092,7 +1092,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM events "
             "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
             "       DECODE(type,:evtDisp,events.id2,events.id1)=:point_id ";
-    } else {    
+    } else {
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, "
@@ -1174,7 +1174,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             string screen = Qry.FieldAsString(col_screen);
             if(screen.size()) {
                 if(screen_map.find(screen) == screen_map.end()) {
-                    TQuery Qry(&OraSession);        
+                    TQuery Qry(&OraSession);
                     Qry.SQLText = "select name from screen where exe = :exe";
                     Qry.CreateVariable("exe", otString, screen);
                     Qry.Execute();
@@ -1264,7 +1264,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
-    } else {    
+    } else {
         ProgTrace(TRACE5, "LogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -1369,7 +1369,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string module;
     if(!Qry.Eof) module = Qry.FieldAsString("exe");
     int count = 0;
-    
+
     xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
     xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
     xmlNodePtr colNode;
@@ -1401,7 +1401,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     for(int j = 0; j < 2; j++) {
         Qry.Clear();
-        if (j==0) {    
+        if (j==0) {
             Qry.SQLText =
                 "SELECT msg, time, id1 AS point_id, "
                 "       screen, "
@@ -1428,7 +1428,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtCodif, "
                 "    :evtPeriod "
                 "          ) ";
-        } else {    
+        } else {
             Qry.SQLText =
                 "SELECT msg, time, id1 AS point_id, "
                 "       screen, "
@@ -1513,8 +1513,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
                 if(ev_user != "") {
                     if(user_access.find(ev_user) == user_access.end()) {
-                        TQuery Qry(&OraSession);        
-                        Qry.SQLText = 
+                        TQuery Qry(&OraSession);
+                        Qry.SQLText =
                             "select descr from users2 where "
                             "   (user_id = :SYS_user_id or adm.check_user_access(user_id,:SYS_user_id)<>0) and "
                             "   descr = :ev_user";
@@ -1528,8 +1528,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
                 if(station != "") {
                     if(desk_access.find(station) == desk_access.end()) {
-                        TQuery Qry(&OraSession);        
-                        Qry.SQLText = 
+                        TQuery Qry(&OraSession);
+                        Qry.SQLText =
                             "select code from desks where "
                             "   adm.check_desk_view_access(code, :SYS_user_id) <> 0 and "
                             "   code = :station ";
@@ -2543,11 +2543,11 @@ void STAT::set_variables(xmlNodePtr resNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
     string tz;
-    if(reqInfo->user.time_form == tfUTC)
+    if(reqInfo->user.sets.time == ustTimeUTC)
         tz = "(GMT)";
     else if(
-            reqInfo->user.time_form == tfLocalDesk ||
-            reqInfo->user.time_form == tfLocalAll
+            reqInfo->user.sets.time == ustTimeLocalDesk ||
+            reqInfo->user.sets.time == ustTimeLocalAirp
            )
         tz = "(" + reqInfo->desk.city + ")";
 
@@ -3290,7 +3290,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(IncMonth(FirstDate, 3) < LastDate)
         throw UserException("Период поиска не должен превышать 3 месяца");
     TPerfTimer tm;
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     xmlNodePtr paramNode = reqNode->children;

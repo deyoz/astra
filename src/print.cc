@@ -841,7 +841,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   '' document_lat, "
             "   '' SUBCLASS, "
             "   '' subclass_lat, "
-            "   ckin.get_birks(:grp_id, NULL, 0) tags, " 
+            "   ckin.get_birks(:grp_id, NULL, 0) tags, "
             "   ckin.get_birks(:grp_id, NULL, 1) tags_lat, "
             "   '' pnr, "
             "   '' pnr_lat "
@@ -2070,6 +2070,82 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 //////////////////////////////// END CLASS PrintDataParser ///////////////////////////////////
 
+void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+            "select  "
+            "   bp_forms.form "
+            "from  "
+            "   bp_forms, "
+            "   ( "
+            "    select "
+            "        bp_type, "
+            "        prn_type, "
+            "        max(version) version "
+            "    from "
+            "        bp_forms "
+            "    group by "
+            "        bp_type, "
+            "        prn_type "
+            "   ) a "
+            "where  "
+            "   a.bp_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+            "   a.prn_type = :prn_type and "
+            "   a.bp_type = bp_forms.bp_type and "
+            "   a.prn_type = bp_forms.prn_type and "
+            "   a.version = bp_forms.version and "
+            "   bp_forms.form IS NOT NULL ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bp_forms");
+    for(;!Qry.Eof;Qry.Next())
+      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+};
+
+void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select  "
+        "   bt_forms.form  "
+        "from  "
+        "   bt_forms, "
+        "   ( "
+        "    select "
+        "        tag_type, "
+        "        prn_type, "
+        "        num, "
+        "        max(version) version "
+        "    from "
+        "        bt_forms "
+        "    group by "
+        "        tag_type, "
+        "        prn_type, "
+        "        num "
+        "   ) a "
+        "where  "
+        "   a.tag_type IN (SELECT DISTINCT tag_type FROM trip_bt WHERE point_id=:point_id) and "
+        "   a.prn_type = :prn_type and "
+        "   a.tag_type = bt_forms.tag_type and "
+        "   a.prn_type = bt_forms.prn_type and "
+        "   a.num = bt_forms.num and "
+        "   a.version = bt_forms.version and "
+        "   bt_forms.form IS NOT NULL ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bt_forms");
+    for(;!Qry.Eof;Qry.Next())
+      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+
+};
+
 void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
 {
     TQuery Qry(&OraSession);
@@ -2472,11 +2548,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     bool pr_unaccomp = Qry.FieldIsNULL("class");
     int pax_id=NoExists;
     if(!pr_unaccomp)
-    {    
+    {
       if (Qry.FieldIsNULL("pax_id"))
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");      
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
       pax_id = Qry.FieldAsInteger("pax_id");
-    };  
+    };
     string SQLText =
         "SELECT "
         "   bag_tags.num, "
@@ -2524,8 +2600,8 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
     TReqInfo *reqInfo = TReqInfo::Instance();
     TDateTime issued = UTCToLocal(NowUTC(),reqInfo->desk.tz_region);
 
-    TQuery unaccQry(&OraSession);        
-    unaccQry.SQLText = 
+    TQuery unaccQry(&OraSession);
+    unaccQry.SQLText =
         "select "
         "   unaccomp_bag_names.name, "
         "   unaccomp_bag_names.name_lat "
@@ -2540,7 +2616,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
         "   bag_tags.grp_id=:grp_id and bag_tags.num=:tag_num ";
     unaccQry.CreateVariable("grp_id",otInteger,tag_key.grp_id);
     unaccQry.DeclareVariable("tag_num",otInteger);
-        
+
     while(!Qry.Eof) {
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {

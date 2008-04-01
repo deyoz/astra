@@ -195,7 +195,7 @@ void createSPP( TDateTime utcdate )
 	utcdate += CREATE_SPP_DAYS(); //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->clear();
-	reqInfo->user.time_form = tfUTC;
+	reqInfo->user.sets.time = ustTimeUTC;
 	reqInfo->user.user_type = utSupport;
 	reqInfo->user.access.airlines_permit = false;
 	reqInfo->user.access.airps_permit = false;
