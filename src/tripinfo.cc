@@ -782,7 +782,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Clear();
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
-      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg "
+      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay,pr_trfer_reg "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -792,6 +792,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
     NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
     NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
+    NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
     NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
   };
   return true;

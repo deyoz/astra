@@ -363,25 +363,27 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.Clear();
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam, "
-      "       pr_check_pay,pr_trfer_reg "
+      "       pr_check_pay,pr_exam_check_pay,pr_trfer_reg "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
     if (SetsQry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
 
     bool new_pr_tranzit,old_pr_tranzit,
-         new_pr_tranz_reg,    old_pr_tranz_reg,
-         new_pr_check_load,   old_pr_check_load,
-         new_pr_overload_reg, old_pr_overload_reg,
-         new_pr_exam,         old_pr_exam,
-         new_pr_check_pay,    old_pr_check_pay,
-         new_pr_trfer_reg,    old_pr_trfer_reg;
+         new_pr_tranz_reg,      old_pr_tranz_reg,
+         new_pr_check_load,     old_pr_check_load,
+         new_pr_overload_reg,   old_pr_overload_reg,
+         new_pr_exam,           old_pr_exam,
+         new_pr_check_pay,      old_pr_check_pay,
+         new_pr_exam_check_pay, old_pr_exam_check_pay,
+         new_pr_trfer_reg,      old_pr_trfer_reg;
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
     old_pr_check_load=SetsQry.FieldAsInteger("pr_check_load")!=0;
     old_pr_overload_reg=SetsQry.FieldAsInteger("pr_overload_reg")!=0;
     old_pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
     old_pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
+    old_pr_exam_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
     old_pr_trfer_reg=SetsQry.FieldAsInteger("pr_trfer_reg")!=0;
 
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
@@ -390,6 +392,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     new_pr_overload_reg=NodeAsInteger("pr_overload_reg",node)!=0;
     new_pr_exam=NodeAsInteger("pr_exam",node)!=0;
     new_pr_check_pay=NodeAsInteger("pr_check_pay",node)!=0;
+    //!!!потом убрать 01.04.08
+    if (GetNode("pr_exam_check_pay",node)!=NULL)
+      new_pr_exam_check_pay=NodeAsInteger("pr_exam_check_pay",node)!=0;
+    else
+      new_pr_exam_check_pay=false;
+    //!!!потом убрать 01.04.08
     new_pr_trfer_reg=NodeAsInteger("pr_trfer_reg",node)!=0;
 
     if (old_pr_tranzit!=new_pr_tranzit ||
@@ -451,6 +459,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_overload_reg!=new_pr_overload_reg ||
         old_pr_exam!=new_pr_exam ||
         old_pr_check_pay!=new_pr_check_pay ||
+        old_pr_exam_check_pay!=new_pr_exam_check_pay ||
         old_pr_trfer_reg!=new_pr_trfer_reg )
     {
       Qry.Clear();
@@ -460,12 +469,14 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         "    pr_overload_reg=:pr_overload_reg, "
         "    pr_exam=:pr_exam, "
         "    pr_check_pay=:pr_check_pay, "
+        "    pr_exam_check_pay=:pr_exam_check_pay, "
         "    pr_trfer_reg=:pr_trfer_reg "
         "WHERE point_id=:point_id";
       Qry.CreateVariable("pr_check_load",otInteger,(int)new_pr_check_load);
       Qry.CreateVariable("pr_overload_reg",otInteger,(int)new_pr_overload_reg);
       Qry.CreateVariable("pr_exam",otInteger,(int)new_pr_exam);
       Qry.CreateVariable("pr_check_pay",otInteger,(int)new_pr_check_pay);
+      Qry.CreateVariable("pr_exam_check_pay",otInteger,(int)new_pr_exam_check_pay);
       Qry.CreateVariable("pr_trfer_reg",otInteger,(int)new_pr_trfer_reg);
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
@@ -499,6 +510,13 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.msg = "Установлен режим";
         if ( !new_pr_check_pay ) msg.msg += " без";
         msg.msg += " контроля оплаты багажа при посадке";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_exam_check_pay!=new_pr_exam_check_pay)
+      {
+        msg.msg = "Установлен режим";
+        if ( !new_pr_exam_check_pay ) msg.msg += " без";
+        msg.msg += " контроля оплаты багажа при досмотре";
         TReqInfo::Instance()->MsgToLog(msg);
       };
       if (old_pr_trfer_reg!=new_pr_trfer_reg)
