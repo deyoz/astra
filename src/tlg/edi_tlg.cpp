@@ -12,6 +12,7 @@
 #include "ocilocal.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
+#include "stl_utils.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -369,7 +370,7 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 
 xmlDocPtr prepareKickXMLDoc(string iface)
 {
-  xmlDocPtr kickDoc=CreateXMLDoc("CP866","term");
+  xmlDocPtr kickDoc=CreateXMLDoc(/*"CP866"*/"UTF-8","term");
   if (kickDoc==NULL)
     throw EXCEPTIONS::Exception("prepareKickXMLDoc failed");
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -391,7 +392,7 @@ string prepareKickText(string iface)
   xmlDocPtr kickDoc=prepareKickXMLDoc(iface);
   try
   {
-    res=XMLTreeToText(kickDoc);
+    res=ConvertCodePage("UTF-8","CP866",XMLTreeToText(kickDoc));
     xmlFreeDoc(kickDoc);
   }
   catch(...)
@@ -570,72 +571,92 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       "      pax.ticket_no=:ticket_no AND pax.coupon_no=:coupon_no ";
     PaxQry.DeclareVariable("ticket_no",otString);
     PaxQry.DeclareVariable("coupon_no",otInteger);
+    PaxQry.DeclareVariable("point_id",otInteger);
 
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      if (!chngStatAns.err2Tick(currTick->ticknum()).empty())
+      string err=chngStatAns.err2Tick(currTick->ticknum());
+      if (!err.empty())
       {
         ProgTrace(TRACE5,"ticket=%s error=%s",
-                       currTick->ticknum().c_str(),
-                       chngStatAns.err2Tick(currTick->ticknum()).c_str());
-        continue;
-      }
+                         currTick->ticknum().c_str(), err.c_str());
+      };
       if (currTick->getCoupon().empty()) continue;
 
-      ProgTrace(TRACE5,"ticket=%s coupon=%d",
-                       currTick->ticknum().c_str(),
-                       currTick->getCoupon().front().couponInfo().num());
-      CouponStatus status(currTick->getCoupon().front().couponInfo().status());
-
+      //получим ид. рейса
       Qry.Clear();
-      if (status->codeInt()==CouponStatus::Checked ||
-          status->codeInt()==CouponStatus::Boarded ||
-          status->codeInt()==CouponStatus::Flown)
-      {
-        //сделать update
-        Qry.SQLText=
-          "UPDATE etickets SET coupon_status=:status "
-          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no "
-          "RETURNING point_id INTO :point_id";
-        Qry.CreateVariable("status",otString,status->dispCode());
-      }
-      else
-      {
-        //удалить из таблицы
-        Qry.SQLText=
-          "DELETE FROM etickets "
-          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no "
-          "RETURNING point_id INTO :point_id";
-      };
+      Qry.SQLText="SELECT point_id FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no FOR UPDATE";
       Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
       Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
-      Qry.CreateVariable("point_id",otInteger,FNull);
       Qry.Execute();
-      if (!Qry.VariableIsNULL("point_id"))
-      {
-        TLogMsg msg;
-        ostringstream msgh;
-        msg.ev_type=ASTRA::evtPax;
-        msg.id1=Qry.GetVariableAsInteger("point_id");
+      if (Qry.Eof) continue;
+      int point_id=Qry.FieldAsInteger("point_id");
 
-        PaxQry.SetVariable("ticket_no",currTick->ticknum());
-        PaxQry.SetVariable("coupon_no",(int)currTick->getCoupon().front().couponInfo().num());
-        PaxQry.Execute();
-        if (!PaxQry.Eof)
+      TLogMsg msg;
+      ostringstream msgh;
+      msg.ev_type=ASTRA::evtPax;
+      msg.id1=point_id;
+
+
+      //получим данные по пассажиру
+      PaxQry.SetVariable("ticket_no",currTick->ticknum());
+      PaxQry.SetVariable("coupon_no",(int)currTick->getCoupon().front().couponInfo().num());
+      PaxQry.SetVariable("point_id",point_id);
+      PaxQry.Execute();
+      if (!PaxQry.Eof)
+      {
+        msg.id2=PaxQry.FieldAsInteger("reg_no");
+        msg.id3=PaxQry.FieldAsInteger("grp_id");
+        msgh << "Пассажир " << PaxQry.FieldAsString("surname")
+             << (PaxQry.FieldIsNULL("name")?"":" ") << PaxQry.FieldAsString("name")
+             << " (" << PaxQry.FieldAsString("pers_type") << "). ";
+      };
+
+      if (err.empty())
+      {
+        CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+
+        ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
+                         currTick->ticknum().c_str(),
+                         currTick->getCoupon().front().couponInfo().num(),
+                         status->dispCode());
+
+        //изменим статус в таблице etickets
+        Qry.Clear();
+        if (status->codeInt()==CouponStatus::Checked ||
+            status->codeInt()==CouponStatus::Boarded ||
+            status->codeInt()==CouponStatus::Flown)
         {
-          msg.id2=PaxQry.FieldAsInteger("reg_no");
-          msg.id3=PaxQry.FieldAsInteger("grp_id");
-          msgh << "Пассажир " << PaxQry.FieldAsString("surname")
-               << (PaxQry.FieldIsNULL("name")?" ":"") << PaxQry.FieldAsString("name")
-               << " (" << PaxQry.FieldAsString("pers_type") << "). ";
+          //сделать update
+          Qry.SQLText=
+            "UPDATE etickets SET coupon_status=:status "
+            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
+          Qry.CreateVariable("status",otString,status->dispCode());
+        }
+        else
+        {
+          //удалить из таблицы
+          Qry.SQLText=
+            "DELETE FROM etickets "
+            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
         };
+        Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
+        Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
+        Qry.Execute();
         msgh << "Изменен статус эл. билета "
              << currTick->ticknum() << "/"
              << currTick->getCoupon().front().couponInfo().num()
              << ": " << status->dispCode() << ". ";
-        msg.msg=msgh.str();
-        MsgToLog(msg,screen,user,desk);
+      }
+      else
+      {
+        msgh << "Ошибка при изменении статуса эл. билета "
+             << currTick->ticknum() << "/"
+             << currTick->getCoupon().front().couponInfo().num()
+             << ": " << err << ". ";
       };
+      msg.msg=msgh.str();
+      MsgToLog(msg,screen,user,desk);
     };
 }
 
