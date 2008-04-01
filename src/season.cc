@@ -128,7 +128,11 @@ struct TDestList {
   int tz;
   string region;
   TDests dests;
+  TDateTime diff;
   vector<trip> trips;
+  TDestList() {
+  	diff = 0;
+  }
 };
 
 typedef map<int,TDestList> tmapds;
@@ -142,6 +146,7 @@ struct TRangeList {
 
 class TFilter {
   private:
+  	map<int,TTimeDiff> offsets;
   public:
     int dst_offset;
     int tz;
@@ -167,7 +172,7 @@ class TFilter {
     bool isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_time, int dst_offset );
     bool isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_in, TDateTime scd_out,
                          int dst_offset, string vregion );
-
+    TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, int tz );
     TFilter();
 };
 
@@ -176,7 +181,6 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 bool createAirportTrip( int trip_id, TFilter filter, int offset, TDestList &ds, bool viewOwnPort, string &err_airp );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds, string &err_airp );
 bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds, TDateTime localdate, string &err_airp );
-TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int tz, map<int,TTimeDiff> &v );
 int GetTZOffSet( TDateTime first, int tz, map<int,TTimeDiff> &v );
 void GetDests( map<int,TDestList> &mapds, const TFilter &filter, int move_id = NoExists );
 string GetCommonDays( string days1, string days2 );
@@ -550,7 +554,8 @@ bool TFilter::isFilteredUTCTime( TDateTime vd, TDateTime first, TDateTime dest_t
   }
 
   //учет перехода времени
-  TDateTime diff = getDiff( dst_offset, isSummer( first ), isSummer( vd ) );
+  TDateTime diff = GetTZTimeDiff( vd, first, tz );
+  //!!!! 01.04.2008 TDateTime diff = getDiff( dst_offset, isSummer( first ), isSummer( vd ) );
   f1 += diff;
 
   return ( f1 >= f && f1 <= l );
@@ -655,7 +660,8 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 
 
   //учет перехода времени
-  TDateTime diff = getDiff( dst_offset, isSummer( first_day ), isSummer( vd ) );
+  //01.04.2008 TDateTime diff = getDiff( dst_offset, isSummer( first_day ), isSummer( vd ) );
+  TDateTime diff = GetTZTimeDiff( vd, first_day, tz );
   f1 += diff;
   f2 += diff;
 
@@ -801,7 +807,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
       range.first = BoostToDateTime( p );
       if ( (int)range.first != (int)f ) {
         range.last += (int)f - (int)range.first;
-        range.days = AddDays( range.days, (int)f - (int)range.first );
+        //01.04.08range.days = AddDays( range.days, (int)f - (int)range.first );
       }
     }
   }
@@ -858,9 +864,9 @@ void TFilter::Parse( xmlNodePtr filterNode )
   node = GetNode( "triptype", filterNode );
   if ( node )
     triptype = NodeAsString( node );
-  ProgTrace( TRACE5, "filter parse: season_idx=%d,range.first=%s,range.last=%s,airp=%s,city=%s,time.first=%s,time.last=%s, airline=%s, triptype=%s",
+  ProgTrace( TRACE5, "filter parse: season_idx=%d,range.first=%s,range.last=%s,days=%s,airp=%s,city=%s,time.first=%s,time.last=%s, airline=%s, triptype=%s",
              season_idx, DateTimeToStr( range.first, "dd.mm.yy hh:nn" ).c_str(), DateTimeToStr( range.last, "dd.mm.yy hh:nn" ).c_str(),
-             airp.c_str(),city.c_str(),DateTimeToStr( firstTime, "dd.mm.yy hh:nn" ).c_str(),
+             range.days.c_str(),airp.c_str(),city.c_str(),DateTimeToStr( firstTime, "dd.mm.yy hh:nn" ).c_str(),
              DateTimeToStr( lastTime, "dd.mm.yy hh:nn" ).c_str(), airline.c_str(), triptype.c_str() );
 }
 
@@ -911,7 +917,6 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void CreateSPP( BASIC::TDateTime localdate )
 {
-  map<int,TTimeDiff> v;
   TQuery MIDQry(&OraSession);
   MIDQry.SQLText =
    "BEGIN "\
@@ -1002,11 +1007,11 @@ void CreateSPP( BASIC::TDateTime localdate )
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
         VQry.SetVariable( "name", d->airline + IntToString( d->trip ) + d->suffix );
         if ( d->scd_in > NoExists )
-          VQry.SetVariable( "scd_in", d->scd_in );
+          VQry.SetVariable( "scd_in", d->scd_in + im->second.diff );          
         else
           VQry.SetVariable( "scd_in", FNull );
         if ( d->scd_out > NoExists )
-          VQry.SetVariable( "scd_out", d->scd_out );
+          VQry.SetVariable( "scd_out", d->scd_out + im->second.diff );
         else
           VQry.SetVariable( "scd_out", FNull );
         VQry.Execute();
@@ -1021,8 +1026,6 @@ void CreateSPP( BASIC::TDateTime localdate )
       bool pr_tranzit;
       int fmt;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
-      	ProgTrace( TRACE5, "airp=%s, airp_fmt=%d, airline=%s, airline_fmt=%d, craft=%s, craft_fmt=%d, sufffix=%s, suffix_fmt=%d",
-      	           d->airp.c_str(), d->airp_fmt, d->airline.c_str(), d->airline_fmt, d->craft.c_str(), d->craft_fmt, d->suffix.c_str(), d->suffix_fmt );
         PQry.SetVariable( "point_num", d->num );        
         PQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
         PQry.SetVariable( "airp_fmt", d->airp_fmt );
@@ -1070,11 +1073,11 @@ void CreateSPP( BASIC::TDateTime localdate )
         if ( d->scd_in == NoExists )
           PQry.SetVariable( "scd_in", FNull );
         else
-          PQry.SetVariable( "scd_in", d->scd_in );
+          PQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
         if ( d->scd_out == NoExists )
           PQry.SetVariable( "scd_out", FNull );
         else
-          PQry.SetVariable( "scd_out", d->scd_out );
+          PQry.SetVariable( "scd_out", d->scd_out + im->second.diff );
         if ( d->triptype.empty() )
           PQry.SetVariable( "trip_type", FNull );
         else
@@ -1128,7 +1131,7 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 }
 
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, int offset,
-                    TDateTime vd, TDestList &ds )
+                    TDateTime vd, TDestList &ds, int ptz )
 {
   ProgTrace( TRACE5, "first_day=%s", DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str() );
 
@@ -1162,6 +1165,8 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
   Qry.Execute();
   bool candests = false;
   ds.pr_del = true;
+  ds.diff = filter.GetTZTimeDiff( da, first_day, ptz );
+  ds.tz = ptz;
   double f1;
   while ( !Qry.Eof ) {
     TDest d;
@@ -1356,11 +1361,9 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
            int offset = GetTZOffSet( first_day, ptz, v );
 
            ProgTrace( TRACE5, "day=%s, move_id=%d",
-                      DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
-                      vmove_id );
+                      DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(), vmove_id );
 
-           if ( insert_points( d, vmove_id, filter, first_day, offset,
-                                 *vd, ds ) ) { // имеем права с маршрутом работать + фильтр по временам
+           if ( insert_points( d, vmove_id, filter, first_day, offset, *vd, ds, ptz ) ) { // имеем права с маршрутом работать + фильтр по временам
               ds.flight_time = first_day;
               ds.last_day = last_day;
               ds.tz = ptz;
@@ -1475,12 +1478,6 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                  im->first,
                  (int)im->second.trips.size() );
       for ( vector<trip>::iterator tr=im->second.trips.begin(); tr!=im->second.trips.end(); tr++ ) {
-        TDateTime diffTime = GetTZTimeDiff( sp->first, im->second.flight_time, im->second.last_day, im->second.tz, v );
-      	if ( tr->scd_in > NoExists )
-      	  tr->scd_in += diffTime;
-      	if ( tr->scd_out > NoExists )
-      		tr->scd_out += diffTime;
-
         ViewTrips.push_back( *tr );
       }
       im->second.trips.clear();
@@ -2977,11 +2974,11 @@ int GetTZOffSet( TDateTime first, int tz, map<int,TTimeDiff> &v )
   return 0;
 }
 
-TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int tz, map<int,TTimeDiff> &v )
+TDateTime TFilter::GetTZTimeDiff( TDateTime utcnow, TDateTime first, int tz )
 {
-  map<int,TTimeDiff>::iterator mt = v.find( tz );
+  map<int,TTimeDiff>::iterator mt = offsets.find( tz );
   TTimeDiff vt;
-  if ( mt == v.end() ) {
+  if ( mt == offsets.end() ) {
     TQuery Qry( &OraSession );
     Qry.SQLText = "SELECT tz,first,last, hours FROM seasons WHERE tz=:tz";
     Qry.CreateVariable( "tz", otInteger, tz );
@@ -2994,9 +2991,9 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
       vt.push_back( t );
       Qry.Next();
     }
-    v.insert( make_pair(tz,vt));
+    offsets.insert( make_pair(tz,vt));
   }
-  else vt = v[ tz ];
+  else vt = offsets[ tz ];
 
   int periodDiff = NoExists, seasonDiff = NoExists;
 
@@ -3006,18 +3003,20 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
                DateTimeToStr( i->last, "dd.mm.yy hh:nn" ).c_str(),
                i->hours );*/
     if ( i->first <= first && i->last >= first ) {
-      periodDiff = i->hours;
+      periodDiff = i->hours; // сдвиг времени выполнения рейса
 /*      ProgTrace( TRACE5, "period first=%s, periofDiff=%d",
                  DateTimeToStr( first, "dd.mm.yy hh:nn" ).c_str(),
                  periodDiff );*/
     }
     /* для перевода времени необходимо, чтобы текущее время было внутри диапазона,
        тогда и отображать надо соответствеюше */
-    if ( first <= utcnow && last >= utcnow &&
+/*    if ( first <= utcnow && last >= utcnow &&
          i->first <= utcnow && i->last >= utcnow ) {
-      seasonDiff = i->hours;
+      seasonDiff = i->hours;*/
 /*      ProgTrace( TRACE5, "seasonDiff=%d", seasonDiff );*/
-    }
+     if ( i->first <= utcnow && i->last >= utcnow ) {
+     	 seasonDiff = i->hours; // сдвиг тек. времени
+     }
     if ( periodDiff > NoExists && seasonDiff > NoExists )
       break;
   }
@@ -3026,12 +3025,11 @@ TDateTime GetTZTimeDiff( TDateTime utcnow, TDateTime first, TDateTime last, int 
     return 0.0;
   else {
     ProgTrace( TRACE5, "periodDiff - seasonDiff =%d", periodDiff - seasonDiff );
-    return (double)( seasonDiff - periodDiff )*3600000/(double)MSecsPerDay;
+    return (double)( periodDiff - seasonDiff )*3600000/(double)MSecsPerDay;
   }
  /* ПРАВИЛО!!! ПЕРЕВОДИТ ОСУЩЕСТВЛЯЕТСЯ ОТНОСИТЕЛЬНО ПЕРВОГО ДНЯ ВЫПОЛНЕНИЯ ДИАПАЗОНА
    период ЗИМА (3) = 0 сегодня ЛЕТО(4) = 1 =>  1
    период ЛЕТО(4) = 1 сегодня ЗИМА(3) = -1 => -1
-
  */
 
 //  ProgError( STDLOG, ">>>> error GetTZTimeDiff not found" );
@@ -3129,7 +3127,6 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     if ( viewperiod.trip_id != SQry.FieldAsInteger( idx_trip_id ) ) {
       if ( !rangeListEmpty ) {
         if ( viewperiod.trip_id > NoExists ) {
-          tst();
         	viewp.push_back( viewperiod );
         }
       }
@@ -3163,7 +3160,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   /* !!! надо ли переводить у фильтра дни выполнения в UTC */
         ds.flight_time = utc_first;
         ds.region = pregion;
-        ProgTrace( TRACE5, "move_id=%d, pregion=%s", move_id, pregion.c_str() );
+//        ProgTrace( TRACE5, "move_id=%d, pregion=%s", move_id, pregion.c_str() );
         if ( df.intersects( p ) &&
              /* переводим диапазон выполнения в локальный формат - может быть сдвиг */
              ConvertPeriodToLocal( first, last, days, pregion, ptz, errtz ) &&
@@ -3218,7 +3215,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
           ds.trips.clear();
         } /* конец условия фильтра по диапазону */
     } /* end if canRange */
-    tst();
+//    tst();
     SQry.Next();
   }
   if ( rangeListEmpty ) {
