@@ -2714,6 +2714,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end if
   	set_pr_del = ( !old_dest.pr_del && id->pr_del );
+  	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
   		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
@@ -2915,12 +2916,18 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		vchangeAct.push_back( A );
  	  }
   	if ( set_pr_del ) {
+  		tst();
   		ch_dests = true;
   		Qry.Clear();
   		Qry.SQLText =
-  		"SELECT COUNT(*) c FROM pax_grp,points "\
-  		" WHERE points.point_id=:point_id AND "\
-  		"       point_dep=:point_id AND bag_refuse=0 ";
+  		"SELECT COUNT(*) c FROM "
+  		"( SELECT 1 FROM pax_grp,points "
+  		"   WHERE points.point_id=:point_id AND "
+  		"         point_dep=:point_id AND bag_refuse=0 AND rownum<2 "
+  		"  UNION "
+  		" SELECT 2 FROM pax_grp,points "
+  		"   WHERE points.point_id=:point_id AND "
+  		"         point_arv=:point_id AND bag_refuse=0 AND rownum<2 ) ";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) )
