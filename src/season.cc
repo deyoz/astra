@@ -502,9 +502,10 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
     ip->modify = fdelete;
   }
 //  p.modify = fnochange;
-ProgTrace( TRACE5, "first=%s, last=%s",
+ProgTrace( TRACE5, "first=%s, last=%s, modified=%d",
            DateTimeToStr( p.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
-           DateTimeToStr( p.last, "dd.mm.yyyy hh:nn:ss" ).c_str() );
+           DateTimeToStr( p.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
+           p.modify );
 
   nperiods.push_back( p );
 };
@@ -1964,6 +1965,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   TQuery SQry( &OraSession );
   xmlNodePtr node = GetNode( "trip_id", reqNode );
   int trip_id;
+  int num=0;  
   if ( node ) {
     trip_id = NodeAsInteger( node );
     SQry.Clear();
@@ -1996,6 +1998,14 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     SQry.CreateVariable( "trip_id", otInteger, trip_id );
     SQry.CreateVariable( "begin_date_season", otDate, begin_date_season );
     SQry.Execute();
+    SQry.Clear();
+    SQry.SQLText = "SELECT MAX(num) num FROM sched_days WHERE trip_id=:trip_id";
+    SQry.CreateVariable( "trip_id", otInteger, trip_id );
+    SQry.Execute();
+    if ( SQry.Eof )
+    	num = 0;
+    else	
+      num = SQry.FieldAsInteger( "num" ) + 1;
   }
   else {
     // это новый рейс
@@ -2038,11 +2048,12 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     if ( yp->modify == fdelete )
       continue;
 
-   ProgTrace( TRACE5, "result first=%s, last=%s, days=%s, move_id=%d",
+   ProgTrace( TRACE5, "result first=%s, last=%s, days=%s, move_id=%d, modified=%d",
               DateTimeToStr( yp->first,"dd.mm.yy hh:nn:ss" ).c_str(),
               DateTimeToStr( yp->last,"dd.mm.yy hh:nn:ss" ).c_str(),
               yp->days.c_str(),
-              yp->move_id );
+              yp->move_id,
+              yp->modify );
   }
 
   // теперь внимание среди периодов есть, те которые удалены
@@ -2106,7 +2117,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   RQry.DeclareVariable( "delta_out", otInteger );
   RQry.DeclareVariable( "suffix", otString );
   RQry.DeclareVariable( "suffix_fmt", otInteger );  
-  int num = 0;
+  //int num = 0;
   int new_move_id;
   for ( vector<TPeriod>::iterator ip=speriods.begin(); ip!=speriods.end(); ip++ ) {
     ProgTrace( TRACE5, "ip->modify=%d, ip->move_id=%d", ip->modify, ip->move_id );
@@ -2120,14 +2131,13 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         ProgTrace( TRACE5, "yp->move_id=%d, yp->modify=%d, ip->move_id=%d, ip->modify=%d",
                    yp->move_id, yp->modify, ip->move_id, ip->modify );
         if ( yp->move_id == ip->move_id ) {
-          tst();
           yp->move_id = new_move_id;
           yp->modify = fchange;
         }
       }
 
     } // end finsert
-    else {
+    else { //????
       new_move_id = ip->move_id;
       ProgTrace( TRACE5, "ip move_id=%d", new_move_id );
     }
@@ -2156,6 +2166,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
                           DateTimeToStr( ip->first, "dd.mm.yy" ).c_str(),
                           DateTimeToStr( ip->last, "dd.mm.yy" ).c_str(),
                           ip->days.c_str() );
+    ProgTrace( TRACE5, "trip_id=%d, new_move_id=%d,num=%d", trip_id, new_move_id,num );                      
     SQry.SetVariable( "trip_id", trip_id );
     SQry.SetVariable( "move_id", new_move_id );
     SQry.SetVariable( "num", num );
@@ -2195,7 +2206,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     	        DateTimeToStr( ip->first, "dd.mm.yy" ) +
     	        "-" +
               DateTimeToStr( ip->last, "dd.mm.yy" ) + log;
-    	ProgTrace( TRACE5, "log=%s", log.c_str() );
+    	ProgTrace( TRACE5, "log=%s, move_id=%d", log.c_str(), ew->move_id );
     	ew->modify = fdelete;
     }
     if ( !log.empty() )
@@ -2203,7 +2214,6 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     SQry.Execute()  ;
     num++;
     TDestList ds = mapds[ ip->move_id ];
-ProgTrace( TRACE5, "ds.dests.size=%d", (int)ds.dests.size() );
     int dnum = 0;
     double fl, ff;
     if ( !ds.dests.empty() ) {
@@ -2524,7 +2534,6 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
         tr.scd_out = TDateTimeToClient( ds.flight_time, OwnDest->scd_out, OwnDest->region ); 
 
         ds.trips.push_back( tr );
-        tst();
       }
       createTrip = false;
       PriorDest = NULL;
@@ -3215,7 +3224,6 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
           ds.trips.clear();
         } /* конец условия фильтра по диапазону */
     } /* end if canRange */
-//    tst();
     SQry.Next();
   }
   if ( rangeListEmpty ) {
@@ -3231,8 +3239,6 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     showErrorMessage( string("Для государства РФ с часовым поясом ") + IntToString( errtz ) + " не задан регион. Некоторые рейсы не отображаются" );
  if ( !err_airp.empty() )
     showErrorMessage( string("Для города ") + err_airp + " не задан регион. Некоторые рейсы не отображаются" );
- 	
-  tst();
 }
 
 void buildViewTrips( const vector<TViewPeriod> viewp, xmlNodePtr dataNode )
