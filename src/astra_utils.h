@@ -183,6 +183,7 @@ class TReqInfo
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
+    void Initialize( const std::string &city );
     void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
                      const std::string &vmode, bool checkUserLogon );
     void MsgToLog(TLogMsg &msg);
@@ -207,6 +208,7 @@ class TReqInfo
 };
 
 std::string GetSQLEnum(std::vector<std::string> &values);
+void MsgToLog(TLogMsg &msg, std::string &screen, std::string &user, std::string &desk);
 
 ASTRA::TDocType DecodeDocType(char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
@@ -283,5 +285,7 @@ std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);
 bool get_test_server();
+
+std::string& EOracleError2UserException(std::string& msg);
 
 #endif /*_ASTRA_UTILS_H_*/

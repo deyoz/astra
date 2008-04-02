@@ -186,7 +186,7 @@ void Develop_dbf::AddField( std::string name, char type, int len, int precision 
                field.type = type;
 	       break;
      default:
-	       throw Exception( "Invalid Field type" );
+	       throw Exception( "Invalid Field type, field name= " + name );
    }
   if ( len > 255 )
     throw Exception( "Invalid Field size>255" );

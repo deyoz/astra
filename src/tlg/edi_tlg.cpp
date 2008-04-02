@@ -10,6 +10,9 @@
 #include "oralib.h"
 #include "cont_tools.h"
 #include "ocilocal.h"
+#include "xml_unit.h"
+#include "astra_utils.h"
+#include "stl_utils.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -348,7 +351,7 @@ void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TChange, &err);
     if(ret)
     {
-        throw EXCEPTIONS::UserException("SendEdiMessage for change of status failed");
+        throw EXCEPTIONS::Exception("SendEdiMessage for change of status failed");
     }
 }
 
@@ -361,27 +364,65 @@ void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
     if(ret)
     {
-        throw EXCEPTIONS::UserException("SendEdiMessage DISPLAY failed");
+        throw EXCEPTIONS::Exception("SendEdiMessage DISPLAY failed");
     }
 }
 
+xmlDocPtr prepareKickXMLDoc(string iface)
+{
+  xmlDocPtr kickDoc=CreateXMLDoc(/*"CP866"*/"UTF-8","term");
+  if (kickDoc==NULL)
+    throw EXCEPTIONS::Exception("prepareKickXMLDoc failed");
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  JxtCont *sysCont = getJxtContHandler()->sysContext();
+  xmlNodePtr node=NodeAsNode("/term",kickDoc);
+  node=NewTextChild(node,"query");
+  SetProp(node,"handle",sysCont->readC("HANDLE",""));
+  SetProp(node,"id",iface);
+  SetProp(node,"ver","0");
+  SetProp(node,"opr",reqInfo->user.login);
+  SetProp(node,"screen",reqInfo->screen.name);
+  NewTextChild(node,"kick");
+  return kickDoc;
+};
+
 string prepareKickText(string iface)
 {
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    JxtCont *sysCont = getJxtContHandler()->sysContext();
- //   const char *iface = sysCont->readC("CUR_IFACE","");
-    const char *handle= sysCont->readC("HANDLE","");
-    const char *oper  = sysCont->readC("OPR","");
+  string res;
+  xmlDocPtr kickDoc=prepareKickXMLDoc(iface);
+  try
+  {
+    res=ConvertCodePage("UTF-8","CP866",XMLTreeToText(kickDoc));
+    xmlFreeDoc(kickDoc);
+  }
+  catch(...)
+  {
+    xmlFreeDoc(kickDoc);
+    throw;
+  };
+  return res;
+};
 
-    string text("<?xml version=\"1.0\" encoding=\"CP866\"?>"
-            "<term>");
-    text = text + "<query handle=\"" + handle + "\" id=\"" +iface+
-            "\" ver=\"0\" opr=\""+ oper +"\" screen=\""+reqInfo->screen.name+"\">"
-            "<kick></kick>"
-            "</query>"
-            "</term>";
-    return text;
-}
+string getKickText(const string &pult)
+{
+  string res;
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT text FROM edi_help WHERE pult=:pult AND date1>SYSDATE-1/1440 ORDER BY date1 DESC";
+  Qry.CreateVariable("pult",otString,pult.c_str());
+  Qry.Execute();
+  if (!Qry.Eof)
+    res=Qry.FieldAsString("text");
+  return res;
+};
+
+xmlDocPtr getKickXMLDoc(const string &pult)
+{
+  string kickText=getKickText(pult);
+  if (kickText.empty()) return NULL;
+  return TextToXMLTree(kickText);
+};
 
 void throw2UserLevel(const string &pult, const string &name, const string &text)
 {
@@ -475,13 +516,12 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
         PopEdiPointW(pMes);
         ResetEdiPointW(pMes);
     }
-    if(TickD.org().pult() != "SYSTEM"){
-/*        udata.ediHelp()->
-                configForPerespros(prepareKickText().c_str(),
-                                   TickD.org().pult().c_str());*/
+    TReqInfo& reqInfo = *(TReqInfo::Instance());
+    if (!reqInfo.desk.code.empty())
+    {
         ServerFramework::getQueryRunner().getEdiHelpManager().
                 configForPerespros(prepareKickText("ETStatus").c_str(),15);
-    }
+    };
 }
 
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
@@ -497,39 +537,126 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     }
     std::list<Ticket>::const_iterator currTick;
     TQuery Qry(&OraSession);
+    TQuery PaxQry(&OraSession);
+    string screen,user,desk;
+    desk=udata.sessData()->ediSession()->pult();
+    xmlDocPtr kickDoc=getKickXMLDoc(desk);
+    if (kickDoc!=NULL)
+      try
+      {
+        xmlNodePtr reqNode=NodeAsNode("/term/query",kickDoc);
+        screen=NodeAsString("@screen",reqNode);
+        Qry.Clear();
+        Qry.SQLText="SELECT descr FROM users2 WHERE login=:login";
+        Qry.CreateVariable("login",otString,NodeAsString("@opr",reqNode));
+        Qry.Execute();
+        if (!Qry.Eof)
+          user=Qry.FieldAsString("descr");
+        xmlFreeDoc(kickDoc);
+      }
+      catch(...)
+      {
+        xmlFreeDoc(kickDoc);
+        throw;
+      };
+
+    ProgTrace(TRACE5,"Kick info: screen=%s user=%s desk=%s",screen.c_str(),user.c_str(),desk.c_str());
+
+    PaxQry.Clear();
+    PaxQry.SQLText=
+      "SELECT pax_grp.grp_id,pax.reg_no,pax.surname,pax.name,pax.pers_type "
+      "FROM pax_grp,pax "
+      "WHERE pax_grp.grp_id=pax.grp_id AND "
+      "      pax_grp.point_dep=:point_id AND "
+      "      pax.ticket_no=:ticket_no AND pax.coupon_no=:coupon_no ";
+    PaxQry.DeclareVariable("ticket_no",otString);
+    PaxQry.DeclareVariable("coupon_no",otInteger);
+    PaxQry.DeclareVariable("point_id",otInteger);
+
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      ProgTrace(TRACE5,"ticket=%s error=%s",
-                       currTick->ticknum().c_str(),
-                       chngStatAns.err2Tick(currTick->ticknum()).c_str());
-      if (!chngStatAns.err2Tick(currTick->ticknum()).empty()) {
-        continue;
-      }
+      string err=chngStatAns.err2Tick(currTick->ticknum());
+      if (!err.empty())
+      {
+        ProgTrace(TRACE5,"ticket=%s error=%s",
+                         currTick->ticknum().c_str(), err.c_str());
+      };
       if (currTick->getCoupon().empty()) continue;
 
-      ProgTrace(TRACE5,"ticket=%s coupon=%d",
-                       currTick->ticknum().c_str(),
-                       currTick->getCoupon().front().couponInfo().num());
-      CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+      //получим ид. рейса
       Qry.Clear();
-      if (status->codeInt()==CouponStatus::Checked ||
-          status->codeInt()==CouponStatus::Boarded ||
-          status->codeInt()==CouponStatus::Flown)
-      {
-        //сделать update
-        Qry.SQLText=
-          "UPDATE etickets SET coupon_status=:status "
-          "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
-        Qry.CreateVariable("status",otString,status->dispCode());
-      }
-      else
-      {
-        //удалить из таблицы
-        Qry.SQLText="DELETE FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no";
-      };
+      Qry.SQLText="SELECT point_id FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no FOR UPDATE";
       Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
       Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
       Qry.Execute();
+      if (Qry.Eof) continue;
+      int point_id=Qry.FieldAsInteger("point_id");
+
+      TLogMsg msg;
+      ostringstream msgh;
+      msg.ev_type=ASTRA::evtPax;
+      msg.id1=point_id;
+
+
+      //получим данные по пассажиру
+      PaxQry.SetVariable("ticket_no",currTick->ticknum());
+      PaxQry.SetVariable("coupon_no",(int)currTick->getCoupon().front().couponInfo().num());
+      PaxQry.SetVariable("point_id",point_id);
+      PaxQry.Execute();
+      if (!PaxQry.Eof)
+      {
+        msg.id2=PaxQry.FieldAsInteger("reg_no");
+        msg.id3=PaxQry.FieldAsInteger("grp_id");
+        msgh << "Пассажир " << PaxQry.FieldAsString("surname")
+             << (PaxQry.FieldIsNULL("name")?"":" ") << PaxQry.FieldAsString("name")
+             << " (" << PaxQry.FieldAsString("pers_type") << "). ";
+      };
+
+      if (err.empty())
+      {
+        CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+
+        ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
+                         currTick->ticknum().c_str(),
+                         currTick->getCoupon().front().couponInfo().num(),
+                         status->dispCode());
+
+        //изменим статус в таблице etickets
+        Qry.Clear();
+        if (status->codeInt()==CouponStatus::Checked ||
+            status->codeInt()==CouponStatus::Boarded ||
+            status->codeInt()==CouponStatus::Flown)
+        {
+          //сделать update
+          Qry.SQLText=
+            "UPDATE etickets SET coupon_status=:status "
+            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
+          Qry.CreateVariable("status",otString,status->dispCode());
+        }
+        else
+        {
+          //удалить из таблицы
+          Qry.SQLText=
+            "DELETE FROM etickets "
+            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
+        };
+        Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
+        Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
+        Qry.Execute();
+        msgh << "Изменен статус эл. билета "
+             << currTick->ticknum() << "/"
+             << currTick->getCoupon().front().couponInfo().num()
+             << ": " << status->dispCode() << ". ";
+      }
+      else
+      {
+        msgh << "Ошибка при изменении статуса эл. билета "
+             << currTick->ticknum() << "/"
+             << currTick->getCoupon().front().couponInfo().num()
+             << ": " << err << ". ";
+      };
+      msg.msg=msgh.str();
+      MsgToLog(msg,screen,user,desk);
     };
 }
 
@@ -558,16 +685,18 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
         default:
             throw EdiExcept("Unsupported dispType");
     }
-//     udata.ediHelp()->
-//             configForPerespros(prepareKickText().c_str(),
-//                                TickD.org().pult().c_str());
-    ServerFramework::getQueryRunner().getEdiHelpManager().
-            configForPerespros(prepareKickText("ETSearchForm").c_str(),15);
+    TReqInfo& reqInfo = *(TReqInfo::Instance());
+    if (!reqInfo.desk.code.empty())
+    {
+      ServerFramework::getQueryRunner().getEdiHelpManager().
+              configForPerespros(prepareKickText("ETSearchForm").c_str(),15);
+    };
 }
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
 }
+
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
     // Запись телеграммы в контекст, для связи с obrzap'ом

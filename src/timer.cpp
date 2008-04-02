@@ -190,16 +190,10 @@ const int CREATE_SPP_DAYS()
 
 void createSPP( TDateTime utcdate )
 {
-  TBaseTable &basecities = base_tables.get( "cities" );
-	string city = "МОВ";
 	utcdate += CREATE_SPP_DAYS(); //  на следующий день
 	TReqInfo *reqInfo = TReqInfo::Instance();
-	reqInfo->clear();
+	reqInfo->Initialize("МОВ");
 	reqInfo->user.sets.time = ustTimeUTC;
-	reqInfo->user.user_type = utSupport;
-	reqInfo->user.access.airlines_permit = false;
-	reqInfo->user.access.airps_permit = false;
-	reqInfo->desk.tz_region = ((TCitiesRow&)basecities.get_row( "code", city )).region;
 	CreateSPP( utcdate );
 	ProgTrace( TRACE5, "СПП получен за %s", DateTimeToStr( utcdate, "dd.mm.yy" ).c_str() );
 }
@@ -899,16 +893,34 @@ void arx_daily(TDateTime utcdate)
   ProgTrace(TRACE5,"arx_daily stopped");
 };
 
+#include <boost/date_time/local_time/local_time.hpp>
+using namespace boost::local_time;
+
 void sync_sirena_codes( void )
 {
 	ProgTrace(TRACE5,"sync_sirena_codes started");
+
+	//вычисляем признак летней/зимней навигации
+	bool pr_summer=false;
+	string tz_region=CityTZRegion("МОВ");
+  tz_database &tz_db = get_tz_database();
+  time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
+  if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
+  if (tz->has_dst())
+  {
+    local_date_time ld(DateTimeToBoost(NowUTC()),tz);
+    pr_summer=ld.is_dst();
+  };
+
 	TQuery Qry(&OraSession);
 	Qry.Clear();
-  Qry.SQLText= /*04068*/
+  Qry.SQLText= //04068
     "BEGIN "
-    "  utils.sync_sirena_codes; "
+    "  utils.sync_sirena_codes(:pr_summer); "
     "END;";
+  Qry.CreateVariable("pr_summer",otInteger,(int)pr_summer);
   Qry.Execute();
+
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };

@@ -405,7 +405,7 @@ void TCacheTable::refresh()
         pr_irefresh = false;
     if(Params.find(TAG_REFRESH_DATA) != Params.end() || pr_irefresh ) {
         if ( pr_irefresh )
-          clientVerData = -1;    	
+          clientVerData = -1;
         pr_drefresh = refreshData();
     }
     else
@@ -781,11 +781,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         catch( EOracleError E ) {
           if ( E.Code >= 20000 ) {
             string str = E.what();
-            if (str.substr( 0, 3 ) == "ORA") {
-              size_t s = str.find( ": " );
-              if ( s != string::npos )
-                str = str.substr( s + 2, str.size() - i );
-            }
+            EOracleError2UserException(str);
             throw UserException( str.c_str() );
           }
           else {

@@ -132,7 +132,7 @@ bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError(string("Node '") + expr + "' does not exists");  
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   return strcmp(NodeContent(node),"")==0;
 };
 
@@ -155,7 +155,7 @@ char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError(string("Node '") + expr + "' does not exists");  
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   return NodeContent(node);
 };
 
@@ -182,7 +182,7 @@ int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur)
   xmlNodePtr node;
   node=find_node(expr,data,cur);
   if (node==NULL)
-    throw EXMLError(string("Node '") + expr + "' does not exists");  
+    throw EXMLError(string("Node '") + expr + "' does not exists");
   if ( StrToInt( NodeContent(node), Value ) == EOF )
     throw EXMLError(string("Cannot convert node '") + expr + "' to an Integer");
   return Value;
@@ -246,7 +246,7 @@ TDateTime NodeAsDateTime(char* expr, xmlDocPtr data, char* format, xmlNodePtr cu
   node=find_node(expr,data,cur);
   if (node==NULL)
     throw EXMLError(string("Node '") + expr + "' does not exists");
-ProgTrace( TRACE5, "expr=%s, format=%s, nodecont=%s", expr, format, NodeContent(node) );    
+ProgTrace( TRACE5, "expr=%s, format=%s, nodecont=%s", expr, format, NodeContent(node) );
   if ( StrToDateTime( NodeContent(node), format, Value ) == EOF )
     throw EXMLError(string("Cannot convert node '") + expr + "' to an DateTime");
   return Value;
@@ -262,28 +262,28 @@ TDateTime NodeAsDateTime(char* expr, char* format, xmlNodePtr cur)
 
 TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur)
 {
-  return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );  
+  return NodeAsDateTime( expr, (char*)ServerFormatDateTimeAsString, cur );
 }
 
 xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node)
 {
-  xmlNodePtr node2=node;			
+  xmlNodePtr node2=node;
   while (node2!=NULL)
   {
     if (strcmp((char*)node2->name,expr)==0)
     {
       if (node2->next!=NULL) node=node2->next;
-      return node2;      
+      return node2;
     };
     node2=node2->prev;
   };
   node2=node->next;
-  while (node2!=NULL) 
+  while (node2!=NULL)
   {
     if (strcmp((char*)node2->name,expr)==0)
     {
       if (node2->next!=NULL) node=node2->next;
-      return node2;            
+      return node2;
     };
     node2=node2->next;
   };
@@ -293,47 +293,47 @@ xmlNodePtr GetNodeFast(char *expr, xmlNodePtr &node)
 xmlNodePtr NodeAsNodeFast(char *expr, xmlNodePtr &node)
 {
   xmlNodePtr node2=GetNodeFast(expr,node);
-  if (node2==NULL) 
-    throw EXMLError(string("Node '") + expr + "' does not exists");       
-  return node2;	
+  if (node2==NULL)
+    throw EXMLError(string("Node '") + expr + "' does not exists");
+  return node2;
 }
 
 bool NodeIsNULLFast(char *expr, xmlNodePtr &node)
 {
-  return NodeIsNULL(NodeAsNodeFast(expr,node));	
+  return NodeIsNULL(NodeAsNodeFast(expr,node));
 }
 
 char* NodeAsStringFast(char *expr, xmlNodePtr &node)
 {
-  return NodeAsString(NodeAsNodeFast(expr,node));		
+  return NodeAsString(NodeAsNodeFast(expr,node));
 }
 
 int NodeAsIntegerFast(char *expr, xmlNodePtr &node)
 {
-  return NodeAsInteger(NodeAsNodeFast(expr,node));		
+  return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
 double NodeAsFloatFast(char *expr, xmlNodePtr &node)
 {
-  return NodeAsFloat(NodeAsNodeFast(expr,node));		
+  return NodeAsFloat(NodeAsNodeFast(expr,node));
 }
 
 BASIC::TDateTime NodeAsDateTimeFast(char *expr, char *format, xmlNodePtr &node)
 {
-  return NodeAsDateTime(NodeAsNodeFast(expr,node),format);		
+  return NodeAsDateTime(NodeAsNodeFast(expr,node),format);
 }
 
 BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node)
 {
-  return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);			  
-}  
+  return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
+}
 
 bool NodeIsNULLFast(char *expr, xmlNodePtr &node, bool nvl)
 {
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
     else
-        return NodeIsNULL(NodeAsNodeFast(expr,node));	
+        return NodeIsNULL(NodeAsNodeFast(expr,node));
 }
 
 char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl)
@@ -341,7 +341,7 @@ char* NodeAsStringFast(char *expr, xmlNodePtr &node, char* nvl)
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
     else
-        return NodeAsString(NodeAsNodeFast(expr,node));		
+        return NodeAsString(NodeAsNodeFast(expr,node));
 }
 
 int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl)
@@ -349,7 +349,7 @@ int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl)
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
     else
-        return NodeAsInteger(NodeAsNodeFast(expr,node));		
+        return NodeAsInteger(NodeAsNodeFast(expr,node));
 }
 
 double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl)
@@ -357,7 +357,7 @@ double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl)
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
     else
-        return NodeAsFloat(NodeAsNodeFast(expr,node));		
+        return NodeAsFloat(NodeAsNodeFast(expr,node));
 }
 
 TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, TDateTime nvl)
@@ -365,8 +365,8 @@ TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, TDateTime nvl)
     if(GetNodeFast(expr, node) == NULL)
         return nvl;
     else
-        return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);			  
-}  
+        return NodeAsDateTime(NodeAsNodeFast(expr,node),(char*)ServerFormatDateTimeAsString);
+}
 
 xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const char *content)
 {
@@ -427,12 +427,12 @@ xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const char *con
 
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const string content)
 {
-  return ReplaceTextChild(parent, name, content.c_str());	
+  return ReplaceTextChild(parent, name, content.c_str());
 };
 
 xmlNodePtr ReplaceTextChild(xmlNodePtr parent, const char *name, const int content)
 {
-  return ReplaceTextChild(parent, name, IntToString(content).c_str());	
+  return ReplaceTextChild(parent, name, IntToString(content).c_str());
 };
 
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value)
@@ -444,12 +444,12 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value)
 
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const string value)
 {
-  return SetProp(node, name, value.c_str());	
+  return SetProp(node, name, value.c_str());
 };
 
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value)
 {
-  return SetProp(node, name, IntToString(value).c_str());	
+  return SetProp(node, name, IntToString(value).c_str());
 };
 
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src)
@@ -474,7 +474,37 @@ xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive)
   return res;
 };
 
-string GetXMLDocText( xmlDocPtr doc)
+xmlDocPtr CreateXMLDoc(const char *encoding, const char *root)
+{
+  xmlDocPtr resDoc=xmlNewDoc(BAD_CAST "1.0");
+  if(resDoc==NULL) return NULL;
+
+  xmlFree(const_cast<xmlChar *>(resDoc->encoding));
+  resDoc->encoding=xmlStrdup(BAD_CAST encoding);
+  if (resDoc->encoding==NULL)
+  {
+    xmlFreeDoc(resDoc);
+    return NULL;
+  };
+  xmlNodePtr rootNode=xmlNewDocNode(resDoc,NULL,BAD_CAST root,NULL);
+  if (rootNode==NULL)
+  {
+    xmlFreeDoc(resDoc);
+    return NULL;
+  };
+  xmlDocSetRootElement(resDoc,rootNode);
+  return resDoc;
+};
+
+xmlDocPtr TextToXMLTree( const string& str )
+{
+  xmlDocPtr res=NULL;
+  xmlKeepBlanksDefault(0);
+  res=xmlParseMemory(str.c_str(),str.size());
+  return res;
+};
+
+string XMLTreeToText( xmlDocPtr doc)
 {
   char *data2=NULL;
   int datalen=0;
@@ -491,6 +521,11 @@ string GetXMLDocText( xmlDocPtr doc)
     throw;
   };
   return res;
+};
+
+string GetXMLDocText( xmlDocPtr doc)
+{
+  return XMLTreeToText(doc);
 };
 
 void NodeSetContent(xmlNodePtr cur, const int content)

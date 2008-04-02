@@ -71,6 +71,32 @@ void TReqInfo::clearPerform()
 	execute_time = ptime( not_a_date_time );
 }
 
+void TReqInfo::Initialize( const std::string &city )
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT region FROM cities,tz_regions "
+    "WHERE cities.country=tz_regions.country(+) AND "
+    "      cities.tz=tz_regions.tz(+) AND "
+    "      cities.code=:city AND "
+    "      cities.pr_del=0 AND "
+    "      tz_regions.pr_del(+)=0";
+  Qry.DeclareVariable( "city", otString );
+  Qry.SetVariable( "city", city );
+  Qry.Execute();
+  if (Qry.Eof)
+    throw Exception("TReqInfo::Initialize: city %s not found",city.c_str());
+  if (Qry.FieldIsNULL("region"))
+    throw UserException("TReqInfo::Initialize: region nod defined (city=%s)",city.c_str());
+  desk.city = city;
+  desk.tz_region = Qry.FieldAsString( "region" );
+  desk.time = UTCToLocal( NowUTC(), desk.tz_region );
+  user.access.airlines_permit=false;
+  user.access.airps_permit=false;
+};
+
 void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
                            const std::string &vopr, const std::string &vmode, bool checkUserLogon )
 {
@@ -423,23 +449,13 @@ long TReqInfo::getExecuteMSec()
 	return pt.total_milliseconds();
 }
 
-void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
-{
-    TLogMsg msgh;
-    msgh.msg = msg;
-    msgh.ev_type = ev_type;
-    msgh.id1 = id1;
-    msgh.id2 = id2;
-    msgh.id3 = id3;
-    MsgToLog(msgh);
-}
-
-void TReqInfo::MsgToLog(TLogMsg &msg)
+void MsgToLog(TLogMsg &msg, string &screen, string &user, string &desk)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+        "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+        "       SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("msg", otString);
     Qry.DeclareVariable("screen", otString);
@@ -450,9 +466,9 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     Qry.DeclareVariable("id3", otInteger);
     Qry.SetVariable("type", EncodeEventType(msg.ev_type));
     Qry.SetVariable("msg", msg.msg);
-    Qry.SetVariable("screen", screen.name);
-    Qry.SetVariable("ev_user", user.descr);
-    Qry.SetVariable("station", desk.code);
+    Qry.SetVariable("screen", screen);
+    Qry.SetVariable("ev_user", user);
+    Qry.SetVariable("station", desk);
     if(msg.id1!=0)
         Qry.SetVariable("id1", msg.id1);
     else
@@ -466,7 +482,23 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
     else
         Qry.SetVariable("id3", FNull);
     Qry.Execute();
+};
+
+void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)
+{
+    TLogMsg msgh;
+    msgh.msg = msg;
+    msgh.ev_type = ev_type;
+    msgh.id1 = id1;
+    msgh.id2 = id2;
+    msgh.id3 = id3;
+    MsgToLog(msgh);
 }
+
+void TReqInfo::MsgToLog(TLogMsg &msg)
+{
+    ::MsgToLog(msg,screen.name,user.descr,desk.code);
+};
 
 
 /***************************************************************************************/
@@ -1105,7 +1137,7 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
 string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
                          int fmt, bool with_deleted)
 {
-  int fmt2=0;
+	int fmt2=0;
   if (ctxt==ecDisp)
   {
     if(type==etAirline ||
@@ -1291,7 +1323,7 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
 
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {
-  string code;
+	string code;
   code=id;
 
   if (id.empty()||fmt==0) return code;
@@ -1546,6 +1578,39 @@ string transliter(const string &value, bool pr_lat)
   else  result=value;
   return result;
 }
+
+string& EOracleError2UserException(string& msg)
+{
+  if (msg.substr( 0, 3 ) == "ORA")
+  {
+    size_t p = msg.find( ": " );
+    if ( p != string::npos )
+    {
+      msg.erase( 0, p+2 );
+      p = msg.find_first_of("\n\r");
+      if ( p != string::npos ) msg.erase( p );
+    };
+  };
+  return msg;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

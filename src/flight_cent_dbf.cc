@@ -8,9 +8,9 @@
 #include "stl_utils.h"
 #include "basic.h"
 #include "develop_dbf.h"
+#include "astra_service.h"
 #include "sopp.h"
 #include "astra_consts.h"
-//#include "base_tables.h"
 #include "astra_utils.h"
 
 
@@ -226,6 +226,7 @@ void createFileParams( int point_id, map<string,string> &params )
 	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";	
 	  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
 	  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+    params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
 }
 
 void getTripCountsOnDest( int point_arv, Luggage &lug, vector<std::string> &data )
@@ -315,7 +316,7 @@ void getTripSeats( Luggage &lug, vector<std::string> &data )
 	data.push_back( "0" ); //K_SL число занятых кресел служебные пассажиры !!!
 }
 
-bool createCentringFile( int point_id, map<string,string> &params, string &file_data )
+bool createCentringFile( int point_id, const string &point_addr, TFileDatas &fds )
 {
 	Develop_dbf dbf;
 	dbf.AddField( "NR", 'C', 8 ); //1 номер рейса 3 - Company + 5 flt_no + ??? suffix
@@ -674,7 +675,11 @@ bool createCentringFile( int point_id, map<string,string> &params, string &file_
 	dbf.AddRow( row );
 	tst();
 	dbf.Build( );
-	file_data = dbf.Result();
-	createFileParams( point_id, params );
-	return !dbf.isEmpty();
+	TFileData fd;
+	fd.file_data = dbf.Result();
+	if ( !fd.file_data.empty() ) {
+	  createFileParams( point_id, fd.params );		
+		fds.push_back( fd );
+	}
+	return !fds.empty();
 }

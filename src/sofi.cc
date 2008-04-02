@@ -16,14 +16,14 @@
 #include "slogger.h"
 #include "base_tables.h"
 #include "astra_utils.h"
-#include "develop_dbf.h"
+#include "astra_service.h"
 
 
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
-void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string,string> &params )
+void createFileParamsSofi( int point_id, int receipt_id, string pult, const string &point_addr, map<string,string> &params )
 {
 	//!!! надо считать
 	TQuery Qry( &OraSession );
@@ -49,7 +49,7 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string
 	 "   INSERT INTO sofi_files(file_no, point_addr, desk, time) VALUES( 1, :point_addr, :desk, sysdate ); "
 	 "END; ";
 	Qry.CreateVariable( "file_no", otInteger, 0 );
-	Qry.CreateVariable( "point_addr", otString, params[PARAM_CANON_NAME] );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "desk", otString, pult );
 	tst();
 	Qry.Execute();
@@ -65,10 +65,11 @@ void createFileParamsSofi( int point_id, int receipt_id, string pult, map<string
   params[ PARAM_FILE_NAME ] =  res.str();
   params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
 	params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
+  params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
 }
 
 bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams,
-	                   std::map<std::string,std::string> &params, std::string &file_data )
+	                   const std::string &point_addr, TFileDatas &fds )
 {
 	ProgTrace( TRACE5, "inparams.size()=%d", inparams.size() );
   TQuery Qry(&OraSession);
@@ -214,8 +215,10 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
  res<<Qry.FieldAsString( "pult" );
  res<<dlmt; //15
  res<<dlmt; //15
- file_data = res.str();
- createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), params );
- tst();
- return true;
+ TFileData fd;
+ fd.file_data = res.str();
+ createFileParamsSofi( point_id, receipt_id, Qry.FieldAsString( "pult" ), point_addr, fd.params );
+ if ( !fd.file_data.empty() )
+	fds.push_back( fd );
+ return !fds.empty();
 }
