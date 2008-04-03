@@ -5,6 +5,11 @@
 #include <sstream>
 #include <vector>
 
+const std::string DBF_TYPE_CHAR = "CHAR";
+const std::string DBF_TYPE_DATE = "DATE";
+const std::string DBF_TYPE_NUMBER = "NUMBER";
+const std::string DBF_TYPE_FLOAT = "FLOAT";
+
 struct TField {
 	std::string name;
 	char type; //C, L, N, M или F
