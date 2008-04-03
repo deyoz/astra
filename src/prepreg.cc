@@ -363,7 +363,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.Clear();
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam, "
-      "       pr_check_pay,pr_exam_check_pay,pr_trfer_reg "
+      "       pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
+      "       pr_reg_with_tkn,pr_reg_with_doc "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
     SetsQry.Execute();
@@ -376,7 +377,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_pr_exam,           old_pr_exam,
          new_pr_check_pay,      old_pr_check_pay,
          new_pr_exam_check_pay, old_pr_exam_check_pay,
-         new_pr_trfer_reg,      old_pr_trfer_reg;
+         new_pr_trfer_reg,      old_pr_trfer_reg,
+         new_pr_reg_with_tkn,   old_pr_reg_with_tkn,
+         new_pr_reg_with_doc,   old_pr_reg_with_doc;
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
     old_pr_check_load=SetsQry.FieldAsInteger("pr_check_load")!=0;
@@ -385,6 +388,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
     old_pr_exam_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
     old_pr_trfer_reg=SetsQry.FieldAsInteger("pr_trfer_reg")!=0;
+    old_pr_reg_with_tkn=SetsQry.FieldAsInteger("pr_reg_with_tkn")!=0;
+    old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
 
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
     new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
@@ -392,12 +397,20 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     new_pr_overload_reg=NodeAsInteger("pr_overload_reg",node)!=0;
     new_pr_exam=NodeAsInteger("pr_exam",node)!=0;
     new_pr_check_pay=NodeAsInteger("pr_check_pay",node)!=0;
-    //!!!потом убрать 01.04.08
+    //!!!потом убрать GetNode 01.04.08
     if (GetNode("pr_exam_check_pay",node)!=NULL)
       new_pr_exam_check_pay=NodeAsInteger("pr_exam_check_pay",node)!=0;
     else
-      new_pr_exam_check_pay=false;
-    //!!!потом убрать 01.04.08
+      new_pr_exam_check_pay=old_pr_exam_check_pay;
+    if (GetNode("pr_reg_with_tkn",node)!=NULL)
+      new_pr_reg_with_tkn=NodeAsInteger("pr_reg_with_tkn",node)!=0;
+    else
+      new_pr_reg_with_tkn=old_pr_reg_with_tkn;
+    if (GetNode("pr_reg_with_doc",node)!=NULL)
+      new_pr_reg_with_doc=NodeAsInteger("pr_reg_with_doc",node)!=0;
+    else
+      new_pr_reg_with_doc=old_pr_reg_with_doc;
+    //!!!потом убрать GetNode 01.04.08
     new_pr_trfer_reg=NodeAsInteger("pr_trfer_reg",node)!=0;
 
     if (old_pr_tranzit!=new_pr_tranzit ||
@@ -460,7 +473,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_exam!=new_pr_exam ||
         old_pr_check_pay!=new_pr_check_pay ||
         old_pr_exam_check_pay!=new_pr_exam_check_pay ||
-        old_pr_trfer_reg!=new_pr_trfer_reg )
+        old_pr_trfer_reg!=new_pr_trfer_reg ||
+        old_pr_reg_with_tkn!=new_pr_reg_with_tkn ||
+        old_pr_reg_with_doc!=new_pr_reg_with_doc)
     {
       Qry.Clear();
       Qry.SQLText=
@@ -470,7 +485,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         "    pr_exam=:pr_exam, "
         "    pr_check_pay=:pr_check_pay, "
         "    pr_exam_check_pay=:pr_exam_check_pay, "
-        "    pr_trfer_reg=:pr_trfer_reg "
+        "    pr_trfer_reg=:pr_trfer_reg, "
+        "    pr_reg_with_tkn=:pr_reg_with_tkn, "
+        "    pr_reg_with_doc=:pr_reg_with_doc "
         "WHERE point_id=:point_id";
       Qry.CreateVariable("pr_check_load",otInteger,(int)new_pr_check_load);
       Qry.CreateVariable("pr_overload_reg",otInteger,(int)new_pr_overload_reg);
@@ -478,6 +495,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.CreateVariable("pr_check_pay",otInteger,(int)new_pr_check_pay);
       Qry.CreateVariable("pr_exam_check_pay",otInteger,(int)new_pr_exam_check_pay);
       Qry.CreateVariable("pr_trfer_reg",otInteger,(int)new_pr_trfer_reg);
+      Qry.CreateVariable("pr_reg_with_tkn",otInteger,(int)new_pr_reg_with_tkn);
+      Qry.CreateVariable("pr_reg_with_doc",otInteger,(int)new_pr_reg_with_doc);
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
 
@@ -524,6 +543,20 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.msg = "Установлен режим";
         if ( !new_pr_trfer_reg ) msg.msg += " запрета"; else msg.msg += " разрешения";
         msg.msg += " обработки трансфера при регистрации";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_reg_with_tkn!=new_pr_reg_with_tkn)
+      {
+        msg.msg = "Установлен режим";
+        if ( new_pr_reg_with_tkn ) msg.msg += " запрета"; else msg.msg += " разрешения";
+        msg.msg += " регистрации без номеров билетов";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_reg_with_doc!=new_pr_reg_with_doc)
+      {
+        msg.msg = "Установлен режим";
+        if ( new_pr_reg_with_doc ) msg.msg += " запрета"; else msg.msg += " разрешения";
+        msg.msg += " регистрации без номеров документов";
         TReqInfo::Instance()->MsgToLog(msg);
       };
     };

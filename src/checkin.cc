@@ -1602,8 +1602,41 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   CrsQry.DeclareVariable("pax_id",otInteger);
 
 
-  //определим - новая регистрация или запись изменений
+  bool pr_tranz_reg,
+       pr_reg_with_tkn,
+       pr_reg_with_doc;
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc "
+    "FROM trip_sets WHERE point_id=:point_id ";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+
+  pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
+  pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
+  pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
+
   xmlNodePtr node,node2,remNode;
+  //проверим номера документов и билетов
+  if (!pr_unaccomp&&
+      (pr_reg_with_tkn||pr_reg_with_doc))
+  {
+    node=NodeAsNode("passengers",reqNode);
+    for(node=node->children;node!=NULL;node=node->next)
+    {
+      node2=node->children;
+      if (NodeIsNULLFast("pers_type",node2,true)) continue;
+      if (NodeAsStringFast("pers_type",node2)=="РМ") continue;
+
+      if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
+        throw UserException("При регистрации необходимо указывать номера билетов пассажиров");
+      if (pr_reg_with_doc&&NodeIsNULLFast("document",node2,true))
+        throw UserException("При регистрации необходимо указывать документы пассажиров");
+    };
+  };
+
+  //определим - новая регистрация или запись изменений
   node = GetNode("grp_id",reqNode);
   if (node==NULL||NodeIsNULL(node))
   {
@@ -1620,6 +1653,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     //новая регистрация
     //проверка наличия свободных мест
     TPaxStatus grp_status=DecodePaxStatus(NodeAsString("status",reqNode));
+    if (grp_status==psTransit && !pr_tranz_reg)
+      throw UserException("Перерегистрация транзита на данный рейс не производится");
+
     if (!pr_unaccomp)
     {
       int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
@@ -2867,7 +2903,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
   TrferQry.DeclareVariable("subclass_fmt",otInteger);
   TrferQry.DeclareVariable("pr_final",otInteger);
   int i,num=1,fmt;
-  string str;
+  string str,strh;
   TDateTime base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
   ostringstream msg;
   msg << "Оформлен трансфер по маршруту:";
@@ -2885,10 +2921,10 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
         << setw(2) << setfill('0') << NodeAsIntegerFast("local_date",node2);
 
     //авиакомпания
-    str=NodeAsStringFast("airline",node2);
-    str=ElemToElemId(etAirline,str,fmt);
+    strh=NodeAsStringFast("airline",node2);
+    str=ElemToElemId(etAirline,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/к %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      throw UserException("Неизвестный код а/к %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
@@ -2922,10 +2958,10 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     msg << setw(2) << setfill('0') << i;
 
     //аэропорт вылета
-    str=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
-    str=ElemToElemId(etAirp,str,fmt);
+    strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
+    str=ElemToElemId(etAirp,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
@@ -2941,7 +2977,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     airp_arv=NodeAsStringFast("airp_arv",node2);
     str=ElemToElemId(etAirp,airp_arv,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+      throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",airp_arv.c_str(),flt.str().c_str());
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
@@ -2956,10 +2992,10 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     if (!pr_unaccomp)
     {
       //подкласс
-      str=NodeAsStringFast("subclass",node2);
-      str=ElemToElemId(etSubcls,str,fmt);
+      strh=NodeAsStringFast("subclass",node2);
+      str=ElemToElemId(etSubcls,strh,fmt);
       if (!(fmt==0 || fmt==1))
-        throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+        throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
       if (checkType==checkAllSeg ||
           checkType==checkFirstSeg && i==1)
       {
