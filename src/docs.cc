@@ -1139,6 +1139,283 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
+struct TBagTagRow {
+    int point_num;
+    int grp_id;
+    string airp_arv;
+    int class_priority;
+    string class_code;
+    string class_name;
+    int bag_type;
+    string bag_name;
+    int bag_num;
+    int amount;
+    int weight;
+    string tag_type;
+    string color;
+    string no;
+    TBagTagRow()
+    {
+        point_num = -1;
+        grp_id = -1;
+        class_priority = -1;
+        bag_type = -1;
+        bag_num = -1;
+        amount = -1;
+        weight = -1;
+    }
+};
+
+bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
+{
+    bool result;
+    if(p1.point_num == p2.point_num) {
+        if(p1.class_priority == p2.class_priority) {
+            if(p1.bag_name == p2.bag_name) {
+                if(p1.tag_type == p2.tag_type) {
+                    result = p1.color < p2.color;
+                } else
+                    result = p1.tag_type < p2.tag_type;
+            } else
+                result = p1.bag_name < p2.bag_name;
+        } else
+            result = p1.class_priority < p2.class_priority;
+    } else
+        result = p1.point_num > p2.point_num;
+    return result;
+}
+
+typedef struct {
+    int bag_type;
+    string class_code;
+    string airp;
+    string name;
+} TBagNameRow;
+
+class t_rpt_bm_bag_name {
+    private:
+        vector<TBagNameRow> bag_names;
+    public:
+        void init(string airp);
+        string get(string class_code, int bag_type);
+};
+
+string t_rpt_bm_bag_name::get(string class_code, int bag_type)
+{
+    string result;
+    for(vector<TBagNameRow>::iterator iv = bag_names.begin(); iv != bag_names.end(); iv++)
+        if(iv->class_code == class_code && iv->bag_type == bag_type) {
+            result = iv->name;
+            break;
+        }
+    return result;
+}
+
+void t_rpt_bm_bag_name::init(string airp)
+{
+    bag_names.clear();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   bag_type, "
+        "   class, "
+        "   airp, "
+        "   name "
+        "from "
+        "   rpt_bm_bag_names "
+        "where "
+        "   airp is null or "
+        "   airp = :airp "
+        "order by "
+        "   airp nulls last ";
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TBagNameRow bag_name_row;
+        bag_name_row.bag_type = Qry.FieldAsInteger("bag_type");
+        bag_name_row.class_code = Qry.FieldAsString("class");
+        bag_name_row.airp = Qry.FieldAsString("airp");
+        bag_name_row.name = Qry.FieldAsString("name");
+        bag_names.push_back(bag_name_row);
+    }
+}
+
+void dump_bag_tags(vector<TBagTagRow> &bag_tags)
+{
+    ostringstream log;
+    log
+        << endl
+        << setw(10) << "grp_id"
+        << setw(9)  << "airp_arv"
+        << setw(11) << "class_name"
+        << setw(9)  << "bag_type"
+        << setw(10) << "bag_name"
+        << setw(8)  << "bag_num"
+        << setw(7)  << "amount"
+        << setw(7)  << "weight"
+        << setw(9)  << "tag_type"
+        << setw(6)  << "color"
+        << setw(10) << "no"
+        << endl;
+    for(vector<TBagTagRow>::iterator iv = bag_tags.begin(); iv != bag_tags.end(); iv++) {
+        log
+            << setw(10) << iv->grp_id
+            << setw(9) << iv->airp_arv
+            << setw(11) << iv->class_name
+            << setw(9) << iv->bag_type
+            << setw(10) << iv->bag_name
+            << setw(8) << iv->bag_num
+            << setw(7)  << iv->amount
+            << setw(7)  << iv->weight
+            << setw(9)  << iv->tag_type
+            << setw(6) << iv->color
+            << setw(10) << iv->no
+            << endl;
+    }
+    ProgTrace(TRACE5, "%s", log.str().c_str());
+}
+
+void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    TQuery Qry(&OraSession);
+    int point_id = NodeAsInteger("point_id", reqNode);
+    t_rpt_bm_bag_name bag_names;
+    Qry.Clear();
+    Qry.SQLText = "select airp from points where point_id = :point_id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("RunBMNew: point_id %d not found", point_id);
+    string airp = Qry.FieldAsString(0);
+    bag_names.init(airp);
+    vector<TBagTagRow> bag_tags;
+    vector<int> grps;
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "    points.point_num, "
+        "    pax_grp.grp_id, "
+        "    pax_grp.airp_arv, "
+        "    nvl(classes.priority, 100) class_priority, "
+        "    classes.code class_code, "
+        "    classes.name class_name, "
+        "    bag2.bag_type, "
+        "    bag2.num bag_num, "
+        "    bag2.amount, "
+        "    bag2.weight "
+        "from "
+        "    pax_grp, "
+        "    points, "
+        "    classes, "
+        "    bag2 "
+        "where "
+        "    pax_grp.point_dep = :point_id and "
+        "    pax_grp.point_arv = points.point_id and "
+        "    pax_grp.class = classes.code(+) and "
+        "    pax_grp.grp_id = bag2.grp_id and "
+        "    bag2.pr_cabin = 0 ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        int cur_grp_id = Qry.FieldAsInteger("grp_id");
+        int cur_bag_num = Qry.FieldAsInteger("bag_num");
+
+        TBagTagRow bag_tag_row;
+        bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
+        bag_tag_row.grp_id = cur_grp_id;
+        bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
+        bag_tag_row.class_priority = Qry.FieldAsInteger("class_priority");
+        bag_tag_row.class_code = Qry.FieldAsString("class_code");
+        bag_tag_row.class_name = Qry.FieldAsString("class_name");
+        bag_tag_row.bag_type = Qry.FieldAsInteger("bag_type");
+        bag_tag_row.bag_name = bag_names.get(bag_tag_row.class_code, bag_tag_row.bag_type);
+        bag_tag_row.bag_num = cur_bag_num;
+        bag_tag_row.amount = Qry.FieldAsInteger("amount");
+        bag_tag_row.weight = Qry.FieldAsInteger("weight");
+
+        if(find(grps.begin(), grps.end(), cur_grp_id) == grps.end()) {
+            grps.push_back(cur_grp_id);
+            // ищем непривязанные бирки для каждой группы
+            TQuery tagsQry(&OraSession);
+            tagsQry.SQLText =
+                "select "
+                "   bag_tags.tag_type, "
+                "   bag_tags.color, "
+                "   to_char(bag_tags.no) no "
+                "from "
+                "   bag_tags "
+                "where "
+                "   bag_tags.grp_id = :grp_id and "
+                "   bag_tags.bag_num is null";
+            tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+            tagsQry.Execute();
+            for(; !tagsQry.Eof; tagsQry.Next()) {
+                bag_tags.push_back(bag_tag_row);
+                bag_tags.back().bag_num = -1;
+                bag_tags.back().bag_name = "";
+                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+                bag_tags.back().color = tagsQry.FieldAsString("color");
+                bag_tags.back().no = tagsQry.FieldAsString("no");
+            }
+        }
+
+        TQuery tagsQry(&OraSession);
+        tagsQry.SQLText =
+            "select "
+            "   bag_tags.tag_type, "
+            "   bag_tags.color, "
+            "   to_char(bag_tags.no) no "
+            "from "
+            "   bag_tags "
+            "where "
+            "   bag_tags.grp_id = :grp_id and "
+            "   bag_tags.bag_num = :bag_num ";
+        tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+        tagsQry.CreateVariable("bag_num", otInteger, cur_bag_num);
+        tagsQry.Execute();
+        for(; !tagsQry.Eof; tagsQry.Next()) {
+            bag_tags.push_back(bag_tag_row);
+            bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+            bag_tags.back().color = tagsQry.FieldAsString("color");
+            bag_tags.back().no = tagsQry.FieldAsString("no");
+        }
+    }
+    sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
+    dump_bag_tags(bag_tags);
+
+    TBagTagRow bag_tag_row;
+    vector<string> tag_nos;
+    for(vector<TBagTagRow>::iterator iv = bag_tags.begin(); iv != bag_tags.end(); iv++) {
+        if(
+                tag_nos.empty() || !(
+                    bag_tag_row.airp_arv == iv->airp_arv &&
+                    bag_tag_row.class_code == iv->class_code &&
+                    bag_tag_row.bag_name == iv->bag_name &&
+                    bag_tag_row.tag_type == iv->tag_type &&
+                    bag_tag_row.color == iv->color
+                    )
+          ) {
+            bag_tag_row.airp_arv = iv->airp_arv;
+            bag_tag_row.class_code = iv->class_code;
+            bag_tag_row.bag_name = iv->bag_name;
+            bag_tag_row.tag_type = iv->tag_type;
+            bag_tag_row.color = iv->color;
+            string buf;
+            for(vector<string>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
+                buf += *iv +  " ";
+            }
+            ProgTrace(TRACE5, "GROUPPED NOS: %s", buf.c_str());
+            tag_nos.clear();
+        }
+        tag_nos.push_back(iv->no);
+    }
+    string buf;
+    for(vector<string>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
+        buf += *iv +  " ";
+    }
+    ProgTrace(TRACE5, "GROUPPED NOS: %s", buf.c_str());
+}
+
 void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
@@ -1736,7 +2013,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     // group test
     else if(name == "test3") RunTest3(formDataNode);
     else if(name == "BMTrfer") RunBMTrfer(reqNode, formDataNode);
-    else if(name == "BM") RunBM(reqNode, formDataNode);
+    else if(name == "BM") RunBMNew(reqNode, formDataNode);
     else if(name == "PMTrfer" || name == "PM" || name == "PMDMD") RunPM(name, reqNode, formDataNode);
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
