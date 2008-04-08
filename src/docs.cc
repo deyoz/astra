@@ -1139,6 +1139,14 @@ void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
+struct TBag2PK {
+    int grp_id, num;
+    bool operator==(const TBag2PK op)
+    {
+        return (grp_id == op.grp_id) && (num == op.num);
+    }
+};
+
 struct TBagTagRow {
     int point_num;
     int grp_id;
@@ -1153,7 +1161,9 @@ struct TBagTagRow {
     int weight;
     string tag_type;
     string color;
-    string no;
+    double no;
+    string tag_range;
+    int num;
     TBagTagRow()
     {
         point_num = -1;
@@ -1163,6 +1173,8 @@ struct TBagTagRow {
         bag_num = -1;
         amount = -1;
         weight = -1;
+        no = -1.;
+        num = -1;
     }
 };
 
@@ -1240,45 +1252,115 @@ void t_rpt_bm_bag_name::init(string airp)
     }
 }
 
+void dump_tag_row(TBagTagRow &tag, bool hdr = true)
+{
+    ostringstream log;
+    if(hdr) {
+        log
+            << setw(10) << "grp_id"
+            << setw(9)  << "airp_arv"
+            << setw(11) << "class_name"
+            << setw(9)  << "bag_type"
+            << setw(10) << "bag_name"
+            << setw(8)  << "bag_num"
+            << setw(7)  << "amount"
+            << setw(7)  << "weight"
+            << setw(9)  << "tag_type"
+            << setw(6)  << "color"
+            << setw(10) << "no"
+            << setw(30) << "tag_range"
+            << setw(3)  << "num"
+            << endl;
+        ProgTrace(TRACE5, "%s", log.str().c_str());
+        log.str("");
+    }
+    log
+        << setw(10) << tag.grp_id
+        << setw(9)  << tag.airp_arv
+        << setw(11) << tag.class_name
+        << setw(9)  << tag.bag_type
+        << setw(10) << tag.bag_name
+        << setw(8)  << tag.bag_num
+        << setw(7)  << tag.amount
+        << setw(7)  << tag.weight
+        << setw(9)  << tag.tag_type
+        << setw(6)  << tag.color
+        << setw(10) << fixed << setprecision(0) << tag.no
+        << setw(30) << tag.tag_range
+        << setw(3)  << tag.num
+        << endl;
+    ProgTrace(TRACE5, "%s", log.str().c_str());
+}
+
 void dump_bag_tags(vector<TBagTagRow> &bag_tags)
 {
     ostringstream log;
-    log
-        << endl
-        << setw(10) << "grp_id"
-        << setw(9)  << "airp_arv"
-        << setw(11) << "class_name"
-        << setw(9)  << "bag_type"
-        << setw(10) << "bag_name"
-        << setw(8)  << "bag_num"
-        << setw(7)  << "amount"
-        << setw(7)  << "weight"
-        << setw(9)  << "tag_type"
-        << setw(6)  << "color"
-        << setw(10) << "no"
-        << endl;
+    bool hdr = true;
     for(vector<TBagTagRow>::iterator iv = bag_tags.begin(); iv != bag_tags.end(); iv++) {
-        log
-            << setw(10) << iv->grp_id
-            << setw(9) << iv->airp_arv
-            << setw(11) << iv->class_name
-            << setw(9) << iv->bag_type
-            << setw(10) << iv->bag_name
-            << setw(8) << iv->bag_num
-            << setw(7)  << iv->amount
-            << setw(7)  << iv->weight
-            << setw(9)  << iv->tag_type
-            << setw(6) << iv->color
-            << setw(10) << iv->no
-            << endl;
+        dump_tag_row(*iv, hdr);
+        if(hdr) hdr = false;
     }
     ProgTrace(TRACE5, "%s", log.str().c_str());
 }
 
+bool lessTagNos(const double &p1, const double &p2)
+{
+    return p1 < p2;
+}
+
+string get_tag_range(vector<double> tag_nos)
+{
+    ostringstream result;
+    sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
+    double first_no = -1.;
+    double prev_no = -1.;
+    double base = -1.;
+    for(vector<double>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
+        double tmp_base = floor(*iv / 1000);
+        if(tmp_base != base) {
+            base = tmp_base;
+            first_no = -1.;
+            prev_no = -1.;
+        }
+        if(result.str().empty() || *iv - 1 != prev_no) {
+            if(!result.str().empty() && prev_no != first_no) {
+                double mod = prev_no - (floor(prev_no / 1000) * 1000);
+                result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
+            }
+            if(!result.str().empty()) result << ", ";
+            result << fixed << setprecision(0) << setw(3) << setfill('0') << *iv;
+            first_no = *iv;
+        }
+        prev_no = *iv;
+    }
+    if(prev_no != first_no) {
+        double mod = prev_no - (floor(prev_no / 1000) * 1000);
+        result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
+    }
+    return result.str();
+}
+
 void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
-    TQuery Qry(&OraSession);
     int point_id = NodeAsInteger("point_id", reqNode);
+    TQuery Qry(&OraSession);
+    string target = NodeAsString("target", reqNode);
+    int pr_lat = GetRPEncoding(target);
+    int pr_vip = NodeAsInteger("pr_vip", reqNode);
+
+    //TODO: get_report_form in each report handler, not once!
+    if(target.empty()) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        // внутри get_report_form вызывается ReplaceTextChild, в котором в свою
+        // очередь вызывается xmlNodeSetContent, который, судя по всему, кладет string
+        // иначе чем xmlNewTextChild, что лично меня не устраивает. Поэтому удалим узел
+        // form, чтобы get_report_form создал его заново. (c) Den. 26.11.07
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("BMTotal", resNode);
+    }
+
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
     Qry.SQLText = "select airp from points where point_id = :point_id ";
@@ -1291,7 +1373,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     vector<TBagTagRow> bag_tags;
     vector<int> grps;
     Qry.Clear();
-    Qry.SQLText =
+    string SQLText =
         "select "
         "    points.point_num, "
         "    pax_grp.grp_id, "
@@ -1307,13 +1389,27 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    pax_grp, "
         "    points, "
         "    classes, "
-        "    bag2 "
+        "    bag2 ";
+    if(pr_vip != 2)
+        SQLText += ", halls2 ";
+    SQLText +=
         "where "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
         "    pax_grp.class = classes.code(+) and "
         "    pax_grp.grp_id = bag2.grp_id and "
         "    bag2.pr_cabin = 0 ";
+    if(!target.empty()) {
+        SQLText += " and pax_grp.airp_arv = :target ";
+        Qry.CreateVariable("target", otString, target);
+    }
+    if(pr_vip != 2) {
+        SQLText +=
+            " and pax_grp.hall = halls2.id and "
+            " halls2.pr_vip = :pr_vip ";
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
@@ -1351,11 +1447,10 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             tagsQry.Execute();
             for(; !tagsQry.Eof; tagsQry.Next()) {
                 bag_tags.push_back(bag_tag_row);
-                bag_tags.back().bag_num = -1;
                 bag_tags.back().bag_name = "";
                 bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
                 bag_tags.back().color = tagsQry.FieldAsString("color");
-                bag_tags.back().no = tagsQry.FieldAsString("no");
+                bag_tags.back().no = tagsQry.FieldAsFloat("no");
             }
         }
 
@@ -1377,43 +1472,214 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             bag_tags.push_back(bag_tag_row);
             bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
             bag_tags.back().color = tagsQry.FieldAsString("color");
-            bag_tags.back().no = tagsQry.FieldAsString("no");
+            bag_tags.back().no = tagsQry.FieldAsFloat("no");
         }
     }
     sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
     dump_bag_tags(bag_tags);
 
     TBagTagRow bag_tag_row;
-    vector<string> tag_nos;
+    TBagTagRow bag_sum_row;
+    bag_sum_row.amount = 0;
+    bag_sum_row.weight = 0;
+    vector<double> tag_nos;
+    vector<TBagTagRow> bm_table;
+    int bag_sum_idx = -1;
+    vector<TBag2PK> bag2_pks;
     for(vector<TBagTagRow>::iterator iv = bag_tags.begin(); iv != bag_tags.end(); iv++) {
         if(
-                tag_nos.empty() || !(
+                !(
                     bag_tag_row.airp_arv == iv->airp_arv &&
                     bag_tag_row.class_code == iv->class_code &&
                     bag_tag_row.bag_name == iv->bag_name &&
                     bag_tag_row.tag_type == iv->tag_type &&
                     bag_tag_row.color == iv->color
-                    )
+                 )
           ) {
+            if(!tag_nos.empty()) {
+                bm_table.back().tag_range = get_tag_range(tag_nos);
+                bm_table.back().num = tag_nos.size();
+                tag_nos.clear();
+            }
             bag_tag_row.airp_arv = iv->airp_arv;
             bag_tag_row.class_code = iv->class_code;
             bag_tag_row.bag_name = iv->bag_name;
             bag_tag_row.tag_type = iv->tag_type;
             bag_tag_row.color = iv->color;
-            string buf;
-            for(vector<string>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
-                buf += *iv +  " ";
+            bm_table.push_back(*iv);
+            if(iv->class_code.empty())
+                bm_table.back().class_name = pr_lat ? "Unacompanied baggage" : "Несопровождаемый багаж";
+            if(iv->color.empty())
+                bm_table.back().color = "-";
+            else
+                bm_table.back().color = base_tables.get("tag_colors").get_row("code", iv->color).AsString("name", pr_lat);
+            bm_table.back().amount = 0;
+            bm_table.back().weight = 0;
+            if(
+                    !(
+                        bag_sum_row.airp_arv == iv->airp_arv &&
+                        bag_sum_row.class_code == iv->class_code
+                     )
+              ) {
+                if(bag_sum_row.amount != 0) {
+                    bm_table[bag_sum_idx].amount = bag_sum_row.amount;
+                    bm_table[bag_sum_idx].weight = bag_sum_row.weight;
+                    bag_sum_row.amount = 0;
+                    bag_sum_row.weight = 0;
+                    bag2_pks.clear();
+                }
+                bag_sum_row.airp_arv = iv->airp_arv;
+                bag_sum_row.class_code = iv->class_code;
+                bag_sum_idx = bm_table.size() - 1;
             }
-            ProgTrace(TRACE5, "GROUPPED NOS: %s", buf.c_str());
-            tag_nos.clear();
+        }
+        TBag2PK bag2__pk;
+        bag2__pk.grp_id = iv->grp_id;
+        bag2__pk.num = iv->bag_num;
+        if(find(bag2_pks.begin(), bag2_pks.end(), bag2__pk) == bag2_pks.end()) {
+            bag2_pks.push_back(bag2__pk);
+            bag_sum_row.amount += iv->amount;
+            bag_sum_row.weight += iv->weight;
         }
         tag_nos.push_back(iv->no);
     }
-    string buf;
-    for(vector<string>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
-        buf += *iv +  " ";
+    if(!tag_nos.empty()) {
+        bm_table.back().tag_range = get_tag_range(tag_nos);
+        bm_table.back().num = tag_nos.size();
+        tag_nos.clear();
     }
-    ProgTrace(TRACE5, "GROUPPED NOS: %s", buf.c_str());
+    if(bag_sum_row.amount != 0) {
+        bm_table[bag_sum_idx].amount = bag_sum_row.amount;
+        bm_table[bag_sum_idx].weight = bag_sum_row.weight;
+        bag_sum_row.amount = 0;
+        bag_sum_row.weight = 0;
+    }
+    dump_bag_tags(bm_table);
+
+
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
+
+    for(vector<TBagTagRow>::iterator iv = bm_table.begin(); iv != bm_table.end(); iv++) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        string airp_arv = iv->airp_arv;
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+        NewTextChild(rowNode, "bag_name", iv->bag_name);
+        NewTextChild(rowNode, "birk_range", iv->tag_range);
+        NewTextChild(rowNode, "color", iv->color);
+        NewTextChild(rowNode, "num", iv->num);
+        NewTextChild(rowNode, "pr_vip", pr_vip);
+        NewTextChild(rowNode, "class", iv->class_code);
+        NewTextChild(rowNode, "class_name", iv->class_name);
+        NewTextChild(rowNode, "amount", iv->amount);
+        NewTextChild(rowNode, "weight", iv->weight);
+        Qry.Next();
+    }
+    // Теперь переменные отчета
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   airp, "
+        "   airline, "
+        "   flt_no, "
+        "   suffix, "
+        "   craft, "
+        "   bort, "
+        "   park_out park, "
+        "   scd_out "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(point_id));
+
+    string airline = Qry.FieldAsString("airline");
+    string craft = Qry.FieldAsString("craft");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+
+    tst();
+    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    tst();
+    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+    //    TCrafts crafts;
+
+    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "flt",
+            airlineRow.AsString("code", pr_lat) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            Qry.FieldAsString("suffix")
+            );
+    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "craft", craft);
+    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    string airp_arv_name;
+    if(target.size())
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat);
+    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
+
+    {
+        // delete in future 14.10.07 !!!
+        NewTextChild(variablesNode, "DosKwit");
+        NewTextChild(variablesNode, "DosPcs");
+        NewTextChild(variablesNode, "DosWeight");
+    }
+
+    int TotAmount = 0;
+    int TotWeight = 0;
+    Qry.Clear();
+    SQLText =
+        "SELECT NVL(SUM(amount),0) AS amount, "
+        "       NVL(SUM(weight),0) AS weight "
+        "FROM pax_grp,bag2 ";
+    if(pr_vip != 2)
+        SQLText +=
+            "   ,halls2 ";
+    SQLText +=
+        "WHERE pax_grp.grp_id=bag2.grp_id AND ";
+    if(pr_vip != 2) {
+        SQLText +=
+            "      pax_grp.hall=halls2.id AND "
+            "      halls2.pr_vip=:pr_vip AND ";
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    SQLText +=
+        "      pax_grp.point_dep=:point_id and ";
+    if(target.size())
+        SQLText +=
+            "      pax_grp.airp_arv=:target and ";
+    SQLText +=
+        "      pax_grp.bag_refuse=0 AND "
+        "      bag2.pr_cabin=0 ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    if(target.size())
+        Qry.CreateVariable("target", otString, target);
+    ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
+    Qry.Execute();
+    if(Qry.RowCount() > 0) {
+        TotAmount += Qry.FieldAsInteger("amount");
+        TotWeight += Qry.FieldAsInteger("weight");
+    }
+
+    NewTextChild(variablesNode, "TotPcs", TotAmount);
+    NewTextChild(variablesNode, "TotWeight", TotWeight);
+    NewTextChild(variablesNode, "Tot", (pr_lat ? "" : vs_number(TotAmount)));
+
+    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
 void RunBM(xmlNodePtr reqNode, xmlNodePtr formDataNode)
