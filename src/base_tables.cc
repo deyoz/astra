@@ -40,6 +40,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TPersTypes();
         else if(name == "GENDER_TYPES")
             base_tables[name] = new TGenderTypes();
+        else if(name == "TAG_COLORS")
+            base_tables[name] = new TTagColors();
         else if(name == "PAX_DOC_TYPES")
             base_tables[name] = new TPaxDocTypes();
         else if(name == "CITIES")
@@ -382,6 +384,14 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   *row = new TGenderTypesRow;
   ((TGenderTypesRow*)*row)->name=Qry.FieldAsString("name");
   ((TGenderTypesRow*)*row)->pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TTagColors::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTagColorsRow;
+  ((TTagColorsRow*)*row)->name=Qry.FieldAsString("name");
+  ((TTagColorsRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
