@@ -1148,6 +1148,8 @@ struct TBag2PK {
 };
 
 struct TBagTagRow {
+    int pr_trfer;
+    string last_target;
     int point_num;
     int grp_id;
     string airp_arv;
@@ -1166,6 +1168,7 @@ struct TBagTagRow {
     int num;
     TBagTagRow()
     {
+        pr_trfer = -1;
         point_num = -1;
         grp_id = -1;
         class_priority = -1;
@@ -1182,16 +1185,22 @@ bool lessBagTagRow(const TBagTagRow &p1, const TBagTagRow &p2)
 {
     bool result;
     if(p1.point_num == p2.point_num) {
-        if(p1.class_priority == p2.class_priority) {
-            if(p1.bag_name == p2.bag_name) {
-                if(p1.tag_type == p2.tag_type) {
-                    result = p1.color < p2.color;
+        if(p1.pr_trfer == p2.pr_trfer) {
+            if(p1.last_target == p2.last_target) {
+                if(p1.class_priority == p2.class_priority) {
+                    if(p1.bag_name == p2.bag_name) {
+                        if(p1.tag_type == p2.tag_type) {
+                            result = p1.color < p2.color;
+                        } else
+                            result = p1.tag_type < p2.tag_type;
+                    } else
+                        result = p1.bag_name < p2.bag_name;
                 } else
-                    result = p1.tag_type < p2.tag_type;
+                    result = p1.class_priority < p2.class_priority;
             } else
-                result = p1.bag_name < p2.bag_name;
+                result = p1.last_target > p2.last_target;
         } else
-            result = p1.class_priority < p2.class_priority;
+            result = p1.pr_trfer < p2.pr_trfer;
     } else
         result = p1.point_num > p2.point_num;
     return result;
@@ -1257,11 +1266,13 @@ void dump_tag_row(TBagTagRow &tag, bool hdr = true)
     ostringstream log;
     if(hdr) {
         log
+            << setw(9)  << "pr_trfer"
+            << setw(12) << "last_target"
             << setw(10) << "grp_id"
             << setw(9)  << "airp_arv"
             << setw(11) << "class_name"
             << setw(9)  << "bag_type"
-            << setw(10) << "bag_name"
+            << setw(23) << "bag_name"
             << setw(8)  << "bag_num"
             << setw(7)  << "amount"
             << setw(7)  << "weight"
@@ -1269,17 +1280,19 @@ void dump_tag_row(TBagTagRow &tag, bool hdr = true)
             << setw(6)  << "color"
             << setw(10) << "no"
             << setw(30) << "tag_range"
-            << setw(3)  << "num"
+            << setw(4)  << "num"
             << endl;
         ProgTrace(TRACE5, "%s", log.str().c_str());
         log.str("");
     }
     log
+        << setw(9)  << tag.pr_trfer
+        << setw(12) << tag.last_target
         << setw(10) << tag.grp_id
         << setw(9)  << tag.airp_arv
         << setw(11) << tag.class_name
         << setw(9)  << tag.bag_type
-        << setw(10) << tag.bag_name
+        << setw(23) << tag.bag_name
         << setw(8)  << tag.bag_num
         << setw(7)  << tag.amount
         << setw(7)  << tag.weight
@@ -1287,7 +1300,7 @@ void dump_tag_row(TBagTagRow &tag, bool hdr = true)
         << setw(6)  << tag.color
         << setw(10) << fixed << setprecision(0) << tag.no
         << setw(30) << tag.tag_range
-        << setw(3)  << tag.num
+        << setw(4)  << tag.num
         << endl;
     ProgTrace(TRACE5, "%s", log.str().c_str());
 }
@@ -1347,6 +1360,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
+    bool pr_trfer = (string)NodeAsString("name", reqNode) == "BMTrfer";
 
     //TODO: get_report_form in each report handler, not once!
     if(target.empty()) {
@@ -1358,7 +1372,10 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
-        get_report_form("BMTotal", resNode);
+        if(pr_trfer)
+            get_report_form("BMTrferTotal", resNode);
+        else
+            get_report_form("BMTotal", resNode);
     }
 
     t_rpt_bm_bag_name bag_names;
@@ -1374,7 +1391,16 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     vector<int> grps;
     Qry.Clear();
     string SQLText =
-        "select "
+        "select ";
+    if(pr_trfer)
+        SQLText +=
+            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, "
+            "    v_last_trfer.last_trfer last_target, ";
+    else
+        SQLText +=
+            "    0 pr_trfer, "
+            "    null last_target, ";
+    SQLText +=
         "    points.point_num, "
         "    pax_grp.grp_id, "
         "    pax_grp.airp_arv, "
@@ -1392,6 +1418,8 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    bag2 ";
     if(pr_vip != 2)
         SQLText += ", halls2 ";
+    if(pr_trfer)
+        SQLText += ", v_last_trfer ";
     SQLText +=
         "where "
         "    pax_grp.point_dep = :point_id and "
@@ -1409,14 +1437,20 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             " halls2.pr_vip = :pr_vip ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
+    if(pr_trfer)
+        SQLText +=
+            " and pax_grp.grp_id = v_last_trfer.grp_id(+) ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         int cur_grp_id = Qry.FieldAsInteger("grp_id");
         int cur_bag_num = Qry.FieldAsInteger("bag_num");
 
         TBagTagRow bag_tag_row;
+        bag_tag_row.pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        bag_tag_row.last_target = Qry.FieldAsString("last_target");
         bag_tag_row.point_num = Qry.FieldAsInteger("point_num");
         bag_tag_row.grp_id = cur_grp_id;
         bag_tag_row.airp_arv = Qry.FieldAsString("airp_arv");
@@ -1489,6 +1523,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     for(vector<TBagTagRow>::iterator iv = bag_tags.begin(); iv != bag_tags.end(); iv++) {
         if(
                 !(
+                    bag_tag_row.last_target == iv->last_target &&
                     bag_tag_row.airp_arv == iv->airp_arv &&
                     bag_tag_row.class_code == iv->class_code &&
                     bag_tag_row.bag_name == iv->bag_name &&
@@ -1501,6 +1536,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
                 bm_table.back().num = tag_nos.size();
                 tag_nos.clear();
             }
+            bag_tag_row.last_target = iv->last_target;
             bag_tag_row.airp_arv = iv->airp_arv;
             bag_tag_row.class_code = iv->class_code;
             bag_tag_row.bag_name = iv->bag_name;
@@ -1517,6 +1553,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             bm_table.back().weight = 0;
             if(
                     !(
+                        bag_sum_row.last_target == iv->last_target &&
                         bag_sum_row.airp_arv == iv->airp_arv &&
                         bag_sum_row.class_code == iv->class_code
                      )
@@ -1558,7 +1595,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_bm");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, pr_trfer ? "v_bm_trfer" : "v_bm");
 
     for(vector<TBagTagRow>::iterator iv = bm_table.begin(); iv != bm_table.end(); iv++) {
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -1566,6 +1603,8 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
         NewTextChild(rowNode, "airp_arv", airp_arv);
         NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+        NewTextChild(rowNode, "pr_trfer", iv->pr_trfer);
+        NewTextChild(rowNode, "last_target", iv->last_target);
         NewTextChild(rowNode, "bag_name", iv->bag_name);
         NewTextChild(rowNode, "birk_range", iv->tag_range);
         NewTextChild(rowNode, "color", iv->color);
@@ -2278,7 +2317,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "test2") RunTest2(formDataNode);
     // group test
     else if(name == "test3") RunTest3(formDataNode);
-    else if(name == "BMTrfer") RunBMTrfer(reqNode, formDataNode);
+    else if(name == "BMTrfer") RunBMNew(reqNode, formDataNode);
     else if(name == "BM") RunBMNew(reqNode, formDataNode);
     else if(name == "PMTrfer" || name == "PM" || name == "PMDMD") RunPM(name, reqNode, formDataNode);
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
