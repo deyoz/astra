@@ -1350,7 +1350,7 @@ string get_tag_range(vector<double> tag_nos)
                 result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
             }
             if(!result.str().empty()) result << ", ";
-            result << fixed << setprecision(0) << setw(3) << setfill('0') << *iv;
+            result << fixed << setprecision(0) << setw(10) << setfill('0') << *iv;
             first_no = *iv;
         }
         prev_no = *iv;
