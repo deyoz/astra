@@ -1162,6 +1162,7 @@ struct TBagTagRow {
     int bag_num;
     int amount;
     int weight;
+    int pr_liab_limit;
     string tag_type;
     string color;
     double no;
@@ -1178,6 +1179,7 @@ struct TBagTagRow {
         bag_num = -1;
         amount = -1;
         weight = -1;
+        pr_liab_limit = -1;
         no = -1.;
         num = -1;
     }
@@ -1325,39 +1327,63 @@ void dump_bag_tags(vector<TBagTagRow> &bag_tags)
     ProgTrace(TRACE5, "%s", log.str().c_str());
 }
 
-bool lessTagNos(const double &p1, const double &p2)
+struct t_tag_nos_row {
+    int pr_liab_limit;
+    double no;
+};
+
+bool lessTagNos(const t_tag_nos_row &p1, const t_tag_nos_row &p2)
 {
-    return p1 < p2;
+    return p1.no < p2.no;
 }
 
-string get_tag_range(vector<double> tag_nos)
+string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
 {
+    string lim = (pr_lat ? "(lim)" : "(огр)");
     ostringstream result;
     sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
     double first_no = -1.;
     double prev_no = -1.;
     double base = -1.;
-    for(vector<double>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
-        double tmp_base = floor(*iv / 1000);
+    int pr_liab_limit = -1;
+    ostringstream buf;
+    for(vector<t_tag_nos_row>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
+        buf << fixed << setprecision(0) << iv->no <<  " ";
+        double tmp_base = floor(iv->no / 1000);
         if(tmp_base != base) {
             base = tmp_base;
             first_no = -1.;
             prev_no = -1.;
+            pr_liab_limit = -1;
         }
-        if(result.str().empty() || *iv - 1 != prev_no) {
+        if(result.str().empty() || iv->no - 1 != prev_no || iv->pr_liab_limit != pr_liab_limit) {
             if(!result.str().empty() && prev_no != first_no) {
                 double mod = prev_no - (floor(prev_no / 1000) * 1000);
+                if(pr_liab_limit) { // delete from stream unneeded first lim
+                    long pos = result.tellp();
+                    pos -= lim.size();
+                    result.seekp(pos);
+                }
                 result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
+                if(pr_liab_limit)
+                    result << lim;
             }
-            if(!result.str().empty()) result << ", ";
-            result << fixed << setprecision(0) << setw(10) << setfill('0') << *iv;
-            first_no = *iv;
+            if(!result.str().empty()) {
+                result << ", ";
+            }
+            result << fixed << setprecision(0) << setw(3) << setfill('0') << iv->no;
+            if(iv->pr_liab_limit)
+                result << lim;
+            first_no = iv->no;
         }
-        prev_no = *iv;
+        prev_no = iv->no;
+        pr_liab_limit = iv->pr_liab_limit;
     }
     if(prev_no != first_no) {
         double mod = prev_no - (floor(prev_no / 1000) * 1000);
         result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
+        if(pr_liab_limit)
+            result << lim;
     }
     return result.str();
 }
@@ -1461,7 +1487,8 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    bag2.bag_type, "
         "    bag2.num bag_num, "
         "    bag2.amount, "
-        "    bag2.weight "
+        "    bag2.weight, "
+        "    bag2.pr_liab_limit "
         "from "
         "    pax_grp, "
         "    points, "
@@ -1516,6 +1543,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         bag_tag_row.bag_num = cur_bag_num;
         bag_tag_row.amount = Qry.FieldAsInteger("amount");
         bag_tag_row.weight = Qry.FieldAsInteger("weight");
+        bag_tag_row.pr_liab_limit = Qry.FieldAsInteger("pr_liab_limit");
 
         if(find(grps.begin(), grps.end(), cur_grp_id) == grps.end()) {
             grps.push_back(cur_grp_id);
@@ -1571,7 +1599,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TBagTagRow bag_sum_row;
     bag_sum_row.amount = 0;
     bag_sum_row.weight = 0;
-    vector<double> tag_nos;
+    vector<t_tag_nos_row> tag_nos;
     vector<TBagTagRow> bm_table;
     int bag_sum_idx = -1;
     vector<TBag2PK> bag2_pks;
@@ -1587,7 +1615,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
                  )
           ) {
             if(!tag_nos.empty()) {
-                bm_table.back().tag_range = get_tag_range(tag_nos);
+                bm_table.back().tag_range = get_tag_range(tag_nos, pr_lat);
                 bm_table.back().num = tag_nos.size();
                 tag_nos.clear();
             }
@@ -1633,10 +1661,13 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             bag_sum_row.amount += iv->amount;
             bag_sum_row.weight += iv->weight;
         }
-        tag_nos.push_back(iv->no);
+        t_tag_nos_row tag_nos_row;
+        tag_nos_row.pr_liab_limit = iv->pr_liab_limit;
+        tag_nos_row.no = iv->no;
+        tag_nos.push_back(tag_nos_row);
     }
     if(!tag_nos.empty()) {
-        bm_table.back().tag_range = get_tag_range(tag_nos);
+        bm_table.back().tag_range = get_tag_range(tag_nos, pr_lat);
         bm_table.back().num = tag_nos.size();
         tag_nos.clear();
     }
