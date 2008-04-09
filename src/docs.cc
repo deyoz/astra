@@ -1381,6 +1381,11 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
     }
     if(prev_no != first_no) {
         double mod = prev_no - (floor(prev_no / 1000) * 1000);
+        if(pr_liab_limit) { // delete from stream unneeded first lim
+            long pos = result.tellp();
+            pos -= lim.size();
+            result.seekp(pos);
+        }
         result << "-" << fixed << setprecision(0) << setw(3) << setfill('0') << mod;
         if(pr_liab_limit)
             result << lim;
