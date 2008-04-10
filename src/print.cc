@@ -2431,7 +2431,6 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
     Qry.SQLText =
         "select  "
         "   points.scd_out scd,  "
-        "   null local_date,  "
         "   points.airline,  "
         "   airlines.code_lat airline_lat,  "
         "   points.flt_no,  "
@@ -2452,11 +2451,10 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   pax_grp.airp_arv = airps.code "
         "union  "
         "select  "
-        "   null,  "
-        "   transfer.local_date,  "
-        "   transfer.airline,  "
+        "   trfer_trips.scd,  "
+        "   trfer_trips.airline,  "
         "   airlines.code_lat airline_lat,  "
-        "   transfer.flt_no,  "
+        "   trfer_trips.flt_no,  "
         "   transfer.airp_arv,  "
         "   airps.code_lat airp_arv_lat,  "
         "   airps.name airp_arv_name, "
@@ -2464,19 +2462,19 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   transfer.transfer_num "
         "from  "
         "   transfer,  "
+        "   trfer_trips, "
         "   airlines,  "
         "   airps  "
         "where  "
+        "   transfer.point_id_trfer = trfer_trips.point_id and "
         "   transfer.grp_id = :grp_id and  "
-        "   (transfer.airline = airlines.code or "
-        "   transfer.airline = airlines.code_lat) and  "
-        "   (transfer.airp_arv = airps.code or "
-        "   transfer.airp_arv = airps.code_lat) "
+        "   trfer_trips.airline = airlines.code and  "
+        "   transfer.airp_arv = airps.code "
         "order by "
         "   transfer_num ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    int Year, Month, Day;
+    int Year, Month;
     while(!Qry.Eof) {
         TBTRouteItem RouteItem;
         RouteItem.airline = Qry.FieldAsString("airline");
@@ -2486,21 +2484,10 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
         RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");
         RouteItem.airp_arv_name_lat = Qry.FieldAsString("airp_arv_name_lat");
-        if(Qry.FieldIsNULL("local_date")) {
-            DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, Day);
-            RouteItem.local_date = Day;
-        } else
-            RouteItem.local_date = Qry.FieldAsInteger("local_date");
-        if(RouteItem.local_date < Day) {
-            if(Month == 12)
-                Month = 1;
-            else
-                ++Month;
-        }
-        RouteItem.fltdate = IntToString(RouteItem.local_date) + ShortMonthNames[Month];
-        RouteItem.fltdate_lat = IntToString(RouteItem.local_date) + ShortMonthNamesLat[Month];
+        RouteItem.fltdate = DateTimeToStr(Qry.FieldAsDateTime("scd"),(string)"ddmmm",0);
+        RouteItem.fltdate_lat = DateTimeToStr(Qry.FieldAsDateTime("scd"),(string)"ddmmm",1);
+        DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, RouteItem.local_date);
         route.push_back(RouteItem);
-        Day = RouteItem.local_date;
         Qry.Next();
     }
     DumpRoute(route);

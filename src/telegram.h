@@ -59,25 +59,24 @@ class TBSMContent
 
 struct TTypeBSendInfo
 {
-  std::string tlg_type,airline,airp_dep;
+  std::string tlg_type,airline,airp_dep,airp_arv;
   int flt_no,first_point,point_num;
 };
 
 struct TTypeBAddrInfo
 {
-  std::string tlg_type,airline,airp_dep;
+  std::string tlg_type,airline,airp_dep,airp_arv;
   int flt_no,first_point,point_num;
 
-  std::string airp_arv,crs;
-  int pr_numeric;
+  std::string airp_trfer,crs;
   bool pr_lat;
 };
 
 struct TTlgOutPartInfo
 {
   int id,num,point_id;
-  std::string tlg_type,airp_arv,crs,addr,heading,body,ending;
-  bool pr_dep,pr_lat;
+  std::string tlg_type,addr,heading,body,ending,extra;
+  bool pr_lat;
   BASIC::TDateTime time_create,time_send_scd;
   TTlgOutPartInfo ()
   {

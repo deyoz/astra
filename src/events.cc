@@ -60,7 +60,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           "       ev_user, station, ev_order "
           "FROM arx_events "
           "WHERE part_key>=:arx_date AND "
-          " type=:evtDisp AND arx_events.id2=:point_id AND arx_events.id1=:move_id "
+          " type=:evtDisp AND arx_events.id1=:move_id " //--AND arx_events.id2=:point_id 
           "UNION "
           "SELECT arx_events.type type, msg, time, id1 AS point_id, "
           "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
@@ -81,7 +81,7 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
           "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
           "       ev_user, station, ev_order "
           "FROM events "
-          "WHERE type=:evtDisp AND events.id1=:move_id AND events.id2=:point_id "
+          "WHERE type=:evtDisp AND events.id1=:move_id " //--AND events.id2=:point_id 
           "UNION "
           "SELECT events.type type, msg, time, id1 AS point_id, "
           "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "

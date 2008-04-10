@@ -782,7 +782,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Clear();
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
-      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_trfer_reg "
+      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
+      "       pr_reg_with_tkn,pr_reg_with_doc "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -792,7 +793,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
     NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
     NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
+    NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
     NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
+    NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
+    NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
   };
   return true;
 }
@@ -1629,16 +1633,15 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     "       pax.refuse, "
     "       crs_pax.seats seats, "
     "       crs_pnr.target, "
-    "       report.get_trfer_airp(airp_arv) AS last_target, "
+    "       report.get_trfer_airp(last_target) AS last_target, "
     "       report.get_PSPT(crs_pax.pax_id) AS document, "
     "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
     "       crs_pax.pax_id, "
     "       crs_pax.tid tid, "
     "       crs_pnr.pnr_id "
-    " FROM crs_pnr,tlg_binding,crs_pax,v_last_crs_trfer,pax "
+    " FROM crs_pnr,tlg_binding,crs_pax,pax "
     "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "
     "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pnr.pnr_id=v_last_crs_trfer.pnr_id(+) AND "
     "      crs_pax.pax_id=pax.pax_id(+) AND "
     "      crs_pax.pr_del=0 "
     "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";

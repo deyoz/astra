@@ -577,9 +577,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 bool pr_exam_with_brd=false;
                 bool pr_exam=false;
                 bool pr_check_pay=false;
+                TQuery SetsQry(&OraSession);
                 if (reqInfo->screen.name == "BRDBUS.EXE")
                 {
-                    TQuery SetsQry(&OraSession);
                     SetsQry.Clear();
                     SetsQry.SQLText=
                         "SELECT pr_misc FROM trip_hall "
@@ -590,17 +590,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                     SetsQry.CreateVariable("type",otInteger,2);
                     SetsQry.Execute();
                     if (!SetsQry.Eof) pr_exam_with_brd=SetsQry.FieldAsInteger("pr_misc")!=0;
+                };
 
-                    SetsQry.Clear();
-                    SetsQry.SQLText=
-                        "SELECT pr_exam,pr_check_pay FROM trip_sets WHERE point_id=:point_id";
-                    SetsQry.CreateVariable("point_id",otInteger,point_id);
-                    SetsQry.Execute();
-                    if (!SetsQry.Eof)
-                    {
-                        pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
-                        pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
-                    };
+                SetsQry.Clear();
+                SetsQry.SQLText=
+                    "SELECT pr_exam,pr_check_pay,pr_exam_check_pay "
+                    "FROM trip_sets WHERE point_id=:point_id";
+                SetsQry.CreateVariable("point_id",otInteger,point_id);
+                SetsQry.Execute();
+                if (!SetsQry.Eof)
+                {
+                    pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
+                    if (reqInfo->screen.name == "BRDBUS.EXE")
+                      pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
+                    else
+                      pr_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
                 };
 
 
@@ -611,8 +615,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                     showErrorMessage("Пассажир не прошел досмотр");
                 }
                 else if
-                    (reqInfo->screen.name == "BRDBUS.EXE" &&
-                     boarding && Qry.FieldAsInteger("pr_payment")==0 &&
+                    (boarding && Qry.FieldAsInteger("pr_payment")==0 &&
                      pr_check_pay)
                     {
                         showErrorMessage("Пассажир не оплатил багаж");

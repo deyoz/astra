@@ -402,10 +402,10 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
             flt.suffix[1]=0;
             c=0;
             if (IsDigit(tlg.lex[2]))
-              res=sscanf(tlg.lex,"%2[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(tlg.lex,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             else
-              res=sscanf(tlg.lex,"%3[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(tlg.lex,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight number");
             if (res==3&&
@@ -765,10 +765,10 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
             info.flt.suffix[1]=0;
             c=0;
             if (IsDigit(flt[2]))
-              res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(flt,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             else
-              res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(flt,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
                              info.flt.airline,&info.flt.flt_no,&(info.flt.suffix[0]),&c);
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
@@ -905,10 +905,10 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             flt.suffix[1]=0;
             c=0;
             if (IsDigit(trip[2]))
-              res=sscanf(trip,"%2[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(trip,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             else
-              res=sscanf(trip,"%3[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(trip,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
@@ -1279,10 +1279,10 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
             flt.suffix[1]=0;
             c=0;
             if (IsDigit(tlg.lex[2]))
-              res=sscanf(tlg.lex,"%2[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(tlg.lex,"%2[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             else
-              res=sscanf(tlg.lex,"%3[A-Z€-Ÿð0-9]%4lu%c%c",
+              res=sscanf(tlg.lex,"%3[A-Z€-Ÿð0-9]%5lu%c%c",
                              flt.airline,&flt.flt_no,&(flt.suffix[0]),&c);
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong connecting flight");
             if (res==3&&
@@ -2052,12 +2052,12 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     c=0;
     if (isdigit(lexh[2]))
     {
-      res=sscanf(lexh,"%2[A-Z€-Ÿð0-9]%4lu%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
+      res=sscanf(lexh,"%2[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
                       Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
-        res=sscanf(lexh,"%2[A-Z€-Ÿð0-9]%4lu%1[A-Z€-Ÿð]%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
+        res=sscanf(lexh,"%2[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");
@@ -2065,12 +2065,12 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     }
     else
     {
-      res=sscanf(lexh,"%3[A-Z€-Ÿð0-9]%4lu%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
+      res=sscanf(lexh,"%3[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
                       Transfer.airline,&Transfer.flt_no,
                       Transfer.subcl,&Transfer.local_date,tlg.lex);
       if (res!=5)
       {
-        res=sscanf(lexh,"%3[A-Z€-Ÿð0-9]%4lu%1[A-Z€-Ÿð]%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
+        res=sscanf(lexh,"%3[A-Z€-Ÿð0-9]%5lu%1[A-Z€-Ÿð]%1[A-Z€-Ÿð]%2lu%[A-Z€-Ÿð0-9]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");

@@ -610,41 +610,96 @@ void OpenCheckIn( int point_id )
 
 void CloseCheckIn( int point_id )
 {
-  vector<string> tlg_types;
-  tlg_types.push_back("COM");
-  TelegramInterface::SendTlg(point_id,tlg_types);
-  CreateCentringFileDATA( point_id );
+  try
+  {
+    vector<string> tlg_types;
+    tlg_types.push_back("COM");
+    TelegramInterface::SendTlg(point_id,tlg_types);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
+
+  try
+  {
+    CreateCentringFileDATA( point_id );
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseCheckIn.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
+  };
+
 };
 
 void CloseBoarding( int point_id )
 {
-  vector<string> tlg_types;
-  tlg_types.push_back("COM");
-  TelegramInterface::SendTlg(point_id,tlg_types);
-  CreateCentringFileDATA( point_id );
+  try
+  {
+    vector<string> tlg_types;
+    tlg_types.push_back("COM");
+    TelegramInterface::SendTlg(point_id,tlg_types);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseBoarding.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
+
+  try
+  {
+    CreateCentringFileDATA( point_id );
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"CloseBoarding.CreateCentringFileDATA (point_id=%d): %s",point_id,E.what());
+  };
 };
 
 void Takeoff( int point_id )
 {
-	TQuery Qry(&OraSession);
-	Qry.Clear();
-	Qry.SQLText=
-	  "BEGIN "
-	  "  statist.get_full_stat(:point_id); "
-	  "END;";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
+  try
+  {
+  	TQuery Qry(&OraSession);
+  	Qry.Clear();
+  	Qry.SQLText=
+  	  "BEGIN "
+  	  "  statist.get_full_stat(:point_id); "
+  	  "END;";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.get_full_stat (point_id=%d): %s",point_id,E.what());
+  };
 
-  vector<string> tlg_types;
-  tlg_types.push_back("PTM");
-  tlg_types.push_back("BTM");
-  tlg_types.push_back("PSM");
-  tlg_types.push_back("PFS");
-  tlg_types.push_back("FTL");
-  tlg_types.push_back("PRL");
-  tlg_types.push_back("ETL");
-  TelegramInterface::SendTlg(point_id,tlg_types);
+  try
+  {
+    vector<string> tlg_types;
+    tlg_types.push_back("PTM");
+    tlg_types.push_back("PTMN");
+    tlg_types.push_back("BTM");
+    tlg_types.push_back("PSM");
+    tlg_types.push_back("PFS");
+    tlg_types.push_back("PFSN");
+    tlg_types.push_back("FTL");
+    tlg_types.push_back("PRL");
+    tlg_types.push_back("ETL");
+    tlg_types.push_back("LDM");
+    TelegramInterface::SendTlg(point_id,tlg_types);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.SendTlg (point_id=%d): %s",point_id,E.what());
+  };
 
-  create_czech_police_file(point_id);
+  try
+  {
+    create_czech_police_file(point_id);
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"Takeoff.create_czech_police_file (point_id=%d): %s",point_id,E.what());
+  };
 }
 
