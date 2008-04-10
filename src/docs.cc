@@ -1509,6 +1509,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    pax_grp.point_arv = points.point_id and "
         "    pax_grp.class = classes.code(+) and "
         "    pax_grp.grp_id = bag2.grp_id and "
+        "    pax_grp.bag_refuse = 0 and "
         "    bag2.pr_cabin = 0 ";
     if(!target.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
