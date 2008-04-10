@@ -3402,6 +3402,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
   int vtrip_id = -1;
   bool canRange;
   bool canTrips;
+  bool DestsExists = false;
   while ( !SQry.Eof ) {
     TDateTime first = SQry.FieldAsDateTime( idx_first_day );
     TDateTime last = SQry.FieldAsDateTime( idx_last_day );
@@ -3436,8 +3437,9 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 /*        } */
       }
       canRange = ( !mapds[ move_id ].dests.empty() && SQry.FieldAsInteger( idx_trip_id ) == trip_id );
-    }
+    }    
     if ( canRange && buildRanges ) {
+    	DestsExists = true;
 ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       string days = SQry.FieldAsString( idx_days );
 
@@ -3546,6 +3548,9 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
     }
     SQry.Next();
   }
+  
+  if ( !DestsExists && trip_id > NoExists )
+  	throw UserException( "Рейс удален. Обновите данные" );
 
   vector<TViewPeriod> viewp;
   TViewPeriod p;

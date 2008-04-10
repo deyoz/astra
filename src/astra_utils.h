@@ -134,6 +134,7 @@ class TDesk {
     std::string code;
     std::string city;
     std::string tz_region;
+    int trace_level;
     BASIC::TDateTime time;
     TOperMode mode;
     TDesk()
@@ -145,6 +146,7 @@ class TDesk {
       code.clear();
       city.clear();
       tz_region.clear();
+      trace_level = -1;
       time = 0;
       mode = omSTAND;
     };

@@ -124,7 +124,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city "
+    "SELECT city,trace_level "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -133,6 +133,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
   desk.city = Qry.FieldAsString( "city" );
+  if (!Qry.FieldIsNULL("trace_level"))
+    desk.trace_level=Qry.FieldAsInteger("trace_level");
 
   Qry.Clear();
   Qry.SQLText=
@@ -772,6 +774,7 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
+    NewTextChild(node,"trace_level",reqInfo->desk.trace_level);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     if (reqInfo->desk.mode==omCUTE)
     {
@@ -825,6 +828,7 @@ void showBasicInfo(void)
       devNode=NewTextChild(cuteNode,"LSR");
       paramNode=NewTextChild(devNode,"fmt_params");
       NewTextChild(paramNode,"prefix","31");
+      //NewTextChild(paramNode,"prefix","");
       NewTextChild(paramNode,"postfix","0D");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
