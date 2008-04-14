@@ -2425,7 +2425,35 @@ void DumpRoute(vector<TBTRouteItem> &route)
     }
 }
 
-void get_route(int grp_id, vector<TBTRouteItem> &route)
+void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int start_idx, int end_idx)
+{
+    int via_idx = 1;
+    for(int j = start_idx; j < end_idx; ++j) {
+        string str_via_idx = IntToString(via_idx);
+        ostringstream flt_no;
+        flt_no << setw(3) << setfill('0') << route[j].flt_no;
+        parser.add_tag("flt_no" + str_via_idx, flt_no.str());
+        parser.add_tag("local_date" + str_via_idx, route[j].local_date);
+        parser.add_tag("airline" + str_via_idx, route[j].airline);
+        parser.add_tag("airline" + str_via_idx + "_lat", route[j].airline_lat);
+        parser.add_tag("airp_arv" + str_via_idx, route[j].airp_arv);
+        parser.add_tag("airp_arv" + str_via_idx + "_lat", route[j].airp_arv_lat);
+        parser.add_tag("fltdate" + str_via_idx, route[j].fltdate);
+        parser.add_tag("fltdate" + str_via_idx + "_lat", route[j].fltdate_lat);
+        parser.add_tag("airp_arv_name" + str_via_idx, route[j].airp_arv_name);
+        parser.add_tag("airp_arv_name" + str_via_idx + "_lat", route[j].airp_arv_name_lat);
+        ++via_idx;
+    }
+}
+
+struct TTagKey {
+    int grp_id, prn_type, pr_lat;
+    double no; //no = Float!
+    string type, color;
+    TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1.0) {};
+};
+
+void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2472,9 +2500,11 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         "   transfer.airp_arv = airps.code "
         "order by "
         "   transfer_num ";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.CreateVariable("grp_id", otInteger, tag_key.grp_id);
     Qry.Execute();
     int Year, Month;
+    TBaseTable &airpsTable = base_tables.get("AIRPS");
+    TBaseTable &citiesTable = base_tables.get("CITIES");
     while(!Qry.Eof) {
         TBTRouteItem RouteItem;
         RouteItem.airline = Qry.FieldAsString("airline");
@@ -2488,50 +2518,30 @@ void get_route(int grp_id, vector<TBTRouteItem> &route)
         RouteItem.fltdate_lat = DateTimeToStr(Qry.FieldAsDateTime("scd"),(string)"ddmmm",1);
         DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, RouteItem.local_date);
         route.push_back(RouteItem);
+
+        TBaseTableRow &airpRow = airpsTable.get_row("code",RouteItem.airp_arv);
+        TBaseTableRow &citiesRow = citiesTable.get_row("code",airpRow.AsString("city"));
+        tag_key.pr_lat = tag_key.pr_lat || citiesRow.AsString("country") != "РФ";
+
         Qry.Next();
     }
     DumpRoute(route);
 }
 
-void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int start_idx, int end_idx)
-{
-    int via_idx = 1;
-    for(int j = start_idx; j < end_idx; ++j) {
-        string str_via_idx = IntToString(via_idx);
-        ostringstream flt_no;
-        flt_no << setw(3) << setfill('0') << route[j].flt_no;
-        parser.add_tag("flt_no" + str_via_idx, flt_no.str());
-        parser.add_tag("local_date" + str_via_idx, route[j].local_date);
-        parser.add_tag("airline" + str_via_idx, route[j].airline);
-        parser.add_tag("airline" + str_via_idx + "_lat", route[j].airline_lat);
-        parser.add_tag("airp_arv" + str_via_idx, route[j].airp_arv);
-        parser.add_tag("airp_arv" + str_via_idx + "_lat", route[j].airp_arv_lat);
-        parser.add_tag("fltdate" + str_via_idx, route[j].fltdate);
-        parser.add_tag("fltdate" + str_via_idx + "_lat", route[j].fltdate_lat);
-        parser.add_tag("airp_arv_name" + str_via_idx, route[j].airp_arv_name);
-        parser.add_tag("airp_arv_name" + str_via_idx + "_lat", route[j].airp_arv_name_lat);
-        ++via_idx;
-    }
-}
-
-struct TTagKey {
-    int grp_id, prn_type, pr_lat;
-    double no; //no = Float!
-    string type, color;
-    TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1.0) {};
-};
-
-void GetPrintDataBT(xmlNodePtr dataNode, const TTagKey &tag_key)
+void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
     vector<TBTRouteItem> route;
-    get_route(tag_key.grp_id, route);
+    get_route(tag_key, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
+        "SELECT airp_dep, class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
     Qry.Execute();
     if (Qry.Eof)
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",Qry.FieldAsString("airp_dep"));
+    TBaseTableRow &citiesRow = base_tables.get("CITIES").get_row("code",airpRow.AsString("city"));
+    tag_key.pr_lat = tag_key.pr_lat || citiesRow.AsString("country") != "РФ";
     bool pr_unaccomp = Qry.FieldIsNULL("class");
     int pax_id=NoExists;
     if(!pr_unaccomp)
