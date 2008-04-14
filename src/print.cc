@@ -2401,6 +2401,7 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
 struct TBTRouteItem {
     string airline, airline_lat;
     int flt_no;
+    string suffix;
     string airp_arv, airp_arv_lat;
     int local_date;
     string fltdate, fltdate_lat;
@@ -2414,6 +2415,7 @@ void DumpRoute(vector<TBTRouteItem> &route)
         ProgTrace(TRACE5, "airline: %s", iv->airline.c_str());
         ProgTrace(TRACE5, "airline_lat: %s", iv->airline_lat.c_str());
         ProgTrace(TRACE5, "flt_no: %d", iv->flt_no);
+        ProgTrace(TRACE5, "suffix: %s", iv->suffix.c_str());
         ProgTrace(TRACE5, "airp_arv: %s", iv->airp_arv.c_str());
         ProgTrace(TRACE5, "airp_arv_lat: %s", iv->airp_arv_lat.c_str());
         ProgTrace(TRACE5, "local_date: %d", iv->local_date);
@@ -2432,6 +2434,8 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
         string str_via_idx = IntToString(via_idx);
         ostringstream flt_no;
         flt_no << setw(3) << setfill('0') << route[j].flt_no;
+        parser.add_tag("flt_no" + str_via_idx, flt_no.str() + convert_suffix(route[j].suffix, 0));
+        parser.add_tag("flt_no" + str_via_idx + "_lat", flt_no.str() + convert_suffix(route[j].suffix, 1));
         parser.add_tag("flt_no" + str_via_idx, flt_no.str());
         parser.add_tag("local_date" + str_via_idx, route[j].local_date);
         parser.add_tag("airline" + str_via_idx, route[j].airline);
@@ -2462,6 +2466,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
         "   points.airline,  "
         "   airlines.code_lat airline_lat,  "
         "   points.flt_no,  "
+        "   points.suffix,  "
         "   pax_grp.airp_arv,  "
         "   airps.code_lat airp_arv_lat, "
         "   airps.name airp_arv_name, "
@@ -2483,6 +2488,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
         "   trfer_trips.airline,  "
         "   airlines.code_lat airline_lat,  "
         "   trfer_trips.flt_no,  "
+        "   trfer_trips.suffix,  "
         "   transfer.airp_arv,  "
         "   airps.code_lat airp_arv_lat,  "
         "   airps.name airp_arv_name, "
@@ -2510,6 +2516,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
         RouteItem.airline = Qry.FieldAsString("airline");
         RouteItem.airline_lat = Qry.FieldAsString("airline_lat");
         RouteItem.flt_no = Qry.FieldAsInteger("flt_no");
+        RouteItem.suffix = Qry.FieldAsString("suffix");
         RouteItem.airp_arv = Qry.FieldAsString("airp_arv");
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
         RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");

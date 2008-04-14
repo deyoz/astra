@@ -702,7 +702,7 @@ string get_last_target(TQuery &Qry, const int pr_lat)
             << "("
             << airline
             << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << Qry.FieldAsString("trfer_suffix")
+            << convert_suffix(Qry.FieldAsString("trfer_suffix"), pr_lat)
             << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
         result = buf.str();
     }
