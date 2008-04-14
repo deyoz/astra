@@ -673,12 +673,581 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+string get_last_target(TQuery &Qry, const int pr_lat)
+{
+    string result;
+    string airline = Qry.FieldAsString("trfer_airline");
+    if(!airline.empty()) {
+        string airp = Qry.FieldAsString("trfer_airp_arv");
+        try {
+            TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+            string tmp_airp = airpRow.AsString("name", pr_lat);
+            if(tmp_airp.empty())
+                tmp_airp = airpRow.AsString("name", 0);
+            if(!tmp_airp.empty())
+                airp = tmp_airp.substr(0, 50);
+        } catch(...) {
+        }
+        string airline = Qry.FieldAsString("trfer_airline");
+        try {
+            TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+            string tmp_airline = airlineRow.AsString("code", pr_lat);
+            if(!tmp_airline.empty())
+                airline = tmp_airline;
+        } catch(...) {
+        }
+        ostringstream buf;
+        buf
+            << airp
+            << "("
+            << airline
+            << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
+            << Qry.FieldAsString("trfer_suffix")
+            << ")/" << DateTimeToStr(Qry.FieldAsDateTime("trfer_scd"), "dd");
+        result = buf.str();
+    }
+    return result;
+}
+
+void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
+{
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    int point_id = NodeAsInteger("point_id", reqNode);
+    string target = NodeAsString("target", reqNode);
+    int pr_lat = GetRPEncoding(target);
+    {//!!!
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select pr_lat from drop_den";
+        Qry.Execute();
+        pr_lat = Qry.FieldAsInteger(0);
+    }
+    int pr_vip = NodeAsInteger("pr_vip", reqNode);
+    string status = NodeAsString("status", reqNode);
+
+    if(
+            target.empty() ||
+            target == "tot"
+      ) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("PMTotalEL", resNode);
+        string et, et_lat;
+        if(target.empty()) {
+            et = "(ЭБ)";
+            et_lat = "(ET)";
+        }
+        NewTextChild(variablesNode, "et", et);
+        NewTextChild(variablesNode, "et_lat", et_lat);
+    }
+
+    if(
+            target == "tpm" ||
+            target == "etm"
+      ) {
+        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
+        xmlNodePtr formNode = NodeAsNode("form", resNode);
+        xmlUnlinkNode(formNode);
+        xmlFreeNode(formNode);
+        get_report_form("PMTrferTotalEL", resNode);
+        string et, et_lat;
+        if(target == "etm") {
+            et = "(ЭБ)";
+            et_lat = "(ET)";
+        }
+        NewTextChild(variablesNode, "et", et);
+        NewTextChild(variablesNode, "et_lat", et_lat);
+    }
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "SELECT "
+        "   pax_grp.point_dep AS trip_id, "
+        "   pax_grp.airp_arv AS target, ";
+    if(name == "PMTrfer")
+        SQLText +=
+            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, "
+            "    v_last_trfer.airline trfer_airline, "
+            "    v_last_trfer.flt_no trfer_flt_no, "
+            "    v_last_trfer.suffix trfer_suffix, "
+            "    v_last_trfer.airp_arv trfer_airp_arv, "
+            "    v_last_trfer.scd trfer_scd, ";
+    SQLText +=
+        "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, "
+        "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, "
+        "   surname||' '||pax.name AS full_name, "
+        "   pax.pers_type, "
+        "   LPAD(seat_no,3,'0')|| "
+        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+        "   pax.seats, ";
+    if(
+            target.empty() ||
+            target == "etm"
+      ) { //ЭБ
+        SQLText +=
+            "    nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) remarks, ";
+    } else {
+        SQLText +=
+            " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, ";
+    }
+    SQLText +=
+        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, "
+        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id),0) AS bag_amount, "
+        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id),0) AS bag_weight, "
+        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, "
+        "   ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags, "
+        "   reg_no, "
+        "   pax_grp.grp_id "
+        "FROM  "
+        "   pax_grp, "
+        "   points, "
+        "   pax, "
+        "   cls_grp classes, " 
+        "   halls2 ";
+    if(name == "PMTrfer")
+        SQLText += ", v_last_trfer ";
+    SQLText +=
+        "WHERE "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.point_arv = points.point_id and "
+        "   pax_grp.grp_id=pax.grp_id AND "
+        "   pax_grp.class_grp = classes.id AND "
+        "   pax_grp.hall = halls2.id and "
+        "   pr_brd IS NOT NULL and ";
+    if(
+            target.empty() ||
+            target == "etm"
+      ) { //ЭБ
+        SQLText +=
+            "   pr_brd = 1 and "
+            "   ((ticket_no is not null and "
+            "   coupon_no is not null) or "
+            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
+    } else if(
+            target == "tot" ||
+            target == "tpm"
+            ) { //ОБЩАЯ
+    } else { // сегмент
+        SQLText +=
+            "    pax_grp.airp_arv = :target AND ";
+        if(pr_vip != 2)
+            SQLText +=
+                "    halls2.pr_vip = :pr_vip AND ";
+    }
+    SQLText +=
+        "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ";
+    if(status.size())
+        SQLText +=
+            "    (:status) ";
+    else
+        SQLText +=
+            "    ('T', 'N') ";
+    if(name == "PMTrfer")
+        SQLText +=
+            " and pax_grp.grp_id=v_last_trfer.grp_id(+) ";
+    SQLText +=
+        "ORDER BY ";
+    if(
+            target.empty() ||
+            target == "tot" ||
+            target == "etm" ||
+            target == "tpm"
+      )
+        SQLText +=
+            "   points.point_num, ";
+    if(name == "PMTrfer")
+        SQLText +=
+            "    PR_TRFER ASC, "
+            "    TRFER_AIRP_ARV ASC, ";
+    SQLText +=
+        "    CLASS ASC, "
+        "    grp_id, "
+        "    REG_NO ASC ";
+
+
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    if(
+            target.size() &&
+            target != "tot" &&
+            target != "etm" &&
+            target != "tpm"
+      )
+        Qry.CreateVariable("target", otString, target);
+    if(status.size())
+        Qry.CreateVariable("status", otString, status);
+    if(pr_vip != 2)
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
+    // следующие 2 переменные введены для нужд FastReport
+    map<string, int> fr_target_ref;
+    int fr_target_ref_idx = 0;
+
+    while(!Qry.Eof) {
+        string cls = Qry.FieldAsString("class");
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
+        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), pr_lat));
+        string last_target;
+        int pr_trfer = 0;
+        if(name == "PMTrfer") {
+            last_target = get_last_target(Qry, pr_lat);
+            pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        }
+        NewTextChild(rowNode, "last_target", last_target);
+        NewTextChild(rowNode, "pr_trfer", pr_trfer);
+
+        string airp_arv = Qry.FieldAsString("target");
+        if(fr_target_ref.find(airp_arv) == fr_target_ref.end())
+            fr_target_ref[airp_arv] = fr_target_ref_idx++;
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        string pers_type = Qry.FieldAsString("pers_type");
+        if(pers_type == "ВЗ")
+            NewTextChild(rowNode, "pers_type", "ADL");
+        else if(pers_type == "РБ")
+            NewTextChild(rowNode, "pers_type", "CHD");
+        else if(pers_type == "РМ")
+            NewTextChild(rowNode, "pers_type", "INF");
+        else
+            throw Exception("RunPM: unknown pers_type " + pers_type);
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+        NewTextChild(rowNode, "seat_no", convert_seat_no(Qry.FieldAsString("seat_no"), pr_lat));
+        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+        Qry.Next();
+    }
+
+    bool pr_target =
+        target.size() &&
+        target != "tot" &&
+        target != "etm" &&
+        target != "tpm";
+    bool pr_trfer = name == "PMTrfer";
+    Qry.Clear();
+    SQLText =
+        "SELECT "
+        "       a.point_id, ";
+    if(pr_trfer)
+        SQLText +=
+            "   a.pr_trfer, "
+            "   a.airp_arv target, ";
+    SQLText +=
+        "       a.status, "
+        "       classes.code class, "
+        "       DECODE(:pr_lat,0,classes.name,classes.name_lat) AS class_name, "
+        "       classes.priority AS lvl, "
+        "       NVL(a.seats,0) AS seats, "
+        "       NVL(a.adl,0) AS adl, "
+        "       NVL(a.chd,0) AS chd, "
+        "       NVL(a.inf,0) AS inf, "
+        "       NVL(b.rk_weight,0) AS rk_weight, "
+        "       NVL(b.bag_amount,0) AS bag_amount, "
+        "       NVL(b.bag_weight,0) AS bag_weight, "
+        "       NVL(c.excess,0) AS excess "
+        "FROM "
+        "( "
+        "  SELECT point_dep AS point_id, "
+        "         pax_grp.class_grp, "
+        "         DECODE(status,'T','T','N') AS status, ";
+    if(pr_vip != 2)
+        SQLText += " halls2.pr_vip, ";
+    if(pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+    SQLText +=
+        "         SUM(seats) AS seats, "
+        "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, "
+        "         SUM(DECODE(pers_type,'РБ',1,0)) AS chd, "
+        "         SUM(DECODE(pers_type,'РМ',1,0)) AS inf "
+        "  FROM pax_grp,pax,v_last_trfer,halls2 "
+        "  WHERE "
+        "       pax_grp.point_dep = :point_id and ";
+    if(pr_target) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and ";
+        Qry.CreateVariable("target", otString, target);
+    }
+    if(pr_vip != 2) {
+        SQLText +=
+            " pr_vip = :pr_vip and ";
+        Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    if(target == "etm")
+        SQLText +=
+            "   pax.pr_brd = 1 and "
+            "   pax.ticket_no is not null and "
+            "   pax.coupon_no is not null and ";
+    SQLText +=
+        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
+        "       pax_grp.hall = halls2.id and "
+        "       pr_brd IS NOT NULL and "
+        "       bag_refuse=0 AND class IS NOT NULL "
+        "  GROUP BY point_dep, "
+        "           pax_grp.class_grp, "
+        "           DECODE(status,'T','T','N') ";
+    if(pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip ";
+    }
+    SQLText +=
+        ") a, "
+        "( "
+        "  SELECT point_dep AS point_id, "
+        "         pax_grp.class_grp, "
+        "         DECODE(status,'T','T','N') AS status, ";
+    if(pr_vip != 2)
+        SQLText += " halls2.pr_vip, ";
+    if(pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+    SQLText +=
+        "         SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, "
+        "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, "
+        "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight "
+        "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 "
+        "  WHERE "
+        "       pax_grp.point_dep = :point_id and ";
+    if(pr_target) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and ";
+    }
+    if(pr_vip != 2) {
+        SQLText +=
+            " pr_vip = :pr_vip and ";
+    }
+    if(target == "etm")
+        SQLText +=
+            "   pax.pr_brd = 1 and "
+            "   pax.ticket_no is not null and "
+            "   pax.coupon_no is not null and ";
+    SQLText +=
+        "       pax_grp.grp_id=bag2.grp_id AND "
+        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
+        "       pax_grp.hall = halls2.id and "
+        "       pr_brd IS NOT NULL and "
+        "       bag_refuse=0 AND class IS NOT NULL "
+        "  GROUP BY point_dep, "
+        "         pax_grp.class_grp, "
+        "        DECODE(status,'T','T','N') ";
+    if(pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip ";
+    }
+    SQLText +=
+        ") b, "
+        "( "
+        "  SELECT point_dep AS point_id, "
+        "         pax_grp.class_grp, "
+        "         DECODE(status,'T','T','N') AS status, ";
+    if(pr_vip != 2)
+        SQLText += " halls2.pr_vip, ";
+    if(pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+    SQLText +=
+        "         SUM(excess) AS excess "
+        "  FROM pax_grp,pax,v_last_trfer,halls2 "
+        "  WHERE "
+        "       pax_grp.point_dep = :point_id and ";
+    if(pr_target) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and ";
+    }
+    if(pr_vip != 2) {
+        SQLText +=
+            " pr_vip = :pr_vip and ";
+    }
+    if(target == "etm")
+        SQLText +=
+            "   pax.pr_brd = 1 and "
+            "   pax.ticket_no is not null and "
+            "   pax.coupon_no is not null and ";
+    SQLText +=
+        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
+        "       pax_grp.hall = halls2.id and "
+        "       pr_brd IS NOT NULL and "
+        "       bag_refuse=0 AND class IS NOT NULL "
+        "  GROUP BY point_dep, "
+        "           pax_grp.class_grp, "
+        "           DECODE(status,'T','T','N') ";
+    if(pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, "
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip ";
+    }
+    SQLText +=
+        ") c, "
+        "cls_grp classes "
+        "WHERE a.class_grp=classes.id AND "
+        "      a.point_id=b.point_id(+) AND "
+        "      a.class_grp=b.class_grp(+) AND "
+        "      a.status=b.status(+) AND "
+        "      a.point_id=c.point_id(+) AND "
+        "      a.class_grp=c.class_grp(+) AND "
+        "      a.status=c.status(+) ";
+    if(pr_trfer)
+        SQLText +=
+            "   and a.airp_arv=b.airp_arv(+) AND "
+            "   a.pr_trfer=b.pr_trfer(+) AND "
+            "   a.airp_arv=c.airp_arv(+) AND "
+            "   a.pr_trfer=c.pr_trfer(+) ";
+    if(pr_vip != 2)
+        SQLText +=
+            "      and a.pr_vip = b.pr_vip(+) and "
+            "      a.pr_vip = c.pr_vip(+) ";
+    if(status.size()) {
+        SQLText +=
+            "    and a.STATUS = :status ";
+        Qry.CreateVariable("status", otString, status);
+    } else
+        SQLText +=
+            "    and a.STATUS in ('T', 'N') ";
+    SQLText +=
+        "order by ";
+    if(pr_trfer)
+        SQLText +=
+            "   target, "
+            "   pr_trfer, ";
+    SQLText +=
+        "      lvl ";
+    ProgTrace(TRACE5, "RunPMNew totals: SQLText: %s", SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+    Qry.Execute();
+    dataSetNode = NewTextChild(dataSetsNode, pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
+    while(!Qry.Eof) {
+        string cls = Qry.FieldAsString("class");
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+        if(pr_trfer) {
+            string airp_arv = Qry.FieldAsString("TARGET");
+            NewTextChild(rowNode, "target", airp_arv);
+            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
+            NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
+        }
+        NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
+        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
+        NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
+        NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
+        NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   airp, "
+        "   airline, "
+        "   flt_no, "
+        "   suffix, "
+        "   craft, "
+        "   bort, "
+        "   park_out park, "
+        "   scd_out "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
+
+    string airp = Qry.FieldAsString("airp");
+    string airline = Qry.FieldAsString("airline");
+    string craft = Qry.FieldAsString("craft");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+
+    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+    //    TCrafts crafts;
+
+    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "flt",
+            airlineRow.AsString("code", pr_lat) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            Qry.FieldAsString("suffix")
+            );
+    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "craft", craft);
+    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    string airp_arv_name;
+    if(pr_target)
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",target).AsString("name",pr_lat);
+    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
+
+    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+
+    NewTextChild(variablesNode, "pr_vip", pr_vip);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
+}
+
 void RunPM(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int point_id = NodeAsInteger("point_id", reqNode);
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
+    {//!!!
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select pr_lat from drop_den";
+        Qry.Execute();
+        pr_lat = Qry.FieldAsInteger(0);
+    }
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
 
@@ -1393,42 +1962,6 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
     return result.str();
 }
 
-string get_last_target(TQuery &Qry, const int pr_lat)
-{
-    string result;
-    string airline = Qry.FieldAsString("trfer_airline");
-    if(!airline.empty()) {
-        string airp = Qry.FieldAsString("trfer_airp_arv");
-        try {
-            TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-            string tmp_airp = airpRow.AsString("name", pr_lat);
-            if(tmp_airp.empty())
-                tmp_airp = airpRow.AsString("name", 0);
-            if(!tmp_airp.empty())
-                airp = tmp_airp.substr(0, 50);
-        } catch(...) {
-        }
-        string airline = Qry.FieldAsString("trfer_airline");
-        try {
-            TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-            string tmp_airline = airlineRow.AsString("code", pr_lat);
-            if(!tmp_airline.empty())
-                airline = tmp_airline;
-        } catch(...) {
-        }
-        ostringstream buf;
-        buf
-            << airp
-            << "("
-            << airline
-            << setw(3) << setfill('0') << Qry.FieldAsInteger("trfer_flt_no")
-            << Qry.FieldAsString("trfer_suffix")
-            << ")";
-        result = buf.str();
-    }
-    return result;
-}
-
 void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
@@ -1474,14 +2007,16 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    v_last_trfer.airline trfer_airline, "
             "    v_last_trfer.flt_no trfer_flt_no, "
             "    v_last_trfer.suffix trfer_suffix, "
-            "    v_last_trfer.airp_arv trfer_airp_arv, ";
+            "    v_last_trfer.airp_arv trfer_airp_arv, "
+            "    v_last_trfer.scd trfer_scd, ";
     else
         SQLText +=
             "    0 pr_trfer, "
             "    null trfer_airline, "
             "    null trfer_flt_no, "
             "    null trfer_suffix, "
-            "    null trfer_airp_arv, ";
+            "    null trfer_airp_arv, "
+            "    null trfer_scd, ";
     SQLText +=
         "    points.point_num, "
         "    pax_grp.grp_id, "
@@ -1979,6 +2514,13 @@ void get_report_form(const string name, xmlNodePtr node)
 
 void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    int pr_new = 0; //!!!
+    {//!!!
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select pr_new from drop_den";
+        Qry.Execute();
+        pr_new = Qry.FieldAsInteger(0);
+    }
     string form;
     get_report_form(name, resNode);
 
@@ -1992,7 +2534,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "test3") RunTest3(formDataNode);
     else if(name == "BMTrfer") RunBMNew(reqNode, formDataNode);
     else if(name == "BM") RunBMNew(reqNode, formDataNode);
-    else if(name == "PMTrfer" || name == "PM" || name == "PMDMD") RunPM(name, reqNode, formDataNode);
+    else if(name == "PMTrfer" || name == "PM" || name == "PMDMD") (pr_new ? RunPMNew(name, reqNode, formDataNode) : RunPM(name, reqNode, formDataNode));
     else if(name == "notpres") RunNotpres(reqNode, formDataNode);
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
