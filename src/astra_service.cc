@@ -897,6 +897,81 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb );
 }
 
+void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{ 
+	TQuery Qry( &OraSession );
+	Qry.SQLText = "SELECT code, name from file_types";
+	Qry.Execute();
+  xmlNodePtr node = NewTextChild( resNode, "file_types" );	
+	while (!Qry.Eof) {
+		xmlNodePtr n = NewTextChild( node, "type" );
+		NewTextChild( n, "code", Qry.FieldAsString( "code" ) );
+		NewTextChild( n, "name", Qry.FieldAsString( "name" ) );
+		Qry.Next();
+	}
+	Qry.Clear();
+	Qry.SQLText = "SELECT DISTINCT receiver FROM files";
+	Qry.Execute();
+	node = NewTextChild( resNode, "point_addrs" );	
+	while (!Qry.Eof) {
+		NewTextChild( node, "point_addr", Qry.FieldAsString( "receiver" ) );
+		Qry.Next();
+	}
+}
+
+void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+  string type = NodeAsString( "type", reqNode );
+  string receiver = NodeAsString( "receiver", reqNode );
+	TDateTime first_day = NodeAsDateTime( "first_day", reqNode );
+	TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
+	ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
+	TQuery Qry( &OraSession );
+	Qry.SQLText = "SELECT id, time FROM files WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day";
+	Qry.CreateVariable( "type", otString, type );
+	Qry.CreateVariable( "receiver", otString, receiver );
+	Qry.CreateVariable( "first_day", otDate, first_day );
+	Qry.CreateVariable( "last_day", otDate, last_day );
+	Qry.Execute();
+	xmlNodePtr node = NewTextChild( resNode, "ids" );
+	while ( !Qry.Eof ) {
+		xmlNodePtr n = NewTextChild( node, "ids" );
+		NewTextChild( n, "id", Qry.FieldAsInteger( "id" ) );
+		NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
+		Qry.Next();
+	}
+	
+}
+
+
+void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	int file_id = NodeAsInteger( "file_id", reqNode );
+	TQuery Qry( &OraSession );
+	Qry.SQLText = "SELECT type, receiver, error, data FROM files WHERE id=:file_id";	
+	Qry.CreateVariable( "file_id", otInteger, file_id );
+	Qry.Execute();
+	if ( Qry.Eof )
+		throw UserException( "Файл не найден" );
+ 	int len = Qry.GetSizeLongField( "data" );
+  void *p = (char*)malloc( len );
+ 	if ( !p )
+ 		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
+  Qry.FieldAsLong( "data", p );
+  string encoding = getFileEncoding(Qry.FieldAsString( "type" ), Qry.FieldAsString( "receiver" ) );
+  string str_file( (char*)p, len );
+  ProgTrace( TRACE5, "encoding=%s, file_str=%s", encoding.c_str(), str_file.c_str() );
+  if ( !encoding.empty() )
+  	str_file = ConvertCodePage( "CP866", encoding, str_file );
+  str_file = ConvertCodePage( "WINDOWS-1251", "CP866", str_file );	
+  ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
+  NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
+  free( p );
+}
+
+
+
+
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };
