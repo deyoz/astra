@@ -723,7 +723,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  	vector<AODB_STRUCT>::iterator d, n;
   d=aodb_pax.end();
   n=prior_aodb_pax.end();
-	for ( d=aodb_pax.begin(); d!=aodb_pax.end(); d++ )
+	for ( d=aodb_pax.begin(); d!=aodb_pax.end(); d++ ) // выбираем нужного пассажира
  		if ( d->pax_id == pax_id && d->reg_no == reg_no ) {
  			break;
  		}
@@ -732,7 +732,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  			break;
  		}
  	if ( !pr_unaccomp ) {
-    if ( d == aodb_pax.end() ) { // удаление
+    if ( d == aodb_pax.end() ) { // удаление пассажира
   	  res_checkin += n->record.substr( 0, n->record.length() - 2 );
   	  res_checkin += "1;";
   		ProgTrace( TRACE5, "delete record, record=%s", res_checkin.c_str() );
@@ -768,6 +768,8 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
   PQry.DeclareVariable( "pr_cabin", otInteger );
   PQry.DeclareVariable( "record", otString );
   int num=0;
+  string bags;
+	string delbags;
 	for ( int pr_cabin=1; pr_cabin>=0 && d != aodb_pax.end(); pr_cabin-- ) {
 		PQry.SetVariable( "pr_cabin", pr_cabin );
 	  for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
@@ -787,24 +789,29 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 	  			if ( pr_unaccomp ) {
             ostringstream r;
             r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
- 	          res_checkin += r.str();
-// 	          ProgTrace( TRACE5, "bag_num=%d, point_id=%d", bag_num, point_id );
+ 	          //res_checkin += r.str();
+ 	          bags += r.str();
+ 	          
 	  			}
-   			  res_checkin += i->record + "0;";
+   			  //res_checkin += i->record + "0;";
+   			  bags += i->record + "0;";
    			  if ( pr_unaccomp )
-   			  	res_checkin += "\n";
+   			  	//res_checkin += "\n";
+   			  	bags += "\n";
 	  		}
 	    }
 	    if ( !f ) {
 	  		if ( pr_unaccomp ) {
           ostringstream r;
           r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
-//          ProgTrace( TRACE5, "bag_num=%d, point_id=%d", bag_num, point_id );
- 	        res_checkin += r.str();
+ 	        //res_checkin += r.str();
+ 	        bags += r.str();
 	  		}
-	    	res_checkin += i->record + "0;";
+	    	//res_checkin += i->record + "0;";
+	    	bags += i->record + "0;";
    			if ( pr_unaccomp )
-   				res_checkin += "\n";
+   				//res_checkin += "\n";
+   				bags += "\n";
 	    }
   	}
 	  for ( vector<AODB_STRUCT>::iterator i=prior_aodb_bag.begin(); i!= prior_aodb_bag.end(); i++ ) {
@@ -824,9 +831,11 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 //          ProgTrace( TRACE5, "bag_num=%d, point_id=%d", bag_num, point_id );
  	        res_checkin += r.str();
 	  		}
-	    	res_checkin += i->record + "1;";
+	    	//res_checkin += i->record + "1;";
+	    	delbags += i->record + "1;";
    			if ( pr_unaccomp )
-   				res_checkin += "\n";
+   				//res_checkin += "\n";
+   				delbags += "\n";
 	    }
   	}
 	}
@@ -836,6 +845,9 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 	  if ( n != prior_aodb_pax.end() )
 	  	n->doit = true;
 	}
+	
+	res_checkin += delbags + bags;
+	
 	PQry.Clear();
 	if ( pr_unaccomp ) {
 	  PQry.SQLText =
@@ -864,7 +876,6 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
  	PQry.Execute();
  	if ( !pr_unaccomp )
 	  res_checkin += "\n";
-//	ProgTrace( TRACE5, "res=%s", 	res_checkin.c_str() );
 }
 
 void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flight &fl )

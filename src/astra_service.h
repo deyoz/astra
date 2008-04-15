@@ -36,6 +36,7 @@ struct TFileData {
 typedef std::vector<TFileData> TFileDatas;
 	
 
+std::string getFileEncoding( const std::string &file_type, const std::string &point_addr );
 void getFileParams( int id, std::map<std::string,std::string> &fileparams );
 bool deleteFile( int id );
 int putFile(const std::string &receiver,

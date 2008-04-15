@@ -115,11 +115,13 @@ int putFile( const string &receiver,
     }
     catch( std::exception &e)
     {
+    	try {deleteFile( file_id );} catch(...){};
         ProgError(STDLOG, e.what());
         throw;
     }
     catch(...)
     {
+    	try {deleteFile( file_id );} catch(...){};
         ProgError(STDLOG, "putFile: Unknown error while trying to put file");
         throw;
     };
@@ -614,20 +616,29 @@ void AstraServiceInterface::createFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
 	createCentringFile( point_id, params, data );*/
 }
 
+string getFileEncoding( const string &file_type, const string &point_addr )
+{
+	string res;
+  TQuery EncodeQry( &OraSession );
+  EncodeQry.SQLText =
+      "select encoding from file_encoding where "
+      "   own_point_addr = :own_point_addr and "
+      "   type = :type and "
+      "   point_addr=:point_addr AND "
+      "   pr_send = 1";
+  EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+  EncodeQry.CreateVariable( "type", otString, file_type );
+  EncodeQry.CreateVariable( "point_addr", otString, point_addr );	
+  EncodeQry.Execute();
+  if ( !EncodeQry.Eof ) 
+  	res = EncodeQry.FieldAsString( "encoding" );
+  return res;
+}
+
 bool CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
 	                         const std::string &flt_no )
 {
 	bool res = false;
-    TQuery EncodeQry( &OraSession );
-    EncodeQry.SQLText =
-        "select encoding from file_encoding where "
-        "   own_point_addr = :own_point_addr and "
-        "   type = :type and "
-        "   point_addr=:point_addr AND "
-        "   pr_send = 1";
-    EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-    EncodeQry.CreateVariable( "type", otString, type );
-    EncodeQry.DeclareVariable( "point_addr", otString );
     TQuery Qry( &OraSession );
     Qry.SQLText = 
         "SELECT point_addr, param_name, param_value,"
@@ -679,20 +690,19 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                         type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) /*||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds )*/ ) {
                     /* теперь в params еще лежит и имя файла */
-                    EncodeQry.SetVariable( "point_addr", client_canon_name );
-                    EncodeQry.Execute();
+                    string encoding = getFileEncoding( type, client_canon_name );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
                     	i->params[PARAM_CANON_NAME] = client_canon_name; 
                       i->params[ NS_PARAM_AIRP ] = airp;
                       i->params[ NS_PARAM_AIRLINE ] = airline;
                       i->params[ NS_PARAM_FLT_NO ] = flt_no;
                     	string str_file = i->file_data;
-                      if ( !EncodeQry.Eof )              
+                      if ( !encoding.empty() )              
                           try {
-                              str_file = ConvertCodePage( EncodeQry.FieldAsString( "encoding" ), "CP866", str_file );
+                              str_file = ConvertCodePage( encoding, "CP866", str_file );
                           } catch(EConvertError &E) {
                               ProgError(STDLOG, E.what());
-                              throw UserException("Ошибка конвертации в %s", EncodeQry.FieldAsString( "encoding" ));
+                              throw UserException("Ошибка конвертации в %s", encoding.c_str() );
                           }
                       res = true;
                       int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
@@ -722,7 +732,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
             catch( std::exception &e) {
                 ///try OraSession.RollBack(); catch(...){};//!!!
-                ProgError(STDLOG, e.what());
+                ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
             }
             catch(...) {
                 ///try OraSession.RollBack(); catch(...){}; //!!!
@@ -824,8 +834,8 @@ void sync_aodb( void )
 	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
 	 " FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:file_type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-	 "       ( TRUNC(points.scd_in) BETWEEN TRUNC(system.UTCSYSDATE) AND TRUNC(system.UTCSYSDATE)+:spp_days OR "
-   "         TRUNC(points.scd_out) BETWEEN TRUNC(system.UTCSYSDATE) AND TRUNC(system.UTCSYSDATE)+:spp_days ) AND "	 
+	 "       ( points.scd_in BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+:spp_days+1 OR "
+   "         points.scd_out BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+:spp_days+1 ) AND "	 
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
@@ -835,11 +845,12 @@ void sync_aodb( void )
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
-  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
-    break;  	                      
+  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	      	                      
 		Qry.Next();
 	}
-}*/
+
+}
+*/
 
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
