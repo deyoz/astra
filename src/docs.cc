@@ -1497,7 +1497,7 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
             if(!result.str().empty()) {
                 result << ", ";
             }
-            result << fixed << setprecision(0) << setw(3) << setfill('0') << iv->no;
+            result << fixed << setprecision(0) << setw(10) << setfill('0') << iv->no;
             if(iv->pr_liab_limit)
                 result << lim;
             first_no = iv->no;
