@@ -713,6 +713,10 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_brd_pax = -1;
+    xmlNodePtr prBrdPaxNode = GetNode("pr_brd_pax", reqNode);
+    if(prBrdPaxNode)
+        pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
     {//!!!
@@ -816,10 +820,16 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   pr_brd IS NOT NULL and ";
     if(
             target.empty() ||
+            target == "etm" ||
+            pr_brd_pax == 1
+      ) // ЭБ или только посаженные
+        SQLText +=
+            "   pr_brd = 1 and ";
+    if(
+            target.empty() ||
             target == "etm"
       ) { //ЭБ
         SQLText +=
-            "   pr_brd = 1 and "
             "   ((ticket_no is not null and "
             "   coupon_no is not null) or "
             "   report.get_tkno(pax_id, '/', 1) is not null) and ";
@@ -994,13 +1004,15 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             " pr_vip = :pr_vip and ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
+    if(target == "etm" || pr_brd_pax == 1)
+        SQLText +=
+            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
-            "   pax.pr_brd = 1 and "
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
     SQLText +=
-        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -1043,14 +1055,16 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
+    if(target == "etm" || pr_brd_pax == 1)
+        SQLText +=
+            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
-            "   pax.pr_brd = 1 and "
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
     SQLText +=
         "       pax_grp.grp_id=bag2.grp_id AND "
-        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -1091,13 +1105,15 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
+    if(target == "etm" || pr_brd_pax == 1)
+        SQLText +=
+            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
-            "   pax.pr_brd = 1 and "
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
     SQLText +=
-        "       pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -1233,6 +1249,19 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
 
     NewTextChild(variablesNode, "pr_vip", pr_vip);
+    string pr_brd_pax_str_lat;
+    string pr_brd_pax_str;
+    if(pr_brd_pax != -1) {
+        if(pr_brd_pax == 0) {
+            pr_brd_pax_str_lat = "(checked)";
+            pr_brd_pax_str = "(зарег)";
+        } else {
+            pr_brd_pax_str_lat = "(boarded)";
+            pr_brd_pax_str = "(посаж)";
+        }
+    }
+    NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
+    NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
@@ -1965,6 +1994,10 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
 void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     int point_id = NodeAsInteger("point_id", reqNode);
+    int pr_brd_pax = -1;
+    xmlNodePtr prBrdPaxNode = GetNode("pr_brd_pax", reqNode);
+    if(prBrdPaxNode)
+        pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     TQuery Qry(&OraSession);
     string target = NodeAsString("target", reqNode);
     int pr_lat = GetRPEncoding(target);
@@ -2038,6 +2071,8 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText += ", halls2 ";
     if(pr_trfer)
         SQLText += ", v_last_trfer ";
+    if(pr_brd_pax != -1)
+        SQLText += ", pax ";
     SQLText +=
         "where "
         "    pax_grp.point_dep = :point_id and "
@@ -2059,6 +2094,14 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             " and pax_grp.grp_id = v_last_trfer.grp_id(+) ";
+    if(pr_brd_pax != -1) {
+        SQLText +=
+            "   and pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and "
+            "   pax.pr_brd is not null ";
+        if(pr_brd_pax == 1)
+            SQLText +=
+                " and pax.pr_brd = 1 ";
+    }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
@@ -2320,6 +2363,9 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_vip != 2)
         SQLText +=
             "   ,halls2 ";
+    if(pr_brd_pax != -1)
+        SQLText +=
+            "   ,pax ";
     SQLText +=
         "WHERE pax_grp.grp_id=bag2.grp_id AND ";
     if(pr_vip != 2) {
@@ -2327,6 +2373,14 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "      pax_grp.hall=halls2.id AND "
             "      halls2.pr_vip=:pr_vip AND ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    if(pr_brd_pax != -1) {
+        SQLText +=
+            "   pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and "
+            "   pax.pr_brd is not null and ";
+        if(pr_brd_pax == 1)
+            SQLText +=
+                " pax.pr_brd = 1 and ";
     }
     SQLText +=
         "      pax_grp.point_dep=:point_id and ";
@@ -2353,6 +2407,19 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
     NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+    string pr_brd_pax_str_lat;
+    string pr_brd_pax_str;
+    if(pr_brd_pax != -1) {
+        if(pr_brd_pax == 0) {
+            pr_brd_pax_str_lat = "(checked)";
+            pr_brd_pax_str = "(зарег)";
+        } else {
+            pr_brd_pax_str_lat = "(boarded)";
+            pr_brd_pax_str = "(посаж)";
+        }
+    }
+    NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
+    NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
