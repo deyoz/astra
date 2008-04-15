@@ -2693,7 +2693,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }
   	  else
   	    if ( !id->pr_del && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
-  	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
    		    change_act A;
   		    A.point_id = id->point_id;
   		    A.old_act = old_dest.act_out;
@@ -2717,7 +2717,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_in;
@@ -2726,7 +2726,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		vchangeAct.push_back( A );
   	}
   	if ( !id->pr_del && id->act_in != old_dest.act_in && old_dest.act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_in;
@@ -2893,7 +2893,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
   		}
 
-  		reqInfo->MsgToLog( tolog, evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
@@ -2908,7 +2908,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        catch( ... ) {
          ProgError( STDLOG, "Unknown error" );
        };
-    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_out;
