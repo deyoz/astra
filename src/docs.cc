@@ -1004,15 +1004,17 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             " pr_vip = :pr_vip and ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
-    if(target == "etm" || pr_brd_pax == 1)
-        SQLText +=
-            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
+    if(pr_brd_pax == 1)
+        SQLText +=
+            "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and ";
+    else
+        SQLText +=
+            "       pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) and ";
     SQLText +=
-        "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -1055,16 +1057,18 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
-    if(target == "etm" || pr_brd_pax == 1)
-        SQLText +=
-            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
+    if(pr_brd_pax == 1)
+        SQLText +=
+            "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and ";
+    else
+        SQLText +=
+            "       pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) and ";
     SQLText +=
         "       pax_grp.grp_id=bag2.grp_id AND "
-        "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -1105,15 +1109,17 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
-    if(target == "etm" || pr_brd_pax == 1)
-        SQLText +=
-            "   pax.pr_brd = 1 and ";
     if(target == "etm")
         SQLText +=
             "   pax.ticket_no is not null and "
             "   pax.coupon_no is not null and ";
+    if(pr_brd_pax == 1)
+        SQLText +=
+            "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and ";
+    else
+        SQLText +=
+            "       pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) and ";
     SQLText +=
-        "       pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
         "       pr_brd IS NOT NULL and "
@@ -2095,12 +2101,12 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " and pax_grp.grp_id = v_last_trfer.grp_id(+) ";
     if(pr_brd_pax != -1) {
-        SQLText +=
-            "   and pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and "
-            "   pax.pr_brd is not null ";
-        if(pr_brd_pax == 1)
+        if(pr_brd_pax == 0)
             SQLText +=
-                " and pax.pr_brd = 1 ";
+                "   and pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) ";
+        else
+            SQLText +=
+                "   and pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) ";
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -2375,12 +2381,12 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
     if(pr_brd_pax != -1) {
-        SQLText +=
-            "   pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and "
-            "   pax.pr_brd is not null and ";
-        if(pr_brd_pax == 1)
+        if(pr_brd_pax == 0)
             SQLText +=
-                " pax.pr_brd = 1 and ";
+                "   pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) and ";
+        else
+            SQLText +=
+                "   pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) and ";
     }
     SQLText +=
         "      pax_grp.point_dep=:point_id and ";
