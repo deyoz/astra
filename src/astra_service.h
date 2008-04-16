@@ -72,6 +72,12 @@ public:
      AddEvent("errorFileData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::createFileData);
      AddEvent("createFileData",evHandle);
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::viewFileData);
+     AddEvent("viewFileData",evHandle);     
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::getFileParams);
+     AddEvent("getFileParams",evHandle);          
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::viewFileIds);
+     AddEvent("viewFileIds",evHandle);               
   };
 
   void authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
@@ -79,6 +85,9 @@ public:
   void saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
   void errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void createFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
+  void viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
+  void getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
+  void viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
