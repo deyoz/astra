@@ -788,20 +788,20 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   points.SCD_OUT scd, "
         "   points.EST_OUT est, "
         "   points.ACT_OUT act, "
-        "   points.AIRLINE, "
-        "   airlines.code_lat airline_lat, "
-        "   airlines.name airline_name, "
-        "   airlines.name_lat airline_name_lat, "
-        "   nvl(airlines.short_name, airlines.name) airline_short, "
-        "   nvl(airlines.short_name_lat, airlines.name_lat) airline_short_lat, "
+//        "   points.AIRLINE, "
+//        "   airlines.code_lat airline_lat, "
+//        "   airlines.name airline_name, "
+//        "   airlines.name_lat airline_name_lat, "
+//        "   nvl(airlines.short_name, airlines.name) airline_short, "
+//        "   nvl(airlines.short_name_lat, airlines.name_lat) airline_short_lat, "
         "   crafts.code craft, "
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
-        "   system.transliter(points.BORT, 1) bort_lat, "
-        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||points.suffix flt_no, "
-        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
-        "   points.SUFFIX, "
-        "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
+        "   system.transliter(points.BORT, 1) bort_lat "
+//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||points.suffix flt_no, "
+//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
+//        "   points.SUFFIX, "
+//        "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
         "   points, "
         "   airlines, "
@@ -814,6 +814,119 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qry->CreateVariable("brd_open_stage_id", otInteger, sOpenBoarding);
     Qry->CreateVariable("brd_close_stage_id", otInteger, sCloseBoarding);
     Qrys.push_back(Qry);
+
+    {
+        TQuery Qry(&OraSession);
+        bool pr_bp_market_flt = false;
+        Qry.SQLText = "select pr_bp_market_flt from trip_sets where point_id = :point_id";
+        Qry.CreateVariable("point_id", otInteger, trip_id);
+        Qry.Execute();
+        if(!Qry.Eof && !Qry.FieldIsNULL(0))
+            pr_bp_market_flt = Qry.FieldAsInteger(0) == 1;
+        string airline;
+        string airline_lat;
+        string airline_name;
+        string airline_name_lat;
+        string airline_short;
+        string airline_short_lat;
+        string flt_no;
+        string flt_no_lat;
+        string suffix;
+        string suffix_lat;
+        string sel_airline;
+        int sel_flt_no;
+        string sel_suffix;
+
+        if(pax_id != NoExists && pr_bp_market_flt) {
+            Qry.Clear();
+            Qry.SQLText =
+                "select "
+                "   tlg_trips.airline, "
+                "   tlg_trips.flt_no, "
+                "   tlg_trips.suffix "
+                "from "
+                "   pax, "
+                "   crs_pax, "
+                "   crs_pnr, "
+                "   tlg_trips "
+                "where "
+                "   pax.pax_id = :pax_id and "
+                "   pax.pax_id = crs_pax.pax_id and "
+                "   crs_pax.pnr_id = crs_pnr.pnr_id and "
+                "   crs_pnr.point_id = tlg_trips.point_id ";
+            Qry.CreateVariable("pax_id", otInteger, pax_id);
+            Qry.Execute();
+            if(!Qry.Eof) {
+                sel_airline = Qry.FieldAsString("airline");
+                sel_flt_no = Qry.FieldAsInteger("flt_no");
+                sel_suffix = Qry.FieldAsString("suffix");
+            } else {
+                Qry.Clear();
+                Qry.SQLText =
+                    "select "
+                    "   airline, "
+                    "   flt_no, "
+                    "   suffix "
+                    "from "
+                    "   points "
+                    "where "
+                    "   point_id = :point_id ";
+                Qry.CreateVariable("point_id", otInteger, trip_id);
+                Qry.Execute();
+                if(!Qry.Eof) {
+                    sel_airline = Qry.FieldAsString("airline");
+                    sel_flt_no = Qry.FieldAsInteger("flt_no");
+                    sel_suffix = Qry.FieldAsString("suffix");
+                }
+            }
+        } else {
+            Qry.Clear();
+            Qry.SQLText =
+                "select "
+                "   airline, "
+                "   flt_no, "
+                "   suffix "
+                "from "
+                "   points "
+                "where "
+                "   point_id = :point_id ";
+            Qry.CreateVariable("point_id", otInteger, trip_id);
+            Qry.Execute();
+            if(!Qry.Eof) {
+                sel_airline = Qry.FieldAsString("airline");
+                sel_flt_no = Qry.FieldAsInteger("flt_no");
+                sel_suffix = Qry.FieldAsString("suffix");
+            }
+        }
+
+
+        if(sel_airline.empty())
+            throw Exception("fillBTBPMap: arline not defined");
+        airline = sel_airline;
+        suffix = sel_suffix;
+        TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+        airline_lat = airlineRow.AsString("code", 1);
+        airline_name = airlineRow.AsString("name", 0);
+        airline_name_lat = airlineRow.AsString("name", 1);
+        airline_short = airlineRow.AsString("short_name", 0);
+        airline_short_lat = airlineRow.AsString("short_name", 1);
+        suffix_lat = convert_suffix(suffix, 1);
+        ostringstream buf;
+        buf << setw(3) << setfill('0') << sel_flt_no;
+        flt_no = buf.str() + suffix;
+        flt_no_lat = buf.str() + suffix_lat;
+
+        add_tag("airline", airline);
+        add_tag("airline_lat", airline_lat);
+        add_tag("airline_name", airline_name);
+        add_tag("airline_name_lat", airline_name_lat);
+        add_tag("airline_short", airline_short);
+        add_tag("airline_short_lat", airline_short_lat);
+        add_tag("flt_no", flt_no);
+        add_tag("flt_no_lat", flt_no_lat);
+        add_tag("suffix", suffix);
+        add_tag("suffix_lat", suffix_lat);
+    }
 
     Qry = OraSession.CreateQuery();
     if(pax_id == NoExists) {
