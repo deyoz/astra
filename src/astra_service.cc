@@ -910,11 +910,13 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 		Qry.Next();
 	}
 	Qry.Clear();
-	Qry.SQLText = "SELECT DISTINCT receiver FROM files";
+	Qry.SQLText = "SELECT DISTINCT type, receiver FROM files";
 	Qry.Execute();
 	node = NewTextChild( resNode, "point_addrs" );	
 	while (!Qry.Eof) {
-		NewTextChild( node, "point_addr", Qry.FieldAsString( "receiver" ) );
+		xmlNodePtr n = NewTextChild( node, "addrs" );
+		NewTextChild( n, "type", Qry.FieldAsString( "type" ) );
+		NewTextChild( n, "point_addr", Qry.FieldAsString( "receiver" ) );
 		Qry.Next();
 	}
 }
@@ -927,7 +929,10 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
 	ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT id, time FROM files WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day";
+	Qry.SQLText = 
+	"SELECT files.id, time, value FROM files, file_params "
+	" WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day AND "
+	"      files.id=file_params.id(+) AND 'FileName'=file_params.name(+) ";
 	Qry.CreateVariable( "type", otString, type );
 	Qry.CreateVariable( "receiver", otString, receiver );
 	Qry.CreateVariable( "first_day", otDate, first_day );
@@ -938,6 +943,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 		xmlNodePtr n = NewTextChild( node, "ids" );
 		NewTextChild( n, "id", Qry.FieldAsInteger( "id" ) );
 		NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
+		NewTextChild( n, "filename", Qry.FieldAsString( "value" ) );
 		Qry.Next();
 	}
 	
@@ -967,8 +973,60 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
   NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
   free( p );
+  Qry.SQLText = "SELECT * FROM file_params WHERE id=:file_id";
+	Qry.CreateVariable( "file_id", otInteger, file_id );
+	Qry.Execute();
+	xmlNodePtr paramsN = NewTextChild( resNode, "params" );
+  while ( !Qry.Eof ) {
+  	xmlNodePtr n = NewTextChild( paramsN, "param" );
+  	NewTextChild( n, "name", Qry.FieldAsString( "name" ) );
+  	NewTextChild( n, "value", Qry.FieldAsString( "value" ) );
+  	Qry.Next();
+  }
 }
 
+void AstraServiceInterface::getAodbFiles( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	TQuery Qry( &OraSession );
+	Qry.SQLText = "SELECT filename, point_addr, airline FROM aodb_spp_files";		
+	Qry.Execute();
+	xmlNodePtr node = NewTextChild( resNode, "files" );
+	while ( !Qry.Eof ) {
+		xmlNodePtr n = NewTextChild( node, "file" );
+		NewTextChild( n, "filename", Qry.FieldAsString( "filename" ) );
+		NewTextChild( n, "point_addr", Qry.FieldAsString( "point_addr" ) );
+		NewTextChild( n, "airline", Qry.FieldAsString( "airline" ) );		
+		Qry.Next();
+	}
+}
+		
+
+void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	string filename = NodeAsString( "filename", reqNode );
+	string point_addr = NodeAsString( "point_addr", reqNode );
+	string airline = NodeAsString( "airline", reqNode );
+	TQuery Qry( &OraSession );
+	Qry.SQLText = 
+	"SELECT rec_no, record, msg, type, time FROM aodb_events "
+	" WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline"
+	" ORDER BY rec_no ";
+	Qry.CreateVariable( "filename", otString, filename );	
+	Qry.CreateVariable( "point_addr", otString, point_addr );	
+	Qry.CreateVariable( "airline", otString, airline );	
+	Qry.Execute();
+	ProgTrace( TRACE5, "filename=%s, point_addr=%s, airline=%s", filename.c_str(), point_addr.c_str(), airline.c_str() );
+	xmlNodePtr node = NewTextChild( resNode, "records" );
+	while ( !Qry.Eof ) {
+		xmlNodePtr n = NewTextChild( node, "record" );
+		NewTextChild( n, "rec_no", Qry.FieldAsInteger( "rec_no" ) );
+		NewTextChild( n, "record", Qry.FieldAsString( "record" ) );
+		NewTextChild( n, "msg", Qry.FieldAsString( "msg" ) );		
+		NewTextChild( n, "type", Qry.FieldAsString( "type" ) );		
+		NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
+		Qry.Next();
+	}
+}
 
 
 
