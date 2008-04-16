@@ -1625,10 +1625,10 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_brd_pax != -1) {
         if(pr_brd_pax == 0)
             SQLText +=
-                "   and pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id) ";
+                "   and (pax_grp.class is not null and pax.pax_id = ckin.get_check_pax_id(pax_grp.grp_id)) ";
         else
             SQLText +=
-                "   and pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id) ";
+                "   and (pax_grp.class is not null and pax.pax_id = ckin.get_brd_pax_id(pax_grp.grp_id)) ";
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
