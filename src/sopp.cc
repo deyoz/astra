@@ -668,14 +668,17 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
             ntr.ref = ref;
             if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
             	                     errcity, pr_isg ) ) {            	
-            	vector<TSOPPTrip>::iterator v;
-            	for (v=vtrips.begin(); v!=vtrips.end(); v++) {
-            		if ( EqualTrips( ntr, *v ) )
-            			break;
-            	}
-            	if ( v == vtrips.end() )
+            	vector<TSOPPTrip>::iterator v=vtrips.end();
+            	if ( pr_isg ) {
+            	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
+              		if ( EqualTrips( ntr, *v ) )
+              			break;
+              	}
+              }
+            	if ( v == vtrips.end() ) {
                 trips.push_back( ntr );
                 vtrips.push_back( ntr );
+              }
             }
           }
         }
@@ -776,11 +779,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
          ntr.ref = ref;
          if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
          	                      errcity, pr_isg ) ) {
-          	vector<TSOPPTrip>::iterator v;
-           	for (v=vtrips.begin(); v!=vtrips.end(); v++) {
-           		if ( EqualTrips( ntr, *v ) )
-           			break;
-           	}
+          	vector<TSOPPTrip>::iterator v=vtrips.end();
+          	if ( pr_isg ) {
+           	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
+           	  	if ( EqualTrips( ntr, *v ) )
+           	  		break;
+             	}
+            }
            	if ( v == vtrips.end() ) {
               trips.push_back( ntr );
               vtrips.push_back( ntr );
