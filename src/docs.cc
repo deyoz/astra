@@ -869,14 +869,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
 
+    bool pr_target =
+        target.size() &&
+        target != "tot" &&
+        target != "etm" &&
+        target != "tpm";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
-    if(
-            target.size() &&
-            target != "tot" &&
-            target != "etm" &&
-            target != "tpm"
-      )
+    if(pr_target)
         Qry.CreateVariable("target", otString, target);
     if(status.size())
         Qry.CreateVariable("status", otString, status);
@@ -940,11 +940,6 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.Next();
     }
 
-    bool pr_target =
-        target.size() &&
-        target != "tot" &&
-        target != "etm" &&
-        target != "tpm";
     bool pr_trfer = name == "PMTrfer";
     Qry.Clear();
     SQLText =
@@ -997,14 +992,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             " pr_vip = :pr_vip and ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
-    if(target == "etm")
+    if(target.empty() || target == "etm")
         SQLText +=
             "   ((ticket_no is not null and "
             "   coupon_no is not null) or "
             "   report.get_tkno(pax_id, '/', 1) is not null) and ";
     if(pr_brd_pax != -1) {
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd(+), 0, -1), pax.pr_brd(+))  = :pr_brd_pax and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
         Qry.CreateVariable("pr_brd_pax", otInteger, pr_brd_pax);
     }
     SQLText +=
@@ -1051,14 +1046,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
-    if(target == "etm")
+    if(target.empty() || target == "etm")
         SQLText +=
             "   ((ticket_no is not null and "
             "   coupon_no is not null) or "
             "   report.get_tkno(pax_id, '/', 1) is not null) and ";
     if(pr_brd_pax != -1)
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd(+), 0, -1), pax.pr_brd(+))  = :pr_brd_pax and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
     SQLText +=
         "       pax_grp.grp_id=bag2.grp_id AND "
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
@@ -1102,14 +1097,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText +=
             " pr_vip = :pr_vip and ";
     }
-    if(target == "etm")
+    if(target.empty() || target == "etm")
         SQLText +=
             "   ((ticket_no is not null and "
             "   coupon_no is not null) or "
             "   report.get_tkno(pax_id, '/', 1) is not null) and ";
     if(pr_brd_pax != -1)
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd(+), 0, -1), pax.pr_brd(+))  = :pr_brd_pax and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
     SQLText +=
         "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
         "       pax_grp.hall = halls2.id and "
