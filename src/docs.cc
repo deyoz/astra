@@ -981,7 +981,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "  FROM pax_grp,pax,v_last_trfer,halls2 "
         "  WHERE "
         "       pax_grp.point_dep = :point_id and "
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and ";
+        "       pax.grp_id = pax_grp.grp_id and ";
     if(pr_target) {
         SQLText +=
             "   pax_grp.airp_arv = :target and ";
@@ -1037,7 +1037,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 "
         "  WHERE "
         "       pax_grp.point_dep = :point_id and "
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and ";
+        "       pax.grp_id = pax_grp.grp_id and ";
     if(pr_target) {
         SQLText +=
             "   pax_grp.airp_arv = :target and ";
@@ -1088,7 +1088,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "  FROM pax_grp,pax,v_last_trfer,halls2 "
         "  WHERE "
         "       pax_grp.point_dep = :point_id and "
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and ";
+        "       pax.grp_id = pax_grp.grp_id and ";
     if(pr_target) {
         SQLText +=
             "   pax_grp.airp_arv = :target and ";
