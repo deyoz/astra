@@ -810,13 +810,11 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   pax_grp.class_grp = classes.id AND "
         "   pax_grp.hall = halls2.id and "
         "   pr_brd IS NOT NULL and ";
-    if(
-            target.empty() ||
-            target == "etm" ||
-            pr_brd_pax == 1
-      ) // ЭБ или только посаженные
+    if(pr_brd_pax != -1) {
         SQLText +=
-            "   pr_brd = 1 and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
+        Qry.CreateVariable("pr_brd_pax", otInteger, pr_brd_pax);
+    }
     if(
             target.empty() ||
             target == "etm"
@@ -1031,7 +1029,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "   pax_grp.airp_arv, "
             "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
     SQLText +=
-        "         SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, "
+        "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, "
         "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, "
         "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight "
         "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 "
