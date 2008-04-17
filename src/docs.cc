@@ -12,8 +12,6 @@
 #include "brd.h"
 #include "xml_stuff.h"
 
-#define SALEK
-
 using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
@@ -2322,7 +2320,6 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_dep_code", prev_airp);
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
-#ifdef SALEK
                     if(
                             rpType == "BM" ||
                             rpType == "TBM" ||
@@ -2340,7 +2337,6 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                         }
                         NewTextChild(SegNode, "item", prev_airp + "-" + airp + hall);
                     } else
-#endif
                         NewTextChild(SegNode, "item", prev_airp + "-" + airp + " (транзит)");
                 }
                 if(curr_airp.size()) {
@@ -2349,7 +2345,6 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     NewTextChild(SegNode, "airp_dep_code", curr_airp);
                     NewTextChild(SegNode, "airp_arv_code", airp);
                     NewTextChild(SegNode, "pr_vip", pr_vip);
-#ifdef SALEK
                     if(
                             rpType == "BM" ||
                             rpType == "TBM" ||
@@ -2367,12 +2362,9 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                         }
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp + hall);
                     } else
-#endif
                         NewTextChild(SegNode, "item", curr_airp + "-" + airp);
                 }
-#ifdef SALEK
                 if(!(rpType == "BM" || rpType == "TBM" || rpType == "PM" || rpType == "TPM"))
-#endif
                     break;
             }
             Qry.Next();
