@@ -457,7 +457,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    name, "
         "    pers_type, "
         "    class, "
-        "    airp_arv, "
+        "    NVL(v_last_trfer.airp_arv,pax_grp.airp_arv) AS airp_arv, "
         "    seat_no, "
         "    seats, "
         "    ticket_no, "
@@ -475,7 +475,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment "
         "FROM "
-        "    pax_grp, "
+        "    pax_grp,v_last_trfer, "
         "    pax, "
         "    ( "
         "     SELECT "
@@ -488,6 +488,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    ) value_bag "
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
         "    pax_grp.grp_id=value_bag.grp_id(+)  " +
         condition +
         " ORDER BY reg_no ";
