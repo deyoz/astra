@@ -1382,12 +1382,23 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int grp_id = -1;
   bool rcpt_exists = false;
   xmlNodePtr node=NewTextChild(resNode,"passengers");
+  vector<xmlNodePtr> v_rcpt_complete;
+  // В вектор v_rcpt_complete записываются указатели на узлы, в которых хранится признак
+  // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
+  // Поскольку инфа по квитанциям есть только у одного пассажира из группы, понять значение
+  // признака можно только пробежав группу до конца. Отсюда такой гемор.
+  // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
+  int rcpt_complete = 0;
   for(;!Qry.Eof;Qry.Next())
   {
     int tmp_grp_id = Qry.FieldAsInteger("grp_id");
     if(grp_id != tmp_grp_id) {
-        if(col_receipts != -1)
-            rcpt_exists = !Qry.FieldIsNULL(col_receipts);
+        if(!v_rcpt_complete.empty()) {
+            for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+                NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+            v_rcpt_complete.clear();
+            rcpt_exists = false;
+        }
         grp_id = tmp_grp_id;
     }
 
@@ -1413,10 +1424,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(col_receipts != -1)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
-      if(rcpt_exists)
-          NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger(col_pr_payment));
-      else
-          NewTextChild(paxNode,"rcpt_complete",2);
+      v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
+      rcpt_complete = Qry.FieldAsInteger(col_pr_payment);
+      rcpt_exists = rcpt_exists || !Qry.FieldIsNULL(col_receipts);
     };
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
@@ -1425,6 +1435,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
   };
+  if(!v_rcpt_complete.empty()) {
+      for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+          NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+      v_rcpt_complete.clear();
+      rcpt_exists = false;
+  }
 
   //несопровождаемый багаж
   sql.str("");
