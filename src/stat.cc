@@ -1793,15 +1793,16 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, cls_grp "
+                "FROM  pax_grp,pax, points, cls_grp, halls2 "
                 "WHERE "
                 "   points.point_id = :point_id and "
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id AND "
-                "   pax_grp.class_grp = cls_grp.id ";
+                "   pax_grp.class_grp = cls_grp.id and "
+                "   pax_grp.hall = halls2.id(+) ";
         } else {
             ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
@@ -1828,10 +1829,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   arx_pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp "
+                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp, halls2 "
                 "WHERE "
                 "   arx_points.point_id = :point_id and "
                 "   arx_points.point_id = arx_pax_grp.point_dep and "
@@ -1840,7 +1841,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_points.part_key = :part_key and "
                 "   arx_pax_grp.part_key = :part_key and "
                 "   arx_pax.part_key = :part_key and "
-                "   pr_brd IS NOT NULL ";
+                "   pr_brd IS NOT NULL  and "
+                "   arx_pax_grp.hall = halls2.id(+) ";
             Qry.CreateVariable("part_key", otDate, part_key);
         }
 
@@ -1919,7 +1921,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
+                NewTextChild(paxNode, "hall", Qry.FieldAsString(col_hall));
 
                 Qry.Next();
             }
@@ -1947,13 +1949,14 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
                 "   ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
                 "   pax_grp.grp_id, "
-                "   pax_grp.hall AS hall_id, "
+                "   halls2.name AS hall_id, "
                 "   pax_grp.point_arv,pax_grp.user_id "
-                "FROM pax_grp, points "
+                "FROM pax_grp, points, halls2 "
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
                 "   pax_grp.class IS NULL and "
-                "   pax_grp.point_dep = points.point_id";
+                "   pax_grp.point_dep = points.point_id and "
+                "   pax_grp.hall = halls2.id(+) ";
         } else {
             Qry.SQLText=
                 "SELECT "
@@ -1966,11 +1969,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  ckin.get_excess(arx_pax_grp.grp_id,NULL) AS excess, "
                 "  ckin.get_birks(arx_pax_grp.grp_id,NULL) AS tags, "
                 "  arx_pax_grp.grp_id, "
-                "  arx_pax_grp.hall AS hall_id, "
+                "  halls2.name AS hall_id, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
-                "FROM arx_pax_grp "
+                "FROM arx_pax_grp, halls2 "
                 "WHERE point_dep=:point_id AND class IS NULL and "
-                "  arx_pax_grp.part_key = :part_key ";
+                "   arx_pax_grp.part_key = :part_key and "
+                "   arx_pax_grp.hall = halls2.id(+) ";
             Qry.CreateVariable("part_key", otDate, part_key);
         }
 
@@ -2017,7 +2021,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "seat_no");
             NewTextChild(paxNode, "document");
             NewTextChild(paxNode, "ticket_no");
-            NewTextChild(paxNode, "hall", Qry.FieldAsInteger("hall_id"));
+            NewTextChild(paxNode, "hall", Qry.FieldAsString("hall_id"));
         };
 
         if(paxListNode) {
