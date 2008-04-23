@@ -301,6 +301,19 @@ class TGenderTypes: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
+
+class TTagColorsRow: public TCodeBaseTableRow {
+  public:
+    std::string name, name_lat;
+    ~TTagColorsRow() {};
+    char *get_row_name() { return "TTagColorsRow"; };
+    std::string AsString(std::string field, bool pr_lat=false)
+    {
+      if (lowerc(field)=="name") return pr_lat ? name_lat : name;
+      return TCodeBaseTableRow::AsString(field,pr_lat);
+    };
+};
+
 class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
     std::string name;
@@ -311,6 +324,23 @@ class TPaxDocTypesRow: public TCodeBaseTableRow {
       if (lowerc(field)=="name") return name;
       return TCodeBaseTableRow::AsString(field,pr_lat);
     };
+};
+
+class TTagColors: public TCodeBaseTable {
+  private:
+    char *get_select_sql_text()
+    {
+      return
+        "SELECT code, code_lat, name, name_lat FROM tag_colors";
+    };
+    char *get_refresh_sql_text()
+    {
+      return get_select_sql_text();
+    };
+  protected:
+    char *get_table_name() { return "TTagColors"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
 };
 
 class TPaxDocTypes: public TCodeBaseTable {

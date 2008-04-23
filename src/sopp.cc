@@ -469,6 +469,36 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
   }
 }
 
+void getDests( TSOPPTrip &tr, vector<string> &des )
+{
+	des.clear();
+	for (TSOPPDests::iterator i=tr.places_in.begin(); i!=tr.places_in.end(); i++ ) {
+		des.push_back( i->airp );
+  }
+  des.push_back( tr.airp );
+	for (TSOPPDests::iterator i=tr.places_out.begin(); i!=tr.places_out.end(); i++ ) {
+		des.push_back( i->airp );
+  }
+}
+
+bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
+{
+	if ( tr1.move_id != tr2.move_id || tr1.airp != tr2.airp )
+		return false;
+	vector<string> des1, des2;
+	getDests( tr1, des1 );
+	getDests( tr2, des2 );
+	if ( des1.size() != des2.size() )		
+	  return false;
+	vector<string>::iterator j=des2.begin();
+	for (vector<string>::iterator i=des1.begin(); i!=des1.end(); i++ ) {
+		if ( *i != *j )
+			return false;
+		j++;
+	}
+	return true;
+}
+
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
                           bool arx, bool pr_isg, int point_id = NoExists )
 {
@@ -616,11 +646,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	int col_name = -1;
 	int col_work_mode = -1;
 	int col_pr_main = -1;
+  vector<TSOPPTrip> vtrips;
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
       if ( move_id > NoExists && dests.size() > 1 ) {
         //create trips
         string airline;
+        vtrips.clear();
         for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
         	if ( id != dests.end() - 1 || dests.size() < 2 )
         		airline = id->airline;
@@ -629,13 +661,24 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		f--;
         		airline = f->airline;
         	}
+        	
         	if ( reqInfo->CheckAirline( airline ) &&
         		   reqInfo->CheckAirp( id->airp ) ) {
-            TSOPPTrip tr = createTrip( move_id, id, dests );
-            tr.ref = ref;
-            if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
-            	                     errcity, pr_isg ) ) {
-              trips.push_back( tr );
+        		TSOPPTrip ntr = createTrip( move_id, id, dests );        		
+            ntr.ref = ref;
+            if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
+            	                     errcity, pr_isg ) ) {            	
+            	vector<TSOPPTrip>::iterator v=vtrips.end();
+            	if ( pr_isg ) {
+            	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
+              		if ( EqualTrips( ntr, *v ) )
+              			break;
+              	}
+              }
+            	if ( v == vtrips.end() ) {
+                trips.push_back( ntr );
+                vtrips.push_back( ntr );
+              }
             }
           }
         }
@@ -721,6 +764,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   if ( move_id > NoExists ) {
         //create trips
     string airline;
+    vtrips.clear();
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       if ( id != dests.end() - 1 )
         airline = id->airline;
@@ -730,25 +774,22 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         airline = f->airline;
       }
       if ( reqInfo->CheckAirline( airline ) &&
-        	 reqInfo->CheckAirp( id->airp ) )
-      	/*(!reqInfo->user.access.airlines.empty() &&
-             find( reqInfo->user.access.airlines.begin(),
-                   reqInfo->user.access.airlines.end(),
-                   airline
-                 ) != reqInfo->user.access.airlines.end() ||
-             reqInfo->user.access.airlines.empty() && reqInfo->user.user_type != utAirline) &&
-
-            (!reqInfo->user.access.airps.empty() &&
-             find( reqInfo->user.access.airps.begin(),
-                   reqInfo->user.access.airps.end(),
-                   id->airp
-                 ) != reqInfo->user.access.airps.end() ||
-             reqInfo->user.access.airps.empty() && reqInfo->user.user_type != utAirport) )*/ {
-         TSOPPTrip tr = createTrip( move_id, id, dests );
-         tr.ref = ref;
-         if ( FilterFlightDate( tr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
+        	 reqInfo->CheckAirp( id->airp ) ) {
+         TSOPPTrip ntr = createTrip( move_id, id, dests );
+         ntr.ref = ref;
+         if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
          	                      errcity, pr_isg ) ) {
-           trips.push_back( tr );
+          	vector<TSOPPTrip>::iterator v=vtrips.end();
+          	if ( pr_isg ) {
+           	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
+           	  	if ( EqualTrips( ntr, *v ) )
+           	  		break;
+             	}
+            }
+           	if ( v == vtrips.end() ) {
+              trips.push_back( ntr );
+              vtrips.push_back( ntr );
+            }
          }
       }
     }
@@ -2693,7 +2734,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }
   	  else
   	    if ( !id->pr_del && id->act_out != old_dest.act_out && old_dest.act_out > NoExists ) {
-  	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  	    	reqInfo->MsgToLog( string( "Изменение времени фактического вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
    		    change_act A;
   		    A.point_id = id->point_id;
   		    A.old_act = old_dest.act_out;
@@ -2717,7 +2758,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
   	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_in;
@@ -2726,7 +2767,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		vchangeAct.push_back( A );
   	}
   	if ( !id->pr_del && id->act_in != old_dest.act_in && old_dest.act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_in;
@@ -2893,7 +2934,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
   		}
 
-  		reqInfo->MsgToLog( tolog, evtDisp, move_id, id->point_id );
+  		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
@@ -2908,7 +2949,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        catch( ... ) {
          ProgError( STDLOG, "Unknown error" );
        };
-    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ), evtDisp, move_id, id->point_id );
+    	reqInfo->MsgToLog( string( "Проставление факт. вылета " ) + DateTimeToStr( id->act_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
   		change_act A;
   		A.point_id = id->point_id;
   		A.old_act = old_dest.act_out;

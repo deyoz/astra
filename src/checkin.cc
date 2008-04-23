@@ -1382,12 +1382,23 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int grp_id = -1;
   bool rcpt_exists = false;
   xmlNodePtr node=NewTextChild(resNode,"passengers");
+  vector<xmlNodePtr> v_rcpt_complete;
+  // В вектор v_rcpt_complete записываются указатели на узлы, в которых хранится признак
+  // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
+  // Поскольку инфа по квитанциям есть только у одного пассажира из группы, понять значение
+  // признака можно только пробежав группу до конца. Отсюда такой гемор.
+  // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
+  int rcpt_complete = 0;
   for(;!Qry.Eof;Qry.Next())
   {
     int tmp_grp_id = Qry.FieldAsInteger("grp_id");
     if(grp_id != tmp_grp_id) {
-        if(col_receipts != -1)
-            rcpt_exists = !Qry.FieldIsNULL(col_receipts);
+        if(!v_rcpt_complete.empty()) {
+            for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+                NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+            v_rcpt_complete.clear();
+            rcpt_exists = false;
+        }
         grp_id = tmp_grp_id;
     }
 
@@ -1413,10 +1424,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if(col_receipts != -1)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
-      if(rcpt_exists)
-          NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger(col_pr_payment));
-      else
-          NewTextChild(paxNode,"rcpt_complete",2);
+      v_rcpt_complete.push_back(NewTextChild(paxNode,"rcpt_complete"));
+      rcpt_complete = Qry.FieldAsInteger(col_pr_payment);
+      rcpt_exists = rcpt_exists || !Qry.FieldIsNULL(col_receipts);
     };
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
@@ -1425,6 +1435,12 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
   };
+  if(!v_rcpt_complete.empty()) {
+      for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
+          NodeSetContent(*iv, rcpt_exists ? rcpt_complete : 2);
+      v_rcpt_complete.clear();
+      rcpt_exists = false;
+  }
 
   //несопровождаемый багаж
   sql.str("");
@@ -2715,6 +2731,205 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   return logStr;
 };
 
+void CheckInInterface::ConvertArxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT arx_pax_grp.point_dep, "
+    "       arx_pax_grp.airp_arv AS grp_airp_arv, "
+    "       arx_pax_grp.class, "
+    "       arx_transfer.grp_id, "
+    "       arx_transfer.transfer_num, "
+    "       arx_transfer.part_key, "
+    "       arx_transfer.airline, "
+    "       arx_transfer.suffix, "
+    "       arx_transfer.local_date, "
+    "       arx_transfer.airp_arv, "
+    "       arx_transfer.subclass "
+    "FROM arx_pax_grp,arx_transfer "
+    "WHERE arx_pax_grp.part_key=arx_transfer.part_key AND "
+    "      arx_pax_grp.grp_id=arx_transfer.grp_id "
+    "ORDER BY grp_id,transfer_num";
+  Qry.Execute();
+
+  TQuery UpdQry(&OraSession);
+  UpdQry.Clear();
+  UpdQry.SQLText=
+    "UPDATE arx_transfer "
+    "SET scd=:scd, "
+    "    airline=:airline, airline_fmt=:airline_fmt, "
+    "    suffix=:suffix, suffix_fmt=:suffix_fmt, "
+    "    airp_dep=:airp_dep, airp_dep_fmt=:airp_dep_fmt, "
+    "    airp_arv=:airp_arv, airp_arv_fmt=:airp_arv_fmt, "
+    "    subclass=:subclass, subclass_fmt=:subclass_fmt, "
+    "    pr_final=:pr_final "
+    "WHERE grp_id=:grp_id AND transfer_num=:transfer_num";
+  UpdQry.DeclareVariable("scd",otDate);
+  UpdQry.DeclareVariable("airline",otString);
+  UpdQry.DeclareVariable("airline_fmt",otInteger);
+  UpdQry.DeclareVariable("suffix",otString);
+  UpdQry.DeclareVariable("suffix_fmt",otInteger);
+  UpdQry.DeclareVariable("airp_dep",otString);
+  UpdQry.DeclareVariable("airp_dep_fmt",otInteger);
+  UpdQry.DeclareVariable("airp_arv",otString);
+  UpdQry.DeclareVariable("airp_arv_fmt",otInteger);
+  UpdQry.DeclareVariable("subclass",otString);
+  UpdQry.DeclareVariable("subclass_fmt",otInteger);
+  UpdQry.DeclareVariable("pr_final",otInteger);
+  UpdQry.DeclareVariable("grp_id",otInteger);
+  UpdQry.DeclareVariable("transfer_num",otInteger);
+
+  TQuery FltQry(&OraSession);
+  FltQry.Clear();
+  FltQry.SQLText=
+    "SELECT airp,scd_out FROM arx_points WHERE point_id=:point_id AND part_key=:part_key";
+  FltQry.DeclareVariable("point_id",otInteger);
+  FltQry.DeclareVariable("part_key",otDate);
+
+
+  int grp_id=-1,i;
+  string cl,str,strh,airp_arv;
+  TDateTime local_scd,base_date;
+  int fmt;
+  if (!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (grp_id!=Qry.FieldAsInteger("grp_id"))
+      {
+        if (grp_id!=-1)
+        {
+          UpdQry.SetVariable("pr_final",1);
+          UpdQry.Execute();
+        };
+        grp_id=Qry.FieldAsInteger("grp_id");
+        FltQry.SetVariable("point_id",Qry.FieldAsInteger("point_dep"));
+        FltQry.SetVariable("part_key",Qry.FieldAsDateTime("part_key"));
+        FltQry.Execute();
+        if (FltQry.Eof)
+          throw Exception("Flight not found point_id=%d",Qry.FieldAsInteger("point_dep"));
+
+        local_scd=UTCToLocal(FltQry.FieldAsDateTime("scd_out"),
+                             AirpTZRegion(FltQry.FieldAsString("airp")));
+
+        base_date=local_scd-1;
+        airp_arv=Qry.FieldAsString("grp_airp_arv");
+      }
+      else
+      {
+        UpdQry.SetVariable("pr_final",0);
+        UpdQry.Execute();
+      };
+
+      //авиакомпания
+      strh=Qry.FieldAsString("airline");
+      str=ElemToElemId(etAirline,strh,fmt);
+      if (fmt==0 || fmt==1)
+      {
+        UpdQry.SetVariable("airline",str);
+        UpdQry.SetVariable("airline_fmt",fmt);
+      }
+      else
+      {
+        UpdQry.SetVariable("airline",strh);
+        UpdQry.SetVariable("airline_fmt",-1);
+      };
+
+
+      if (!Qry.FieldIsNULL("suffix"))
+      {
+        strh=Qry.FieldAsString("suffix");
+        str=ElemToElemId(etSuffix,strh,fmt);
+        if (fmt==0 || fmt==1)
+        {
+          UpdQry.SetVariable("suffix",str);
+          UpdQry.SetVariable("suffix_fmt",fmt);
+        }
+        else
+        {
+          UpdQry.SetVariable("suffix",strh);
+          UpdQry.SetVariable("suffix_fmt",-1);
+        };
+      }
+      else
+      {
+        UpdQry.SetVariable("suffix",FNull);
+        UpdQry.SetVariable("suffix_fmt",FNull);
+      };
+
+      i=Qry.FieldAsInteger("local_date");
+      try
+      {
+        local_scd=DayToDate(i,base_date);
+        UpdQry.SetVariable("scd",local_scd);
+        base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
+      }
+      catch(EConvertError &E)
+      {
+        throw Exception("Wrong local_date grp_id=%d num=%d",
+                        Qry.FieldAsInteger("grp_id"),
+                        Qry.FieldAsInteger("transfer_num"));
+        //UpdQry.SetVariable("scd",FNull);
+      };
+
+      //аэропорт вылета
+      strh=airp_arv;
+      str=ElemToElemId(etAirp,strh,fmt);
+      if (fmt==0 || fmt==1)
+      {
+        UpdQry.SetVariable("airp_dep",str);
+        UpdQry.SetVariable("airp_dep_fmt",fmt);
+      }
+      else
+      {
+        UpdQry.SetVariable("airp_dep",strh);
+        UpdQry.SetVariable("airp_dep_fmt",-1);
+      };
+
+      //аэропорт прилета
+      airp_arv=Qry.FieldAsString("airp_arv");
+      str=ElemToElemId(etAirp,airp_arv,fmt);
+      if (fmt==0 || fmt==1)
+      {
+        UpdQry.SetVariable("airp_arv",str);
+        UpdQry.SetVariable("airp_arv_fmt",fmt);
+      }
+      else
+      {
+        UpdQry.SetVariable("airp_arv",airp_arv);
+        UpdQry.SetVariable("airp_arv_fmt",-1);
+      };
+
+      if (!Qry.FieldIsNULL("class"))
+      {
+        //подкласс
+        strh=Qry.FieldAsString("subclass");
+        str=ElemToElemId(etSubcls,strh,fmt);
+        if (fmt==0 || fmt==1)
+        {
+          UpdQry.SetVariable("subclass",str);
+          UpdQry.SetVariable("subclass_fmt",fmt);
+        }
+        else
+        {
+          UpdQry.SetVariable("subclass",strh);
+          UpdQry.SetVariable("subclass_fmt",-1);
+        };
+      }
+      else
+      {
+        UpdQry.SetVariable("subclass",FNull);
+        UpdQry.SetVariable("subclass_fmt",FNull);
+      };
+      UpdQry.SetVariable("grp_id",Qry.FieldAsInteger("grp_id"));
+      UpdQry.SetVariable("transfer_num",Qry.FieldAsInteger("transfer_num"));
+    };
+    UpdQry.SetVariable("pr_final",1);
+    UpdQry.Execute();
+  };
+};
+
 void CheckInInterface::ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TQuery Qry(&OraSession);
@@ -2883,9 +3098,9 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     "      VALUES (:point_id_trfer,:airline,:flt_no,:suffix,:scd,:airp_dep,NULL); "
     "  END; "
     "  INSERT INTO transfer(grp_id,transfer_num,point_id_trfer, "
-    "    airline_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,subclass,subclass_fmt,pr_final) "
+    "    airline_fmt,suffix_fmt,airp_dep_fmt,airp_arv,airp_arv_fmt,subclass,subclass_fmt,pr_final) "
     "  VALUES(:grp_id,:transfer_num,:point_id_trfer, "
-    "    :airline_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:subclass,:subclass_fmt,:pr_final); "
+    "    :airline_fmt,:suffix_fmt,:airp_dep_fmt,:airp_arv,:airp_arv_fmt,:subclass,:subclass_fmt,:pr_final); "
     "END;";
   TrferQry.DeclareVariable("point_id_trfer",otInteger);
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -2894,6 +3109,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
   TrferQry.DeclareVariable("airline_fmt",otInteger);
   TrferQry.DeclareVariable("flt_no",otInteger);
   TrferQry.DeclareVariable("suffix",otString);
+  TrferQry.DeclareVariable("suffix_fmt",otInteger);
   TrferQry.DeclareVariable("scd",otDate);
   TrferQry.DeclareVariable("airp_dep",otString);
   TrferQry.DeclareVariable("airp_dep_fmt",otInteger);
@@ -2940,8 +3156,21 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     TrferQry.SetVariable("flt_no",i);
     msg << setw(3) << setfill('0') << i;
 
-    str=NodeAsStringFast("suffix",node2);
-    TrferQry.SetVariable("suffix",str);
+    if (!NodeIsNULLFast("suffix",node2))
+    {
+      strh=NodeAsStringFast("suffix",node2);
+      str=ElemToElemId(etSuffix,strh,fmt);
+      if (!(fmt==0 || fmt==1))
+        throw UserException("Неверно указан суффикс %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+      TrferQry.SetVariable("suffix",str);
+      TrferQry.SetVariable("suffix_fmt",fmt);
+    }
+    else
+    {
+      TrferQry.SetVariable("suffix",FNull);
+      TrferQry.SetVariable("suffix_fmt",FNull);
+    };
+
     msg << str << "/";
 
     i=NodeAsIntegerFast("local_date",node2);
@@ -3031,7 +3260,7 @@ void CheckInInterface::LoadTransfer(xmlNodePtr grpNode)
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText=
-    "SELECT airline,airline_fmt,flt_no,suffix,scd, "
+    "SELECT airline,airline_fmt,flt_no,suffix,suffix_fmt,scd, "
     "       airp_dep,airp_dep_fmt,airp_arv,airp_arv_fmt,subclass,subclass_fmt "
     "FROM transfer,trfer_trips "
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
@@ -3048,7 +3277,15 @@ void CheckInInterface::LoadTransfer(xmlNodePtr grpNode)
                               TrferQry.FieldAsString("airline"),
                               TrferQry.FieldAsInteger("airline_fmt")));
     NewTextChild(trferNode,"flt_no",TrferQry.FieldAsInteger("flt_no"));
-    NewTextChild(trferNode,"suffix",TrferQry.FieldAsString("suffix"));
+
+    if (!TrferQry.FieldIsNULL("suffix"))
+      NewTextChild(trferNode,"suffix",
+                   ElemIdToElem(etSuffix,
+                                TrferQry.FieldAsString("suffix"),
+                                TrferQry.FieldAsInteger("suffix_fmt")));
+    else
+      NewTextChild(trferNode,"suffix");
+
     //дата
     DecodeDate(TrferQry.FieldAsDateTime("scd"),iYear,iMonth,iDay);
     NewTextChild(trferNode,"local_date",iDay);

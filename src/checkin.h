@@ -36,6 +36,8 @@ public:
      AddEvent("TestDateTime",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ConvertTransfer);
      AddEvent("ConvertTransfer",evHandle);
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ConvertArxTransfer);
+     AddEvent("ConvertArxTransfer",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -49,6 +51,7 @@ public:
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ConvertArxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
