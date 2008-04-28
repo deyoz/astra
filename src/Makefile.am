@@ -23,7 +23,7 @@ astra_SOURCES = \
 	astra_tick_view_xml.cc   etick.cc        salonform.cc             stat.cc    telegram.cc \
 	events.cc		             base_tables.cc  astra_misc.cc            design_blank.cc \
 	astra_service.cc	       develop_dbf.cc	 flight_cent_dbf.cc       payment.cc \
-	sofi.cc			 aodb.cc
+	sofi.cc			 aodb.cc telegram2.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \

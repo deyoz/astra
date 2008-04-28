@@ -361,6 +361,18 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  {//!!!
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select pr_new from drop_den";
+    Qry.Execute();
+    bool pr_new = false;
+    if(!Qry.FieldIsNULL(0))
+        pr_new = Qry.FieldAsInteger(0) == 1;
+    if(pr_new) {
+        CreateTlg2(ctxt, reqNode, resNode);
+        return;
+    }
+  }
   int point_id = NodeAsInteger( "point_id", reqNode );
   xmlNodePtr node=reqNode->children;
   TQuery Qry(&OraSession);
