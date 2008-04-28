@@ -1453,25 +1453,14 @@ bool lessTagNos(const t_tag_nos_row &p1, const t_tag_nos_row &p2)
     return p1.no < p2.no;
 }
 
-string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
+string get_tag_rangeA(vector<t_tag_nos_row> &tag_nos, vector<t_tag_nos_row>::iterator begin, vector<t_tag_nos_row>::iterator end, int pr_lat)
 {
     string lim = (pr_lat ? "(lim)" : "(огр)");
     ostringstream result;
-    sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
     double first_no = -1.;
     double prev_no = -1.;
-    double base = -1.;
     int pr_liab_limit = -1;
-    ostringstream buf;
-    for(vector<t_tag_nos_row>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
-        buf << fixed << setprecision(0) << iv->no <<  " ";
-        double tmp_base = floor(iv->no / 1000);
-        if(tmp_base != base) {
-            base = tmp_base;
-            first_no = -1.;
-            prev_no = -1.;
-            pr_liab_limit = -1;
-        }
+    for(vector<t_tag_nos_row>::iterator iv = begin; iv != end; iv++) {
         if(result.str().empty() || iv->no - 1 != prev_no || iv->pr_liab_limit != pr_liab_limit) {
             if(!result.str().empty() && prev_no != first_no) {
                 double mod = prev_no - (floor(prev_no / 1000) * 1000);
@@ -1506,6 +1495,30 @@ string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
         if(pr_liab_limit)
             result << lim;
     }
+    return result.str();
+}
+
+string get_tag_range(vector<t_tag_nos_row> tag_nos, int pr_lat)
+{
+    ostringstream result;
+    sort(tag_nos.begin(), tag_nos.end(), lessTagNos);
+    vector<t_tag_nos_row>::iterator begin = tag_nos.begin();
+    double base = -1.;
+    for(vector<t_tag_nos_row>::iterator iv = tag_nos.begin(); iv != tag_nos.end(); iv++) {
+        double tmp_base = floor(iv->no / 1000);
+        if(tmp_base != base) {
+            base = tmp_base;
+            if(iv != begin) {
+                if(!result.str().empty())
+                    result << ", ";
+                result << get_tag_rangeA(tag_nos, begin, iv, pr_lat);
+            }
+            begin = iv;
+        }
+    }
+    if(!result.str().empty())
+        result << ", ";
+    result << get_tag_rangeA(tag_nos, begin, tag_nos.end(), pr_lat);
     return result.str();
 }
 
