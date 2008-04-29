@@ -293,7 +293,6 @@ namespace PRL {
                 item.pax_id = Qry.FieldAsInteger(col_pax_id);
                 if(!Qry.FieldIsNULL(col_crs_pax_id))
                     item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
-                item.dump();
                 items.push_back(item);
             }
         }
@@ -320,7 +319,6 @@ namespace PRL {
                     item.grp_id = Qry.FieldAsInteger(col_grp_id);
                     item.pax_id = Qry.FieldAsInteger(col_pax_id);
                     item.surname = Qry.FieldAsString(col_surname);
-                    item.dump();
                     adults.push_back(item);
                 }
             }
@@ -342,10 +340,6 @@ namespace PRL {
                         }
                     }
                 }
-            }
-            ProgTrace(TRACE5, "TInfantsItems AFTER");
-            for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
-                infRow->dump();
             }
         }
     }
@@ -665,7 +659,6 @@ namespace PRL {
     {
         string rem_code;
         for(vector<TRemItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            iv->dump();
             string rem = iv->ToTlg(info);
             if(rem_code != rem.substr(0, 4)) {
                 rem_code = rem.substr(0, 4);
@@ -679,9 +672,7 @@ namespace PRL {
         items.clear();
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
-        ProgTrace(TRACE5, "in TRemList::get: pax_id %d; grp_id %d", pax.pax_id, pax.grp_id);
         for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
-            infRow->dump();
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 TRemItem rem;
                 rem.rem = "1INF " + infRow->surname;
@@ -769,7 +760,6 @@ namespace PRL {
             }
             body.push_back(line);
             iv->pnrs.ToTlg(info, body);
-            ProgTrace(TRACE5, "before iv->rems.ToTlg: name %s; surname %s", iv->name.c_str(), iv->surname.c_str());
             iv->rems.ToTlg(info, body);
             grp_map.ToTlg(info, *iv, body);
         }
