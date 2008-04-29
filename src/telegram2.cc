@@ -684,9 +684,9 @@ namespace PRL {
             infRow->dump();
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 TRemItem rem;
-                rem.rem = "1INF " + pax.surname;
-                if(!pax.name.empty()) {
-                    rem.rem += "/" + pax.name;
+                rem.rem = "1INF " + infRow->surname;
+                if(!infRow->name.empty()) {
+                    rem.rem += "/" + infRow->name;
                 }
                 items.push_back(rem);
             }
