@@ -180,7 +180,7 @@ namespace PRL {
 
     void TPNRItem::ToTlg(TTlgInfo &info, vector<string> &body)
     {
-        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + ElemIdToElem(etAirline, airline, info.pr_lat));
+        body.push_back(".L/" + convert_pnr_addr(addr, info.pr_lat) + '/' + ElemIdToElem(etAirline, airline, info.pr_lat));
     }
 
     struct TPNRList {
