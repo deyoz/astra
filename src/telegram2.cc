@@ -217,6 +217,7 @@ namespace PRL {
         string name;
         int pax_id;
         int crs_pax_id;
+        void dump();
         TInfantsItem() {
             grp_id = NoExists;
             pax_id = NoExists;
@@ -224,15 +225,36 @@ namespace PRL {
         }
     };
 
+    void TInfantsItem::dump()
+    {
+        ProgTrace(TRACE5, "TInfantsItem");
+        ProgTrace(TRACE5, "grp_id: %d", grp_id);
+        ProgTrace(TRACE5, "surname: %s", surname.c_str());
+        ProgTrace(TRACE5, "name: %s", name.c_str());
+        ProgTrace(TRACE5, "pax_id: %d", pax_id);
+        ProgTrace(TRACE5, "crs_pax_id: %d", crs_pax_id);
+        ProgTrace(TRACE5, "--------------------");
+    }
+
     struct TAdultsItem {
         int grp_id;
         int pax_id;
         string surname;
+        void dump();
         TAdultsItem() {
             grp_id = NoExists;
             pax_id = NoExists;
         }
     };
+
+    void TAdultsItem::dump()
+    {
+        ProgTrace(TRACE5, "TAdultsItem");
+        ProgTrace(TRACE5, "grp_id: %d", grp_id);
+        ProgTrace(TRACE5, "pax_id: %d", pax_id);
+        ProgTrace(TRACE5, "surname: %s", surname.c_str());
+        ProgTrace(TRACE5, "--------------------");
+    }
 
     struct TInfants {
         vector<TInfantsItem> items;
@@ -271,6 +293,7 @@ namespace PRL {
                 item.pax_id = Qry.FieldAsInteger(col_pax_id);
                 if(!Qry.FieldIsNULL(col_crs_pax_id))
                     item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
+                item.dump();
                 items.push_back(item);
             }
         }
@@ -297,6 +320,7 @@ namespace PRL {
                     item.grp_id = Qry.FieldAsInteger(col_grp_id);
                     item.pax_id = Qry.FieldAsInteger(col_pax_id);
                     item.surname = Qry.FieldAsString(col_surname);
+                    item.dump();
                     adults.push_back(item);
                 }
             }
