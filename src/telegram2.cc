@@ -695,10 +695,10 @@ namespace PRL {
             int col_crs_subclass = Qry.FieldIndex("crs_subclass");
             for(; !Qry.Eof; Qry.Next()) {
                 TRemItem rem;
-                rem.rem = Qry.FieldAsInteger(col_rem);
-                rem.cls = Qry.FieldAsInteger(col_class);
-                rem.crs_cls = Qry.FieldAsInteger(col_crs_class);
-                rem.crs_subcls = Qry.FieldAsInteger(col_crs_subclass);
+                rem.rem = Qry.FieldAsString(col_rem);
+                rem.cls = Qry.FieldAsString(col_class);
+                rem.crs_cls = Qry.FieldAsString(col_crs_class);
+                rem.crs_subcls = Qry.FieldAsString(col_crs_subclass);
                 items.push_back(rem);
             }
         }
