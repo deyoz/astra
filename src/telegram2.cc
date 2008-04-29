@@ -343,6 +343,10 @@ namespace PRL {
                     }
                 }
             }
+            ProgTrace(TRACE5, "TInfantsItems AFTER");
+            for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
+                infRow->dump();
+            }
         }
     }
 
