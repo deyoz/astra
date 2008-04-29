@@ -354,8 +354,19 @@ namespace PRL {
 
     struct TRemItem {
         string rem, cls, crs_cls, crs_subcls;
+        void dump();
         string ToTlg(TTlgInfo &info);
     };
+
+    void TRemItem::dump()
+    {
+        ProgTrace(TRACE5, "TRemItem");
+        ProgTrace(TRACE5, "rem: %s", rem.c_str());
+        ProgTrace(TRACE5, "cls: %s", cls.c_str());
+        ProgTrace(TRACE5, "crs_cls: %s", crs_cls.c_str());
+        ProgTrace(TRACE5, "crs_subcls: %s", crs_subcls.c_str());
+        ProgTrace(TRACE5, "----------");
+    }
 
     string TRemItem::ToTlg(TTlgInfo &info)
     {
@@ -654,6 +665,7 @@ namespace PRL {
     {
         string rem_code;
         for(vector<TRemItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            iv->dump();
             string rem = iv->ToTlg(info);
             if(rem_code != rem.substr(0, 4)) {
                 rem_code = rem.substr(0, 4);
