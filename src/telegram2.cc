@@ -679,7 +679,9 @@ namespace PRL {
         items.clear();
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
+        ProgTrace(TRACE5, "in TRemList::get: pax_id %d; grp_id %d", pax.pax_id, pax.grp_id);
         for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
+            infRow->dump();
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 TRemItem rem;
                 rem.rem = "1INF " + pax.surname;
