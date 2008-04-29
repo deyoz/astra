@@ -767,6 +767,7 @@ namespace PRL {
             }
             body.push_back(line);
             iv->pnrs.ToTlg(info, body);
+            ProgTrace(TRACE5, "before iv->rems.ToTlg: name %s; surname %s", iv->name.c_str(), iv->surname.c_str());
             iv->rems.ToTlg(info, body);
             grp_map.ToTlg(info, *iv, body);
         }
