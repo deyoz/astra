@@ -613,24 +613,24 @@ namespace PRL {
     void TGRPMap::ToTlg(TTlgInfo &info, TPRLPax &pax, vector<string> &body)
     {
         TGRPItem &grp_map = items[pax.grp_id];
-        if(grp_map.bagAmount == 0 and grp_map.bagWeight == 0 and grp_map.rkWeight == 0)
-            return;
-        ostringstream line;
-        if(!grp_map.written) {
-            line.str("");
-            grp_map.written = true;
-            line << ".W/K/" << grp_map.bagAmount << '/' << grp_map.bagWeight;
-            if(grp_map.rkWeight != 0)
-                line << '/' << grp_map.rkWeight;
-            body.push_back(line.str());
-            grp_map.tags.ToTlg(info, body);
+        if(not(grp_map.bagAmount == 0 and grp_map.bagWeight == 0 and grp_map.rkWeight == 0)) {
+            ostringstream line;
+            if(!grp_map.written) {
+                line.str("");
+                grp_map.written = true;
+                line << ".W/K/" << grp_map.bagAmount << '/' << grp_map.bagWeight;
+                if(grp_map.rkWeight != 0)
+                    line << '/' << grp_map.rkWeight;
+                body.push_back(line.str());
+                grp_map.tags.ToTlg(info, body);
+            }
+            if(grp_map.pax_count > 1) {
+                line.str("");
+                line << ".BG/" << setw(3) << setfill('0') << grp_map.bg;
+                body.push_back(line.str());
+            }
         }
         grp_map.onwards.ToTlg(info, body);
-        if(grp_map.pax_count > 1) {
-            line.str("");
-            line << ".BG/" << setw(3) << setfill('0') << grp_map.bg;
-            body.push_back(line.str());
-        }
     }
 
     void TGRPMap::get(int grp_id)
