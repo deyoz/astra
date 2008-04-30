@@ -19,6 +19,55 @@ using namespace ASTRA;
 const string br = "\xa";
 const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
+int TST_TLG_ID; // for test purposes
+
+void TelegramInterface::delete_tst_tlg(int tlg_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "DELETE FROM tst_tlg_out WHERE id=:id AND time_send_act IS NULL ";
+    Qry.CreateVariable( "id", otInteger, tlg_id);
+    Qry.Execute();
+    if(Qry.RowsProcessed() == 0)
+        ProgTrace(TRACE5, "delete_tst_tlg: not found tlg_id %d", tlg_id);
+}
+
+void SaveTlgOutPartTST( TTlgOutPartInfo &info )
+{
+  TQuery Qry(&OraSession);
+
+  if (info.id<0)
+      throw Exception("SaveTlgOutPartTST: tlg_id undefined");
+      
+
+  Qry.Clear();
+  Qry.SQLText=
+    "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
+    "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
+    "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
+    "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+  Qry.CreateVariable("id",otInteger,info.id);
+  Qry.CreateVariable("num",otInteger,info.num);
+  Qry.CreateVariable("type",otString,info.tlg_type);
+  Qry.CreateVariable("point_id",otInteger,info.point_id);
+  Qry.CreateVariable("addr",otString,info.addr);
+  Qry.CreateVariable("heading",otString,info.heading);
+  Qry.CreateVariable("body",otString,info.body);
+  Qry.CreateVariable("ending",otString,info.ending);
+  Qry.CreateVariable("extra",otString,info.extra);
+  Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
+  if (info.time_create!=NoExists)
+    Qry.CreateVariable("time_create",otDate,info.time_create);
+  else
+    Qry.CreateVariable("time_create",otDate,FNull);
+  if (info.time_send_scd!=NoExists)
+    Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
+  else
+    Qry.CreateVariable("time_send_scd",otDate,FNull);
+  Qry.Execute();
+
+  info.num++;
+};
 
 string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
 {
@@ -172,7 +221,7 @@ string format_addr_line(string vaddrs)
     return result;
 }
 
-namespace PRL {
+namespace PRL_SPACE {
     struct TPNRItem {
         string airline, addr;
         void ToTlg(TTlgInfo &info, vector<string> &body);
@@ -609,6 +658,11 @@ namespace PRL {
         TGRPItem &grp_map = items[pax.grp_id];
         if(not(grp_map.bagAmount == 0 and grp_map.bagWeight == 0 and grp_map.rkWeight == 0)) {
             ostringstream line;
+            if(grp_map.pax_count > 1) {
+                line.str("");
+                line << ".BG/" << setw(3) << setfill('0') << grp_map.bg;
+                body.push_back(line.str());
+            }
             if(!grp_map.written) {
                 line.str("");
                 grp_map.written = true;
@@ -617,11 +671,6 @@ namespace PRL {
                     line << '/' << grp_map.rkWeight;
                 body.push_back(line.str());
                 grp_map.tags.ToTlg(info, body);
-            }
-            if(grp_map.pax_count > 1) {
-                line.str("");
-                line << ".BG/" << setw(3) << setfill('0') << grp_map.bg;
-                body.push_back(line.str());
             }
         }
         grp_map.onwards.ToTlg(info, body);
@@ -794,6 +843,8 @@ namespace PRL {
             "    pax.pax_id = crs_pax.pax_id(+) and "
             "    crs_pax.pnr_id = crs_pnr.pnr_id(+) "
             "order by "
+            "    target, "
+            "    cls, "
             "    pax.surname ";
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("airp", otString, airp);
@@ -827,11 +878,12 @@ namespace PRL {
     }
 }
 
-using namespace PRL;
+using namespace PRL_SPACE;
 
-int RPL(TTlgInfo &info)
+int PRL(TTlgInfo &info, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -935,7 +987,7 @@ int RPL(TTlgInfo &info)
             pax_len = iv->size() + br.size();
         part_len += pax_len;
         if(part_len > PART_SIZE) {
-            TelegramInterface::SaveTlgOutPart(tlg_row);
+            SaveTlgOutPartTST(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find('-') == 0)
@@ -948,14 +1000,15 @@ int RPL(TTlgInfo &info)
             tlg_row.body += *iv + br;
     }
     tlg_row.ending = "ENDPRL" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
 
-int Unknown(TTlgInfo &info, bool &vcompleted)
+int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
+    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -964,7 +1017,7 @@ int Unknown(TTlgInfo &info, bool &vcompleted)
     tlg_row.time_create = NowUTC();
     tlg_row.heading = '.' + info.sender + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
     tlg_row.extra = info.extra;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
 
@@ -975,7 +1028,8 @@ int create_tlg(
         const string      vcrs,
         const string      vextra,
         const bool        vpr_lat,
-        const string      vaddrs
+        const string      vaddrs,
+        const int         tst_tlg_id
         )
 {
     if(vtype.empty())
@@ -1066,8 +1120,8 @@ int create_tlg(
     bool vcompleted = !veditable;
     int vid = NoExists;
 
-    if(vbasic_type == "PRL") vid = RPL(info);
-    else vid = Unknown(info, vcompleted);
+    if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
+    else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();
     Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
@@ -1078,7 +1132,7 @@ int create_tlg(
     return vid;
 }
 
-void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int tst_tlg_id)
 {
     TQuery Qry(&OraSession);
     int point_id = NodeAsInteger( "point_id", reqNode );
@@ -1116,7 +1170,8 @@ void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                 crs,
                 extra,
                 pr_lat,
-                addrs
+                addrs,
+                tst_tlg_id //!!!
                 );
     } catch(UserException E) {
         throw UserException( "Ошибка формирования. %s", E.what());
