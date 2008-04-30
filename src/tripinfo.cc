@@ -169,7 +169,7 @@ void TSQL::createSQLTrips( ) {
     "points";
   p.sqlwhere =
     "TRUNC(NVL(points.act_out,NVL(points.est_out,points.scd_out)))-TRUNC(system.UTCSYSDATE) "
-    "BETWEEN -15 AND 1 AND points.pr_del>=0 ";
+    "BETWEEN -20 AND 1 AND points.pr_del>=0 ";
   sqltrips[ "TLG.EXE" ] = p;
   p.clearVariables();
 }

@@ -845,7 +845,9 @@ namespace PRL_SPACE {
             "order by "
             "    target, "
             "    cls, "
-            "    pax.surname ";
+            "    pax.surname, "
+            "    pax.name nulls first, "
+            "    pax.pax_id ";
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("airp", otString, airp);
         Qry.CreateVariable("class", otString, cls);
