@@ -467,6 +467,13 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
   NewTextChild( resNode, "tlg_id", tlg_id);
 ///  GetTlgOut(ctxt,resNode,resNode);
+  try {//!!!
+      CreateTlg2(ctxt, reqNode, resNode, tlg_id);
+  } catch(Exception E) {
+      ProgTrace(TRACE5, "CreateTlg2 failed for %s", tlg_type.c_str());
+  } catch(...) {
+      ProgTrace(TRACE5, "CreateTlg2: unexpected behavior for %s", tlg_type.c_str());
+  }
 };
 
 #include "base_tables.h"
@@ -765,6 +772,11 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
     showMessage("Телеграмма удалена");
   };
+  try {
+      delete_tst_tlg(tlg_id);
+  } catch(...) {
+      ProgTrace(TRACE5, "something wrong with delete_tst_tlg");
+  }
   GetTlgOut(ctxt,reqNode,resNode);
 };
 

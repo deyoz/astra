@@ -1525,6 +1525,21 @@ string convert_suffix(const string &value, bool pr_lat)
 
 };
 
+bool is_lat(const std::string &value)
+{
+    bool result = true;
+    char c;
+    for(string::const_iterator i=value.begin();i!=value.end();i++)
+    {
+        c=*i;
+        if ((unsigned char)c>=0x80) {
+            result = false;
+            break;
+        }
+    }
+    return result;
+}
+
 string transliter(const string &value, bool pr_lat)
 {
   string result;
