@@ -470,7 +470,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   try {//!!!
       CreateTlg2(ctxt, reqNode, resNode, tlg_id);
   } catch(Exception E) {
-      ProgTrace(TRACE5, "CreateTlg2 failed for %s", tlg_type.c_str());
+      ProgTrace(TRACE5, "CreateTlg2 failed for %s: %s", tlg_type.c_str(), E.what());
   } catch(...) {
       ProgTrace(TRACE5, "CreateTlg2: unexpected behavior for %s", tlg_type.c_str());
   }
