@@ -1165,6 +1165,22 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               tlg_id=TlgQry.GetVariableAsInteger("id");
               msg << "Телеграмма " << short_name
                   << " (ид=" << tlg_id << ") сформирована: ";
+              try {
+                  create_tlg(
+                          TlgQry.GetVariableAsString("tlg_type"),
+                          TlgQry.GetVariableAsInteger("point_id"),
+                          TlgQry.GetVariableAsString("airp_trfer"),
+                          TlgQry.GetVariableAsString("crs"),
+                          TlgQry.GetVariableAsString("extra"),
+                          TlgQry.GetVariableAsInteger("pr_lat"),
+                          TlgQry.GetVariableAsString("addrs"),
+                          tlg_id
+                          );
+              } catch(Exception E) {
+                  ProgTrace(TRACE5, "telegram2 create_tlg failed: %s", E.what());
+              } catch(...) {
+                  ProgTrace(TRACE5, "telegram2 create_tlg failed: something unexpected");
+              }
 
             }
             catch(EOracleError &E)

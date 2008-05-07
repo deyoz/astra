@@ -1458,7 +1458,7 @@ int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     return tlg_row.id;
 }
 
-int create_tlg(
+int TelegramInterface::create_tlg(
         const string      vtype,
         const int         vpoint_id,
         const string      vairp_trfer,
@@ -1469,6 +1469,7 @@ int create_tlg(
         const int         tst_tlg_id
         )
 {
+    ProgTrace(TRACE5, "create_tlg entrance");
     if(vtype.empty())
         throw UserException("Не указан тип телеграммы");
     TQuery Qry(&OraSession);
