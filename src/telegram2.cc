@@ -878,9 +878,444 @@ namespace PRL_SPACE {
             }
         }
     }
+
+    struct TCOMStatsItem {
+        string target;
+        int f;
+        int c;
+        int y;
+        int adult;
+        int child;
+        int baby;
+        int f_child;
+        int f_baby;
+        int c_child;
+        int c_baby;
+        int y_child;
+        int y_baby;
+        int bag_amount;
+        int bag_weight;
+        int rk_weight;
+        int f_bag_weight;
+        int f_rk_weight;
+        int c_bag_weight;
+        int c_rk_weight;
+        int y_bag_weight;
+        int y_rk_weight;
+        int f_add_pax;
+        int c_add_pax;
+        int y_add_pax;
+        TCOMStatsItem()
+        {
+            f = 0;
+            c = 0;
+            y = 0;
+            adult = 0;
+            child = 0;
+            baby = 0;
+            f_child = 0;
+            f_baby = 0;
+            c_child = 0;
+            c_baby = 0;
+            y_child = 0;
+            y_baby = 0;
+            bag_amount = 0;
+            bag_weight = 0;
+            rk_weight = 0;
+            f_bag_weight = 0;
+            f_rk_weight = 0;
+            c_bag_weight = 0;
+            c_rk_weight = 0;
+            y_bag_weight = 0;
+            y_rk_weight = 0;
+            f_add_pax = 0;
+            c_add_pax = 0;
+            y_add_pax = 0;
+        }
+    };
+
+    struct TTotalPaxWeight {
+        int weight;
+        void get(TTlgInfo &info);
+        TTotalPaxWeight() {
+            weight = 0;
+        }
+    };
+
+    void TTotalPaxWeight::get(TTlgInfo &info)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "SELECT "
+            "      NVL(SUM(DECODE(:pr_summer, 0, pers_types.weight_win, pers_types.weight_sum)),0) "
+            "FROM "
+            "      pax_grp, "
+            "      pax, "
+            "      pers_types "
+            "WHERE "
+            "      pax_grp.grp_id = pax.grp_id AND "
+            "      pax.pers_type = pers_types.code AND "
+            "      pax_grp.point_dep = :point_id AND "
+            "      pax.refuse IS NULL ";
+        Qry.CreateVariable("point_id", otInteger, info.point_id);
+        Qry.CreateVariable("pr_summer", otInteger, info.pr_summer);
+        Qry.Execute();
+        weight = Qry.FieldAsInteger(0);
+    }
+
+    struct TCOMStats {
+        vector<TCOMStatsItem> items;
+        TTotalPaxWeight total_pax_weight;
+        void get(TTlgInfo &info);
+        void ToTlg(ostringstream &body);
+    };
+
+    void TCOMStats::ToTlg(ostringstream &body)
+    {
+        TCOMStatsItem sum;
+        sum.target = "TTL";
+        for(vector<TCOMStatsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            body
+                << iv->target       << ' '
+                << iv->adult        << '/'
+                << iv->child        << '/'
+                << iv->baby         << ' '
+                << iv->bag_amount   << '/'
+                << iv->bag_weight   << '/'
+                << iv->rk_weight    << ' '
+                << iv->f            << '/'
+                << iv->c            << '/'
+                << iv->y            << ' '
+                << "0/0/0 0 0 "
+                << iv->f_add_pax    << '/'
+                << iv->c_add_pax    << '/'
+                << iv->y_add_pax    << ' '
+                << iv->f_child      << '/'
+                << iv->c_child      << '/'
+                << iv->y_child      << ' '
+                << iv->f_baby       << '/'
+                << iv->c_baby       << '/'
+                << iv->y_baby       << ' '
+                << iv->f_rk_weight  << '/'
+                << iv->c_rk_weight  << '/'
+                << iv->y_rk_weight  << ' '
+                << iv->f_bag_weight << '/'
+                << iv->c_bag_weight << '/'
+                << iv->y_bag_weight << br;
+
+            sum.adult += iv->adult;
+            sum.child += iv->child;
+            sum.baby += iv->baby;
+            sum.bag_amount += iv->bag_amount;
+            sum.bag_weight += iv->bag_weight;
+            sum.rk_weight += iv->rk_weight;
+            sum.f += iv->f;
+            sum.c += iv->c;
+            sum.y += iv->y;
+            sum.f_add_pax += iv->f_add_pax;
+            sum.c_add_pax += iv->c_add_pax;
+            sum.y_add_pax += iv->y_add_pax;
+            sum.f_child += iv->f_child;
+            sum.c_child += iv->c_child;
+            sum.y_child += iv->y_child;
+            sum.f_baby += iv->f_baby;
+            sum.c_baby += iv->c_baby;
+            sum.y_baby += iv->y_baby;
+            sum.f_rk_weight += iv->f_rk_weight;
+            sum.c_rk_weight += iv->c_rk_weight;
+            sum.y_rk_weight += iv->y_rk_weight;
+            sum.f_bag_weight += iv->f_bag_weight;
+            sum.c_bag_weight += iv->c_bag_weight;
+            sum.y_bag_weight += iv->y_bag_weight;
+        }
+        body
+            << sum.target       << ' '
+            << sum.adult        << '/'
+            << sum.child        << '/'
+            << sum.baby         << ' '
+            << sum.bag_amount   << '/'
+            << sum.bag_weight   << '/'
+            << sum.rk_weight    << ' '
+            << sum.f            << '/'
+            << sum.c            << '/'
+            << sum.y            << ' '
+            << "0/0/0 0 0 "
+            << sum.f_add_pax    << '/'
+            << sum.c_add_pax    << '/'
+            << sum.y_add_pax    << ' '
+            << "0 " << total_pax_weight.weight << ' '
+            << sum.f_child      << '/'
+            << sum.c_child      << '/'
+            << sum.y_child      << ' '
+            << sum.f_baby       << '/'
+            << sum.c_baby       << '/'
+            << sum.y_baby       << ' '
+            << sum.f_rk_weight  << '/'
+            << sum.c_rk_weight  << '/'
+            << sum.y_rk_weight  << ' '
+            << sum.f_bag_weight << '/'
+            << sum.c_bag_weight << '/'
+            << sum.y_bag_weight << br;
+    }
+
+    void TCOMStats::get(TTlgInfo &info)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "SELECT "
+            "   points.airp target, "
+            "   NVL(f, 0) f, "
+            "   NVL(c, 0) c, "
+            "   NVL(y, 0) y, "
+            "   NVL(adult, 0) adult, "
+            "   NVL(child, 0) child, "
+            "   NVL(baby, 0) baby, "
+            "   NVL(f_child, 0) f_child, "
+            "   NVL(f_baby, 0) f_baby, "
+            "   NVL(c_child, 0) c_child, "
+            "   NVL(c_baby, 0) c_baby, "
+            "   NVL(y_child, 0) y_child, "
+            "   NVL(y_baby, 0) y_baby, "
+            "   NVL(bag_amount, 0) bag_amount, "
+            "   NVL(bag_weight, 0) bag_weight, "
+            "   NVL(rk_weight, 0) rk_weight, "
+            "   NVL(f_bag_weight, 0) f_bag_weight, "
+            "   NVL(f_rk_weight, 0) f_rk_weight, "
+            "   NVL(c_bag_weight, 0) c_bag_weight, "
+            "   NVL(c_rk_weight, 0) c_rk_weight, "
+            "   NVL(y_bag_weight, 0) y_bag_weight, "
+            "   NVL(y_rk_weight, 0) y_rk_weight, "
+            "   NVL(f_add_pax, 0) f_add_pax, "
+            "   NVL(c_add_pax, 0) c_add_pax, "
+            "   NVL(y_add_pax, 0) y_add_pax "
+            "FROM "
+            "   points, "
+            "   ( "
+            "SELECT "
+            "   pax_grp.point_arv, "
+            "   SUM(DECODE(pax_grp.class, '', DECODE(seats,0,0,1), 0)) f, "
+            "   SUM(DECODE(pax_grp.class, '', DECODE(seats,0,0,1), 0)) c, "
+            "   SUM(DECODE(pax_grp.class, '', DECODE(seats,0,0,1), 0)) y, "
+            "   SUM(DECODE(pax.pers_type, '‚‡', 1, 0)) adult, "
+            "   SUM(DECODE(pax.pers_type, '', 1, 0)) child, "
+            "   SUM(DECODE(pax.pers_type, 'Œ', 1, 0)) baby, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, '', 1, 0)) f_child, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'Œ', 1, 0)) f_baby, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, '', 1, 0)) c_child, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'Œ', 1, 0)) c_baby, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, '', 1, 0)) y_child, "
+            "   SUM(DECODE(pax_grp.class||pax.pers_type, 'Œ', 1, 0)) y_baby, "
+            "   SUM(DECODE(pax_grp.class, '', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) f_add_pax, "
+            "   SUM(DECODE(pax_grp.class, '', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) c_add_pax, "
+            "   SUM(DECODE(pax_grp.class, '', decode(SIGN(1-pax.seats), -1, 1, 0), 0)) y_add_pax "
+            "FROM "
+            "   pax, pax_grp "
+            "WHERE "
+            "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.grp_id = pax.grp_id AND "
+            "   pax.refuse IS NULL "
+            "GROUP BY "
+            "   pax_grp.point_arv "
+            "   ) a, "
+            "   ( "
+            "SELECT "
+            "   pax_grp.point_arv, "
+            "   SUM(DECODE(bag2.pr_cabin, 0, amount, 0)) bag_amount, "
+            "   SUM(DECODE(bag2.pr_cabin, 0, weight, 0)) bag_weight, "
+            "   SUM(DECODE(bag2.pr_cabin, 0, 0, weight)) rk_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '0', weight, 0)) f_bag_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '1', weight, 0)) f_rk_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '0', weight, 0)) c_bag_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '1', weight, 0)) c_rk_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '0', weight, 0)) y_bag_weight, "
+            "   SUM(DECODE(pax_grp.class||bag2.pr_cabin, '1', weight, 0)) y_rk_weight "
+            "FROM "
+            "   pax_grp, bag2 "
+            "WHERE "
+            "   pax_grp.point_dep = :point_id AND "
+            "   pax_grp.grp_id = bag2.grp_id AND "
+            "   pax_grp.bag_refuse = 0 "
+            "GROUP BY "
+            "   pax_grp.point_arv "
+            "   ) b "
+            "WHERE "
+            "   points.point_id = a.point_arv(+) AND "
+            "   points.point_id = b.point_arv(+) AND "
+            "   first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+            "ORDER BY "
+            "   point_num ";
+        Qry.CreateVariable("point_id", otInteger, info.point_id);
+        Qry.CreateVariable("first_point", otInteger, info.first_point);
+        Qry.CreateVariable("point_num", otInteger, info.point_num);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            int col_target = Qry.FieldIndex("target");
+            int col_f = Qry.FieldIndex("f");
+            int col_c = Qry.FieldIndex("c");
+            int col_y = Qry.FieldIndex("y");
+            int col_adult = Qry.FieldIndex("adult");
+            int col_child = Qry.FieldIndex("child");
+            int col_baby = Qry.FieldIndex("baby");
+            int col_f_child = Qry.FieldIndex("f_child");
+            int col_f_baby = Qry.FieldIndex("f_baby");
+            int col_c_child = Qry.FieldIndex("c_child");
+            int col_c_baby = Qry.FieldIndex("c_baby");
+            int col_y_child = Qry.FieldIndex("y_child");
+            int col_y_baby = Qry.FieldIndex("y_baby");
+            int col_bag_amount = Qry.FieldIndex("bag_amount");
+            int col_bag_weight = Qry.FieldIndex("bag_weight");
+            int col_rk_weight = Qry.FieldIndex("rk_weight");
+            int col_f_bag_weight = Qry.FieldIndex("f_bag_weight");
+            int col_f_rk_weight = Qry.FieldIndex("f_rk_weight");
+            int col_c_bag_weight = Qry.FieldIndex("c_bag_weight");
+            int col_c_rk_weight = Qry.FieldIndex("c_rk_weight");
+            int col_y_bag_weight = Qry.FieldIndex("y_bag_weight");
+            int col_y_rk_weight = Qry.FieldIndex("y_rk_weight");
+            int col_f_add_pax = Qry.FieldIndex("f_add_pax");
+            int col_c_add_pax = Qry.FieldIndex("c_add_pax");
+            int col_y_add_pax = Qry.FieldIndex("y_add_pax");
+            for(; !Qry.Eof; Qry.Next()) {
+                TCOMStatsItem item;
+                item.target = ElemIdToElem(etAirp, Qry.FieldAsString(col_target), info.pr_lat);
+                item.f = Qry.FieldAsInteger(col_f);
+                item.c = Qry.FieldAsInteger(col_c);
+                item.y = Qry.FieldAsInteger(col_y);
+                item.adult = Qry.FieldAsInteger(col_adult);
+                item.child = Qry.FieldAsInteger(col_child);
+                item.baby = Qry.FieldAsInteger(col_baby);
+                item.f_child = Qry.FieldAsInteger(col_f_child);
+                item.f_baby = Qry.FieldAsInteger(col_f_baby);
+                item.c_child = Qry.FieldAsInteger(col_c_child);
+                item.c_baby = Qry.FieldAsInteger(col_c_baby);
+                item.y_child = Qry.FieldAsInteger(col_y_child);
+                item.y_baby = Qry.FieldAsInteger(col_y_baby);
+                item.bag_amount = Qry.FieldAsInteger(col_bag_amount);
+                item.bag_weight = Qry.FieldAsInteger(col_bag_weight);
+                item.rk_weight = Qry.FieldAsInteger(col_rk_weight);
+                item.f_bag_weight = Qry.FieldAsInteger(col_f_bag_weight);
+                item.f_rk_weight = Qry.FieldAsInteger(col_f_rk_weight);
+                item.c_bag_weight = Qry.FieldAsInteger(col_c_bag_weight);
+                item.c_rk_weight = Qry.FieldAsInteger(col_c_rk_weight);
+                item.y_bag_weight = Qry.FieldAsInteger(col_y_bag_weight);
+                item.y_rk_weight = Qry.FieldAsInteger(col_y_rk_weight);
+                item.f_add_pax = Qry.FieldAsInteger(col_f_add_pax);
+                item.c_add_pax = Qry.FieldAsInteger(col_c_add_pax);
+                item.y_add_pax = Qry.FieldAsInteger(col_y_add_pax);
+                items.push_back(item);
+            }
+        }
+        total_pax_weight.get(info);
+    }
+
+    struct TCOMClassesItem {
+        string cls;
+        int cfg;
+        int av;
+        TCOMClassesItem() {
+            cfg = NoExists;
+            av = NoExists;
+        }
+    };
+
+    struct TCOMClasses {
+        vector<TCOMClassesItem> items;
+        void get(TTlgInfo &info);
+        void ToTlg(TTlgInfo &info, ostringstream &body);
+    };
+
+    void TCOMClasses::ToTlg(TTlgInfo &info, ostringstream &body)
+    {
+        ostringstream classes, av, padc;
+        for(vector<TCOMClassesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            classes << iv->cls << iv->cfg;
+            av << iv->cls << iv->av;
+            padc << iv->cls << '0';
+        }
+        body
+            << "ARN/" << info.bort
+            << " CNF/" << classes.str()
+            << " CAP/" << classes.str()
+            << " AV/" << av.str()
+            << " PADC/" << padc.str()
+            << br;
+    }
+
+    void TCOMClasses::get(TTlgInfo &info)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "SELECT "
+            "   trip_classes.class, "
+            "   trip_classes.cfg, "
+            "   trip_classes.cfg-NVL(SUM(pax.seats),0) AS av "
+            "FROM "
+            "   trip_classes, "
+            "   classes, "
+            "   pax_grp, "
+            "   pax "
+            "WHERE "
+            "   trip_classes.class = classes.code and "
+            "   trip_classes.point_id = :point_id and "
+            "   trip_classes.point_id = pax_grp.point_dep(+) and "
+            "   trip_classes.class = pax_grp.class(+) and "
+            "   pax_grp.grp_id = pax.grp_id(+) "
+            "GROUP BY "
+            "   trip_classes.class, "
+            "   trip_classes.cfg, "
+            "   classes.priority "
+            "ORDER BY "
+            "   classes.priority ";
+        Qry.CreateVariable("point_id", otInteger, info.point_id);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            int col_class = Qry.FieldIndex("class");
+            int col_cfg = Qry.FieldIndex("cfg");
+            int col_av = Qry.FieldIndex("av");
+            for(; !Qry.Eof; Qry.Next()) {
+                TCOMClassesItem item;
+                item.cls = ElemIdToElem(etSubcls, Qry.FieldAsString(col_class), info.pr_lat);
+                item.cfg = Qry.FieldAsInteger(col_cfg);
+                item.av = Qry.FieldAsInteger(col_av);
+                items.push_back(item);
+            }
+        }
+    }
 }
 
 using namespace PRL_SPACE;
+
+int COM(TTlgInfo &info, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "COM" << br;
+    tlg_row.heading = heading.str();
+    tlg_row.ending = "ENDCOM" + br;
+    ostringstream body;
+    body
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep
+        << "/0 OP/NAM" << br;
+    TCOMClasses classes;
+    TCOMStats stats;
+    classes.get(info);
+    stats.get(info);
+    classes.ToTlg(info, body);
+    stats.ToTlg(body);
+    tlg_row.body = body.str();
+    ProgTrace(TRACE5, "COM: before save");
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
+}
 
 int PRL(TTlgInfo &info, int tst_tlg_id)
 {
@@ -1023,7 +1458,7 @@ int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     return tlg_row.id;
 }
 
-int create_tlg(
+int TelegramInterface::create_tlg(
         const string      vtype,
         const int         vpoint_id,
         const string      vairp_trfer,
@@ -1034,6 +1469,7 @@ int create_tlg(
         const int         tst_tlg_id
         )
 {
+    ProgTrace(TRACE5, "create_tlg entrance");
     if(vtype.empty())
         throw UserException("¥ ãª § ­ â¨¯ â¥«¥£à ¬¬ë");
     TQuery Qry(&OraSession);
@@ -1123,6 +1559,7 @@ int create_tlg(
     int vid = NoExists;
 
     if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
+    else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
     else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();

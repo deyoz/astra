@@ -122,6 +122,16 @@ public:
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
+  static int create_tlg(
+          const std::string vtype,
+          const int         vpoint_id,
+          const std::string vairp_trfer,
+          const std::string vcrs,
+          const std::string vextra,
+          const bool        vpr_lat,
+          const std::string vaddrs,
+          const int         tst_tlg_id
+          );
   void delete_tst_tlg(int tlg_id);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
