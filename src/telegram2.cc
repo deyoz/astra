@@ -38,7 +38,7 @@ void SaveTlgOutPartTST( TTlgOutPartInfo &info )
 
   if (info.id<0)
       throw Exception("SaveTlgOutPartTST: tlg_id undefined");
-      
+
 
   Qry.Clear();
   Qry.SQLText=
@@ -116,7 +116,7 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
             case etSuffix:
                 code_name="суффикса";
                 break;
-            default: 
+            default:
                 throw Exception("Unsupported elem type %d", type);
         };
         throw UserException("Не найден латинский код " + code_name);
@@ -1563,7 +1563,7 @@ int TelegramInterface::create_tlg(
     else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();
-    Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
+    Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
