@@ -1391,7 +1391,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line.str("");
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << "00" << TlgElemIdToElem(etClass, iv->cls, info.pr_lat);
+                << "00" << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
             pr_empty = false;
@@ -1399,7 +1399,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClass, iv->cls, info.pr_lat);
+                << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
