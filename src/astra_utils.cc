@@ -199,15 +199,19 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT DISTINCT screen_rights.right_id "
+    "SELECT DISTINCT role_rights.right_id "
+    "FROM user_roles,role_rights "
+    "WHERE user_roles.role_id=role_rights.role_id AND "
+    "      user_roles.user_id=:user_id ";
+  /*  "SELECT DISTINCT screen_rights.right_id "
     "FROM user_roles,role_rights,screen_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      role_rights.right_id=screen_rights.right_id AND "
-    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";
+    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";*/
+  //Qry.DeclareVariable( "screen_id", otInteger );
+  //Qry.SetVariable( "screen_id", screen.id );
   Qry.DeclareVariable( "user_id",otInteger );
-  Qry.DeclareVariable( "screen_id", otInteger );
   Qry.SetVariable( "user_id", user.user_id );
-  Qry.SetVariable( "screen_id", screen.id );
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
     user.access.rights.push_back(Qry.FieldAsInteger("right_id"));
@@ -730,13 +734,6 @@ void showBasicInfo(void)
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
   NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
 
-  // достанем пользователя и пароль oracle
-  string buf = get_connect_string();
-  buf = buf.substr(0, buf.find("@"));
-  string::size_type pos = buf.find("/");
-  NewTextChild(resNode, "orauser", buf.substr(0, pos));
-  NewTextChild(resNode, "orapasswd", buf.substr(pos + 1, string::npos));
-
   if (!reqInfo->user.login.empty())
   {
     node = NewTextChild(resNode,"user");
@@ -780,29 +777,32 @@ void showBasicInfo(void)
     {
       //передаем параметры для CUTE
       xmlNodePtr cuteNode=NewTextChild(node,"CUTE");
-      xmlNodePtr accessNode=NewTextChild(cuteNode,"airlines");
-      TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
-      if (reqInfo->user.access.airlines_permit)
-        for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
-                                           i!=reqInfo->user.access.airlines.end();i++)
-        {
-          try
+      //if (!reqInfo->user.login.empty())
+      {
+        xmlNodePtr accessNode=NewTextChild(cuteNode,"airlines");
+        TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
+        if (reqInfo->user.access.airlines_permit)
+          for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
+                                             i!=reqInfo->user.access.airlines.end();i++)
           {
-            TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
-            xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
-            NewTextChild(airlineNode,"code",row.code);
-            NewTextChild(airlineNode,"code_lat",row.code_lat,"");
-            int aircode;
-            if (StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
-              NewTextChild(airlineNode,"aircode",row.aircode,"");
-          }
-          catch(EBaseTableError) {}
-        };
+            try
+            {
+              TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
+              xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
+              NewTextChild(airlineNode,"code",row.code);
+              NewTextChild(airlineNode,"code_lat",row.code_lat,"");
+              int aircode;
+              if (StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
+                NewTextChild(airlineNode,"aircode",row.aircode,"");
+            }
+            catch(EBaseTableError) {}
+          };
+      };
       xmlNodePtr devNode,paramNode;
       //ATB
       devNode=NewTextChild(cuteNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
+      NewTextChild(paramNode,"pr_lat",1);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -811,7 +811,7 @@ void showBasicInfo(void)
       //BTP
       devNode=NewTextChild(cuteNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
+      NewTextChild(paramNode,"pr_lat",1);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -832,6 +832,89 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"postfix","0D");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
+
+      //новый терминал
+      xmlNodePtr operNode,timeoutNode;
+
+      operNode=NewTextChild(cuteNode,"PRINT_BP");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","ATB");
+      NewTextChild(paramNode,"dev_model","90");
+      NewTextChild(paramNode,"smode","S");
+      NewTextChild(paramNode,"multisession",(int)true);
+      timeoutNode=NewTextChild(paramNode,"timeouts");
+      NewTextChild(timeoutNode,"unload_pectab",2000);
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","ATB");
+      NewTextChild(paramNode,"pr_lat",1);
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","ATB");
+
+      operNode=NewTextChild(cuteNode,"PRINT_BT");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","BTP");
+      NewTextChild(paramNode,"dev_model","91");
+      NewTextChild(paramNode,"smode","S");
+      NewTextChild(paramNode,"logonum","01");
+      NewTextChild(paramNode,"multisession",(int)true);
+      timeoutNode=NewTextChild(paramNode,"timeouts");
+      NewTextChild(timeoutNode,"unload_pectab",2000);
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","BTP");
+      NewTextChild(paramNode,"pr_lat",1);
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","BTP");
+
+      operNode=NewTextChild(cuteNode,"PRINT_ARCH");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","TEXT");
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","TEXT");
+      NewTextChild(paramNode,"encoding","CP866");
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","DCP");
+
+      operNode=NewTextChild(cuteNode,"PRINT_FLT");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","TEXT");
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","TEXT");
+      NewTextChild(paramNode,"encoding","CP866");
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","DCP");
+
+      operNode=NewTextChild(cuteNode,"PRINT_DISP");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","TEXT");
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","TEXT");
+      NewTextChild(paramNode,"encoding","CP866");
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","DCP");
+
+      operNode=NewTextChild(cuteNode,"PRINT_TLG");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","TEXT");
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","TEXT");
+      NewTextChild(paramNode,"encoding","CP866");
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","DCP");
+
+      operNode=NewTextChild(cuteNode,"SCAN_BP");
+      paramNode=NewTextChild(operNode,"pool_params");
+      NewTextChild(paramNode,"type","SCAN1");
+      paramNode=NewTextChild(operNode,"fmt_params");
+      NewTextChild(paramNode,"type","SCAN1");
+      paramNode=NewTextChild(operNode,"sess_params");
+      NewTextChild(paramNode,"type","CUTE");
+      NewTextChild(paramNode,"addr","LSR");
     };
   };
   node = NewTextChild( resNode, "screen" );
