@@ -802,7 +802,7 @@ void showBasicInfo(void)
       //ATB
       devNode=NewTextChild(cuteNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -811,7 +811,7 @@ void showBasicInfo(void)
       //BTP
       devNode=NewTextChild(cuteNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
