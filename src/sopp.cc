@@ -2282,6 +2282,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
+  bool pr_other_airline = false;  
   try {
     int notCancel = (int)dests.size();
     if ( notCancel < 2 )
@@ -2339,10 +2340,17 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
       	}
     }
-    // проверка на отмену
+    // проверка на отмену + в маршруте учавствует всего одна авиакомпания
+    string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       if ( id->pr_del == 1 ) {
         notCancel--;
+      }
+      if ( id->pr_del == 0 ) {
+      	if ( old_airline.empty() )
+      		old_airline = id->airline;
+      	if ( !id->airline.empty() && old_airline != id->airline )
+      		pr_other_airline = true;      		
       }
     }
 
@@ -2464,6 +2472,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		return;
     }
   }
+  
+  if ( pr_other_airline )
+    throw UserException( "Маршрут не может содержать две различные авиакомпании" );
 
   if ( existsTrip )
     throw UserException( "Дублирование рейсов. Рейс уже существует" );
@@ -2742,6 +2753,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    A.pr_land = false;
   		    vchangeAct.push_back( A );
   	    }
+  	  if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
+  	  	reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  }
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
