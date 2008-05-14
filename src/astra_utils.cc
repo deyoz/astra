@@ -846,7 +846,7 @@ void showBasicInfo(void)
       NewTextChild(timeoutNode,"unload_pectab",2000);
       paramNode=NewTextChild(operNode,"fmt_params");
       NewTextChild(paramNode,"type","ATB");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       paramNode=NewTextChild(operNode,"sess_params");
       NewTextChild(paramNode,"type","CUTE");
       NewTextChild(paramNode,"addr","ATB");
@@ -862,7 +862,7 @@ void showBasicInfo(void)
       NewTextChild(timeoutNode,"unload_pectab",2000);
       paramNode=NewTextChild(operNode,"fmt_params");
       NewTextChild(paramNode,"type","BTP");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       paramNode=NewTextChild(operNode,"sess_params");
       NewTextChild(paramNode,"type","CUTE");
       NewTextChild(paramNode,"addr","BTP");
@@ -912,6 +912,7 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"type","SCAN1");
       paramNode=NewTextChild(operNode,"fmt_params");
       NewTextChild(paramNode,"type","SCAN1");
+      NewTextChild(paramNode,"prefix","31");
       paramNode=NewTextChild(operNode,"sess_params");
       NewTextChild(paramNode,"type","CUTE");
       NewTextChild(paramNode,"addr","LSR");
