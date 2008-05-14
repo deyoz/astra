@@ -578,10 +578,10 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       NewTextChild( NodeAK, "TPC", IntToString( 0 ) );
       NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
       NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
-    };      
+    };    
 		if ( prior_point_id > ASTRA::NoExists ) {
  			GetLuggage( prior_point_id, lug_in );
- 		}
+ 		} 		
  		else lug_in.max_commerce = 0;
     for ( vector<Cargo>::iterator wc=lug_in.vcargo.begin(); wc!=lug_in.vcargo.end(); wc++ ) {
     	if ( wc->point_arv == tr->point_id ) {
@@ -616,11 +616,15 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     	NewTextChild( NodeD, "VDV", "ПАСС" );
     // теперь создание записей по плечам        
     int k = 0;
-    for ( TSOPPDests::iterator d=tr->places_out.begin(); d!= tr->places_out.end(); d++, k++ ) {
+    for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
+    	ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
       vector<Cargo>::iterator c=lug_out.vcargo.end();            	
+      tst();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out );
+      ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
       NewTextChild( NodeDK, "AP", d->airp );
+      tst();
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
          расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
          фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -654,8 +658,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
         for ( c=lug_out.vcargo.begin(); c!=lug_out.vcargo.end(); c++ ) {
    	      if ( c->point_arv == n->point_id ) //???
      	      break;
-        }                    	
-       	d++;
+        }
       }
       else {
         NewTextChild( NodeDK, "AV", tr->airp );
@@ -699,12 +702,13 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     for ( vector<Cargo>::iterator wc=lug_out.vcargo.begin(); wc!=lug_out.vcargo.end(); wc++ ) {
     	cargo_out += wc->cargo;
     	mail_out += wc->mail;
-    }  				    
+    }  		
  	  NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
  	  NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
  	  NewTextChild( NodeD, "F11", IntToString( mail_out ) );
  	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );    
 	}   	
+	tst();
 	return doc;  
 }
 
@@ -797,8 +801,6 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
  	    createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeN ), DBF_TYPE_CHAR );
  	    createParam( paramsNode, "DN", NodeAsString( "DN", nodeN ), DBF_TYPE_DATE );  	     	  	
  	  }
-    createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeN ), DBF_TYPE_CHAR );
-    createParam( paramsNode, "DN", NodeAsString( "DN", nodeN ), DBF_TYPE_DATE );  		
 	  createParam( paramsNode, "KUG", NodeAsString( "KUG", nodeN ), DBF_TYPE_CHAR );
     createParam( paramsNode, "TVC", NodeAsString( "TVC", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "BNP", NodeAsString( "BNP", nodeN ), DBF_TYPE_CHAR );
@@ -927,11 +929,32 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	Qry.Clear();
 	Qry.SQLText = "SELECT TRUNC(system.UTCSYSDATE) d FROM dual";
  	Qry.Execute();
+ 	TDateTime LocalNow = UTCToLocal( Qry.FieldAsDateTime( "d" ), reqInfo->desk.tz_region );
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
-	  createSPPCEK( UTCToLocal( Qry.FieldAsDateTime( "d" ), reqInfo->desk.tz_region ) + max_day, file_type, point_addr, fds );
+	  createSPPCEK( LocalNow + max_day, file_type, point_addr, fds );
 	}
 	TFileData fd;
+  TSOPPTrips trips;
+  createSOPPTrip( point_id, trips );
+  TSOPPTrips::iterator tr = trips.end();
+  xmlDocPtr doc = 0, old_doc = 0;
+  std::string errcity;
+  for ( tr=trips.begin(); tr!=trips.end(); tr++ ) {
+  	if ( tr->point_id != point_id ) continue;
+  	bool res;
+  	try {
+  	  res = FilterFlightDate( *tr, LocalNow, LocalNow + CREATE_SPP_DAYS(), true, errcity, false ); // фильтр по датам прилета-вылета рейса
+  	}
+  	catch(...) {
+  		res = false;
+  	}
+    if ( !res ) continue;
+  	createXMLTrip( tr, doc );
+  	break;  	
+  }
+  if ( !doc )
+  	return false;
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT record FROM points, snapshot_points "
@@ -943,22 +966,9 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "file_type", otString, file_type );
 	Qry.Execute();
-	// в полу Record есть инфа на прилет и вылет, надо ее разделить по 2-м переменным in_record, out_record
 	if ( !Qry.Eof ) {
 		record = Qry.FieldAsString( "record" );
-	}
-  TSOPPTrips trips;
-  createSOPPTrip( point_id, trips );
-  TSOPPTrips::iterator tr = trips.end();
-  xmlDocPtr doc = 0, old_doc = 0;
-  for ( tr=trips.begin(); tr!=trips.end(); tr++ ) {
-  	if ( tr->point_id != point_id )
-  		continue;
-  	createXMLTrip( tr, doc );
-  	break;  	
-  }
-  if ( !doc )
-  	return false;
+	}    	
   if ( XMLTreeToText( doc ) == record )
   	return false;
   // есть изменения
