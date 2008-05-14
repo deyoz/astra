@@ -17,7 +17,7 @@
 #include "flight_cent_dbf.h"
 #include "sofi.h"
 #include "aodb.h"
-//#include "spp_cek.h"
+#include "spp_cek.h"
 #include "timer.h"
 #include "stages.h"
 #include "cont_tools.h"
@@ -687,8 +687,8 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                 if ( 
                         type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) || 
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||                        
-                        type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) /*||
-                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds )*/ ) {
+                        type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
+                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -827,15 +827,15 @@ void sync_aodb( void )
 	}
 }
 
-/*void sync_sppcek( void )
+void sync_sppcek( void )
 {
 	TQuery Qry( &OraSession );
 	Qry.SQLText = 
 	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
 	 " FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:file_type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-	 "       ( points.scd_in BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+:spp_days+1 OR "
-   "         points.scd_out BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+:spp_days+1 ) AND "	 
+	 "       ( points.scd_in >= system.UTCSYSDATE-1 OR "
+   "         points.scd_out >= system.UTCSYSDATE-1 ) AND "	 
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
@@ -850,7 +850,7 @@ void sync_aodb( void )
 	}
 
 }
-*/
+
 
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )

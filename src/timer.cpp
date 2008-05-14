@@ -102,8 +102,8 @@ void exec_tasks( void )
 	    	      				if ( name == "sync_aodb" ) sync_aodb( );
 	    	      				else
 	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-	    	      				  /*else
-	    	      				  	if ( name == "sync_sppcek" ) sync_sppcek( ); */
+	    	      				  else
+	    	      				  	if ( name == "sync_sppcek" ) sync_sppcek( );
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;
