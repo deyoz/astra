@@ -121,7 +121,10 @@ bool createSofiFile( int receipt_id, std::map<std::string,std::string> &inparams
 	//2 Служебная информация CHAR(X)
 	res << "_BAGGAGE_" << dlmt;
 	//3 Серия бланка Z, M, CHA, CБА CHAR(3)
-  res << setw(3) << Qry.FieldAsString( "basic_form_type" ) << dlmt;
+	string form_type = Qry.FieldAsString( "basic_form_type" );
+	if ( !form_type.empty() && form_type[ 0 ] == 'M' ) // replace lat M to rus M
+		form_type[ 0 ] = 'М';
+  res << setw(3) << form_type << dlmt;
   //4 Номер бланка NUMBER(10)
   res << trim(string(Qry.FieldAsString( "no" )).substr(0,10)) << dlmt;
   //5 Расчетный код CHAR(3)

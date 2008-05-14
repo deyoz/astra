@@ -105,8 +105,8 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( opr.empty() )
-    { /* оператор пришел пустой - отправляем инфу по оператору */
+    if ( opr.empty() && (GetNode( "UserLogon", node ) == NULL))
+    { // оператор пришел пустой - отправляем инфу по оператору
         showBasicInfo();
     }
     PerfomInit();

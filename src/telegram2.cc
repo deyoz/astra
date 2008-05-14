@@ -38,7 +38,7 @@ void SaveTlgOutPartTST( TTlgOutPartInfo &info )
 
   if (info.id<0)
       throw Exception("SaveTlgOutPartTST: tlg_id undefined");
-      
+
 
   Qry.Clear();
   Qry.SQLText=
@@ -116,7 +116,7 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
             case etSuffix:
                 code_name="суффикса";
                 break;
-            default: 
+            default:
                 throw Exception("Unsupported elem type %d", type);
         };
         throw UserException("Не найден латинский код " + code_name);
@@ -1391,7 +1391,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line.str("");
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << "00" << TlgElemIdToElem(etClass, iv->cls, info.pr_lat);
+                << "00" << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
             pr_empty = false;
@@ -1399,7 +1399,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClass, iv->cls, info.pr_lat);
+                << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -1563,7 +1563,7 @@ int TelegramInterface::create_tlg(
     else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();
-    Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
+    Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();

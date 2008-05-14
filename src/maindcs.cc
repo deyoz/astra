@@ -148,6 +148,15 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
 
     GetModuleList(resNode);
+
+    xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
+    std::string screen = NodeAsString("@screen", node);
+    std::string opr = NodeAsString("@opr", node);
+    xmlNodePtr modeNode = GetNode("@mode", node);
+    std::string mode;
+    if (modeNode!=NULL)
+      mode = NodeAsString(modeNode);
+    reqInfo->Initialize( screen, ctxt->pult, opr, mode, false );
     showBasicInfo();
 }
 

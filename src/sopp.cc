@@ -2282,6 +2282,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
+  bool pr_other_airline = false;  
   try {
     int notCancel = (int)dests.size();
     if ( notCancel < 2 )
@@ -2339,10 +2340,17 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
       	}
     }
-    // проверка на отмену
+    // проверка на отмену + в маршруте учавствует всего одна авиакомпания
+    string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
       if ( id->pr_del == 1 ) {
         notCancel--;
+      }
+      if ( id->pr_del == 0 ) {
+      	if ( old_airline.empty() )
+      		old_airline = id->airline;
+      	if ( !id->airline.empty() && old_airline != id->airline )
+      		pr_other_airline = true;      		
       }
     }
 
@@ -2464,6 +2472,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		return;
     }
   }
+  
+  if ( pr_other_airline )
+    throw UserException( "Маршрут не может содержать две различные авиакомпании" );
 
   if ( existsTrip )
     throw UserException( "Дублирование рейсов. Рейс уже существует" );
@@ -2543,6 +2554,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool insert_point;
   bool pr_begin = true;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+  	set_pr_del = false;
+  	set_act_out = false;
   	if ( ch_point_num )
   	  id->point_num = point_num;
   	if ( id->modify ) {
@@ -2742,6 +2755,30 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    A.pr_land = false;
   		    vchangeAct.push_back( A );
   	    }
+  	  if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
+  	  	reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  }
+    	set_pr_del = ( !old_dest.pr_del && id->pr_del );
+    	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
+  	  set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
+    	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
+    		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+    		change_act A;
+    		A.point_id = id->point_id;
+    		A.old_act = old_dest.act_in;
+    		A.act = id->act_in;
+    		A.pr_land = true;
+    		vchangeAct.push_back( A );
+    	}
+    	if ( !id->pr_del && id->act_in != old_dest.act_in && old_dest.act_in > NoExists ) {
+    		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+    		change_act A;
+    		A.point_id = id->point_id;
+    		A.old_act = old_dest.act_in;
+    		A.act = id->act_in;
+    		A.pr_land = true;
+    		vchangeAct.push_back( A );
+    	}  	  
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
@@ -2754,27 +2791,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end if
-  	set_pr_del = ( !old_dest.pr_del && id->pr_del );
-  	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
-  	set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
-  	if ( !id->pr_del && old_dest.act_in == NoExists && id->act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Проставление факт. прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
-  		change_act A;
-  		A.point_id = id->point_id;
-  		A.old_act = old_dest.act_in;
-  		A.act = id->act_in;
-  		A.pr_land = true;
-  		vchangeAct.push_back( A );
-  	}
-  	if ( !id->pr_del && id->act_in != old_dest.act_in && old_dest.act_in > NoExists ) {
-  		reqInfo->MsgToLog( string( "Изменение времени фактического прилета " ) + DateTimeToStr( id->act_in, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
-  		change_act A;
-  		A.point_id = id->point_id;
-  		A.old_act = old_dest.act_in;
-  		A.act = id->act_in;
-  		A.pr_land = true;
-  		vchangeAct.push_back( A );
-  	}
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
@@ -2936,7 +2952,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
-  	}
+  	}	
     if ( set_act_out ) {
     	//!!! еще point_num не записан
        try
