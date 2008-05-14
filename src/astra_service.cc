@@ -841,7 +841,7 @@ void sync_sppcek( void )
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );	
+//!!!	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );	
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
