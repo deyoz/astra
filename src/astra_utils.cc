@@ -802,7 +802,7 @@ void showBasicInfo(void)
       //ATB
       devNode=NewTextChild(cuteNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
+      NewTextChild(paramNode,"pr_lat",1);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -811,7 +811,7 @@ void showBasicInfo(void)
       //BTP
       devNode=NewTextChild(cuteNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",0);
+      NewTextChild(paramNode,"pr_lat",1);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -834,9 +834,48 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
 
       //новый терминал
-      xmlNodePtr operNode,timeoutNode;
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
+        "FROM dev_params WHERE term_mode=:term_mode "
+        "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST ";
+      Qry.CreateVariable("term_mode",otString,"CUTE");
+      Qry.Execute();
 
-      operNode=NewTextChild(cuteNode,"PRINT_BP");
+
+      xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (operTypeNode==NULL ||
+            strcmp((const char*)operTypeNode->name,Qry.FieldAsString("op_type"))!=0)
+        {
+          operTypeNode=NewTextChild(cuteNode,Qry.FieldAsString("op_type"));
+          paramTypeNode=NULL;
+          paramNameNode=NULL;
+        };
+        if (paramTypeNode==NULL ||
+            strcmp((const char*)paramTypeNode->name,Qry.FieldAsString("param_type"))!=0)
+        {
+          paramTypeNode=NewTextChild(operTypeNode,Qry.FieldAsString("param_type"));
+          paramNameNode=NULL;
+        };
+        if (paramNameNode==NULL ||
+            strcmp((const char*)paramNameNode->name,Qry.FieldAsString("param_name"))!=0)
+        {
+          if (Qry.FieldIsNULL("subparam_name"))
+            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"),Qry.FieldAsString("param_value"));
+          else
+            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"));
+        };
+        if (!Qry.FieldIsNULL("subparam_name"))
+          NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
+      };
+
+
+
+
+     /* operNode=NewTextChild(cuteNode,"PRINT_BP");
       paramNode=NewTextChild(operNode,"pool_params");
       NewTextChild(paramNode,"type","ATB");
       NewTextChild(paramNode,"dev_model","90");
@@ -915,7 +954,7 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"prefix","31");
       paramNode=NewTextChild(operNode,"sess_params");
       NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","LSR");
+      NewTextChild(paramNode,"addr","LSR");*/
     };
   };
   node = NewTextChild( resNode, "screen" );
