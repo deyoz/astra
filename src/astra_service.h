@@ -82,6 +82,9 @@ public:
      AddEvent("getAodbFiles",evHandle);                    
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::getAodbData);
      AddEvent("getAodbData",evHandle);                         
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::logFileData);     
+     AddEvent("Log",evHandle);
+     
   };
 
   void authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
@@ -94,6 +97,7 @@ public:
   void viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
   void getAodbFiles( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );  
   void getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );     
+  void logFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );       
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

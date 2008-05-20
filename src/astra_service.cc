@@ -288,7 +288,7 @@ void parseFileParams( xmlNodePtr dataNode, map<string,string> &fileparams )
 	}
 }
 
-int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name )
+int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name, double &wait_time )
 {
 	int file_id;
 	TQuery ScanQry( &OraSession );
@@ -335,6 +335,8 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name 
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
         NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
+        wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "time" );
+        NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
         if ( !ScanQry.Eof )
         	fileparams[ PARAM_NEXT_FILE ] = "TRUE";
@@ -406,11 +408,8 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 			new_id = id;		
 			ProgTrace( TRACE5, "new_id=%d", new_id  );
 		}
-		ProgTrace( TRACE5, "airline1=%s, type1=%s, airline2=%s, type2=%s",
-		           fileparams[ PARAM_FILE_TYPE ].c_str(), airline.c_str(), Qry.FieldAsString( "type" ), Qry.FieldAsString( "airline" ) );
 		if ( fileparams[ PARAM_FILE_TYPE ] != Qry.FieldAsString( "type" ) ||
 			   airline != Qry.FieldAsString( "airline" ) ) {
-			tst();
 			//next type or airline
 			if ( first_fileparams.empty() ) {
 				first_fileparams = fileparams;
@@ -446,7 +445,6 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 		fileparams = first_fileparams;
 		airline = first_airline;
 		new_id = first_new_id;
-		tst();
 	}
 		
   if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {  	
@@ -495,7 +493,8 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	string curmode = NodeAsString( "curmode", reqNode );	
 	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
 	if ( curmode == "OUT" )	{
-	  int file_id = buildSaveFileData( resNode, client_canon_name );
+		double wait_time;
+	  int file_id = buildSaveFileData( resNode, client_canon_name, wait_time );
     int id1, id2, id3;
     string event_type;
     TQuery Qry( &OraSession );
@@ -531,8 +530,9 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   	  Qry.CreateVariable( "id", otInteger, file_id );
   	  Qry.Execute();
-      TReqInfo::Instance()->MsgToLog( string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
-      	                              IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
+  	  TReqInfo::Instance()->MsgToLog( string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
+      	                              IntToString( file_id ) + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)", 
+      	                              DecodeEventType(event_type), id1, id2, id3 );
     }
 	}
 	else
@@ -1028,7 +1028,12 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	}
 }
 
-
+void AstraServiceInterface::logFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+  xmlNodePtr n = GetNode( "mes", reqNode );
+	string msg = NodeAsString( n );
+	ProgTrace( TRACE5, "logFileData=%s", msg.c_str() );
+}
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
