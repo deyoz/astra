@@ -1028,7 +1028,12 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	}
 }
 
-
+void AstraServiceInterface::logFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+  xmlNodePtr n = GetNode( "mes", reqNode );
+	string msg = NodeAsString( n );
+	ProgTrace( TRACE5, "logFileData=%s", msg.c_str() );
+}
 
 void AstraServiceInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
