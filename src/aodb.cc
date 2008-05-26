@@ -285,7 +285,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	TQuery Qry(&OraSession);
 	if ( pr_unaccomp )
 	  Qry.SQLText =
-	   "SELECT grp_id pax_id, 0 reg_no, NULL record FROM aodb_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr";
+	   "SELECT DISTINCT grp_id pax_id, 0 reg_no, NULL record FROM aodb_unaccomp WHERE point_id=:point_id AND point_addr=:point_addr";
 	else
 	  Qry.SQLText =
 	   "SELECT pax_id, reg_no, record FROM aodb_pax WHERE point_id=:point_id AND point_addr=:point_addr";
@@ -768,85 +768,114 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
   PQry.DeclareVariable( "pr_cabin", otInteger );
   PQry.DeclareVariable( "record", otString );
   int num=0;
-  string bags;
-	string delbags;
-	for ( int pr_cabin=1; pr_cabin>=0 && d != aodb_pax.end(); pr_cabin-- ) {
-		PQry.SetVariable( "pr_cabin", pr_cabin );
-	  for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
-	  	if ( i->pr_cabin != pr_cabin || i->pax_id != pax_id )
-	  		continue;
-	  	PQry.SetVariable( "num", num );
-	  	PQry.SetVariable( "record", i->record );
-	  	PQry.Execute();
-	  	num++;
-	  	bool f=false;
-	  	for ( vector<AODB_STRUCT>::iterator j=prior_aodb_bag.begin(); j!= prior_aodb_bag.end(); j++ ) {
-	  		if ( j->pr_cabin == pr_cabin && !j->doit &&
-	  			   i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
-	  			f=true;
-	  			i->doit=true;
-	  			j->doit=true;
-	  			if ( pr_unaccomp ) {
+  vector<string> bags;
+	vector<string> delbags;
+	for ( int pr_cabin=1; pr_cabin>=0 /*!!!&& d != aodb_pax.end()*/; pr_cabin-- ) {
+		if ( d != aodb_pax.end() ) {
+		  PQry.SetVariable( "pr_cabin", pr_cabin );
+	    for ( vector<AODB_STRUCT>::iterator i=aodb_bag.begin(); i!= aodb_bag.end(); i++ ) {
+	  	  if ( i->pr_cabin != pr_cabin || i->pax_id != pax_id )
+  	  		continue;
+	    	PQry.SetVariable( "num", num );
+	    	PQry.SetVariable( "record", i->record );
+	  	  PQry.Execute();
+	  	  num++;
+	  	  bool f=false;
+	  	  for ( vector<AODB_STRUCT>::iterator j=prior_aodb_bag.begin(); j!= prior_aodb_bag.end(); j++ ) {
+  	  		if ( j->pr_cabin == pr_cabin && !j->doit &&
+	    			   i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
+	  			  f=true;
+	  			  i->doit=true;
+	  			  j->doit=true;
+/*!!!!!	  			if ( pr_unaccomp ) {
             ostringstream r;
             r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
  	          //res_checkin += r.str();
- 	          bags += r.str();
- 	          
-	  			}
+ 	          bags += r.str(); 	          
+	  			}*/
    			  //res_checkin += i->record + "0;";
-   			  bags += i->record + "0;";
-   			  if ( pr_unaccomp )
+   			  //!!!!!bags += i->record + "0;"; //???
+   			    bags.push_back( i->record + "0;" );
+   			  //!!!!!if ( pr_unaccomp )
    			  	//res_checkin += "\n";
-   			  	bags += "\n";
-	  		}
-	    }
-	    if ( !f ) {
-	  		if ( pr_unaccomp ) {
+   			  	//!!!!!bags += "\n";
+	  		  }
+	      }
+	      if ( !f ) {
+	  		/*!!!!!if ( pr_unaccomp ) {
           ostringstream r;
           r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
  	        //res_checkin += r.str();
  	        bags += r.str();
-	  		}
+	  		}*/
 	    	//res_checkin += i->record + "0;";
-	    	bags += i->record + "0;";
-   			if ( pr_unaccomp )
+	    	//!!!!!bags += i->record + "0;";
+	    	  bags.push_back( i->record + "0;" );
+/*!!!!!   			if ( pr_unaccomp )
    				//res_checkin += "\n";
-   				bags += "\n";
-	    }
+   				bags += "\n";*/
+	      }
+  	  }
   	}
-	  for ( vector<AODB_STRUCT>::iterator i=prior_aodb_bag.begin(); i!= prior_aodb_bag.end(); i++ ) {
-	  	bool f=false;
-	  	if ( i->doit || i->pr_cabin != pr_cabin || i->pax_id != pax_id )
-	  		continue;
-	  	for ( vector<AODB_STRUCT>::iterator j=aodb_bag.begin(); j!= aodb_bag.end(); j++ ) {
-	  		if ( j->pr_cabin == pr_cabin && i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
-	  			f=true;
-	  			break;
-	  		}
-	    }
-	    if ( !f ) {
-	  		if ( pr_unaccomp ) {
+  	if ( d != aodb_pax.end() || pr_unaccomp ) {
+	    for ( vector<AODB_STRUCT>::iterator i=prior_aodb_bag.begin(); i!= prior_aodb_bag.end(); i++ ) {
+	    	bool f=false;
+	    	if ( i->doit || i->pr_cabin != pr_cabin || i->pax_id != pax_id )
+	  	  	continue;
+	  	  for ( vector<AODB_STRUCT>::iterator j=aodb_bag.begin(); j!= aodb_bag.end(); j++ ) {
+	  		  if ( j->pr_cabin == pr_cabin && i->pax_id == pax_id && i->pax_id == j->pax_id && i->record == j->record ) {
+  	  			f=true;
+	    			break;
+	    		}
+	      }
+	      if ( !f ) {
+/*!!!!!	  		if ( pr_unaccomp ) {
           ostringstream r;
           r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
 //          ProgTrace( TRACE5, "bag_num=%d, point_id=%d", bag_num, point_id );
- 	        res_checkin += r.str();
-	  		}
+         //!!!delbags += r.str();
+         ProgTrace( TRACE5, "res_checkin=%s, r=%s, delbags=%s", res_checkin.c_str(), r.str().c_str(), delbags.c_str() );
+ 	       res_checkin += r.str();
+	  		}*/
 	    	//res_checkin += i->record + "1;";
-	    	delbags += i->record + "1;";
-   			if ( pr_unaccomp )
+	    	//!!!!!delbags += i->record + "1;";
+	    	//!!!!!delbags += i->record + "1;";
+	    	  delbags.push_back(i->record + "1;");
+/*!!!!!   			if ( pr_unaccomp )
    				//res_checkin += "\n";
-   				delbags += "\n";
-	    }
+   				delbags += "\n";*/
+	      }
+  	  }
   	}
-	}
-	if ( !pr_unaccomp ) {
+	} // end for
+	//!!!!!!if ( !pr_unaccomp ) {
 	  if ( d != aodb_pax.end() )
 	  	d->doit = true;
 	  if ( n != prior_aodb_pax.end() )
 	  	n->doit = true;
+	//!!!!!!}
+	
+	for (vector<string>::iterator si=delbags.begin(); si!=delbags.end(); si++ ) {		
+		if ( pr_unaccomp ) {
+      stringstream r;
+      r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
+      res_checkin += r.str() + *si + "\n";
+    }
+    else res_checkin += *si;    
 	}
 	
-	res_checkin += delbags + bags;
+	for (vector<string>::iterator si=bags.begin(); si!=bags.end(); si++ ) {		
+		if ( pr_unaccomp ) {
+      stringstream r;
+      r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
+      res_checkin += r.str() + *si + "\n";
+    }
+    else res_checkin += *si;    
+	}
+	
+	//ProgTrace( TRACE5, "res_checkin=%s", res_checkin.c_str() );
+		
+/*!!!!!	  res_checkin += delbags + bags; */
 	
 	PQry.Clear();
 	if ( pr_unaccomp ) {
