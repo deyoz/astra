@@ -850,7 +850,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (reqInfo->desk.city=="‘“"||
-        reqInfo->desk.city=="Š‡")
+        reqInfo->desk.city=="Š‡"||
+        reqInfo->desk.city=="‘•„")
     {
       fmt.persCountFmt=1;
       fmt.infSeatsFmt=1;
