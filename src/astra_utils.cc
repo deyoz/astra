@@ -124,7 +124,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,trace_level "
+    "SELECT city,trace_level,lang "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -133,6 +133,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
   desk.city = Qry.FieldAsString( "city" );
+  desk.lang = Qry.FieldAsString( "lang" );
   if (!Qry.FieldIsNULL("trace_level"))
     desk.trace_level=Qry.FieldAsInteger("trace_level");
 
@@ -771,6 +772,7 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
+    NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"trace_level",reqInfo->desk.trace_level);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     if (reqInfo->desk.mode==omCUTE)
