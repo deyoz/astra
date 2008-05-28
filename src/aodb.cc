@@ -1788,7 +1788,10 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       if ( !fl.invalid_term.empty() )
       	throw Exception( fl.invalid_term );
       QryLog.SetVariable( "rec_no", fl.rec_no );
-      QryLog.SetVariable( "record", linestr );
+      if ( linestr.empty() )
+      	QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
     	QryLog.SetVariable( "msg", "ok" );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtFlt ) );
       QryLog.Execute();
@@ -1798,7 +1801,10 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       	QryLog.SetVariable( "rec_no", -1 );
       else
         QryLog.SetVariable( "rec_no", fl.rec_no );
-      QryLog.SetVariable( "record", linestr );
+      if ( linestr.empty() )
+      	QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
     	QryLog.SetVariable( "msg", e.what() );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtProgError ) );
       QryLog.Execute();
