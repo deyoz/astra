@@ -119,7 +119,7 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
             default:
                 throw Exception("Unsupported elem type %d", type);
         };
-        throw UserException("Не найден латинский код " + code_name);
+        throw UserException("Не найден латинский код " + code_name + " '" + id + "'");
     }
     return id1;
 }
