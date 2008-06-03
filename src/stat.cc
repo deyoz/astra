@@ -3401,12 +3401,20 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   pax_grp.hall hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, cls_grp "
+                "FROM  pax_grp,pax, points, cls_grp ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " , bag_tags ";
+            SQLText +=
                 "WHERE "
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id AND "
                 "   pax_grp.class_grp = cls_grp.id ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " and pax_grp.grp_id = bag_tags.grp_id and "
+                    " bag_tags.no like '%'||:tag_no ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -3435,10 +3443,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
                 SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " and pax_grp.grp_id in( "
-                    "   select grp_id from bag_tags where no like '%'||:tag_no) ";
         } else {
             ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
             SQLText =
@@ -3468,7 +3472,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.hall hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp "
+                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " , arx_bag_tags ";
+            SQLText +=
                 "WHERE "
                 "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                 "   arx_points.part_key = arx_pax_grp.part_key and "
@@ -3478,6 +3486,11 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.class_grp = cls_grp.id and "
                 "   arx_points.part_key >= :FirstDate and "
                 "   pr_brd IS NOT NULL ";
+            if(!tag_no.empty())
+                SQLText +=
+                    " and arx_pax_grp.part_key = arx_bag_tags.part_key and "
+                    " arx_pax_grp.grp_id = arx_bag_tags.grp_id and "
+                    " arx_bag_tags.no like '%'||:tag_no ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
                     SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -3506,13 +3519,6 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and arx_pax.document = :document ";
             if(!ticket_no.empty())
                 SQLText += " and arx_pax.ticket_no = :ticket_no ";
-            if(!tag_no.empty())
-                SQLText +=
-                    " and arx_pax_grp.grp_id in( "
-                    "   select grp_id from arx_bag_tags where "
-                    "       no like '%'||:tag_no and "
-                    "       arx_bag_tags.part_key >= :FirstDate "
-                    "   ) ";
         }
         ProgTrace(TRACE5, "Qry.SQLText [%d] : %s", i, SQLText.c_str());
         Qry.SQLText = SQLText;
