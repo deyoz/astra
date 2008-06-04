@@ -1450,6 +1450,40 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
   return id;
 };
 
+string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
+{
+    if(!(fmt == 0 || fmt == 1))
+        throw Exception("ElemIdToElem: wrong fmt %d (must be 0 or 1)", fmt);
+    string table_name;
+    switch(type)
+    {
+        case etClsGrp:
+            table_name = "cls_grp";
+            break;
+        default:
+            throw Exception("ElemIdToElem: unsupported TElemType %d", type);
+    }
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "select code, code_lat, pr_del from " + table_name + " where "
+        "   id = :id and "
+        "   decode(:with_deleted, 1, 1, pr_del) = decode(:with_deleted, 1, 1, 0) ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("with_deleted", otInteger, with_deleted);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("ElemIdToElem: elem not found for id %d", id);
+    string code = Qry.FieldAsString("code");
+    string code_lat = Qry.FieldAsString("code_lat");
+    string result;
+    if(fmt == 0)
+        result = code;
+    else if(fmt == 1)
+        result = code_lat;
+    return result;
+}
+
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {
 	string code;
