@@ -931,6 +931,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             }
         }
     }
+    ProgTrace(TRACE5, "FltCBoxDropDown QRY: %s", Qry.SQLText.SQLText());
     ProgTrace(TRACE5, "FltCBoxDropDown EXEC QRY: %s", tm.PrintWithMessage().c_str());
     if(count == 0)
         throw UserException("Не найдено ни одного рейса.");
@@ -1426,6 +1427,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtAccess, "
                 "    :evtSystem, "
                 "    :evtCodif, "
+                "    :evtSeason, "
                 "    :evtPeriod "
                 "          ) ";
         } else {
@@ -1453,6 +1455,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtAccess, "
                 "    :evtSystem, "
                 "    :evtCodif, "
+                "    :evtSeason, "
                 "    :evtPeriod "
                 "          ) ";
         }
@@ -1465,6 +1468,13 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             if(node)
                 evtPay = NodeAsString(node);
             Qry.CreateVariable("evtPay", otString, evtPay);
+        }
+        {
+            xmlNodePtr node = GetNode("evtSeason", reqNode);
+            string evtSeason;
+            if(node)
+                evtSeason = NodeAsString(node);
+            Qry.CreateVariable("evtSeason", otString, evtSeason);
         }
         Qry.CreateVariable("evtGraph", otString, NodeAsString("evtGraph", reqNode));
         Qry.CreateVariable("evtTlg", otString, NodeAsString("evtTlg", reqNode));
