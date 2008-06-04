@@ -927,12 +927,12 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string record;
 	TQuery Qry( &OraSession );
 	Qry.Clear();
-	Qry.SQLText = "SELECT TRUNC(system.UTCSYSDATE) d FROM dual";
+	Qry.SQLText = "SELECT system.UTCSYSDATE d FROM dual";
  	Qry.Execute();
- 	TDateTime LocalNow = UTCToLocal( Qry.FieldAsDateTime( "d" ), reqInfo->desk.tz_region );
+ 	TDateTime LocalNow =  UTCToClient( Qry.FieldAsDateTime( "d" ), reqInfo->desk.tz_region );
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
-	  createSPPCEK( LocalNow + max_day, file_type, point_addr, fds );
+	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );
 	}
 	TFileData fd;
   TSOPPTrips trips;
@@ -942,8 +942,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   std::string errcity;
   for ( tr=trips.begin(); tr!=trips.end(); tr++ ) {
   	if ( tr->point_id != point_id ) continue;
+  	tst();
   	bool res;
   	try {
+  		tst();
   	  res = FilterFlightDate( *tr, LocalNow, LocalNow + CREATE_SPP_DAYS(), true, errcity, false ); // фильтр по датам прилета-вылета рейса
   	}
   	catch(...) {
@@ -953,8 +955,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	createXMLTrip( tr, doc );
   	break;  	
   }
+  ProgTrace( TRACE5, "CEK point_id=%d", point_id );
   if ( !doc )
-  	return false;
+  	return fds.size();
+  ProgTrace( TRACE5, "CEK point_id=%d", point_id );
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT record FROM points, snapshot_points "
@@ -970,7 +974,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 		record = Qry.FieldAsString( "record" );
 	}    	
   if ( XMLTreeToText( doc ) == record )
-  	return false;
+  	return fds.size();
   // есть изменения
   if ( !record.empty() ) {
  		record.replace( record.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + "CP866" + "\"" );
