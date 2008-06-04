@@ -1428,6 +1428,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtSystem, "
                 "    :evtCodif, "
                 "    :evtSeason, "
+                "    :evtDisp, "
                 "    :evtPeriod "
                 "          ) ";
         } else {
@@ -1456,6 +1457,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "    :evtSystem, "
                 "    :evtCodif, "
                 "    :evtSeason, "
+                "    :evtDisp, "
                 "    :evtPeriod "
                 "          ) ";
         }
@@ -1468,6 +1470,13 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             if(node)
                 evtPay = NodeAsString(node);
             Qry.CreateVariable("evtPay", otString, evtPay);
+        }
+        {
+            xmlNodePtr node = GetNode("evtDisp", reqNode);
+            string evtDisp;
+            if(node)
+                evtDisp = NodeAsString(node);
+            Qry.CreateVariable("evtDisp", otString, evtDisp);
         }
         {
             xmlNodePtr node = GetNode("evtSeason", reqNode);
