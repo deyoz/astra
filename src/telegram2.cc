@@ -1433,7 +1433,8 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             part_begin = *iv;
         int pax_len = 0;
         if(iv->find('1') == 0) {
-            for(vector<string>::iterator j = iv; j != body.end() and j->find('1') != 0; j++) {
+            pax_len = iv->size() + br.size();
+            for(vector<string>::iterator j = iv + 1; j != body.end() and j->find('1') != 0; j++) {
                 pax_len += j->size() + br.size();
             }
         } else
