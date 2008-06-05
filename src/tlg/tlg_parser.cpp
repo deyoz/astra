@@ -916,8 +916,8 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             GetAirline(flt.airline);
             //переведем day в TDateTime
             int year,mon,currday;
-            DecodeDate(NowUTC(),year,mon,currday);
-            if (currday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+            DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+            if (currday<day)
             {
               if (mon==1)
               {
@@ -1022,8 +1022,8 @@ TTlgPartInfo ParseHeading(TTlgPartInfo heading, THeadingInfo* &info)
                   };
                   TDateTime day_create,time_create;
                   int year,mon,currday;
-                  DecodeDate(NowUTC(),year,mon,currday);
-                  if (currday+1<day) //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+                  DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
+                  if (currday<day)
                   {
                     if (mon==1)
                     {
