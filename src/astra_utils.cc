@@ -124,7 +124,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,trace_level "
+    "SELECT city,trace_level,lang "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -133,6 +133,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
   desk.city = Qry.FieldAsString( "city" );
+  desk.lang = Qry.FieldAsString( "lang" );
   if (!Qry.FieldIsNULL("trace_level"))
     desk.trace_level=Qry.FieldAsInteger("trace_level");
 
@@ -771,6 +772,7 @@ void showBasicInfo(void)
   {
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
+    NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"trace_level",reqInfo->desk.trace_level);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     if (reqInfo->desk.mode==omCUTE)
@@ -834,88 +836,43 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
 
       //новый терминал
-      xmlNodePtr operNode,timeoutNode;
+      TQuery Qry(&OraSession);
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
+        "FROM dev_params WHERE term_mode=:term_mode "
+        "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST ";
+      Qry.CreateVariable("term_mode",otString,"CUTE");
+      Qry.Execute();
 
-      operNode=NewTextChild(cuteNode,"PRINT_BP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","ATB");
-      NewTextChild(paramNode,"dev_model","90");
-      NewTextChild(paramNode,"smode","S");
-      NewTextChild(paramNode,"multisession",(int)true);
-      timeoutNode=NewTextChild(paramNode,"timeouts");
-      NewTextChild(timeoutNode,"unload_pectab",2000);
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","ATB");
-      NewTextChild(paramNode,"pr_lat",0);
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","ATB");
 
-      operNode=NewTextChild(cuteNode,"PRINT_BT");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","BTP");
-      NewTextChild(paramNode,"dev_model","91");
-      NewTextChild(paramNode,"smode","S");
-      NewTextChild(paramNode,"logonum","01");
-      NewTextChild(paramNode,"multisession",(int)true);
-      timeoutNode=NewTextChild(paramNode,"timeouts");
-      NewTextChild(timeoutNode,"unload_pectab",2000);
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","BTP");
-      NewTextChild(paramNode,"pr_lat",0);
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","BTP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_ARCH");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_FLT");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_DISP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_TLG");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"SCAN_BP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","SCAN1");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","SCAN1");
-      NewTextChild(paramNode,"prefix","31");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","LSR");
+      xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        if (operTypeNode==NULL ||
+            strcmp((const char*)operTypeNode->name,Qry.FieldAsString("op_type"))!=0)
+        {
+          operTypeNode=NewTextChild(cuteNode,Qry.FieldAsString("op_type"));
+          paramTypeNode=NULL;
+          paramNameNode=NULL;
+        };
+        if (paramTypeNode==NULL ||
+            strcmp((const char*)paramTypeNode->name,Qry.FieldAsString("param_type"))!=0)
+        {
+          paramTypeNode=NewTextChild(operTypeNode,Qry.FieldAsString("param_type"));
+          paramNameNode=NULL;
+        };
+        if (paramNameNode==NULL ||
+            strcmp((const char*)paramNameNode->name,Qry.FieldAsString("param_name"))!=0)
+        {
+          if (Qry.FieldIsNULL("subparam_name"))
+            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"),Qry.FieldAsString("param_value"));
+          else
+            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"));
+        };
+        if (!Qry.FieldIsNULL("subparam_name"))
+          NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
+      };
     };
   };
   node = NewTextChild( resNode, "screen" );
@@ -1408,6 +1365,40 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
   };
   return id;
 };
+
+string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
+{
+    if(!(fmt == 0 || fmt == 1))
+        throw Exception("ElemIdToElem: wrong fmt %d (must be 0 or 1)", fmt);
+    string table_name;
+    switch(type)
+    {
+        case etClsGrp:
+            table_name = "cls_grp";
+            break;
+        default:
+            throw Exception("ElemIdToElem: unsupported TElemType %d", type);
+    }
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "select code, code_lat, pr_del from " + table_name + " where "
+        "   id = :id and "
+        "   decode(:with_deleted, 1, 1, pr_del) = decode(:with_deleted, 1, 1, 0) ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("with_deleted", otInteger, with_deleted);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("ElemIdToElem: elem not found for id %d", id);
+    string code = Qry.FieldAsString("code");
+    string code_lat = Qry.FieldAsString("code_lat");
+    string result;
+    if(fmt == 0)
+        result = code;
+    else if(fmt == 1)
+        result = code_lat;
+    return result;
+}
 
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 {

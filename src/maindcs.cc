@@ -176,14 +176,27 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 
 void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
+    if (GetNode("old_passwd", reqNode)!=NULL)
+    {
+      Qry.Clear();
+      Qry.SQLText =
+        "SELECT passwd FROM users2 WHERE user_id = :user_id FOR UPDATE";
+      Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
+      Qry.Execute();
+      if (Qry.Eof) throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
+      if (strcmp(Qry.FieldAsString("passwd"),NodeAsString("old_passwd", reqNode))!=0)
+        throw UserException("Неверно указан текущий пароль");
+    };
+    Qry.Clear();
     Qry.SQLText =
       "UPDATE users2 SET passwd = :passwd WHERE user_id = :user_id";
-    Qry.CreateVariable("user_id", otInteger, TReqInfo::Instance()->user.user_id);
+    Qry.CreateVariable("user_id", otInteger, reqInfo->user.user_id);
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
-        throw Exception("user not found (user_id=%d)",TReqInfo::Instance()->user.user_id);
+        throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
     TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
     showMessage("Пароль изменен");
 }

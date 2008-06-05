@@ -39,7 +39,7 @@ enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etSuffix };
+                 etSuffix,etClsGrp };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
 //форматы:
 //  fmt=0 вн.код (рус. кодировка)
@@ -48,6 +48,7 @@ enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
 //  fmt=3 код ИKAO IATA
 //  fmt=4 код ISO
 std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_deleted=false);
+std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
                               int &fmt, bool hard_verify, bool with_deleted=false);
@@ -134,6 +135,7 @@ class TDesk {
     std::string code;
     std::string city;
     std::string tz_region;
+    std::string lang;
     int trace_level;
     BASIC::TDateTime time;
     TOperMode mode;
@@ -146,6 +148,7 @@ class TDesk {
       code.clear();
       city.clear();
       tz_region.clear();
+      lang.clear();
       trace_level = -1;
       time = 0;
       mode = omSTAND;

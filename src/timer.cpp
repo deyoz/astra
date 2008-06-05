@@ -753,7 +753,9 @@ void arx_daily(TDateTime utcdate)
   PointsQry.SQLText=
     "SELECT point_id,scd,pr_utc,airp_dep "
     "FROM tlg_trips,tlg_binding "
-    "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND tlg_binding.point_id_tlg IS NULL";
+    "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND tlg_binding.point_id_tlg IS NULL AND "
+    "      tlg_trips.scd<:arx_date";
+  PointsQry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
   PointsQry.Execute();
   for(;!PointsQry.Eof;PointsQry.Next())
   {
@@ -776,12 +778,17 @@ void arx_daily(TDateTime utcdate)
   TQuery TlgQry(&OraSession);
   TlgQry.Clear();
   TlgQry.SQLText=
-    "SELECT id "
+    "SELECT id FROM "
+    "  (SELECT DISTINCT id "
+    "   FROM tlgs_in "
+    "   WHERE time_receive<:arx_date) "
+    "WHERE NOT EXISTS(SELECT * FROM tlg_source WHERE tlg_source.tlg_id=id) ";
+ /*   "SELECT id "
     "FROM tlgs_in "
     "WHERE time_parse IS NOT NULL AND "
     "      NOT EXISTS(SELECT * FROM tlg_source WHERE tlg_source.tlg_id=tlgs_in.id) "
     "GROUP BY id "
-    "HAVING MAX(time_parse)<:arx_date";
+    "HAVING MAX(time_parse)<:arx_date";*/
   TlgQry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
 
   Qry.Clear();
@@ -886,7 +893,7 @@ void arx_daily(TDateTime utcdate)
     "BEGIN "
     "  arch.tlgs_files_etc(:arx_date); "
     "END;";
-  Qry.CreateVariable("arx_date",otDate,utcdate-30); //30 дней
+  Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
   Qry.Execute();
   OraSession.Commit();
 
