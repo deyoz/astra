@@ -804,7 +804,7 @@ void showBasicInfo(void)
       //ATB
       devNode=NewTextChild(cuteNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -813,7 +813,7 @@ void showBasicInfo(void)
       //BTP
       devNode=NewTextChild(cuteNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
-      NewTextChild(paramNode,"pr_lat",1);
+      NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)false);
@@ -873,90 +873,6 @@ void showBasicInfo(void)
         if (!Qry.FieldIsNULL("subparam_name"))
           NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
       };
-
-
-
-
-     /* operNode=NewTextChild(cuteNode,"PRINT_BP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","ATB");
-      NewTextChild(paramNode,"dev_model","90");
-      NewTextChild(paramNode,"smode","S");
-      NewTextChild(paramNode,"multisession",(int)true);
-      timeoutNode=NewTextChild(paramNode,"timeouts");
-      NewTextChild(timeoutNode,"unload_pectab",2000);
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","ATB");
-      NewTextChild(paramNode,"pr_lat",0);
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","ATB");
-
-      operNode=NewTextChild(cuteNode,"PRINT_BT");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","BTP");
-      NewTextChild(paramNode,"dev_model","91");
-      NewTextChild(paramNode,"smode","S");
-      NewTextChild(paramNode,"logonum","01");
-      NewTextChild(paramNode,"multisession",(int)true);
-      timeoutNode=NewTextChild(paramNode,"timeouts");
-      NewTextChild(timeoutNode,"unload_pectab",2000);
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","BTP");
-      NewTextChild(paramNode,"pr_lat",0);
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","BTP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_ARCH");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_FLT");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_DISP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"PRINT_TLG");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","TEXT");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","TEXT");
-      NewTextChild(paramNode,"encoding","CP866");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","DCP");
-
-      operNode=NewTextChild(cuteNode,"SCAN_BP");
-      paramNode=NewTextChild(operNode,"pool_params");
-      NewTextChild(paramNode,"type","SCAN1");
-      paramNode=NewTextChild(operNode,"fmt_params");
-      NewTextChild(paramNode,"type","SCAN1");
-      NewTextChild(paramNode,"prefix","31");
-      paramNode=NewTextChild(operNode,"sess_params");
-      NewTextChild(paramNode,"type","CUTE");
-      NewTextChild(paramNode,"addr","LSR");*/
     };
   };
   node = NewTextChild( resNode, "screen" );
