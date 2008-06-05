@@ -69,6 +69,24 @@ void SaveTlgOutPartTST( TTlgOutPartInfo &info )
   info.num++;
 };
 
+string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
+{
+    string result = ElemIdToElem(type, id, pr_lat);
+    if(pr_lat && !is_lat(result)) {
+        string code_name;
+        switch(type)
+        {
+            case etClsGrp:
+                code_name = "класса";
+                break;
+            default:
+                throw Exception("Unsupported int elem type %d", type);
+        throw UserException("Не найден латинский код " + code_name + " '" + result + "'");
+        }
+    }
+    return result;
+}
+
 string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
 {
     if(!pr_lat) return id;
@@ -1399,7 +1417,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
                 << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
+                << TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, true); //всегда на латинице - так надо
             body.push_back(line.str());
             iv->PaxListToTlg(info, body);
         }
@@ -1415,7 +1433,8 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             part_begin = *iv;
         int pax_len = 0;
         if(iv->find('1') == 0) {
-            for(vector<string>::iterator j = iv; j != body.end() and j->find('1') != 0; j++) {
+            pax_len = iv->size() + br.size();
+            for(vector<string>::iterator j = iv + 1; j != body.end() and j->find('1') != 0; j++) {
                 pax_len += j->size() + br.size();
             }
         } else
