@@ -9,7 +9,7 @@
 #include <ctype.h>
 #define NICKNAME "SYSTEM"
 #define NICKTRACE SYSTEM_TRACE
-#include "setup.h"
+#include "edilib/edi_loading.h"
 #include "test.h"
 
 int LocalIsNosir=0;
@@ -23,7 +23,7 @@ struct {
   char *description;
 } obrnosirnick []={
   {"-test",          nosir_test,           "Sample of 'obrzap -nosir' usage - printing all params" },
-  {"-ediinsert",     nosir_EdiInsert,      "loading edifact templates"},
+  {"-ediinsert",     edi_load_messages_main,      "loading edifact templates"},
 };
 
 int nosir_test(int argc,char **argv)
