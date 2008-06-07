@@ -30,7 +30,7 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-enum TSQLTYPE { sql_date, sql_number, sql_char };
+enum TSQLTYPE { sql_date, sql_NUMERIC, sql_char };
 
 enum TModify { sppnochange, sppinsert, sppupdate, sppdelete };
 
@@ -40,7 +40,7 @@ const string spp__a_dbf_fields =
 "PNR CHAR(7),"
 "PNRS CHAR(7),"
 "PR CHAR(3),"
-"AR NUMBER(10),"
+"AR NUMERIC(10,0),"
 "VRD CHAR(3),"
 "VDV CHAR(3),"
 "KUG CHAR(3),"
@@ -49,8 +49,8 @@ const string spp__a_dbf_fields =
 "DR CHAR(1),"
 "LR CHAR(3),"
 "KR CHAR(3),"
-"RAS NUMBER(5),"
-"TOR NUMBER(1),"
+"RAS NUMERIC(5,0),"
+"TOR NUMERIC(1,0),"
 "TVC CHAR(4),"
 "VLD CHAR(3),"
 "BNP CHAR(5),"
@@ -68,7 +68,7 @@ const string spp__a_dbf_fields =
 "OT CHAR(1),"
 "RPVSP CHAR(3),"
 "TKAO CHAR(4),"
-"PRIZ NUMBER(1),"
+"PRIZ NUMERIC(1,0),"
 "BLS CHAR(3),"
 "NRS CHAR(5),"
 "RDS CHAR(1),"
@@ -77,66 +77,66 @@ const string spp__a_dbf_fields =
 "MMIN CHAR(3),"
 "NMSP CHAR(3),"
 "NMSF CHAR(3),"
-"OST NUMBER(5),"
-"TRZ NUMBER(5),"
-"TRDZ NUMBER(5),"
-"FKZ NUMBER(5),"
-"OR1 NUMBER(1),"
-"OR2 NUMBER(1),"
-"KRE NUMBER(3),"
-"LKRE NUMBER(3),"
-"BOP NUMBER(1),"
-"PKZ NUMBER(5),"
-"LPC NUMBER(5),"
-"EKP NUMBER(1),"
+"OST NUMERIC(5,0),"
+"TRZ NUMERIC(5,0),"
+"TRDZ NUMERIC(5,0),"
+"FKZ NUMERIC(5,0),"
+"OR1 NUMERIC(1,0),"
+"OR2 NUMERIC(1,0),"
+"KRE NUMERIC(3,0),"
+"LKRE NUMERIC(3,0),"
+"BOP NUMERIC(1,0),"
+"PKZ NUMERIC(5,0),"
+"LPC NUMERIC(5,0),"
+"EKP NUMERIC(1,0),"
 "NSOP CHAR(1),"
-"BP NUMBER(3),"
-"MBCF NUMBER(6),"
-"CBCF NUMBER(4,2),"
-"RVC NUMBER(4,2),"
-"TST NUMBER(4),"
-"TVZ NUMBER(5),"
-"TRS NUMBER(5),"
-"MVZD NUMBER(6),"
-"FZAG NUMBER(5),"
+"BP NUMERIC(3,0),"
+"MBCF NUMERIC(6,0),"
+"CBCF NUMERIC(4,2),"
+"RVC NUMERIC(4,2),"
+"TST NUMERIC(4,0),"
+"TVZ NUMERIC(5,0),"
+"TRS NUMERIC(5,0),"
+"MVZD NUMERIC(6,0),"
+"FZAG NUMERIC(5,0),"
 "S1 CHAR(3),"
-"S2 NUMBER(4),"
-"S3 NUMBER(4),"
+"S2 NUMERIC(4,0),"
+"S3 NUMERIC(4,0),"
 "S4 CHAR(3),"
 "S5 CHAR(3),"
-"S6 NUMBER(4),"
+"S6 NUMERIC(4,0),"
 "S7 CHAR(3),"
-"S8 NUMBER(4),"
-"S10 NUMBER(4),"
-"KUR NUMBER(2),"
-"S2R NUMBER(4),"
-"S6R NUMBER(4),"
-"T2 NUMBER(3),"
-"T3 NUMBER(3),"
-"T4 NUMBER(3),"
-"T6 NUMBER(5),"
-"T7 NUMBER(5),"
-"T9 NUMBER(5),"
-"T11 NUMBER(5),"
-"F2 NUMBER(3),"
-"F3 NUMBER(3),"
-"F4 NUMBER(3),"
-"F6 NUMBER(5),"
-"F7 NUMBER(5),"
-"F8 NUMBER(5),"
-"F9 NUMBER(5),"
-"F11 NUMBER(5),"
-"TO NUMBER(6),"
-"TO1 NUMBER(6),"
-"TO2 NUMBER(6),"
-"TO3 NUMBER(6),"
-"TO4 NUMBER(6),"
-"TO5 NUMBER(6),"
-"FKZG NUMBER(6),"
-"IZG NUMBER(6),"
-"ZGO NUMBER(6),"
-"ORVE NUMBER(3),"
-"C1T NUMBER(4)";
+"S8 NUMERIC(4,0),"
+"S10 NUMERIC(4,0),"
+"KUR NUMERIC(2,0),"
+"S2R NUMERIC(4,0),"
+"S6R NUMERIC(4,0),"
+"T2 NUMERIC(3,0),"
+"T3 NUMERIC(3,0),"
+"T4 NUMERIC(3,0),"
+"T6 NUMERIC(5,0),"
+"T7 NUMERIC(5,0),"
+"T9 NUMERIC(5,0),"
+"T11 NUMERIC(5,0),"
+"F2 NUMERIC(3,0),"
+"F3 NUMERIC(3,0),"
+"F4 NUMERIC(3,0),"
+"F6 NUMERIC(5,0),"
+"F7 NUMERIC(5,0),"
+"F8 NUMERIC(5,0),"
+"F9 NUMERIC(5,0),"
+"F11 NUMERIC(5,0),"
+"\"TO\" NUMERIC(6,0),"
+"TO1 NUMERIC(6,0),"
+"TO2 NUMERIC(6,0),"
+"TO3 NUMERIC(6,0),"
+"TO4 NUMERIC(6,0),"
+"TO5 NUMERIC(6,0),"
+"FKZG NUMERIC(6,0),"
+"IZG NUMERIC(6,0),"
+"ZGO NUMERIC(6,0),"
+"ORVE NUMERIC(3,0),"
+"C1T NUMERIC(4,0)";
 
 const string spp__d_dbf_fields =
 "AA CHAR(2),"
@@ -144,7 +144,7 @@ const string spp__d_dbf_fields =
 "PNR CHAR(7),"
 "PNRS CHAR(7),"
 "PR CHAR(3),"
-"AR NUMBER(10),"
+"AR NUMERIC(10,0),"
 "VRD CHAR(3),"
 "VDV CHAR(3),"
 "KUG CHAR(3),"
@@ -153,8 +153,8 @@ const string spp__d_dbf_fields =
 "DR CHAR(1),"
 "LR CHAR(3),"
 "KR CHAR(3),"
-"RAS NUMBER(5),"
-"TOR NUMBER(1),"
+"RAS NUMERIC(5,0),"
+"TOR NUMERIC(1,0),"
 "TVC CHAR(4),"
 "VLD CHAR(3),"
 "BNP CHAR(5),"
@@ -172,7 +172,7 @@ const string spp__d_dbf_fields =
 "OT CHAR(1),"
 "RPVSP CHAR(3),"
 "TKAO CHAR(4),"
-"PRIZ NUMBER(1),"
+"PRIZ NUMERIC(1,0),"
 "BLS CHAR(3),"
 "NRS CHAR(5),"
 "RDS CHAR(1),"
@@ -181,71 +181,71 @@ const string spp__d_dbf_fields =
 "MMIN CHAR(3),"
 "NMSP CHAR(3),"
 "NMSF CHAR(3),"
-"OST NUMBER(5),"
-"TRZ NUMBER(5),"
-"TRDZ NUMBER(5),"
-"FKZ NUMBER(5),"
-"OR1 NUMBER(1),"
-"OR2 NUMBER(1),"
-"KRE NUMBER(3),"
-"LKRE NUMBER(3),"
-"BOP NUMBER(1),"
-"PKZ NUMBER(5),"
-"LPC NUMBER(5),"
-"EKP NUMBER(1),"
+"OST NUMERIC(5,0),"
+"TRZ NUMERIC(5,0),"
+"TRDZ NUMERIC(5,0),"
+"FKZ NUMERIC(5,0),"
+"OR1 NUMERIC(1,0),"
+"OR2 NUMERIC(1,0),"
+"KRE NUMERIC(3,0),"
+"LKRE NUMERIC(3,0),"
+"BOP NUMERIC(1,0),"
+"PKZ NUMERIC(5,0),"
+"LPC NUMERIC(5,0),"
+"EKP NUMERIC(1,0),"
 "NSOP CHAR(1),"
-"BP NUMBER(3),"
-"MBCF NUMBER(6),"
-"CBCF NUMBER(4,2),"
-"RVC NUMBER(4,2),"
-"TST NUMBER(4),"
-"TVZ NUMBER(5),"
-"TRS NUMBER(5),"
-"MVZD NUMBER(6),"
-"FZAG NUMBER(5),"
+"BP NUMERIC(3,0),"
+"MBCF NUMERIC(6,0),"
+"CBCF NUMERIC(4,2),"
+"RVC NUMERIC(4,2),"
+"TST NUMERIC(4,0),"
+"TVZ NUMERIC(5,0),"
+"TRS NUMERIC(5,0),"
+"MVZD NUMERIC(6,0),"
+"FZAG NUMERIC(5,0),"
 "S1 CHAR(3),"
-"S2 NUMBER(4),"
-"S3 NUMBER(4),"
+"S2 NUMERIC(4,0),"
+"S3 NUMERIC(4,0),"
 "S4 CHAR(3),"
 "S5 CHAR(3),"
-"S6 NUMBER(4),"
+"S6 NUMERIC(4,0),"
 "S7 CHAR(3),"
-"S8 NUMBER(4),"
-"S10 NUMBER(4),"
-"KUR NUMBER(2),"
-"S2R NUMBER(4),"
-"S6R NUMBER(4),"
-"T2 NUMBER(3),"
-"T3 NUMBER(3),"
-"T4 NUMBER(3),"
-"T6 NUMBER(5),"
-"T7 NUMBER(5),"
-"T8 NUMBER(4),"
-"T9 NUMBER(5),"
-"T11 NUMBER(5),"
-"F2 NUMBER(3),"
-"F3 NUMBER(3),"
-"F4 NUMBER(3),"
-"F6 NUMBER(5),"
-"F7 NUMBER(5),"
-"F8 NUMBER(5),"
-"F9 NUMBER(5),"
-"F11 NUMBER(5),"
-"TO NUMBER(6),"
-"TO1 NUMBER(6),"
-"TO2 NUMBER(6),"
-"TO3 NUMBER(6),"
-"TO4 NUMBER(6),"
-"TO5 NUMBER(6),"
-"FKZG NUMBER(6),"
-"IZG NUMBER(6),"
-"ZGO NUMBER(6),"
-"ORVE NUMBER(3),"
-"C1T NUMBER(4)";
+"S8 NUMERIC(4,0),"
+"S10 NUMERIC(4,0),"
+"KUR NUMERIC(2,0),"
+"S2R NUMERIC(4,0),"
+"S6R NUMERIC(4,0),"
+"T2 NUMERIC(3,0),"
+"T3 NUMERIC(3,0),"
+"T4 NUMERIC(3,0),"
+"T6 NUMERIC(5,0),"
+"T7 NUMERIC(5,0),"
+"T8 NUMERIC(4,0),"
+"T9 NUMERIC(5,0),"
+"T11 NUMERIC(5,0),"
+"F2 NUMERIC(3,0),"
+"F3 NUMERIC(3,0),"
+"F4 NUMERIC(3,0),"
+"F6 NUMERIC(5,0),"
+"F7 NUMERIC(5,0),"
+"F8 NUMERIC(5,0),"
+"F9 NUMERIC(5,0),"
+"F11 NUMERIC(5,0),"
+"\"TO\" NUMERIC(6,0),"
+"TO1 NUMERIC(6,0),"
+"TO2 NUMERIC(6,0),"
+"TO3 NUMERIC(6,0),"
+"TO4 NUMERIC(6,0),"
+"TO5 NUMERIC(6,0),"
+"FKZG NUMERIC(6,0),"
+"IZG NUMERIC(6,0),"
+"ZGO NUMERIC(6,0),"
+"ORVE NUMERIC(3,0),"
+"C1T NUMERIC(4,0)";
 
 const string spp__ak_dbf_fields =
 "PER CHAR(7),"
-"AR NUMBER(4),"
+"AR NUMERIC(4,0),"
 "PR CHAR(3),"
 "BL CHAR(3),"
 "PNR CHAR(7),"
@@ -259,53 +259,54 @@ const string spp__ak_dbf_fields =
 "TKZ CHAR(4),"
 "RPVSZ CHAR(3),"
 "FDPZ DATE,"
-"FVPZ NUMBER(4),"
+"FVPZ NUMERIC(4,0),"
 "RDVZ DATE,"
-"RVVZ NUMBER(4),"
+"RVVZ NUMERIC(4,0),"
 "FDVZ DATE,"
-"FVVZ NUMBER(4),"
-"PZP NUMBER(4),"
-"PVV NUMBER(4),"
+"FVVZ NUMERIC(4,0),"
+"PZP NUMERIC(4,0),"
+"PVV NUMERIC(4,0),"
 "PDV DATE,"
 "RDV DATE,"
-"RVV NUMBER(4),"
+"RVV NUMERIC(4,0),"
 "PRZR CHAR(3),"
 "FDV DATE,"
-"FVV NUMBER(4),"
+"FVV NUMERIC(4,0),"
 "PRZK CHAR(3),"
-"VPOL NUMBER(4),"
-"TP NUMBER(5),"
+"VPOL NUMERIC(4,0),"
+"TP NUMERIC(5,0),"
 "DPP DATE,"
-"VPP NUMBER(4),"
-"VPP1 NUMBER(4),"
+"VPP NUMERIC(4,0),"
+"VPP1 NUMERIC(4,0),"
 "DPR DATE,"
-"VPR NUMBER(4),"
+"VPR NUMERIC(4,0),"
 "DPF DATE,"
-"VPF NUMBER(4),"
-"VST NUMBER(4),"
-"TPS NUMBER(3),"
-"TRRB NUMBER(3),"
-"TRM NUMBER(2),"
-"TRUK NUMBER(4),"
-"TBAG NUMBER(5),"
-"TGRU NUMBER(5),"
-"TPC NUMBER(5),"
-"DPS NUMBER(3),"
-"DRB NUMBER(3),"
-"DRM NUMBER(3),"
-"RUK NUMBER(4),"
-"BAG NUMBER(5),"
-"PBAG NUMBER(4),"
-"GRU NUMBER(5),"
-"PC NUMBER(5),"
-"PB NUMBER(3),"
-"TRB NUMBER(3),"
-"PUR NUMBER(2),"
-"TAR_P NUMBER(5) ";
+"VPF NUMERIC(4,0),"
+"VST NUMERIC(4,0),"
+"TPS NUMERIC(3,0),"
+"TRRB NUMERIC(3,0),"
+"TRM NUMERIC(2,0),"
+"TRUK NUMERIC(4,0),"
+"TBAG NUMERIC(5,0),"
+"TGRU NUMERIC(5,0),"
+"TPC NUMERIC(5,0),"
+"DPS NUMERIC(3,0),"
+"DRB NUMERIC(3,0),"
+"DRM NUMERIC(3,0),"
+"RUK NUMERIC(4,0),"
+"BAG NUMERIC(5,0),"
+"PBAG NUMERIC(4,0),"
+"GRU NUMERIC(5,0),"
+"PC NUMERIC(5,0),"
+"PB NUMERIC(3,0),"
+"TRB NUMERIC(3,0),"
+"PUR NUMERIC(2,0),"
+"TAR_P NUMERIC(5,0),"
+"SPUR CHAR(2)";
 
 const string spp__dk_dbf_fields =
 "PER CHAR(7),"
-"AR NUMBER(4),"
+"AR NUMERIC(4,0),"
 "PR CHAR(3),"
 "BL CHAR(3),"
 "PNR CHAR(7),"
@@ -319,50 +320,51 @@ const string spp__dk_dbf_fields =
 "TKZ CHAR(4),"
 "RPVSZ CHAR(3),"
 "FDPZ DATE,"
-"FVPZ NUMBER(4),"
+"FVPZ NUMERIC(4,0),"
 "RDVZ DATE,"
-"RVVZ NUMBER(4),"
+"RVVZ NUMERIC(4,0),"
 "FDVZ DATE,"
-"FVVZ NUMBER(4),"
-"PZP NUMBER(4),"
-"PVV NUMBER(4),"
+"FVVZ NUMERIC(4,0),"
+"PZP NUMERIC(4,0),"
+"PVV NUMERIC(4,0),"
 "PDV DATE,"
 "RDV DATE,"
-"RVV NUMBER(4),"
+"RVV NUMERIC(4,0),"
 "PRZR CHAR(3),"
 "FDV DATE,"
-"FVV NUMBER(4),"
+"FVV NUMERIC(4,0),"
 "PRZK CHAR(3),"
-"VPOL NUMBER(4),"
-"TP NUMBER(5),"
+"VPOL NUMERIC(4,0),"
+"TP NUMERIC(5,0),"
 "DPP DATE,"
-"VPP NUMBER(4),"
-"VPP1 NUMBER(4),"
+"VPP NUMERIC(4,0),"
+"VPP1 NUMERIC(4,0),"
 "DPR DATE,"
-"VPR NUMBER(4),"
+"VPR NUMERIC(4,0),"
 "DPF DATE,"
-"VPF NUMBER(4),"
-"VST NUMBER(4),"
-"TPS NUMBER(3),"
-"TRRB NUMBER(3),"
-"TRM NUMBER(2),"
-"TRUK NUMBER(4),"
-"TBAG NUMBER(5),"
-"TPBAG NUMBER(4),"
-"TGRU NUMBER(5),"
-"TPC NUMBER(5),"
-"DPS NUMBER(3),"
-"DRB NUMBER(3),"
-"DRM NUMBER(3),"
-"RUK NUMBER(4),"
-"BAG NUMBER(5),"
-"PBAG NUMBER(5),"
-"GRU NUMBER(5),"
-"PC NUMBER(5),"
-"PB NUMBER(3),"
-"TRB NUMBER(5),"
-"PUR NUMBER(2),"
-"TAR_P NUMBER(5)";
+"VPF NUMERIC(4,0),"
+"VST NUMERIC(4,0),"
+"TPS NUMERIC(3,0),"
+"TRRB NUMERIC(3,0),"
+"TRM NUMERIC(2,0),"
+"TRUK NUMERIC(4,0),"
+"TBAG NUMERIC(5,0),"
+"TPBAG NUMERIC(4,0),"
+"TGRU NUMERIC(5,0),"
+"TPC NUMERIC(5,0),"
+"DPS NUMERIC(3,0),"
+"DRB NUMERIC(3,0),"
+"DRM NUMERIC(3,0),"
+"RUK NUMERIC(4,0),"
+"BAG NUMERIC(5,0),"
+"PBAG NUMERIC(5,0),"
+"GRU NUMERIC(5,0),"
+"PC NUMERIC(5,0),"
+"PB NUMERIC(3,0),"
+"TRB NUMERIC(5,0),"
+"PUR NUMERIC(2,0),"
+"TAR_P NUMERIC(5,0),"
+"SPUR CHAR(2)";
 
 inline string GetMinutes( TDateTime d1, TDateTime d2 )
 {
@@ -407,45 +409,56 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
 	xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );	
 	try {
 	  xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
-  //  file_data = string("DELETE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
-  //  file_data += VALUE_END_SQL;
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A(";
-    sql_str += spp__a_dbf_fields + ")";
+    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
     xmlNodePtr sqlNode = NewTextChild( queryNode, "sql", sql_str );  
-  //  file_data += string("DELETE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
-  //  file_data += VALUE_END_SQL;
-	  queryNode = NewTextChild( doc->children, "query" );
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      
+    queryNode = NewTextChild( doc->children, "query" );
+    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A(";
+    sql_str += spp__a_dbf_fields + ") IN DATABASE";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
+
+	  queryNode = NewTextChild( doc->children, "query" );    
+    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      
+    queryNode = NewTextChild( doc->children, "query" );
     sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D(";
-    sql_str += spp__d_dbf_fields + ")";
+    sql_str += spp__d_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );    
-  //  file_data += string("DELETE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
-  //  file_data += VALUE_END_SQL;
+
+	  queryNode = NewTextChild( doc->children, "query" );    
+    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );          
     queryNode = NewTextChild( doc->children, "query" );
     sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(";
-    sql_str += spp__ak_dbf_fields + ")";
+    sql_str += spp__ak_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );      
 	  queryNode = NewTextChild( doc->children, "query" );  
     sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK ON ";
-    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR+STR(PUR,2))";
+    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR ASC)";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );      
 	  queryNode = NewTextChild( doc->children, "query" );    
     sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK1 ON ";
-    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR+STR(PUR,2))"; //DESCEND(STR(PUR,2))
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
-	  queryNode = NewTextChild( doc->children, "query" );      
-  //  file_data += string("DELETE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
-  //  file_data += VALUE_END_SQL;
+    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR DESC)"; 
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );      	  
+
+	  queryNode = NewTextChild( doc->children, "query" );    
+    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      	  
+    queryNode = NewTextChild( doc->children, "query" );
     sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(";
-    sql_str += spp__dk_dbf_fields + ")";
+    sql_str += spp__dk_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );      
 	  queryNode = NewTextChild( doc->children, "query" );      
     sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "DK ON ";
-    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(PNR+STR(PUR,2))";
+    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(PNR ASC,SPUR ASC)";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );      
 	  queryNode = NewTextChild( doc->children, "query" );      
     sql_str = "INSERT INTO SPPCIKL(DADP,DFSPP,VFSPP,DSPP) VALUES( '" +
-               reqInfo->desk.city + "',{d'" + DateTimeToStr( reqInfo->desk.time, "yyyy.mm.dd" ) +
-               "'},'" + DateTimeToStr( reqInfo->desk.time, "hh:nn" ) + "',{d'" + DateTimeToStr( sppdate, "yyyy.mm.dd" ) + "'})";
+               reqInfo->desk.city + "',{d'" + DateTimeToStr( reqInfo->desk.time, "yyyy-mm-dd" ) +
+               "'},'" + DateTimeToStr( reqInfo->desk.time, "hh:nn" ) + "',{d'" + DateTimeToStr( sppdate, "yyyy-mm-dd" ) + "'})";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );      
 	  if ( doc ) {
 	  	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
@@ -510,7 +523,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     if ( tr->triptype_in == "м" )
     	NewTextChild( NodeA, "VDV", "МЕЖ" );
     else
-      NewTextChild( NodeA, "VDV", "ПАСС" );    
+      NewTextChild( NodeA, "VDV", "ПАС" );    
     int k = 0;
     int prior_point_id = ASTRA::NoExists;
     for ( TSOPPDests::iterator d=tr->places_in.begin(); d!= tr->places_in.end(); d++,k++ ) {
@@ -613,7 +626,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     if ( tr->triptype_out == "м" )
     	NewTextChild( NodeD, "VDV", "МЕЖ" );
     else
-    	NewTextChild( NodeD, "VDV", "ПАСС" );
+    	NewTextChild( NodeD, "VDV", "ПАС" );
     // теперь создание записей по плечам        
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
@@ -765,8 +778,10 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   
   if ( pr_delete ) {
   	// delete прилет
+  	string deldays = NodeAsString( "DN", nodeP );  	
+  	deldays.erase(0, 8);
    	sql_str =
-      string("DELETE FROM SPP") + day + dbf_type +
+      string("DELETE FROM SPP") + deldays + dbf_type +
       " WHERE PNR=:PNR AND DN=:DN";    	  	
  	  queryNode = NewTextChild( sqldoc->children, "query" );
  	  sqlNode = NewTextChild( queryNode, "sql", sql_str );
@@ -847,8 +862,10 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     }    
     if ( pr_delete ) {
     	// delete прилет
+    	string deldays = NodeAsString( "DPP", *nodePK );  	
+    	deldays.erase(0, 8);
      	sql_str =
-        string("DELETE FROM SPP") + day + dbf_type +
+        string("DELETE FROM SPP") + deldays + dbf_type +
         " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";    	  	
  	    queryNode = NewTextChild( sqldoc->children, "query" );
  	    sqlNode = NewTextChild( queryNode, "sql", sql_str );
@@ -860,15 +877,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     if ( pr_insert ) {
       sql_str = 
         string("INSERT INTO SPP") + day + dbf_type +
-        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,PR,PC,TPC,GRU,TGRU) "
-        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:PR,:PC,:TPC,:GRU,:TGRU)";   	
+        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR,PC,TPC,GRU,TGRU) "
+        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:PC,:TPC,:GRU,:TGRU)";   	
     }
     if ( pr_update ) {
       sql_str =
         string("UPDATE SPP") + day + dbf_type +
         " SET "
         "AV=:AV,AP=:AP,DPP=:DPP,VPP=:VPP,DPR=:DPR,VPR=:VPR,DPF=:DPF,VPF=:VPF,PDV=:PDV,PVV=:PVV,RDV=:RDV,"
-        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,PR=:PR,PC=:PC,TPC=:TPC,GRU=:GRU,TGRU=:TGRU "
+        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR,PC=:PC,TPC=:TPC,GRU=:GRU,TGRU=:TGRU "
         " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";    	  		        
     }
     if ( pr_insert || pr_update ) {
@@ -879,11 +896,13 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodePK ), DBF_TYPE_CHAR );
  	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );    	
  	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER ); 	    
+ 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_CHAR ); 	    
  	    }
  	    else {
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodeNK ), DBF_TYPE_CHAR );
  	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );    	 	
  	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_NUMBER ); 	        	
+ 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_CHAR ); 	        	
  	    }
       createParam( paramsNode, "AV", NodeAsString( "AV", *nodeNK ), DBF_TYPE_CHAR );
       createParam( paramsNode, "AP", NodeAsString( "AP", *nodeNK ), DBF_TYPE_CHAR );
@@ -897,7 +916,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
      	createParam( paramsNode, "PVV", NodeAsString( "PVV", *nodeNK ), DBF_TYPE_NUMBER );
      	createParam( paramsNode, "RDV", NodeAsString( "RDV", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "RVV", NodeAsString( "RVV", *nodeNK ), DBF_TYPE_NUMBER );
-     	createParam( paramsNode, "FDV", NodeAsString( "FDV", *nodeNK ), DBF_TYPE_DATE );
+     	//!!!createParam( paramsNode, "FDV", NodeAsString( "FDV", *nodeNK ), DBF_TYPE_DATE );
+     	createParam( paramsNode, "FDV", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "FVV", NodeAsString( "FVV", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "PR", NodeAsString( "PR", *nodeNK ), DBF_TYPE_CHAR );
       createParam( paramsNode, "PC", NodeAsString( "PC", *nodeNK ), DBF_TYPE_NUMBER );
@@ -913,12 +933,44 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   } // end while 
 }
 
+void put_string_into_snapshot( int point_id, string type, string point_addr, xmlDocPtr old_doc, xmlDocPtr doc )
+{
+	TQuery Qry( &OraSession );
+ 	Qry.SQLText =
+ 	  "DELETE snapshot_points "
+ 	  " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "file_type", otString, type );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.Execute();
+ 	if ( old_doc && !doc )
+ 		return;
+ 	Qry.Clear();
+  Qry.SQLText =
+    "INSERT INTO snapshot_points(point_id,file_type,point_addr,record,page_no ) "
+    "                VALUES(:point_id,:file_type,:point_addr,:record,:page_no) ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
+  Qry.CreateVariable( "point_addr", otString, point_addr );
+  Qry.DeclareVariable( "record", otString );
+  Qry.DeclareVariable( "page_no", otInteger );
+  string sres = XMLTreeToText( doc );
+  int i=0;
+  while ( !sres.empty() ) {
+  	Qry.SetVariable( "record", sres.substr( 0, 100 ) );
+  	Qry.SetVariable( "page_no", i );
+  	Qry.Execute();
+  	i++;
+  	sres.erase( 0, 100 );
+  }	
+}
+
 bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 {
 	ProgTrace( TRACE5, "CEK point_id=%d", point_id );
 	TReqInfo *reqInfo = TReqInfo::Instance();
-	reqInfo->Initialize("ЧЛБ");
-  reqInfo->user.sets.time = ustTimeUTC;
+	reqInfo->user.sets.time = ustTimeLocalDesk;
+	reqInfo->Initialize("ЧЛБ");  
   reqInfo->user.user_type = utAirport;
   reqInfo->user.access.airps.push_back( "ЧЛБ" );
   reqInfo->user.access.airps_permit = true;
@@ -926,14 +978,13 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string file_type = FILE_SPPCEK_TYPE;
 	string record;
 	TQuery Qry( &OraSession );
-	Qry.Clear();
-	Qry.SQLText = "SELECT system.UTCSYSDATE d FROM dual";
- 	Qry.Execute();
- 	TDateTime LocalNow =  UTCToClient( Qry.FieldAsDateTime( "d" ), reqInfo->desk.tz_region );
+ 	TDateTime UTCNow = NowUTC();
+ 	TDateTime LocalNow =  UTCToClient( UTCNow, reqInfo->desk.tz_region );
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
-	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );
+	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );	
 	}
+	
 	TFileData fd;
   TSOPPTrips trips;
   createSOPPTrip( point_id, trips );
@@ -945,7 +996,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	tst();
   	bool res;
   	try {
-  		tst();
+  		ProgTrace( TRACE5, "scd_out=%f, scd_in=%f", tr->scd_out, tr->scd_in );
   	  res = FilterFlightDate( *tr, LocalNow, LocalNow + CREATE_SPP_DAYS(), true, errcity, false ); // фильтр по датам прилета-вылета рейса
   	}
   	catch(...) {
@@ -965,14 +1016,18 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	 " WHERE points.point_id=:point_id AND "
 	 "       points.point_id=snapshot_points.point_id AND "
 	 "       snapshot_points.point_addr=:point_addr AND "
-	 "       snapshot_points.file_type=:file_type ";
+	 "       snapshot_points.file_type=:file_type "
+	 " ORDER BY page_no";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "file_type", otString, file_type );
 	Qry.Execute();
-	if ( !Qry.Eof ) {
-		record = Qry.FieldAsString( "record" );
+	while ( !Qry.Eof ) {
+		record += Qry.FieldAsString( "record" );
+		Qry.Next();
 	}    	
+	ProgTrace( TRACE5, "record=%s", record.c_str() );
+	ProgTrace( TRACE5, "doc=%s", XMLTreeToText( doc ).c_str() );
   if ( XMLTreeToText( doc ) == record )
   	return fds.size();
   // есть изменения
@@ -986,8 +1041,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   }
     
   xmlDocPtr sqldoc = 0;
-  if ( tr->scd_in > NoExists )
-    createDBF( sqldoc, old_doc, doc, DateTimeToStr( tr->scd_in, "dd" ), true ); // на прилет  
+  createDBF( sqldoc, old_doc, doc, DateTimeToStr( tr->scd_in, "dd" ), true ); // на прилет  
   if ( tr->scd_out > NoExists )  
     createDBF( sqldoc, old_doc, doc, DateTimeToStr( tr->scd_out, "dd" ), false ); // на вылет
   
@@ -1005,33 +1059,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	xmlFreeDoc( sqldoc );
   }
   //CREATE INSERT UPDATE DELETE Querys
-  Qry.Clear();
-  if ( !old_doc && doc ) { // новая запись
-    ProgTrace( TRACE5, "insert snapshot_points" );
-    Qry.SQLText =
-      "INSERT INTO snapshot_points(point_id,file_type,point_addr,record ) "
-      "                VALUES(:point_id,:file_type,:point_addr,:record) ";
-  }
-  else
-    if ( old_doc && doc ) {  // изменения
-    	ProgTrace( TRACE5, "update snapshot_points" );
-      Qry.SQLText =
-        "UPDATE snapshot_points SET record=:record "
-        " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr ";
-    }
-    else 
-    	if ( old_doc && !doc ) { // удаление
-      	ProgTrace( TRACE5, "delete snapshot_points" );
-      	Qry.SQLText =
-      	  "DELETE snapshot_points "
-      	  " WHERE point_id=:point_id AND file_type=:file_type AND point_addr=:point_addr AND :record=:record";
-      }
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-  Qry.CreateVariable( "point_addr", otString, point_addr );
- 	sres = XMLTreeToText( doc );
-  Qry.CreateVariable( "record", otString, sres );
-  Qry.Execute();
+  put_string_into_snapshot( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, doc );
   if ( doc )
   	xmlFreeDoc( doc );
   if ( old_doc )
@@ -1039,3 +1067,15 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	return !fds.empty();
 }
 
+/*
+drop table sppcikl
+create table sppcikl(
+DADP CHAR(3),
+DFSPP DATE,
+VFSPP CHAR(5),
+DSPP DATE,
+NSPPA CHAR(6),
+NSPPD CHAR(6),
+NSPPAK CHAR(7),
+NSPPDK CHAR(7) ) IN DATABASE
+*/
