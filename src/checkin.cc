@@ -2297,7 +2297,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       int class_grp=-1;
       for(;!PaxQry.Eof;PaxQry.Next())
       {
-        if (priority!=0&&!PaxQry.FieldIsNULL("subclass"))
+        if (!PaxQry.FieldIsNULL("subclass"))
         {
           Qry.Clear();
           Qry.SQLText=
