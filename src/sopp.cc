@@ -236,7 +236,6 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   TSOPPDests::iterator pd = dests.end();
   bool next_airp = false;
   for ( TSOPPDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
-  fd->point_num,id->point_num,first_point,id->first_point,fd->point_id);
   	
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
