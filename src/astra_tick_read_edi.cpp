@@ -79,10 +79,16 @@ date getIssueDate(EDI_REAL_MES_STRUCT *pMes)
 {
     date DateOfIssue;
     PushEdiPointG(pMes);
+
+    if(!GetNumSegment(pMes, "PTK"))
+    {
+        ResetEdiPointG(pMes);
+    }
+
     if(GetNumSegment(pMes, "PTK") ||
        SetEdiPointToSegGrG(pMes, SegGrElement(3,0)) )
     {
-	// Берем PTK либо с самого верха, либо пониже (под TIF)
+        // Берем PTK либо с самого верха, либо пониже (под TIF)
         SetEdiPointToSegmentG(pMes, SegmElement("PTK"), "INV_DATE_OF_ISSUE");
         DateOfIssue = GetDBFNameCast <date>
         (EdiCast::DateCast("%d%m%y","INV_DATE_OF_ISSUE"),
@@ -105,7 +111,12 @@ ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
     DateOfIssue=getIssueDate(pMes);
 
     PushEdiPointG(pMes);
-    SetEdiPointToSegmentG(pMes, "RCI",0, "INV_SYS_CONTROL");
+    if(!SetEdiPointToSegmentG(pMes, "RCI"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("RCI"), "INV_SYS_CONTROL");
+    }
+
     unsigned Num=GetNumComposite(pMes, "C330", "INV_SYS_CONTROL");
 
     if(/*Num>2 || */Num<1){
@@ -165,7 +176,11 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
     PushEdiPointG(pMes);
-    SetEdiPointToSegmentG(pMes, "ORG",0, "NEED_ORG");
+    if(!SetEdiPointToSegmentG(pMes, "ORG"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("ORG"), "NEED_ORG");
+    }
     PushEdiPointG(pMes);
 
     SetEdiPointToCompositeG(pMes, "C336", 0, "NEED_ORG");
