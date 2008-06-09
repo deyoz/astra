@@ -1197,7 +1197,11 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   craft, "
         "   bort, "
         "   park_out park, "
-        "   scd_out "
+        "   scd_out, "
+        "   airp_fmt, "
+        "   airline_fmt, "
+        "   suffix_fmt, "
+        "   craft_fmt "
         "from "
         "   points "
         "where "
@@ -1206,8 +1210,13 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
 
+    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
+    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
+    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
+    string suffix = Qry.FieldAsString("suffix");
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
@@ -1220,12 +1229,12 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            airlineRow.AsString("code", pr_lat) +
+            ElemIdToElem(etAirline, airline, airline_fmt) +
             IntToString(Qry.FieldAsInteger("flt_no")) +
-            Qry.FieldAsString("suffix")
+            ElemIdToElem(etSuffix, suffix, suffix_fmt)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", craft);
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -1836,7 +1845,11 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   craft, "
         "   bort, "
         "   park_out park, "
-        "   scd_out "
+        "   scd_out, "
+        "   airp_fmt, "
+        "   airline_fmt, "
+        "   suffix_fmt, "
+        "   craft_fmt "
         "from "
         "   points "
         "where "
@@ -1846,7 +1859,12 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunBM: variables fetch failed for point_id " + IntToString(point_id));
 
+    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
+    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
+    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+
     string airline = Qry.FieldAsString("airline");
+    string suffix = Qry.FieldAsString("suffix");
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
@@ -1861,12 +1879,12 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            airlineRow.AsString("code", pr_lat) +
+            ElemIdToElem(etAirline, airline, airline_fmt) +
             IntToString(Qry.FieldAsInteger("flt_no")) +
-            Qry.FieldAsString("suffix")
+            ElemIdToElem(etSuffix, suffix, suffix_fmt)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", craft);
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
