@@ -618,7 +618,11 @@ Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
                                       pMes, 9916,0, "INV_DATE");
         Time1 = GetDBNumCast  <time_duration>
                 (EdiCast::TimeCast("%H%M",  "INV_TIME"),
-                 pMes, 9918,0, "INV_TIME");
+                 pMes, 9918,0);
+        if(Time1.is_special())
+        {
+          open = true;
+        }
         PopEdiPoint_wdG(pMes);
     } else {
         open = true;
