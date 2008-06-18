@@ -1032,8 +1032,11 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	}    	
 	ProgTrace( TRACE5, "record=%s", record.c_str() );
 	ProgTrace( TRACE5, "doc=%s", XMLTreeToText( doc ).c_str() );
-  if ( XMLTreeToText( doc ) == record )
+  if ( XMLTreeToText( doc ) == record ) {
+  	tst();
   	return fds.size();
+  }
+  tst();
   // есть изменения
   if ( !record.empty() ) {
  		record.replace( record.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + "CP866" + "\"" );
@@ -1065,9 +1068,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   //CREATE INSERT UPDATE DELETE Querys
   tst();
   put_string_into_snapshot( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, doc );
-  tst();
+  ProgTrace( TRACE5, "doc=%p, old_doc=%p", doc, old_doc );
   if ( doc )
   	xmlFreeDoc( doc );
+  tst();
   if ( old_doc )
   	xmlFreeDoc( old_doc );  
   tst();	
