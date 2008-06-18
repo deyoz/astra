@@ -1076,7 +1076,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   tst();
   if ( old_doc ) {
   	ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
-  	//!!!xmlFreeDoc( old_doc );  
+  	xmlFreeDoc( old_doc );  
   }
   tst();	
 	return !fds.empty();
