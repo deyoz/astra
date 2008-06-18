@@ -1044,6 +1044,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
     ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
 	  if ( old_doc ) {
       xmlFree(const_cast<xmlChar *>(old_doc->encoding));
+      old_doc->encoding = 0;
       ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
       xml_decode_nodelist( old_doc->children );
       ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
