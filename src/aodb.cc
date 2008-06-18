@@ -1788,7 +1788,10 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       if ( !fl.invalid_term.empty() )
       	throw Exception( fl.invalid_term );
       QryLog.SetVariable( "rec_no", fl.rec_no );
-      QryLog.SetVariable( "record", linestr );
+      if ( linestr.empty() )
+      	QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
     	QryLog.SetVariable( "msg", "ok" );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtFlt ) );
       QryLog.Execute();
@@ -1798,7 +1801,10 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
       	QryLog.SetVariable( "rec_no", -1 );
       else
         QryLog.SetVariable( "rec_no", fl.rec_no );
-      QryLog.SetVariable( "record", linestr );
+      if ( linestr.empty() )
+      	QryLog.SetVariable( "record", "empty line!" );
+      else
+        QryLog.SetVariable( "record", linestr );
     	QryLog.SetVariable( "msg", e.what() );
     	QryLog.SetVariable( "type", EncodeEventType( ASTRA::evtProgError ) );
       QryLog.Execute();
@@ -1879,6 +1885,15 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	boarding = ( stages[ sOpenBoarding ].act > NoExists && stages[ sCloseBoarding ].act == NoExists );
 	record<<setw(1)<<checkin<<setw(1)<<boarding<<setw(1)<<Qry.FieldAsInteger( "overload_alarm" );
 	TQuery StationsQry( &OraSession );
+	// добавляется признак итогов.
+/*	StationsQry.SQLText =
+	 "SELECT  COUNT(*) c FROM trip_stations "
+	 " WHERE point_id=:point_id AND trip_stations.work_mode='П' AND start_time IS NOT NULL AND rownum<2";
+	StationsQry.CreateVariable( "point_id", otInteger, point_id );
+	StationsQry.Execute();
+	record<<setw(1)<<(int)!StationsQry.FieldIsNULL( "c" );*/
+	
+	StationsQry.Clear();
 	StationsQry.SQLText =
 	 "SELECT name, start_time FROM trip_stations, stations "
 	 " WHERE point_id=:point_id AND trip_stations.work_mode='Р' AND "

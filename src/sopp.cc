@@ -236,6 +236,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   TSOPPDests::iterator pd = dests.end();
   bool next_airp = false;
   for ( TSOPPDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
+  	
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
@@ -246,7 +247,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   		}
     }
     else
-      if ( fd->point_num > id->point_num && fd->first_point == first_point )
+      if ( fd->point_num > id->point_num && fd->first_point == first_point )      	
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
@@ -277,7 +278,6 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   trip.airp_fmt = id->airp_fmt;
   trip.city = id->city;
   trip.pr_del = id->pr_del;
-
   if ( !trip.places_out.empty() ) { // trip is takeoffing
     trip.airline_out = id->airline;
     trip.airline_out_fmt = id->airline_fmt;
@@ -757,7 +757,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     		DelaysQry.Next();
       }
     }
-
     dests.push_back( d );
     PointsQry.Next();
   } // end while !PointsQry.Eof
@@ -2490,16 +2489,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   /*!!! не только для нового */
 //  if ( move_id == NoExists ) {
   // задание параметров pr_tranzit, pr_reg, first_point
+  TSOPPDests::iterator pid=dests.end();
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-  	if ( id != dests.begin() ) {
-  		TSOPPDests::iterator p=id;
-  			p--;
-      id->pr_tranzit=( p->airline + IntToString( p->flt_no ) + p->suffix /*+ p->triptype ???*/ ==
-                       id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
-  	}
-  	else
+  	if ( id->pr_del == -1 ) continue;
+  	if( pid == dests.end() )
   		id->pr_tranzit = 0;
-
+  	else
+      id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
+                       id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
     id->pr_reg = ( id->scd_out > NoExists /*&& id->act_out == NoExists*/ &&
                    find( triptypes.begin(), triptypes.end(), id->triptype ) != triptypes.end() &&
                    !id->pr_del && id != dests.end() - 1 );
@@ -2514,6 +2511,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         id->pr_reg = 0;
       }
     }
+  	pid = id;	  	    
   }
 //  } //end move_id==NoExists
 
