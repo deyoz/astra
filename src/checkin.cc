@@ -851,17 +851,13 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (reqInfo->desk.city=="СУР"||
         reqInfo->desk.city=="КЗН"||
-        reqInfo->desk.city=="СХД")
+        reqInfo->desk.city=="СХД"||
+        reqInfo->desk.city=="НЖВ")
     {
       fmt.persCountFmt=1;
       fmt.infSeatsFmt=1;
     };
 
-  /*
-    airp from points where point_id=:point_dep
-  if airp == '' { fmt.persCountFtm=1
-  fmt.infSeatsFmt=1}
-  */
     GetInquiryInfo(grp,fmt,sum);
   };
 
@@ -1233,7 +1229,8 @@ bool CheckInInterface::CheckFltOverload(int point_id)
   TQuery Qry(&OraSession);
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.SQLText=
-    "SELECT scd_out,airp FROM points WHERE point_id=:point_id";
+    "SELECT scd_out,airp FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   bool prSummer=is_dst(Qry.FieldAsDateTime("scd_out"),
@@ -1527,7 +1524,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "SELECT airline,flt_no,airp,point_num, "
     "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points "
-    "WHERE point_id=:point_id AND airp=:airp AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+    "WHERE point_id=:point_id AND airp=:airp AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.CreateVariable("airp",otString,airp_dep);
   Qry.Execute();
@@ -3034,7 +3031,7 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
     "SELECT airline,flt_no,scd_out,airp AS airp_dep,airp_arv, "
     "       point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points,pax_grp "
-    "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id";
+    "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id AND points.pr_del>=0";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
   if (TrferQry.Eof) throw Exception("Passenger group not found (grp_id=%d)",grp_id);
@@ -3362,7 +3359,7 @@ void CheckInInterface::SaveBag(xmlNodePtr grpNode)
           "  vaircode airlines.aircode%TYPE; "
           "BEGIN "
           "  BEGIN "
-          "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id; "
+          "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id AND pr_del>=0; "
           "    SELECT aircode INTO vaircode FROM airlines WHERE code=vairline; "
           "  EXCEPTION "
           "    WHEN OTHERS THEN vaircode:=NULL; "
@@ -3953,7 +3950,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT airp, point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-    "FROM points WHERE point_id=:point_id";
+    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
