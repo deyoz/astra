@@ -632,12 +632,10 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
     	ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
       vector<Cargo>::iterator c=lug_out.vcargo.end();            	
-      tst();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
       NewTextChild( NodeDK, "AP", d->airp );
-      tst();
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
          расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
          фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -721,7 +719,6 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
  	  NewTextChild( NodeD, "F11", IntToString( mail_out ) );
  	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );    
 	}   	
-	tst();
 	return doc;  
 }
 
@@ -738,7 +735,6 @@ string GetXMLRow( xmlNodePtr node )
 
 void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const string &day, bool pr_land )
 {
-	tst();
   xmlNodePtr nodeP, nodeN;
   string sql_str;  
   xmlNodePtr paramsNode;
@@ -932,12 +928,10 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   	if ( nodeNK != nodesNK.end() )
   		nodeNK++;
   } // end while 
-  tst();
 }
 
 void put_string_into_snapshot( int point_id, string type, string point_addr, xmlDocPtr old_doc, xmlDocPtr doc )
 {
-	tst();
 	TQuery Qry( &OraSession );
  	Qry.SQLText =
  	  "DELETE snapshot_points "
@@ -966,7 +960,6 @@ void put_string_into_snapshot( int point_id, string type, string point_addr, xml
   	i++;
   	sres.erase( 0, 100 );
   }	
-  tst();
 }
 
 bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
@@ -997,7 +990,6 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   std::string errcity;
   for ( tr=trips.begin(); tr!=trips.end(); tr++ ) {
   	if ( tr->point_id != point_id ) continue;
-  	tst();
   	bool res;
   	try {
   		ProgTrace( TRACE5, "scd_out=%f, scd_in=%f", tr->scd_out, tr->scd_in );
@@ -1030,24 +1022,19 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 		record += Qry.FieldAsString( "record" );
 		Qry.Next();
 	}    	
-	ProgTrace( TRACE5, "record=%s", record.c_str() );
-	ProgTrace( TRACE5, "doc=%s", XMLTreeToText( doc ).c_str() );
+//	ProgTrace( TRACE5, "record=%s", record.c_str() );
+//	ProgTrace( TRACE5, "doc=%s", XMLTreeToText( doc ).c_str() );
   if ( XMLTreeToText( doc ) == record ) {
-  	tst();
   	return fds.size();
   }
-  tst();
   // есть изменения
   if ( !record.empty() ) {
  		record.replace( record.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + "CP866" + "\"" );
     old_doc = TextToXMLTree( record );
-    ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
 	  if ( old_doc ) {
       xmlFree(const_cast<xmlChar *>(old_doc->encoding));
       old_doc->encoding = 0;
-      ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
       xml_decode_nodelist( old_doc->children );
-      ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
 		}
   }
     
@@ -1070,17 +1057,13 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	xmlFreeDoc( sqldoc );
   }
   //CREATE INSERT UPDATE DELETE Querys
-  tst();
   put_string_into_snapshot( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, doc );
-  ProgTrace( TRACE5, "doc=%p, old_doc=%p", doc, old_doc );
+  //ProgTrace( TRACE5, "doc=%p, old_doc=%p", doc, old_doc );
   if ( doc )
   	xmlFreeDoc( doc );
-  tst();
   if ( old_doc ) {
-  	ProgTrace( TRACE5, "doc=%p, old_doc=%p, str_old_doc=%s", doc, old_doc, XMLTreeToText( old_doc ).c_str() );
   	xmlFreeDoc( old_doc );  
   }
-  tst();	
 	return !fds.empty();
 }
 
