@@ -738,6 +738,7 @@ string GetXMLRow( xmlNodePtr node )
 
 void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const string &day, bool pr_land )
 {
+	tst();
   xmlNodePtr nodeP, nodeN;
   string sql_str;  
   xmlNodePtr paramsNode;
@@ -931,10 +932,12 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   	if ( nodeNK != nodesNK.end() )
   		nodeNK++;
   } // end while 
+  tst();
 }
 
 void put_string_into_snapshot( int point_id, string type, string point_addr, xmlDocPtr old_doc, xmlDocPtr doc )
 {
+	tst();
 	TQuery Qry( &OraSession );
  	Qry.SQLText =
  	  "DELETE snapshot_points "
@@ -963,6 +966,7 @@ void put_string_into_snapshot( int point_id, string type, string point_addr, xml
   	i++;
   	sres.erase( 0, 100 );
   }	
+  tst();
 }
 
 bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
@@ -1059,11 +1063,14 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	xmlFreeDoc( sqldoc );
   }
   //CREATE INSERT UPDATE DELETE Querys
+  tst();
   put_string_into_snapshot( point_id, FILE_SPPCEK_TYPE, point_addr, old_doc, doc );
+  tst();
   if ( doc )
   	xmlFreeDoc( doc );
   if ( old_doc )
   	xmlFreeDoc( old_doc );  
+  tst();	
 	return !fds.empty();
 }
 
