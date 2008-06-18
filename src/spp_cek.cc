@@ -1072,8 +1072,9 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   if ( doc )
   	xmlFreeDoc( doc );
   tst();
-  if ( old_doc )
-  	xmlFreeDoc( old_doc );  
+  if ( old_doc ) {
+  	//!!!xmlFreeDoc( old_doc );  
+  }
   tst();	
 	return !fds.empty();
 }
