@@ -1262,6 +1262,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "       ev_user, station, ev_order "
             "FROM events "
             "WHERE type IN (:evtPax,:evtPay) AND "
+            "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
@@ -1273,6 +1274,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "FROM arx_events "
             "WHERE part_key = :part_key AND "
             "      type IN (:evtPax,:evtPay) AND "
+            "      screen <> 'ASTRASERV.EXE' and "
             "      id1=:point_id AND "
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
