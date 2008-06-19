@@ -1231,8 +1231,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           bag_name += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 0);
           bag_name_lat += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 1);
       }
-      upperc(bag_name);
-      upperc(bag_name_lat);
+      bag_name = upperc(bag_name);
+      bag_name_lat = upperc(bag_name_lat);
       add_tag("bag_name", bag_name);
       add_tag("bag_name_lat", bag_name_lat);
   } else {

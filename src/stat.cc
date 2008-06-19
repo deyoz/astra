@@ -34,7 +34,7 @@ typedef void (*TGetSQL)( TQuery &Qry );
 const int depends_len = 3;
 struct TCBox {
     TGetSQL GetSQL;
-    string cbox, qry;
+    string cbox;
     string depends[depends_len];
 };
 
@@ -55,161 +55,26 @@ TCategory Category[] = {
             {
                 NULL,
                 "Flt",
-
-                "SELECT "
-                "    points.point_id, "
-                "    points.airp, "
-                "    points.airline, "
-                "    points.flt_no, "
-                "    points.suffix, "
-                "    points.scd_out, "
-                "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
-                "FROM "
-                "    points "
-                "WHERE "
-                "    points.pr_del >= 0 and "
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
-                "union "
-                "SELECT "
-                "    arx_points.point_id, "
-                "    arx_points.airp, "
-                "    arx_points.airline, "
-                "    arx_points.flt_no, "
-                "    arx_points.suffix, "
-                "    arx_points.scd_out, "
-                "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
-                "FROM "
-                "    arx_points "
-                "WHERE "
-                "    arx_points.pr_del >= 0 and "
-                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                "    arx_points.part_key >= :FirstDate "
-                "ORDER BY "
-                "    real_out DESC ",
-
                 {"Dest", "Awk", "Class"}
             },
             {
                 NULL,
                 "Awk",
-
-                "select company from "
-                "    astra.trips, astra.place, astra.pax_grp "
-                "where "
-                "    trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "    trips.trip_id=place.trip_id AND "
-                "    trips.trip_id = pax_grp.point_id(+) and "
-                "    (:class is null or pax_grp.class = :class) and "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) and "
-                "    (:flt IS NULL OR trips.trip= :flt) "
-                "union "
-                "select company from "
-                "    arx.trips, arx.place, arx.pax_grp "
-                "where "
-                "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
-                "    trips.trip_id=place.trip_id AND "
-                "    trips.trip_id = pax_grp.point_id(+) and "
-                "    (:class is null or pax_grp.class = :class) and "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) and "
-                "    (:flt IS NULL OR trips.trip= :flt) ",
-
                 {"Flt",    "Dest", "Class"}
             },
             {
                 NULL,
                 "Dest",
-
-                "SELECT place.city AS dest "
-                "FROM astra.trips,astra.place,astra.pax_grp "
-                "WHERE  "
-                "      trips.trip_id=place.trip_id AND "
-                "      trips.trip_id = pax_grp.point_id(+) and "
-                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:flt IS NULL OR trips.trip= :flt) and "
-                "      (:class is null or pax_grp.class = :class) "
-                "UNION "
-                "SELECT place.city AS dest "
-                "FROM arx.trips,arx.place,arx.pax_grp "
-                "WHERE  "
-                "      trips.trip_id=place.trip_id AND "
-                "      trips.trip_id = pax_grp.point_id(+) and "
-                "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:flt IS NULL OR trips.trip= :flt) and "
-                "      (:class is null or pax_grp.class = :class) "
-                "ORDER BY dest  ",
-
                 {"Awk",    "Flt",  "Class"}
             },
             {
                 NULL,
                 "Class",
-
-                "select "
-                "    distinct pax_grp.class "
-                "from "
-                "    astra.trips, astra.pax_grp, astra.place "
-                "WHERE "
-                "    trips.trip_id=place.trip_id AND "
-                "    trips.trip_id=pax_grp.point_id and "
-                "    trips.scd>= :FirstDate AND "
-                "    trips.scd< :LastDate AND "
-                "    (:awk is null or trips.company = :awk) and "
-                "    (:flt IS NULL OR trips.trip= :flt) and "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) "
-                "union "
-                "select "
-                "    distinct pax_grp.class "
-                "from "
-                "    arx.trips, arx.pax_grp, arx.place "
-                "WHERE "
-                "    trips.trip_id=pax_grp.point_id AND "
-                "    trips.trip_id=place.trip_id AND "
-                "    trips.trip_id=pax_grp.point_id and "
-                "    trips.scd>= :FirstDate AND "
-                "    trips.scd< :LastDate AND "
-                "    (:awk is null or trips.company = :awk) and "
-                "    (:flt IS NULL OR trips.trip= :flt) and "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) ",
-
                 {"Awk",    "Flt",  "Dest"}
             },
             {
                 NULL,
                 "Rem",
-
-                "select "
-                "    distinct pax_rem.rem_code "
-                "from "
-                "    astra.trips, astra.pax_grp, astra.pax, astra.pax_rem, astra.remark "
-                "WHERE "
-                "    trips.scd>= :FirstDate AND "
-                "    trips.scd< :LastDate AND "
-                "    trips.trip_id=pax_grp.point_id AND "
-                "    pax_grp.grp_id = pax.grp_id and "
-                "    pax.pax_id = pax_rem.pax_id and "
-                "    pax_rem.rem_code is not null and "
-                "    pax_rem.rem_code = remark.cod "
-                "union "
-                "select "
-                "    distinct pax_rem.rem_code "
-                "from "
-                "    arx.trips, arx.pax_grp, arx.pax, arx.pax_rem, astra.remark "
-                "WHERE "
-                "    trips.trip_id=pax_grp.point_id AND "
-                "    pax_grp.grp_id = pax.grp_id and "
-                "    pax.pax_id = pax_rem.pax_id and "
-                "    pax_rem.rem_code is not null and "
-                "    pax_rem.rem_code = remark.cod and "
-                "    pax_rem.part_key>= :FirstDate AND "
-                "    pax_rem.part_key< :LastDate "
             },
         }
     },
@@ -219,16 +84,6 @@ TCategory Category[] = {
             {
                 NULL,
                 "Awk",
-
-                "select company from "
-                "    astra.trips "
-                "where "
-                "    trips.scd >= :FirstDate AND trips.scd < :LastDate "
-                "union "
-                "select company from "
-                "    arx.trips "
-                "where "
-                "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate "
             }
         }
     },
@@ -238,37 +93,6 @@ TCategory Category[] = {
             {
                 GetPaxListSQL,
                 "Flt",
-
-                "SELECT "
-                "    points.point_id, "
-                "    points.airp, "
-                "    points.airline, "
-                "    points.flt_no, "
-                "    points.suffix, "
-                "    points.scd_out, "
-                "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
-                "FROM "
-                "    points "
-                "WHERE "
-                "    points.pr_del >= 0 and "
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
-                "union "
-                "SELECT "
-                "    arx_points.point_id, "
-                "    arx_points.airp, "
-                "    arx_points.airline, "
-                "    arx_points.flt_no, "
-                "    arx_points.suffix, "
-                "    arx_points.scd_out, "
-                "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
-                "FROM "
-                "    arx_points "
-                "WHERE "
-                "    arx_points.pr_del >= 0 and "
-                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                "    arx_points.part_key >= :FirstDate "
-                "ORDER BY "
-                "    real_out DESC "
             }
         }
     },
@@ -278,57 +102,6 @@ TCategory Category[] = {
             {
                 GetFltLogSQL,
                 "Flt",
-
-
-                "SELECT "
-                "    points.point_id, "
-                "    points.airp, "
-                "    points.airline, "
-                "    points.flt_no, "
-                "    points.suffix, "
-                "    points.scd_out, "
-                "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
-                "FROM "
-                "    points, "
-                "    events "
-                "WHERE "
-                "    events.type in ( "
-                "    :evtFlt, "
-                "    :evtGraph, "
-                "    :evtTlg, "
-                "    :evtPax, "
-                "    :evtPay "
-                "    ) and "
-                "    events.id1 = points.point_id and "
-                "    points.pr_del >= 0 and "
-                "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate "
-                "union "
-                "SELECT "
-                "    arx_points.point_id, "
-                "    arx_points.airp, "
-                "    arx_points.airline, "
-                "    arx_points.flt_no, "
-                "    arx_points.suffix, "
-                "    arx_points.scd_out, "
-                "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out "
-                "FROM "
-                "    arx_points, "
-                "    arx_events "
-                "WHERE "
-                "    arx_events.part_key >= :FirstDate and "
-                "    arx_events.type in ( "
-                "    :evtFlt, "
-                "    :evtGraph, "
-                "    :evtTlg, "
-                "    :evtPax, "
-                "    :evtPay "
-                "    ) and "
-                "    arx_events.id1 = arx_points.point_id and "
-                "    arx_points.pr_del >= 0 and "
-                "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                "    arx_points.part_key >= :FirstDate "
-                "ORDER BY "
-                "    real_out DESC "
             }
         }
     },
@@ -338,85 +111,14 @@ TCategory Category[] = {
             {
                 GetSystemLogAgentSQL,
                 "Agent",
-
-                "select 'Система' agent from dual where "
-                "  (:station is null or :station = 'Система') and "
-                "  (:module is null or :module = 'Система') "
-                "union "
-                "select ev_user agent from events, screen "
-                "where "
-                "    time >= :FirstDate and "
-                "    time < :LastDate and "
-                "    (:station is null or station = :station) and "
-                "    events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, events.screen) = :module) "
-                "union "
-                "select ev_user agent from arx_events, screen "
-                "where "
-                "    part_key >= :FirstDate and "
-                "    time >= :FirstDate and "
-                "    time < :LastDate and "
-                "    (:station is null or station = :station) and "
-                "    arx_events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, arx_events.screen) = :module) "
-                "order by "
-                "    agent "
             },
             {
                 GetSystemLogStationSQL,
                 "Station",
-
-                "select 'Система' station from dual where "
-                "  (:agent is null or :agent = 'Система') and "
-                "  (:module is null or :module = 'Система') "
-                "union "
-                "select station from events, screen "
-                "where "
-                "    time >= :FirstDate and "
-                "    time < :LastDate and "
-                "    station is not null and "
-                "    (:agent is null or ev_user = :agent) and "
-                "    events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, events.screen) = :module) "
-                "union "
-                "select station from arx_events, screen "
-                "where "
-                "    part_key >= :FirstDate and "
-                "    time >= :FirstDate and "
-                "    time < :LastDate and "
-                "    station is not null and "
-                "    (:agent is null or ev_user = :agent) and "
-                "    arx_events.screen = screen.exe(+) and "
-                "    (:module is null or nvl(screen.name, arx_events.screen) = :module) "
-                "order by "
-                "    station "
             },
             {
                 GetSystemLogModuleSQL,
                 "Module",
-
-                "select 'Система' module from dual where "
-                "  (:agent is null or :agent = 'Система') and "
-                "  (:station is null or :station = 'Система') "
-                "union "
-                "select nvl(screen.name, events.screen) module from events, screen where "
-                "    events.time >= :FirstDate and "
-                "    events.time < :LastDate and "
-                "    (:station is null or station = :station) and "
-                "    (:agent is null or ev_user = :agent) and "
-                "    events.screen is not null and "
-                "    events.screen = screen.exe(+) "
-                "union "
-                "select nvl(screen.name, arx_events.screen) module from arx_events, screen where "
-                "    part_key >= :FirstDate and "
-                "    time >= :FirstDate and "
-                "    time < :LastDate and "
-                "    (:station is null or station = :station) and "
-                "    (:agent is null or ev_user = :agent) and "
-                "    arx_events.screen is not null and "
-                "    arx_events.screen = screen.exe(+) "
-                "order by "
-                "    module "
             }
         }
     },
@@ -426,71 +128,14 @@ TCategory Category[] = {
             {
                 NULL,
                 "Flt",
-
-                "SELECT trips.trip "
-                "FROM astra.trips,astra.place "
-                "WHERE trips.trip_id=place.trip_id AND "
-                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:dest IS NULL OR place.city= :dest) "
-                "UNION "
-                "SELECT trips.trip "
-                "FROM arx.trips,arx.place "
-                "WHERE "
-                "      trips.part_key=place.part_key AND trips.trip_id=place.trip_id AND "
-                "      place.part_key >= :FirstDate AND place.part_key < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:dest IS NULL OR place.city= :dest) "
-                "ORDER BY trip  ",
-
             },
             {
                 GetPaxSrcAwkSQL,
                 "Awk",
-
-                "select company from "
-                "    astra.trips, astra.place "
-                "where "
-                "    trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "    trips.trip_id=place.trip_id AND "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) and "
-                "    (:flt IS NULL OR trips.trip= :flt) "
-                "union "
-                "select company from "
-                "    arx.trips, arx.place "
-                "where "
-                "    trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
-                "    trips.trip_id=place.trip_id AND "
-                "    place.num>0 AND "
-                "    (:dest IS NULL OR place.city= :dest) and "
-                "    (:flt IS NULL OR trips.trip= :flt) "
             },
             {
                 GetPaxSrcDestSQL,
                 "Dest",
-
-                "SELECT place.city AS dest "
-                "FROM astra.trips,astra.place "
-                "WHERE  "
-                "      trips.trip_id=place.trip_id AND "
-                "      trips.scd >= :FirstDate AND trips.scd < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:flt IS NULL OR trips.trip= :flt) "
-                "UNION "
-                "SELECT place.city AS dest "
-                "FROM arx.trips,arx.place "
-                "WHERE  "
-                "      trips.trip_id=place.trip_id AND "
-                "      trips.part_key >= :FirstDate AND trips.part_key < :LastDate AND "
-                "      (:awk IS NULL OR trips.company = :awk) AND "
-                "      place.num>0 AND "
-                "      (:flt IS NULL OR trips.trip= :flt) "
-                "ORDER BY dest  ",
-
             }
         }
     },
@@ -1081,122 +726,179 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     SetProp(colNode, "align", taLeftJustify);
 
     Qry.Clear();
+    string qry1, qry2;
+    int move_id = 0;
     if (part_key == NoExists) {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select move_id from points where point_id = :point_id ";
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+            move_id = Qry.FieldAsInteger("move_id");
+        }
         ProgTrace(TRACE5, "FltLogRun: work base qry");
-        Qry.SQLText =
-            "SELECT msg, time, "
-            "       DECODE(type,:evtDisp,id2,id1) AS point_id, "
-            "       events.screen, "
-            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM events "
-            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
-            "       DECODE(type,:evtDisp,events.id2,events.id1)=:point_id ";
+        qry1 =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       events.screen,  "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
+            "       ev_user, station, ev_order  "
+            "FROM events  "
+            "WHERE "
+            "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   events.id1=:point_id  ";
+        qry2 = 
+            "SELECT msg, time,  "
+            "       id2 AS point_id,  "
+            "       events.screen,  "
+            "       NULL AS reg_no,  "
+            "       NULL AS grp_id,  "
+            "       ev_user, station, ev_order  "
+            "FROM events  "
+            "WHERE "
+            "events.type IN (:evtDisp) AND "
+            "events.id1=:move_id  AND "
+            "events.id2=:point_id  ";
     } else {
+        {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id ";
+            Qry.CreateVariable("part_key", otDate, part_key);
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof) throw UserException("Рейс не найден");
+            move_id = Qry.FieldAsInteger("move_id");
+        }
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
-        Qry.SQLText =
-            "SELECT msg, time, id1 AS point_id, "
-            "       DECODE(type,:evtDisp,id2,id1) AS point_id, "
-            "       arx_events.screen, "
-            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM arx_events "
+        qry1 =
+            "SELECT msg, time,  "
+            "       id1 AS point_id,  "
+            "       arx_events.screen,  "
+            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no,  "
+            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id,  "
+            "       ev_user, station, ev_order  "
+            "FROM arx_events  "
+            "WHERE "
+            "   arx_events.part_key = :part_key and "
+            "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
+            "   arx_events.id1=:point_id  ";
+        qry2 = 
+            "SELECT msg, time,  "
+            "       id2 AS point_id,  "
+            "       arx_events.screen,  "
+            "       NULL AS reg_no,  "
+            "       NULL AS grp_id,  "
+            "       ev_user, station, ev_order  "
+            "FROM arx_events  "
             "WHERE "
             "      arx_events.part_key = :part_key and "
-            "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg,:evtDisp) AND "
-            "       DECODE(type,:evtDisp,arx_events.id2,arx_events.id1)=:point_id ";
-        Qry.CreateVariable("part_key", otDate, part_key);
+            "      arx_events.type IN (:evtDisp) AND "
+            "      arx_events.id1=:move_id  AND "
+            "      arx_events.id2=:point_id  ";
     }
 
-    Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
-    Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
-    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-    Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
-    Qry.CreateVariable("point_id", otInteger, point_id);
 
     TPerfTimer tm;
     tm.Init();
-    try {
-        Qry.Execute();
-    } catch (EOracleError E) {
-        if(E.Code == 376)
-            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
-        else
-            throw;
-    }
+    for(int i = 0; i < 2; i++) {
+        Qry.Clear();
+        if(i == 0) {
+            Qry.SQLText = qry1;
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
+            Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
+            Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
+            Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
+            Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
+        } else {
+            Qry.SQLText = qry2;
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.CreateVariable("move_id", otInteger, move_id);
+            Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
+        }
+        if(part_key != NoExists)
+            Qry.CreateVariable("part_key", otDate, part_key);
+        try {
+            Qry.Execute();
+        } catch (EOracleError E) {
+            if(E.Code == 376)
+                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            else
+                throw;
+        }
 
-    if(Qry.Eof && part_key == NoExists) {
-        TQuery Qry(&OraSession);
-        Qry.SQLText = "select point_id from points where point_id = :point_id";
-        Qry.CreateVariable("point_id", otInteger, point_id);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
-    }
+        if(Qry.Eof && part_key == NoExists) {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select point_id from points where point_id = :point_id";
+            Qry.CreateVariable("point_id", otInteger, point_id);
+            Qry.Execute();
+            if(Qry.Eof)
+                throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+        }
 
-    typedef map<string, string> TScreenMap;
-    TScreenMap screen_map;
-    if(!Qry.Eof) {
-        int col_point_id=Qry.FieldIndex("point_id");
-        int col_ev_user=Qry.FieldIndex("ev_user");
-        int col_station=Qry.FieldIndex("station");
-        int col_time=Qry.FieldIndex("time");
-        int col_grp_id=Qry.FieldIndex("grp_id");
-        int col_reg_no=Qry.FieldIndex("reg_no");
-        int col_msg=Qry.FieldIndex("msg");
-        int col_ev_order=Qry.FieldIndex("ev_order");
-        int col_screen=Qry.FieldIndex("screen");
+        typedef map<string, string> TScreenMap;
+        TScreenMap screen_map;
+        if(!Qry.Eof) {
+            int col_point_id=Qry.FieldIndex("point_id");
+            int col_ev_user=Qry.FieldIndex("ev_user");
+            int col_station=Qry.FieldIndex("station");
+            int col_time=Qry.FieldIndex("time");
+            int col_grp_id=Qry.FieldIndex("grp_id");
+            int col_reg_no=Qry.FieldIndex("reg_no");
+            int col_msg=Qry.FieldIndex("msg");
+            int col_ev_order=Qry.FieldIndex("ev_order");
+            int col_screen=Qry.FieldIndex("screen");
 
-        xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
-        for( ; !Qry.Eof; Qry.Next()) {
-            string ev_user = Qry.FieldAsString(col_ev_user);
-            string station = Qry.FieldAsString(col_station);
+            xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+            for( ; !Qry.Eof; Qry.Next()) {
+                string ev_user = Qry.FieldAsString(col_ev_user);
+                string station = Qry.FieldAsString(col_station);
 
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
-            NewTextChild( rowNode, "time",
-                    DateTimeToStr(
-                        UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
-                        ServerFormatDateTimeAsString
-                        )
-                    );
-            NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
-            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
-            if(!Qry.FieldIsNULL(col_grp_id))
-                NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-            if(!Qry.FieldIsNULL(col_reg_no))
-                NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
-            NewTextChild(rowNode, "ev_user", ev_user, "");
-            NewTextChild(rowNode, "station", station, "");
-            string screen = Qry.FieldAsString(col_screen);
-            if(screen.size()) {
-                if(screen_map.find(screen) == screen_map.end()) {
-                    TQuery Qry(&OraSession);
-                    Qry.SQLText = "select name from screen where exe = :exe";
-                    Qry.CreateVariable("exe", otString, screen);
-                    Qry.Execute();
-                    if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
-                    screen_map[screen] = Qry.FieldAsString(0);
-                }
-                screen = screen_map[screen];
-            }
-            NewTextChild(rowNode, "screen", screen, "");
-
-            count++;
-            if(count > MAX_STAT_ROWS) {
-                showErrorMessage(
-                        "Выбрано слишком много строк. Показано " +
-                        IntToString(MAX_STAT_ROWS) +
-                        " произвольных строк."
-                        " Уточните критерии поиска."
+                xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+                NewTextChild(rowNode, "point_id", Qry.FieldAsInteger(col_point_id));
+                NewTextChild( rowNode, "time",
+                        DateTimeToStr(
+                            UTCToClient( Qry.FieldAsDateTime(col_time), reqInfo->desk.tz_region),
+                            ServerFormatDateTimeAsString
+                            )
                         );
-                break;
+                NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
+                NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                if(!Qry.FieldIsNULL(col_grp_id))
+                    NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
+                if(!Qry.FieldIsNULL(col_reg_no))
+                    NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger(col_reg_no));
+                NewTextChild(rowNode, "ev_user", ev_user, "");
+                NewTextChild(rowNode, "station", station, "");
+                string screen = Qry.FieldAsString(col_screen);
+                if(screen.size()) {
+                    if(screen_map.find(screen) == screen_map.end()) {
+                        TQuery Qry(&OraSession);
+                        Qry.SQLText = "select name from screen where exe = :exe";
+                        Qry.CreateVariable("exe", otString, screen);
+                        Qry.Execute();
+                        if(Qry.Eof) throw Exception("FltLogRun: screen name fetch failed for " + screen);
+                        screen_map[screen] = Qry.FieldAsString(0);
+                    }
+                    screen = screen_map[screen];
+                }
+                NewTextChild(rowNode, "screen", screen, "");
+
+                count++;
+                if(count > MAX_STAT_ROWS) {
+                    showErrorMessage(
+                            "Выбрано слишком много строк. Показано " +
+                            IntToString(MAX_STAT_ROWS) +
+                            " произвольных строк."
+                            " Уточните критерии поиска."
+                            );
+                    break;
+                }
             }
         }
+        if(count > MAX_STAT_ROWS) break;
     }
     ProgTrace(TRACE5, "count: %d", count);
     if(!count)
@@ -1406,7 +1108,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.Clear();
         if (j==0) {
             Qry.SQLText =
-                "SELECT msg, time, id1 AS point_id, "
+                "SELECT msg, time, "
+                "       DECODE(type, :evtFlt, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
+                "                    :evtDisp, id2, NULL) AS point_id, "
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
@@ -1435,7 +1139,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "          ) ";
         } else {
             Qry.SQLText =
-                "SELECT msg, time, id1 AS point_id, "
+                "SELECT msg, time, "
+                "       DECODE(type, :evtFlt, id1, :evtPax, id1, :evtPay, id1, :evtGraph, id1, :evtTlg, id1, "
+                "                    :evtDisp, id2, NULL) AS point_id, "
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
@@ -1443,8 +1149,10 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "FROM "
                 "   arx_events "
                 "WHERE "
-                "  arx_events.part_key >= :FirstDate and "
-                "  arx_events.part_key < :LastDate and "
+                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для 
+                "  arx_events.part_key < :LastDate + 5 and "   // разных типов событий
+                "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
+                "  arx_events.time < :LastDate and "
                 "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
                 "  (:module is null or nvl(screen, 'Система') = :module) and "
                 "  (:station is null or nvl(station, 'Система') = :station) and "
@@ -1596,156 +1304,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         ProgTrace(TRACE5, "count %d: %d", j, count);
     }
     if(!count)
-        throw UserException("Не найдено ни одной операции.");
-}
-
-void StatInterface::PaxLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    TPerfTimer tm;
-    tm.Init();
-    int i = 0;
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    get_report_form("ArxPaxLog", resNode);
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    STAT::set_variables(resNode);
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    TQuery Qry(&OraSession);
-    string tag = (char *)reqNode->name;
-    char *qry = NULL;
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-    xmlNodePtr reportTitleNode = NewTextChild(variablesNode, "report_title");
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    if(tag == "FltLogRun") {
-        NodeSetContent(reportTitleNode, "Журнал операций рейса");
-        qry =
-            "SELECT msg, time, id1 AS point_id, "
-            "       nvl(screen.name, events.screen) screen, "
-            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM events, screen, "
-            "     (SELECT point_id FROM points "
-            "      WHERE points.scd_out>= :FirstDate AND points.scd_out < :LastDate AND points.point_id= :point_id "
-            "      ) points "
-            "WHERE events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
-            "      events.screen = screen.exe(+) and "
-            "      events.id1=points.point_id "
-            "UNION "
-            "SELECT msg, time, id1 AS point_id, "
-            "       nvl(screen.name, arx_events.screen) screen, "
-            "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
-            "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-            "       ev_user, station, ev_order "
-            "FROM arx_events, screen, "
-            "     (SELECT part_key,point_id FROM arx_points "
-            "      WHERE arx_points.part_key >= :FirstDate AND arx_points.point_id = :point_id and "
-            "            arx_points.scd_out>= :FirstDate AND arx_points.scd_out < :LastDate "
-            "      ) arx_points "
-            "WHERE "
-            "      arx_events.part_key >= :FirstDate and "
-            "      arx_events.part_key=arx_points.part_key AND "
-            "      arx_events.screen = screen.exe(+) and "
-            "      arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND "
-            "      arx_events.id1=arx_points.point_id ";
-
-        Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
-        Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
-        Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-        Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-        Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
-        Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-        Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-        Qry.CreateVariable("point_id", otInteger, NodeAsInteger("point_id", reqNode));
-    } else
-        throw Exception((string)"PaxLog: unknown tag " + tag);
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    Qry.SQLText = qry;
-    try {
-        Qry.Execute();
-    } catch (EOracleError E) {
-        if(E.Code == 376)
-            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
-        else
-            throw;
-    }
-    ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    if(!Qry.Eof) {
-        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-        xmlNodePtr paxLogNode = NewTextChild(resNode, "PaxLog");
-        xmlNodePtr headerNode = NewTextChild(paxLogNode, "header");
-        xmlNodePtr colNode;
-
-
-        colNode = NewTextChild(headerNode, "col", "Агент");
-        SetProp(colNode, "width", 73);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Стойка");
-        SetProp(colNode, "width", 60);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Время");
-        SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Рейс");
-        SetProp(colNode, "width", 90);
-        SetProp(colNode, "align", taLeftJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Рег №");
-        SetProp(colNode, "width", 45);
-        SetProp(colNode, "align", taRightJustify);
-
-        colNode = NewTextChild(headerNode, "col", "Операция");
-        SetProp(colNode, "width", 750);
-        SetProp(colNode, "align", taLeftJustify);
-
-
-
-
-        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-        xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
-        while(!Qry.Eof) {
-            string trip;
-            if(!Qry.FieldIsNULL("airp")) {
-                //trip name fetch
-                TTripInfo info(Qry);
-                try {
-                    trip = GetTripName(info, false, true);
-                } catch(UserException &E) {
-                    if(tag != "SystemLogRun")
-                        throw UserException(E.what());
-                    showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
-                    Qry.Next();
-                    continue;
-                }
-            }
-
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-
-            NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
-            NewTextChild(rowNode, "ev_user", Qry.FieldAsString("ev_user"));
-            NewTextChild(rowNode, "station", Qry.FieldAsString("station"));
-
-            NewTextChild( rowNode, "time",
-                    DateTimeToStr(
-                        UTCToClient( Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region),
-                        ServerFormatDateTimeAsString
-                        )
-                    );
-
-            NewTextChild(rowNode, "trip", trip);
-            NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
-            NewTextChild(rowNode, "msg", Qry.FieldAsString("msg"));
-            NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger("ev_order"));
-            NewTextChild(rowNode, "screen", Qry.FieldAsString("screen"));
-
-            Qry.Next();
-        }
-        ProgTrace(TRACE5, "PaxLog%d: %s", i++, tm.PrintWithMessage().c_str());
-    } else
         throw UserException("Не найдено ни одной операции.");
 }
 
