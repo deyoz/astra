@@ -432,6 +432,8 @@ void RunSZV(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+// Вероятно не используется
+/*
 void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -505,6 +507,7 @@ void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     // Теперь переменные отчета
     PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
 }
+*/
 
 void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 {
@@ -2145,7 +2148,7 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "ref") RunRef(reqNode, formDataNode);
     else if(name == "rem") RunRem(reqNode, formDataNode);
     else if(name == "crs" || name == "crsUnreg") RunCRS(name, reqNode, formDataNode);
-    else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
+//    else if(name == "EventsLog") RunEventsLog(reqNode, formDataNode);
     else if(name == "SZV") RunSZV(reqNode, formDataNode);
     else if(name == "FullStat") ;
     else if(name == "ShortStat") ;

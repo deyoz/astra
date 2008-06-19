@@ -79,10 +79,16 @@ date getIssueDate(EDI_REAL_MES_STRUCT *pMes)
 {
     date DateOfIssue;
     PushEdiPointG(pMes);
+
+    if(!GetNumSegment(pMes, "PTK"))
+    {
+        ResetEdiPointG(pMes);
+    }
+
     if(GetNumSegment(pMes, "PTK") ||
        SetEdiPointToSegGrG(pMes, SegGrElement(3,0)) )
     {
-	// Берем PTK либо с самого верха, либо пониже (под TIF)
+        // Берем PTK либо с самого верха, либо пониже (под TIF)
         SetEdiPointToSegmentG(pMes, SegmElement("PTK"), "INV_DATE_OF_ISSUE");
         DateOfIssue = GetDBFNameCast <date>
         (EdiCast::DateCast("%d%m%y","INV_DATE_OF_ISSUE"),
@@ -94,8 +100,9 @@ date getIssueDate(EDI_REAL_MES_STRUCT *pMes)
 
     return DateOfIssue;
 }
-    }// namespace ...
-    ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
+}// namespace ...
+
+ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
@@ -104,7 +111,12 @@ date getIssueDate(EDI_REAL_MES_STRUCT *pMes)
     DateOfIssue=getIssueDate(pMes);
 
     PushEdiPointG(pMes);
-    SetEdiPointToSegmentG(pMes, "RCI",0, "INV_SYS_CONTROL");
+    if(!SetEdiPointToSegmentG(pMes, "RCI"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("RCI"), "INV_SYS_CONTROL");
+    }
+
     unsigned Num=GetNumComposite(pMes, "C330", "INV_SYS_CONTROL");
 
     if(/*Num>2 || */Num<1){
@@ -164,7 +176,11 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
     EDI_REAL_MES_STRUCT *pMes = Data.EdiMes();
 
     PushEdiPointG(pMes);
-    SetEdiPointToSegmentG(pMes, "ORG",0, "NEED_ORG");
+    if(!SetEdiPointToSegmentG(pMes, "ORG"))
+    {
+        ResetEdiPointG(pMes);
+        SetEdiPointToSegmentG(pMes, SegmElement("ORG"), "NEED_ORG");
+    }
     PushEdiPointG(pMes);
 
     SetEdiPointToCompositeG(pMes, "C336", 0, "NEED_ORG");
@@ -493,9 +509,9 @@ Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
 
     TicketMedia media=GetDBNumCast<TicketMedia>(EdiCast::TicketMediaCast("INV_MEDIA"),pMes, 1159);
     if(!media){
-        media=TicketMedia::Electro;
+        media=TicketMedia::Electronic;
     }
-    if(media != TicketMedia::Electro &&
+    if(media != TicketMedia::Electronic &&
        media != TicketMedia::Paper){
         LogError(STDLOG) << "Invalid coupon media [" << media << "]";
         throw Exception("Invalid coupon media");
@@ -507,7 +523,7 @@ Coupon_info MakeCouponInfo(EDI_REAL_MES_STRUCT *pMes)
                    (EdiCast::CoupStatCast("INV_COUPON"),
                     pMes, 4405,0, "INV_COUPON");
        } else {
-           if(media == TicketMedia::Electro){
+           if(media == TicketMedia::Electronic){
                Status = CouponStatus(CouponStatus::OriginalIssue);
            } else {
                Status = CouponStatus(CouponStatus::Paper);
@@ -599,96 +615,269 @@ inline pair<date,date> GetValidDates (EDI_REAL_MES_STRUCT *pMes)
     return make_pair(DBefore, DAfter);
 }
 
+class tick_soft_except : public Exception
+{
+    public:
+    tick_soft_except(const char *nick, const char *file, unsigned line,
+                     const std::string &msg, const std::string &msg_debug)
+    :Exception(msg)
+    {
+        LogWarning(nick, file, line) << msg_debug;
+    }
+};
 
-//TVL++BER+TJM+UT+OPEN:Y'
-Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const string &tnum)
+inline std::string read_flightnum(EDI_REAL_MES_STRUCT *pMes)
+{
+    return GetDBFName(pMes, DataElement(9908), "EtsErr::INV_FL_NUM", CompElement("C308"));
+}
+inline unsigned cast_flnum(const std::string &flnum)
+{
+    try
+    {
+        return unsigned(boost::lexical_cast<unsigned>(flnum));
+    }
+    catch(boost::bad_lexical_cast &)
+    {
+        throw tick_soft_except(STDLOG, "EtsErr::INV_FL_NUM", flnum.c_str());
+    }
+}
+
+Itin make_TVL(EDI_REAL_MES_STRUCT *pMes,bool no_time, bool no_rbd,
+              int curr, int curr_oper)
+{
+    // Date/Time
+    PushEdiPointG(pMes);
+    SetEdiPointToSegmentG(pMes, "TVL",curr, EtErr::INV_DATE);
+    PushEdiPointG(pMes);
+
+    date Date1;
+    time_duration Time1(not_a_date_time);
+
+    std::string flnumstr = read_flightnum(pMes);
+    bool open = (flnumstr == ItinStatus::Open);
+
+    if(SetEdiPointToCompositeG(pMes, CompElement("C310"), open?"":EtErr::INV_DATE))
+    {
+        Date1 = GetDBNumCast  <date> (EdiCast::DateCast("%d%m%y",EtErr::INV_DATE),
+                              pMes, DataElement(9916), EtErr::INV_DATE);
+
+        if(!no_time)
+            no_time = open;
+        LogTrace(TRACE3) << "no_time=" << no_time;
+
+        Time1 = GetDBNumCast  <time_duration>
+                (EdiCast::TimeCast("%H%M",  EtErr::INV_TIME),
+                 pMes, DataElement(9918), (no_time?"":EtErr::INV_TIME));
+        PopEdiPoint_wdG(pMes);
+    }
+
+    // City/Port Dep/Arr
+    std::string Dep_point = GetDBFName(pMes, DataElement(3225), "EtsErr::INV_CITY_PORT",
+                                       CompElement("C328",0));
+
+    std::string Arr_point = GetDBFName(pMes, DataElement(3225), "EtsErr::INV_CITY_PORT",
+                                       CompElement("C328",1));
+
+    SetEdiPointToCompositeG(pMes, "C306",0, "EtsErr::INV_AIRLINE");
+    //Sold marketing airline designator code
+    std::string Awk = GetDBNum(pMes, 9906,0, "EtsErr::INV_AIRLINE");
+
+    PopEdiPoint_wdG(pMes);
+
+    //Flight Number
+    unsigned Flightnum=0;
+    unsigned OperFlightnum=0;
+    if(!open)
+    {
+        Flightnum = cast_flnum(flnumstr);
+
+    }
+
+    //Reservation Booking Designator
+    SubClass Class;
+    if(!no_rbd)
+    {
+        Class = GetDBFNameCast <SubClass> (EdiCast::RBDCast(EtErr::INV_RBD),
+                                         pMes, DataElement(7037), EtErr::INV_RBD,
+                                         CompElement("C308"));
+    }
+
+    PopEdiPointG(pMes);
+    PopEdiPointG(pMes); //Вышли из TVL
+
+    if(curr_oper!=-1 && !open)
+    {
+        OperFlightnum = unsigned(GetDBFNameCast <int> (EdiDigitCast<int>("EtsErr::INV_FL_NUM"),
+                                              pMes, DataElement(9908), "EtsErr::INV_FL_NUM",
+                                              CompElement("C308"),
+                                              SegmElement("TVL", curr_oper)));
+    }
+
+    std::string Oper_awk = GetDBFName(pMes, DataElement(9906,0,1),
+                                      CompElement("C306"),
+                                      SegmElement("TVL", curr_oper));
+
+    return Itin(Awk, Oper_awk,
+                Flightnum, OperFlightnum, SubClass(Class),
+                Date1, Time1, Dep_point, Arr_point);
+}
+
+std::pair<Itin, boost::shared_ptr<Itin> >
+        MakeItin_static(EDI_REAL_MES_STRUCT *pMes, const std::string &tnum,
+                        bool only_tvl, bool no_time)
 {
     //Маршрут/Itinerary
     PushEdiPointG(pMes);
 
-    SetEdiPointToSegmentG(pMes, "TVL",0, "INV_DATE");
+    int tvl_count = GetNumSegment(pMes, "TVL");
+    LogTrace(TRACE3) << "tvl_count=" << tvl_count;
+    int curr=-1, curr_oper=-1,soldas=-1,soldas_oper=-1;
+    if(tvl_count<1 || tvl_count>4)
+    {
+        throw tick_soft_except(STDLOG,"EtsErr::INV_ITIN", "Invalid number of segments");
+    }
 
-    // Date/Time
-    PushEdiPointG(pMes);
-    date Date1;
-    time_duration Time1(not_a_date_time);
-    bool open=false;
-    if(SetEdiPointToCompositeG(pMes, "C310")) {
-        Date1 = GetDBNumCast  <date> (EdiCast::DateCast("%d%m%y","INV_DATE"),
-                                      pMes, 9916,0, "INV_DATE");
-        Time1 = GetDBNumCast  <time_duration>
-                (EdiCast::TimeCast("%H%M",  "INV_TIME"),
-                 pMes, 9918,0);
-        if(Time1.is_special())
+    int tvl_iter;
+    for(tvl_iter=0; tvl_iter<tvl_count; tvl_iter++)
+    {
+        std::string tvl_type=GetDBFName(pMes,
+                                        DataElement(1050),
+                                        CompElement("C309"),
+                                        SegmElement("TVL",tvl_iter));
+
+        LogTrace(TRACE3) << "tvl_type[" <<tvl_iter<< "] = " << tvl_type;
+
+        if(tvl_type != "SA") // CURRENT - CU
         {
-          open = true;
+            if(curr==-1)
+            {
+                curr=tvl_iter;
+            }
+            else if (curr_oper==-1)
+            {
+                curr_oper=tvl_iter;
+            }
+            else
+            {
+                tst();
+                break;
+            }
         }
-        PopEdiPoint_wdG(pMes);
-    } else {
-        open = true;
+        else // SOLD AS
+        {
+            if(soldas==-1)
+            {
+                soldas=tvl_iter;
+            }
+            else if(soldas_oper==-1)
+            {
+                soldas_oper=tvl_iter;
+            }
+            else
+            {
+                tst();
+                break;
+            }
+        }
     }
 
-    // City/Port Dep/Arr
-    string Dep_point = GetDBFName
-            (pMes, DataElement(3225), "INV_CITY_PORT",
-             CompElement("C328",0));
-
-    string Arr_point = GetDBFName
-            (pMes, DataElement(3225), "INV_CITY_PORT",
-             CompElement("C328",1));
-
-    SetEdiPointToCompositeG(pMes, "C306",0, "INV_AIRLINE");
-    //Sold marketing airline designator code
-    string Awk = GetDBNum(pMes, 9906,0, "INV_AIRLINE");
-    //Sold operating airline code when different from marketing airline
-    string Oper_awk = GetDBNum(pMes, 9906,1);
-    PopEdiPoint_wdG();
-
-    SetEdiPointToCompositeG(pMes, "C308",0, "INV_FL_NUM");
-    //Flight Number
-    int Flightnum=0;
-    if(!open){
-        Flightnum = GetDBNumCast <int> (EdiDigitCast<int>("INV_FL_NUM"),
-                                        pMes, 9908,0, "INV_FL_NUM");
+    if(curr_oper!=-1 && GetDBFNameStr(pMes, DataElement(9906,0), CompElement("C306"),
+                                 SegmElement("TVL", curr)).empty())
+    {
+        std::swap(curr_oper,curr);
     }
-    //Reservation Booking Designator
-    SubClass Class =GetDBNumCast <SubClass> (EdiCast::RBDCast("INV_RBD"),
-                                         pMes, DataElement(7037), "INV_RBD");
-    //PopEdiPoint_wdG();
-//     SetEdiPointToCompositeG(pMes, "C309",0, );
-//     LineNum = GetDBNumCast<EdiDigitCast, int> (pMes, 1082);
 
-    PopEdiPointG(pMes); //Вышли из TVL
+    if(soldas_oper!=-1 && GetDBFNameStr(pMes, DataElement(9906,0), CompElement("C306"),
+                                 SegmElement("TVL", soldas)).empty())
+    {
+        std::swap(soldas_oper,soldas);
+    }
+
+    LogTrace(TRACE3) << "curr=" << curr <<
+            ", curr_oper=" << curr_oper <<
+            ", soldas=" << soldas <<
+            ", soldas_oper=" << soldas_oper;
+
+    if(curr == -1 || tvl_iter!=tvl_count)
+    {
+        throw tick_soft_except(STDLOG,"EtsErr::INV_ITIN", "Invalid segment types");
+    }
+
+    Itin currentItin = make_TVL(pMes, no_time, only_tvl?true:false,curr, curr_oper);
+    boost::shared_ptr<Itin> soldasItin;
+    bool open = !currentItin.flightnum();
+
+    if(soldas!=-1)
+    {
+        soldasItin.reset( new Itin(make_TVL(pMes, false, false, soldas, soldas_oper)) );
+    }
 
     //Status
     PopEdiPoint_wdG(pMes);
     ItinStatus RpiStat;
-    if(SetEdiPointToSegmentG(pMes, "RPI")){
-        RpiStat = GetDBNumCast <ItinStatus>
-                (EdiCast::ItinStatCast("INV_ITIN_STATUS"),
-                 pMes, 4405,0, "INV_ITIN_STATUS");
-
-        if (open && RpiStat != ItinStatus::OpenDate){
-
+    Luggage Lugg;
+    string FareBasis;
+    pair<date,date> ValidDates;
+    if(!only_tvl)
+    {
+        if(SetEdiPointToSegmentG(pMes, "RPI",0, open?"":EtErr::INV_ITIN_STATUS))
+        {
+            RpiStat = GetDBNumCast <ItinStatus>
+                    (EdiCast::ItinStatCast(EtErr::INV_ITIN_STATUS),
+                     pMes, 4405,0, EtErr::INV_ITIN_STATUS);
         }
+        else
+        {
+            RpiStat = ItinStatus::OpenDate;
+        }
+
+        if(open)
+            switch(RpiStat->type()){
+                case ItinStatus::OpenDate:
+                case ItinStatus::NonAir:
+                case ItinStatus::Standby:
+                case ItinStatus::SpaceAvailable:
+                    tst();
+                    break;
+                default:
+                    throw tick_soft_except(STDLOG, EtErr::INV_ITIN_STATUS,
+                                           std::string("SB/OPE/G segment with ")
+                                                   + RpiStat->code() +" status");
+            }
+
+        PopEdiPoint_wdG(pMes);
+        //Luggage
+        Lugg = MakeLuggage(pMes);
+        FareBasis = GetFareBasis(pMes);
+        ValidDates = GetValidDates(pMes);
     }
 
-    PopEdiPoint_wdG(pMes);
-    //Luggage
-    Luggage Lugg = MakeLuggage(pMes);
-    string FareBasis = GetFareBasis(pMes);
-    pair<date,date> ValidDates = GetValidDates(pMes);
+    currentItin.setTicknum(tnum);
+    currentItin.setRpiStat(RpiStat);
+    currentItin.setNValidBefore(ValidDates.first);
+    currentItin.setNValidAfter(ValidDates.second);
+    currentItin.setLuggage(Lugg);
+    currentItin.setFareBasis(FareBasis);
+    currentItin.setVersion(1);
 
     PopEdiPointG(pMes);
-    return Itin(tnum,
-                Awk, Oper_awk,
-                Flightnum,0, Class,
-                Date1, Time1,
-                date(), time_duration(),
-                Dep_point, Arr_point, ValidDates,
-                RpiStat, FareBasis, 1, Lugg);
+    return std::pair<Itin, boost::shared_ptr<Itin> > (currentItin, soldasItin);
 }
-} // namespace ...
+} // namespace {}
+
+// Itin MakeItin_mayHaveNoTime(EDI_REAL_MES_STRUCT *pMes, const std::string &tnum)
+// {
+//     return MakeItin_static(pMes, tnum, true, true).first;
+// }
+// Itin MakeItin(EDI_REAL_MES_STRUCT *pMes, const std::string &tnum, bool only_tvl)
+// {
+//     return MakeItin_static(pMes, tnum, only_tvl, false).first;
+// }
+std::pair<Itin, boost::shared_ptr<Itin> > MakeItinFull(EDI_REAL_MES_STRUCT *pMes, const std::string &tnum)
+{
+    return MakeItin_static(pMes, tnum, false, true);
+}
+
 void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
 {
     REdiData &Data = dynamic_cast<REdiData &>(RData);
@@ -711,7 +900,7 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
 
         list<FrequentPass> lFti;
         frequentPassRead()(RData, lFti);
-        lCpn.push_back(Coupon(Ci, MakeItin(pMes, Data.currTicket().first),
+        lCpn.push_back(Coupon(Ci, MakeItinFull(pMes, Data.currTicket().first).first,
                        lFti, Data.currTicket().first));
         PopEdiPoint_wd();
     }

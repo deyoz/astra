@@ -365,9 +365,8 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
   xmlNodePtr coupNode=newChild(tickNode,"coupon");
   xmlSetProp(coupNode,"refresh","true");
 
-  int n=0;
   int count=0;
-  for(list<Coupon>::const_iterator i=lcpn.begin();i!=lcpn.end();++i,++n)
+  for(list<Coupon>::const_iterator i=lcpn.begin();i!=lcpn.end();++i)
   {
     const Coupon &cpn = (*i);
     const Itin &itin = cpn.itin();
@@ -375,7 +374,7 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(rowNode,"index",count++);
 
     int col_num=0;
-    xmlSetProp(xmlNewTextChild(rowNode,NULL,"num",n+1),"index",col_num++); // номер сегмента
+    xmlSetProp(xmlNewTextChild(rowNode,NULL,"num",i->couponInfo().num()),"index",col_num++); // номер сегмента
 
     // дата вылета
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"dep_date",
@@ -392,17 +391,23 @@ void CouponXmlView::operator () (ViewerData &Data, const list<Coupon> &lcpn) con
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"arr",
                itin.arrPointCode()),"index",col_num++); // куда
     xmlSetProp(xmlNewTextChild(rowNode,NULL,"codea",
-               itin.airCode()+
-            (itin.airCodeOper().size()?
-                       (string(":")+itin.airCodeOper()):"")),
-            "index",col_num++); // компания
-
+               itin.airCode()),"index",col_num++); // компания
+    xmlSetProp(xmlNewTextChild(rowNode,NULL,"codea_oper",
+               itin.airCodeOper().empty()?
+                  itin.airCode():itin.airCodeOper()),
+                               "index",col_num++); // фактический перевозчик
     // номер рейса
     if(itin.flightnum()){
         xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",
                    itin.flightnum()),"index",col_num++);
+        xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight_oper", // фактический рейс
+                   (!itin.flightnumOper())?
+                     itin.flightnum():itin.flightnumOper()),
+                                     "index",col_num++);
     } else {
         xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight",
+                   ItinStatus::Open),"index",col_num++);
+        xmlSetProp(xmlNewTextChild(rowNode,NULL,"flight_oper",
                    ItinStatus::Open),"index",col_num++);
     }
 

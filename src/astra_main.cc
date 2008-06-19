@@ -15,6 +15,9 @@
 
 using namespace ServerFramework;
 
+extern "C" void help_nosir_user();
+extern "C" int main_nosir_user(int argc,char **argv);
+
 namespace ServerFramework{
 inline QueryRunner AstraQueryRunner()
 {
@@ -118,13 +121,13 @@ class AstraApplication : public ApplicationCallbacks
     }
 
     virtual void levC_app_init();
-/*
+
     virtual int nosir_proc(int argc,char **argv);
     virtual void help_nosir()
     {
         return help_nosir_user();
     }
-*/
+
 };
 
 /*
@@ -164,10 +167,36 @@ int AstraApplication::tcl_init(Tcl_Interp *interp)
     return 0;
 }
 
+int AstraApplication::nosir_proc(int argc, char ** argv)
+{
+//     PerfomInit();
+
+//     InitLogTime(NULL);
+
+    int res;
+
+    OciInit(get_connect_string(),0);
+
+    res=main_nosir_user(argc,argv);
+    if(res != 0) {
+        if(Oparse(CU, "rollback")||
+           Oexec(CU)){
+            oci_error(CU);
+           }
+    } else{
+        if(Oparse(CU, "commit")||
+           Oexec(CU)){
+            oci_error(CU);
+           }
+    }
+    OciClose(1);
+
+    return res;
+}
+
 
 int main(int argc,char **argv)
 {
   AstraApplication astra_app;
   return astra_app.run(argc,argv);
 }
-
