@@ -731,7 +731,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from points where point_id = :point_id ";
+            Qry.SQLText = "select move_id from points where point_id = :point_id AND pr_del >= 0";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
@@ -764,7 +764,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     } else {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id ";
+            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id and pr_del >= 0";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
@@ -831,7 +831,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
         if(Qry.Eof && part_key == NoExists) {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select point_id from points where point_id = :point_id";
+            Qry.SQLText = "select point_id from points where point_id = :point_id pr_del >= 0";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof)
@@ -1002,7 +1002,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
     if(Qry.Eof && part_key == NoExists) {
         TQuery Qry(&OraSession);
-        Qry.SQLText = "select point_id from points where point_id = :point_id";
+        Qry.SQLText = "select point_id from points where point_id = :point_id and pr_del >= 0";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
         if(Qry.Eof)
@@ -1380,7 +1380,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.ticket_no "
                 "FROM  pax_grp,pax, points, cls_grp, halls2 "
                 "WHERE "
-                "   points.point_id = :point_id and "
+                "   points.point_id = :point_id and points.pr_del>=0 and "
                 "   points.point_id = pax_grp.point_dep and "
                 "   pax_grp.grp_id=pax.grp_id AND "
                 "   pax_grp.class_grp = cls_grp.id and "
@@ -1428,7 +1428,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_pax.ticket_no "
                 "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp, halls2 "
                 "WHERE "
-                "   arx_points.point_id = :point_id and "
+                "   arx_points.point_id = :point_id and arx_points.pr_del>=0 and "
                 "   arx_points.part_key = arx_pax_grp.part_key and "
                 "   arx_points.point_id = arx_pax_grp.point_dep and "
                 "   arx_pax_grp.part_key=arx_pax.part_key AND "
@@ -1561,7 +1561,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "WHERE "
                 "   pax_grp.point_dep=:point_id AND "
                 "   pax_grp.class IS NULL and "
-                "   pax_grp.point_dep = points.point_id and "
+                "   pax_grp.point_dep = points.point_id and points.pr_del>=0 and "
                 "   pax_grp.hall = halls2.id(+) ";
             if (!info.user.access.airps.empty()) {
                 if (info.user.access.airps_permit)
@@ -1589,8 +1589,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arx_pax_grp.grp_id, "
                 "  halls2.name AS hall_id, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
-                "FROM arx_pax_grp, halls2 "
+                "FROM arx_pax_grp, arx_points, halls2 "
                 "WHERE point_dep=:point_id AND class IS NULL and "
+                "   arx_pax_grp.part_key = arx_points.part_key and "
+                "   arx_pax_grp.point_dep = arx_points.point_id and arx_points.pr_del>=0 and "
                 "   arx_pax_grp.part_key = :part_key and "
                 "   arx_pax_grp.hall = halls2.id(+) ";
             if (!info.user.access.airps.empty()) {
@@ -2228,7 +2230,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points, "
         "  stat "
         "where "
-        "  points.point_id = stat.point_id and "
+        "  points.point_id = stat.point_id and points.pr_del>=0 and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
@@ -2278,7 +2280,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and "
+        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
@@ -2545,7 +2547,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points, "
         "  stat "
         "where "
-        "  points.point_id = stat.point_id and "
+        "  points.point_id = stat.point_id and points.pr_del>=0 and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
@@ -2592,7 +2594,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and "
+        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
@@ -2730,7 +2732,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  points, "
         "  stat "
         "where "
-        "  points.point_id = stat.point_id and "
+        "  points.point_id = stat.point_id and points.pr_del>=0 and "
         "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
@@ -2767,7 +2769,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and "
+        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
         "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
         "  arx_points.part_key >= :FirstDate and "
         "  arx_stat.part_key >= :FirstDate ";
@@ -2988,7 +2990,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             SQLText +=
                 "WHERE "
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
-                "   points.point_id = pax_grp.point_dep and "
+                "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id AND "
                 "   pax_grp.class_grp = cls_grp.id ";
             if(!tag_no.empty())
@@ -3060,7 +3062,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "WHERE "
                 "   arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                 "   arx_points.part_key = arx_pax_grp.part_key and "
-                "   arx_points.point_id = arx_pax_grp.point_dep and "
+                "   arx_points.point_id = arx_pax_grp.point_dep and arx_points.pr_del>=0 and "
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_pax_grp.class_grp = cls_grp.id and "
