@@ -35,7 +35,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-    "FROM points WHERE point_id=:point_id";
+    "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -79,7 +79,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (point_id!=-1)
   {
     TQuery RegionQry(&OraSession);
-    RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id";
+    RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
     RegionQry.CreateVariable("point_id",otInteger,point_id);
     RegionQry.Execute();
     if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -233,7 +233,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     {
       point_id = Qry.FieldAsInteger("point_id");
       TQuery RegionQry(&OraSession);
-      RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id";
+      RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
       RegionQry.CreateVariable("point_id",otInteger,point_id);
       RegionQry.Execute();
       if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -317,7 +317,7 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.SQLText=
       "SELECT airline,flt_no,airp,point_num, "
       "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-      "FROM points WHERE point_id=:point_id";
+      "FROM points WHERE point_id=:point_id AND pr_del>=0";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -375,7 +375,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if (point_id!=-1)
   {
     Qry.SQLText=
-      "SELECT scd_out,act_out,airp FROM points WHERE point_id=:point_id";
+      "SELECT scd_out,act_out,airp FROM points WHERE point_id=:point_id AND pr_del>=0";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -1002,7 +1002,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   Qry.SQLText=
     "SELECT airline,flt_no,airp,point_num,scd_out,act_out, "
     "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-    "FROM points WHERE point_id=:point_id";
+    "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -1094,6 +1094,8 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
   Qry.SQLText="SELECT basic_type,short_name FROM typeb_types WHERE code=:tlg_type";
   Qry.DeclareVariable("tlg_type",otString);
 
+  time_t time_start,time_end;
+
   vector<string>::iterator t;
   for(t=tlg_types.begin();t!=tlg_types.end();t++)
   {
@@ -1160,11 +1162,21 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
             ostringstream msg;
             try
             {
+              time_start=time(NULL);
               TlgQry.Execute();
+              time_end=time(NULL);
+              if (time_end-time_start>1)
+                ProgTrace(TRACE5,"Attention! tlg.create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                                 time_end-time_start,
+                                 TlgQry.GetVariableAsString("tlg_type"),
+                                 TlgQry.GetVariableAsInteger("point_id"));
+
               if (TlgQry.VariableIsNULL("id")) throw Exception("tlg.create_tlg without result");
               tlg_id=TlgQry.GetVariableAsInteger("id");
               msg << "Телеграмма " << short_name
                   << " (ид=" << tlg_id << ") сформирована: ";
+
+              time_start=time(NULL);
               try {
                   create_tlg(
                           TlgQry.GetVariableAsString("tlg_type"),
@@ -1181,7 +1193,12 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               } catch(...) {
                   ProgTrace(TRACE5, "telegram2 create_tlg failed: something unexpected");
               }
-
+              time_end=time(NULL);
+              if (time_end-time_start>1)
+                ProgTrace(TRACE5,"Attention! telegram2.create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                                 time_end-time_start,
+                                 TlgQry.GetVariableAsString("tlg_type"),
+                                 TlgQry.GetVariableAsInteger("point_id"));
             }
             catch(EOracleError &E)
             {
@@ -1211,17 +1228,24 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
             TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
 
             if (tlg_id!=0)
-            try
             {
-              SendTlg(tlg_id);
-            }
-            catch(UserException &E)
-            {
-              msg.str("");
-              msg << "Ошибка отправки телеграммы " << short_name
-                  << " (ид=" << tlg_id << ")"
-                  << ": " << E.what();
-              TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+              time_start=time(NULL);
+              try
+              {
+                SendTlg(tlg_id);
+              }
+              catch(UserException &E)
+              {
+                msg.str("");
+                msg << "Ошибка отправки телеграммы " << short_name
+                    << " (ид=" << tlg_id << ")"
+                    << ": " << E.what();
+                TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+              };
+              time_end=time(NULL);
+              if (time_end-time_start>1)
+                ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
+                                 time_end-time_start,tlg_id);
             };
           }
           catch( Exception &E )
@@ -1353,7 +1377,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
     "SELECT airline,flt_no,suffix,airp,scd_out, "
     "       airp_arv,class "
     "FROM points,pax_grp "
-    "WHERE point_id=point_dep AND grp_id=:grp_id AND bag_refuse=0";
+    "WHERE point_id=point_dep AND points.pr_del>=0 AND grp_id=:grp_id AND bag_refuse=0";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return;
@@ -1486,7 +1510,7 @@ TTlgFltInfo& GetFltInfo(int point_id, TTlgFltInfo &info)
   Qry.SQLText=
     "SELECT airline,flt_no,suffix,airp, "
     "       scd_out "
-    "FROM points WHERE point_id=:point_id";
+    "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) ; //???
