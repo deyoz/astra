@@ -657,6 +657,9 @@ void CloseBoarding( int point_id )
 
 void Takeoff( int point_id )
 {
+  time_t time_start,time_end;
+
+  time_start=time(NULL);
   try
   {
   	TQuery Qry(&OraSession);
@@ -672,7 +675,12 @@ void Takeoff( int point_id )
   {
     ProgError(STDLOG,"Takeoff.get_full_stat (point_id=%d): %s",point_id,E.what());
   };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! statist.get_full_stat execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
 
+  time_start=time(NULL);
   try
   {
     vector<string> tlg_types;
@@ -692,7 +700,12 @@ void Takeoff( int point_id )
   {
     ProgError(STDLOG,"Takeoff.SendTlg (point_id=%d): %s",point_id,E.what());
   };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! TelegramInterface::SendTlg execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
 
+  time_start=time(NULL);
   try
   {
     create_czech_police_file(point_id);
@@ -701,5 +714,9 @@ void Takeoff( int point_id )
   {
     ProgError(STDLOG,"Takeoff.create_czech_police_file (point_id=%d): %s",point_id,E.what());
   };
+  time_end=time(NULL);
+  if (time_end-time_start>1)
+    ProgTrace(TRACE5,"Attention! create_czech_police_file execute time: %ld secs, point_id=%d",
+                     time_end-time_start,point_id);
 }
 
