@@ -24,7 +24,8 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airp FROM points WHERE point_id=:point_id";
+    "SELECT airp FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -170,7 +171,9 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 int get_new_tid(int point_id)
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT tid__seq.nextval AS tid FROM points WHERE point_id=:point_id FOR UPDATE";
+  Qry.SQLText=
+    "SELECT tid__seq.nextval AS tid FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -398,7 +401,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             HallQry.SQLText=
               "SELECT halls2.airp AS hall_airp, points.airp AS flt_airp "
               "FROM halls2,points "
-              "WHERE points.point_id=:point_id AND halls2.id(+)=:hall AND "
+              "WHERE points.point_id=:point_id AND pr_del=0 AND pr_reg<>0 AND "
+              "      halls2.id(+)=:hall AND "
               "      points.airp=halls2.airp(+)";
             HallQry.CreateVariable("point_id",otInteger,point_id);
             HallQry.CreateVariable("hall",otInteger,hall);
@@ -418,7 +422,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           FltQry.SQLText=
             "SELECT airline,flt_no,suffix,airp,scd_out, "
             "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-            "FROM points WHERE point_id=:point_id";
+            "FROM points WHERE point_id=:point_id AND pr_del>=0";
           FltQry.CreateVariable("point_id",otInteger,point_id);
           FltQry.Execute();
           if (!FltQry.Eof)
@@ -457,7 +461,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    name, "
         "    pers_type, "
         "    class, "
-        "    NVL(v_last_trfer.airp_arv,pax_grp.airp_arv) AS airp_arv, "
+        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
         "    seat_no, "
         "    seats, "
         "    ticket_no, "
@@ -471,25 +475,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    NVL(ckin.get_rkAmount(pax_grp.grp_id,NULL,rownum),0) AS rk_amount, "
         "    NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
         "    NVL(pax_grp.excess,0) AS excess, "
-        "    NVL(value_bag.count,0) AS value_bag_count, "
+        "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment "
         "FROM "
-        "    pax_grp,v_last_trfer, "
-        "    pax, "
-        "    ( "
-        "     SELECT "
-        "        grp_id, "
-        "        COUNT(*) AS count "
-        "     FROM "
-        "        value_bag "
-        "     GROUP BY "
-        "        grp_id "
-        "    ) value_bag "
+        "    pax_grp, "
+        "    pax "
         "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.grp_id=v_last_trfer.grp_id(+) AND "
-        "    pax_grp.grp_id=value_bag.grp_id(+)  " +
+        "    pax_grp.grp_id=pax.grp_id " +
         condition +
         " ORDER BY reg_no ";
 
