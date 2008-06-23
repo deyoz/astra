@@ -831,7 +831,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
         if(Qry.Eof && part_key == NoExists) {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select point_id from points where point_id = :point_id pr_del >= 0";
+            Qry.SQLText = "select point_id from points where point_id = :point_id and pr_del >= 0";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof)
