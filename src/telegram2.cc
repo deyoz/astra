@@ -1987,6 +1987,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
                     old1Row.suffix = "";
                 old1Row.airp_arv = ElemIdToElem(etAirp, old1Row.airp_arv, info.pr_lat);
                 old1Row.subclass = ElemIdToElem(etSubcls, old1Row.subclass, info.pr_lat);
+                grp.str("");
                 grp
                     << old1Row.airline
                     << setw(3) << setfill('0') << old1Row.flt_no << old1Row.suffix << '/'
