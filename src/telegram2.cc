@@ -1711,7 +1711,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                     }
                     // оценим, сможем ли мы группу уместить в текущую часть телеграммы
                     size_t part_len2 = part_len;
-                    for(size_t i = j; i < grp.size(); i++)
+                    for(size_t i = j - 1; i < grp.size(); i++)
                         part_len2 += grp[i].size() + br.size();
                     if(part_len2 > PART_SIZE) {
                         SaveTlgOutPartTST(tlg_row);
@@ -1724,7 +1724,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                             tlg_row.body = tlg_row.body + grp[i] + br;
                         }
                     } else {
-                        for(size_t i = j; i < grp.size(); i++) {
+                        for(size_t i = j - 1; i < grp.size(); i++) {
                             part_len += grp[i].size() + br.size();
                             tlg_row.body = tlg_row.body + grp[i] + br;
                         }
@@ -1776,13 +1776,16 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                 ostringstream buf;
                 buf
                     << ".F/" << cur3Row.airline
-                    << setw(3) << setfill('0') << cur3Row.flt_no << cur3Row.suffix << "/"
+                    << setw(3) << setfill('0') << cur3Row.flt_no << cur3Row.suffix
+                    << "/"
+                    << DateTimeToStr(cur3Row.scd, "ddmmm", info.pr_lat)
+                    << "/"
                     <<  cur3Row.airp_arv;
-                grp.push_back(buf.str());
                 if(!cur3Row.subclass.empty()) {
                     cur3Row.subclass = ElemIdToElem(etSubcls, cur3Row.subclass, info.pr_lat);
-                    grp[0] += "/" + cur3Row.subclass;
+                    buf << "/" << cur3Row.subclass;
                 }
+                grp.push_back(buf.str());
                 // получим данные по номерам бирок
                 int num = 0;
                 TBTMTagsItem old2Row;
