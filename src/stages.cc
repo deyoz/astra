@@ -683,7 +683,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    vector<string> tlg_types;
+    vector<string>  tlg_types;
     tlg_types.push_back("PTM");
     tlg_types.push_back("PTMN");
     tlg_types.push_back("BTM");
