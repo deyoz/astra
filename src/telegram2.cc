@@ -1847,8 +1847,10 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                             << ".O/"
                             << cur3Row->airline
                             << setw(3) << setfill('0') << cur3Row->flt_no
-                            << cur3Row->suffix << '/'
+                            << cur3Row->suffix
+                            << '/'
                             << DateTimeToStr(cur3Row->scd, "ddmmm", info.pr_lat)
+                            << '/'
                             << cur3Row->airp_arv;
                         if(not cur3Row->subclass.empty())
                             buf
