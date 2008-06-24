@@ -236,7 +236,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   TSOPPDests::iterator pd = dests.end();
   bool next_airp = false;
   for ( TSOPPDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
-
+  	
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
@@ -247,7 +247,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   		}
     }
     else
-      if ( fd->point_num > id->point_num && fd->first_point == first_point )
+      if ( fd->point_num > id->point_num && fd->first_point == first_point )      	
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
@@ -488,7 +488,7 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 	vector<string> des1, des2;
 	getDests( tr1, des1 );
 	getDests( tr2, des2 );
-	if ( des1.size() != des2.size() )
+	if ( des1.size() != des2.size() )		
 	  return false;
 	vector<string>::iterator j=des2.begin();
 	for (vector<string>::iterator i=des1.begin(); i!=des1.end(); i++ ) {
@@ -661,13 +661,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		f--;
         		airline = f->airline;
         	}
-
+        	
         	if ( reqInfo->CheckAirline( airline ) &&
         		   reqInfo->CheckAirp( id->airp ) ) {
-        		TSOPPTrip ntr = createTrip( move_id, id, dests );
+        		TSOPPTrip ntr = createTrip( move_id, id, dests );        		
             ntr.ref = ref;
             if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
-            	                     errcity, pr_isg ) ) {
+            	                     errcity, pr_isg ) ) {            	
             	vector<TSOPPTrip>::iterator v=vtrips.end();
             	if ( pr_isg ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
@@ -1181,7 +1181,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       if ( sairp->est_in > NoExists )
         NewTextChild( destNode, "est_in", DateTimeToStr( sairp->est_in, ServerFormatDateTimeAsString ) );
       if ( sairp->act_in > NoExists )
-        NewTextChild( destNode, "scd_in", DateTimeToStr( sairp->act_in, ServerFormatDateTimeAsString ) );
+        NewTextChild( destNode, "act_in", DateTimeToStr( sairp->act_in, ServerFormatDateTimeAsString ) );
       if ( sairp->scd_out > NoExists )
         NewTextChild( destNode, "scd_out", DateTimeToStr( sairp->scd_out, ServerFormatDateTimeAsString ) );
       if ( sairp->est_out > NoExists )
@@ -2281,7 +2281,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
-  bool pr_other_airline = false;
+  bool pr_other_airline = false;  
   try {
     int notCancel = (int)dests.size();
     if ( notCancel < 2 )
@@ -2349,7 +2349,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	if ( old_airline.empty() )
       		old_airline = id->airline;
       	if ( !id->airline.empty() && old_airline != id->airline )
-      		pr_other_airline = true;
+      		pr_other_airline = true;      		
       }
     }
 
@@ -2471,7 +2471,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		return;
     }
   }
-
+  
   if ( pr_other_airline )
     throw UserException( "Маршрут не может содержать две различные авиакомпании" );
 
@@ -2511,7 +2511,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         id->pr_reg = 0;
       }
     }
-  	pid = id;
+  	pid = id;	  	    
   }
 //  } //end move_id==NoExists
 
@@ -2776,7 +2776,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		A.act = id->act_in;
     		A.pr_land = true;
     		vchangeAct.push_back( A );
-    	}
+    	}  	  
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
@@ -2788,7 +2788,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "     litera=:litera,park_in=:park_in,park_out=:park_out,pr_del=:pr_del,tid=:tid,"\
        "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
-  	} // end if
+  	} // end update else
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
   	           move_id,id->point_id,id->point_num,id->first_point,id->flt_no );
   	ProgTrace( TRACE5, "airp=%s,airp_fmt=%d,airline=%s,airline_fmt=%d,craft=%s,craft_fmt=%d,suffix=%s,suffix_fmt=%d",
@@ -2950,7 +2950,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
-  	}
+  	}	
     if ( set_act_out ) {
     	//!!! еще point_num не записан
        try
@@ -3802,8 +3802,6 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips )
 
 void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
 {
-  time_t time_start,time_end;
-  time_start=time(NULL);
   try
   {
     if ( act > NoExists ) {
@@ -3816,16 +3814,10 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
   {
     ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
   };
-  time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! sopp.ChangeACT_OUT execute time: %ld secs, point_id=%d",
-                     time_end-time_start,point_id);
 }
 
 void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
 {
-  time_t time_start,time_end;
-  time_start=time(NULL);
   try
   {
     if ( act > NoExists ) {
@@ -3853,10 +3845,6 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
   {
     ProgError(STDLOG,"ChangeACT_IN.SendTlg (point_id=%d): %s",point_id,E.what());
   };
-  time_end=time(NULL);
-  if (time_end-time_start>1)
-    ProgTrace(TRACE5,"Attention! sopp.ChangeACT_IN execute time: %ld secs, point_id=%d",
-                     time_end-time_start,point_id);
 }
 
 
