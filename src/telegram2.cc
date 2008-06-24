@@ -1484,8 +1484,8 @@ void TBTMList::get(TTlgInfo &info)
         "      pax_grp.bag_refuse=0 AND "
         "      pax_grp.grp_id=transfer.grp_id AND "
         "      transfer.point_id_trfer=trfer_trips.point_id AND "
-        "      pax_grp.point_dep=info.point_id AND "
-        "      pax_grp.airp_arv=info.airp AND "
+        "      pax_grp.point_dep=:point_id AND "
+        "      pax_grp.airp_arv=:airp AND "
         "      pax.pr_brd(+)=1 AND "
         "      pax_grp.status<>'T' AND pax.seats(+)>0 AND "
         "      transfer_num=1 "
@@ -1499,6 +1499,8 @@ void TBTMList::get(TTlgInfo &info)
         "         pax_grp.grp_id, "
         "         pax.surname, "
         "         pax.name ";
+    Qry.CreateVariable("airp", otString, info.airp);
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_airline = Qry.FieldIndex("airline");
@@ -1823,7 +1825,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                         "  NVL(ckin.get_bagWeight(:grp_id,NULL),0) bagWeight, "
                         "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) rkWeight "
                         "FROM dual ";
-                    Qry.CreateVariable("pax_id", otInteger, cur1Row->grp_id);
+                    Qry.CreateVariable("grp_id", otInteger, cur1Row->grp_id);
                     Qry.Execute();
                     int bagAmount = Qry.FieldAsInteger("bagAmount");
                     int bagWeight = Qry.FieldAsInteger("bagWeight");
@@ -1845,8 +1847,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                             << ".O/"
                             << cur3Row->airline
                             << setw(3) << setfill('0') << cur3Row->flt_no
-                            << cur3Row->suffix
-                            << ElemIdToElem(etSubcls, cur3Row->subclass, info.pr_lat)
+                            << cur3Row->suffix << '/'
                             << DateTimeToStr(cur3Row->scd, "ddmmm", info.pr_lat)
                             << cur3Row->airp_arv;
                         if(not cur3Row->subclass.empty())
