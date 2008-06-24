@@ -2307,6 +2307,7 @@ int TelegramInterface::create_tlg(
     int vid = NoExists;
 
     if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
+    else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
     else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
     else vid = Unknown(info, vcompleted, tst_tlg_id);
