@@ -218,11 +218,12 @@ void ETCheckStatusFlt(void)
      "  (SELECT points.point_id,point_num, "
      "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
      "   FROM points,trip_sets "
-     "   WHERE points.point_id=trip_sets.point_id AND points.pr_del=0 AND "
+     "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
      "         act_out IS NOT NULL AND pr_etstatus=0) p "
      "WHERE points.first_point=p.first_point AND "
      "      points.point_num>p.point_num AND points.pr_del=0 AND "
-     "      points.pr_tranzit=0 AND NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
+     "      ckin.get_pr_tranzit(points.point_id)=0 AND "
+     "      NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
@@ -359,7 +360,7 @@ void create_czech_police_file(int point_id)
       "       country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-      "      point_id=:point_id AND points.pr_del=0 ";
+      "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) return;
@@ -638,7 +639,7 @@ void arx_daily(TDateTime utcdate)
   PointsQry.SQLText =
     "SELECT points.point_id FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.pr_del=0 AND trip_sets.pr_stat=0 AND "
+    "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
     "      NVL(act_out,NVL(est_out,scd_out))<:stat_date";
   PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
   PointsQry.Execute();

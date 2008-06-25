@@ -2098,7 +2098,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
         "from "
         "   points "
         "where "
-        "   point_id = :point_id";
+        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -2266,7 +2266,7 @@ int TelegramInterface::create_tlg(
             "from "
             "   points "
             "where "
-            "   point_id = :vpoint_id ";
+            "   point_id = :vpoint_id AND pr_del>=0";
         Qry.CreateVariable("vpoint_id", otInteger, vpoint_id);
         Qry.Execute();
         if(Qry.Eof)

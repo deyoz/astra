@@ -807,7 +807,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   airlines, "
         "   crafts "
         "where "
-        "   points.point_id = :point_id and "
+        "   points.point_id = :point_id and points.pr_del>=0 and "
         "   points.airline = airlines.code and "
         "   points.craft = crafts.code" ;
     Qry->CreateVariable("point_id", otInteger, trip_id);
@@ -870,7 +870,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
                     "from "
                     "   points "
                     "where "
-                    "   point_id = :point_id ";
+                    "   point_id = :point_id and points.pr_del>=0 ";
                 Qry.CreateVariable("point_id", otInteger, trip_id);
                 Qry.Execute();
                 if(!Qry.Eof) {
@@ -889,7 +889,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
                 "from "
                 "   points "
                 "where "
-                "   point_id = :point_id ";
+                "   point_id = :point_id and points.pr_del>=0 ";
             Qry.CreateVariable("point_id", otInteger, trip_id);
             Qry.Execute();
             if(!Qry.Eof) {
@@ -2594,7 +2594,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
         "   airps  "
         "where  "
         "   pax_grp.grp_id = :grp_id and  "
-        "   pax_grp.point_dep = points.point_id and  "
+        "   pax_grp.point_dep = points.point_id and points.pr_del>=0 and  "
         "   points.airline = airlines.code and  "
         "   pax_grp.airp_arv = airps.code "
         "union  "

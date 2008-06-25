@@ -75,7 +75,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
      "WHERE c.point_dep=trip_classes.point_id AND "
      "      c.class=trip_classes.class AND "
      "      c.point_arv=points.point_id AND "
-     "      c.point_dep=:point_id "
+     "      c.point_dep=:point_id AND points.pr_del>=0 "
      "GROUP BY points.point_num,points.airp "
      "ORDER BY 1";
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -106,7 +106,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.SQLText =
     "SELECT airline, flt_no, airp, "
     "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-    "FROM points WHERE point_id=:point_id";
+    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string airline = Qry.FieldAsString( "airline" );
@@ -353,8 +353,9 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     //лочим рейс
     Qry.Clear();
     Qry.SQLText =
-      "SELECT point_num,pr_tranzit,first_point "
-      "FROM points WHERE point_id=:point_id AND pr_reg<>0 FOR UPDATE ";
+      "SELECT point_num,pr_tranzit,first_point, "
+      "       ckin.tranzitable(point_id) AS tranzitable "
+      "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -416,7 +417,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg)
     {
-      if (!Qry.FieldIsNULL("first_point"))
+      if (Qry.FieldAsInteger("tranzitable")!=0)
       {
         //рейс tranzitable
         bool pr_tranz_reg;
@@ -432,16 +433,16 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           if (new_pr_tranzit)
             Qry.SQLText =
               "BEGIN "
-              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id AND pr_del>=0; "
               "  UPDATE points SET first_point=:first_point "
-              "  WHERE first_point=:point_id AND point_num>:point_num; "
+              "  WHERE first_point=:point_id AND point_num>:point_num AND pr_del>=0; "
               "END; ";
           else
             Qry.SQLText =
               "BEGIN "
-              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id; "
+              "  UPDATE points SET pr_tranzit=:pr_tranzit WHERE point_id=:point_id AND pr_del>=0; "
               "  UPDATE points SET first_point=:point_id "
-              "  WHERE first_point=:first_point AND point_num>:point_num; "
+              "  WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0; "
               "END; ";
           Qry.CreateVariable("pr_tranzit",otInteger,(int)new_pr_tranzit);
           Qry.CreateVariable("point_id",otInteger,point_id);
