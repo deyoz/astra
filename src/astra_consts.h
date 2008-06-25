@@ -11,9 +11,11 @@
 namespace ASTRA
 {
 
+enum TOperMode { omCUSE, omCUTE, omSTAND, omTypeNum };
+extern const char* OperModeS[omTypeNum];
+
 enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
                  evtAccess,evtSystem,evtCodif,evtPeriod,evtProgError,evtUnknown,evtTypeNum};
-
 extern const char* EventTypeS[evtTypeNum];
 
 typedef enum {dtBP, dtBT, dtReceipt, dtFltDoc, dtArchive, dtDisp, dtTlg, dtUnknown} TDocType;

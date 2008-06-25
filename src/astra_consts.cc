@@ -3,6 +3,9 @@
 namespace ASTRA
 {
 
+const char * OperModeS[ omTypeNum ] =
+    {"CUSE", "CUTE", "STAND"};
+
 const char * TDocTypeS[] = {"BP", "BT", "Receipt", "FltDoc", "Archiv", "Disp", "Tlg", ""};
 
 const char * EventTypeS[ evtTypeNum ] =

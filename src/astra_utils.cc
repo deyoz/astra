@@ -107,8 +107,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
   screen.name = upperc( vscreen );
   desk.code = vpult;
-  if (vmode=="CUSE") desk.mode = omCUSE;
-  if (vmode=="CUTE") desk.mode = omCUTE;
+  desk.mode = DecodeOperMode(vmode);
   string sql;
 
   Qry.Clear();
@@ -510,6 +509,24 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
 
 /***************************************************************************************/
 
+TOperMode DecodeOperMode( const string mode )
+{
+  int i;
+  for( i=0; i<(int)omTypeNum; i++ )
+    if ( mode == OperModeS[ i ] )
+      break;
+  if ( i == omTypeNum )
+    return omSTAND;
+  else
+    return (TOperMode)i;
+}
+
+string EncodeOperMode(const TOperMode mode )
+{
+  string s = OperModeS[ mode ];
+  return s;
+}
+
 TEventType DecodeEventType( const string ev_type )
 {
   int i;
@@ -775,13 +792,14 @@ void showBasicInfo(void)
     NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"trace_level",reqInfo->desk.trace_level);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    xmlNodePtr modeNode=NewTextChild(node,EncodeOperMode(reqInfo->desk.mode).c_str());
     if (reqInfo->desk.mode==omCUTE)
     {
       //передаем параметры для CUTE
-      xmlNodePtr cuteNode=NewTextChild(node,"CUTE");
+
       //if (!reqInfo->user.login.empty())
       {
-        xmlNodePtr accessNode=NewTextChild(cuteNode,"airlines");
+        xmlNodePtr accessNode=NewTextChild(modeNode,"airlines");
         TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
         if (reqInfo->user.access.airlines_permit)
           for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
@@ -802,7 +820,7 @@ void showBasicInfo(void)
       };
       xmlNodePtr devNode,paramNode;
       //ATB
-      devNode=NewTextChild(cuteNode,"ATB");
+      devNode=NewTextChild(modeNode,"ATB");
       paramNode=NewTextChild(devNode,"fmt_params");
       NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
@@ -811,7 +829,7 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"smode","S","S");
       NewTextChild(paramNode,"prn_type",90);
       //BTP
-      devNode=NewTextChild(cuteNode,"BTP");
+      devNode=NewTextChild(modeNode,"BTP");
       paramNode=NewTextChild(devNode,"fmt_params");
       NewTextChild(paramNode,"pr_lat",0);
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
@@ -821,58 +839,59 @@ void showBasicInfo(void)
       NewTextChild(paramNode,"logonum","01","01");
       NewTextChild(paramNode,"prn_type",91);
       //DCP
-      devNode=NewTextChild(cuteNode,"DCP");
+      devNode=NewTextChild(modeNode,"DCP");
       paramNode=NewTextChild(devNode,"fmt_params");
       NewTextChild(paramNode,"encoding","WINDOWS-1251");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
       //LSR
-      devNode=NewTextChild(cuteNode,"LSR");
+      devNode=NewTextChild(modeNode,"LSR");
       paramNode=NewTextChild(devNode,"fmt_params");
       NewTextChild(paramNode,"prefix","31");
       //NewTextChild(paramNode,"prefix","");
       NewTextChild(paramNode,"postfix","0D");
       paramNode=NewTextChild(devNode,"mode_params");
       NewTextChild(paramNode,"multisession",(int)true,(int)true);
+    };
 
-      //новый терминал
-      TQuery Qry(&OraSession);
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
-        "FROM dev_params WHERE term_mode=:term_mode "
-        "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST ";
-      Qry.CreateVariable("term_mode",otString,"CUTE");
-      Qry.Execute();
+    //новый терминал
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
+      "FROM dev_params WHERE term_mode=:term_mode "
+      "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST ";
+
+    Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+    Qry.Execute();
 
 
-      xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
-      for(;!Qry.Eof;Qry.Next())
+    xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (operTypeNode==NULL ||
+          strcmp((const char*)operTypeNode->name,Qry.FieldAsString("op_type"))!=0)
       {
-        if (operTypeNode==NULL ||
-            strcmp((const char*)operTypeNode->name,Qry.FieldAsString("op_type"))!=0)
-        {
-          operTypeNode=NewTextChild(cuteNode,Qry.FieldAsString("op_type"));
-          paramTypeNode=NULL;
-          paramNameNode=NULL;
-        };
-        if (paramTypeNode==NULL ||
-            strcmp((const char*)paramTypeNode->name,Qry.FieldAsString("param_type"))!=0)
-        {
-          paramTypeNode=NewTextChild(operTypeNode,Qry.FieldAsString("param_type"));
-          paramNameNode=NULL;
-        };
-        if (paramNameNode==NULL ||
-            strcmp((const char*)paramNameNode->name,Qry.FieldAsString("param_name"))!=0)
-        {
-          if (Qry.FieldIsNULL("subparam_name"))
-            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"),Qry.FieldAsString("param_value"));
-          else
-            paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"));
-        };
-        if (!Qry.FieldIsNULL("subparam_name"))
-          NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
+        operTypeNode=NewTextChild(modeNode,Qry.FieldAsString("op_type"));
+        paramTypeNode=NULL;
+        paramNameNode=NULL;
       };
+      if (paramTypeNode==NULL ||
+          strcmp((const char*)paramTypeNode->name,Qry.FieldAsString("param_type"))!=0)
+      {
+        paramTypeNode=NewTextChild(operTypeNode,Qry.FieldAsString("param_type"));
+        paramNameNode=NULL;
+      };
+      if (paramNameNode==NULL ||
+          strcmp((const char*)paramNameNode->name,Qry.FieldAsString("param_name"))!=0)
+      {
+        if (Qry.FieldIsNULL("subparam_name"))
+          paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"),Qry.FieldAsString("param_value"));
+        else
+          paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"));
+      };
+      if (!Qry.FieldIsNULL("subparam_name"))
+        NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
     };
   };
   node = NewTextChild( resNode, "screen" );
