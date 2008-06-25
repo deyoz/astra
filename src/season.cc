@@ -930,7 +930,7 @@ void CreateSPP( BASIC::TDateTime localdate )
   VQry.SQLText =
    "SELECT COUNT(*) c FROM points "\
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND "\
-   "       ( TRUNC(scd_in)=TRUNC(:scd_in) OR TRUNC(scd_out)=TRUNC(:scd_out) )";
+   "       ( TRUNC(scd_in)=TRUNC(:scd_in) OR TRUNC(scd_out)=TRUNC(:scd_out) )";//!!!!
   VQry.DeclareVariable( "name", otString );
   VQry.DeclareVariable( "scd_in", otDate );
   VQry.DeclareVariable( "scd_out", otDate );
@@ -1006,8 +1006,12 @@ void CreateSPP( BASIC::TDateTime localdate )
 
       /* проверка на не существование */
       bool exists = false;
+      string name;
+      ProgTrace( TRACE5, "im->second.move_id=%d, im->second.dests.size()=%d", im->first, im->second.dests.size() );
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
-        VQry.SetVariable( "name", d->airline + IntToString( d->trip ) + d->suffix );
+      	name = d->airline + IntToString( d->trip ) + d->suffix;
+      	ProgTrace( TRACE5, "trip name=%s", name.c_str() );
+        VQry.SetVariable( "name", name );
         if ( d->scd_in > NoExists )
           VQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
         else
@@ -1018,6 +1022,7 @@ void CreateSPP( BASIC::TDateTime localdate )
           VQry.SetVariable( "scd_out", FNull );
         VQry.Execute();
         if ( VQry.FieldAsInteger( "c" ) ) {
+        	tst();
           exists = true;
           break;
         }
@@ -1371,21 +1376,24 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
               ds.tz = ptz;
               ds.region = pregion;
 
-             ProgTrace( TRACE5, "canspp trip vmove_id=%d,vd=%s,d=%s spp[ *vd ][ vold_move_id ].trips.size()=%d",
-                        vmove_id,
-                        DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
-                        DateTimeToStr( d, "dd.mm.yy hh:nn" ).c_str(),
-                        (int)spp[ *vd ][ vmove_id ].trips.size() );
-             if ( createViewer )
-               if ( spp[ *vd ][ vmove_id ].trips.empty() ) {
+              ProgTrace( TRACE5, "canspp trip vmove_id=%d,vd=%s,d=%s spp[ *vd ][ vold_move_id ].trips.size()=%d",
+                         vmove_id,
+                         DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
+                         DateTimeToStr( d, "dd.mm.yy hh:nn" ).c_str(),
+                         (int)spp[ *vd ][ vmove_id ].trips.size() );
+              if ( createViewer ) {
+                if ( spp[ *vd ][ vmove_id ].trips.empty() ) {
 
-                 createTrips( d, localdate, filter, offset, stagetimes, ds, err_airp );
+                  createTrips( d, localdate, filter, offset, stagetimes, ds, err_airp );
 
-                 ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
-               }
-               else
-                 ds.trips = spp[ *vd ][ vmove_id ].trips;
-               spp[ *vd ][ vmove_id ] = ds;
+                  ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
+                }
+                else
+                  ds.trips = spp[ *vd ][ vmove_id ].trips;
+              }
+              spp[ *vd ][ vmove_id ] = ds;
+              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%d", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
+              tst();
            } // end insert
            ProgTrace( TRACE5, "first_day=%s, move_id=%d",
                       DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
