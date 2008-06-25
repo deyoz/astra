@@ -300,9 +300,9 @@ void TFilter::GetSeason()
      e_time = ptime( boost::gregorian::date(year,1,1) );
      name = IntToString( year - 1 ) + " год";
     }
-    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d",
+/*    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d",
                DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), region ),"dd.mm.yy hh:nn:ss" ).c_str(),
-               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer );
+               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer );*/
     periods.push_back( TSeason( s_time, e_time, !summer, name ) );
     if ( i == SEASON_PRIOR_PERIOD ) {
       range.first = BoostToDateTime( periods[ i ].period.begin() );
@@ -461,10 +461,10 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
     np.last = f2 + modf( (double)ip->first, &f1 ) + diff;
     np.days = DeleteDays( ip->days, p.days ); // удаляем из p.days дни ip->days
     ClearNotUsedDays( np.first, np.last, np.days );
-    ProgTrace( TRACE5, "result np->first=%s, np->last=%s, np->days=%s, ip->days=%s",
+/*    ProgTrace( TRACE5, "result np->first=%s, np->last=%s, np->days=%s, ip->days=%s",
                DateTimeToStr( np.first,"dd.mm.yy hh:nn:ss" ).c_str(),
                DateTimeToStr( np.last,"dd.mm.yy hh:nn:ss" ).c_str(),
-               np.days.c_str(), ip->days.c_str() );
+               np.days.c_str(), ip->days.c_str() );*/
 
     if ( np.days != NoDays ) {
       /* разбили период - этот кусок может принадлежать другому расписанию */
@@ -484,10 +484,10 @@ ProgTrace( TRACE5, "ip first=%s, last=%s",
       modf( (double)ip->last, &f2 );
       np.last = f2 + modf( (double)ip->first, &f1 ) + diff;
       ClearNotUsedDays( np.first, np.last, np.days );
-    ProgTrace( TRACE5, "result np->first=%s, np->last=%s, np->days=%s",
+/*    ProgTrace( TRACE5, "result np->first=%s, np->last=%s, np->days=%s",
                DateTimeToStr( np.first,"dd.mm.yy hh:nn" ).c_str(),
                DateTimeToStr( np.last,"dd.mm.yy hh:nn" ).c_str(),
-               np.days.c_str() );
+               np.days.c_str() );*/
 
       if ( np.days != NoDays ) {
         /* разбили период - этот кусок может принадлежать другому расписанию */
@@ -668,11 +668,11 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 
 
   ProgTrace( TRACE5, "f=%f,l=%f, f1=%f, f2=%f", f, l, f1, f2 );
-	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, scd_in=%s, scd_out=%s",
+/*	ProgTrace( TRACE5, "filter.firsttime=%s, filter.lasttime=%s, scd_in=%s, scd_out=%s",
 	           DateTimeToStr( f, "dd.mm hh:nn" ).c_str(),
 	           DateTimeToStr( l, "dd.mm hh:nn" ).c_str(),
 	           DateTimeToStr( f1, "dd.mm hh:nn" ).c_str(),
-	           DateTimeToStr( f2, "dd.mm hh:nn" ).c_str());
+	           DateTimeToStr( f2, "dd.mm hh:nn" ).c_str());*/
 
   return ( f1 >= f && f1 <= l || f2 >= f && f2 <= l );
 }
@@ -928,10 +928,15 @@ void CreateSPP( BASIC::TDateTime localdate )
   /* необходимо сделать проверку на не существование рейса */
   TQuery VQry(&OraSession);
   VQry.SQLText =
-   "SELECT COUNT(*) c FROM points "\
-   " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND "\
-   "       ( TRUNC(scd_in)=TRUNC(:scd_in) OR TRUNC(scd_out)=TRUNC(:scd_out) )";//!!!!
+   "SELECT 1 FROM points "\
+   " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
+   "       TRUNC(scd_in)=TRUNC(:scd_in) AND rownum<2 "
+   "UNION "
+   "SELECT 2 FROM points "\
+   " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
+   "       TRUNC(scd_out)=TRUNC(:scd_out) AND rownum<2 ";
   VQry.DeclareVariable( "name", otString );
+  VQry.DeclareVariable( "airp", otString );  
   VQry.DeclareVariable( "scd_in", otDate );
   VQry.DeclareVariable( "scd_out", otDate );
 
@@ -1004,14 +1009,15 @@ void CreateSPP( BASIC::TDateTime localdate )
 
       PQry.SetVariable( "move_id", move_id );
 
+      int fmt;
       /* проверка на не существование */
       bool exists = false;
       string name;
-      ProgTrace( TRACE5, "im->second.move_id=%d, im->second.dests.size()=%d", im->first, im->second.dests.size() );
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
       	name = d->airline + IntToString( d->trip ) + d->suffix;
       	ProgTrace( TRACE5, "trip name=%s", name.c_str() );
         VQry.SetVariable( "name", name );
+        VQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );        
         if ( d->scd_in > NoExists )
           VQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
         else
@@ -1021,7 +1027,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         else
           VQry.SetVariable( "scd_out", FNull );
         VQry.Execute();
-        if ( VQry.FieldAsInteger( "c" ) ) {
+        if ( !VQry.Eof ) {
         	tst();
           exists = true;
           break;
@@ -1031,7 +1037,6 @@ void CreateSPP( BASIC::TDateTime localdate )
         continue;
 
       bool pr_tranzit;
-      int fmt;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {
         PQry.SetVariable( "point_num", d->num );
         PQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
@@ -1392,8 +1397,8 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
                   ds.trips = spp[ *vd ][ vmove_id ].trips;
               }
               spp[ *vd ][ vmove_id ] = ds;
-              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%d", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
-              tst();
+/*              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%d", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
+              tst();*/
            } // end insert
            ProgTrace( TRACE5, "first_day=%s, move_id=%d",
                       DateTimeToStr( first_day, "dd.mm.yy hh:nn" ).c_str(),
