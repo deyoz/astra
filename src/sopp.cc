@@ -539,7 +539,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     	PointsQry.CreateVariable( "next_date", otDate, FNull );
     }
   }
-
   TQuery ClassesQry( &OraSession );
   if ( arx ) {
   	ClassesQry.SQLText = arx_classesSQL;
@@ -598,9 +597,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   }
   PerfomTest( 666 );
   PointsQry.Execute();
+  if ( PointsQry.Eof ) return errcity; 
   PerfomTest( 667 );
   TSOPPDests dests;
-
 //  TCRS_Displaces crsd;
   double sd;
   modf( NowUTC(), &sd );
@@ -608,7 +607,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
   int move_id = NoExists;
   string ref;
-
   int col_move_id = PointsQry.FieldIndex( "move_id" );
   int col_ref;
   if ( pr_isg )
@@ -2419,14 +2417,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         else
           Qry.SetVariable( "scd_out", FNull );
         Qry.Execute();
-        tst();
         double scd_in,scd_out,d1;
         string region;
         if ( id->scd_in > NoExists ) {
     		  region = AirpTZRegion( id->airp );
         	ProgTrace( TRACE5, "id->airp=%s, region=%s, id->point_id=%d", id->airp.c_str(), region.c_str(), id->point_id );
           d1 = UTCToLocal( id->scd_in, region );
-          tst();
           modf( d1, &scd_in );
         }
         else scd_in = NoExists;
@@ -2435,7 +2431,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
             region = AirpTZRegion( id->airp );
         	ProgTrace( TRACE5, "id->airp=%s, region=%s, id->point_id=%d", id->airp.c_str(), region.c_str(), id->point_id );
           d1 = UTCToLocal( id->scd_out, region );
-          tst();
           modf( d1, &scd_out );
         }
         else scd_out = NoExists;
@@ -2972,7 +2967,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		vchangeAct.push_back( A );
  	  }
   	if ( set_pr_del ) {
-  		tst();
   		ch_dests = true;
   		Qry.Clear();
   		Qry.SQLText =
