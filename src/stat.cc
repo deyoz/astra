@@ -2195,29 +2195,12 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "select "
-        "  airp, "
-        "  airline, "
-        "  flt_no, "
-        "  scd_out, "
-        "  point_id, "
-        "  places, "
-        "  sum(pax_amount) pax_amount, "
-        "  sum(adult) adult, "
-        "  sum(child) child, "
-        "  sum(baby) baby, "
-        "  sum(rk_weight) rk_weight, "
-        "  sum(bag_amount) bag_amount, "
-        "  sum(bag_weight) bag_weight, "
-        "  sum(excess) excess "
-        "from "
-        "( "
-        "select "
         "  points.airp, "
         "  points.airline, "
         "  points.flt_no, "
         "  points.scd_out, "
         "  stat.point_id, "
-        "  substr(ckin.get_airps(stat.point_id),1,50) places, "
+        "  ckin.get_airps(stat.point_id) places, "
         "  sum(adult + child + baby) pax_amount, "
         "  sum(adult) adult, "
         "  sum(child) child, "
@@ -2267,7 +2250,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points.flt_no, "
         "  arx_points.scd_out, "
         "  arx_stat.point_id, "
-        "  substr(arch.get_airps(arx_stat.point_id, arx_stat.part_key),1,50) places, "
+        "  arch.get_airps(arx_stat.point_id, arx_stat.part_key) places, "
         "  sum(adult + child + baby) pax_amount, "
         "  sum(adult) adult, "
         "  sum(child) child, "
@@ -2280,10 +2263,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "  arx_points.part_key >= :FirstDate and "
-        "  arx_stat.part_key >= :FirstDate ";
+        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
+        "  arx_points.pr_del>=0 AND "
+        "  arx_points.part_key = arx_stat.part_key AND "
+        "  arx_points.point_id = arx_stat.point_id ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2313,14 +2297,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points.scd_out, "
         "  arx_stat.point_id, "
         "  arx_stat.part_key "
-        ") "
-        "group by "
-        "  airp, "
-        "  airline, "
-        "  flt_no, "
-        "  scd_out, "
-        "  point_id, "
-        "  places "
         "order by ";
     if(ap.size())
         SQLText +=
@@ -2340,8 +2316,12 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     Qry.SQLText = SQLText;
     TReqInfo *reqInfo = TReqInfo::Instance();
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
+    TDateTime FirstDate = ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region);
+    TDateTime LastDate = ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region);
+    if(IncMonth(FirstDate, 1) < LastDate)
+        throw UserException("Период поиска не должен превышать 1 месяца");
+    Qry.CreateVariable("FirstDate", otDate, FirstDate);
+    Qry.CreateVariable("LastDate", otDate, LastDate);
     TPerfTimer tm;
     tm.Init();
     Qry.Execute();
@@ -2594,10 +2574,11 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "  arx_points.part_key >= :FirstDate and "
-        "  arx_stat.part_key >= :FirstDate ";
+        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
+        "  arx_points.pr_del>=0 AND "
+        "  arx_points.part_key = arx_stat.part_key AND "
+        "  arx_points.point_id = arx_stat.point_id ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2647,8 +2628,8 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%s", SQLText.c_str());
 
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
-    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), info.desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), info.desk.tz_region));
     Qry.Execute();
 
     if(!Qry.Eof) {
@@ -2769,10 +2750,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "  arx_points, "
         "  arx_stat "
         "where "
-        "  arx_points.point_id = arx_stat.point_id and arx_points.pr_del>=0 and "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "  arx_points.part_key >= :FirstDate and "
-        "  arx_stat.part_key >= :FirstDate ";
+        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
+        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
+        "  arx_points.pr_del>=0 AND "
+        "  arx_points.part_key = arx_stat.part_key AND "
+        "  arx_points.point_id = arx_stat.point_id ";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2813,8 +2795,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airp ";
 
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
-    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), info.desk.tz_region));
+    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), info.desk.tz_region));
     Qry.Execute();
 
     if(!Qry.Eof) {
