@@ -3707,7 +3707,7 @@ bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT MAX(time_create) AS max_time_create "
-    "FROM tlg_source,tlgs_in "
+    "FROM tlgs_in,tlg_source "
     "WHERE tlg_source.tlg_id=tlgs_in.id AND "
     "      tlg_source.point_id_tlg=:point_id_in AND tlgs_in.type=:tlg_type";
   Qry.CreateVariable("point_id_in",otInteger,point_id_in);
