@@ -682,7 +682,7 @@ void Takeoff( int point_id )
   	Qry.Clear();
   	Qry.SQLText=
   	  "BEGIN "
-  	  "  statist.get_full_stat(:point_id); "
+  	  "  statist.get_full_stat(:point_id, 0); "
   	  "END;";
   	Qry.CreateVariable( "point_id", otInteger, point_id );
   	Qry.Execute();

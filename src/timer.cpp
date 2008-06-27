@@ -94,16 +94,18 @@ void exec_tasks( void )
 	      if ( name == "createSPP" ) createSPP( utcdate );
 	    	else
 	    	  if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
-	    	    else
-	    	      if ( name == "sync_mvd" ) sync_mvd();
-	    	      	else
-	    	      		if ( name == "arx_daily" ) arx_daily( utcdate );
-	    	      			else
-	    	      				if ( name == "sync_aodb" ) sync_aodb( );
-	    	      				else
-	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-	    	      				  else
-	    	      				  	if ( name == "sync_sppcek" ) sync_sppcek( );
+	    	  else
+	    	    if ( name == "sync_mvd" ) sync_mvd();
+	    	   	else
+	    	   		if ( name == "arx_daily" ) arx_daily( utcdate );
+	    	  		else
+	    	  			if ( name == "sync_aodb" ) sync_aodb( );
+	    	  			else
+	    	  			  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
+	    	  			  else
+	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
+	    	  			  	else
+	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );	
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;
@@ -619,17 +621,16 @@ void arx_move(int move_id, TDateTime part_key)
   OraSession.Commit();
 };
 
-void arx_daily(TDateTime utcdate)
+void get_full_stat(TDateTime utcdate)
 {
-	ProgTrace(TRACE5,"arx_daily started");
-
-	//соберем статистику для тех, кто не вылетел
+	//соберем статистику по истечении двух дней от вылета, 
+	//если не проставлен признак окончательного сбора статистики pr_stat
 	ProgTrace(TRACE5,"arx_daily: statist.get_full_stat(:point_id)");
 	TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
 	  "BEGIN "
-	  "  statist.get_full_stat(:point_id); "
+	  "  statist.get_full_stat(:point_id, 1); "
 	  "END;";
 	Qry.DeclareVariable("point_id",otInteger);
 
@@ -647,11 +648,17 @@ void arx_daily(TDateTime utcdate)
   {
   	Qry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
   	Qry.Execute();
-  };
-  OraSession.Commit();
+  	OraSession.Commit();
+  };  
+};
+
+void arx_daily(TDateTime utcdate)
+{
+	ProgTrace(TRACE5,"arx_daily started");
 
   //сначала ищем рейсы из СПП которые можно переместить в архив
   ProgTrace(TRACE5,"arx_daily: arch.move(:move_id,:part_key)");
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
     "SELECT move_id "
@@ -663,6 +670,7 @@ void arx_daily(TDateTime utcdate)
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MIN_DAYS());
   Qry.Execute();
 
+  TQuery PointsQry(&OraSession);
   PointsQry.Clear();
   PointsQry.SQLText =
     "SELECT act_out,act_in,pr_del, "

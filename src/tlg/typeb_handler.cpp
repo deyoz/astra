@@ -83,9 +83,17 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 };
 
+#define PARTS_NOT_RECEIVE_TIMEOUT  1.0      //1 день
+#define OUT_OF_MEMORY_TIMEOUT      5.0/1440 //5 мин
+#define PARSING_FORCE_TIMEOUT      5.0/1440 //5 мин
+#define PARSING_MAX_TIMEOUT        1.0      //1 день
+#define SCAN_TIMEOUT               2.0      //2 дня
+
 void handle_tlg(void)
 {
   time_t time_start=time(NULL);
+
+  TDateTime utc_date=NowUTC();
 
   static TQuery TlgIdQry(&OraSession);
   if (TlgIdQry.SQLText.IsEmpty())
@@ -97,9 +105,10 @@ void handle_tlg(void)
       "       MAX(time_create) AS max_time_create, "
       "       MIN(time_receive) AS min_time_receive "
       "FROM tlgs_in "
-      "WHERE time_parse IS NULL AND time_receive>=TRUNC(system.UTCSYSDATE)-3 "
+      "WHERE time_parse IS NULL AND time_receive>=:time_receive "
       "GROUP BY id "
       "ORDER BY max_time_create,min_time_receive,id";
+    TlgIdQry.CreateVariable("time_receive",otDate,utc_date-SCAN_TIMEOUT);
   };
 
   static TQuery TlgInQry(&OraSession);
@@ -125,6 +134,7 @@ void handle_tlg(void)
 
   TQuery TripsQry(&OraSession);
 
+  TDateTime time_receive;
   int tlg_id,tlg_num,count;
   char *buf=NULL,*ph/*,trip[20]*/;
   int bufLen=0,tlgLen;
@@ -133,10 +143,6 @@ void handle_tlg(void)
   THeadingInfo *HeadingInfo=NULL;
   TEndingInfo *EndingInfo=NULL;
 
-  TDateTime utc_date=NowUTC();
-  TDateTime trunc_utc_date;
-  modf(utc_date,&trunc_utc_date);
-
   count=0;
   TlgIdQry.Execute();
   try
@@ -144,7 +150,7 @@ void handle_tlg(void)
     for(;!TlgIdQry.Eof&&count<SCAN_COUNT;TlgIdQry.Next(),OraSession.Rollback())
     {
       tlg_id=TlgIdQry.FieldAsInteger("id");
-      ProgTrace(TRACE5,"handle_tlg %s: iteration started (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
+      time_receive=TlgIdQry.FieldAsDateTime("time_receive");
 
       TlgInUpdQry.SetVariable("id",tlg_id);
       TlgInQry.SetVariable("id",tlg_id);
@@ -174,8 +180,6 @@ void handle_tlg(void)
         continue;
       };
 
-      ProgTrace(TRACE5,"handle_tlg %s: parse heading and ending (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
-
       try
       {
         if ((HeadingInfo->tlg_cat==tcDCS||
@@ -183,7 +187,7 @@ void handle_tlg(void)
              !EndingInfo->pr_final_part)
         {
           //не все еще части собраны
-          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
+          if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           else
             continue;
@@ -219,7 +223,7 @@ void handle_tlg(void)
         if (pr_out_mem)
         {
           // нехватка памяти
-          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440) //5 минут
+          if (utc_date-time_receive > OUT_OF_MEMORY_TIMEOUT)
             throw ETlgError("Out of memory");
           else
             continue;
@@ -227,7 +231,7 @@ void handle_tlg(void)
         if (!TlgInQry.Eof||tlg_num>0)
         {
           //не все еще части собраны
-          if (utc_date-TlgIdQry.FieldAsDateTime("time_receive")>30.0/1440) //30 минут
+          if (utc_date-time_receive > PARTS_NOT_RECEIVE_TIMEOUT)
             throw ETlgError("Some parts not received");
           else
             continue;
@@ -235,8 +239,6 @@ void handle_tlg(void)
         };
         if (tlgLen==0) throw ETlgError("Empty");
         *(buf+tlgLen)=0;
-
-        ProgTrace(TRACE5,"handle_tlg %s: all parts received (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
 
         switch (HeadingInfo->tlg_cat)
         {
@@ -251,10 +253,9 @@ void handle_tlg(void)
             {
               TPnlAdlContent con;
               ParsePNLADLContent(part,info,con);
-              ProgTrace(TRACE5,"handle_tlg %s: ParsePNLADLContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
-              //принудительно разобрать после 5 минут после получения
+              //принудительно разобрать через определенное время после получения
               //(это будет работать только для ADL)
-              forcibly=utc_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
+              forcibly=utc_date-time_receive > PARSING_FORCE_TIMEOUT;
               if (SavePNLADLContent(tlg_id,info,con,forcibly))
               {
                 TlgInUpdQry.Execute();
@@ -264,23 +265,21 @@ void handle_tlg(void)
               else
               {
                 OraSession.Rollback();
-                if (forcibly&&info.flt.scd<=utc_date-10)
+                if (forcibly&& /*info.flt.scd<=utc_date-10*/
+                	  (utc_date-time_receive) > PARSING_MAX_TIMEOUT)
                   //если телеграммы не хотят принудительно разбираться
-                  //по истечении 10 дней со дня выполнения рейса - записать в просроченные
+                  //по истечении некоторого времени - записать в просроченные
                   throw ETlgError("Time limit reached");
               };
-              ProgTrace(TRACE5,"handle_tlg %s: SavePNLADLContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
               TPtmContent con;
               ParsePTMContent(part,info,con);
-              ProgTrace(TRACE5,"handle_tlg %s: ParsePTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
               SavePTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
-              ProgTrace(TRACE5,"handle_tlg %s: SavePTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             break;
           }
@@ -293,12 +292,10 @@ void handle_tlg(void)
             {
               TBtmContent con;
               ParseBTMContent(part,info,con);
-              ProgTrace(TRACE5,"handle_tlg %s: ParseBTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
               SaveBTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
-              ProgTrace(TRACE5,"handle_tlg %s: SaveBTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             break;
           }
@@ -308,12 +305,10 @@ void handle_tlg(void)
             part.line=1;
             TFltInfo flt;
             ParseAHMFltInfo(part,flt);
-            ProgTrace(TRACE5,"handle_tlg %s: ParseAHMFltInfo (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             SaveFlt(tlg_id,flt,btFirstSeg);
             TlgInUpdQry.Execute();
             OraSession.Commit();
             count++;
-            ProgTrace(TRACE5,"handle_tlg %s: SaveFlt (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             break;
           }
           default:
@@ -341,7 +336,6 @@ void handle_tlg(void)
         }
         catch(...) {};
       };
-      ProgTrace(TRACE5,"handle_tlg %s: iteration finished (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
     };
     if (HeadingInfo!=NULL) delete HeadingInfo;
     if (EndingInfo!=NULL) delete EndingInfo;
@@ -371,7 +365,8 @@ void bind_tlg(void)
     "FROM tlg_binding,tlg_trips "
     "WHERE tlg_trips.point_id=tlg_binding.point_id_tlg(+) AND "
     "      tlg_binding.point_id_spp IS NULL AND "
-    "      scd>=TRUNC(system.UTCSYSDATE)-3";
+    "      scd>=TRUNC(system.UTCSYSDATE)-3 AND "
+    "      scd<=TRUNC(system.UTCSYSDATE)+3 ";
   Qry.Execute();
 
   int count=0;
