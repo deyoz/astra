@@ -2316,10 +2316,15 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     Qry.SQLText = SQLText;
     TReqInfo *reqInfo = TReqInfo::Instance();
-    TDateTime FirstDate = ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region);
-    TDateTime LastDate = ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region);
+    TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
+    TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 1) < LastDate)
         throw UserException("Период поиска не должен превышать 1 месяца");
+    FirstDate = ClientToUTC(FirstDate, reqInfo->desk.tz_region);
+    LastDate = ClientToUTC(LastDate, reqInfo->desk.tz_region);
+    ProgTrace(TRACE5, "FirstDate: %s", DateTimeToStr(FirstDate, ServerFormatDateTimeAsString).c_str());
+    ProgTrace(TRACE5, "LastDate: %s", DateTimeToStr(LastDate, ServerFormatDateTimeAsString).c_str());
+    ProgTrace(TRACE5, "IncMonth(FirstDate, 1): %s", DateTimeToStr(IncMonth(FirstDate, 1), ServerFormatDateTimeAsString).c_str());
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TPerfTimer tm;
@@ -2893,10 +2898,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Не найдено ни одного пассажира");
-    TDateTime FirstDate = ClientToUTC(NodeAsDateTime("FirstDate", reqNode), info.desk.tz_region);
-    TDateTime LastDate = ClientToUTC(NodeAsDateTime("LastDate", reqNode), info.desk.tz_region);
+    TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
+    TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 3) < LastDate)
         throw UserException("Период поиска не должен превышать 3 месяца");
+    FirstDate = ClientToUTC(FirstDate, info.desk.tz_region);
+    LastDate = ClientToUTC(LastDate, info.desk.tz_region);
     TPerfTimer tm;
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
