@@ -1521,24 +1521,15 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
  	  	if ( !tl.empty() )
  	  		tl += ",";
         if ( fl.act > NoExists ) {
-            try
-            {
-                TQuery Qry(&OraSession);
-                Qry.Clear();
-                Qry.SQLText=
-                    "BEGIN "
-                    "  statist.get_full_stat(:point_id); "
-                    "END;";
-                Qry.CreateVariable( "point_id", otInteger, point_id );
-                Qry.Execute();
+            try {
+            	exec_stage( point_id, sTakeoff );
             }
             catch( std::exception &E ) {
-                ProgError( STDLOG, "ParseFlight: statist.get_full_stat filed. Exception: %s", E.what() );
+                ProgError( STDLOG, "AODB exec_stage: Takeoff. Exception: %s", E.what() );
             }
             catch( ... ) {
-                ProgError( STDLOG, "ParseFlight: statist.get_full_stat filed. Unknown error" );
+                ProgError( STDLOG, "AODB exec_stage: Unknown error" );
             };
-
             tl += string("Проставление факт. времени вылета ") + DateTimeToStr( fl.act, "hh:nn dd.mm.yy" ) + string(" (UTC)");
         } else
  	  		tl += "Отмена факта вылета";

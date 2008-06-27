@@ -96,7 +96,8 @@ void handle_tlg(void)
       "       MAX(time_receive) AS time_receive, "
       "       MAX(time_create) AS max_time_create, "
       "       MIN(time_receive) AS min_time_receive "
-      "FROM tlgs_in WHERE time_parse IS NULL "
+      "FROM tlgs_in "
+      "WHERE time_parse IS NULL AND time_receive>=TRUNC(system.UTCSYSDATE)-3 "
       "GROUP BY id "
       "ORDER BY max_time_create,min_time_receive,id";
   };
@@ -143,6 +144,8 @@ void handle_tlg(void)
     for(;!TlgIdQry.Eof&&count<SCAN_COUNT;TlgIdQry.Next(),OraSession.Rollback())
     {
       tlg_id=TlgIdQry.FieldAsInteger("id");
+      //ProgTrace(TRACE5,"handle_tlg %s: iteration started (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
+
       TlgInUpdQry.SetVariable("id",tlg_id);
       TlgInQry.SetVariable("id",tlg_id);
       //читаем все части телеграммы
@@ -171,6 +174,7 @@ void handle_tlg(void)
         continue;
       };
 
+      //ProgTrace(TRACE5,"handle_tlg %s: parse heading and ending (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
 
       try
       {
@@ -232,6 +236,8 @@ void handle_tlg(void)
         if (tlgLen==0) throw ETlgError("Empty");
         *(buf+tlgLen)=0;
 
+        //ProgTrace(TRACE5,"handle_tlg %s: all parts received (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
+
         switch (HeadingInfo->tlg_cat)
         {
           case tcDCS:
@@ -245,6 +251,7 @@ void handle_tlg(void)
             {
               TPnlAdlContent con;
               ParsePNLADLContent(part,info,con);
+              //ProgTrace(TRACE5,"handle_tlg %s: ParsePNLADLContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
               //принудительно разобрать после 5 минут после получения
               //(это будет работать только для ADL)
               forcibly=utc_date-TlgIdQry.FieldAsDateTime("time_receive")>5.0/1440; //5 минут
@@ -262,15 +269,18 @@ void handle_tlg(void)
                   //по истечении 10 дней со дня выполнения рейса - записать в просроченные
                   throw ETlgError("Time limit reached");
               };
+              ///ProgTrace(TRACE5,"handle_tlg %s: SavePNLADLContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             if (strcmp(info.tlg_type,"PTM")==0)
             {
               TPtmContent con;
               ParsePTMContent(part,info,con);
+              //ProgTrace(TRACE5,"handle_tlg %s: ParsePTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
               SavePTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
+              //ProgTrace(TRACE5,"handle_tlg %s: SavePTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             break;
           }
@@ -283,10 +293,12 @@ void handle_tlg(void)
             {
               TBtmContent con;
               ParseBTMContent(part,info,con);
+              //ProgTrace(TRACE5,"handle_tlg %s: ParseBTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
               SaveBTMContent(tlg_id,info,con);
               TlgInUpdQry.Execute();
               OraSession.Commit();
               count++;
+              //ProgTrace(TRACE5,"handle_tlg %s: SaveBTMContent (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             };
             break;
           }
@@ -296,10 +308,12 @@ void handle_tlg(void)
             part.line=1;
             TFltInfo flt;
             ParseAHMFltInfo(part,flt);
+            //ProgTrace(TRACE5,"handle_tlg %s: ParseAHMFltInfo (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             SaveFlt(tlg_id,flt,btFirstSeg);
             TlgInUpdQry.Execute();
             OraSession.Commit();
             count++;
+            //ProgTrace(TRACE5,"handle_tlg %s: SaveFlt (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
             break;
           }
           default:
@@ -327,6 +341,7 @@ void handle_tlg(void)
         }
         catch(...) {};
       };
+      //ProgTrace(TRACE5,"handle_tlg %s: iteration finished (tlg_id=%d)",DateTimeToStr(NowUTC(),"nn:ss").c_str(),tlg_id);
     };
     if (HeadingInfo!=NULL) delete HeadingInfo;
     if (EndingInfo!=NULL) delete EndingInfo;

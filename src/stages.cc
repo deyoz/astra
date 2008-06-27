@@ -467,7 +467,7 @@ void exec_stage( int point_id, int stage_id )
 
 
 void astra_timer( TDateTime utcdate )
-{
+{	
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id"\
@@ -501,19 +501,33 @@ void astra_timer( TDateTime utcdate )
   QCanStage.DeclareVariable( "canstage", otInteger );
   QCanStage.CreateVariable( "now", otDate, utcdate );
   bool pr_exit = false;
+  int count=0;
+  TDateTime execTime0 = NowUTC();
   while ( !pr_exit ) {
   	pr_exit = true;
+  	TDateTime execTime1 = NowUTC();
   	Qry.Execute();
+		if ( NowUTC() - execTime1 > 1.0/(1440.0*60) )
+  		ProgTrace( TRACE5, "Attention execute Query1 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime1, "nn:ss" ).c_str(), count );
+
   	while ( !Qry.Eof ) {
+  		count++;
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
+  	  TDateTime execTime2 = NowUTC();  		
   		QCanStage.Execute();
+		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
+  		  ProgTrace( TRACE5, "Attention execute Query2 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );  		
   		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
   			try {
   				try {
+  					TDateTime execStep = NowUTC();
   				  exec_stage( point_id, stage_id );
+		        if ( NowUTC() - execStep > 1.0/(1440.0*60) )
+  		        ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id, 
+  		                   DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
   				}
   				catch( Exception &E ) {
             ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
@@ -546,6 +560,8 @@ void astra_timer( TDateTime utcdate )
   		Qry.Next();
   	}
   }
+	if ( NowUTC() - execTime0 > 5.0/(1440.0*60) )
+  	ProgTrace( TRACE5, "Attention execute astra_time > 5 sec !!!, time=%s, steps count=%d", DateTimeToStr( NowUTC() - execTime0, "nn:ss" ).c_str(), count );
 }
 
 void PrepCheckIn( int point_id )
@@ -683,7 +699,7 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    vector<string> tlg_types;
+    vector<string>  tlg_types;
     tlg_types.push_back("PTM");
     tlg_types.push_back("PTMN");
     tlg_types.push_back("BTM");
