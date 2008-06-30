@@ -314,6 +314,7 @@ void TaxDetailsEdiR::operator () (ReaderData &RData, list<TaxDetails> &ltax) con
             PopEdiPoint_wdG(pMes);
         }
         PopEdiPointG(pMes);
+        PopEdiPoint_wdG(pMes);
     }
 
     PopEdiPointG(pMes);
