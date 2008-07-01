@@ -72,7 +72,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           FltQry.SQLText=
             "SELECT airline,flt_no,suffix,airp,scd_out, "
             "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-            "FROM points WHERE point_id=:point_id";
+            "FROM points WHERE point_id=:point_id AND pr_del>=0";
           FltQry.CreateVariable("point_id",otInteger,point_id);
           FltQry.Execute();
           if (!FltQry.Eof)
@@ -272,7 +272,7 @@ int PaymentInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   Qry.SQLText=
     "SELECT point_id,tid__seq.nextval AS tid "
     "FROM points "
-    "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
@@ -651,7 +651,7 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     "       pax_grp.airp_dep,pax_grp.airp_arv, "
     "       ckin.get_main_pax_id(pax_grp.grp_id) AS pax_id "
     "FROM points,pax_grp "
-    "WHERE points.point_id=pax_grp.point_dep AND "
+    "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
     "      pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();

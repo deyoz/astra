@@ -32,17 +32,17 @@ using namespace EXCEPTIONS;
 void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string tick_no=NodeAsString("TickNoEdit",reqNode);
-  int point_id=NodeAsInteger("point_id",reqNode); //это позже
-//!!!  int point_id = JxtContext::getJxtContHandler()->currContext()->readInt("CKIN_TRIP_ID");
+  int point_id=NodeAsInteger("point_id",reqNode);
   TQuery Qry(&OraSession);
-  Qry.SQLText="SELECT airline,flt_no FROM points WHERE point_id=:point_id";
+  Qry.SQLText=
+    "SELECT airline,flt_no FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof||
-      !set_edi_addrs(Qry.FieldAsString("airline"),
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (!set_edi_addrs(Qry.FieldAsString("airline"),
                      Qry.FieldAsInteger("flt_no")))
     throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",Qry.FieldAsString("airline"),Qry.FieldAsInteger("flt_no"));
-    //  EXCEPTIONS::Exception("ETSearch: edifact UNB-adresses not defined ");
 
   string oper_carrier=Qry.FieldAsString("airline");
 
@@ -170,6 +170,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
     "       etickets.coupon_status AS coupon_status "
     "FROM points,pax_grp,pax,etickets "
     "WHERE points.point_id=pax_grp.point_dep AND pax_grp.grp_id=pax.grp_id AND "
+    "      points.pr_del>=0 AND "
     "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
     "      pax.ticket_no=etickets.ticket_no(+) AND "
     "      pax.coupon_no=etickets.coupon_no(+) AND ";
@@ -313,6 +314,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
       "       etickets.airp_dep, etickets.airp_arv "
       "FROM etickets,points,pax "
       "WHERE etickets.point_id=points.point_id AND "
+      "      points.pr_del>=0 AND "
       "      etickets.ticket_no=pax.ticket_no(+) AND "
       "      etickets.coupon_no=pax.coupon_no(+) AND "
       "      etickets.point_id=:point_id AND "

@@ -278,13 +278,13 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
         SQLText +=
         "   points "
         "where "
-        "   point_id = :point_id ";
+        "   point_id = :point_id AND pr_del>=0 ";
     else {
         SQLText +=
         "   arx_points "
         "where "
         "   part_key >= :f and "
-        "   point_id = :point_id ";
+        "   point_id = :point_id AND pr_del>=0 ";
         Qry.CreateVariable("f", otDate, f);
     }
     Qry.SQLText = SQLText;
@@ -807,6 +807,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText += ", v_last_trfer ";
     SQLText +=
         "WHERE "
+        "   points.pr_del>=0 AND "
         "   pax_grp.point_dep = :point_id and "
         "   pax_grp.point_arv = points.point_id and "
         "   pax_grp.grp_id=pax.grp_id AND "
@@ -1208,7 +1209,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "from "
         "   points "
         "where "
-        "   point_id = :point_id ";
+        "   point_id = :point_id AND pr_del>=0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(point_id));
@@ -1565,7 +1566,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
-    Qry.SQLText = "select airp from points where point_id = :point_id ";
+    Qry.SQLText = "select airp from points where point_id = :point_id AND pr_del>=0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof)
@@ -1618,6 +1619,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         SQLText += ", pax ";
     SQLText +=
         "where "
+        "    points.pr_del>=0 AND "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.point_arv = points.point_id and "
         "    pax_grp.class = classes.code(+) and "
@@ -1856,7 +1858,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "from "
         "   points "
         "where "
-        "   point_id = :point_id ";
+        "   point_id = :point_id AND pr_del>=0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     ProgTrace(TRACE5, "SQLText: %s", Qry.SQLText.SQLText());
     Qry.Execute();
@@ -2267,10 +2269,10 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  craft, "
     "  bort, "
     "  trip_type, "
-    "  ckin.get_pr_tranz_reg(point_id,pr_tranzit) AS pr_tranz_reg, "
+    "  ckin.get_pr_tranz_reg(point_id) AS pr_tranz_reg, "
     "  park_out "
     "FROM  points "
-    "WHERE point_id= :point_id AND pr_del=0";
+    "WHERE point_id= :point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,NodeAsInteger("point_id",reqNode));
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
@@ -2302,7 +2304,7 @@ void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.SQLText =
         "SELECT airp,point_num, "
         "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-        "FROM points WHERE point_id=:point_id ";
+        "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
     if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные.");

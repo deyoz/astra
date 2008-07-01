@@ -94,16 +94,18 @@ void exec_tasks( void )
 	      if ( name == "createSPP" ) createSPP( utcdate );
 	    	else
 	    	  if ( name == "ETCheckStatusFlt" ) ETCheckStatusFlt();
-	    	    else
-	    	      if ( name == "sync_mvd" ) sync_mvd();
-	    	      	else
-	    	      		if ( name == "arx_daily" ) arx_daily( utcdate );
-	    	      			else
-	    	      				if ( name == "sync_aodb" ) sync_aodb( );
-	    	      				else
-	    	      				  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
-	    	      				  else
-	    	      				  	if ( name == "sync_sppcek" ) sync_sppcek( );
+	    	  else
+	    	    if ( name == "sync_mvd" ) sync_mvd();
+	    	   	else
+	    	   		if ( name == "arx_daily" ) arx_daily( utcdate );
+	    	  		else
+	    	  			if ( name == "sync_aodb" ) sync_aodb( );
+	    	  			else
+	    	  			  if ( name == "sync_sirena_codes" ) sync_sirena_codes( );
+	    	  			  else
+	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
+	    	  			  	else
+	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );	
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;
@@ -218,11 +220,12 @@ void ETCheckStatusFlt(void)
      "  (SELECT points.point_id,point_num, "
      "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
      "   FROM points,trip_sets "
-     "   WHERE points.point_id=trip_sets.point_id AND points.pr_del=0 AND "
+     "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
      "         act_out IS NOT NULL AND pr_etstatus=0) p "
      "WHERE points.first_point=p.first_point AND "
      "      points.point_num>p.point_num AND points.pr_del=0 AND "
-     "      points.pr_tranzit=0 AND NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
+     "      ckin.get_pr_tranzit(points.point_id)=0 AND "
+     "      NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
@@ -359,7 +362,7 @@ void create_czech_police_file(int point_id)
       "       country "
       "FROM points,airps,cities "
       "WHERE points.airp=airps.code AND airps.city=cities.code AND "
-      "      point_id=:point_id AND points.pr_del=0 ";
+      "      point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
     if (Qry.Eof) return;
@@ -618,17 +621,16 @@ void arx_move(int move_id, TDateTime part_key)
   OraSession.Commit();
 };
 
-void arx_daily(TDateTime utcdate)
+void get_full_stat(TDateTime utcdate)
 {
-	ProgTrace(TRACE5,"arx_daily started");
-
-	//соберем статистику для тех, кто не вылетел
+	//соберем статистику по истечении двух дней от вылета, 
+	//если не проставлен признак окончательного сбора статистики pr_stat
 	ProgTrace(TRACE5,"arx_daily: statist.get_full_stat(:point_id)");
 	TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
 	  "BEGIN "
-	  "  statist.get_full_stat(:point_id); "
+	  "  statist.get_full_stat(:point_id, 1); "
 	  "END;";
 	Qry.DeclareVariable("point_id",otInteger);
 
@@ -638,7 +640,7 @@ void arx_daily(TDateTime utcdate)
   PointsQry.SQLText =
     "SELECT points.point_id FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND "
-    "      points.pr_del=0 AND trip_sets.pr_stat=0 AND "
+    "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
     "      NVL(act_out,NVL(est_out,scd_out))<:stat_date";
   PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
   PointsQry.Execute();
@@ -646,11 +648,17 @@ void arx_daily(TDateTime utcdate)
   {
   	Qry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
   	Qry.Execute();
-  };
-  OraSession.Commit();
+  	OraSession.Commit();
+  };  
+};
+
+void arx_daily(TDateTime utcdate)
+{
+	ProgTrace(TRACE5,"arx_daily started");
 
   //сначала ищем рейсы из СПП которые можно переместить в архив
   ProgTrace(TRACE5,"arx_daily: arch.move(:move_id,:part_key)");
+  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
     "SELECT move_id "
@@ -662,6 +670,7 @@ void arx_daily(TDateTime utcdate)
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MIN_DAYS());
   Qry.Execute();
 
+  TQuery PointsQry(&OraSession);
   PointsQry.Clear();
   PointsQry.SQLText =
     "SELECT act_out,act_in,pr_del, "

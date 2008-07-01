@@ -30,7 +30,6 @@ struct TLogMsg {
   }
 };
 
-enum TOperMode { omCUSE, omCUTE, omSTAND };
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
 enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
                         ustCodeNative=5, ustCodeIATA=6,
@@ -138,7 +137,7 @@ class TDesk {
     std::string lang;
     int trace_level;
     BASIC::TDateTime time;
-    TOperMode mode;
+    ASTRA::TOperMode mode;
     TDesk()
     {
       clear();
@@ -151,7 +150,7 @@ class TDesk {
       lang.clear();
       trace_level = -1;
       time = 0;
-      mode = omSTAND;
+      mode = ASTRA::omSTAND;
     };
 };
 
@@ -247,6 +246,8 @@ void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
         int id3 = 0);
 void MsgToLog(TLogMsg &msg);
 
+ASTRA::TOperMode DecodeOperMode( const std::string mode );
+std::string EncodeOperMode(const ASTRA::TOperMode mode );
 ASTRA::TEventType DecodeEventType( const std::string ev_type );
 std::string EncodeEventType( const ASTRA::TEventType ev_type );
 

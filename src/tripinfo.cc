@@ -375,7 +375,8 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.trip_type, "
     "       points.litera, "
     "       points.remark, "
-    "       points.pr_tranzit, "
+    "       ckin.tranzitable(points.point_id) AS tranzitable, "
+    "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
     "       points.first_point ";
 
 /*
@@ -775,7 +776,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         reqInfo->screen.name == "PREPREG.EXE")
     {
       NewTextChild( node, "ckin_stage", tripStages.getStage( stCheckIn ) );
-      NewTextChild( node, "tranzitable", (int)(!Qry.FieldIsNULL("first_point")) );
+      NewTextChild( node, "tranzitable", (int)(Qry.FieldAsInteger("tranzitable")!=0) );
     };
 
     TQuery Qryh( &OraSession );
