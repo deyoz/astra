@@ -41,9 +41,8 @@ const char* points_SOPP_SQL =
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
-    "         ( :first_date IS NULL OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
+    "         ( time_in >= :first_date AND time_in < :next_date OR "
+    "           time_out >= :first_date AND time_out < :next_date ) ) p "
     "WHERE points.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
     "ORDER BY points.move_id,point_num,point_id ";
@@ -116,8 +115,10 @@ const char* arx_classesSQL =
     "WHERE part_key>=:arx_date AND arx_trip_classes.point_id=:point_id AND arx_trip_classes.class=classes.code "\
     "ORDER BY priority";
 const char* regSQL =
-    "SELECT SUM(pax.seats) as reg FROM pax_grp, pax "\
-    " WHERE pax_grp.point_dep=:point_id AND pax_grp.grp_id=pax.grp_id AND pax.pr_brd IS NOT NULL ";
+    "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow) AS reg FROM counters2 "
+    "WHERE point_dep=:point_id";
+  /*  "SELECT SUM(pax.seats) as reg FROM pax_grp, pax "\
+    " WHERE pax_grp.point_dep=:point_id AND pax_grp.grp_id=pax.grp_id AND pax.pr_brd IS NOT NULL ";*/
 const char* arx_regSQL =
     "SELECT SUM(arx_pax.seats) as reg "
     " FROM arx_pax_grp, arx_pax "\
@@ -2280,63 +2281,63 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool existsTrip = false;
   bool pr_last;
   bool pr_other_airline = false;  
-  try {
-    int notCancel = (int)dests.size();
-    if ( notCancel < 2 )
-    	throw UserException( "Маршрут должен содержать не менее двух аэропортов" );
-    // проверки
-    // если это работник аэропорта, то в маршруте должен быть этот порт,
-    // если работник авиакомпании, то авиакомпания
-    if ( reqInfo->user.user_type != utSupport ) {
-      bool canDo = reqInfo->user.user_type == utAirline;
-      for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
-      	if ( id->pr_del == -1 )
-      		continue;
-        if ( reqInfo->CheckAirp( id->airp ) ) {
-          canDo = true;
-        }
-        pr_last = true;
-        for ( TSOPPDests::iterator ir=id + 1; ir!=dests.end(); ir++ ) {
-        	if ( ir->pr_del != -1 ) {
-        		pr_last = false;
-        		break;
-        	}
-        }
-        if ( !pr_last &&
-        	   !reqInfo->CheckAirline( id->airline ) ) {
-          if ( !id->airline.empty() )
-            throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
-          else
-          	throw UserException( "Не задана авиакомпания" );
-        }
-      } // end for
-      if ( !canDo )
-      	if ( reqInfo->user.access.airps_permit ) {
-      	  if ( reqInfo->user.access.airps.size() == 1 )
-      	    throw UserException( string( "Маршрут должен содержать аэропорт " ) + *reqInfo->user.access.airps.begin() );
-      	  else {
-      		  string airps;
-      		  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
-      		    if ( !airps.empty() )
-      		      airps += " ";
-      		    airps += *s;
-      		  }
-      		  if ( airps.empty() )
-      		  	throw UserException( "Нет доступа ни к одному аэропорту" );
-      		  else
-      		    throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
-      	  }
+  int notCancel = (int)dests.size();
+  if ( notCancel < 2 )
+  	throw UserException( "Маршрут должен содержать не менее двух аэропортов" );
+  // проверки
+  // если это работник аэропорта, то в маршруте должен быть этот порт,
+  // если работник авиакомпании, то авиакомпания
+  if ( reqInfo->user.user_type != utSupport ) {
+    bool canDo = reqInfo->user.user_type == utAirline;
+    for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+    	if ( id->pr_del == -1 )
+    		continue;
+      if ( reqInfo->CheckAirp( id->airp ) ) {
+        canDo = true;
+      }
+      pr_last = true;
+      for ( TSOPPDests::iterator ir=id + 1; ir!=dests.end(); ir++ ) {
+      	if ( ir->pr_del != -1 ) {
+      		pr_last = false;
+      		break;
       	}
-      	else { // список запрещенных аэропортов
-      		string airps;
-      		for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
-      		  if ( !airps.empty() )
-      		    airps += " ";
-      		  airps += *s;
-      		}
-      		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
-      	}
-    }
+      }
+      if ( !pr_last &&
+      	   !reqInfo->CheckAirline( id->airline ) ) {
+        if ( !id->airline.empty() )
+          throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
+        else
+        	throw UserException( "Не задана авиакомпания" );
+      }
+    } // end for
+    if ( !canDo )
+    	if ( reqInfo->user.access.airps_permit ) {
+    	  if ( reqInfo->user.access.airps.size() == 1 )
+    	    throw UserException( string( "Маршрут должен содержать аэропорт " ) + *reqInfo->user.access.airps.begin() );
+    	  else {
+    		  string airps;
+    		  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
+    		    if ( !airps.empty() )
+    		      airps += " ";
+    		    airps += *s;
+    		  }
+    		  if ( airps.empty() )
+    		  	throw UserException( "Нет доступа ни к одному аэропорту" );
+    		  else
+    		    throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
+    	  }
+    	}
+    	else { // список запрещенных аэропортов
+    		string airps;
+    		for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
+    		  if ( !airps.empty() )
+    		    airps += " ";
+    		  airps += *s;
+    		}
+    		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
+    	}
+  }
+  try {    
     // проверка на отмену + в маршруте учавствует всего одна авиакомпания
     string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
