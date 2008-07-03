@@ -688,7 +688,11 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         part_key = NoExists;
     else
         part_key = NodeAsDateTime(partKeyNode);
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNodeFast("client_with_trip_col_in_SysLog", paramNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
@@ -1060,9 +1064,17 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         throw UserException("Не найдено ни одной операции.");
 }
 
+typedef struct {
+    string trip, scd_out;
+} TTripItem;
+
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("SystemLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
@@ -1104,6 +1116,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     SetProp(colNode, "width", 750);
     SetProp(colNode, "align", taLeftJustify);
 
+    map<int, string> TripItems;
     for(int j = 0; j < 2; j++) {
         Qry.Clear();
         if (j==0) {
@@ -1280,6 +1293,29 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         );
                 NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
                 NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                if(!Qry.FieldIsNULL(col_point_id)) {
+                    int point_id = Qry.FieldAsInteger(col_point_id);
+                    if(TripItems.find(point_id) == TripItems.end()) {
+                        TQuery tripQry(&OraSession);
+                        tripQry.SQLText =
+                            "select "
+                            "   points.airline, "
+                            "   points.flt_no, "
+                            "   points.suffix, "
+                            "   points.airp, "
+                            "   points.scd_out, "
+                            "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
+                            "from "
+                            "   points "
+                            "where "
+                            "   point_id = :point_id ";
+                        tripQry.CreateVariable("point_id", otInteger,  point_id);
+                        tripQry.Execute();
+                        TTripInfo trip_info(tripQry);
+                        TripItems[point_id] = GetTripName(trip_info);
+                    }
+                    NewTextChild(rowNode, "trip", TripItems[point_id]);
+                }
                 if(!Qry.FieldIsNULL(col_grp_id))
                     NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
                 if(!Qry.FieldIsNULL(col_reg_no))
@@ -1305,6 +1341,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     if(!count)
         throw UserException("Не найдено ни одной операции.");
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 struct THallItem {
@@ -2887,10 +2924,6 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
-
-typedef struct {
-    string trip, scd_out;
-} TTripItem;
 
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
