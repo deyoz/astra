@@ -63,10 +63,13 @@ const char* points_ISG_SQL =
     " FROM points, move_ref, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 AND "
-    "         ( :first_date IS NULL OR "
+    "         ( time_in >= :first_date AND time_in < :next_date OR "
+    "           time_out >= :first_date AND time_out < :next_date OR "
+    "           time_in = TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out = TO_DATE('01.01.0001','DD.MM.YYYY') ) ) p "
+/*    "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
-    "            NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
+    "            NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "*/
     "WHERE points.move_id = p.move_id AND "
     "      move_ref.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
@@ -237,7 +240,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   TSOPPDests::iterator pd = dests.end();
   bool next_airp = false;
   for ( TSOPPDests::iterator fd=dests.begin(); fd!=dests.end(); fd++ ) {
-  	
+
   	if ( fd->point_num < id->point_num ) {
   		if ( id->first_point == fd->first_point || id->first_point == fd->point_id ) {
   			if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
@@ -248,7 +251,7 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   		}
     }
     else
-      if ( fd->point_num > id->point_num && fd->first_point == first_point )      	
+      if ( fd->point_num > id->point_num && fd->first_point == first_point )
       	if ( id->pr_del == 1 || id->pr_del == fd->pr_del ) {
       		if ( !next_airp ) {
       			next_airp = true;
@@ -489,7 +492,7 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 	vector<string> des1, des2;
 	getDests( tr1, des1 );
 	getDests( tr2, des2 );
-	if ( des1.size() != des2.size() )		
+	if ( des1.size() != des2.size() )
 	  return false;
 	vector<string>::iterator j=des2.begin();
 	for (vector<string>::iterator i=des1.begin(); i!=des1.end(); i++ ) {
@@ -598,7 +601,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   }
   PerfomTest( 666 );
   PointsQry.Execute();
-  if ( PointsQry.Eof ) return errcity; 
+  if ( PointsQry.Eof ) return errcity;
   PerfomTest( 667 );
   TSOPPDests dests;
 //  TCRS_Displaces crsd;
@@ -660,13 +663,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		f--;
         		airline = f->airline;
         	}
-        	
+
         	if ( reqInfo->CheckAirline( airline ) &&
         		   reqInfo->CheckAirp( id->airp ) ) {
-        		TSOPPTrip ntr = createTrip( move_id, id, dests );        		
+        		TSOPPTrip ntr = createTrip( move_id, id, dests );
             ntr.ref = ref;
             if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
-            	                     errcity, pr_isg ) ) {            	
+            	                     errcity, pr_isg ) ) {
             	vector<TSOPPTrip>::iterator v=vtrips.end();
             	if ( pr_isg ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
@@ -2280,7 +2283,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
-  bool pr_other_airline = false;  
+  bool pr_other_airline = false;
   int notCancel = (int)dests.size();
   if ( notCancel < 2 )
   	throw UserException( "Маршрут должен содержать не менее двух аэропортов" );
@@ -2337,7 +2340,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
     	}
   }
-  try {    
+  try {
     // проверка на отмену + в маршруте учавствует всего одна авиакомпания
     string old_airline;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -2348,7 +2351,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       	if ( old_airline.empty() )
       		old_airline = id->airline;
       	if ( !id->airline.empty() && old_airline != id->airline )
-      		pr_other_airline = true;      		
+      		pr_other_airline = true;
       }
     }
 
@@ -2467,7 +2470,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		return;
     }
   }
-  
+
   if ( pr_other_airline )
     throw UserException( "Маршрут не может содержать две различные авиакомпании" );
 
@@ -2507,7 +2510,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         id->pr_reg = 0;
       }
     }
-  	pid = id;	  	    
+  	pid = id;
   }
 //  } //end move_id==NoExists
 
@@ -2772,7 +2775,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		A.act = id->act_in;
     		A.pr_land = true;
     		vchangeAct.push_back( A );
-    	}  	  
+    	}
   	  Qry.Clear();
       Qry.SQLText =
        "UPDATE points "
@@ -2946,7 +2949,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
-  	}	
+  	}
     if ( set_act_out ) {
     	//!!! еще point_num не записан
        try

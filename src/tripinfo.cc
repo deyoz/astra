@@ -83,10 +83,12 @@ void TSQL::createSQLTrips( ) {
   /* ------------Ñéëåéíê-------------- */
   /* ß†§†•¨ ‚•™·‚ */
   p.sqlfrom =
-    "points ";
+    "points,trip_final_stages";
   p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
     "points.act_out IS NULL AND points.pr_del=0 AND "
-    "gtimer.is_final_stage(  points.point_id, :brd_stage_type, :brd_open_stage_id) <> 0 ";
+    "trip_final_stages.stage_type=:brd_stage_type AND "
+    "trip_final_stages.stage_id=:brd_open_stage_id ";
   /* ß†§†•¨ Ø•‡•¨•≠≠Î• */
   p.addVariable( "brd_stage_type", otInteger, IntToString( stBoarding ) );
   p.addVariable( "brd_open_stage_id", otInteger, IntToString( sOpenBoarding ) );
@@ -101,49 +103,58 @@ void TSQL::createSQLTrips( ) {
     "points";
   p.sqlwhere =
     "points.act_out IS NULL AND points.pr_del=0 AND "
-    "NVL(points.est_out,points.scd_out) BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+1 ";
+    "time_out BETWEEN system.UTCSYSDATE-1 AND system.UTCSYSDATE+1 ";
   sqltrips[ "CENT.EXE" ] = p;
   p.clearVariables();
 
 
   /* ------------êÖÉàëíêÄñàü------------ */
+  /* ------------ÑéäìåÖçíÄñàü------------ */
   p.sqlfrom =
-    "points";
+    "points,trip_final_stages";
   p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
     "points.pr_del=0 AND "
-    "(gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_close_stage_id)<>0 OR "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_doc_stage_id)<>0) ";
+    "trip_final_stages.stage_type=:ckin_stage_type AND "
+    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
   p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
   sqltrips[ "AIR.EXE" ] = p;
-  p.clearVariables();
-
-  /* ------------ÑéäìåÖçíÄñàü------------ */
-  p.sqlfrom =
-    "points";
-  p.sqlwhere =
-    "points.pr_del=0 AND "
-    "(points.act_out IS NOT NULL OR "
-    " points.act_out IS NULL AND "
-    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "
-    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :ckin_prep_stage_id)=0) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
-  p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
   sqltrips[ "DOCS.EXE" ] = p;
   p.clearVariables();
 
+  /* ------------ÑéäìåÖçíÄñàü------------ */
+/*  p.sqlfrom =
+    "points,trip_final_stages";
+  p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
+    "points.pr_del=0 AND "
+    "trip_final_stages.stage_type=:ckin_stage_type AND "
+    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
+
+//    "(points.act_out IS NOT NULL OR "
+//    " points.act_out IS NULL AND "
+//    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "
+//    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :ckin_prep_stage_id)=0) ";
+  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
+  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
+  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
+  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
+//  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
+//  p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
+  sqltrips[ "DOCS.EXE" ] = p;
+  p.clearVariables();*/
+
   /* ------------äÄëëÄ------------ */
   p.sqlfrom =
-    "points";
+    "points,trip_final_stages";
   p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
     "points.act_out IS NULL AND points.pr_del=0 AND "
-    "(gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_close_stage_id)<>0 OR "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :ckin_doc_stage_id)<>0) ";
+    "trip_final_stages.stage_type=:ckin_stage_type AND "
+    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
@@ -153,14 +164,23 @@ void TSQL::createSQLTrips( ) {
 
   /* ------------èéÑÉéíéÇäÄ------------ */
   p.sqlfrom =
-    "points";
+    "points,trip_final_stages";
   p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
+    "points.pr_del=0 AND "
+    "trip_final_stages.stage_type=:ckin_stage_type AND "
+    "trip_final_stages.stage_id IN (:ckin_prep_stage_id,:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
+/*
     "points.pr_del=0 AND "
     "(points.act_out IS NOT NULL OR "
     " points.act_out IS NULL AND "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :no_active_stage_id)=0) ";
+    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :no_active_stage_id)=0) ";*/
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
+  p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
+  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
+  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
+  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
+//  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
   sqltrips[ "PREPREG.EXE" ] = p;
   p.clearVariables();
 
@@ -168,106 +188,11 @@ void TSQL::createSQLTrips( ) {
   p.sqlfrom =
     "points";
   p.sqlwhere =
-    "TRUNC(NVL(points.act_out,NVL(points.est_out,points.scd_out)))-TRUNC(system.UTCSYSDATE) "
-    "BETWEEN -15 AND 1 AND points.pr_del>=0 ";
+    "points.pr_del>=0 AND "
+    "time_out BETWEEN TRUNC(system.UTCSYSDATE)-15 AND TRUNC(system.UTCSYSDATE)+2 ";
   sqltrips[ "TLG.EXE" ] = p;
   p.clearVariables();
 }
-
-/*
-
-ØÆ·†§™†:
-
-SELECT trips.trip_id,
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str
-FROM trips,trip_stations
-WHERE trips.trip_id=trip_stations.trip_id AND
-      trips.act IS NULL AND trips.status=0 AND
-      trip_stations.name= :station AND trip_stations.work_mode='œ' AND
-      gtimer.is_final_stage(  trips.trip_id, :brd_stage_type, :brd_open_stage_id) <> 0
-ORDER BY NVL(act,NVL(est,scd))
-
-‡•£®·‚‡†Ê®Ô:
-
-SELECT trips.trip_id,
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str
-FROM trips
-WHERE trips.status=0 AND
-      (act IS NULL OR :act_ignore<>0) AND
-      (gtimer.is_final_stage(trips.trip_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR
-       gtimer.is_final_stage(trips.trip_id, :ckin_stage_type, :ckin_close_stage_id)<>0 OR
-       gtimer.is_final_stage(trips.trip_id, :ckin_stage_type, :ckin_doc_stage_id)<>0)
-ORDER BY NVL(act,NVL(est,scd))
-
-§Æ™„¨•≠‚†Ê®Ô:
-
-SELECT trips.trip_id,
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str
-FROM trips
-WHERE trips.status=0 AND
-      (act IS NOT NULL OR
-       act IS NULL AND
-       gtimer.is_final_stage( trips.trip_id, :ckin_stage_type, :no_active_stage_id)=0 AND
-       gtimer.is_final_stage( trips.trip_id, :ckin_stage_type, :ckin_prep_stage_id)=0)
-ORDER BY NVL(act,NVL(est,scd))
-
-™†··†:
-
-SELECT trips.trip_id,
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str
-FROM trips
-WHERE trips.act IS NULL AND trips.status=0 AND
-      (gtimer.is_final_stage( trips.trip_id, :ckin_stage_type, :ckin_open_stage_id)<>0 OR
-       gtimer.is_final_stage( trips.trip_id, :ckin_stage_type, :ckin_close_stage_id)<>0)
-ORDER BY NVL(act,NVL(est,scd))
-
-‚•´•£‡†¨¨Î:
-
-SELECT trip_id,1 AS pr_dep,
-       '|-> '||
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str,
-       NVL(act,NVL(est,scd)) AS act
-FROM trips
-WHERE TRUNC(NVL(act,NVL(est,scd)))-TRUNC(SYSDATE) BETWEEN -15 AND 1 AND
-      status<>-1
-UNION
-SELECT trip_id,0 AS pr_dep,
-       '->| '||
-       trip||
-       DECODE(TRUNC(SYSDATE),TRUNC(NVL(act,NVL(est,scd))),'',
-              TO_CHAR(NVL(act,NVL(est,scd)),'/DD'))||
-       DECODE(TRUNC(NVL(act,NVL(est,scd))),TRUNC(scd),'',
-              TO_CHAR(scd,'(DD)')) AS str,
-       NVL(act,NVL(est,scd)) AS act
-FROM trips_in
-WHERE TRUNC(NVL(act,NVL(est,scd)))-TRUNC(SYSDATE) BETWEEN -15 AND 1 AND
-      status<>-1
-UNION
-SELECT -1,1,'ÕÂ ÓÔÂ‰.',TO_DATE(NULL) FROM dual
-ORDER BY act
-
-
-*/
 
 void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
   Qry.Clear();

@@ -11,7 +11,7 @@
 namespace ASTRA
 {
 
-enum TOperMode { omCUSE, omCUTE, omSTAND, omTypeNum };
+enum TOperMode { omCUSE, omCUTE, omMUSE, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
 enum TEventType {evtSeason,evtDisp,evtFlt,evtGraph,evtPax,evtPay,evtComp,evtTlg,
