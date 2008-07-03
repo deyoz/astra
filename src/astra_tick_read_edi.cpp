@@ -185,23 +185,16 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
 
     SetEdiPointToCompositeG(pMes, "C336", 0, "NEED_ORG");
     string Awk = GetDBNum(pMes, 9906,0, "INV_ORG");
-    string Location = GetDBNum(pMes, 3225,0, "INV_ORG");
+    string Location = GetDBNum(pMes, 3225);
     PopEdiPoint_wdG(pMes); //ORG
 
     string PprNumber;
     string Agn;
-    if (SetEdiPointToCompositeG(pMes, "C300")){
-        GetDBNum(pMes, 9900,0, "INV_ORG");
-        PprNumber = GetDBNum(pMes, 9900,0, "INV_ORG");
-        if(PprNumber.size()<8 || PprNumber.size()>9)
-        {
-            ProgError(STDLOG,
-                               "Invalid length of Travel Agent Id %s [%d, min/max 8/9]",
-                               PprNumber.c_str(),PprNumber.size());
-            throw Exception("Invalid length of Travel Agent Id");
-        }
-      Agn = GetDBNum(pMes, 9902);
-      PopEdiPoint_wdG(pMes); //ORG
+    if (SetEdiPointToCompositeG(pMes, "C300"))
+    {
+        PprNumber = GetDBNum(pMes, 9900);
+        Agn = GetDBNum(pMes, 9902);
+        PopEdiPoint_wdG(pMes); //ORG
     }
 
 
@@ -217,7 +210,7 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
         Lang = Lang::ENGLISH;
     }
 
-    string AuthCode = GetDBNum(pMes, 9904,0, "INV_ORG");
+    string AuthCode = GetDBNum(pMes, 9904);
     string Pult = GetDBNum(pMes, 3148);
     if(Pult.size()>6){
         ProgError(STDLOG, "Invalid length of the communication number %s [%d/6 max]",
