@@ -923,7 +923,11 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     else
         part_key = NodeAsDateTime(partKeyNode);
 
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции по пассажиру");
