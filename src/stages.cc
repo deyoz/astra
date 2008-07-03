@@ -213,6 +213,13 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
         tolog += " не задано";
      reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
    }
+  Qry.Clear();
+  Qry.SQLText =
+    "BEGIN "
+    "  gtimer.sync_trip_final_stages(:point_id); "
+    "END;";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
 }
 
 
@@ -467,7 +474,7 @@ void exec_stage( int point_id, int stage_id )
 
 
 void astra_timer( TDateTime utcdate )
-{	
+{
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id"\
@@ -482,19 +489,20 @@ void astra_timer( TDateTime utcdate )
   Qry.CreateVariable( "now", otDate, utcdate );
   TQuery QCanStage(&OraSession);
   QCanStage.SQLText =
-   "DECLARE msg VARCHAR2(255); "\
-   "BEGIN "\
-   " :canstage := gtimer.CanStage(:point_id,:stage_id); "\
-   " IF :canstage != 0 THEN "\
-   "  UPDATE points SET point_id = point_id WHERE point_id = :point_id; "\
-   "  BEGIN "\
-   "   UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "\
-   "    WHERE point_id = :point_id AND stage_id = :stage_id; "\
-   "   EXCEPTION WHEN NO_DATA_FOUND THEN "\
-   "    INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
-   "     VALUES(:point_id,:stage_id,:now,NULL,:now,0,1); "\
-   "  END; "\
-   " END IF; "\
+   "DECLARE msg VARCHAR2(255); "
+   "BEGIN "
+   " :canstage := gtimer.CanStage(:point_id,:stage_id); "
+   " IF :canstage != 0 THEN "
+   "  UPDATE points SET point_id = point_id WHERE point_id = :point_id; "
+   "  BEGIN "
+   "   UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "
+   "    WHERE point_id = :point_id AND stage_id = :stage_id; "
+   "   EXCEPTION WHEN NO_DATA_FOUND THEN "
+   "    INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "
+   "     VALUES(:point_id,:stage_id,:now,NULL,:now,0,1); "
+   "  END; "
+   "  gtimer.sync_trip_final_stages(:point_id); "
+   " END IF; "
    "END; ";
   QCanStage.DeclareVariable( "point_id", otInteger );
   QCanStage.DeclareVariable( "stage_id", otInteger );
@@ -516,17 +524,17 @@ void astra_timer( TDateTime utcdate )
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
-  	  TDateTime execTime2 = NowUTC();  		
+  	  TDateTime execTime2 = NowUTC();
   		QCanStage.Execute();
 		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
-  		  ProgTrace( TRACE5, "Attention execute Query2 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );  		
+  		  ProgTrace( TRACE5, "Attention execute Query2 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
   		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
   			try {
   				try {
   					TDateTime execStep = NowUTC();
   				  exec_stage( point_id, stage_id );
 		        if ( NowUTC() - execStep > 1.0/(1440.0*60) )
-  		        ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id, 
+  		        ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
   		                   DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
   				}
   				catch( Exception &E ) {
