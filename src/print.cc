@@ -3085,6 +3085,7 @@ string get_validator(TBagReceipt &rcpt)
     } else if(
             validator_type == "ž’" ||
             validator_type == "ž•" ||
+            validator_type == "‹€" ||
             validator_type == "ˆ€’€") {
         validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
         validator << agency_name.substr(0, 19) << endl;
