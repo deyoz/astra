@@ -757,6 +757,7 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
     NewTextChild(node,"ticket",PaxQry.FieldAsString("ticket"),"");
+    NewTextChild(node,"is_tkne",(int)(PaxQry.FieldAsInteger("is_tkne")!=0),(int)false);
 
     RemQry.SetVariable("pax_id",pax_id);
     RemQry.Execute();
@@ -1020,7 +1021,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
-      "       report.get_TKNO(crs_pax.pax_id) AS ticket "
+      "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
+      "       report.is_TKNE(crs_pax.pax_id) AS is_tkne "
       "FROM tlg_trips,crs_pnr,crs_pax,pax, ";
     if (sum.nPax>1)
       sql+=
@@ -2477,7 +2479,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     PaxQry.SQLText=
       "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,pax.seat_no,pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
-      "       crs_pax.pax_id AS crs_pax_id "
+      "       crs_pax.pax_id AS crs_pax_id, "
+      "       report.is_TKNE(pax.pax_id) AS is_tkne "
       "FROM pax,crs_pax "
       "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
     PaxQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -2501,6 +2504,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(paxNode,"coupon_no",PaxQry.FieldAsInteger("coupon_no"));
       else
         NewTextChild(paxNode,"coupon_no");
+      NewTextChild(paxNode,"is_tkne",(int)(PaxQry.FieldAsInteger("is_tkne")!=0));
+
       NewTextChild(paxNode,"document",PaxQry.FieldAsString("document"));
       NewTextChild(paxNode,"subclass",PaxQry.FieldAsString("subclass"));
       NewTextChild(paxNode,"tid",PaxQry.FieldAsInteger("tid"));
