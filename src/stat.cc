@@ -423,6 +423,10 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    bool pr_show_del = false;
+    xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
+    if(prDelNode)
+        pr_show_del = NodeAsInteger(prDelNode) == 1;
     TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
@@ -460,6 +464,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "WHERE "
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
                 if(scr == PaxList)
+                    SQLText += " and points.pr_del = 0 ";
+                if(scr == FltLog and !pr_show_del)
                     SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
@@ -497,6 +503,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                     "    arx_points.part_key >= :FirstDate ";
                 if(scr == PaxList)
+                    SQLText += " and arx_points.pr_del = 0 ";
+                if(scr == FltLog and !pr_show_del)
                     SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
