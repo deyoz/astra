@@ -423,6 +423,7 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
@@ -451,13 +452,15 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    nvl(points.suffix, ' ') suffix, "
                     "    points.scd_out, "
                     "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+                    "    points.pr_del, "
                     "    move_id, "
                     "    point_num "
                     "FROM "
                     "    points "
                     "WHERE "
-                    "    points.pr_del >= 0 and "
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+                if(scr == PaxList)
+                    SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -485,14 +488,16 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    nvl(arx_points.suffix, ' ') suffix, "
                     "    arx_points.scd_out, "
                     "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+                    "    arx_points.pr_del, "
                     "    move_id, "
                     "    point_num "
                     "FROM "
                     "    arx_points "
                     "WHERE "
-                    "    arx_points.pr_del >= 0 and "
                     "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                     "    arx_points.part_key >= :FirstDate ";
+                if(scr == PaxList)
+                    SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -529,6 +534,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 int col_move_id=Qry.FieldIndex("move_id");
                 int col_point_num=Qry.FieldIndex("point_num");
                 int col_point_id=Qry.FieldIndex("point_id");
+                int col_pr_del=Qry.FieldIndex("pr_del");
                 int col_part_key=Qry.FieldIndex("part_key");
                 for( ; !Qry.Eof; Qry.Next()) {
                     tripInfo.airline = Qry.FieldAsString(col_airline);
@@ -538,6 +544,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
                     tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
                     tripInfo.real_out_local_date=ASTRA::NoExists;
+                    tripInfo.pr_del=Qry.FieldAsInteger(col_pr_del);
                     try
                     {
                         trip_name = GetTripName(tripInfo,false,true);
@@ -735,7 +742,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from points where point_id = :point_id AND pr_del >= 0";
+            Qry.SQLText = "select move_id from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
@@ -763,12 +770,11 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM events  "
             "WHERE "
             "events.type IN (:evtDisp) AND "
-            "events.id1=:move_id  AND "
-            "events.id2=:point_id  ";
+            "events.id1=:move_id  ";
     } else {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id and pr_del >= 0";
+            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
@@ -799,13 +805,13 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtDisp) AND "
-            "      arx_events.id1=:move_id  AND "
-            "      arx_events.id2=:point_id  ";
+            "      arx_events.id1=:move_id  ";
     }
 
 
     TPerfTimer tm;
     tm.Init();
+    xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
         Qry.Clear();
         if(i == 0) {
@@ -818,7 +824,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
         } else {
             Qry.SQLText = qry2;
-            Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.CreateVariable("move_id", otInteger, move_id);
             Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         }
@@ -835,7 +840,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
         if(Qry.Eof && part_key == NoExists) {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select point_id from points where point_id = :point_id and pr_del >= 0";
+            Qry.SQLText = "select point_id from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof)
@@ -855,7 +860,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_ev_order=Qry.FieldIndex("ev_order");
             int col_screen=Qry.FieldIndex("screen");
 
-            xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+            if(!rowsNode)
+                rowsNode = NewTextChild(paxLogNode, "rows");
             for( ; !Qry.Eof; Qry.Next()) {
                 string ev_user = Qry.FieldAsString(col_ev_user);
                 string station = Qry.FieldAsString(col_station);
@@ -1301,21 +1307,25 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                     int point_id = Qry.FieldAsInteger(col_point_id);
                     if(TripItems.find(point_id) == TripItems.end()) {
                         TQuery tripQry(&OraSession);
-                        tripQry.SQLText =
+                        string SQLText =
                             "select "
-                            "   points.airline, "
-                            "   points.flt_no, "
-                            "   points.suffix, "
-                            "   points.airp, "
-                            "   points.scd_out, "
-                            "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out "
-                            "from "
-                            "   points "
-                            "where "
+                            "   airline, "
+                            "   flt_no, "
+                            "   suffix, "
+                            "   airp, "
+                            "   scd_out, "
+                            "   NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+                            "   pr_del "
+                            "from ";
+                        SQLText += (j == 0 ? "points" : "arx_points");
+                        SQLText +=
+                            " where "
                             "   point_id = :point_id ";
+                        tripQry.SQLText = SQLText;
                         tripQry.CreateVariable("point_id", otInteger,  point_id);
                         tripQry.Execute();
                         TTripInfo trip_info(tripQry);
+                        trip_info.pr_del = tripQry.FieldAsInteger("pr_del");
                         TripItems[point_id] = GetTripName(trip_info);
                     }
                     NewTextChild(rowNode, "trip", TripItems[point_id]);
