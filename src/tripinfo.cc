@@ -1654,6 +1654,8 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
         reqInfo->user.access.airps_permit &&
         reqInfo->user.access.airps.size()==1)||showAirp)
     trip << " " << info.airp;
+  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
+      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
 
   return trip.str();
 };
