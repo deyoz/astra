@@ -3773,15 +3773,30 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	if ( Qry.FieldAsInteger( "c" ) )
 		throw UserException( "Нельзя удалить рейс. Есть зарегистрированные пассажиры" );
 	Qry.Clear();
+	Qry.SQLText = "SELECT airline,flt_no,airp FROM points WHERE move_id=:move_id AND pr_del!=-1";
+	Qry.CreateVariable( "move_id", otInteger, move_id );
+	Qry.Execute();
+	string name, dests;
+	while ( !Qry.Eof ) {
+		if ( name.empty() )
+		  name += Qry.FieldAsString( "airline" );
+		if ( name.find(Qry.FieldAsString( "flt_no" )) == string::npos )
+		  name += Qry.FieldAsString( "flt_no" );
+		if ( !dests.empty() )
+		 dests += "-";
+		dests += Qry.FieldAsString( "airp" );
+		Qry.Next();
+	}
+	Qry.Clear();
 	Qry.SQLText = "DELETE tlg_binding WHERE point_id_spp IN "
 	              "( SELECT point_id FROM points WHERE move_id=:move_id )";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
-	Qry.Execute();
+	Qry.Execute();	
 	Qry.Clear();
 	Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
-  TReqInfo::Instance()->MsgToLog( "Рейс удален", evtDisp, move_id );
+  TReqInfo::Instance()->MsgToLog( "Рейс " + name + " маршрут(" + dests + ") удален", evtDisp, move_id );
 }
 
 
