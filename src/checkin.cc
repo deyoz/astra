@@ -854,7 +854,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         reqInfo->desk.city=="Š‡"||
         reqInfo->desk.city=="‘•„"||
         reqInfo->desk.city=="†‚"||
-        reqInfo->desk.city=="ŽŒ‘")
+        reqInfo->desk.city=="ŽŒ‘"||
+        reqInfo->desk.city=="•€‘")
     {
       fmt.persCountFmt=1;
       fmt.infSeatsFmt=1;
@@ -2617,7 +2618,7 @@ void CheckInInterface::LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp)
     if (!NormQry.FieldIsNULL("bag_type"))
       NewTextChild(normNode,"bag_type",NormQry.FieldAsInteger("bag_type"));
     else
-      NewTextChild(normNode,"bag_type");
+      NewTextChild(normNode,	"bag_type");
     if (!NormQry.FieldIsNULL("norm_id"))
       NewTextChild(normNode,"norm_id",NormQry.FieldAsInteger("norm_id"));
     else
