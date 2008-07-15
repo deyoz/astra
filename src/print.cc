@@ -118,7 +118,7 @@ namespace to_esc {
         switch(prn_type) {
             case ptOLIVETTI:
                 x_modif = 4.76;
-                y_modif = 7.1;
+                y_modif = 6.9;
                 break;
             case ptOKIML390:
                 x_modif = 7;
