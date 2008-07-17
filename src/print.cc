@@ -22,7 +22,7 @@ using namespace ASTRA;
 
 const string delim = "\xb";
 
-typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON} TPrnFormat;
+typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
 typedef enum {
     ptIER506A = 1,
     ptIER508A,
