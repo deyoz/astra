@@ -2045,15 +2045,18 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "luggage", reqNode ) ) {
   	GetLuggage( point_id, dataNode );
   }
+  
+	TQuery Qry(&OraSession );
+ 	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
+ 	Qry.CreateVariable( "point_id", otInteger, point_id );
+ 	Qry.Execute();
+ 	string airp = Qry.FieldAsString( "airp" );
+  
   if ( GetNode( "stages", reqNode ) ) {
-  	TQuery Qry(&OraSession );
-  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
-  	Qry.CreateVariable( "point_id", otInteger, point_id );
-  	Qry.Execute();
   	if ( !Qry.Eof ) {
   	  vector<TSoppStage> stages;
   	  read_TripStages( stages, false, 0, point_id );
-      string region = AirpTZRegion( Qry.FieldAsString( "airp" ) );
+      string region = AirpTZRegion( airp );
       try {
   	    build_TripStages( stages, region, dataNode, false );
   	  }
@@ -2062,6 +2065,10 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         throw;
       }
     }
+  }
+  if ( GetNode( "UpdateGraph_Stages", reqNode ) ) {
+  	TStagesRules::Instance()->UpdateGraph_Stages();
+  	TStagesRules::Instance()->BuildGraph_Stages( airp, dataNode );
   }
 }
 
@@ -2269,7 +2276,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   vector<change_act> vchangeAct;
 	bool ch_point_num = false;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ )
-  	if ( id->point_num == NoExists ) {
+  	if ( id->point_num == NoExists || id->pr_del == -1 ) { // вставка или удаление пункта посадки
   		ch_point_num = true;
   		break;
   	}
@@ -2277,7 +2284,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
-   " UPDATE points SET point_num=point_num-1 WHERE point_num<=-1-:point_num AND move_id=:move_id AND pr_del=-1 ";
+   " UPDATE points SET point_num=point_num-1 WHERE point_num<=-:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -2573,9 +2580,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		id->point_id = Qry.FieldAsInteger( "point_id" );
     	}
     }
-    else {
-    	point_num++;
-    }
 /* !!! */
     if ( id->pr_del != -1 ) {
  		  if ( pr_begin ) {
@@ -2603,6 +2607,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 /*!!!end of*/
 
     if ( !id->modify ) { //??? remark
+    	point_num++;    	
     	continue;
     }
 
@@ -2737,7 +2742,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
-    	      	id->point_num = -1-id->point_num;
+    	      	id->point_num = 0-id->point_num;
     	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  		}
