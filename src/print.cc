@@ -822,6 +822,21 @@ void PrintDataParser::t_field_map::fillBTBPMap()
 
     {
         TQuery Qry(&OraSession);
+        Qry.SQLText = "select amount, weight from bag2 where grp_id = :grp_id ";
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+        Qry.Execute();
+        string amount = "0";
+        string weight = "0";
+        if(!Qry.Eof) {
+            amount = Qry.FieldAsString("amount");
+            weight = Qry.FieldAsString("weight");
+        }
+        add_tag("bt_amount", amount);
+        add_tag("bt_weight", weight);
+    }
+
+    {
+        TQuery Qry(&OraSession);
         bool pr_bp_market_flt = false;
         Qry.SQLText = "select pr_bp_market_flt from trip_sets where point_id = :point_id";
         Qry.CreateVariable("point_id", otInteger, trip_id);
