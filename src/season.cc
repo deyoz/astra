@@ -193,7 +193,7 @@ void PeriodToUTC( TDateTime &first, TDateTime &last, string &days, const string 
 void internalRead( TFilter &filter, xmlNodePtr dataNode, int trip_id = NoExists );
 void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dataNode, string &err_airp );
 
-void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer, string &err_airp );
+void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_airp );
 
 string GetPrintName( TDest *PDest, TDest *NDest )
 {
@@ -994,10 +994,9 @@ void CreateSPP( BASIC::TDateTime localdate )
   TQry.DeclareVariable( "f", otInteger );
   TQry.DeclareVariable( "c", otInteger );
   TQry.DeclareVariable( "y", otInteger );
-  vector<TStageTimes> stagetimes;
   TSpp spp;
   string err_airp;
-  createSPP( localdate, spp, stagetimes, false, err_airp );
+  createSPP( localdate, spp, false, err_airp );
 
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
@@ -1249,7 +1248,7 @@ bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day
 
 // времена в фильтре хранятся в UTC!!!
 void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, int offset,
-                  vector<TStageTimes> &stagetimes, TDestList &ds, string &err_airp )
+                  TDestList &ds, string &err_airp )
 {
   TDateTime firstTime = filter.firstTime;
   TDateTime lastTime = filter.lastTime;
@@ -1261,6 +1260,7 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
     createAirlineTrip( NoExists, filter, offset, ds, localdate, err_airp );
   }
   else {
+  	TStageTimes stagetimes( sRemovalGangWay );
     for ( vector<string>::iterator s=reqInfo->user.access.airps.begin();
           s!=reqInfo->user.access.airps.end(); s++ ) {
       int vcount = (int)ds.trips.size();
@@ -1268,17 +1268,7 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
 
       createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date, false, true, err_airp );
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
-        ds.trips[ i ].trap = NoExists;
-        if ( ds.trips[ i ].scd_out > NoExists ) {
-          for ( vector<TStageTimes>::iterator st=stagetimes.begin(); st!=stagetimes.end(); st++ ) {
-          	if ( ( st->airp == *s || st->airp.empty() ) &&
-          		   ( st->craft == ds.trips[ i ].owncraft || st->craft.empty() ) &&
-          		   ( st->trip_type == ds.trips[ i ].triptype || st->trip_type.empty() ) ) {
-              ds.trips[ i ].trap = ds.trips[ i ].scd_out - (double)st->time/1440.0;
-              break;
-            }
-          }
-        }
+      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ds.trips[ i ].triptype, ds.trips[ i ].scd_out );
       }
     }
   }
@@ -1302,13 +1292,13 @@ string GetRegionFromTZ( int ptz, map<int,string> &mapreg )
   return res;
 }
 
-void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes, bool createViewer, string &err_airp )
+void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_airp )
 {
 	map<int,string> mapreg;
   map<int,TTimeDiff> v;
   TFilter filter;
   filter.GetSeason();
-
+  
   TQuery Qry(&OraSession);
   double d1, d2, f1, f2, f3, f4;
   d1 = ClientToUTC( localdate, filter.region );
@@ -1389,7 +1379,7 @@ void createSPP( TDateTime localdate, TSpp &spp, vector<TStageTimes> &stagetimes,
               if ( createViewer ) {
                 if ( spp[ *vd ][ vmove_id ].trips.empty() ) {
 
-                  createTrips( d, localdate, filter, offset, stagetimes, ds, err_airp );
+                  createTrips( d, localdate, filter, offset, ds, err_airp );
 
                   ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
                 }
@@ -1469,12 +1459,10 @@ bool CompareAirpTrip( trip t1, trip t2 )
 void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	string err_airp;
-  vector<TStageTimes> stagetimes;
   TReqInfo *reqInfo = TReqInfo::Instance();
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( reqInfo->user.user_type == utAirport  ) {
     NewTextChild( dataNode, "mode", "port" );
-    GetStageTimes( stagetimes, sRemovalGangWay );
   }
   else {
     NewTextChild( dataNode, "mode", "airline" );
@@ -1484,7 +1472,7 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   map<int,TTimeDiff> v;
   TDateTime vdate;
   modf( (double)NodeAsDateTime( "date", reqNode ), &vdate );
-  createSPP( vdate, spp, stagetimes, true, err_airp );
+  createSPP( vdate, spp, true, err_airp );
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
     for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
