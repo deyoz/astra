@@ -48,6 +48,7 @@ void TTripStages::LoadStages( int vpoint_id, TMapTripStages &ts )
       tripStage.act = NoExists;
     else
       tripStage.act = Qry.FieldAsDateTime( "act" );
+    tripStage.pr_auto = Qry.FieldAsInteger( "pr_auto" );
     TStage stage = (TStage)Qry.FieldAsInteger( "stage_id" );
     ts.insert( make_pair( stage, tripStage ) );
     Qry.Next();
@@ -142,7 +143,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     	}
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Расчетное время выполнения шага '%s' в пункте %s не определено однозначно",
-                             TStagesRules::Instance()->Graph_Stages[ i->first ].c_str(),
+                             TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
                              airp.c_str() );
       }
      if ( i->second.act == NoExists )
@@ -153,7 +154,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
        }
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Фактическое время выполнения шага '%s' в пункте %s не определено однозначно",
-                             TStagesRules::Instance()->Graph_Stages[ i->first ].c_str(),
+                             TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
                              airp.c_str() );
       }
      int pr_manual;
@@ -196,7 +197,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      UpdQry.Execute();
      tst();
      TStagesRules *r = TStagesRules::Instance();
-     string tolog = string( "Этап '" ) + r->Graph_Stages[ i->first ] + "'";
+     string tolog = string( "Этап '" ) + r->stage_name( i->first, airp ) + "'";
      if ( i->second.old_act == NoExists && i->second.act > NoExists )
        tolog += " выполнен";
      if ( i->second.old_act > NoExists && i->second.act == NoExists )
@@ -278,7 +279,30 @@ TStagesRules *TStagesRules::Instance()
 
 TStagesRules::TStagesRules()
 {
+	UpdateGraph_Stages( );
+ 
   Update();
+}
+
+void TStagesRules::UpdateGraph_Stages( )
+{
+	Graph_Stages.clear();
+	TQuery Qry( &OraSession );
+  Qry.SQLText = 
+    "SELECT stage_id, name, NULL airp FROM graph_stages "
+    "UNION "
+    "SELECT stage_id, name, airp FROM stage_names " 
+    " ORDER BY stage_id, airp";
+  Qry.Execute();
+
+  while ( !Qry.Eof ) {
+  	TStage_name n;
+  	n.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
+  	n.airp = Qry.FieldAsString( "airp" );
+  	n.name = Qry.FieldAsString( "name" );
+  	Graph_Stages.push_back( n );
+    Qry.Next();
+  }
 }
 
 void TStagesRules::Update()
@@ -316,16 +340,7 @@ void TStagesRules::Update()
    Qry.Next();
  }
 
- Qry.Clear();
- Qry.SQLText = "SELECT stage_id, name from graph_stages ORDER BY stage_id";
- Qry.Execute();
-
- while ( !Qry.Eof ) {
-   Graph_Stages[ (TStage)Qry.FieldAsInteger( "stage_id" ) ] = Qry.FieldAsString( "name" );
-   Qry.Next();
- }
-
- Qry.Clear();
+  Qry.Clear();
  Qry.SQLText = "SELECT target_stage, level "\
                " FROM "\
                "( SELECT target_stage, cond_stage "\
@@ -341,6 +356,21 @@ void TStagesRules::Update()
    GrphLvl.push_back( gl );
    Qry.Next();
  }
+}
+
+void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
+{
+  xmlNodePtr snode, node = NewTextChild( dataNode, "Graph_Stages" );
+  if ( !airp.empty() )
+  	SetProp( node, "airp", airp );
+  for ( vector<TStage_name>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
+  	if ( airp.empty() || airp == i->airp ) {
+      snode = NewTextChild( node, "stage" );
+      NewTextChild( snode, "stage_id", (int)i->stage );
+      NewTextChild( snode, "name", i->name );
+      NewTextChild( snode, "airp", i->airp );    
+    }
+  }	
 }
 
 void TStagesRules::Build( xmlNodePtr dataNode )
@@ -374,12 +404,9 @@ void TStagesRules::Build( xmlNodePtr dataNode )
 //      NewTextChild( stagestatusNode, "lvl", s->lvl );
     }
   }
-  node = NewTextChild( dataNode, "Graph_Stages" );
-  for ( map<TStage,std::string>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
-    snode = NewTextChild( node, "stage" );
-    NewTextChild( snode, "stage_id", (int)i->first );
-    NewTextChild( snode, "name", i->second );
-  }
+  
+  BuildGraph_Stages( "", dataNode );
+  
   node = NewTextChild( dataNode, "GrphLvl" );
   for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
     snode = NewTextChild( node, "stage_level" );
@@ -408,33 +435,75 @@ string TStagesRules::status( TStage_Type stage_type, TStage stage )
   return "";
 }
 
-void GetStageTimes( vector<TStageTimes> &stagetimes, TStage stage )
+string TStagesRules::stage_name( TStage stage, std::string airp )
 {
-  stagetimes.clear();
+	string res, res1;
+	for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
+		if ( n->stage == stage )
+  		if ( n->airp.empty() )
+	  		res1 = n->name;
+			else
+			  if ( n->airp == airp )
+			  	res = n->name;				
+	}
+	if ( res.empty() )
+		return res1;
+	else
+		return res;
+}
+
+
+TStageTimes::TStageTimes( TStage istage )
+{	
+	stage = istage;
+	GetStageTimes( );
+}
+
+void TStageTimes::GetStageTimes( )
+{
+  times.clear();
   TQuery Qry( &OraSession );
-  Qry.SQLText  = "SELECT airp, craft, trip_type, time, "\
-                 "       DECODE( airp, NULL, 0, 4 )+ "\
-                 "       DECODE( craft, NULL, 0, 2 )+ "\
-                 "       DECODE( trip_type, NULL, 0, 1 ) AS priority "\
-                 " FROM graph_times "\
-                 " WHERE stage_id=:stage "\
-                 "UNION "\
-                 "SELECT NULL, NULL, NULL, time, -1 FROM graph_stages "\
-                 "WHERE stage_id=:stage "\
+  Qry.SQLText  = "SELECT airp, craft, trip_type, time, "
+                 "       DECODE( airp, NULL, 0, 4 )+ "
+                 "       DECODE( craft, NULL, 0, 2 )+ "
+                 "       DECODE( trip_type, NULL, 0, 1 ) AS priority "
+                 " FROM graph_times "
+                 " WHERE stage_id=:stage "
+                 "UNION "
+                 "SELECT NULL, NULL, NULL, time, -1 FROM graph_stages "
+                 "WHERE stage_id=:stage "
                  " ORDER BY priority, airp, craft, trip_type ";
   Qry.CreateVariable( "stage", otInteger, stage );
   Qry.Execute();
   while ( !Qry.Eof ) {
-    TStageTimes st;
+    TStageTime st;
     st.airp = Qry.FieldAsString( "airp" );
     st.craft = Qry.FieldAsString( "craft" );
     st.trip_type = Qry.FieldAsString( "trip_type" );
     st.time = Qry.FieldAsInteger( "time" );
     st.priority = Qry.FieldAsInteger( "priority" );
-    stagetimes.push_back( st );
+    times.push_back( st );
     Qry.Next();
   }
-  tst();
+}
+
+TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const string &triptype, 
+                                TDateTime vtime )
+{
+	TDateTime res = NoExists;
+	if ( vtime == NoExists )
+		return res;
+	if ( times.empty() )
+	  GetStageTimes( );
+	for ( vector<TStageTime>::iterator st=times.begin(); st!=times.end(); st++ ) {
+   	if ( ( st->airp == airp || st->airp.empty() ) &&
+   		   ( st->craft == craft || st->craft.empty() ) &&
+         ( st->trip_type == triptype || st->trip_type.empty() ) ) {
+       res = vtime - (double)st->time/1440.0;
+       break;
+    }
+	}
+	return res;	
 }
 
 void exec_stage( int point_id, int stage_id )
@@ -477,7 +546,7 @@ void astra_timer( TDateTime utcdate )
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id"\
+	 "SELECT trip_stages.point_id point_id, trip_stages.stage_id stage_id, points.airp "
    " FROM points, trip_stages "\
    "WHERE points.point_id = trip_stages.point_id AND "\
    "      points.act_out IS NULL AND "\
@@ -522,6 +591,7 @@ void astra_timer( TDateTime utcdate )
   		count++;
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
+  		string airp = Qry.FieldAsString( "airp" );
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
   	  TDateTime execTime2 = NowUTC();
@@ -547,7 +617,7 @@ void astra_timer( TDateTime utcdate )
   					ProgError( STDLOG, "unknown timer error" );
   				}
           TStagesRules *r = TStagesRules::Instance();
-          string tolog = string( "Этап '" ) + r->Graph_Stages[ (TStage)stage_id ] + "'";
+          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
           tolog += " выполнен: факт. время=";
           tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
           TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
@@ -743,4 +813,5 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! create_czech_police_file execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 }
+
 

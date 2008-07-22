@@ -27,12 +27,14 @@ struct TTripStage {
   BASIC::TDateTime act;
   BASIC::TDateTime old_est;
   BASIC::TDateTime old_act;
+  int pr_auto;
   TTripStage() {
     scd = ASTRA::NoExists;
     est = ASTRA::NoExists;
     act = ASTRA::NoExists;
     old_est = ASTRA::NoExists;
     old_act = ASTRA::NoExists;
+    pr_auto = 0;
   }
 };
 
@@ -74,24 +76,32 @@ typedef std::vector<TRule> vecRules; /* массив правил для одного stage*/
 typedef std::map<TStage, vecRules> TMapRules; /* массив stage с правилами */
 typedef std::vector<TStage_Status> TStage_Statuses;
 typedef std::map<TStage_Type,TStage_Statuses> TMapStatuses;
+	
+struct TStage_name {
+	TStage stage;
+	std::string name;
+	std::string airp;	
+};
 
 class TStagesRules {
   private:
+    std::vector<TStage_name> Graph_Stages;  	    
+    void Update();    
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
     TMapStatuses StageStatuses;
-    std::map<TStage,std::string> Graph_Stages;
     TStagesRules();
-    void Update();
     bool CanStatus( TStage_Type stage_type, TStage stage );
     std::string status( TStage_Type stage_type, TStage stage );
+    std::string stage_name( TStage stage, std::string airp );
     void Build( xmlNodePtr dataNode );
+    void UpdateGraph_Stages( );    
+    void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );
     static TStagesRules *Instance();
-
 };
 
-struct TStageTimes {
+struct TStageTime {
 	std::string airp;
   std::string craft;
   std::string trip_type;
@@ -99,7 +109,17 @@ struct TStageTimes {
   int priority;
 };
 
-void GetStageTimes( std::vector<TStageTimes> &stagetimes, TStage stage );
+class TStageTimes {
+	 private:
+	 	 TStage stage; 
+	 	 std::vector<TStageTime> times;
+     void GetStageTimes( );	 	 
+	 public:
+	 	 TStageTimes( TStage istage );
+     BASIC::TDateTime GetTime( const std::string &airp, const std::string &craft, const std::string &triptype, 
+     	                         BASIC::TDateTime vtime );	 	 
+};
+
 
 void astra_timer( BASIC::TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );
