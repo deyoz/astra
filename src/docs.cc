@@ -1,4 +1,5 @@
 #include "docs.h"
+#include "stat.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -723,11 +724,11 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
 
+    xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
     if(
             target.empty() ||
             target == "tot"
       ) {
-        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
@@ -745,7 +746,6 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "tpm" ||
             target == "etm"
       ) {
-        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
@@ -1265,6 +1265,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
@@ -1549,6 +1550,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     bool pr_trfer = (string)NodeAsString("name", reqNode) == "BMTrfer";
 
     //TODO: get_report_form in each report handler, not once!
+    xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
     if(target.empty()) {
         xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         // внутри get_report_form вызывается ReplaceTextChild, в котором в свою
@@ -1971,6 +1973,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
