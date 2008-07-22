@@ -40,7 +40,8 @@ const char* points_SOPP_SQL =
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid "
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
-    "   WHERE points.pr_del!=-1 AND "
+    "   WHERE points.pr_del!=-1 "
+    "         :where_sql AND "    
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date ) ) p "
     "WHERE points.move_id = p.move_id AND "
@@ -62,14 +63,11 @@ const char* points_ISG_SQL =
     "       pr_tranzit,pr_reg,points.pr_del pr_del,points.tid tid, reference ref "
     " FROM points, move_ref, "
     " (SELECT DISTINCT move_id FROM points "
-    "   WHERE points.pr_del!=-1 AND "
+    "   WHERE points.pr_del!=-1 "
+    "         :where_sql AND "
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date OR "
     "           time_in = TO_DATE('01.01.0001','DD.MM.YYYY') AND time_out = TO_DATE('01.01.0001','DD.MM.YYYY') ) ) p "
-/*    "         ( :first_date IS NULL OR "
-    "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
-    "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
-    "            NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "*/
     "WHERE points.move_id = p.move_id AND "
     "      move_ref.move_id = p.move_id AND "
     "      points.pr_del!=-1 "
@@ -82,7 +80,8 @@ const char * arx_points_SOPP_SQL =
     " FROM arx_points,"
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
-    "         pr_del!=-1 AND "
+    "         pr_del!=-1 "
+    "         :where_sql AND "    
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
@@ -97,7 +96,8 @@ const char * arx_points_ISG_SQL =
     " FROM arx_points, arx_move_ref,"
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
-    "         pr_del!=-1 AND "
+    "         pr_del!=-1 "
+    "         :where_sql AND "    
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
@@ -120,8 +120,6 @@ const char* arx_classesSQL =
 const char* regSQL =
     "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow) AS reg FROM counters2 "
     "WHERE point_dep=:point_id";
-  /*  "SELECT SUM(pax.seats) as reg FROM pax_grp, pax "\
-    " WHERE pax_grp.point_dep=:point_id AND pax_grp.grp_id=pax.grp_id AND pax.pr_brd IS NOT NULL ";*/
 const char* arx_regSQL =
     "SELECT SUM(arx_pax.seats) as reg "
     " FROM arx_pax_grp, arx_pax "\
@@ -503,29 +501,59 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 	return true;
 }
 
+string addCondition( const char *sql )
+{
+	TReqInfo *reqInfo = TReqInfo::Instance();
+  string where_sql, text_sql = sql;
+  if ( !reqInfo->user.access.airlines.empty() ) {
+   if ( reqInfo->user.access.airlines_permit )
+     where_sql = "AND points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   else
+     where_sql = "AND points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
+  };
+  if ( !reqInfo->user.access.airps.empty() ) {
+    if ( reqInfo->user.access.airps_permit )
+      where_sql += "AND points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
+    else
+      where_sql += "AND points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+  };
+  string::size_type idx = text_sql.find( ":where_sql" );
+  if ( idx != string::npos ) {
+  	text_sql.erase( idx, strlen( ":where_sql" ) );
+  	text_sql.insert( idx, where_sql );
+  }
+  return text_sql;
+}
+
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
                           bool arx, bool pr_isg, int point_id = NoExists )
 {
-	string errcity;
+	string errcity;	
 	TReqInfo *reqInfo = TReqInfo::Instance();
+		
+  if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
+      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return errcity;		
+		
   TQuery PointsQry( &OraSession );
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
+  
   if ( arx )
   	if ( pr_isg )
-  		PointsQry.SQLText = arx_points_ISG_SQL;
+  		PointsQry.SQLText = addCondition( arx_points_ISG_SQL ).c_str();
   	else
-  	  PointsQry.SQLText = arx_points_SOPP_SQL;
+  	  PointsQry.SQLText = addCondition( arx_points_SOPP_SQL ).c_str();
   else
   	if ( pr_isg )
-  	  PointsQry.SQLText = points_ISG_SQL;
+  	  PointsQry.SQLText = addCondition( points_ISG_SQL ).c_str();
   	else
   		if ( point_id == NoExists )
-	  		PointsQry.SQLText = points_SOPP_SQL;
+	  		PointsQry.SQLText = addCondition( points_SOPP_SQL ).c_str();
   		else {
   			PointsQry.SQLText = points_id_SOPP_SQL;
   			PointsQry.CreateVariable( "point_id", otInteger, point_id );
   	  }
+  	    
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
       if ( reqInfo->user.sets.time == ustTimeLocalAirp ) {
@@ -3041,10 +3069,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
  }
 
 
-/*   "BEGIN "\
-   " SELECT move_id.nextval INTO :move_id from dual; "\
-   " INSERT INTO move_ref(move_id,reference)  SELECT :move_id, NULL FROM dual; "\
-   "END;";*/
 }
 
 void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
