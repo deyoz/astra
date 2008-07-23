@@ -525,8 +525,8 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   	  Qry.CreateVariable( "id", otInteger, file_id );
   	  Qry.Execute();
-  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
-                IntToString( file_id ) + "адресат=" + desk_code + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)";
+  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", адресат=" + desk_code + ", ид.=") + 
+                IntToString( file_id ) + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)";
   	  TReqInfo::Instance()->MsgToLog( msg );
     }
 	}
@@ -569,7 +569,7 @@ void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.Execute();
   string ftype = Qry.FieldAsString( "type" );  	
   doneFile( file_id );
-  msg.msg = string("Файл доставлен (тип=" + ftype + ", ид.=") + IntToString( file_id ) + ",адресат=" + desk_code + ")";
+  msg.msg = string("Файл доставлен (тип=" + ftype + ", адресат=" + desk_code + ", ид.=") + IntToString( file_id ) + ")";
   TReqInfo::Instance()->MsgToLog( msg );  
 }
 
@@ -703,7 +703,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                     		  msg.id2 = StrToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID3 ) != i->params.end() )
                     		  msg.id3 = StrToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
-                    		msg.msg = string("Файл создан (тип=" + type + ", ид.=") + IntToString( file_id ) + ",адресат=" + client_canon_name + ")";
+                    		msg.msg = string("Файл создан (тип=" + type + ", адресат=" + client_canon_name + ", ид.=") + IntToString( file_id ) + ")";
                     		TReqInfo::Instance()->MsgToLog( msg );  
                       }
                     }
