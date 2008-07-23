@@ -495,7 +495,6 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	if ( curmode == "OUT" )	{
 		double wait_time;
 	  int file_id = buildSaveFileData( resNode, client_canon_name, wait_time );
-    int id1, id2, id3;
     string event_type;
     TQuery Qry( &OraSession );
     Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
@@ -503,36 +502,32 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
     Qry.Execute();  
     if ( !Qry.Eof ) {
-    	event_type = Qry.FieldAsString( "value" );
+      TLogMsg msg;
+    	string desk_code;
+    	msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );    	
       Qry.SetVariable( "name", PARAM_CANON_NAME );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    TReqInfo::Instance()->desk.code = Qry.FieldAsString( "value" );
+  	    desk_code = Qry.FieldAsString( "value" );
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    id1 = StrToInt( Qry.FieldAsString( "value" ) );
-      else
-  	    id1 = 0;
+  	    msg.id1 = StrToInt( Qry.FieldAsString( "value" ) );
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    id2 = StrToInt( Qry.FieldAsString( "value" ) );
-      else
-  	    id2 = 0;
+  	    msg.id2 = StrToInt( Qry.FieldAsString( "value" ) );
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    id3 = StrToInt( Qry.FieldAsString( "value" ) );
-      else
-  	    id3 = 0;  
+  	    msg.id3 = StrToInt( Qry.FieldAsString( "value" ) );
   	  Qry.Clear();
   	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   	  Qry.CreateVariable( "id", otInteger, file_id );
   	  Qry.Execute();
-  	  TReqInfo::Instance()->MsgToLog( string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
-      	                              IntToString( file_id ) + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)", 
-      	                              DecodeEventType(event_type), id1, id2, id3 );
+  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", ид.=") + 
+                IntToString( file_id ) + "адресат=" + desk_code + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)";
+  	  TReqInfo::Instance()->MsgToLog( msg );
     }
 	}
 	else
@@ -542,48 +537,40 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   int file_id = NodeAsInteger( "file_id", reqNode );  
-  int id1, id2, id3;
-  string event_type;
   ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
   Qry.CreateVariable( "id", otInteger, file_id );
   Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
   Qry.Execute();  
-  if ( !Qry.Eof )
-  	event_type = Qry.FieldAsString( "value" );
+  TLogMsg msg;
+	string desk_code;
+  if ( !Qry.Eof )	
+ 	  msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", PARAM_CANON_NAME );
   Qry.Execute();
   if ( !Qry.Eof )
-  	TReqInfo::Instance()->desk.code = Qry.FieldAsString( "value" );
+  	desk_code = Qry.FieldAsString( "value" );
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	id1 = StrToInt( Qry.FieldAsString( "value" ) );
-  else
-  	id1 = 0;
+  	msg.id1 = StrToInt( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	id2 = StrToInt( Qry.FieldAsString( "value" ) );
-  else
-  	id2 = 0;
+  	msg.id2 = StrToInt( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	id3 = StrToInt( Qry.FieldAsString( "value" ) );
-  else
-  	id3 = 0;  
+  	msg.id3 = StrToInt( Qry.FieldAsString( "value" ) );
   Qry.Clear();
   Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   Qry.CreateVariable( "id", otInteger, file_id );
   Qry.Execute();
   string ftype = Qry.FieldAsString( "type" );  	
   doneFile( file_id );
-  if ( !event_type.empty() ) {  	
-    TReqInfo::Instance()->MsgToLog( string("Файл доставлен (тип=" + ftype + ", ид.=") + 
-    	                              IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
-  }
+  msg.msg = string("Файл доставлен (тип=" + ftype + ", ид.=") + IntToString( file_id ) + ",адресат=" + desk_code + ")";
+  TReqInfo::Instance()->MsgToLog( msg );  
 }
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -707,24 +694,17 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                       res = true;
                       int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
                       ProgTrace( TRACE5, "file create file_id=%d, type=%s", file_id, type.c_str() );
+                      TLogMsg msg;
                       if ( i->params.find( NS_PARAM_EVENT_TYPE ) != i->params.end() ) {
-                    	  string event_type = i->params[ NS_PARAM_EVENT_TYPE ];
-                    	  int id1, id2, id3;
+                    	  msg.ev_type = DecodeEventType( i->params[ NS_PARAM_EVENT_TYPE ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID1 ) != i->params.end() )
-                    		  id1 = StrToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
-                    	  else
-                    		  id1 = 0;
+                    		  msg.id1 = StrToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID2 ) != i->params.end() )
-                    		  id2 = StrToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
-                    	  else
-                    		  id2 = 0;
+                    		  msg.id2 = StrToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID3 ) != i->params.end() )
-                    		  id3 = StrToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
-                    	  else
-                    		  id3 = 0;
-                    	  TReqInfo::Instance()->desk.code = client_canon_name;                    		
-                        TReqInfo::Instance()->MsgToLog( string("Файл создан (тип=" + type + ", ид.=") + 
-      	                                                IntToString( file_id ) + ")", DecodeEventType(event_type), id1, id2, id3 );
+                    		  msg.id3 = StrToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
+                    		msg.msg = string("Файл создан (тип=" + type + ", ид.=") + IntToString( file_id ) + ",адресат=" + client_canon_name + ")";
+                    		TReqInfo::Instance()->MsgToLog( msg );  
                       }
                     }
                 }
