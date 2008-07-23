@@ -433,6 +433,7 @@ void read_TripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date
       stage.act = StagesQry.FieldAsDateTime( col_act );
     stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
     stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
+    ProgTrace( TRACE5, "stage_id=%d, pr_auto=%d", stage.stage_id, (int)stage.pr_auto );
 
     stages.push_back( stage );
     StagesQry.Next();
@@ -466,8 +467,8 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
       NewTextChild( stageNode, "est", DateTimeToStr( UTCToClient( st->est, region ), ServerFormatDateTimeAsString ) );
     if ( st->act > NoExists )
       NewTextChild( stageNode, "act", DateTimeToStr( UTCToClient( st->act, region ), ServerFormatDateTimeAsString ) );
-    NewTextChild( stageNode, "pr_auto", st->pr_auto );
-    NewTextChild( stageNode, "pr_manual", st->pr_manual );
+    NewTextChild( stageNode, "pr_auto", (int)st->pr_auto );
+    NewTextChild( stageNode, "pr_manual", (int)st->pr_manual );
   }
 }
 
