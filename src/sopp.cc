@@ -433,8 +433,6 @@ void read_TripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date
       stage.act = StagesQry.FieldAsDateTime( col_act );
     stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
     stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
-    ProgTrace( TRACE5, "stage_id=%d, pr_auto=%d", stage.stage_id, (int)stage.pr_auto );
-
     stages.push_back( stage );
     StagesQry.Next();
   }
