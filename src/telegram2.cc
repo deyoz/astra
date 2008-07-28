@@ -2071,6 +2071,337 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
+struct TSOMPlace {
+    int x, y, num;
+    string xname, yname;
+    bool pr_seat;
+    void dump();
+    TSOMPlace(bool apr_seat = true) {
+        num = NoExists;
+        x = NoExists;
+        y = NoExists;
+        pr_seat = apr_seat;
+    }
+};
+
+void TSOMPlace::dump()
+{
+    ProgTrace(TRACE5, "num: %d; x: %d; y: %d", num, x, y);
+    ProgTrace(TRACE5, "xname: %s; yname: %s", xname.c_str(), yname.c_str());
+}
+
+typedef vector<TSOMPlace> t_som_row;
+typedef vector<t_som_row> t_som_block;
+typedef vector<t_som_block> t_som_comp;
+
+struct TSOMItem {
+    private:
+        void get_place(TSOMPlace &place, string seat_no);
+        void get_places(t_som_comp &comp, int pax_id, string seat_no, int seats);
+    public:
+        int point_dep, point_arv;
+        vector<TSOMPlace> items;
+        void get(t_som_comp &comp, int point_dep, int point_arv);
+        TSOMItem() {
+            point_dep = NoExists;
+            point_arv = NoExists;
+        }
+};
+
+void TSOMItem::get_place(TSOMPlace &place, string seat_no)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT num, x, y, xname, yname FROM trip_comp_elems WHERE "
+        "   yname||xname = DECODE( INSTR( :seat_no, '0' ), 1, SUBSTR( :seat_no, 2 ), :seat_no ) AND "
+        "   point_id=:point_id";
+    Qry.CreateVariable("point_id", otInteger, point_dep);
+    Qry.CreateVariable("seat_no", otString, seat_no);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        place.num = Qry.FieldAsInteger("num");
+        place.x = Qry.FieldAsInteger("x");
+        place.y = Qry.FieldAsInteger("y");
+        place.xname = Qry.FieldAsString("xname");
+        place.yname = Qry.FieldAsString("yname");
+    }
+}
+
+void TSOMItem::get_places(t_som_comp &comp, int pax_id, string seat_no, int seats)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   decode(count(*), 0, 0, 1) "
+        "from "
+        "   pax_rem "
+        "where "
+        "   pax_id = :pax_id and "
+        "   rem_code = 'STCR'";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("TSOMItem::get_places: pr_vert fetch failed for pax_id: %d", pax_id);
+    bool pr_vert = Qry.FieldAsInteger(0) != 0;
+    TSOMPlace place;
+    get_place(place, seat_no);
+    ProgTrace(TRACE5, "seats: %d", seats);
+    ProgTrace(TRACE5, "after get_place");
+    place.dump();
+    comp[place.num][place.y][place.x] = place;
+    items.push_back(place);
+    Qry.Clear();
+    Qry.SQLText =
+        "select yname, xname from trip_comp_elems where "
+        "   point_id = :point_id and "
+        "   x = :x and "
+        "   y = :y and "
+        "   num = :num ";
+    Qry.CreateVariable("point_id", otInteger, point_dep);
+    Qry.CreateVariable("num", otInteger, place.num);
+    Qry.DeclareVariable("x", otInteger);
+    Qry.DeclareVariable("y", otInteger);
+    for(int i = 1; i < seats; i++) {
+        if(pr_vert)
+            place.y++;
+        else
+            place.x++;
+        Qry.SetVariable("x", place.x);
+        Qry.SetVariable("y", place.y);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw Exception("TSOMItem::get_places: next seat fetch failed. seqat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
+        place.xname = Qry.FieldAsString("xname");
+        place.yname = Qry.FieldAsString("yname");
+        comp[place.num][place.y][place.x] = place;
+        items.push_back(place);
+    }
+}
+
+void TSOMItem::get(t_som_comp &comp, int point_dep, int point_arv) {
+    this->point_dep = point_dep;
+    this->point_arv = point_arv;
+    items.clear();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax.pax_id, "
+        "   pax.seat_no, "
+        "   pax.seats "
+        "from "
+        "   pax_grp, "
+        "   pax "
+        "where "
+        "   pax_grp.point_dep = :point_dep and "
+        "   pax_grp.point_arv = :point_arv and "
+        "   pax_grp.grp_id = pax.grp_id ";
+    Qry.CreateVariable("point_dep", otInteger, point_dep);
+    Qry.CreateVariable("point_arv", otInteger, point_arv);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_seat_no = Qry.FieldIndex("seat_no");
+        int col_seats = Qry.FieldIndex("seats");
+        for(; !Qry.Eof; Qry.Next()) {
+            if(Qry.FieldIsNULL(col_seat_no))
+                continue;
+            get_places(
+                    comp,
+                    Qry.FieldAsInteger(col_pax_id),
+                    Qry.FieldAsString(col_seat_no),
+                    Qry.FieldAsInteger(col_seats)
+                    );
+        }
+    }
+}
+
+struct TSOMList {
+    t_som_comp comp;
+    void init_comp(int point_id);
+    void dump_comp();
+    vector<TSOMItem> items;
+    void get(int point_id);
+    void dump();
+};
+
+void TSOMList::dump_comp()
+{
+    int num = 0;
+    int x = 0;
+    int y = 0;
+    for(t_som_comp::iterator anum = comp.begin(); anum != comp.end(); anum++) {
+        y = 0;
+        for(t_som_block::iterator ay = anum->begin(); ay != anum->end(); ay++) {
+            x = 0;
+            for(t_som_row::iterator ax = ay->begin(); ax != ay->end(); ax++) {
+                ostringstream buf;
+                buf
+                    << "num: " << num << "; "
+                    << "y: " << y << "; "
+                    << "x: " << x << "; ";
+                if(!ax->pr_seat)
+                    buf << "NO SEAT";
+                if(!ax->xname.empty())
+                    buf << ax->yname << ax->xname;
+                ProgTrace(TRACE5, buf.str().c_str());
+                x++;
+            }
+            y++;
+        }
+        num++;
+    }
+}
+
+void TSOMList::init_comp(int point_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select num, x, y from trip_comp_elems where point_id = :point_id order by num, y, x";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    int anum = 0;
+    int ax = 0;
+    int ay = 0;
+    int num = NoExists;
+    int y = NoExists;
+    t_som_row row;
+    t_som_block block;
+    for(; !Qry.Eof; Qry.Next()) {
+        int tmp_num = Qry.FieldAsInteger("num");
+        int tmp_x = Qry.FieldAsInteger("x");
+        int tmp_y = Qry.FieldAsInteger("y");
+        if(tmp_num != num) {
+            if(num != NoExists) {
+                if(num < anum)
+                    throw Exception("TSOMList::init_comp: something wrong with anum");
+                if(num > anum) { // добавляем пустые блоки мест, чтобы координаты совпадали
+                    for(int i = 0; i < num - anum; i++) {
+                        t_som_block empty_block;
+                        comp.push_back(empty_block);
+                    }
+                    anum = num;
+                }
+                block.push_back(row);
+                row.clear();
+                ax = 0;
+                comp.push_back(block);
+                anum++;
+                block.clear();
+                ay = 0;
+            }
+            num = tmp_num;
+            y = tmp_y;
+        }
+        if(tmp_y != y) {
+            if(y != NoExists) {
+                if(y < ay)
+                    throw Exception("TSOMList::init_comp: something wrong with ay");
+                if(y > ay) { // добавляем пустые ряды, чтобы координаты совпадали
+                    for(int i = 0; i < y - ay; i++) {
+                        t_som_row empty_row;
+                        block.push_back(empty_row);
+                    }
+                    ay = y;
+                }
+                block.push_back(row);
+                ay++;
+                row.clear();
+                ax = 0;
+            }
+            y = tmp_y;
+        }
+        if(tmp_x < ax)
+            throw Exception("TSOMList::init_comp: something wrong with ax");
+        if(tmp_x > ax) { // добавляем пустые места, чтобы координаты совпадали
+            for(int i = 0; i < tmp_x - ax; i++) {
+                TSOMPlace som_place(false);
+                row.push_back(som_place);
+            }
+            ax = tmp_x;
+        }
+        TSOMPlace som_place;
+        row.push_back(som_place);
+        ax++;
+    }
+    block.push_back(row);
+    comp.push_back(block);
+}
+
+void TSOMList::dump()
+{
+    for(vector<TSOMItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        ProgTrace(TRACE5, "point_dep: %d; point_arv: %d", iv->point_dep, iv->point_arv);
+        if(iv->items.empty())
+            ProgTrace(TRACE5, "NIL");
+        else
+            for(vector<TSOMPlace>::iterator iv1 = iv->items.begin(); iv1 != iv->items.end(); iv1++) {
+                iv1->dump();
+            }
+    }
+}
+
+void TSOMList::get(int point_id)
+{
+    if(comp.empty()) {
+        init_comp(point_id);
+    }
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   point_num, "
+        "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Рейс не найден");
+    int vpoint_num = Qry.FieldAsInteger("point_num");
+    int vfirst_point = Qry.FieldAsInteger("first_point");
+    Qry.Clear();
+    Qry.SQLText =
+        "  SELECT point_id FROM points "
+        "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
+        "ORDER by "
+        "  point_num ";
+    Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
+    Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TSOMItem item;
+        item.get(comp, point_id, Qry.FieldAsInteger(0));
+        items.push_back(item);
+    }
+    dump_comp();
+}
+
+int SOM(TTlgInfo &info, int tst_tlg_id)
+{
+    ProgTrace(TRACE5, "SOM started");
+    TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "SOM" << br
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    TSOMList SOMList;
+    SOMList.get(info.point_id);
+    SOMList.dump();
+    return tlg_row.id;
+}
+
 int PRL(TTlgInfo &info, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
@@ -2317,6 +2648,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
     else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
+    else if(vbasic_type == "SOM") vid = SOM(info, tst_tlg_id);
     else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();
