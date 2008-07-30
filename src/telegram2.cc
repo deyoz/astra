@@ -2363,7 +2363,7 @@ void TSOMList::get(TTlgInfo &info)
             item += "NIL";
         else {
             item += convert_seat_no(list[point_id], info.pr_lat);
-            if(item.size() + 1 > LINE_SIZE) {
+            while(item.size() + 1 > LINE_SIZE) {
                 size_t pos = item.rfind(' ', LINE_SIZE - 2);
                 items.push_back(item.substr(0, pos));
                 item = item.substr(pos + 1);
