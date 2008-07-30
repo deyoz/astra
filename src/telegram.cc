@@ -361,8 +361,14 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );
   xmlNodePtr node=reqNode->children;
+  string tlg_type=NodeAsStringFast( "tlg_type", node);
+  if(tlg_type == "SOM") {
+      CreateTlg2(ctxt, reqNode, resNode, -1);
+      return;
+  }
+
+  int point_id = NodeAsInteger( "point_id", reqNode );
   TQuery Qry(&OraSession);
   TQuery TlgQry(&OraSession);
   TlgQry.SQLText=
@@ -402,8 +408,6 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TlgQry.CreateVariable("scd_local",otDate,FNull);
     TlgQry.CreateVariable("act_local",otDate,FNull);
   };
-
-  string tlg_type=NodeAsStringFast( "tlg_type", node);
 
   //!!!потом удалить (17.03.08)
   if (GetNodeFast("pr_numeric",node)!=NULL)
@@ -748,36 +752,37 @@ void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
 void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  int tlg_id = NodeAsInteger( "tlg_id", reqNode );
-  TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT typeb_types.short_name,point_id FROM tlg_out,typeb_types "
-    "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
-  Qry.CreateVariable( "id", otInteger, tlg_id);
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
-  string tlg_short_name=Qry.FieldAsString("short_name");
-  int point_id=Qry.FieldAsInteger("point_id");
+    int tlg_id = NodeAsInteger( "tlg_id", reqNode );
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+        "SELECT typeb_types.short_name,point_id FROM tlg_out,typeb_types "
+        "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
+    Qry.CreateVariable( "id", otInteger, tlg_id);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+    string tlg_short_name=Qry.FieldAsString("short_name");
+    int point_id=Qry.FieldAsInteger("point_id");
 
-  Qry.Clear();
-  Qry.SQLText=
-    "DELETE FROM tlg_out WHERE id=:id AND time_send_act IS NULL ";
-  Qry.CreateVariable( "id", otInteger, tlg_id);
-  Qry.Execute();
-  if (Qry.RowsProcessed()>0)
-  {
-    ostringstream msg;
-    msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
-    TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-    showMessage("Телеграмма удалена");
-  };
-  try {
-      delete_tst_tlg(tlg_id);
-  } catch(...) {
-      ProgTrace(TRACE5, "something wrong with delete_tst_tlg");
-  }
-  GetTlgOut(ctxt,reqNode,resNode);
+    Qry.Clear();
+    Qry.SQLText=
+        "DELETE FROM tlg_out WHERE id=:id AND time_send_act IS NULL ";
+    Qry.CreateVariable( "id", otInteger, tlg_id);
+    Qry.Execute();
+    if (Qry.RowsProcessed()>0)
+    {
+        ostringstream msg;
+        msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
+        TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+        showMessage("Телеграмма удалена");
+    };
+    if(tlg_short_name != "SOM")
+        try {
+            delete_tst_tlg(tlg_id);
+        } catch(...) {
+            ProgTrace(TRACE5, "something wrong with delete_tst_tlg");
+        }
+    GetTlgOut(ctxt,reqNode,resNode);
 };
 
 bool TelegramInterface::IsTypeBSend( TTypeBSendInfo &info )
@@ -1157,96 +1162,129 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
 
           try
           {
-            TlgQry.SetVariable("addrs",addrs.c_str());
-            int tlg_id=0;
-            ostringstream msg;
-            try
-            {
-              time_start=time(NULL);
-              TlgQry.Execute();
-              time_end=time(NULL);
-              if (time_end-time_start>1)
-                ProgTrace(TRACE5,"Attention! tlg.create_tlg execute time: %ld secs, type=%s, point_id=%d",
-                                 time_end-time_start,
-                                 TlgQry.GetVariableAsString("tlg_type"),
-                                 TlgQry.GetVariableAsInteger("point_id"));
+              TlgQry.SetVariable("addrs",addrs.c_str());
+              int tlg_id=0;
+              ostringstream msg;
+              string tlg_type = TlgQry.GetVariableAsString("tlg_type");
+              int point_id = TlgQry.GetVariableAsInteger("point_id");
+              string airp_trfer = TlgQry.GetVariableAsString("airp_trfer");
+              string crs = TlgQry.GetVariableAsString("crs");
+              string extra = TlgQry.GetVariableAsString("extra");
+              int pr_lat = TlgQry.GetVariableAsInteger("pr_lat");
+              string addrs = TlgQry.GetVariableAsString("addrs");
+              if(tlg_type == "SOM") // сюда идут телеграммы, написанные на c++
+                  try {
+                      time_start=time(NULL);
+                      tlg_id = create_tlg(
+                              tlg_type,
+                              point_id,
+                              airp_trfer,
+                              crs,
+                              extra,
+                              pr_lat,
+                              addrs
+                              );
+                      time_end=time(NULL);
+                      if (time_end-time_start>1)
+                          ProgTrace(TRACE5,"Attention! c++ create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                                  time_end-time_start,
+                                  tlg_type.c_str(),
+                                  point_id);
 
-              if (TlgQry.VariableIsNULL("id")) throw Exception("tlg.create_tlg without result");
-              tlg_id=TlgQry.GetVariableAsInteger("id");
-              msg << "Телеграмма " << short_name
-                  << " (ид=" << tlg_id << ") сформирована: ";
+                      msg << "Телеграмма " << short_name
+                          << " (ид=" << tlg_id << ") сформирована: ";
+                  } catch(UserException E) {
+                      msg << "Ошибка формирования телеграммы " << short_name
+                          << ": " << E.what() << ", ";
+                  }
+              else // а сюда телеграммы реализованные на PL/SQL 
+                  try
+                  {
+                      time_start=time(NULL);
+                      TlgQry.Execute();
+                      time_end=time(NULL);
+                      if (time_end-time_start>1)
+                          ProgTrace(TRACE5,"Attention! tlg.create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                                  time_end-time_start,
+                                  tlg_type.c_str(),
+                                  point_id);
 
-              time_start=time(NULL);
-              try {
-                  create_tlg(
-                          TlgQry.GetVariableAsString("tlg_type"),
-                          TlgQry.GetVariableAsInteger("point_id"),
-                          TlgQry.GetVariableAsString("airp_trfer"),
-                          TlgQry.GetVariableAsString("crs"),
-                          TlgQry.GetVariableAsString("extra"),
-                          TlgQry.GetVariableAsInteger("pr_lat"),
-                          TlgQry.GetVariableAsString("addrs"),
-                          tlg_id
-                          );
-              } catch(Exception E) {
-                  ProgTrace(TRACE5, "telegram2 create_tlg failed: %s", E.what());
-              } catch(...) {
-                  ProgTrace(TRACE5, "telegram2 create_tlg failed: something unexpected");
-              }
-              time_end=time(NULL);
-              if (time_end-time_start>1)
-                ProgTrace(TRACE5,"Attention! telegram2.create_tlg execute time: %ld secs, type=%s, point_id=%d",
-                                 time_end-time_start,
-                                 TlgQry.GetVariableAsString("tlg_type"),
-                                 TlgQry.GetVariableAsInteger("point_id"));
-            }
-            catch(EOracleError &E)
-            {
-              if ( E.Code > 20000 )
+                      if (TlgQry.VariableIsNULL("id")) throw Exception("tlg.create_tlg without result");
+                      tlg_id=TlgQry.GetVariableAsInteger("id");
+                      msg << "Телеграмма " << short_name
+                          << " (ид=" << tlg_id << ") сформирована: ";
+
+                      time_start=time(NULL);
+                      try { // здесь кладутся телеграммы С++, которые на стадии тестирования
+                          create_tlg(
+                                  tlg_type,
+                                  point_id,
+                                  airp_trfer,
+                                  crs,
+                                  extra,
+                                  pr_lat,
+                                  addrs,
+                                  tlg_id
+                                  );
+                      } catch(Exception E) {
+                          ProgTrace(TRACE5, "telegram2 create_tlg failed: %s", E.what());
+                      } catch(...) {
+                          ProgTrace(TRACE5, "telegram2 create_tlg failed: something unexpected");
+                      }
+                      time_end=time(NULL);
+                      if (time_end-time_start>1)
+                          ProgTrace(TRACE5,"Attention! telegram2.create_tlg execute time: %ld secs, type=%s, point_id=%d",
+                                  time_end-time_start,
+                                  TlgQry.GetVariableAsString("tlg_type"),
+                                  TlgQry.GetVariableAsInteger("point_id"));
+                  }
+              catch(EOracleError &E)
               {
-                string str = E.what();
-                EOracleError2UserException(str);
-                //записать в лог ошибку
-                msg << "Ошибка формирования телеграммы " << short_name
-                    << ": " << str << ", ";
-              }
-              else
-                throw;
-            };
-            msg << "адреса: " << TlgQry.GetVariableAsString("addrs") << ", ";
-            if (!TlgQry.VariableIsNULL("airp_trfer") &&
-                *TlgQry.GetVariableAsString("airp_trfer")!=0)
-              msg << "а/п: " << TlgQry.GetVariableAsString("airp_trfer") << ", ";
-            if (!TlgQry.VariableIsNULL("crs") &&
-                *TlgQry.GetVariableAsString("crs")!=0)
-              msg << "центр: " << TlgQry.GetVariableAsString("crs") << ", ";
-            if (!TlgQry.VariableIsNULL("extra") &&
-                *TlgQry.GetVariableAsString("extra")!=0)
-              msg << "доп.: " << TlgQry.GetVariableAsString("extra") << ", ";
-            msg << "лат.: " << (TlgQry.GetVariableAsInteger("pr_lat")==0?"нет":"да");
-
-            TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-
-            if (tlg_id!=0)
-            {
-              time_start=time(NULL);
-              try
-              {
-                SendTlg(tlg_id);
-              }
-              catch(UserException &E)
-              {
-                msg.str("");
-                msg << "Ошибка отправки телеграммы " << short_name
-                    << " (ид=" << tlg_id << ")"
-                    << ": " << E.what();
-                TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+                  if ( E.Code > 20000 )
+                  {
+                      string str = E.what();
+                      EOracleError2UserException(str);
+                      //записать в лог ошибку
+                      msg << "Ошибка формирования телеграммы " << short_name
+                          << ": " << str << ", ";
+                  }
+                  else
+                      throw;
               };
-              time_end=time(NULL);
-              if (time_end-time_start>1)
-                ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
-                                 time_end-time_start,tlg_id);
-            };
+              msg << "адреса: " << TlgQry.GetVariableAsString("addrs") << ", ";
+              if (!TlgQry.VariableIsNULL("airp_trfer") &&
+                      *TlgQry.GetVariableAsString("airp_trfer")!=0)
+                  msg << "а/п: " << TlgQry.GetVariableAsString("airp_trfer") << ", ";
+              if (!TlgQry.VariableIsNULL("crs") &&
+                      *TlgQry.GetVariableAsString("crs")!=0)
+                  msg << "центр: " << TlgQry.GetVariableAsString("crs") << ", ";
+              if (!TlgQry.VariableIsNULL("extra") &&
+                      *TlgQry.GetVariableAsString("extra")!=0)
+                  msg << "доп.: " << TlgQry.GetVariableAsString("extra") << ", ";
+              msg << "лат.: " << (TlgQry.GetVariableAsInteger("pr_lat")==0?"нет":"да");
+
+              TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+
+              if (tlg_id!=0)
+              {
+                  time_start=time(NULL);
+                  try
+                  {
+                      SendTlg(tlg_id);
+                  }
+                  catch(UserException &E)
+                  {
+                      msg.str("");
+                      msg << "Ошибка отправки телеграммы " << short_name
+                          << " (ид=" << tlg_id << ")"
+                          << ": " << E.what();
+                      TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
+                  };
+                  time_end=time(NULL);
+                  if (time_end-time_start>1)
+                      ProgTrace(TRACE5,"Attention! SendTlg execute time: %ld secs, tlg_id=%d",
+                              time_end-time_start,tlg_id);
+              };
           }
           catch( Exception &E )
           {

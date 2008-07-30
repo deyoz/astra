@@ -76,7 +76,7 @@ struct TTlgOutPartInfo
 {
   int id,num,point_id;
   std::string tlg_type,addr,heading,body,ending,extra;
-  bool pr_lat;
+  bool pr_lat, pr_tst;
   BASIC::TDateTime time_create,time_send_scd;
   TTlgOutPartInfo ()
   {
@@ -84,6 +84,7 @@ struct TTlgOutPartInfo
     num=1;
     time_create=ASTRA::NoExists;
     time_send_scd=ASTRA::NoExists;
+    pr_tst = true; // telegram in tst mode
   };
 };
 
@@ -130,7 +131,7 @@ public:
           const std::string vextra,
           const bool        vpr_lat,
           const std::string vaddrs,
-          const int         tst_tlg_id
+          const int         tst_tlg_id = -1
           );
   void delete_tst_tlg(int tlg_id);
 
