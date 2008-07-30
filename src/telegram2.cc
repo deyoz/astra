@@ -36,37 +36,40 @@ void SaveTlgOutPartTST( TTlgOutPartInfo &info )
 {
   TQuery Qry(&OraSession);
 
-  if (info.id<0)
-      throw Exception("SaveTlgOutPartTST: tlg_id undefined");
+  if (info.id<0) {
+      info.pr_tst = false;
+  }
 
+  if(info.pr_tst) {
+      Qry.Clear();
+      Qry.SQLText=
+          "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
+          "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
+          "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
+          "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+      Qry.CreateVariable("id",otInteger,info.id);
+      Qry.CreateVariable("num",otInteger,info.num);
+      Qry.CreateVariable("type",otString,info.tlg_type);
+      Qry.CreateVariable("point_id",otInteger,info.point_id);
+      Qry.CreateVariable("addr",otString,info.addr);
+      Qry.CreateVariable("heading",otString,info.heading);
+      Qry.CreateVariable("body",otString,info.body);
+      Qry.CreateVariable("ending",otString,info.ending);
+      Qry.CreateVariable("extra",otString,info.extra);
+      Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
+      if (info.time_create!=NoExists)
+          Qry.CreateVariable("time_create",otDate,info.time_create);
+      else
+          Qry.CreateVariable("time_create",otDate,FNull);
+      if (info.time_send_scd!=NoExists)
+          Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
+      else
+          Qry.CreateVariable("time_send_scd",otDate,FNull);
+      Qry.Execute();
 
-  Qry.Clear();
-  Qry.SQLText=
-    "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-    "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
-    "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-    "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
-  Qry.CreateVariable("id",otInteger,info.id);
-  Qry.CreateVariable("num",otInteger,info.num);
-  Qry.CreateVariable("type",otString,info.tlg_type);
-  Qry.CreateVariable("point_id",otInteger,info.point_id);
-  Qry.CreateVariable("addr",otString,info.addr);
-  Qry.CreateVariable("heading",otString,info.heading);
-  Qry.CreateVariable("body",otString,info.body);
-  Qry.CreateVariable("ending",otString,info.ending);
-  Qry.CreateVariable("extra",otString,info.extra);
-  Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
-  if (info.time_create!=NoExists)
-    Qry.CreateVariable("time_create",otDate,info.time_create);
-  else
-    Qry.CreateVariable("time_create",otDate,FNull);
-  if (info.time_send_scd!=NoExists)
-    Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
-  else
-    Qry.CreateVariable("time_send_scd",otDate,FNull);
-  Qry.Execute();
-
-  info.num++;
+      info.num++;
+  } else
+      TelegramInterface::SaveTlgOutPart(info);
 };
 
 string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
@@ -2358,8 +2361,14 @@ void TSOMList::get(TTlgInfo &info)
         item = "-" + TlgElemIdToElem(etAirp, airp, info.pr_lat) + ".";
         if(list[point_id].empty())
             item += "NIL";
-        else
+        else {
             item += convert_seat_no(list[point_id], info.pr_lat);
+            if(item.size() + 1 > LINE_SIZE) {
+                size_t pos = item.rfind(' ', LINE_SIZE - 2);
+                items.push_back(item.substr(0, pos));
+                item = item.substr(pos + 1);
+            }
+        }
         items.push_back(item);
     }
 }
@@ -2387,7 +2396,19 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     TSOMList SOMList;
     SOMList.get(info);
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
+        part_len += iv->size() + br.size();
+        if(part_len > PART_SIZE) {
+            SaveTlgOutPartTST(tlg_row);
+            tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+            tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+            tlg_row.body = *iv + br;
+            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
+                tlg_row.body.size() + tlg_row.ending.size();
+        } else
+            tlg_row.body += *iv + br;
     }
+    tlg_row.ending = "ENDSOM" + br;
+    SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
 
@@ -2544,7 +2565,7 @@ int TelegramInterface::create_tlg(
         const int         tst_tlg_id
         )
 {
-    ProgTrace(TRACE5, "create_tlg entrance");
+    ProgTrace(TRACE5, "create_tlg entrance: %s", (tst_tlg_id < 0 ? "test_mode" : "real_mode"));
     if(vtype.empty())
         throw UserException("Не указан тип телеграммы");
     TQuery Qry(&OraSession);
@@ -2641,7 +2662,10 @@ int TelegramInterface::create_tlg(
     else vid = Unknown(info, vcompleted, tst_tlg_id);
 
     Qry.Clear();
-    Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
+    if(tst_tlg_id < 0) // real_mode
+        Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
+    else
+        Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
