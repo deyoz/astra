@@ -2170,7 +2170,8 @@ void TSOMList::get_seat_list(map<int, string> &list)
                     }
                 }
             }
-    seat_to_str(list[(*first_place)->second.point_arv], *first_place, *last_place);
+    if(first_place != NULL)
+        seat_to_str(list[(*first_place)->second.point_arv], *first_place, *last_place);
 }
 
 void TSOMList::seat_to_str(string &list, t_som_row::iterator &first_place,  t_som_row::iterator &last_place)
