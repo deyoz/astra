@@ -2314,6 +2314,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
    " UPDATE points SET point_num=point_num-1 WHERE point_num<=-:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
+  
+  TQuery TlgQry(&OraSession);
+	TlgQry.SQLText = "DELETE tlg_binding WHERE point_id_spp=:point_id ";
+	TlgQry.DeclareVariable( "point_id", otInteger );
+	  
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
@@ -2772,6 +2777,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	      	id->point_num = 0-id->point_num;
     	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+	  	  			TlgQry.SetVariable( "point_id", id->point_id );
+	  	  			TlgQry.Execute();	  	  			
 	  	  		}
   	  }
   	  else
