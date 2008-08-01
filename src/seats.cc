@@ -1544,10 +1544,10 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
         if ( First ) {
           Statuses.push_back( "FP" );
           Statuses.push_back( "NG" );
-          Statuses.push_back( "BR" );
         }
         else {
           Statuses.push_back( "RZ" );
+          Statuses.push_back( "BR" );          
           if ( use_PS )
             Statuses.push_back( "PS" );
         }
