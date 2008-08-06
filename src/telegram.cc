@@ -365,6 +365,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   string tlg_type=NodeAsStringFast( "tlg_type", node);
   if(
           tlg_type == "SOM" or
+          tlg_type == "PRL" or
           tlg_type == "COM"
           ) { // телеграммы на С++
       CreateTlg2(ctxt, reqNode, resNode, -1);
@@ -781,6 +782,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     };
     if(
             tlg_short_name != "SOM" and
+            tlg_short_name != "PRL" and
             tlg_short_name != "COM"
             )
         try {
@@ -1180,6 +1182,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               string addrs = TlgQry.GetVariableAsString("addrs");
               if(
                       tlg_type == "SOM" or
+                      tlg_type == "PRL" or
                       tlg_type == "COM"
                       ) // сюда идут телеграммы, написанные на c++
                   try {

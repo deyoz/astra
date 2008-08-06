@@ -339,7 +339,6 @@ namespace PRL_SPACE {
             "SELECT pax.grp_id, "
             "       pax.surname, "
             "       pax.name, "
-            "       NULL AS pax_id, "
             "       crs_inf.pax_id AS crs_pax_id "
             "FROM pax_grp,pax,crs_inf "
             "WHERE "
@@ -353,16 +352,16 @@ namespace PRL_SPACE {
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_surname = Qry.FieldIndex("surname");
             int col_name = Qry.FieldIndex("name");
-            int col_pax_id = Qry.FieldIndex("pax_id");
             int col_crs_pax_id = Qry.FieldIndex("crs_pax_id");
             for(; !Qry.Eof; Qry.Next()) {
                 TInfantsItem item;
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
-                item.pax_id = Qry.FieldAsInteger(col_pax_id);
-                if(!Qry.FieldIsNULL(col_crs_pax_id))
+                if(!Qry.FieldIsNULL(col_crs_pax_id)) {
                     item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
+                    item.pax_id = item.crs_pax_id;
+                }
                 items.push_back(item);
             }
         }
@@ -394,8 +393,9 @@ namespace PRL_SPACE {
             }
             for(int k = 1; k <= 3; k++) {
                 for(vector<TInfantsItem>::iterator infRow = items.begin(); infRow != items.end(); infRow++) {
-                    if(k == 1 and infRow->crs_pax_id != NoExists or
-                            k > 1 and infRow->crs_pax_id == NoExists) {
+                    if(k == 1 and infRow->pax_id != NoExists or
+                            k > 1 and infRow->pax_id == NoExists) {
+                        infRow->pax_id = NoExists;
                         for(vector<TAdultsItem>::iterator adultRow = adults.begin(); adultRow != adults.end(); adultRow++) {
                             if(
                                     (infRow->grp_id == adultRow->grp_id) and
@@ -732,7 +732,13 @@ namespace PRL_SPACE {
             string rem = iv->ToTlg(info);
             if(rem_code != rem.substr(0, 4)) {
                 rem_code = rem.substr(0, 4);
-                body.push_back(".R/" + rem);
+                rem = ".R/" + rem;
+                while(rem.size() > LINE_SIZE) {
+                    body.push_back(rem.substr(0, LINE_SIZE));
+                    rem = ".RN/" + rem.substr(LINE_SIZE);
+                }
+                if(!rem.empty())
+                    body.push_back(rem);
             }
         }
     }
