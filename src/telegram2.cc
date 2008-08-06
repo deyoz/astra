@@ -1787,7 +1787,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
                     << ".F/" << cur3Row.airline
                     << setw(3) << setfill('0') << cur3Row.flt_no << cur3Row.suffix
                     << "/"
-                    << DateTimeToStr(cur3Row.scd, "ddmmm", info.pr_lat)
+                    << DateTimeToStr(cur3Row.scd, "ddmmm", 1)
                     << "/"
                     <<  cur3Row.airp_arv;
                 if(!cur3Row.subclass.empty()) {
@@ -2011,7 +2011,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
                         names = names.substr(0, pos - 1);
                         pos = names.rfind("/");
                         if(pos != string::npos)
-                            names = names.substr(0, pos - 1);
+                            names = names.substr(0, pos);
                     }
                     grp << ' ' << names << grph.str();
                 } else
@@ -2572,7 +2572,7 @@ int TelegramInterface::create_tlg(
         const int         tst_tlg_id
         )
 {
-    ProgTrace(TRACE5, "create_tlg entrance: %s", (tst_tlg_id < 0 ? "test_mode" : "real_mode"));
+    ProgTrace(TRACE5, "create_tlg entrance: %s", (tst_tlg_id < 0 ? "real_mode" : "test_mode"));
     if(vtype.empty())
         throw UserException("Не указан тип телеграммы");
     TQuery Qry(&OraSession);

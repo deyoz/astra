@@ -366,6 +366,9 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if(
           tlg_type == "SOM" or
           tlg_type == "PRL" or
+          tlg_type == "BTM" or
+          tlg_type == "PTM" or
+          tlg_type == "PTMN" or
           tlg_type == "COM"
           ) { // телеграммы на С++
       CreateTlg2(ctxt, reqNode, resNode, -1);
@@ -760,12 +763,13 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
-        "SELECT typeb_types.short_name,point_id FROM tlg_out,typeb_types "
+        "SELECT typeb_types.basic_type, typeb_types.short_name,point_id FROM tlg_out,typeb_types "
         "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
     Qry.CreateVariable( "id", otInteger, tlg_id);
     Qry.Execute();
     if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
     string tlg_short_name=Qry.FieldAsString("short_name");
+    string tlg_basic_type=Qry.FieldAsString("basic_type");
     int point_id=Qry.FieldAsInteger("point_id");
 
     Qry.Clear();
@@ -781,9 +785,11 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         showMessage("Телеграмма удалена");
     };
     if(
-            tlg_short_name != "SOM" and
-            tlg_short_name != "PRL" and
-            tlg_short_name != "COM"
+            tlg_basic_type != "SOM" and
+            tlg_basic_type != "PRL" and
+            tlg_basic_type != "PTM" and
+            tlg_basic_type != "BTM" and
+            tlg_basic_type != "COM"
             )
         try {
             delete_tst_tlg(tlg_id);
@@ -1183,6 +1189,9 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               if(
                       tlg_type == "SOM" or
                       tlg_type == "PRL" or
+                      tlg_type == "BTM" or
+                      tlg_type == "PTM" or
+                      tlg_type == "PTMN" or
                       tlg_type == "COM"
                       ) // сюда идут телеграммы, написанные на c++
                   try {
