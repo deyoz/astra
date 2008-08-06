@@ -893,13 +893,13 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodePK ), DBF_TYPE_CHAR );
  	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );    	
  	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER ); 	    
- 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_CHAR ); 	    
+ 	      createParam( paramsNode, "SPUR", (string)" "+NodeAsString( "PUR", *nodePK ), DBF_TYPE_CHAR ); 	    
  	    }
  	    else {
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodeNK ), DBF_TYPE_CHAR );
  	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );    	 	
  	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_NUMBER ); 	        	
- 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_CHAR ); 	        	
+ 	      createParam( paramsNode, "SPUR", (string)" "+NodeAsString( "PUR", *nodeNK ), DBF_TYPE_CHAR ); 	        	
  	    }
       createParam( paramsNode, "AV", NodeAsString( "AV", *nodeNK ), DBF_TYPE_CHAR );
       createParam( paramsNode, "AP", NodeAsString( "AP", *nodeNK ), DBF_TYPE_CHAR );
@@ -976,7 +976,9 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string record;
 	TQuery Qry( &OraSession );
  	TDateTime UTCNow = NowUTC();
- 	TDateTime LocalNow =  UTCToClient( UTCNow, reqInfo->desk.tz_region );
+ 	TDateTime LocalNow;
+ 	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
+ 	
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
 	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );	
