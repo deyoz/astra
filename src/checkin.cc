@@ -743,7 +743,8 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
           NewTextChild(node2,"airline",PnrAddrQry.FieldAsString("airline"));
           NewTextChild(node2,"addr",PnrAddrQry.FieldAsString("addr"));
         };
-      };
+      }
+     else NewTextChild(node,"pnr_addrs"); //это времмено пока не обновлен терминал 07.08.2008 !!!
     };
     node=NewTextChild(paxNode,"pax");
     pax_id=PaxQry.FieldAsInteger("pax_id");
