@@ -24,7 +24,7 @@ astra_SOURCES = \
 	events.cc		             base_tables.cc  astra_misc.cc            design_blank.cc \
 	astra_service.cc	       develop_dbf.cc	 flight_cent_dbf.cc       payment.cc \
 	sofi.cc			 aodb.cc	spp_cek.cc telegram2.cc \
-	obrnosir.c
+	obrnosir.c				 convert.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -50,7 +50,7 @@ noinst_HEADERS = \
 	astra_tick_view.h      etick.h                setup.h	            docs.h \
 	events.h		           base_tables.h	        astra_misc.h        design_blank.h \
 	astra_service.h		     develop_dbf.h		      flight_cent_dbf.h   payment.h \
-	sofi.h			aodb.h		spp_cek.h
+	sofi.h			aodb.h		spp_cek.h		  convert.h
 
 
 
