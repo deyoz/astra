@@ -503,18 +503,29 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 string addCondition( const char *sql )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
+	bool pr_OR = ( !reqInfo->user.access.airlines.empty() && !reqInfo->user.access.airps.empty() );
   string where_sql, text_sql = sql;
   if ( !reqInfo->user.access.airlines.empty() ) {
-   if ( reqInfo->user.access.airlines_permit )
-     where_sql = "AND points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   if ( pr_OR )
+   	where_sql = " AND ( ";
    else
-     where_sql = "AND points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   	where_sql = " AND ";
+   if ( reqInfo->user.access.airlines_permit )
+     where_sql += "points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   else
+     where_sql += "points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
   };
   if ( !reqInfo->user.access.airps.empty() ) {
+  	if ( pr_OR )
+  		where_sql += " OR ";
+  	else
+  		where_sql += " AND ";
     if ( reqInfo->user.access.airps_permit )
-      where_sql += "AND points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
+      where_sql += "points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
     else
-      where_sql += "AND points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+      where_sql += "points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+    if ( pr_OR )
+    	where_sql += " ) ";
   };
   string::size_type idx = text_sql.find( ":where_sql" );
   if ( idx != string::npos ) {
@@ -2311,9 +2322,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   TQuery Qry(&OraSession);
   TQuery DelQry(&OraSession);
   DelQry.SQLText =
-   " UPDATE points SET point_num=point_num-1 WHERE point_num<=-:point_num AND move_id=:move_id AND pr_del=-1 ";
+   " UPDATE points SET point_num=point_num-1 WHERE point_num<=:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
+  
+  TQuery TlgQry(&OraSession);
+	TlgQry.SQLText = "DELETE tlg_binding WHERE point_id_spp=:point_id ";
+	TlgQry.DeclareVariable( "point_id", otInteger );
+	  
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
@@ -2766,12 +2782,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 	  	  		reqInfo->MsgToLog( string( "Возврат пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  	else
 	  	  		if ( id->pr_del == -1 ) {
+   	      	  id->point_num = 0-id->point_num-1;	  	  			
+    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );   	      	  
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
-    	      	id->point_num = 0-id->point_num;
-    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
+	  	  			TlgQry.SetVariable( "point_id", id->point_id );
+	  	  			TlgQry.Execute();	  	  			
 	  	  		}
   	  }
   	  else
@@ -3048,6 +3066,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	Qry.DeclareVariable( "point_id", otInteger );
   	Qry.DeclareVariable( "point_num", otInteger );
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
+    	ProgTrace( TRACE5, "point_id=%d, point_num=%d, pr_del=%d", id->point_id, id->point_num, id->pr_del );
     	Qry.SetVariable( "point_id", id->point_id );
     	Qry.SetVariable( "point_num", id->point_num );
     	Qry.Execute();
