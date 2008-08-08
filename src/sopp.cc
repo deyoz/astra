@@ -566,7 +566,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   	    
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
-      if ( reqInfo->user.sets.time == ustTimeLocalAirp ) {
+      if ( reqInfo->user.sets.time != ustTimeUTC ) {
       	// бывает сдвиг 25 часов ???
         PointsQry.CreateVariable( "first_date", otDate, first_date - 2 );
         PointsQry.CreateVariable( "next_date", otDate, next_date + 2 );
