@@ -503,18 +503,29 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 string addCondition( const char *sql )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
+	bool pr_OR = ( !reqInfo->user.access.airlines.empty() && !reqInfo->user.access.airps.empty() );
   string where_sql, text_sql = sql;
   if ( !reqInfo->user.access.airlines.empty() ) {
-   if ( reqInfo->user.access.airlines_permit )
-     where_sql = "AND points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   if ( pr_OR )
+   	where_sql = " AND ( ";
    else
-     where_sql = "AND points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   	where_sql = " AND ";
+   if ( reqInfo->user.access.airlines_permit )
+     where_sql += "points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   else
+     where_sql += "points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
   };
   if ( !reqInfo->user.access.airps.empty() ) {
+  	if ( pr_OR )
+  		where_sql += " OR ";
+  	else
+  		where_sql += " AND ";
     if ( reqInfo->user.access.airps_permit )
-      where_sql += "AND points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
+      where_sql += "points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
     else
-      where_sql += "AND points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+      where_sql += "points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+    if ( pr_OR )
+    	where_sql += " ) ";
   };
   string::size_type idx = text_sql.find( ":where_sql" );
   if ( idx != string::npos ) {
