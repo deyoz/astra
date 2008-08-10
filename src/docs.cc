@@ -1499,7 +1499,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string airp = Qry.FieldAsString(0);
     bag_names.init(airp);
     vector<TBagTagRow> bag_tags;
-    vector<int> grps;
+    map<int, vector<TBagTagRow *> > grps;
     Qry.Clear();
     string SQLText =
         "select ";
@@ -1598,32 +1598,6 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         bag_tag_row.weight = Qry.FieldAsInteger("weight");
         bag_tag_row.pr_liab_limit = Qry.FieldAsInteger("pr_liab_limit");
 
-        if(find(grps.begin(), grps.end(), cur_grp_id) == grps.end()) {
-            grps.push_back(cur_grp_id);
-            // ищем непривязанные бирки для каждой группы
-            TQuery tagsQry(&OraSession);
-            tagsQry.SQLText =
-                "select "
-                "   bag_tags.tag_type, "
-                "   bag_tags.color, "
-                "   to_char(bag_tags.no) no "
-                "from "
-                "   bag_tags "
-                "where "
-                "   bag_tags.grp_id = :grp_id and "
-                "   bag_tags.bag_num is null";
-            tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
-            tagsQry.Execute();
-            for(; !tagsQry.Eof; tagsQry.Next()) {
-                bag_tags.push_back(bag_tag_row);
-                bag_tags.back().bag_name_priority = -1;
-                bag_tags.back().bag_name = "";
-                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
-                bag_tags.back().color = tagsQry.FieldAsString("color");
-                bag_tags.back().no = tagsQry.FieldAsFloat("no");
-            }
-        }
-
         TQuery tagsQry(&OraSession);
         tagsQry.SQLText =
             "select "
@@ -1638,11 +1612,51 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
         tagsQry.CreateVariable("bag_num", otInteger, cur_bag_num);
         tagsQry.Execute();
+        bool pr_bound = false;
         for(; !tagsQry.Eof; tagsQry.Next()) {
+            pr_bound = true;
             bag_tags.push_back(bag_tag_row);
             bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
             bag_tags.back().color = tagsQry.FieldAsString("color");
             bag_tags.back().no = tagsQry.FieldAsFloat("no");
+        }
+
+        if(not pr_bound) {
+            if(grps.find(cur_grp_id) == grps.end()) {
+                grps[cur_grp_id]; // Создаем пустой вектор, чтобы в след разы if который выше не срабатывал
+                // ищем непривязанные бирки для каждой группы
+                TQuery tagsQry(&OraSession);
+                tagsQry.SQLText =
+                    "select "
+                    "   bag_tags.tag_type, "
+                    "   bag_tags.color, "
+                    "   to_char(bag_tags.no) no "
+                    "from "
+                    "   bag_tags "
+                    "where "
+                    "   bag_tags.grp_id = :grp_id and "
+                    "   bag_tags.bag_num is null";
+                tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+                tagsQry.Execute();
+                for(; !tagsQry.Eof; tagsQry.Next()) {
+                    bag_tags.push_back(bag_tag_row);
+                    bag_tags.back().bag_name_priority = -1;
+                    bag_tags.back().bag_name = "";
+                    bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+                    bag_tags.back().color = tagsQry.FieldAsString("color");
+                    bag_tags.back().no = tagsQry.FieldAsFloat("no");
+                    // запоминаем список ссылок на непривязанные бирки для данной группы
+                    grps[cur_grp_id].push_back(&bag_tags.back());
+                }
+            } else if(grps[cur_grp_id].size()) {
+                // если встретилась группа со списком непривязанных бирок
+                // привязываем текущий багаж к одной из бирок и удаляем ее
+                // (на самом деле в базе она не привязана, просто чтоб багажка правильно выводилась)
+                grps[cur_grp_id].back()->bag_num = bag_tag_row.bag_num;
+                grps[cur_grp_id].back()->amount = bag_tag_row.amount;
+                grps[cur_grp_id].back()->weight = bag_tag_row.weight;
+                grps[cur_grp_id].pop_back();
+            }
         }
     }
     sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
