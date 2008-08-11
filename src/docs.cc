@@ -1,4 +1,5 @@
 #include "docs.h"
+#include "stat.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -432,83 +433,6 @@ void RunSZV(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     PaxListVars(point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
-// Вероятно не используется
-/*
-void RunEventsLog(xmlNodePtr reqNode, xmlNodePtr formDataNode)
-{
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText=
-        "SELECT events.type type, msg, time, id1 AS point_id, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM events "
-        "WHERE type=:evtDisp AND events.id1=:move_id AND events.id2=:point_id "
-        "UNION "
-        "SELECT events.type type, msg, time, id1 AS point_id, "
-        "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "
-        "       DECODE(type,:evtPax,id3,:evtPay,id3,-1) AS grp_id, "
-        "       ev_user, station, ev_order "
-        "FROM events "
-        "WHERE type IN(:evtSeason,:evtFlt,:evtGraph,:evtPax,:evtPay,:evtComp,:evtTlg) AND events.id1=:point_id "
-        " ORDER BY ev_order";
-    //events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND
-    int point_id = NodeAsInteger("point_id",reqNode);
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
-    Qry.CreateVariable("evtSeason",otString,EncodeEventType(ASTRA::evtSeason));
-    Qry.CreateVariable("evtFlt",otString,EncodeEventType(ASTRA::evtFlt));
-    Qry.CreateVariable("evtGraph",otString,EncodeEventType(ASTRA::evtGraph));
-    Qry.CreateVariable("evtPax",otString,EncodeEventType(ASTRA::evtPax));
-    Qry.CreateVariable("evtPay",otString,EncodeEventType(ASTRA::evtPay));
-    Qry.CreateVariable("evtComp",otString,EncodeEventType(ASTRA::evtComp));
-    Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
-    xmlNodePtr etNode = GetNode( "EventsTypes", reqNode );
-    vector<string> eventsTypes;
-    if ( etNode ) {
-        etNode = etNode->children;
-        while ( etNode ) {
-            eventsTypes.push_back( NodeAsString( etNode->children ) );
-            etNode = etNode->next;
-        }
-    }
-    Qry.Execute();
-
-    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
-    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "events_log");
-
-    for(;!Qry.Eof;Qry.Next())
-    {
-        if ( !eventsTypes.empty() &&
-                find( eventsTypes.begin(), eventsTypes.end(), Qry.FieldAsString( "type" ) ) == eventsTypes.end() )
-            continue;
-
-        xmlNodePtr rowNode=NewTextChild(dataSetNode,"row");
-        NewTextChild(rowNode,"point_id",Qry.FieldAsInteger("point_id"));
-        NewTextChild(rowNode,"ev_user",Qry.FieldAsString("ev_user"));
-        NewTextChild(rowNode,"station",Qry.FieldAsString("station"));
-
-        TDateTime time;
-        if (reqInfo->user.sets.time==ustTimeUTC)
-            time = Qry.FieldAsDateTime("time");
-        else
-            time = UTCToLocal(Qry.FieldAsDateTime("time"), reqInfo->desk.tz_region);
-
-        NewTextChild(rowNode,"time",DateTimeToStr(time));
-        NewTextChild(rowNode,"fmt_time",DateTimeToStr(time, "dd.mm.yy hh:nn"));
-        NewTextChild(rowNode,"grp_id",Qry.FieldAsInteger("grp_id"),-1);
-        NewTextChild(rowNode,"reg_no",Qry.FieldAsInteger("reg_no"),-1);
-        NewTextChild(rowNode,"msg",Qry.FieldAsString("msg"));
-        NewTextChild(rowNode,"ev_order",Qry.FieldAsInteger("ev_order"));
-    };
-
-    // Теперь переменные отчета
-    PaxListVars(point_id, 0, NewTextChild(formDataNode, "variables"));
-}
-*/
-
 void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 {
     tst();
@@ -723,11 +647,11 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
 
+    xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
     if(
             target.empty() ||
             target == "tot"
       ) {
-        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
@@ -745,7 +669,6 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "tpm" ||
             target == "etm"
       ) {
-        xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         xmlNodePtr formNode = NodeAsNode("form", resNode);
         xmlUnlinkNode(formNode);
         xmlFreeNode(formNode);
@@ -1265,6 +1188,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
@@ -1549,6 +1473,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     bool pr_trfer = (string)NodeAsString("name", reqNode) == "BMTrfer";
 
     //TODO: get_report_form in each report handler, not once!
+    xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
     if(target.empty()) {
         xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
         // внутри get_report_form вызывается ReplaceTextChild, в котором в свою
@@ -1574,7 +1499,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string airp = Qry.FieldAsString(0);
     bag_names.init(airp);
     vector<TBagTagRow> bag_tags;
-    vector<int> grps;
+    map<int, vector<TBagTagRow *> > grps;
     Qry.Clear();
     string SQLText =
         "select ";
@@ -1673,32 +1598,6 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         bag_tag_row.weight = Qry.FieldAsInteger("weight");
         bag_tag_row.pr_liab_limit = Qry.FieldAsInteger("pr_liab_limit");
 
-        if(find(grps.begin(), grps.end(), cur_grp_id) == grps.end()) {
-            grps.push_back(cur_grp_id);
-            // ищем непривязанные бирки для каждой группы
-            TQuery tagsQry(&OraSession);
-            tagsQry.SQLText =
-                "select "
-                "   bag_tags.tag_type, "
-                "   bag_tags.color, "
-                "   to_char(bag_tags.no) no "
-                "from "
-                "   bag_tags "
-                "where "
-                "   bag_tags.grp_id = :grp_id and "
-                "   bag_tags.bag_num is null";
-            tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
-            tagsQry.Execute();
-            for(; !tagsQry.Eof; tagsQry.Next()) {
-                bag_tags.push_back(bag_tag_row);
-                bag_tags.back().bag_name_priority = -1;
-                bag_tags.back().bag_name = "";
-                bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
-                bag_tags.back().color = tagsQry.FieldAsString("color");
-                bag_tags.back().no = tagsQry.FieldAsFloat("no");
-            }
-        }
-
         TQuery tagsQry(&OraSession);
         tagsQry.SQLText =
             "select "
@@ -1713,11 +1612,51 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
         tagsQry.CreateVariable("bag_num", otInteger, cur_bag_num);
         tagsQry.Execute();
+        bool pr_bound = false;
         for(; !tagsQry.Eof; tagsQry.Next()) {
+            pr_bound = true;
             bag_tags.push_back(bag_tag_row);
             bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
             bag_tags.back().color = tagsQry.FieldAsString("color");
             bag_tags.back().no = tagsQry.FieldAsFloat("no");
+        }
+
+        if(not pr_bound) {
+            if(grps.find(cur_grp_id) == grps.end()) {
+                grps[cur_grp_id]; // Создаем пустой вектор, чтобы в след разы if который выше не срабатывал
+                // ищем непривязанные бирки для каждой группы
+                TQuery tagsQry(&OraSession);
+                tagsQry.SQLText =
+                    "select "
+                    "   bag_tags.tag_type, "
+                    "   bag_tags.color, "
+                    "   to_char(bag_tags.no) no "
+                    "from "
+                    "   bag_tags "
+                    "where "
+                    "   bag_tags.grp_id = :grp_id and "
+                    "   bag_tags.bag_num is null";
+                tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
+                tagsQry.Execute();
+                for(; !tagsQry.Eof; tagsQry.Next()) {
+                    bag_tags.push_back(bag_tag_row);
+                    bag_tags.back().bag_name_priority = -1;
+                    bag_tags.back().bag_name = "";
+                    bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
+                    bag_tags.back().color = tagsQry.FieldAsString("color");
+                    bag_tags.back().no = tagsQry.FieldAsFloat("no");
+                    // запоминаем список ссылок на непривязанные бирки для данной группы
+                    grps[cur_grp_id].push_back(&bag_tags.back());
+                }
+            } else if(grps[cur_grp_id].size()) {
+                // если встретилась группа со списком непривязанных бирок
+                // привязываем текущий багаж к одной из бирок и удаляем ее
+                // (на самом деле в базе она не привязана, просто чтоб багажка правильно выводилась)
+                grps[cur_grp_id].back()->bag_num = bag_tag_row.bag_num;
+                grps[cur_grp_id].back()->amount = bag_tag_row.amount;
+                grps[cur_grp_id].back()->weight = bag_tag_row.weight;
+                grps[cur_grp_id].pop_back();
+            }
         }
     }
     sort(bag_tags.begin(), bag_tags.end(), lessBagTagRow);
@@ -1971,6 +1910,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
