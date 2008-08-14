@@ -1,11 +1,14 @@
 #include "convert.h"
 #include "astra_consts.h"
 #include "stl_utils.h"
+#include "astra_utils.h"
 #include <sstream>
 #include <iomanip>
 
 using namespace std;
 using namespace ASTRA;
+
+// коммент
 
 bool is_iata_line(std::string line)
 {
@@ -66,4 +69,17 @@ string denorm_iata_row(string row)
             row = row.substr(pos + 1);
     }
     return row;
+}
+
+string prev_iata_line(string line)
+{
+    const char *seat = is_lat(line) ? lat_seat : rus_seat;
+    size_t i = 0;
+    for(; i < strlen(seat); i++)
+        if(seat[i] == line[0])
+            break;
+    string result;
+    if(i > 0 and i < strlen(seat))
+        result = seat[i - 1];
+    return result;
 }
