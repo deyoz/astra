@@ -1211,6 +1211,7 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
     if(
+            rcpt.form_type != "K95" &&
             rcpt.form_type != "M61" &&
             rcpt.form_type != "Z61" &&
             rcpt.form_type != "664 451" &&
@@ -1538,10 +1539,21 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           << point_dep << "-" << point_arv << " ";
 
       airline_code << airline.code;
+
+      ostringstream flt_no, flt_no_lat;
+
+      if(rcpt.flt_no != -1) {
+              flt_no << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+              flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+
+      }
+      add_tag("flt_no", flt_no.str());
+      add_tag("flt_no_lat", flt_no_lat.str());
+
       if(rcpt.flt_no != -1)
           airline_code
               << " "
-              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+              << flt_no.str();
       buf << airline_code.str();
       add_tag("airline_code", airline_code.str());
       add_tag("to", buf.str());
@@ -1552,7 +1564,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       if(rcpt.flt_no != -1)
           airline_code_lat
               << " "
-              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+              << flt_no_lat.str();
       buf << airline_code_lat.str();
       add_tag("airline_code_lat", airline_code_lat.str());
       add_tag("to_lat", buf.str());
