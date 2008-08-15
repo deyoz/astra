@@ -8,6 +8,7 @@
 #include "tlg/tlg.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
+#include "convert.h"
 #include <map>
 
 using namespace std;
@@ -2106,20 +2107,26 @@ void TSOMPlace::dump()
     ProgTrace(TRACE5, buf.str().c_str());
 }
 
-typedef map<int, TSOMPlace> t_som_row;
-typedef map<int, t_som_row> t_som_block;
-typedef map<int, t_som_block> t_som_comp;
+typedef map<string, TSOMPlace> t_som_row;
+typedef map<string, t_som_row> t_som_comp;
+
+struct TSeatListContext {
+    string first_xname, last_xname;
+    char cur_seat_type;
+    TSeatListContext() {
+        cur_seat_type = 'i'; // i - interval (6A-E); a - alone (6A or 6ACE or similar)
+    }
+    void seat_to_str(string &list, string yname, string first_place,  string last_place);
+};
 
 struct TSOMList {
     private:
         t_som_comp comp;
-        void init_comp(int point_id);
         void apply_comp(int point_id);
         void get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats);
         void get_place(int point_dep, TSOMPlace &place, string seat_no);
         void dump_comp();
         void dump_list(map<int, string> &list);
-        void seat_to_str(string &list, t_som_row::iterator &first_place,  t_som_row::iterator &last_place);
         void get_seat_list(map<int, string> &list);
     public:
         vector<string> items;
@@ -2132,65 +2139,65 @@ void TSOMList::dump_list(map<int, string> &list)
         ProgTrace(TRACE5, "point_arv: %d; seats: %s", im->first, (convert_seat_no(im->second, 1)).c_str());
     }
 }
+
 void TSOMList::get_seat_list(map<int, string> &list)
 {
-    map<int, t_som_row::iterator> first_place_map;
-    map<int, t_som_row::iterator> last_place_map;
-    t_som_row::iterator *first_place = NULL;
-    t_som_row::iterator *last_place = NULL;
-    for(t_som_comp::iterator anum = comp.begin(); anum != comp.end(); anum++)
-        for(t_som_block::iterator ay = anum->second.begin(); ay != anum->second.end(); ay++)
-            for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
-                if(ax->second.point_arv != NoExists) {
-                    if(last_place == NULL or (*last_place)->second.point_arv != ax->second.point_arv) {
-                        if(last_place != NULL)
-                            seat_to_str(list[(*first_place)->second.point_arv], *first_place, *last_place);
-                        if(first_place_map.find(ax->second.point_arv) == first_place_map.end()) {
-                            first_place_map[ax->second.point_arv] = NULL;
-                            last_place_map[ax->second.point_arv] = NULL;
-                        }
-                        first_place = &first_place_map[ax->second.point_arv];
-                        last_place = &last_place_map[ax->second.point_arv];
-                    }
-                    if(*first_place == NULL) {
-                        *first_place = ax;
-                        *last_place = *first_place;
-                    } else {
-                        t_som_row::iterator prev_place;
-                        if(ax == ay->second.begin()) {
-                            t_som_block::iterator prev_row = ay;
-                            prev_row--;
-                            prev_place = prev_row->second.end();
-                            prev_place--;
-                        } else {
-                            prev_place = ax;
-                            prev_place--;
-                        }
-                        if(*last_place == prev_place)
-                            *last_place = ax;
-                        else {
-                            seat_to_str(list[(*first_place)->second.point_arv], *first_place, *last_place);
-                            *first_place = ax;
-                            *last_place = *first_place;
-                        }
-                    }
+    for(t_som_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
+        map<int, TSeatListContext> ctxt;
+        string *first_xname = NULL;
+        string *last_xname = NULL;
+        string *str_seat = NULL;
+        TSeatListContext *cur_ctxt = NULL;
+        for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
+            cur_ctxt = &ctxt[ax->second.point_arv];
+            first_xname = &cur_ctxt->first_xname;
+            last_xname = &cur_ctxt->last_xname;
+            str_seat = &list[ax->second.point_arv];
+            if(first_xname->empty()) {
+                *first_xname = ax->first;
+                *last_xname = *first_xname;
+            } else {
+                if(prev_iata_line(ax->first) == *last_xname)
+                    *last_xname = ax->first;
+                else {
+                    cur_ctxt->seat_to_str(*str_seat, ax->second.yname, *first_xname, *last_xname);
+                    *first_xname = ax->first;
+                    *last_xname = *first_xname;
                 }
             }
-    if(first_place != NULL)
-        seat_to_str(list[(*first_place)->second.point_arv], *first_place, *last_place);
+        }
+        // Дописываем последние оставшиеся места в ряду для каждого направления
+        // Put last row seats for each dest list
+        for(map<int, string>::iterator im = list.begin(); im != list.end(); im++) {
+            cur_ctxt = &ctxt[im->first];
+            first_xname = &cur_ctxt->first_xname;
+            last_xname = &cur_ctxt->last_xname;
+            str_seat = &im->second;
+            if(first_xname != NULL and !first_xname->empty())
+                cur_ctxt->seat_to_str(*str_seat, ay->first, *first_xname, *last_xname);
+        }
+    }
 }
 
-void TSOMList::seat_to_str(string &list, t_som_row::iterator &first_place,  t_som_row::iterator &last_place)
+void TSeatListContext::seat_to_str(string &list, string yname, string first_xname, string last_xname)
 {
-    if(!list.empty())
-        list += ", ";
-    if(first_place == last_place)
-        list += first_place->second.yname + first_place->second.xname;
-    else {
-        list +=
-            first_place->second.yname + first_place->second.xname
-            + "-"
-            + last_place->second.yname + last_place->second.xname;
+    if(first_xname == last_xname) {
+        if(cur_seat_type == 'a')
+            list += first_xname;
+        else {
+            if(!list.empty())
+                list += " ";
+            list += denorm_iata_row(yname) + first_xname;
+            cur_seat_type = 'a';
+        }
+    } else {
+        if(!list.empty())
+            list += " ";
+        list += denorm_iata_row(yname) + first_xname;
+        if(prev_iata_line(last_xname) != first_xname)
+            list += "-";
+        list += last_xname;
+        cur_seat_type = 'i';
     }
 }
 
@@ -2232,7 +2239,8 @@ void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_
     TSOMPlace place;
     get_place(point_dep, place, seat_no);
     place.point_arv = point_arv;
-    comp[place.num][place.y][place.x] = place;
+    if(is_iata_row(place.yname) && is_iata_line(place.xname))
+        comp[norm_iata_row(place.yname)][place.xname] = place;
     Qry.Clear();
     Qry.SQLText =
         "select yname, xname from trip_comp_elems where "
@@ -2257,24 +2265,23 @@ void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_
         place.xname = Qry.FieldAsString("xname");
         place.yname = Qry.FieldAsString("yname");
         place.point_arv = point_arv;
-        comp[place.num][place.y][place.x] = place;
+        if(is_iata_row(place.yname) && is_iata_line(place.xname))
+            comp[norm_iata_row(place.yname)][place.xname] = place;
     }
 }
 
 void TSOMList::dump_comp()
 {
-    for(t_som_comp::iterator anum = comp.begin(); anum != comp.end(); anum++)
-        for(t_som_block::iterator ay = anum->second.begin(); ay != anum->second.end(); ay++)
-            for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
-                ostringstream buf;
-                buf
-                    << "num: " << anum->first << "; "
-                    << "y: " << ay->first << "; "
-                    << "x: " << ax->first << "; ";
-                if(!ax->second.yname.empty())
-                    buf << ax->second.yname << ax->second.xname << " " << ax->second.point_arv;
-                ProgTrace(TRACE5, "%s", buf.str().c_str());
-            }
+    for(t_som_comp::iterator ay = comp.begin(); ay != comp.end(); ay++)
+        for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
+            ostringstream buf;
+            buf
+                << "yname: " << ay->first << "; "
+                << "xname: " << ax->first << "; ";
+            if(!ax->second.yname.empty())
+                buf << ax->second.yname << ax->second.xname << " " << ax->second.point_arv;
+            ProgTrace(TRACE5, "%s", buf.str().c_str());
+        }
 }
 
 void TSOMList::apply_comp(int point_id)
@@ -2313,28 +2320,11 @@ void TSOMList::apply_comp(int point_id)
     }
 }
 
-void TSOMList::init_comp(int point_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select num, x, y from trip_comp_elems where point_id = :point_id order by num, y, x";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next()) {
-        TSOMPlace place;
-        int num = Qry.FieldAsInteger("num");
-        int y = Qry.FieldAsInteger("y");
-        int x = Qry.FieldAsInteger("x");
-        comp[num][y][x] = place;
-    }
-}
-
 void TSOMList::get(TTlgInfo &info)
 {
-    init_comp(info.point_id);
     apply_comp(info.point_id);
     map<int, string> list;
     get_seat_list(list);
-    dump_list(list);
     // finally we got map with key - point_arv, data - string represents seat list for given point_arv
 
     TQuery Qry(&OraSession);
