@@ -64,9 +64,11 @@ string denorm_iata_row(string row)
 {
     if(is_iata_row(row)) {
         row = trim(row);
-        size_t pos = row.rfind("0");
-        if(pos != string::npos)
-            row = row.substr(pos + 1);
+        size_t i = 0;
+        for(; i < row.size(); i++)
+            if(row[i] != '0')
+                break;
+        row = row.substr(i);
     }
     return row;
 }
