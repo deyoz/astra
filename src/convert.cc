@@ -34,6 +34,13 @@ bool is_iata_row(std::string row)
     return result;
 }
 
+string denorm_iata_line(std::string line, bool pr_lat)
+{
+    if(is_iata_line(line) and pr_lat == true)
+        line = norm_iata_line(line);
+    return line;
+}
+
 string norm_iata_line(std::string line, bool pr_lat)
 {
     if(is_iata_line(line)) {
