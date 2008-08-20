@@ -628,6 +628,10 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
         // Еще некоторые теги
         {
+            if(data["ETICKET_NO"].StringVal.empty())
+                add_tag("etkt", "");
+            else
+                add_tag("etkt", "ETKT" + data["ETICKET_NO"].StringVal);
             TTagValue TagValue;
             TagValue.pr_print = 0;
             TagValue.null = true;
@@ -1024,8 +1028,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.REG_NO, "
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
-            "   decode(pax.coupon_no, null, '', pax.ticket_no||'/'||pax.coupon_no) eticket_no, "
-            "   decode(pax.coupon_no, null, '', 'ETKT'||pax.ticket_no||'/'||pax.coupon_no) etkt, "
+            "   nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) eticket_no, "
             "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
             "   system.transliter(pax.DOCUMENT, 1) document_lat, "
