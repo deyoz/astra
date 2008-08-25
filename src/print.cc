@@ -581,15 +581,7 @@ void PrintDataParser::t_field_map::dump_data()
 
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
-    tst();
-    ProgTrace(TRACE5, "TAG: %s", name.c_str());
     string result;
-    if(name == "ONE_CHAR" || print_mode == 2) {
-        if(len)
-            result = AlignString("8", len, align);
-        else
-            result = "8";
-    }
     if(name == "HUGE_CHAR") result.append(len, '8');
     if(result.size()) return result;
 
@@ -745,6 +737,18 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             size_t result_size = result.size();
             result = "";
             result.append(result_size, '8');
+        }
+        if(name == "ONE_CHAR" || print_mode == 2) {
+            size_t result_size = result.size();
+            result = "";
+            if(
+                    name == "PAX_ID" ||
+                    name == "TEST_SERVER" ||
+                    data[name].type == otDate
+                    )
+                result.append(result_size, '8');
+            else
+                result = AlignString("8", result_size, align);
         }
         if(print_mode == 3) {
             size_t result_size = result.size();
