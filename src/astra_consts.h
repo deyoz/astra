@@ -48,6 +48,10 @@ const char lat_suffix[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char rus_seat[]="€‚ƒ„…†‡ˆŠ‹Œ‘’“”•–—˜™";
 const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
+enum TCompLayerType { cltCheckin, cltPreseat, cltPNLCkin, cltPRLTrzt, cltSOMTrzt, cltTranzit,
+                      cltBlockCent, cltProtect, cltUnknown, cltTypeNum };
+extern const char* CompLayerTypeS[cltTypeNum];
+
 };
 
 #endif

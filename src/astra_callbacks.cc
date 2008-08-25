@@ -152,13 +152,13 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     EOracleError *orae = dynamic_cast<EOracleError*>(e);
     if (orae)
     {
-        ProgError(STDLOG,"EOracleError: %s (code=%d)",orae->what(),orae->Code);
         switch( orae->Code ) {
         	case 4061:
         	case 4068:
         		showError("Версия системы была обновлена. Повторите действие");
         		break;
         	default:
+        	  ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",orae->Code,orae->what(),orae->SQLText());
             showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
         }
         return;

@@ -620,6 +620,21 @@ char* EncodePaxStatus(TPaxStatus s)
   return (char*)TPaxStatusS[s];
 };
 
+TCompLayerType DecodeCompLayerType(char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(CompLayerTypeS);i+=1) if (strcmp(s,CompLayerTypeS[i])==0) break;
+  if (i<sizeof(CompLayerTypeS))
+    return (TCompLayerType)i;
+  else
+    return cltUnknown;
+};
+
+char* EncodeCompLayerType(TCompLayerType s)
+{
+  return (char*)CompLayerTypeS[s];
+};
+
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
 {
   int Day, Hour;

@@ -224,6 +224,8 @@ ASTRA::TQueue DecodeQueue(int q);
 int EncodeQueue(ASTRA::TQueue q);
 ASTRA::TPaxStatus DecodePaxStatus(char* s);
 char* EncodePaxStatus(ASTRA::TPaxStatus s);
+ASTRA::TCompLayerType DecodeCompLayerType(char* s);
+char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 
 
 char DecodeStatus(char* s);
