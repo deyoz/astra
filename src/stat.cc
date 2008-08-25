@@ -768,7 +768,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
             "   events.id1=:point_id  ";
-        qry2 = 
+        qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
             "       events.screen,  "
@@ -802,7 +802,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "   arx_events.part_key = :part_key and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
             "   arx_events.id1=:point_id  ";
-        qry2 = 
+        qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
             "       arx_events.screen,  "
@@ -1180,7 +1180,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "FROM "
                 "   arx_events "
                 "WHERE "
-                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для 
+                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 5 and "   // разных типов событий
                 "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
                 "  arx_events.time < :LastDate and "
@@ -2992,7 +2992,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(!tag_no.empty()) {
         if(tag_no.size() < 3)
             throw UserException("Номер бирки должен содержать не менее 3-х последних цифр");
-        Qry.CreateVariable("tag_no", otInteger, StrToInt(tag_no));
+        Qry.CreateVariable("tag_no", otInteger, ToInt(tag_no));
     }
     int count = 0;
     xmlNodePtr paxListNode = NULL;

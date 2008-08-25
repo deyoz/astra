@@ -733,7 +733,7 @@ string AddDays( string days, int delta )
   for ( int i=0; i<7; i++ ) {
     if ( days[ i ] == '.' )
       continue;
-    int day = StrToInt( days[ i ] ) + delta;
+    int day = ToInt( days[ i ] ) + delta;
     if ( day > 7 )
       day -= 7;
     else
@@ -936,7 +936,7 @@ void CreateSPP( BASIC::TDateTime localdate )
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
    "       TRUNC(scd_out)=TRUNC(:scd_out) AND rownum<2 ";
   VQry.DeclareVariable( "name", otString );
-  VQry.DeclareVariable( "airp", otString );  
+  VQry.DeclareVariable( "airp", otString );
   VQry.DeclareVariable( "scd_in", otDate );
   VQry.DeclareVariable( "scd_out", otDate );
 
@@ -1016,7 +1016,7 @@ void CreateSPP( BASIC::TDateTime localdate )
       	name = d->airline + IntToString( d->trip ) + d->suffix;
       	ProgTrace( TRACE5, "trip name=%s", name.c_str() );
         VQry.SetVariable( "name", name );
-        VQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );        
+        VQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
         if ( d->scd_in > NoExists )
           VQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
         else
@@ -1298,7 +1298,7 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_a
   map<int,TTimeDiff> v;
   TFilter filter;
   filter.GetSeason();
-  
+
   TQuery Qry(&OraSession);
   double d1, d2, f1, f2, f3, f4;
   d1 = ClientToUTC( localdate, filter.region );
@@ -3438,7 +3438,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 /*        } */
       }
       canRange = ( !mapds[ move_id ].dests.empty() && SQry.FieldAsInteger( idx_trip_id ) == trip_id );
-    }    
+    }
     if ( canRange && buildRanges ) {
     	DestsExists = true;
 ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
@@ -3549,7 +3549,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
     }
     SQry.Next();
   }
-  
+
   if ( !DestsExists && trip_id > NoExists )
   	throw UserException( "Рейс удален. Обновите данные" );
 

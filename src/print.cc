@@ -84,10 +84,10 @@ namespace to_esc {
                 si = data.find(delim);
                 switch(i) {
                     case 0:
-                        len = StrToInt(buf);
+                        len = ToInt(buf);
                         break;
                     case 1:
-                        height = StrToInt(buf);
+                        height = ToInt(buf);
                         break;
                     case 2:
                         align = buf;
@@ -165,7 +165,7 @@ namespace to_esc {
                     if(IsDigit(curr_char))
                         num += curr_char;
                     else if(curr_char == ',') {
-                        x = StrToInt(num);
+                        x = ToInt(num);
                         num.erase();
                         Mode = 'Y';
                     } else
@@ -175,7 +175,7 @@ namespace to_esc {
                     if(IsDigit(curr_char))
                         num += curr_char;
                     else if(curr_char == ',') {
-                        y = StrToInt(num);
+                        y = ToInt(num);
                         num.erase();
                         Mode = 'B';
                     } else
@@ -466,22 +466,22 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     di2 = data.find("NO_SMOKE");
     di3 = data.find("SMOKE");
     if(printed(di1) || printed(di2) || printed(di3))
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_AMOUNT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_WEIGHT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("RK_WEIGHT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("TAGS");
@@ -501,7 +501,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
 
     di1 = data.find("FLT_NO");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("SURNAME");
@@ -1972,7 +1972,7 @@ string PrintDataParser::parse_field1(int offset, string field)
             field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
     else
         result =
-            field_map.get_field(FieldName, StrToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
     return result;
 }
 
@@ -2012,7 +2012,7 @@ string PrintDataParser::parse_field0(int offset, string field)
                 if(!IsDigit(curr_char)) {
                     if(curr_char == ',') {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
-                        if(buf.size()) FieldLen = StrToInt(buf);
+                        if(buf.size()) FieldLen = ToInt(buf);
                         VarPos = i;
                         Mode = '2';
                     } else

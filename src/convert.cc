@@ -26,7 +26,7 @@ bool is_iata_row(std::string row)
 {
     bool result = false;
     try {
-        int row_num = StrToInt(row);
+        int row_num = ToInt(row);
         if(row_num >= 1 and row_num <=99 or row_num >= 101 and row_num <= 199)
             result = true;
     } catch(...) {

@@ -571,14 +571,14 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       TParams::iterator ip = p.find( "POINT_ID" );
       if ( ip == p.end() )
         throw Exception( "Can't find variable point_id" );
-      point_id = StrToInt( ip->second.Value );
+      point_id = ToInt( ip->second.Value );
     }
     else {
       FieldIndex = cachetable->FieldIndex( "point_id" );
       if ( FieldIndex < 0 )
         throw Exception( "Ошибка при поиске поля point_id" );
       ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
-      point_id = StrToInt( row.old_cols[ FieldIndex ] );
+      point_id = ToInt( row.old_cols[ FieldIndex ] );
     }
     ProgTrace( TRACE5, "point_id=%d", point_id );
     message.id1 = point_id;
