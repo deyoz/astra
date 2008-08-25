@@ -22,6 +22,7 @@
 #include "design_blank.h"
 #include "astra_service.h"
 #include "payment.h"
+#include "dev_tuning.h"
 
 #include "astra_utils.h"
 #include "basic.h"
@@ -66,6 +67,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new DesignBlankInterface();
     new AstraServiceInterface();
     new PaymentInterface();
+    new DevTuningInterface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
