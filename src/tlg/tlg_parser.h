@@ -41,10 +41,14 @@ enum TTlgElement
                TotalsByDestination,
                //PTM
                TransferPassengerData,
+               //SOM
+               SeatingCategories,
+               SeatsByDestination,
+               SupplementaryInfo,
                //общие
                EndOfMessage};
 
-extern const char* TTlgElementS[13];
+extern const char* TTlgElementS[16];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
@@ -59,13 +63,6 @@ class TTlgPartInfo
     {
       p=NULL;
       line=0;
-    };
-    TTlgPartInfo& operator =(const TTlgPartInfo &info)
-    {
-      if (this == &info) return *this;
-      p=info.p;
-      line=info.line;
-      return *this;
     };
 };
 
@@ -219,18 +216,79 @@ typedef struct
 class TSeat
 {
   public:
-    int row;
-    char line;
-    char rem[5];
+    char row[4]; //001-099,101-199
+    char line[2];//A-Z...
     TSeat()
     {
-      row=0;
-      line=0;
-      *rem=0;
+      Clear();
+    };
+    void Clear()
+    {
+      *row=0;
+      *line=0;
+    };
+    bool Empty()
+    {
+      return *row==0 || *line==0;
+    };
+
+    TSeat& operator = ( const TSeat& seat )
+    {
+      if (this == &seat) return *this;
+      strncpy(this->row,seat.row,sizeof(seat.row));
+      strncpy(this->line,seat.line,sizeof(seat.line));
+      return *this;
+    };
+
+    friend bool operator == ( const TSeat& seat1, const TSeat& seat2 )
+    {
+      return strcmp(seat1.row,seat2.row)==0 &&
+             strcmp(seat1.line,seat2.line)==0;
+    };
+
+    friend bool operator != ( const TSeat& seat1, const TSeat& seat2 )
+    {
+      return !(strcmp(seat1.row,seat2.row)==0 &&
+               strcmp(seat1.line,seat2.line)==0);
+    };
+
+    friend bool operator < ( const TSeat& seat1, const TSeat& seat2 )
+    {
+      int res;
+      res=strcmp(seat1.row,seat2.row);
+      if (res==0)
+        res=strcmp(seat1.line,seat2.line);
+      return res<0;
     };
 };
 
-typedef std::pair<TSeat,TSeat> TSeatRange;
+class TSeatRange : public std::pair<TSeat,TSeat>
+{
+  public:
+    char rem[5];
+    TSeatRange() : std::pair<TSeat,TSeat>()
+    {
+      *rem=0;
+    };
+    friend bool operator < ( const TSeatRange& range1, const TSeatRange& range2 )
+    {
+      return range1.first<range2.first;
+    };
+};
+
+void NormalizeSeat(TSeat &seat);
+void NormalizeSeatRange(TSeatRange &range);
+bool NextNormSeatRow(TSeat &seat);
+bool PriorNormSeatRow(TSeat &seat);
+TSeat& FirstNormSeatRow(TSeat &seat);
+TSeat& LastNormSeatRow(TSeat &seat);
+bool NextNormSeatLine(TSeat &seat);
+bool PriorNormSeatLine(TSeat &seat);
+TSeat& FirstNormSeatLine(TSeat &seat);
+TSeat& LastNormSeatLine(TSeat &seat);
+bool NextNormSeat(TSeat &seat);
+bool SeatInRange(TSeatRange &range, TSeat &seat);
+bool NextSeatInRange(TSeatRange &range, TSeat &seat);
 
 class TDocItem
 {
@@ -341,7 +399,8 @@ class TPaxItem
     std::string name;
     ASTRA::TPerson pers_type;
     long seats;
-    TSeat seat;
+    std::vector<TSeatRange> seatRanges;
+    TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
@@ -383,6 +442,7 @@ class TNameElement
     std::string surname;
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
+    std::vector<TSeatRange> seatRanges;
     TNameElement()
     {
       Clear();
@@ -394,6 +454,7 @@ class TNameElement
       surname.clear();
       pax.clear();
       rem.clear();
+      seatRanges.clear();
     };
 };
 
@@ -510,6 +571,34 @@ class TPtmContent
     };
 };
 
+class TSeatsByDest
+{
+  public:
+    char airp_arv[4];
+    std::vector<TSeatRange> ranges;
+    TSeatsByDest()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *airp_arv=0;
+      ranges.clear();
+    };
+};
+
+class TSOMContent
+{
+  public:
+    TFltInfo flt;
+    std::vector<TSeatsByDest> seats;
+    void Clear()
+    {
+      flt.Clear();
+      seats.clear();
+    };
+};
+
 class TBtmTagItem
 {
   public:
@@ -590,9 +679,11 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
 void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
+void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
+void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
@@ -601,5 +692,6 @@ bool bind_tlg(TQuery &Qry);
 bool bind_tlg(int point_id);
 void crs_recount(int point_id_tlg);
 
+void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 #endif
 
