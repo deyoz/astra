@@ -2320,11 +2320,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 1) < LastDate)
         throw UserException("Период поиска не должен превышать 1 месяца");
-    FirstDate = ClientToUTC(FirstDate, reqInfo->desk.tz_region);
-    LastDate = ClientToUTC(LastDate, reqInfo->desk.tz_region);
-    ProgTrace(TRACE5, "FirstDate: %s", DateTimeToStr(FirstDate, ServerFormatDateTimeAsString).c_str());
-    ProgTrace(TRACE5, "LastDate: %s", DateTimeToStr(LastDate, ServerFormatDateTimeAsString).c_str());
-    ProgTrace(TRACE5, "IncMonth(FirstDate, 1): %s", DateTimeToStr(IncMonth(FirstDate, 1), ServerFormatDateTimeAsString).c_str());
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TPerfTimer tm;
@@ -2633,8 +2628,8 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%s", SQLText.c_str());
 
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), info.desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), info.desk.tz_region));
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
     Qry.Execute();
 
     if(!Qry.Eof) {
@@ -2800,8 +2795,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airp ";
 
     Qry.SQLText = SQLText;
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), info.desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), info.desk.tz_region));
+    Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
+    Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
     Qry.Execute();
 
     if(!Qry.Eof) {
