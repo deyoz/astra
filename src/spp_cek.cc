@@ -975,9 +975,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string file_type = FILE_SPPCEK_TYPE;
 	string record;
 	TQuery Qry( &OraSession );
- 	TDateTime UTCNow = NowUTC();
+ 	TDateTime UTCNow;
  	TDateTime LocalNow;
  	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
+ 	modf( NowUTC(), &UTCNow );
  	
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
@@ -995,7 +996,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	bool res;
   	try {
   		ProgTrace( TRACE5, "scd_out=%f, scd_in=%f", tr->scd_out, tr->scd_in );
-  	  res = FilterFlightDate( *tr, LocalNow, LocalNow + CREATE_SPP_DAYS(), true, errcity, false ); // фильтр по датам прилета-вылета рейса
+  	  res = FilterFlightDate( *tr, UTCNow, UTCNow + CREATE_SPP_DAYS(), /*true,*/ errcity, false ); // фильтр по датам прилета-вылета рейса
   	}
   	catch(...) {
   		res = false;

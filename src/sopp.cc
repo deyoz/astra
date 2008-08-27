@@ -309,14 +309,14 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   return trip;
 }
 
-bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date, bool LocalAll,
+bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,/* bool LocalAll,*/
                        string &errcity, bool pr_isg )
 {
-  if ( LocalAll && first_date > NoExists ) {
+  if ( /*LocalAll && */first_date > NoExists ) {
     bool canuseTR = false;
-    TDateTime d;
+    /*TDateTime d;*/
     if ( tr.act_in > NoExists ) {
-    	try {
+/*    	try {
         d = UTCToClient( tr.act_in, tr.region );
       }
       catch( Exception &e ) {
@@ -325,11 +325,12 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
         ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
         return false;
       }
-      canuseTR = ( d >= first_date && d < next_date );
+      canuseTR = ( d >= first_date && d < next_date );*/
+      canuseTR = ( tr.act_in >= first_date && tr.act_in < next_date );
     }
     else
       if ( tr.est_in > NoExists ) {
-      	try {
+/*      	try {
           d = UTCToClient( tr.est_in, tr.region );
         }
         catch( Exception &e ) {
@@ -338,11 +339,12 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
         }
-        canuseTR = ( d >= first_date && d < next_date );
+        canuseTR = ( d >= first_date && d < next_date );*/
+        canuseTR = ( tr.est_in >= first_date && tr.est_in < next_date );
       }
       else
         if ( tr.scd_in > NoExists ) {
-        	try {
+/*        	try {
             d = UTCToClient( tr.scd_in, tr.region );
           }
           catch( Exception &e ) {
@@ -351,11 +353,12 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
           }
-          canuseTR = ( d >= first_date && d < next_date );
+          canuseTR = ( d >= first_date && d < next_date );*/
+          canuseTR = ( tr.scd_in >= first_date && tr.scd_in < next_date );
         }
     if ( !canuseTR )
       if ( tr.act_out > NoExists ) {
-      	try {
+/*      	try {
           d = UTCToClient( tr.act_out, tr.region );
         }
         catch( Exception &e ) {
@@ -364,11 +367,12 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
           ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
           return false;
         }
-        canuseTR = ( d >= first_date && d < next_date );
+        canuseTR = ( d >= first_date && d < next_date );*/
+        canuseTR = ( tr.act_out >= first_date && tr.act_out < next_date );
       }
       else
         if ( tr.est_out > NoExists ) {
-        	try {
+/*        	try {
             d = UTCToClient( tr.est_out, tr.region );
           }
           catch( Exception &e ) {
@@ -377,11 +381,12 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
             ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
             return false;
           }
-          canuseTR = ( d >= first_date && d < next_date );
+          canuseTR = ( d >= first_date && d < next_date );*/
+          canuseTR = ( tr.est_out >= first_date && tr.est_out < next_date );
         }
         else
           if ( tr.scd_out > NoExists ) {
-          	try {
+/*          	try {
               d = UTCToClient( tr.scd_out, tr.region );
             }
             catch( Exception &e ) {
@@ -390,7 +395,8 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
               ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
               return false;
             }
-            canuseTR = ( d >= first_date && d < next_date );
+            canuseTR = ( d >= first_date && d < next_date );*/
+            canuseTR = ( tr.scd_out >= first_date && tr.scd_out < next_date );
           }
          else canuseTR = pr_isg;
     return canuseTR;
@@ -566,15 +572,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   	    
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
-      if ( reqInfo->user.sets.time != ustTimeUTC ) {
+   /*   if ( reqInfo->user.sets.time != ustTimeUTC ) {
       	// бывает сдвиг 25 часов ???
         PointsQry.CreateVariable( "first_date", otDate, first_date - 2 );
         PointsQry.CreateVariable( "next_date", otDate, next_date + 2 );
       }
-      else {
+      else {*/
         PointsQry.CreateVariable( "first_date", otDate, first_date );
         PointsQry.CreateVariable( "next_date", otDate, next_date );
-      }
+/*      }*/
     }
     else {
     	PointsQry.CreateVariable( "first_date", otDate, FNull );
@@ -706,8 +712,8 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		   reqInfo->CheckAirp( id->airp ) ) {
         		TSOPPTrip ntr = createTrip( move_id, id, dests );
             ntr.ref = ref;
-            if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
-            	                     errcity, pr_isg ) ) {
+            if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time !=ustTimeUTC*//*==ustTimeLocalAirp,*/
+            	                     errcity, pr_isg ) ) {            	
             	vector<TSOPPTrip>::iterator v=vtrips.end();
             	if ( pr_isg ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
@@ -816,7 +822,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         	 reqInfo->CheckAirp( id->airp ) ) {
          TSOPPTrip ntr = createTrip( move_id, id, dests );
          ntr.ref = ref;
-         if ( FilterFlightDate( ntr, first_date, next_date, reqInfo->user.sets.time == ustTimeLocalAirp,
+         if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time != ustTimeUTC*//*==ustTimeLocalAirp,*/
          	                      errcity, pr_isg ) ) {
           	vector<TSOPPTrip>::iterator v=vtrips.end();
           	if ( pr_isg ) {
@@ -836,6 +842,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   // рейсы созданы, перейдем к набору информации по рейсам
   ////////////////////////// crs_displaces ///////////////////////////////
   PerfomTest( 669 );
+  ProgTrace( TRACE5, "trips count %d", trips.size() );
 
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
@@ -1360,10 +1367,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	double f;
   	vdate = NodeAsDateTime( dNode );
   	modf( (double)vdate, &f );
-  	if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
+/*  	if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
   		first_date = f;
   	}
-  	else
+  	else*/
   	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
     next_date = first_date + 1; // добавляем сутки
     if ( arx )
