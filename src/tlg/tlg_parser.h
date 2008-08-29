@@ -216,8 +216,8 @@ typedef struct
 class TSeat
 {
   public:
-    char row[4]; //001-099,101-199
-    char line[2];//A-Z...
+    char row[5]; //001-099,101-199
+    char line[5];//A-Z...
     TSeat()
     {
       Clear();
