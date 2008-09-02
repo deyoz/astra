@@ -909,11 +909,13 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 
 void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flight &fl )
 {
+	int err=0;
+try {	
 	fl.invalid_term.clear();
   fl.rec_no = NoExists;
  	if ( linestr.length() < REC_NO_LEN )
  		throw Exception( "Ошибка формата рейса, длина=%d, значение=%s", linestr.length(), linestr.c_str() );
-
+  err++;
 	TReqInfo *reqInfo = TReqInfo::Instance();
   string region = CityTZRegion( "МОВ" );
 	TQuery Qry( &OraSession );
@@ -966,6 +968,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
 	if ( fl.flt_no > 99999 || fl.flt_no <= 0 )
 		throw Exception( "Ошибка формата номера рейса, значение=%s", tmp.c_str() );
+	err++;
 	int fmt;
   try {
    fl.suffix = ElemCtxtToElemId( ecDisp, etSuffix, fl.suffix, fmt, false );
@@ -985,12 +988,15 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
   	Qry.SQLText =
   	 "SELECT airline as code FROM aodb_airlines WHERE aodb_code=:code";
 	  Qry.CreateVariable( "code", otString, fl.airline );
+	  err++;
 	  Qry.Execute();
+	  err++;
 	  if ( !Qry.RowCount() )
 	  	throw Exception( "Неизвестная авиакомпания, значение=%s", fl.airline.c_str() );
 	  fl.airline = Qry.FieldAsString( "code" );
 	  fl.trip_type = "п"; //???
   }
+  err++;
 	tmp = linestr.substr( LITERA_IDX, LITERA_LEN );
 	fl.litera = TrimString( tmp );
 	if ( !fl.litera.empty() ) {
@@ -1001,11 +1007,14 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		 "SELECT litera as code,2 FROM aodb_liters WHERE aodb_code=:code "
 		 " ORDER BY 2";
 		Qry.CreateVariable( "code", otString, fl.litera );
+		err++;
 		Qry.Execute();
+		err++;
 		if ( !Qry.RowCount() )
 			throw Exception( "Неизвестная литера, значение=%s", fl.litera.c_str() );
 		fl.litera = Qry.FieldAsString( "code" );
 	}
+	err++;
 	tmp = linestr.substr( SCD_IDX, SCD_LEN );
 	tmp = TrimString( tmp );
   if ( tmp.empty() )
@@ -1056,6 +1065,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       throw Exception( "Фактическое время выполнения рейса не существует" );
     }
 	}
+	err++;
 	tmp = linestr.substr( HALL_IDX, HALL_LEN );
 	fl.hall = TrimString( tmp );
 	tmp = linestr.substr( PARK_OUT_IDX, PARK_OUT_LEN );
@@ -1079,6 +1089,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	tmp = linestr.substr( CRAFT_IDX, CRAFT_LEN );
 	fl.craft = TrimString( tmp );
 	bool pr_craft_error = true;
+	err++;
 	if ( !fl.craft.empty() ) {
  	  try {
       fl.craft = ElemCtxtToElemId( ecDisp, etCraft, fl.craft, fmt, false );
@@ -1090,12 +1101,15 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	     " UNION "
 	     "SELECT craft as code, 2 FROM aodb_crafts WHERE aodb_code=:code";
 	    Qry.CreateVariable( "code", otString, fl.craft );
+	    err++;
 	    Qry.Execute();
+	    err++;
 	    pr_craft_error = !Qry.RowCount();
 	    if ( !pr_craft_error )
 	      fl.craft = Qry.FieldAsString( "code" );
     }
 	}
+	err++;
   tmp = linestr.substr( BORT_IDX, BORT_LEN );
   fl.bort = TrimString( tmp );
 	tmp = linestr.substr( CHECKIN_BEG_IDX, CHECKIN_BEG_LEN );
@@ -1134,6 +1148,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	}
 	tmp = linestr.substr( BOARDING_BEG_IDX, BOARDING_BEG_LEN );
 	tmp = TrimString( tmp );
+	err++;
   if ( tmp.empty() )
 		fl.boarding_beg = NoExists;
 	else {
@@ -1149,6 +1164,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       throw Exception( "Начало посадки рейса не существует" );
     }
 	}
+	err++;
 	tmp = linestr.substr( BOARDING_END_IDX, BOARDING_END_LEN );
 	tmp = TrimString( tmp );
   if ( tmp.empty() )
@@ -1166,6 +1182,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       throw Exception( "Окончание посадки рейса не существует" );
     }
 	}
+	err++;
 	tmp = linestr.substr( PR_CANCEL_IDX, PR_CANCEL_LEN );
 	tmp = TrimString( tmp );
 	if ( tmp.empty() )
@@ -1187,6 +1204,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		throw Exception( "Ошибка формата маршрута. Ожидался символ ';', встретился символ	%c", linestr[ i ] );
 	i++;
 	bool dest_mode = true;
+	err++;
 	AODB_Dest dest;
 	AODB_Term term;
 	while ( i < len ) {
@@ -1215,7 +1233,9 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	    	   "SELECT airp as code, 2 FROM aodb_airps WHERE aodb_code=:code "
 	    	   " ORDER BY 2 ";
 	      	Qry.CreateVariable( "code", otString, dest.airp );
+	      	err++;
 	      	Qry.Execute();
+	      	err++;
 	      	if ( !Qry.RowCount() )
 	      		throw Exception( "Неизвестный код аэропорта, значение=%s", dest.airp.c_str() );
 	      	dest.airp = Qry.FieldAsString( "code" );
@@ -1233,6 +1253,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 		    i++;
 	    }
 		}
+		err++;
 		if ( !dest_mode ) {
 			int old_i = i;
 			try {
@@ -1254,14 +1275,18 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	  		Qry.CreateVariable( "airp", otString, "ВНК" );
 	  		Qry.CreateVariable( "work_mode", otString, term.type );
 	  		Qry.CreateVariable( "code", otString, term_name );
+	  		err++;
 	  		Qry.Execute();
+	  		err++;
 	  		if ( !Qry.RowCount() ) {
     			if ( term.type == "П" )
 	    			term_name = "G0" + term.name;
 		    	else
 		  	  	term_name = "R0" + term.name;
 			    Qry.SetVariable( "code", term_name );
+			    err++;
 			    Qry.Execute();
+			    err++;
 			    if ( !Qry.RowCount() )
 				    throw Exception( "Неизвестная стойка, значение=%s", term.name.c_str() );
 		  	}
@@ -1285,6 +1310,7 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
       i++;
 		}
 	}
+	err++;
 	// запись в БД
 	Qry.Clear();
 	Qry.SQLText =
@@ -1301,7 +1327,9 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "airp", otString, "ВНК" );
   Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "scd_out", otDate, fl.scd );
+	err++;
 	Qry.Execute();
+	err++;
 ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
 	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );
 	int move_id, new_tid, point_id;
@@ -1327,11 +1355,17 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      "END;";
     Qry.DeclareVariable( "move_id", otInteger );
     Qry.CreateVariable( "reference", otString, FNull );
+    err++;
     Qry.Execute();
+    err++;
     move_id = Qry.GetVariableAsInteger( "move_id" );
+    err++;
     TIDQry.Execute();
+    err++;
     new_tid = TIDQry.FieldAsInteger( "n" );
+    err++;
     POINT_IDQry.Execute();
+    err++;
     point_id = POINT_IDQry.FieldAsInteger( "point_id" );
     string lmes = "Ввод нового рейса ";
     lmes +=  fl.airline + IntToString( fl.flt_no ) + fl.suffix + ", маршрут ";
@@ -1340,8 +1374,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     		lmes += "-";
       lmes += it->airp;
     }
+    err++;
     reqInfo->MsgToLog( lmes, evtDisp, move_id, point_id );
+    err++;
     reqInfo->MsgToLog( string( "Ввод нового пункта " ) + "ВНК", evtDisp, move_id, point_id );
+    err++;
     Qry.Clear();
     Qry.SQLText =
      "INSERT INTO points(move_id,point_id,point_num,airp,pr_tranzit,first_point,airline,flt_no,suffix,"\
@@ -1390,11 +1427,15 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     Qry.CreateVariable( "tid", otInteger, new_tid );
     Qry.CreateVariable( "remark", otString, FNull );
     Qry.CreateVariable( "pr_reg", otInteger, 1 );
+    err++;
     Qry.Execute();
+    err++;
     int num = 0;
     for ( vector<AODB_Dest>::iterator it=fl.dests.begin(); it!=fl.dests.end(); it++ ) {
     	num++;
+    	err++;
       POINT_IDQry.Execute();
+      err++;
       Qry.SetVariable( "point_id", POINT_IDQry.FieldAsInteger( "point_id" ) );
       Qry.SetVariable( "point_num", num );
       Qry.SetVariable( "airp", it->airp );
@@ -1419,9 +1460,13 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       	Qry.SetVariable( "pr_del", -1 );
       else
     		Qry.SetVariable( "pr_del", 0 );
+    	err++;	
       TIDQry.Execute();
+      err++;
       Qry.SetVariable( "tid", TIDQry.FieldAsInteger( "n" ) );
+      err++;
       Qry.Execute();
+      err++;
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
     }
     // создаем времена технологического графика только для пункта вылета из ВНК???
@@ -1438,7 +1483,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
+		err++;
 		Qry.Execute();
+		err++;
 	}
 	else { // update
 		string remark;
@@ -1470,7 +1517,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      " UPDATE points SET move_id=move_id WHERE move_id=:move_id; "
      "END;";
     Qry.CreateVariable( "move_id", otInteger, move_id );
+    err++;
     Qry.Execute(); // лочим
+    err++;
     Qry.Clear();
     Qry.SQLText =
      "UPDATE points "
@@ -1517,6 +1566,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  	else
  	  		tl += "Удаление расч. времени";
  	  }
+ 	  err++;
  	  if ( fl.act != old_fl.act ) {
  	  	if ( !tl.empty() )
  	  		tl += ",";
@@ -1577,7 +1627,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  	else
  	  		reqInfo->MsgToLog( string( "Удаление отмены рейса ВНК" ), evtDisp, move_id, point_id );
  	  }*/
+ 	  err++;
  	  Qry.Execute();
+ 	  err++;
  	  // теперь работа с пунктами посадки
 /*    int num = 0;
     int point_num = 0;*/
@@ -1585,7 +1637,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     Qry.Clear();
     Qry.SQLText = "SELECT point_num,airp,pr_del FROM points WHERE move_id=:move_id ORDER BY point_num";
     Qry.CreateVariable( "move_id", otInteger, move_id );
+    err++;
     Qry.Execute();
+    err++;
     while ( !Qry.Eof ) {
     	AODB_Dest d;
     	d.num = Qry.FieldAsInteger( "point_num" );
@@ -1620,7 +1674,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      " WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
+    err++;
     Qry.Execute();
+    err++;
 	}
 
   Qry.Clear();
@@ -1635,7 +1691,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
 	Qry.CreateVariable( "aodb_point_id", otFloat, fl.id );
+	err++;
 	Qry.Execute();
+	err++;
 
 	// обновление времен технологического графика
   Qry.Clear();
@@ -1643,16 +1701,24 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "stage_id", otInteger, sOpenCheckIn );
 	Qry.CreateVariable( "scd", otDate, fl.checkin_beg );
+	err++;
 	Qry.Execute();
+	err++;
 	Qry.SetVariable( "stage_id", sCloseCheckIn );
 	Qry.SetVariable( "scd", fl.checkin_end );
+	err++;
 	Qry.Execute();
+	err++;
 	Qry.SetVariable( "stage_id", sOpenBoarding );
 	Qry.SetVariable( "scd", fl.boarding_beg );
+	err++;
 	Qry.Execute();
+	err++;
 	Qry.SetVariable( "stage_id", sCloseBoarding );
 	Qry.SetVariable( "scd", fl.boarding_end );
+	err++;
 	Qry.Execute();
+	err++;
 	// обновление стоек регистрации и выходов на покадку
 	Qry.Clear();
 	Qry.SQLText =
@@ -1683,7 +1749,9 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 		Qry.SetVariable( "work_mode", it->type );
 		Qry.SetVariable( "pr_del", it->pr_del );
 //ProgTrace( TRACE5, "desk=%s, work_mode=%s, pr_del=%d", it->name.c_str(), it->type.c_str(), it->pr_del );
+    err++;
 		Qry.Execute();
+		err++;
 		if ( it->type == "Р" )
 			pr_change_reg = pr_change_reg || Qry.GetVariableAsInteger( "pr_change" );
 		else
@@ -1697,6 +1765,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	  reqInfo->MsgToLog( string( "Назначение стоек регистрации" ) + reg, evtDisp, move_id, point_id );
 	if ( pr_change_brd )
 		reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
+}		
+catch(...){
+	ProgError( STDLOG, "AODB error=%d", err );
+	throw;
+}		
 }
 
 
