@@ -1295,15 +1295,15 @@ void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flig
 	Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "flt_no", otInteger, fl.flt_no );
 	if ( fl.suffix.empty() )
-	  Qry.CreateVariable( "suffix", otInteger, FNull );
+	  Qry.CreateVariable( "suffix", otString, FNull );
 	else
-		Qry.CreateVariable( "suffix", otInteger, fl.suffix );
+		Qry.CreateVariable( "suffix", otString, fl.suffix );
 	Qry.CreateVariable( "airp", otString, "Ççä" );
   Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "scd_out", otDate, fl.scd );
 	Qry.Execute();
-/*rogTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
-	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );*/
+ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl.airline.c_str(), fl.flt_no,
+	           fl.suffix.c_str(), DateTimeToStr( fl.scd ).c_str(), Qry.Eof );
 	int move_id, new_tid, point_id;
 	bool pr_insert = Qry.Eof;
 	if ( pr_insert ) {
@@ -1941,4 +1941,17 @@ bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &f
 	BuildAODBTimes( point_id, point_addr, fds );
 	return !fds.empty();
 }
+
+
+void VerifyParseFlight( )
+{
+	std::string linestr = 
+"     1    184071     ûí437   01.09.2008 21:5001.09.2008 21:5001.09.2008 22:04 2   85134 11474    íì154å     8568101.09.2008 20:2001.09.2008 21:1001.09.2008 21:1001.09.2008 21:3000;1ëäó0;ê  130;ê  140;ê  190;ê  200;ê  210;ê  220;ê  230;ê  240;ê  250;ê  260;ê  270;ê  350;ê  360;ê  370;ê 5010;ê 5020;ê 5030;ê 5040;ê 5050;ê 5060;è   40;";
+  AODB_Flight fl;
+  string point_addr = "DJEK";
+  ProgTrace( TRACE5, "linestr=%s", linestr.c_str() );
+  ParseFlight( point_addr, linestr, fl );
+  tst();
+}
+
 
