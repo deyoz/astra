@@ -548,8 +548,8 @@ string EncodeEventType(const TEventType ev_type )
 TDocType DecodeDocType(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TDocTypeS);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
-  if (i<sizeof(TDocTypeS))
+  for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
+  if (i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]))
     return (TDocType)i;
   else
     return dtUnknown;
@@ -563,8 +563,8 @@ char* EncodeDocType(TDocType doc)
 TClass DecodeClass(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TClassS);i+=1) if (strcmp(s,TClassS[i])==0) break;
-  if (i<sizeof(TClassS))
+  for(i=0;i<sizeof(TClassS)/sizeof(TClassS[0]);i+=1) if (strcmp(s,TClassS[i])==0) break;
+  if (i<sizeof(TClassS)/sizeof(TClassS[0]))
     return (TClass)i;
   else
     return NoClass;
@@ -578,8 +578,8 @@ char* EncodeClass(TClass cl)
 TPerson DecodePerson(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TPersonS);i+=1) if (strcmp(s,TPersonS[i])==0) break;
-  if (i<sizeof(TPersonS))
+  for(i=0;i<sizeof(TPersonS)/sizeof(TPersonS[0]);i+=1) if (strcmp(s,TPersonS[i])==0) break;
+  if (i<sizeof(TPersonS)/sizeof(TPersonS[0]))
     return (TPerson)i;
   else
     return NoPerson;
@@ -593,8 +593,8 @@ char* EncodePerson(TPerson p)
 TQueue DecodeQueue(int q)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TQueueS);i+=1) if (q==TQueueS[i]) break;
-  if (i<sizeof(TQueueS))
+  for(i=0;i<sizeof(TQueueS)/sizeof(TQueueS[0]);i+=1) if (q==TQueueS[i]) break;
+  if (i<sizeof(TQueueS)/sizeof(TQueueS[0]))
     return (TQueue)i;
   else
     return NoQueue;
@@ -608,8 +608,8 @@ int EncodeQueue(TQueue q)
 TPaxStatus DecodePaxStatus(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TPaxStatusS);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
-  if (i<sizeof(TPaxStatusS))
+  for(i=0;i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
+  if (i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]))
     return (TPaxStatus)i;
   else
     return psOk;
@@ -623,8 +623,8 @@ char* EncodePaxStatus(TPaxStatus s)
 TCompLayerType DecodeCompLayerType(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(CompLayerTypeS);i+=1) if (strcmp(s,CompLayerTypeS[i])==0) break;
-  if (i<sizeof(CompLayerTypeS))
+  for(i=0;i<sizeof(CompLayerTypeS)/sizeof(CompLayerTypeS[0]);i+=1) if (strcmp(s,CompLayerTypeS[i])==0) break;
+  if (i<sizeof(CompLayerTypeS)/sizeof(CompLayerTypeS[0]))
     return (TCompLayerType)i;
   else
     return cltUnknown;
@@ -1099,6 +1099,7 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
     case etSuffix:
   		msg2 = "etSuffix";
   		break;
+  	default:;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
   throw EConvertError( msg1.c_str() );

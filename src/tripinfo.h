@@ -48,7 +48,7 @@ public:
 
 std::string convertLastTrfer(std::string s);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
-void viewPNL( int point_id, xmlNodePtr dataNode );
+/*void viewPNL( int point_id, xmlNodePtr dataNode );*/
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
 class TTripInfo

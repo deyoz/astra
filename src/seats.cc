@@ -12,6 +12,8 @@
 #include "oralib.h"
 #include "str_utils.h"
 #include "salons.h"
+#include "tlg/tlg_parser.h"
+#include "convert.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1876,17 +1878,335 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
   }
 }
 
+void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats, int pax_id ) 
+{
+	ProgTrace( TRACE5, "SaveTripSeatRanges is empty" );
+  if (seats.empty()) return;
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  SELECT comp_layers__seq.nextval INTO :range_id FROM dual; "
+    "  INSERT INTO trip_comp_layers "
+    "    (range_id,point_id,layer_type, "
+    "     first_xname,last_xname,first_yname,last_yname,pax_id) "
+    "  VALUES "
+    "    (:range_id,:point_id,:layer_type, "
+    "     :first_xname,:last_xname,:first_yname,:last_yname,:pax_id); "
+    "END; ";
+  Qry.CreateVariable( "range_id", otInteger, FNull );
+  Qry.CreateVariable( "point_id", otInteger,point_id );
+  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+  Qry.CreateVariable( "pax_id", otInteger, FNull );
+  Qry.DeclareVariable( "first_xname", otString );
+  Qry.DeclareVariable( "last_xname", otString );
+  Qry.DeclareVariable( "first_yname", otString );
+  Qry.DeclareVariable( "last_yname", otString );
+  Qry.DeclareVariable( "pax_id", otString );
+
+  for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+  {
+    Qry.SetVariable("first_xname",i->first.line);
+    Qry.SetVariable("last_xname",i->second.line);
+    Qry.SetVariable("first_yname",i->first.row);
+    Qry.SetVariable("last_yname",i->second.row);
+    Qry.Execute();
+  };
+}
+
+bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr_down )
+{
+	TQuery Qry( &OraSession );
+  switch ( layer_type ) {
+  	case cltCheckin:    	
+    case cltPreseat:
+      Qry.SQLText = 
+        "SELECT xname, yname FROM trip_comp_elems t, "
+        "(SELECT num, x, y FROM trip_comp_elems "
+        "  WHERE point_id=:point_id AND xname = :xname AND yname = :yname ) a "
+        " WHERE t.point_id=:point_id AND "
+        " t.num = a.num AND t.x = DECODE(:pr_down,0,1,0) + a.x AND t.y = DECODE(:pr_down,0,0,1) + a.y ";
+      Qry.CreateVariable( "point_id", otInteger, point_id );
+      Qry.CreateVariable( "xname", otString, r.first.line );
+      Qry.CreateVariable( "yname", otString, r.first.row );
+      Qry.CreateVariable( "pr_down", otInteger, pr_down );
+      Qry.Execute();
+      if ( Qry.RowCount() ) {
+      	strcpy( r.first.line, Qry.FieldAsString( "xname" ) );
+      	strcpy( r.first.row, Qry.FieldAsString( "yname" ) );
+      	r.second = r.first;
+      	ProgTrace( TRACE5, "getNextSeat: xname=%s, yname=%s", r.first.line, r.first.row );
+      	return true;
+      }
+      break;
+    default:
+    	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+    	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+  }	
+  return false;
+}
+
+void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid, 
+                  string first_xname, string first_yname, TSeatsType seat_type )
+{
+	tst();
+	CanUse_PS = false; //!!!
+	first_xname = norm_iata_line( first_xname );
+	first_yname = norm_iata_line( first_yname );
+	ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s", 
+	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
+  TQuery Qry( &OraSession );
+  /* лочим рейс */
+  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  Qry.DeclareVariable( "point_id", otInteger );
+  Qry.SetVariable( "point_id", point_id );
+  Qry.Execute();  
+  tst();
+  Qry.Clear();
+  /* считываем инфу по пассажиру */
+  switch ( layer_type ) {
+  	case cltCheckin:
+      Qry.SQLText = 
+       "SELECT surname, name, reg_no, grp_id, seats, a.step step, tid, "" target FROM pax, "
+       "( SELECT COUNT(*) step FROM pax_rem "
+       "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
+       "WHERE pax_id=:pax_id";
+      break;
+    case cltPreseat:
+      Qry.SQLText = 
+        "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id "
+        " FROM crs_pax, crs_pnr, "
+        "( SELECT COUNT(*) step FROM crs_pax_rem "
+        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
+        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pnr_id=crs_pnr.pnr_id";
+    	break;
+    default:
+    	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+    	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+  }
+  Qry.CreateVariable( "pax_id", otInteger, pax_id );
+  tst();
+  Qry.Execute();
+  tst();
+  // пассажир не найден или изменеоизводились с другой стойки или при предв. рассадке пассажир уже зарегистрирован
+  if ( !Qry.RowCount() ) {
+    ProgTrace( TRACE5, "!!! Passenger not found in funct ChangeLayer" );
+    throw UserException( "Пассажир не найден. Обновите данные"	);
+  }
+  tst();
+  string fullname = Qry.FieldAsString( "surname" );	
+  TrimString( fullname );
+  fullname += string(" ") + Qry.FieldAsString( "name" );
+  int idx1 = Qry.FieldAsInteger( "reg_no" );
+  int idx2 = Qry.FieldAsInteger( "grp_id" );  
+  string target = Qry.FieldAsString( "target" );
+  int point_id_tlg = Qry.FieldAsInteger( "point_id" );
+  int seats_count = Qry.FieldAsInteger( "seats" );
+  int pr_down;
+  if ( Qry.FieldAsInteger( "step" ) )
+    pr_down = 1;
+  else
+    pr_down = 0;
+  
+  if ( !seats_count ) {
+    ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
+    throw UserException( "Пересадка невозможна. Количество мест занимаемых пассажиром равно нулю" ); //!!!  	
+  }
+  
+  if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
+    ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
+    throw UserException( string( "Изменения по пассажиру " ) + fullname + " производились с другой стойки. Обновите данные" ); //!!!
+  }
+  if ( layer_type != cltCheckin && SALONS::Checkin( pax_id ) ) {
+  	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
+  	throw UserException( "Пассажир зарегистрирован. Обновите данные" );
+  }
+  tst();	
+  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
+  Qry.Clear();  
+  Qry.SQLText =       	
+    "SELECT layer_type, pax_id, crs_pax_id "
+    " FROM trip_comp_layers "
+    " WHERE point_id=:point_id AND "
+    "       first_yname=:first_yname AND "
+    "       first_xname=:first_xname ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "first_xname", otString, first_xname );    	
+  Qry.CreateVariable( "first_yname", otString, first_yname );    	  
+  Qry.Execute();
+  tst();
+  while ( !Qry.Eof ) {
+  // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира  	
+    if ( seat_type != stDropseat &&
+    	   string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) &&
+    	   pax_id != Qry.FieldAsInteger( "pax_id" ) ) {
+  	  ProgTrace( TRACE5, "!!!ChangeLayer: seat_type!=stDropseat, EncodeCompLayerType( layer_type )=%s already found in trip_comp_layers for other passangers, point_id=%d in funct ChangeLayer",
+  	             EncodeCompLayerType( layer_type ), point_id );
+  	  throw UserException( "Место занято другим пассажиром" );
+    }  	
+  	Qry.Next();
+  }
+  tst();
+  if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
+  	Qry.Clear();
+  	switch( layer_type ) {
+      case cltCheckin:
+  	    Qry.SQLText =
+          "DELETE FROM trip_comp_layers "
+          " WHERE point_id=:point_id AND "
+          "       layer_type=:layer_type AND "
+          "       pax_id=:pax_id ";
+        Qry.CreateVariable( "point_id", otInteger, point_id );
+      	break;  		
+  		case cltPreseat:
+  			// удаление из салона, если есть разметка
+  	    Qry.SQLText =
+          "DELETE FROM "
+          "  (SELECT * FROM tlg_comp_layers,trip_comp_layers "
+          "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
+          "       tlg_comp_layers.crs_pax_id=:pax_id AND "
+          "       tlg_comp_layers.layer_type=:layer_type) ";
+        Qry.CreateVariable( "pax_id", otInteger, pax_id );
+        Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+        tst();
+        Qry.Execute();                  
+        tst();
+        // удаление из слоя телеграмм
+  			Qry.Clear();
+      	Qry.SQLText =
+	        "DELETE FROM tlg_comp_layers "
+          " WHERE tlg_comp_layers.crs_pax_id=:pax_id AND "
+          "       tlg_comp_layers.layer_type=:layer_type ";
+        break;
+      default:
+      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+    }
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
+    tst();
+    Qry.Execute();
+    tst();
+/*!!!    if ( !Qry.RowCount() == seats ) { // пытаемся удалить слой, которого нет в БД
+      throw UserException( "Исходное место не найдено" );
+    }*/
+  }
+  tst();
+  // назначение нового слоя
+  if ( seat_type != stDropseat ) { // посадка на новое место
+    vector<TSeatRange> seats;
+    TSeatRange r;
+    strcpy( r.first.line, first_xname.c_str() );      	
+    strcpy( r.first.row, first_yname.c_str() );
+    r.second = r.first;    
+    for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест
+    	ProgTrace( TRACE5, "seats.push_back: xname=%s, yname=%s, pr_down=%d, seats_count=%d", 
+    	           r.first.line, r.first.row, pr_down, seats_count );
+      seats.push_back( r );
+      if ( !getNextSeat( layer_type, point_id, r, pr_down ) )
+      	break;
+    }
+    Qry.Clear();
+    Qry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
+    tst();
+    Qry.Execute();
+    tst();
+    tid = Qry.FieldAsInteger( "tid" );    
+  	Qry.Clear();    
+  	switch ( layer_type ) {
+  	  case cltCheckin:
+  	  	tst();
+  		  SaveTripSeatRanges( point_id, layer_type, seats, pax_id );
+  		  tst();
+  		  Qry.SQLText =
+          "BEGIN "
+          " UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
+          " mvd.sync_pax(:pax_id,:term); "
+          "END;";
+        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+        break;
+      case cltPreseat:
+      	tst();
+        SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, 0, false );
+        tst();
+	      Qry.SQLText =        
+          "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";        
+      	break;
+      default:
+      	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+    }
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );    
+    Qry.CreateVariable( "tid", otInteger, tid );    
+    tst();
+    Qry.Execute();
+    tst();
+  }
+  
+  TReqInfo *reqinfo = TReqInfo::Instance();
+  
+  switch( seat_type ) {
+  	case stSeat:
+  		switch( layer_type ) {
+  			case cltCheckin:
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+                             " посажен на место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        case cltPreseat:
+          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                             " предварительно назначено место. Новое место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        default:;          	  				  				
+  		}
+  		break;
+    case stReseat:
+    	switch( layer_type ) {
+  			case cltCheckin:
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+                             " пересажен. Новое место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        case cltPreseat:
+          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                             " предварительно назначено место. Новое место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        default:;          	  				  				
+  		}
+  		break;    		
+  	case stDropseat:
+    	switch( layer_type ) {
+  			case cltCheckin:
+          reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
+                             " высажен. Место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        case cltPreseat:
+          reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
+                             " отменено предварительно назначенное место: " + first_xname+first_yname,
+                             evtPax, point_id, idx1, idx2 );
+          break;
+        default:;          	  				  				
+  		}
+  		break;    		  		
+  }
+  tst();
+}
+
 /* пересадка или высадка пассажира возвращает новый tid */
-bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName, bool pr_cancel )
+/*bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, string &nplaceName, bool pr_cancel )
 {
 	CanUse_PS = false; //!!!
 	if ( seatstype == sreseats )
 		ProgTrace( TRACE5, "Reseats, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
 	else
 		ProgTrace( TRACE5, "Reserve, trip_id=%d, pax_id=%d, num=%d, x=%d, y=%d", trip_id, pax_id, num, x, y );
-  TQuery Qry( &OraSession );
+  TQuery Qry( &OraSession );*/
   /* считываем инфу по пассажиру */
-  if ( seatstype == sreseats )
+/*  if ( seatstype == sreseats )
     Qry.SQLText = "SELECT seat_no, prev_seat_no, seats, a.step step, surname, name,"\
                   "       reg_no, grp_id "\
                   " FROM pax,"\
@@ -1917,9 +2237,9 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   int grp_id = Qry.FieldAsInteger( "grp_id" );
   if ( pr_cancel )
   	nplaceName.clear();
-  else {
+  else {*/
     /* считываем инфу по новому месту */
-    Qry.Clear();
+/*    Qry.Clear();
     Qry.SQLText = "SELECT yname||xname placename FROM trip_comp_elems "\
                   " WHERE point_id=:point_id AND num=:num AND x=:x AND y=:y AND pr_free IS NOT NULL";
     Qry.DeclareVariable( "point_id", otInteger );
@@ -1935,9 +2255,9 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
     if ( !Qry.RowCount() )
       return false;
     nplaceName = Qry.FieldAsString( "placename" );
-  }
+  }*/
   /*??/ определяем было ли старое место */
-  int InUse;
+/*  int InUse;
   if ( pr_cancel )
   	InUse = 0;
   else {
@@ -1957,8 +2277,8 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
     Qry.SetVariable( "point_id", trip_id );
     Qry.SetVariable( "placename", placeName );
     Qry.Execute();
-    InUse = Qry.FieldAsInteger( "c" ) + 1; /* 1-посадка,2-пересадка */
-  }
+    InUse = Qry.FieldAsInteger( "c" ) + 1;*/ /* 1-посадка,2-пересадка */
+/*  }
 
   ProgTrace( TRACE5, "InUSe=%d, oldplace=%s, newplace=%s 0 -delete, 1-seats, 2-reseats",
              InUse, placeName.c_str(), nplaceName.c_str() );
@@ -2036,7 +2356,7 @@ bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, i
   }
   tid = new_tid;
   return true;
-}
+}*/
 
 /* автоматическая рассадка пассажиров
    новая рассадка пассажиров при изменении компоновки ВС

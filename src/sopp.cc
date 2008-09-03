@@ -22,6 +22,8 @@
 #include "docs.h"
 #include "stat.h"
 
+#include "aodb.h"
+
 
 #include "perfom.h"
 
@@ -1349,6 +1351,11 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+	
+  //VerifyParseFlight( ); //!!!
+  
+  
+  
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );

@@ -806,8 +806,10 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.SQLText=
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       crs_pax.seat_no,crs_pax.preseat_no, "
-      "       crs_pax.seat_type,crs_pax.seats, "
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "     
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "                
+      "       crs_pax.seat_type, "
+      "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
@@ -822,6 +824,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "      pax.pax_id IS NULL "
       "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
+    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );    
     PaxQry.Execute();
     CreateSearchResponse(PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
@@ -1020,7 +1023,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     sql =
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       crs_pax.seat_no,crs_pax.preseat_no, "
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "     
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "                
       "       crs_pax.seat_type,crs_pax.seats, "
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
@@ -1091,6 +1095,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
     PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
+    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );    
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
   };
@@ -1317,7 +1322,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  class,pax.subclass, "
-    "  LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+    "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "              
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
@@ -1352,6 +1357,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );  
   Qry.Execute();
 
   int col_reg_no=Qry.FieldIndex("reg_no");
@@ -2453,7 +2459,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT point_arv,airp_arv,airps.city AS city_arv, "
+    "SELECT point_dep,point_arv,airp_arv,airps.city AS city_arv, "
     "       class,status,hall,bag_refuse,pax_grp.tid "
     "FROM pax_grp,airps "
     "WHERE pax_grp.airp_arv=airps.code AND grp_id=:grp_id";
@@ -2472,6 +2478,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   else
     NewTextChild(resNode,"bag_refuse");
   NewTextChild(resNode,"tid",Qry.FieldAsInteger("tid"));
+  int point_dep=Qry.FieldAsInteger("point_dep");
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
   if (!pr_unaccomp)
@@ -2481,13 +2488,17 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.DeclareVariable("pax_id",otInteger);
     PaxQry.Clear();
     PaxQry.SQLText=
-      "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,pax.seat_no,pax.seat_type, "
+      "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,"
+      "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,rownum) AS seat_no, "                
+      "       pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
       "       crs_pax.pax_id AS crs_pax_id, "
       "       report.is_TKNE(pax.pax_id) AS is_tkne "
       "FROM pax,crs_pax "
       "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
     PaxQry.CreateVariable("grp_id",otInteger,grp_id);
+    PaxQry.CreateVariable("point_dep",otInteger,point_dep);
+    PaxQry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );    	
     PaxQry.Execute();
     node=NewTextChild(resNode,"passengers");
     for(;!PaxQry.Eof;PaxQry.Next())

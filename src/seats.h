@@ -1,6 +1,7 @@
 #ifndef _SEATS_H_
 #define _SEATS_H_
 
+#include "astra_consts.h"
 #include "salons.h"
 #include "astra_utils.h"
 #include <map>
@@ -8,7 +9,8 @@
 
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
-enum TSeatsType { sreseats, sreserve };
+//enum TSeatsType { sreseats, sreserve };
+enum TSeatsType { stSeat, stReseat, stDropseat };
 
 class TCounters {
   private:
@@ -149,10 +151,12 @@ namespace SEATS {
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
-bool Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
+void Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
 void SeatsPassengers( TSalons *Salons, bool FUse_BR=false );
 void SavePlaces( );
+void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid, 
+                  std::string first_xname, std::string first_yname, TSeatsType seat_type );
 }
 extern TPassengers Passengers;
 

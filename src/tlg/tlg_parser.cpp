@@ -4805,7 +4805,7 @@ void SaveTlgSeatRanges(int point_id,
   else
     Qry.CreateVariable("crs_pax_id",otInteger,FNull);
 
-  if (tlg_id>=0)
+  if (tlg_id>0)
     Qry.CreateVariable("tlg_id",otInteger,tlg_id);
   else
     Qry.CreateVariable("tlg_id",otInteger,FNull);

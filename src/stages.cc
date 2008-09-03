@@ -13,6 +13,7 @@
 #include "telegram.h"
 #include "astra_service.h"
 #include "timer.h"
+#include "salons.h"
 
 using namespace std;
 using namespace BASIC;
@@ -169,6 +170,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      Qry.Execute( );
      tst();
      if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
+     	 tst();
        try
        {
          exec_stage( point_id, (int)i->first );
@@ -587,7 +589,7 @@ void astra_timer( TDateTime utcdate )
 		if ( NowUTC() - execTime1 > 1.0/(1440.0*60) )
   		ProgTrace( TRACE5, "Attention execute Query1 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime1, "nn:ss" ).c_str(), count );
 
-  	while ( !Qry.Eof ) {
+  	while ( !Qry.Eof ) { // пробег по шагам, которые пора выполнить
   		count++;
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
@@ -595,46 +597,53 @@ void astra_timer( TDateTime utcdate )
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
   	  TDateTime execTime2 = NowUTC();
-  		QCanStage.Execute();
-		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
-  		  ProgTrace( TRACE5, "Attention execute Query2 time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-  		if ( QCanStage.GetVariableAsInteger( "canstage" ) ) {
+  	  bool canstage = false; 
+  	  try {
+  		  QCanStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
+  		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
+    		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
+    		// запись в лог о выполнении шага
+        TStagesRules *r = TStagesRules::Instance();
+        string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
+        tolog += " выполнен: факт. время=";
+        tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
+        TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
+  		  canstage = QCanStage.GetVariableAsInteger( "canstage" );        	
+  		}
+      catch( Exception &E ) {
+      	try { OraSession.Rollback( ); } catch(...) { };
+        ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
+                   E.what(),
+                   DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
+                   point_id, stage_id );
+      }
+			catch( ... ) {
+				try { OraSession.Rollback( ); } catch(...) { };
+				ProgError( STDLOG, "unknown timer error" );
+ 			}
+ 			OraSession.Commit(); // запоминание факта выполнения шага + лога в БД
+  		if ( canstage ) { // выполняем действия связанные с этим шагом
+				pr_exit = false; // признак того, что надо бы проверить следующие шаги графика на то, что их можно и пора выполнить
+  			TDateTime execStep = NowUTC();
   			try {
-  				try {
-  					TDateTime execStep = NowUTC();
-  				  exec_stage( point_id, stage_id );
-		        if ( NowUTC() - execStep > 1.0/(1440.0*60) )
-  		        ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
-  		                   DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
-  				}
-  				catch( Exception &E ) {
-            ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
-                       E.what(),
-                       DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
-                       point_id, stage_id );
-  				}
-  				catch( ... ) {
-  					ProgError( STDLOG, "unknown timer error" );
-  				}
-          TStagesRules *r = TStagesRules::Instance();
-          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
-          tolog += " выполнен: факт. время=";
-          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
-          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
-  				pr_exit = false;
-  			}
+			    exec_stage( point_id, stage_id );
+          if ( NowUTC() - execStep > 1.0/(1440.0*60) )
+ 	          ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
+ 	                     DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );			    
+			  }
         catch( Exception &E ) {
-        	try { OraSession.Rollback( ); } catch(...) { };
+      	  try { OraSession.Rollback( ); } catch(...) { };
           ProgError( STDLOG, "Ошибка astra_timer: %s. Время %s, point_id=%d, stage_id=%d",
                      E.what(),
                      DateTimeToStr(utcdate,"dd.mm.yyyy hh:nn:ss").c_str(),
                      point_id, stage_id );
         }
-  			catch( ... ) {
-  				try { OraSession.Rollback( ); } catch(...) { };
-  			}
-  			OraSession.Commit();
+			  catch( ... ) {
+			  	try { OraSession.Rollback( ); } catch(...) { };
+			  	ProgError( STDLOG, "unknown timer error" );
+ 			  }  			
   		}
+      OraSession.Commit();
   		Qry.Next();
   	}
   }
@@ -642,64 +651,48 @@ void astra_timer( TDateTime utcdate )
   	ProgTrace( TRACE5, "Attention execute astra_time > 5 sec !!!, time=%s, steps count=%d", DateTimeToStr( NowUTC() - execTime0, "nn:ss" ).c_str(), count );
 }
 
-void PrepCheckIn( int point_id )
+void SetCraft( int point_id, TStage stage )
 {
+	tst();
+	if ( stage != sPrepCheckIn && stage != sOpenCheckIn )
+		return;
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "DECLARE "\
-	 "ve NUMBER; "\
-	 "vcraft  points.craft%TYPE; "\
-   "vbort   points.bort%TYPE; "\
-   "vairp   points.airp%TYPE; "\
-   "BEGIN "\
-   "SELECT craft, b.bort, airp INTO vcraft, vbort, vairp FROM points, "\
-   "( SELECT points.bort, points.point_id FROM comps, points "\
-   "  WHERE points.point_id = :point_id AND "\
-   "        points.craft = comps.craft AND "\
-   "        points.bort IS NOT NULL AND "\
-   "        points.bort = comps.bort AND "\
-   "        rownum < 2 ) b "\
-   "WHERE points.point_id = :point_id AND "
-   "      points.point_id = b.point_id(+); "\
-   "IF vbort IS NOT NULL OR vairp != 'СОЧ' THEN "\
-   " SELECT COUNT(*) INTO ve FROM trip_comp_elems "\
-   "  WHERE point_id = :point_id AND rownum<2; "\
-   " IF ve = 0 THEN "\
-   "  ve := salons.setcraft( :point_id, vcraft ); "\
-   "    IF ve < 0 THEN "\
-   "      system.MsgToLog('Подходящая для рейса компоновка '||vcraft||' не найдена',system.evtFlt,:point_id); "\
-   "    END IF; "\
-   " END IF; "\
-   "END IF; "\
-   "END; ";
+    "SELECT craft, b.bort, airp FROM points, "
+    "( SELECT points.bort, points.point_id FROM comps, points "
+    "  WHERE points.point_id = :point_id AND "
+    "        points.craft = comps.craft AND "
+    "        points.bort IS NOT NULL AND "
+    "        points.bort = comps.bort AND "
+    "        rownum < 2 ) b "
+    "WHERE points.point_id = :point_id AND "
+    "      points.point_id = b.point_id(+) ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+  string craft = Qry.FieldAsString( "craft" );
+  if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
+  	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
+  	Qry.Clear();
+  	Qry.SQLText =
+      " SELECT COUNT(*) c FROM trip_comp_elems "
+      "  WHERE point_id = :point_id AND rownum<2 ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.Execute();
+    if ( !Qry.FieldAsInteger( "c" ) && SALONS::SetCraft( point_id, craft, -1 ) < 0 ) {
+    	TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
+    }     
+  }	
+  tst();
+}
+
+void PrepCheckIn( int point_id )
+{
+	SetCraft( point_id, sPrepCheckIn ); 
 }
 
 void OpenCheckIn( int point_id )
 {
-  TQuery Qry(&OraSession);
-	Qry.SQLText =
-	 "DECLARE "\
-	 "ve NUMBER; "\
-   "vc NUMBER; "\
-   "vcraft  points.craft%TYPE; "\
-   "vairp   points.airp%TYPE; "\
-   " BEGIN "\
-   "  SELECT craft, airp INTO vcraft, vairp FROM points WHERE point_id=:point_id; "\
-   "  IF vairp = 'СОЧ' THEN "\
-   "   SELECT COUNT(*) INTO vc FROM trip_comp_elems "\
-   "    WHERE point_id = :point_id AND rownum<2; "\
-   "   IF vc = 0 THEN  "\
-   "    ve := salons.setcraft( :point_id, vcraft ); "\
-   "    IF ve < 0 THEN "\
-   "      system.MsgToLog('Подходящая для рейса компоновка '||vcraft||' не найдена',system.evtFlt,:point_id); "\
-   "    END IF; "\
-   "   END IF; "\
-   "  END IF; "\
-   " END; ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
+	SetCraft( point_id, sOpenCheckIn ); 
 }
 
 void CloseCheckIn( int point_id )
@@ -814,5 +807,7 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! create_czech_police_file execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 }
+
+
 
 

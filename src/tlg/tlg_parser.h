@@ -693,5 +693,8 @@ bool bind_tlg(int point_id);
 void crs_recount(int point_id_tlg);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
+                       int crs_pax_id,int tlg_id,bool UsePriorContext);
+
 #endif
 
