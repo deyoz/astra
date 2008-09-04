@@ -557,21 +557,22 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select  "
-        "   point_id, "
-        "   reg_no, "
-        "   decode(:pr_lat, 0, family, family_lat) family, "
-        "   pers_type, "
-        "   seat_no, "
-        "   bagamount, "
-        "   bagweight, "
-        "   decode(:pr_lat, 0, tags, tags_lat) tags "
-        "from "
-        "   v_notpres "
-        "where "
-        "   point_id = :point_id "
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       LPAD(seat_no,3,'0')|| "
+        "           DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+        "       ckin.get_bagAmount(pax.grp_id,pax.pax_id/*,rownum*/) AS bagAmount, "
+        "       ckin.get_bagWeight(pax.grp_id,pax.pax_id/*,rownum*/) AS bagWeight, "
+        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
+        "FROM   pax_grp,pax,pers_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pax.pr_brd=0 and "
+        "       point_dep = :point_id "
         "order by "
-        "   reg_no ";
+        "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
