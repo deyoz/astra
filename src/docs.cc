@@ -359,37 +359,37 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);
     string SQLText =
-        "select  "
-        "    v_crs.point_id, "
-        "    v_crs.pnr_ref, "
-        "    decode(:pr_lat, 0, v_crs.family, v_crs.family_lat) family, "
-        "    decode(:pr_lat, 0, v_crs.pers_type, v_crs.pers_type_lat) pers_type, "
-        "    decode(:pr_lat, 0, v_crs.class, v_crs.class_lat) class, "
-        "    v_crs.seat_no, "
-        "    decode(:pr_lat, 0, v_crs.target, v_crs.target_lat) target, "
-        "    v_crs.last_target, "
-        "    v_crs.ticket_no, "
-        "    v_crs.document, "
-        "    v_crs.remarks ";
-    if(name == "crs")
+        "SELECT "
+        "      tlg_binding.point_id_spp AS point_id, "
+        "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+        "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name)) family, "
+        "      decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "      decode(:pr_lat, 0, classes.code, classes.code_lat) class, "
+        "      LPAD(crs_pax.seat_no,GREATEST(3,LENGTH(crs_pax.seat_no)),'0')|| "
+        "        DECODE(SIGN(1-crs_pax.seats),-1,'+'||TO_CHAR(crs_pax.seats-1),'') seat_no, "
+        "      decode(:pr_lat, 0, airps.code, NVL(airps.code_lat,airps.code)) target, "
+        "      report.get_trfer_airp(last_target) last_target, "
+        "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
+        "      report.get_PSPT(crs_pax.pax_id) AS document, "
+        "      report.get_crsRemarks(crs_pax.pax_id) AS remarks "
+        "FROM crs_pnr,tlg_binding,crs_pax,pers_types,classes,airps ";
+    if(name != "crs")
+        SQLText += " , pax ";
+    SQLText +=
+        "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pax.pers_type=pers_types.code AND "
+        "      crs_pnr.class=classes.code AND "
+        "      crs_pnr.target=airps.code AND "
+        "      crs_pax.pr_del=0 and "
+        "      tlg_binding.point_id_spp = :point_id ";
+    if(name != "crs")
         SQLText +=
-            "from "
-            "    v_crs "
-            "where "
-            "    v_crs.point_id = :point_id "
+            "    and crs_pax.pax_id = pax.pax_id(+) and "
+            "    pax.pax_id is null ";
+    SQLText +=
             "order by "
-            "    v_crs.family ";
-    else
-        SQLText +=
-            "from "
-            "    v_crs, "
-            "    pax "
-            "where "
-            "    v_crs.point_id = :point_id and "
-            "    v_crs.pax_id = pax.pax_id(+) and "
-            "    pax.pax_id is null "
-            "order by "
-            "    v_crs.family ";
+            "    family ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
