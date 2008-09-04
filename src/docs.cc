@@ -472,20 +472,21 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select  "
-        "    point_id, "
-        "    reg_no, "
-        "    decode(:pr_lat, 0, family, family_lat) family, "
-        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
-        "    seat_no, "
-        "    info "
-        "from "
-        "    v_rem "
-        "where "
-        "    point_id = :point_id and "
-        "    info is not null "
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       LPAD(seat_no,3,'0')|| "
+        "           DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+        "       report.get_reminfo(pax_id,',') AS info "
+        "FROM   pax_grp,pax,pers_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pr_brd IS NOT NULL and "
+        "       point_dep = :point_id and "
+        "       report.get_reminfo(pax_id,',') is not null "
         "order by "
-        "    reg_no ";
+        "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
