@@ -58,11 +58,13 @@ class TPlace {
       yprior = -1;
       xnext = -1;
       ynext = -1;
+      agle = 0;
       pr_smoke = false;
       not_good = false;
       status = "FP";
       pr_free = true;
       block = false;
+      passSel = false;
     }
     void Assign( TPlace &pl );
 };
@@ -114,6 +116,7 @@ class TSalons {
 
     void Clear( );
        
+    bool getLatSeat() { return pr_lat_seat; };  
     void Build( xmlNodePtr salonsNode );
     void Read( TReadStyle readStyle );
     void Write( TReadStyle readStyle );
@@ -123,6 +126,7 @@ class TSalons {
 
 namespace SALONS
 {
+	typedef std::pair<int,TPlace> TSalonSeat;
 	bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
@@ -134,6 +138,8 @@ namespace SALONS
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void SetFree( const std::string &layer, TPlace &pl );  
   void SetBlock( const std::string &layer, TPlace &pl );  
+  void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
+  void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
 }
 
 #endif /*_SALONS_H_*/

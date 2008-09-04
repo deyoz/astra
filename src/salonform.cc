@@ -287,6 +287,14 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   int point_id = NodeAsInteger( "trip_id", reqNode );
   int pax_id = NodeAsInteger( "pax_id", reqNode );
   int tid = NodeAsInteger( "tid", reqNode );
+  TQuery Qry( &OraSession );    
+  Qry.SQLText = 
+    "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );	
+  
 /*  string xname, yname;
   xmlNodePtr n = GetNode( "placename", reqNode );
   bool seats_exists = true;
@@ -311,14 +319,21 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }  */
   
 	ProgTrace(TRACE5, "SalonsInterface::DeleteReserveSeat, point_id=%d, pax_id=%d, tid=%d", point_id, pax_id, tid );    
+	
+  TSalons Salons;
+  Salons.trip_id = point_id;
+  Salons.Read( rTripSalons );
+  vector<SALONS::TSalonSeat> seats;
+	
   try {
-  	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, "", "", stDropseat );
+  	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, "", "", stDropseat, pr_lat_seat );
+  	SALONS::getSalonChanges( Salons, seats );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-    NewTextChild( dataNode, "tid", tid );  	
+    NewTextChild( dataNode, "tid", tid );
+   	SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( UserException ue ) {
-    tst();
     TSalons Salons;
     Salons.trip_id = point_id;
     Salons.Read( rTripSalons );
@@ -377,12 +392,20 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   		layer_type = cltPreseat;
   	else layer_type = cltUnknown;
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d", point_id, pax_id, tid );
+  
+  TSalons Salons;
+  Salons.trip_id = point_id;
+  Salons.Read( rTripSalons );
+  vector<SALONS::TSalonSeat> seats;
+  
   try {  		
-  	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, xname, yname, seat_type );
+  	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+  	SALONS::getSalonChanges( Salons, seats );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
     NewTextChild( dataNode, "placename", denorm_iata_row( yname ) + denorm_iata_line( xname, pr_lat_seat ) );        
+    SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( UserException ue ) {
     tst();

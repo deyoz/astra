@@ -1222,7 +1222,7 @@ void SetLayer( const std::map<std::string,int> &layer_priority, const std::strin
 void SetFree( const std::string &layer, TPlace &pl )
 {
 	if ( DecodeCompLayerType( (char*)layer.c_str() ) == cltCheckin )
-		pl.pr_free = true;
+		pl.pr_free = false;
 }
 
 void SetBlock( const std::string &layer, TPlace &pl )
@@ -1230,5 +1230,136 @@ void SetBlock( const std::string &layer, TPlace &pl )
 	if ( DecodeCompLayerType( (char*)layer.c_str() ) == cltBlockCent )
 		pl.block = true;	
 } 
+
+bool CompareRems( const vector<TRem> &rems1, const vector<TRem> &rems2 )
+{
+	if ( rems1.size() != rems2.size() )
+		return false;
+	for ( vector<TRem>::const_iterator p1=rems1.begin(),
+		    p2=rems2.begin();
+		    p1!=rems1.end(),
+		    p2!=rems2.end();
+		    p1++, p2++ ) {
+		if ( p1->rem != p2->rem ||
+			   p1->pr_denial != p2->pr_denial )
+			return false;
+  }
+  return true;
+}
+
+bool CompareLayers( const vector<string> &layer1, const vector<string> &layer2 )
+{
+	if ( layer1.size() != layer2.size() )
+		return false;
+	for ( vector<string>::const_iterator p1=layer1.begin(),
+		    p2=layer2.begin();
+		    p1!=layer1.end(),
+		    p2!=layer2.end();
+		    p1++, p2++ ) {
+		if ( *p1 != *p2 )
+			return false;
+  }
+  return true;
+}
+
+
+// выбор изменений по салону
+void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
+{
+	seats.clear();
+	TSalons Salons;
+	Salons.trip_id = OldSalons.trip_id;
+	Salons.Read( rTripSalons );
+	if ( Salons.getLatSeat() != OldSalons.getLatSeat() ||
+		   Salons.placelists.size() != OldSalons.placelists.size() )
+		throw UserException( "Изменена компоновка рейса. Обновите данные" );
+	for ( vector<TPlaceList*>::iterator so=OldSalons.placelists.begin(),
+		    /*vector<TPlaceList*>::iterator */sn=Salons.placelists.begin(); 
+		    so!=OldSalons.placelists.end(), 
+		    sn!=Salons.placelists.end(); 
+		    so++, sn++ ) {
+		if ( (*so)->places.size() != (*sn)->places.size() )
+			throw UserException( "Изменена компоновка рейса. Обновите данные" );
+    for ( TPlaces::iterator po = (*so)->places.begin(),
+    	    /*TPlaces::iterator*/ pn = (*sn)->places.begin();
+          po != (*so)->places.end(), 
+          pn != (*sn)->places.end(); 
+          po++, pn++ ) {		                          
+      if ( po->visible != pn->visible ||
+      	   po->visible == pn->visible && 
+      	   ( po->x != pn->x ||
+      	     po->y != pn->y ||
+      	     po->elem_type != pn->elem_type ||
+      	     po->isplace != pn->isplace ||
+             po->xprior != pn->xprior ||
+             po->yprior != pn->yprior ||
+             po->xnext != pn->xnext ||
+             po->ynext != pn->ynext ||
+             po->agle != pn->agle ||
+             po->clname != pn->clname ||
+             po->xname != pn->xname ||
+             po->yname != pn->yname ) )
+        throw UserException( "Изменена компоновка рейса. Обновите данные" );	   
+      if ( !po->visible )
+      	continue;
+      if ( po->pr_smoke != pn->pr_smoke ||
+      	   po->not_good != pn->not_good ||
+      	   !CompareRems( po->rems, pn->rems ) ||
+      	   !CompareLayers( po->layers, pn->layers ) ) {
+       seats.push_back( make_pair((*so)->num,*pn) );
+      }
+    }
+	}		
+}
+
+void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
+{
+  if ( seats.empty() ) 
+  	return;
+  xmlNodePtr node = NewTextChild( dataNode, "update_salons" );  
+ 	node = NewTextChild( node, "seats" );	
+ 	int num = -1;
+ 	xmlNodePtr salonNode;
+	for ( vector<TSalonSeat>::const_iterator p=seats.begin(); p!=seats.end(); p++ ) {
+		if ( num != p->first ) {
+			salonNode = NewTextChild( node, "salon" );
+			SetProp( salonNode, "num", p->first );
+			num = p->first;
+		}
+		xmlNodePtr n = NewTextChild( salonNode, "place" );
+		NewTextChild( n, "x", p->second.x );
+		NewTextChild( n, "y", p->second.y );
+    if ( p->second.pr_smoke )
+      NewTextChild( n, "pr_smoke" );
+    if ( p->second.not_good )
+      NewTextChild( n, "not_good" );
+    if ( p->second.status != "FP" ) //!!!old version
+      NewTextChild( n, "status", p->second.status ); // вычисляем статус исходя из слоев//!!!old version
+    if ( !p->second.pr_free )//!!!old version
+      NewTextChild( n, "pr_notfree" );//!!!old version
+    if ( p->second.block )//!!!old version
+      NewTextChild( n, "block" );//!!!old version
+      
+    xmlNodePtr remsNode = NULL;
+    xmlNodePtr remNode;
+    for ( vector<TRem>::const_iterator rem = p->second.rems.begin(); rem != p->second.rems.end(); rem++ ) {
+      if ( !remsNode ) {
+        remsNode = NewTextChild( n, "rems" );
+      }
+      remNode = NewTextChild( remsNode, "rem" );
+      NewTextChild( remNode, "rem", rem->rem );
+      if ( rem->pr_denial )
+        NewTextChild( remNode, "pr_denial" );
+      }
+    if ( p->second.layers.size() > 0 ) {
+      remsNode = NewTextChild( n, "layers" );
+      for( std::vector<std::string>::const_iterator l=p->second.layers.begin(); l!=p->second.layers.end(); l++ ) {
+      	remNode = NewTextChild( remsNode, "layer" );
+      	NewTextChild( remNode, "layer_type", *l );
+      }
+    }
+	} 	
+}
+
 
 } // end namespace

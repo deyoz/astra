@@ -1322,7 +1322,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  class,pax.subclass, "
-    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "
+    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "              
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
@@ -1780,11 +1780,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             pas.placeStatus=place_status;
             pas.pax_id = 0;
           }
-          pas.crsseat=NodeAsStringFast("seat_no",node2);
+          pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
           pas.preseat=NodeAsStringFast("preseat_no",node2);
-/*          if ( !pas.preseat.empty() && !pas.placeName.empty() && pas.preseat != pas.placeName ) {
-          	pas.placeName = pas.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
-          }!!!*/
           pas.countPlace=NodeAsIntegerFast("seats",node2);
           pas.placeRem=NodeAsStringFast("seat_type",node2);
           remNode=GetNodeFast("rems",node2);
@@ -1818,6 +1815,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           	pas.rems.push_back( "CHIN" );
           }
           Passengers.Add(pas);
+          tst();
       };
       // начитка салона
       TSalons Salons;
@@ -1827,7 +1825,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       //рассадка
       SEATS::SeatsPassengers( &Salons, GetUsePS()/*!!! иногда True - возможна рассажка на забронированные места, когда */
       	                              /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */ );
-      SEATS::SavePlaces( );
+      //SEATS::SavePlaces( ); //???
       //заполним номера мест после рассадки
 /*      node=NodeAsNode("passengers",reqNode);
       int i=0;
@@ -1996,8 +1994,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
             {
               TSeatRange range(*iSeat,*iSeat);
+              tst();
               ranges.push_back(range);
             };
+            ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
             //запись в базу
             SEATS::SaveTripSeatRanges( point_dep, cltCheckin, ranges, pax_id );
             //seat_no=pas.seat_no.begin()->
@@ -2522,7 +2522,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     PaxQry.Clear();
     PaxQry.SQLText=
       "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,"
-      "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,rownum) AS seat_no, "
+      "       salons.get_seat_no(pax.pax_id,:checkin_layer,1,:point_dep,rownum) AS seat_no, "
       "       pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
       "       crs_pax.pax_id AS crs_pax_id, "
