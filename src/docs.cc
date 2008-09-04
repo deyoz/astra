@@ -515,20 +515,21 @@ void RunRef(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select  "
-        "    point_id, "
-        "    reg_no, "
-        "    decode(:pr_lat, 0, family, family_lat) family, "
-        "    decode(:pr_lat, 0, pers_type, pers_type_lat) pers_type, "
-        "    ticket_no, "
-        "    decode(:pr_lat, 0, refuse, refuse_lat) refuse, "
-        "    decode(:pr_lat, 0, tags, tags_lat) tags "
-        "from "
-        "    v_ref "
-        "where "
-        "    point_id = :point_id "
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       ticket_no, "
+        "       decode(:pr_lat, 0, refusal_types.name, NVL(refusal_types.name_lat,refusal_types.name)) refuse, "
+        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
+        "FROM   pax_grp,pax,pers_types,refusal_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pax.refuse = refusal_types.code AND "
+        "       pax.refuse IS NOT NULL and "
+        "       point_dep = :point_id "
         "order by "
-        "    reg_no ";
+        "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
     Qry.Execute();
