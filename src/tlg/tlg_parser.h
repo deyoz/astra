@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
+#include "seats.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -212,83 +213,6 @@ typedef struct
   char station[4];
   std::vector<TSeatsItem> seats;
 } TRouteItem;
-
-class TSeat
-{
-  public:
-    char row[5]; //001-099,101-199
-    char line[5];//A-Z...
-    TSeat()
-    {
-      Clear();
-    };
-    void Clear()
-    {
-      *row=0;
-      *line=0;
-    };
-    bool Empty()
-    {
-      return *row==0 || *line==0;
-    };
-
-    TSeat& operator = ( const TSeat& seat )
-    {
-      if (this == &seat) return *this;
-      strncpy(this->row,seat.row,sizeof(seat.row));
-      strncpy(this->line,seat.line,sizeof(seat.line));
-      return *this;
-    };
-
-    friend bool operator == ( const TSeat& seat1, const TSeat& seat2 )
-    {
-      return strcmp(seat1.row,seat2.row)==0 &&
-             strcmp(seat1.line,seat2.line)==0;
-    };
-
-    friend bool operator != ( const TSeat& seat1, const TSeat& seat2 )
-    {
-      return !(strcmp(seat1.row,seat2.row)==0 &&
-               strcmp(seat1.line,seat2.line)==0);
-    };
-
-    friend bool operator < ( const TSeat& seat1, const TSeat& seat2 )
-    {
-      int res;
-      res=strcmp(seat1.row,seat2.row);
-      if (res==0)
-        res=strcmp(seat1.line,seat2.line);
-      return res<0;
-    };
-};
-
-class TSeatRange : public std::pair<TSeat,TSeat>
-{
-  public:
-    char rem[5];
-    TSeatRange() : std::pair<TSeat,TSeat>()
-    {
-      *rem=0;
-    };
-    friend bool operator < ( const TSeatRange& range1, const TSeatRange& range2 )
-    {
-      return range1.first<range2.first;
-    };
-};
-
-void NormalizeSeat(TSeat &seat);
-void NormalizeSeatRange(TSeatRange &range);
-bool NextNormSeatRow(TSeat &seat);
-bool PriorNormSeatRow(TSeat &seat);
-TSeat& FirstNormSeatRow(TSeat &seat);
-TSeat& LastNormSeatRow(TSeat &seat);
-bool NextNormSeatLine(TSeat &seat);
-bool PriorNormSeatLine(TSeat &seat);
-TSeat& FirstNormSeatLine(TSeat &seat);
-TSeat& LastNormSeatLine(TSeat &seat);
-bool NextNormSeat(TSeat &seat);
-bool SeatInRange(TSeatRange &range, TSeat &seat);
-bool NextSeatInRange(TSeatRange &range, TSeat &seat);
 
 class TDocItem
 {

@@ -806,8 +806,8 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.SQLText=
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "     
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "                
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
       "       crs_pnr.pnr_id, "
@@ -824,7 +824,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "      pax.pax_id IS NULL "
       "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
-    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );    
+    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
     PaxQry.Execute();
     CreateSearchResponse(PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
@@ -1023,8 +1023,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     sql =
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "     
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "                
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "
       "       crs_pax.seat_type,crs_pax.seats, "
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
@@ -1095,7 +1095,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
     PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
-    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );    
+    PaxQry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
   };
@@ -1322,7 +1322,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  class,pax.subclass, "
-    "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "              
+    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
@@ -1357,7 +1357,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Clear();
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );  
+  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   Qry.Execute();
 
   int col_reg_no=Qry.FieldIndex("reg_no");
@@ -1780,11 +1780,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             pas.placeStatus=place_status;
             pas.pax_id = 0;
           }
-          pas.placeName=NodeAsStringFast("seat_no",node2);
+          pas.crsseat=NodeAsStringFast("seat_no",node2);
           pas.preseat=NodeAsStringFast("preseat_no",node2);
-          if ( !pas.preseat.empty() && !pas.placeName.empty() && pas.preseat != pas.placeName ) {
+/*          if ( !pas.preseat.empty() && !pas.placeName.empty() && pas.preseat != pas.placeName ) {
           	pas.placeName = pas.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
-          }
+          }!!!*/
           pas.countPlace=NodeAsIntegerFast("seats",node2);
           pas.placeRem=NodeAsStringFast("seat_type",node2);
           remNode=GetNodeFast("rems",node2);
@@ -1829,7 +1829,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       	                              /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */ );
       SEATS::SavePlaces( );
       //заполним номера мест после рассадки
-      node=NodeAsNode("passengers",reqNode);
+/*      node=NodeAsNode("passengers",reqNode);
       int i=0;
       for(node=node->children;node!=NULL&&i<Passengers.getCount();node=node->next)
       {
@@ -1848,7 +1848,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           		showErrorMessage("Пассажиры посажены на запрещенные места");
           ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
           i++;
-      };
+      };*/
       //if (node!=NULL||i<Passengers.getCount()) throw Exception("SeatsPassengers: wrong count");
     };
 
@@ -1908,16 +1908,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "  IF :pax_id IS NULL THEN "
         "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
         "  END IF; "
-        "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_no,seat_type,seats,pr_brd, "
+        "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
         "                  refuse,reg_no,ticket_no,coupon_no,document,pr_exam,doc_check,subclass,tid) "
-        "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_no,:seat_type,:seats,:pr_brd, "
+        "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
         "         NULL,:reg_no,:ticket_no,:coupon_no,:document,:pr_exam,0,:subclass,tid__seq.currval); "
         "END;";
       Qry.DeclareVariable("pax_id",otInteger);
       Qry.DeclareVariable("surname",otString);
       Qry.DeclareVariable("name",otString);
       Qry.DeclareVariable("pers_type",otString);
-      Qry.DeclareVariable("seat_no",otString);
       Qry.DeclareVariable("seat_type",otString);
       Qry.DeclareVariable("seats",otInteger);
       Qry.DeclareVariable("pr_brd",otInteger);
@@ -1927,18 +1926,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.DeclareVariable("coupon_no",otInteger);
       Qry.DeclareVariable("document",otString);
       Qry.DeclareVariable("subclass",otString);
-      for(int i=0;i<=1;i++)
+      int i=0;
+      for(int k=0;k<=1;k++)
       {
         node=NodeAsNode("passengers",reqNode);
         for(node=node->children;node!=NULL;node=node->next)
         {
           node2=node->children;
           int seats=NodeAsIntegerFast("seats",node2);
-          if (seats<=0&&i==0||seats>0&&i==1) continue;
+          if (seats<=0&&k==0||seats>0&&k==1) continue;
           const char* surname=NodeAsStringFast("surname",node2);
           const char* name=NodeAsStringFast("name",node2);
           const char* pers_type=NodeAsStringFast("pers_type",node2);
-          const char* seat_no=NodeAsStringFast("seat_no",node2);
           if (!NodeIsNULLFast("pax_id",node2))
             Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
           else
@@ -1947,15 +1946,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           Qry.SetVariable("name",name);
           Qry.SetVariable("pers_type",pers_type);
           if (seats>0)
-          {
-            Qry.SetVariable("seat_no",seat_no);
             Qry.SetVariable("seat_type",NodeAsStringFast("seat_type",node2));
-          }
           else
-          {
-            Qry.SetVariable("seat_no",FNull);
             Qry.SetVariable("seat_type",FNull);
-          };
           Qry.SetVariable("seats",seats);
           Qry.SetVariable("pr_brd",(int)pr_brd_with_reg);
           Qry.SetVariable("pr_exam",(int)(pr_brd_with_reg && pr_exam_with_brd));
@@ -1982,6 +1975,36 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           int pax_id=Qry.GetVariableAsInteger("pax_id");
           ReplaceTextChild(node,"pax_id",pax_id);
 
+          string seat_no;
+          //запись номеров мест
+          if (seats>0 && i<Passengers.getCount())
+          {
+            TPassenger pas = Passengers.Get(i);
+            if (pas.seat_no.empty()) throw Exception("SeatsPassengers: empty seat_no");
+          /*  if (!pas.crsseat.empty() && pas.crsseat != pas.placeName)
+            {
+            	if (!pas.preseat.empty() && pas.preseat == pas.placeName)
+            		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+            	else
+                showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+            }
+            else
+            	if ( !pas.isValidPlace )
+            		showErrorMessage("Пассажиры посажены на запрещенные места");  !!!*/
+
+            vector<TSeatRange> ranges;
+            for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
+            {
+              TSeatRange range(*iSeat,*iSeat);
+              ranges.push_back(range);
+            };
+            //запись в базу
+            SEATS::SaveTripSeatRanges( point_dep, cltCheckin, ranges, pax_id );
+            //seat_no=pas.seat_no.begin()->
+            i++;
+          };
+
+          //запись pax_doc и pax_fqt
           CrsQry.SetVariable("pax_id",pax_id);
           CrsQry.Execute();
           //запись ремарок
@@ -2087,7 +2110,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       PaxQry.DeclareVariable("document",otString);
       PaxQry.DeclareVariable("subclass",otString);
 
-      TQuery SalonQry(&OraSession);
+      TQuery LayerQry(&OraSession);
+      LayerQry.Clear();
+      LayerQry.SQLText=
+        "DELETE FROM trip_comp_layers WHERE pax_id=:pax_id AND layer_type=:layer_type";
+      LayerQry.DeclareVariable("pax_id",otInteger);
+      LayerQry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltCheckin));
+
+
+    /*  TQuery SalonQry(&OraSession);
       SalonQry.Clear();
       SalonQry.SQLText=
         "BEGIN "
@@ -2097,7 +2128,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       SalonQry.CreateVariable("point_id",otInteger,point_dep);
       SalonQry.DeclareVariable("pax_id",otInteger);
       SalonQry.DeclareVariable("agent_error",otInteger); //???
-      SalonQry.DeclareVariable("seat_no",otString);
+      SalonQry.DeclareVariable("seat_no",otString);*/
       node=GetNode("passengers",reqNode);
       if (node!=NULL)
       {
@@ -2108,7 +2139,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           const char* surname=NodeAsStringFast("surname",node2);
           const char* name=NodeAsStringFast("name",node2);
           Qry.Clear();
-          Qry.SQLText="SELECT refuse,reg_no,seat_no FROM pax WHERE pax_id=:pax_id";
+          Qry.SQLText="SELECT refuse,reg_no FROM pax WHERE pax_id=:pax_id";
           Qry.CreateVariable("pax_id",otInteger,pax_id);
           Qry.Execute();
           string old_refuse=Qry.FieldAsString("refuse");
@@ -2116,15 +2147,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           if (GetNodeFast("refuse",node2)!=NULL)
           {
             //были изменения в информации по пассажиру
-            if (!NodeIsNULLFast("refuse",node2)&&!Qry.FieldIsNULL("seat_no"))
+            if (!NodeIsNULLFast("refuse",node2))
             {
-              SalonQry.SetVariable("pax_id",pax_id);
+             /* SalonQry.SetVariable("pax_id",pax_id);
               if ( !strcmp( NodeAsStringFast("refuse",node2), "А" ) ) //???
                 SalonQry.SetVariable("agent_error", 1 );
               else
               	SalonQry.SetVariable("agent_error", 0 );
               SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
-              SalonQry.Execute();
+              SalonQry.Execute();*/
+              LayerQry.SetVariable("pax_id",pax_id);
+              LayerQry.Execute();
             };
             const char* pers_type=NodeAsStringFast("pers_type",node2);
             const char* refuse=NodeAsStringFast("refuse",node2);
@@ -2489,7 +2522,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     PaxQry.Clear();
     PaxQry.SQLText=
       "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,"
-      "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,rownum) AS seat_no, "                
+      "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,rownum) AS seat_no, "
       "       pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
       "       crs_pax.pax_id AS crs_pax_id, "
@@ -2498,7 +2531,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
     PaxQry.CreateVariable("grp_id",otInteger,grp_id);
     PaxQry.CreateVariable("point_dep",otInteger,point_dep);
-    PaxQry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );    	
+    PaxQry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     PaxQry.Execute();
     node=NewTextChild(resNode,"passengers");
     for(;!PaxQry.Eof;PaxQry.Next())

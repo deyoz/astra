@@ -456,7 +456,7 @@ bool DoNotRemsSeats( const vector<TRem> &rems )
 		ProgTrace( TRACE5, "prem->rem=%s", prem->rem.c_str() );
   	if ( !prem->pr_denial && prem->rem == "MCLS" && !pr_passmcls )
 	  		no_mcls = true;
-	}	
+	}
 	ProgTrace( TRACE5, "res=%d, mcls=%d", res, no_mcls );
   return res || no_mcls;
 }
@@ -927,7 +927,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       	  if ( *irem == itr->rem ) {
       	    if ( itr->pr_denial ) {
       	      EqualQ -= PR_REM_TO_REM;
-      	      pr_valid_place = false;      	      
+      	      pr_valid_place = false;
       	    }
       	    else {
       	      EqualQ += PR_REM_TO_REM;
@@ -952,7 +952,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
           placeList->GetXsName( isp->Pos.x - 1 ).empty() ||
           isp->Pos.x + 1 < placeList->GetXsCount() &&
           placeList->GetXsName( isp->Pos.x + 1 ).empty() )
-       )       
+       )
       EqualQ += PR_EQUAL_REMPLACE;
     ProgTrace( TRACE5, "EqualQ=%d", EqualQ );
     if ( pass.prSmoke == isp->oldPlaces.begin()->pr_smoke )
@@ -995,7 +995,7 @@ void TSeatPlaces::PlacesToPassengers()
     pass.placeList = seatPlace.placeList;
     pass.Pos = seatPlace.Pos;
     pass.Step = seatPlace.Step;
-    pass.placeName = seatPlace.placeList->GetPlaceName( seatPlace.Pos );    
+    pass.placeName = seatPlace.placeList->GetPlaceName( seatPlace.Pos );
     pass.isValidPlace = seatPlace.isValid;
   }
 }
@@ -1203,7 +1203,7 @@ bool isValidPlaceToPassenger( const vector<string> &passrems, const vector<TPlac
       for ( itr=ipl->rems.begin(); itr!=ipl->rems.end(); itr++ )
         if ( *irem == itr->rem && itr->pr_denial )
         	 return false;
-    }	
+    }
   }
   return true;
 }
@@ -1549,7 +1549,7 @@ void SetStatuses( vector<string> &Statuses, string status, bool First, bool use_
         }
         else {
           Statuses.push_back( "RZ" );
-          Statuses.push_back( "BR" );          
+          Statuses.push_back( "BR" );
           if ( use_PS )
             Statuses.push_back( "PS" );
         }
@@ -1708,7 +1708,7 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
   		break;
   	}
   }  /*!!!*/
-  
+
 
   try {
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
@@ -1778,13 +1778,13 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                       break;
                     case sSeatGrp:
                       if ( SeatPlaces.SeatsGrp( ) )
-                        throw 1;                       
+                        throw 1;
                       break;
                     case sSeatPassengers:
                       if ( SeatPlaces.SeatsPassengers( ) )
                         throw 1;
                       if ( SeatOnlyBasePlace ) {
-                      	SeatOnlyBasePlace = false;                      	
+                      	SeatOnlyBasePlace = false;
                       	FSeatAlg=0;
                       }
                       break;
@@ -1866,11 +1866,11 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
     if ( Qry.FieldAsInteger( "step" ) ) {
       pass.rems.push_back( "STCR" );
     }
-    if ( 
+    if (
     	   Qry.FieldAsString( "airline" ) == string( "ЮТ" ) && string( "М" ) == Qry.FieldAsString( "subclass" ) ||
     	   Qry.FieldAsString( "airline" ) == string( "ПО" ) && string( "Ю" ) == Qry.FieldAsString( "subclass" )
     	 ) {
-      ProgTrace( TRACE5, "subcls=%s", Qry.FieldAsString( "subclass" ) );    	 	
+      ProgTrace( TRACE5, "subcls=%s", Qry.FieldAsString( "subclass" ) );
     	pass.rems.push_back( "MCLS" );
     }
     p.Add( pass );
@@ -1878,7 +1878,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
   }
 }
 
-void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats, int pax_id ) 
+void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats, int pax_id )
 {
 	ProgTrace( TRACE5, "SaveTripSeatRanges is empty" );
   if (seats.empty()) return;
@@ -1919,9 +1919,9 @@ bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr
 {
 	TQuery Qry( &OraSession );
   switch ( layer_type ) {
-  	case cltCheckin:    	
+  	case cltCheckin:
     case cltPreseat:
-      Qry.SQLText = 
+      Qry.SQLText =
         "SELECT xname, yname FROM trip_comp_elems t, "
         "(SELECT num, x, y FROM trip_comp_elems "
         "  WHERE point_id=:point_id AND xname = :xname AND yname = :yname ) a "
@@ -1943,38 +1943,38 @@ bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr
     default:
     	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
     	throw UserException( "Устанавливаемый слой запрещен для разметки" );
-  }	
+  }
   return false;
 }
 
-void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid, 
+void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   string first_xname, string first_yname, TSeatsType seat_type )
 {
 	tst();
 	CanUse_PS = false; //!!!
 	first_xname = norm_iata_line( first_xname );
 	first_yname = norm_iata_line( first_yname );
-	ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s", 
+	ProgTrace( TRACE5, "layer=%s, point_id=%d, pax_id=%d, first_xname=%s, first_yname=%s",
 	           EncodeCompLayerType( layer_type ), point_id, pax_id, first_xname.c_str(), first_yname.c_str() );
   TQuery Qry( &OraSession );
   /* лочим рейс */
   Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", point_id );
-  Qry.Execute();  
+  Qry.Execute();
   tst();
   Qry.Clear();
   /* считываем инфу по пассажиру */
   switch ( layer_type ) {
   	case cltCheckin:
-      Qry.SQLText = 
+      Qry.SQLText =
        "SELECT surname, name, reg_no, grp_id, seats, a.step step, tid, "" target FROM pax, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
        "WHERE pax_id=:pax_id";
       break;
     case cltPreseat:
-      Qry.SQLText = 
+      Qry.SQLText =
         "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
@@ -1995,11 +1995,11 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     throw UserException( "Пассажир не найден. Обновите данные"	);
   }
   tst();
-  string fullname = Qry.FieldAsString( "surname" );	
+  string fullname = Qry.FieldAsString( "surname" );
   TrimString( fullname );
   fullname += string(" ") + Qry.FieldAsString( "name" );
   int idx1 = Qry.FieldAsInteger( "reg_no" );
-  int idx2 = Qry.FieldAsInteger( "grp_id" );  
+  int idx2 = Qry.FieldAsInteger( "grp_id" );
   string target = Qry.FieldAsString( "target" );
   int point_id_tlg = Qry.FieldAsInteger( "point_id" );
   int seats_count = Qry.FieldAsInteger( "seats" );
@@ -2008,12 +2008,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     pr_down = 1;
   else
     pr_down = 0;
-  
+
   if ( !seats_count ) {
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
-    throw UserException( "Пересадка невозможна. Количество мест занимаемых пассажиром равно нулю" ); //!!!  	
+    throw UserException( "Пересадка невозможна. Количество мест занимаемых пассажиром равно нулю" ); //!!!
   }
-  
+
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
     throw UserException( string( "Изменения по пассажиру " ) + fullname + " производились с другой стойки. Обновите данные" ); //!!!
@@ -2022,29 +2022,29 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
   	throw UserException( "Пассажир зарегистрирован. Обновите данные" );
   }
-  tst();	
+  tst();
   // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
-  Qry.Clear();  
-  Qry.SQLText =       	
+  Qry.Clear();
+  Qry.SQLText =
     "SELECT layer_type, pax_id, crs_pax_id "
     " FROM trip_comp_layers "
     " WHERE point_id=:point_id AND "
     "       first_yname=:first_yname AND "
     "       first_xname=:first_xname ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "first_xname", otString, first_xname );    	
-  Qry.CreateVariable( "first_yname", otString, first_yname );    	  
+  Qry.CreateVariable( "first_xname", otString, first_xname );
+  Qry.CreateVariable( "first_yname", otString, first_yname );
   Qry.Execute();
   tst();
   while ( !Qry.Eof ) {
-  // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира  	
+  // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира
     if ( seat_type != stDropseat &&
     	   string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) &&
     	   pax_id != Qry.FieldAsInteger( "pax_id" ) ) {
   	  ProgTrace( TRACE5, "!!!ChangeLayer: seat_type!=stDropseat, EncodeCompLayerType( layer_type )=%s already found in trip_comp_layers for other passangers, point_id=%d in funct ChangeLayer",
   	             EncodeCompLayerType( layer_type ), point_id );
   	  throw UserException( "Место занято другим пассажиром" );
-    }  	
+    }
   	Qry.Next();
   }
   tst();
@@ -2058,7 +2058,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           "       layer_type=:layer_type AND "
           "       pax_id=:pax_id ";
         Qry.CreateVariable( "point_id", otInteger, point_id );
-      	break;  		
+      	break;
   		case cltPreseat:
   			// удаление из салона, если есть разметка
   	    Qry.SQLText =
@@ -2070,7 +2070,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         Qry.CreateVariable( "pax_id", otInteger, pax_id );
         Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
         tst();
-        Qry.Execute();                  
+        Qry.Execute();
         tst();
         // удаление из слоя телеграмм
   			Qry.Clear();
@@ -2097,11 +2097,11 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   if ( seat_type != stDropseat ) { // посадка на новое место
     vector<TSeatRange> seats;
     TSeatRange r;
-    strcpy( r.first.line, first_xname.c_str() );      	
+    strcpy( r.first.line, first_xname.c_str() );
     strcpy( r.first.row, first_yname.c_str() );
-    r.second = r.first;    
+    r.second = r.first;
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест
-    	ProgTrace( TRACE5, "seats.push_back: xname=%s, yname=%s, pr_down=%d, seats_count=%d", 
+    	ProgTrace( TRACE5, "seats.push_back: xname=%s, yname=%s, pr_down=%d, seats_count=%d",
     	           r.first.line, r.first.row, pr_down, seats_count );
       seats.push_back( r );
       if ( !getNextSeat( layer_type, point_id, r, pr_down ) )
@@ -2112,8 +2112,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     tst();
     Qry.Execute();
     tst();
-    tid = Qry.FieldAsInteger( "tid" );    
-  	Qry.Clear();    
+    tid = Qry.FieldAsInteger( "tid" );
+  	Qry.Clear();
   	switch ( layer_type ) {
   	  case cltCheckin:
   	  	tst();
@@ -2130,22 +2130,22 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	tst();
         SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, 0, false );
         tst();
-	      Qry.SQLText =        
-          "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";        
+	      Qry.SQLText =
+          "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	throw UserException( "Устанавливаемый слой запрещен для разметки" );
     }
-    Qry.CreateVariable( "pax_id", otInteger, pax_id );    
-    Qry.CreateVariable( "tid", otInteger, tid );    
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "tid", otInteger, tid );
     tst();
     Qry.Execute();
     tst();
   }
-  
+
   TReqInfo *reqinfo = TReqInfo::Instance();
-  
+
   switch( seat_type ) {
   	case stSeat:
   		switch( layer_type ) {
@@ -2159,7 +2159,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " предварительно назначено место. Новое место: " + first_xname+first_yname,
                              evtPax, point_id, idx1, idx2 );
           break;
-        default:;          	  				  				
+        default:;
   		}
   		break;
     case stReseat:
@@ -2174,9 +2174,9 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " предварительно назначено место. Новое место: " + first_xname+first_yname,
                              evtPax, point_id, idx1, idx2 );
           break;
-        default:;          	  				  				
+        default:;
   		}
-  		break;    		
+  		break;
   	case stDropseat:
     	switch( layer_type ) {
   			case cltCheckin:
@@ -2189,9 +2189,9 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " отменено предварительно назначенное место: " + first_xname+first_yname,
                              evtPax, point_id, idx1, idx2 );
           break;
-        default:;          	  				  				
+        default:;
   		}
-  		break;    		  		
+  		break;
   }
   tst();
 }
@@ -2668,3 +2668,147 @@ bool TPassengers::existsNoSeats()
 
 
 TPassengers Passengers;
+
+void NormalizeSeat(TSeat &seat)
+{
+  if (!is_iata_row(seat.row)) throw EConvertError("NormalizeSeat: non-IATA row '%s'",seat.row);
+  if (!is_iata_line(seat.line)) throw EConvertError("NormalizeSeat: non-IATA line '%s'",seat.line);
+
+  strncpy(seat.row,norm_iata_row(seat.row).c_str(),sizeof(seat.row));
+  strncpy(seat.line,norm_iata_line(seat.line).c_str(),sizeof(seat.line));
+
+  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
+    throw EConvertError("NormalizeSeat: error in procedure norm_iata_row");
+  if (strnlen(seat.line,sizeof(seat.line)) >= sizeof(seat.line))
+    throw EConvertError("NormalizeSeat: error in procedure norm_iata_line");
+};
+
+void NormalizeSeatRange(TSeatRange &range)
+{
+  NormalizeSeat(range.first);
+  NormalizeSeat(range.second);
+};
+
+bool NextNormSeatRow(TSeat &seat)
+{
+  int i;
+  if (StrToInt(seat.row,i)==EOF)
+    throw EConvertError("NextNormSeatRow: error in procedure norm_iata_row");
+  if (i==199) return false;
+  if (i==99) i=101; else i++;
+  strncpy(seat.row,norm_iata_row(IntToString(i)).c_str(),sizeof(seat.row));
+  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
+    throw EConvertError("NextNormSeatRow: error in procedure norm_iata_row");
+  return true;
+};
+
+bool PriorNormSeatRow(TSeat &seat)
+{
+  int i;
+  if (StrToInt(seat.row,i)==EOF)
+    throw EConvertError("PriorNormSeatRow: error in procedure norm_iata_row");
+  if (i==1) return false;
+  if (i==101) i=99; else i--;
+  strncpy(seat.row,norm_iata_row(IntToString(i)).c_str(),sizeof(seat.row));
+  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
+    throw EConvertError("PriorNormSeatRow: error in procedure norm_iata_row");
+  return true;
+};
+
+TSeat& FirstNormSeatRow(TSeat &seat)
+{
+  strncpy(seat.row,norm_iata_row(IntToString(1)).c_str(),sizeof(seat.row));
+  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
+    throw EConvertError("FirstNormSeatRow: error in procedure norm_iata_row");
+  return seat;
+};
+
+TSeat& LastNormSeatRow(TSeat &seat)
+{
+  strncpy(seat.row,norm_iata_row(IntToString(199)).c_str(),sizeof(seat.row));
+  if (strnlen(seat.row,sizeof(seat.row)) >= sizeof(seat.row))
+    throw EConvertError("LastNormSeatRow: error in procedure norm_iata_row");
+  return seat;
+};
+
+
+bool NextNormSeatLine(TSeat &seat)
+{
+  char *p;
+  if ((p=strchr(lat_seat,seat.line[0]))==NULL)
+    throw EConvertError("NextNormSeatLine: error in procedure norm_iata_line");
+  p++;
+  if (*p==0) return false;
+  seat.line[0]=*p;
+  seat.line[1]=0;
+  return true;
+};
+
+bool PriorNormSeatLine(TSeat &seat)
+{
+  char *p;
+  if ((p=strchr(lat_seat,seat.line[0]))==NULL)
+    throw EConvertError("PriorNormSeatLine: error in procedure norm_iata_line");
+  if (p==lat_seat) return false;
+  p--;
+  seat.line[0]=*p;
+  seat.line[1]=0;
+  return true;
+};
+
+TSeat& FirstNormSeatLine(TSeat &seat)
+{
+  if (strlen(lat_seat)<=0)
+    throw EConvertError("FirstNormSeatLine: lat_seat is empty!");
+  seat.line[0]=lat_seat[0];
+  seat.line[1]=0;
+  return seat;
+};
+
+TSeat& LastNormSeatLine(TSeat &seat)
+{
+  if (strlen(lat_seat)<=0)
+    throw EConvertError("LastNormSeatLine: lat_seat is empty!");
+  seat.line[0]=lat_seat[strlen(lat_seat)-1];
+  seat.line[1]=0;
+  return seat;
+};
+
+bool NextNormSeat(TSeat &seat)
+{
+  if (!NextNormSeatLine(seat))
+  {
+    if (!NextNormSeatRow(seat)) return false;
+    FirstNormSeatLine(seat);
+  };
+  return true;
+};
+
+bool SeatInRange(TSeatRange &range, TSeat &seat)
+{
+  return strcmp(seat.row,range.first.row)>=0 &&
+         strcmp(seat.row,range.second.row)<=0 &&
+         strcmp(seat.line,range.first.line)>=0 &&
+         strcmp(seat.line,range.second.line)<=0;
+};
+
+bool NextSeatInRange(TSeatRange &range, TSeat &seat)
+{
+  if (!SeatInRange(range,seat)) return false;
+  if (strcmp(seat.line,range.second.line)>=0)
+  {
+    if (strcmp(seat.row,range.second.row)>=0) return false;
+    strcpy(seat.line,range.first.line);
+    NextNormSeatRow(seat);
+  }
+  else NextNormSeatLine(seat);
+  return true;
+};
+
+bool SeatNoInSeats( vector<TSeat> &seats, string seat_no)
+{
+ /* for(vector<TSeat>::iterator iSeat=seats.begin();iSeat!=seats.end();iSeat++)
+    if ((string)iSeat->row == seat_no)!!!*/
+  return false;
+};
+
