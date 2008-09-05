@@ -2015,7 +2015,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltPreseat:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id, "
-        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,rownum) AS seat_no "
+        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
