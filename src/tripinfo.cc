@@ -1337,7 +1337,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.point_id AS point_id_tlg, "
      "      ids.status, "
      "      pax.reg_no, "
-     "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "          
+     "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "          
      "      pax.refuse, "
      "      pax.grp_id "
      "FROM crs_pnr,crs_pax,pax,pax_grp, "

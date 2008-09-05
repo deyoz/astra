@@ -328,9 +328,32 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   try {
   	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, "", "", stDropseat, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
+  	Qry.Clear();
+  	Qry.SQLText =
+  	  "SELECT "
+      "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS crs_seat_no, "     
+      "  salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "          
+      "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no "          
+      "FROM crs_pnr,crs_pax,pax,pax_grp "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      pax.grp_id=pax_grp.grp_id(+) AND "
+      "      crs_pax.pax_id=:pax_id";
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );    
+    Qry.Execute();
+    if ( Qry.Eof )
+    	throw UserException( "Пассажир не найден" );    
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
+    if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
+    	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
+    if ( !Qry.FieldIsNULL( "preseat_no" ) )
+    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
+    if ( !Qry.FieldIsNULL( "seat_no" ) )
+    	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( UserException ue ) {
@@ -381,8 +404,8 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     }     
   }
   else {
-  	xname = NodeAsString( "xname", reqNode );
-  	yname = NodeAsString( "yname", reqNode );  	
+  	xname = norm_iata_line( NodeAsString( "xname", reqNode ) );
+  	yname = norm_iata_row( NodeAsString( "yname", reqNode ) );  	
   }
   TCompLayerType layer_type;
   if ( GetNode( "checkin", reqNode ) )
@@ -401,8 +424,33 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   try {  		
   	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
+  	Qry.Clear();
+  	Qry.SQLText =
+  	  "SELECT "
+      "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,rownum) AS crs_seat_no, "     
+      "  salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,rownum) AS preseat_no, "          
+      "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no "          
+      "FROM crs_pnr,crs_pax,pax,pax_grp "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      pax.grp_id=pax_grp.grp_id(+) AND "
+      "      crs_pax.pax_id=:pax_id";
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );    
+    Qry.Execute();
+    if ( Qry.Eof )
+    	throw UserException( "Пассажир не найден" );    
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+    NewTextChild( dataNode, "tid", tid );
+    if ( !Qry.FieldIsNULL( "crs_seat_no" ) )
+    	NewTextChild( dataNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ) );
+    if ( !Qry.FieldIsNULL( "preseat_no" ) )
+    	NewTextChild( dataNode, "preseat_no", Qry.FieldAsString( "preseat_no" ) );
+    if ( !Qry.FieldIsNULL( "seat_no" ) )
+    	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );  		
+    /* надо передать назад новый tid */
     NewTextChild( dataNode, "tid", tid );
     NewTextChild( dataNode, "placename", denorm_iata_row( yname ) + denorm_iata_line( xname, pr_lat_seat ) );        
     SALONS::BuildSalonChanges( dataNode, seats );
@@ -729,3 +777,8 @@ void SalonsInterface::ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 void SalonsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };
+
+
+
+
+

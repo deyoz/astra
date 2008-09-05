@@ -1977,7 +1977,7 @@ bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr
       }
       break;
     default:
-    	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+    	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct getNextSeat",  EncodeCompLayerType( layer_type ) );
     	throw UserException( "Устанавливаемый слой запрещен для разметки" );
   }
   return false;
@@ -2005,7 +2005,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltCheckin:
       Qry.SQLText =
        "SELECT surname, name, reg_no, grp_id, seats, a.step step, tid, "" target, "
-       "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,rownum) AS seat_no, "          
+       "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'seats',rownum) AS seat_no, "          
        " FROM pax, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2063,44 +2063,57 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
   	throw UserException( "Пассажир зарегистрирован. Обновите данные" );
   }
-  tst();
-  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT layer_type, pax_id, crs_pax_id "
-    " FROM trip_comp_layers "
-    " WHERE point_id=:point_id AND "
-    "       first_yname=:first_yname AND "
-    "       first_xname=:first_xname ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "first_xname", otString, first_xname );
-  Qry.CreateVariable( "first_yname", otString, first_yname );
-  Qry.Execute();
-  tst();
-  int p_id;
-  while ( !Qry.Eof ) {
-  	switch( layer_type ) {
-      case cltCheckin:
-      	p_id = Qry.FieldAsInteger( "pax_id" );
+  vector<TSeatRange> seats;  
+  if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
+  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром  	
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT layer_type, pax_id, crs_pax_id "
+      " FROM trip_comp_layers "
+      " WHERE point_id=:point_id AND "
+      "       first_yname=:first_yname AND "
+      "       first_xname=:first_xname ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.DeclareVariable( "first_xname", otString );
+    Qry.DeclareVariable( "first_yname", otString );
+    TSeatRange r;
+    strcpy( r.first.line, first_xname.c_str() );
+    strcpy( r.first.row, first_yname.c_str() );
+    r.second = r.first;
+    for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест
+    	ProgTrace( TRACE5, "seats.push_back: xname=%s, yname=%s, pr_down=%d, seats_count=%d",
+    	           r.first.line, r.first.row, pr_down, seats_count );
+      Qry.SetVariable( "first_xname", r.first.line );
+      Qry.SetVariable( "first_yname", r.first.row );
+      Qry.Execute();
+      int p_id;
+      while ( !Qry.Eof ) {
+  	    switch( layer_type ) {
+          case cltCheckin:
+      	    p_id = Qry.FieldAsInteger( "pax_id" );
+      	    break;
+  		    case cltPreseat:
+  			    p_id = Qry.FieldAsInteger( "crs_pax_id" );
+            break;
+          default:
+      	    ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+      	    throw UserException( "Устанавливаемый слой запрещен для разметки" );
+        }  	
+       // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира
+        if ( string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) &&
+    	       pax_id != p_id ) {
+  	      ProgTrace( TRACE5, "!!!ChangeLayer: seat_type!=stDropseat, EncodeCompLayerType( layer_type )=%s already found in trip_comp_layers for other passangers, point_id=%d in funct ChangeLayer",
+  	                 EncodeCompLayerType( layer_type ), point_id );
+  	      throw UserException( "Место занято другим пассажиром" );
+        }
+  	    Qry.Next();
+      }
+      seats.push_back( r );
+      if ( !getNextSeat( layer_type, point_id, r, pr_down ) )
       	break;
-  		case cltPreseat:
-  			p_id = Qry.FieldAsInteger( "crs_pax_id" );
-        break;
-      default:
-      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
     }
-  	
-  // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира
-    if ( seat_type != stDropseat &&
-    	   string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) &&
-    	   pax_id != p_id ) {
-  	  ProgTrace( TRACE5, "!!!ChangeLayer: seat_type!=stDropseat, EncodeCompLayerType( layer_type )=%s already found in trip_comp_layers for other passangers, point_id=%d in funct ChangeLayer",
-  	             EncodeCompLayerType( layer_type ), point_id );
-  	  throw UserException( "Место занято другим пассажиром" );
-    }
-  	Qry.Next();
   }
+  
   tst();
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
   	Qry.Clear();
@@ -2149,18 +2162,6 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   tst();
   // назначение нового слоя
   if ( seat_type != stDropseat ) { // посадка на новое место
-    vector<TSeatRange> seats;
-    TSeatRange r;
-    strcpy( r.first.line, first_xname.c_str() );
-    strcpy( r.first.row, first_yname.c_str() );
-    r.second = r.first;
-    for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест
-    	ProgTrace( TRACE5, "seats.push_back: xname=%s, yname=%s, pr_down=%d, seats_count=%d",
-    	           r.first.line, r.first.row, pr_down, seats_count );
-      seats.push_back( r );
-      if ( !getNextSeat( layer_type, point_id, r, pr_down ) )
-      	break;
-    }
     Qry.Clear();
     Qry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
     tst();

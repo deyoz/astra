@@ -1322,7 +1322,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  class,pax.subclass, "
-    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,rownum) AS seat_no, "              
+    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "              
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
@@ -2522,7 +2522,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     PaxQry.Clear();
     PaxQry.SQLText=
       "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,"
-      "       salons.get_seat_no(pax.pax_id,:checkin_layer,1,:point_dep,rownum) AS seat_no, "
+      "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,'one',rownum) AS seat_no, "
       "       pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
       "       crs_pax.pax_id AS crs_pax_id, "
