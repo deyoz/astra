@@ -2178,7 +2178,7 @@ void TSOMList::add_seat(int point_id, string xname, string yname, bool pr_lat)
 void TSOMList::dump_list(map<int, string> &list)
 {
     for(map<int, string>::iterator im = list.begin(); im != list.end(); im++) {
-        ProgTrace(TRACE5, "point_arv: %d; seats: %s", im->first, (convert_seat_no(im->second, 1)).c_str());
+        ProgTrace(TRACE5, "point_arv: %d; seats: %s", im->first, (/*convert_seat_no(*/im->second/*, 1)*/).c_str());
     }
 }
 
@@ -2407,7 +2407,7 @@ void TSOMList::get(TTlgInfo &info)
         if(list[point_id].empty())
             item += "NIL";
         else {
-            item += convert_seat_no(list[point_id], info.pr_lat);
+            item += /*convert_seat_no(*/list[point_id]/*, info.pr_lat)*/;
             while(item.size() + 1 > LINE_SIZE) {
                 size_t pos = item.rfind(' ', LINE_SIZE - 2);
                 items.push_back(item.substr(0, pos));

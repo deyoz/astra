@@ -1218,7 +1218,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       msg << "Ошибка формирования телеграммы " << short_name
                           << ": " << E.what() << ", ";
                   }
-              else // а сюда телеграммы реализованные на PL/SQL 
+              else // а сюда телеграммы реализованные на PL/SQL
                   try
                   {
                       time_start=time(NULL);
@@ -1662,7 +1662,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   if (con.pax.reg_no!=-1)
     body << ".S/"
          << (con.indicator==DEL?'N':'Y') << '/'
-         << convert_seat_no(con.pax.seat_no,pr_lat) << '/'
+         << /*convert_seat_no(*/con.pax.seat_no/*,pr_lat)!!!*/ << '/'
          << con.pax.status << '/'
          << setw(3) << setfill('0') << con.pax.reg_no << ENDL;
 
@@ -1842,5 +1842,44 @@ void TelegramInterface::SendBSM
     };
 };
 
+void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  vector<TSeatRange> ranges;
+  try
+  {
+    ParseSeatRange(NodeAsString("lexeme",reqNode),ranges,true);
 
+    xmlNodePtr rangesNode,rangeNode;
+    rangesNode=NewTextChild(resNode,"ranges");
+
+    sort(ranges.begin(),ranges.end());
+
+    if (ranges.begin()!=ranges.end())
+    {
+      TSeatRange range=*(ranges.begin());
+      TSeat seat=range.first;
+      do
+      {
+        TSeatRange range2;
+        range2.first=seat;
+        range2.second=seat;
+        ranges.push_back(range2);
+      }
+      while (NextSeatInRange(range,seat));
+    };
+
+    for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+    {
+      rangeNode=NewTextChild(rangesNode,"range");
+      NewTextChild(rangeNode,"first_row",i->first.row);
+      NewTextChild(rangeNode,"first_line",i->first.line);
+      NewTextChild(rangeNode,"second_row",i->second.row);
+      NewTextChild(rangeNode,"second_line",i->second.line);
+    };
+  }
+  catch(Exception &e)
+  {
+    throw UserException(e.what());
+  };
+};
 

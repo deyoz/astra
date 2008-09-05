@@ -352,10 +352,13 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   " WHERE point_dep=:point_id AND class IS NULL "
 	   " ORDER BY grp_id";
   else
+  {
 	  Qry.SQLText =
 	   "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	   "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
-	   "       pax.pers_type,pax.seat_no,pax.seats seats,"
+	   "       pax.pers_type, "
+	   "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'one',rownum) AS seat_no, "
+	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
 	   "       ckin.get_rkAmount(pax_grp.grp_id,pax.pax_id,rownum) rkamount,"
 	   "       ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) rkweight,"
@@ -366,6 +369,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id"
 	   " ORDER BY pax_grp.grp_id,seats ";
+	  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
+	};
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	TQuery RemQry( &OraSession );
@@ -791,7 +796,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
             ostringstream r;
             r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
  	          //res_checkin += r.str();
- 	          bags += r.str(); 	          
+ 	          bags += r.str();
 	  			}*/
    			  //res_checkin += i->record + "0;";
    			  //!!!!!bags += i->record + "0;"; //???
@@ -854,29 +859,29 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 	  if ( n != prior_aodb_pax.end() )
 	  	n->doit = true;
 	//!!!!!!}
-	
-	for (vector<string>::iterator si=delbags.begin(); si!=delbags.end(); si++ ) {		
+
+	for (vector<string>::iterator si=delbags.begin(); si!=delbags.end(); si++ ) {
 		if ( pr_unaccomp ) {
       stringstream r;
       r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
       res_checkin += r.str() + *si + "\n";
     }
-    else res_checkin += *si;    
+    else res_checkin += *si;
 	}
-	
-	for (vector<string>::iterator si=bags.begin(); si!=bags.end(); si++ ) {		
+
+	for (vector<string>::iterator si=bags.begin(); si!=bags.end(); si++ ) {
 		if ( pr_unaccomp ) {
       stringstream r;
       r<<setfill(' ')<<std::fixed<<setw(6)<<bag_num++<<unaccomp_header;
       res_checkin += r.str() + *si + "\n";
     }
-    else res_checkin += *si;    
+    else res_checkin += *si;
 	}
-	
+
 	//ProgTrace( TRACE5, "res_checkin=%s", res_checkin.c_str() );
-		
+
 /*!!!!!	  res_checkin += delbags + bags; */
-	
+
 	PQry.Clear();
 	if ( pr_unaccomp ) {
 	  PQry.SQLText =
@@ -910,7 +915,7 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flight &fl )
 {
 	int err=0;
-try {	
+try {
 	fl.invalid_term.clear();
   fl.rec_no = NoExists;
  	if ( linestr.length() < REC_NO_LEN )
@@ -1460,7 +1465,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       	Qry.SetVariable( "pr_del", -1 );
       else
     		Qry.SetVariable( "pr_del", 0 );
-    	err++;	
+    	err++;
       TIDQry.Execute();
       err++;
       Qry.SetVariable( "tid", TIDQry.FieldAsInteger( "n" ) );
@@ -1765,11 +1770,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	  reqInfo->MsgToLog( string( "Назначение стоек регистрации" ) + reg, evtDisp, move_id, point_id );
 	if ( pr_change_brd )
 		reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
-}		
+}
 catch(...){
 	ProgError( STDLOG, "AODB error=%d", err );
 	throw;
-}		
+}
 }
 
 
@@ -1956,7 +1961,7 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	StationsQry.CreateVariable( "point_id", otInteger, point_id );
 	StationsQry.Execute();
 	record<<setw(1)<<(int)!StationsQry.FieldIsNULL( "c" );*/
-	
+
 	StationsQry.Clear();
 	StationsQry.SQLText =
 	 "SELECT name, start_time FROM trip_stations, stations "
@@ -2018,7 +2023,7 @@ bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &f
 
 void VerifyParseFlight( )
 {
-	std::string linestr = 
+	std::string linestr =
 "     1    184071     ЮТ437   01.09.2008 21:5001.09.2008 21:5001.09.2008 22:04 2   85134 11474    ТУ154М     8568101.09.2008 20:2001.09.2008 21:1001.09.2008 21:1001.09.2008 21:3000;1СКЧ0;Р  130;Р  140;Р  190;Р  200;Р  210;Р  220;Р  230;Р  240;Р  250;Р  260;Р  270;Р  350;Р  360;Р  370;Р 5010;Р 5020;Р 5030;Р 5040;Р 5050;Р 5060;П   40;";
   AODB_Flight fl;
   string point_addr = "DJEK";

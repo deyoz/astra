@@ -365,8 +365,7 @@ void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name)) family, "
         "      decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
         "      decode(:pr_lat, 0, classes.code, classes.code_lat) class, "
-        "      LPAD(crs_pax.seat_no,GREATEST(3,LENGTH(crs_pax.seat_no)),'0')|| "
-        "        DECODE(SIGN(1-crs_pax.seats),-1,'+'||TO_CHAR(crs_pax.seats-1),'') seat_no, "
+        "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no, "
         "      decode(:pr_lat, 0, airps.code, NVL(airps.code_lat,airps.code)) target, "
         "      report.get_trfer_airp(last_target) last_target, "
         "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
@@ -476,8 +475,7 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no, "
         "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
-        "       LPAD(seat_no,3,'0')|| "
-        "           DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       report.get_reminfo(pax_id,',') AS info "
         "FROM   pax_grp,pax,pers_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -489,6 +487,7 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
@@ -563,10 +562,9 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no, "
         "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
-        "       LPAD(seat_no,3,'0')|| "
-        "           DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
-        "       ckin.get_bagAmount(pax.grp_id,pax.pax_id/*,rownum*/) AS bagAmount, "
-        "       ckin.get_bagWeight(pax.grp_id,pax.pax_id/*,rownum*/) AS bagWeight, "
+        "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bagAmount, "
+        "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bagWeight, "
         "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
         "FROM   pax_grp,pax,pers_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -577,6 +575,7 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
@@ -702,8 +701,8 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, "
         "   surname||' '||pax.name AS full_name, "
         "   pax.pers_type, "
-        "   LPAD(seat_no,3,'0')|| "
-        "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
+        "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum,0) AS seat_no, "
+        "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, "
         "   pax.seats, ";
     if(
             target.empty() ||
@@ -811,6 +810,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -863,7 +863,10 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
         NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
-        NewTextChild(rowNode, "seat_no", convert_seat_no(Qry.FieldAsString("seat_no"), pr_lat));
+        if (pr_lat==0)
+          NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        else
+          NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no_lat"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
         Qry.Next();
     }

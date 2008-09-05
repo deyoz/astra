@@ -288,7 +288,6 @@ class UserException2:public EXCEPTIONS::UserException
     UserException2(): UserException(""){};
 };
 
-std::string convert_seat_no(const std::string &value, bool pr_lat);
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);

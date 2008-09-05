@@ -462,13 +462,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pers_type, "
         "    class, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-        "    seat_no, "
+        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'one',rownum) AS seat_no, "
+        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no_str, "
         "    seats, "
         "    ticket_no, "
         "    coupon_no, "
         "    document, "
         "    pax.tid, "
-        "    LPAD(seat_no,3,'0')||DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no_str, "
         "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
         "    NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
         "    NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
@@ -487,6 +487,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         " ORDER BY reg_no ";
 
     Qry.SQLText = sqlText;
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     if (reg_no!=-1 && Qry.Eof)
       throw UserException("Пассажир не зарегистрирован");

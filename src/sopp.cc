@@ -43,7 +43,7 @@ const char* points_SOPP_SQL =
     " FROM points, "
     " (SELECT DISTINCT move_id FROM points "
     "   WHERE points.pr_del!=-1 "
-    "         :where_sql AND "    
+    "         :where_sql AND "
     "         ( time_in >= :first_date AND time_in < :next_date OR "
     "           time_out >= :first_date AND time_out < :next_date ) ) p "
     "WHERE points.move_id = p.move_id AND "
@@ -83,7 +83,7 @@ const char * arx_points_SOPP_SQL =
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
     "         pr_del!=-1 "
-    "         :where_sql AND "    
+    "         :where_sql AND "
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
@@ -99,7 +99,7 @@ const char * arx_points_ISG_SQL =
     " (SELECT DISTINCT move_id FROM arx_points "
     "   WHERE part_key>=:first_date AND "
     "         pr_del!=-1 "
-    "         :where_sql AND "    
+    "         :where_sql AND "
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
@@ -546,16 +546,16 @@ string addCondition( const char *sql )
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
                           bool arx, bool pr_isg, int point_id = NoExists )
 {
-	string errcity;	
+	string errcity;
 	TReqInfo *reqInfo = TReqInfo::Instance();
-		
+
   if (reqInfo->user.access.airlines.empty() && reqInfo->user.access.airlines_permit ||
-      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return errcity;		
-		
+      reqInfo->user.access.airps.empty() && reqInfo->user.access.airps_permit) return errcity;
+
   TQuery PointsQry( &OraSession );
   TBaseTable &airps = base_tables.get( "airps" );
   TBaseTable &cities = base_tables.get( "cities" );
-  
+
   if ( arx )
   	if ( pr_isg )
   		PointsQry.SQLText = addCondition( arx_points_ISG_SQL ).c_str();
@@ -571,7 +571,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   			PointsQry.SQLText = points_id_SOPP_SQL;
   			PointsQry.CreateVariable( "point_id", otInteger, point_id );
   	  }
-  	    
+
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
    /*   if ( reqInfo->user.sets.time != ustTimeUTC ) {
@@ -715,7 +715,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		TSOPPTrip ntr = createTrip( move_id, id, dests );
             ntr.ref = ref;
             if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time !=ustTimeUTC*//*==ustTimeLocalAirp,*/
-            	                     errcity, pr_isg ) ) {            	
+            	                     errcity, pr_isg ) ) {
             	vector<TSOPPTrip>::iterator v=vtrips.end();
             	if ( pr_isg ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
@@ -1351,11 +1351,11 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
 
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	
+
   //VerifyParseFlight( ); //!!!
-  
-  
-  
+
+
+
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -1718,9 +1718,9 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
    "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id; "
    " curRow      cur%ROWTYPE; "
    " BEGIN "
-   "  UPDATE trip_comp_elems SET pr_free=1 WHERE point_id=:point_id; "
+   "  DELETE FROM trip_comp_layers WHERE point_id=:point_id AND layer_type=:layer_type; "
    "  FOR curRow IN cur LOOP "
-   "    UPDATE pax SET refuse='А',pr_brd=NULL,seat_no=NULL WHERE grp_id=curRow.grp_id; "
+   "    UPDATE pax SET refuse='А',pr_brd=NULL WHERE grp_id=curRow.grp_id; "
    "    mvd.sync_pax_grp(curRow.grp_id,:term); "
    "    ckin.check_grp(curRow.grp_id); "
    "  END LOOP; "
@@ -1729,6 +1729,7 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
    "END;";
 
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin));
   Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
   Qry.Execute();
   TReqInfo::Instance()->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
@@ -2097,13 +2098,13 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "luggage", reqNode ) ) {
   	GetLuggage( point_id, dataNode );
   }
-  
+
 	TQuery Qry(&OraSession );
  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
  	Qry.CreateVariable( "point_id", otInteger, point_id );
  	Qry.Execute();
  	string airp = Qry.FieldAsString( "airp" );
-  
+
   if ( GetNode( "stages", reqNode ) ) {
   	if ( !Qry.Eof ) {
   	  vector<TSoppStage> stages;
@@ -2339,11 +2340,11 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
    " UPDATE points SET point_num=point_num-1 WHERE point_num<=:point_num AND move_id=:move_id AND pr_del=-1 ";
   DelQry.DeclareVariable( "move_id", otInteger );
   DelQry.DeclareVariable( "point_num", otInteger );
-  
+
   TQuery TlgQry(&OraSession);
 	TlgQry.SQLText = "DELETE tlg_binding WHERE point_id_spp=:point_id ";
 	TlgQry.DeclareVariable( "point_id", otInteger );
-	  
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   bool existsTrip = false;
   bool pr_last;
@@ -2664,7 +2665,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 /*!!!end of*/
 
     if ( !id->modify ) { //??? remark
-    	point_num++;    	
+    	point_num++;
     	continue;
     }
 
@@ -2796,14 +2797,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 	  	  		reqInfo->MsgToLog( string( "Возврат пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  	else
 	  	  		if ( id->pr_del == -1 ) {
-   	      	  id->point_num = 0-id->point_num-1;	  	  			
-    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );   	      	  
+   	      	  id->point_num = 0-id->point_num-1;
+    	      	ProgTrace( TRACE5, "point_num=%d", id->point_num );
           		DelQry.SetVariable( "move_id", move_id );
     	      	DelQry.SetVariable( "point_num", id->point_num );
     		      DelQry.Execute();
 	  	  			reqInfo->MsgToLog( string( "Удаление пункта " ) + id->airp, evtDisp, move_id, id->point_id );
 	  	  			TlgQry.SetVariable( "point_id", id->point_id );
-	  	  			TlgQry.Execute();	  	  			
+	  	  			TlgQry.Execute();
 	  	  		}
   	  }
   	  else
@@ -3852,7 +3853,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	Qry.SQLText = "DELETE tlg_binding WHERE point_id_spp IN "
 	              "( SELECT point_id FROM points WHERE move_id=:move_id )";
 	Qry.CreateVariable( "move_id", otInteger, move_id );
-	Qry.Execute();	
+	Qry.Execute();
 	Qry.Clear();
 	Qry.SQLText = "UPDATE points SET pr_del=-1 WHERE move_id=:move_id";
 	Qry.CreateVariable( "move_id", otInteger, move_id );

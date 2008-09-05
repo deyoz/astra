@@ -1579,24 +1579,6 @@ bool is_dst(TDateTime d, string region)
   return ( tz->has_dst() && ld.is_dst() );
 }
 
-char ToLatSeatNo(char c)
-{
-  if ((unsigned char)c>=0x80)
-  {
-    ByteReplace(&c,1,rus_seat,lat_seat);
-    if ((unsigned char)c>=0x80) c='?';
-  };
-  return c;
-};
-
-string convert_seat_no(const string &value, bool pr_lat)
-{
-  string result = value;
-  if (pr_lat)
-    transform(result.begin(), result.end(), result.begin(), ToLatSeatNo);
-  return result;
-};
-
 char ToLatPnrAddr(char c)
 {
   if ((unsigned char)c>=0x80)
