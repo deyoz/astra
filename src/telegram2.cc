@@ -147,6 +147,8 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
 }
 
 struct TTlgInfo {
+    // кодировка салона
+    bool pr_lat_seat;
     string tlg_type;
     //адреса получателей
     string addrs;
@@ -242,6 +244,37 @@ string format_addr_line(string vaddrs)
         result += addr_line + br;
     return result;
 }
+
+struct TSOMPlace {
+    int x, y, num, point_arv;
+    string xname, yname;
+    void dump();
+    TSOMPlace() {
+        num = NoExists;
+        x = NoExists;
+        y = NoExists;
+        point_arv = NoExists;
+    }
+};
+
+typedef map<string, TSOMPlace> t_som_row;
+typedef map<string, t_som_row> t_som_comp;
+
+struct TSOMList {
+    private:
+        t_som_comp comp;
+        void apply_comp(TTlgInfo &info);
+        void get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat);
+        void get_place(int point_dep, TSOMPlace &place, string seat_no);
+        void dump_comp();
+        void dump_list(map<int, string> &list);
+        void get_seat_list(map<int, string> &list);
+    public:
+        vector<string> items;
+        void get(TTlgInfo &info);
+        void add_seat(int point_id, string xname, string yname, bool pr_lat); // used in PRL too
+        string get_seat_list(); // used in PRL
+};
 
 namespace PRL_SPACE {
     struct TPNRItem {
@@ -768,14 +801,39 @@ namespace PRL_SPACE {
             rem.rem = "1CHD";
             items.push_back(rem);
         }
+        Qry.Clear();
         Qry.SQLText =
-            "select seat_no from pax where pax_id = :pax_id and pax.seat_no is not null ";
+            "select distinct "
+            "   trip_comp_elems.xname, "
+            "   trip_comp_elems.yname "
+            "from "
+            "   trip_comp_layers, "
+            "   trip_comp_ranges, "
+            "   trip_comp_elems "
+            "where "
+            "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
+            "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
+            "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
+            "   trip_comp_elems.num = trip_comp_ranges.num and "
+            "   trip_comp_elems.x = trip_comp_ranges.x and "
+            "   trip_comp_elems.y = trip_comp_ranges.y and "
+            "   trip_comp_layers.layer_type = :ckin_layer and "
+            "   trip_comp_layers.pax_id = :pax_id ";
+        Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
+        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
-            TRemItem rem;
-            rem.rem = "SEAT " + convert_seat_no(Qry.FieldAsString(0), info.pr_lat);
-            items.push_back(rem);
+            TSOMList seats;
+            for(; !Qry.Eof; Qry.Next())
+                seats.add_seat(0, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), (info.pr_lat or info.pr_lat_seat));
+            string seat_list = seats.get_seat_list();
+            if(!seat_list.empty()) {
+                TRemItem rem;
+                rem.rem = "SEAT " + seat_list;
+                items.push_back(rem);
+            }
         }
+        Qry.Clear();
         Qry.SQLText =
             "select "
             "    pax_rem.rem, "
@@ -797,6 +855,7 @@ namespace PRL_SPACE {
             "/*        pax_rem.rem_code not like 'TKN%' and */ "
             "    pax.pax_id=crs_pax.pax_id(+) AND "
             "    crs_pax.pnr_id=crs_pnr.pnr_id(+) ";
+        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_rem = Qry.FieldIndex("rem");
@@ -2081,18 +2140,6 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
-struct TSOMPlace {
-    int x, y, num, point_arv;
-    string xname, yname;
-    void dump();
-    TSOMPlace() {
-        num = NoExists;
-        x = NoExists;
-        y = NoExists;
-        point_arv = NoExists;
-    }
-};
-
 void TSOMPlace::dump()
 {
     ostringstream buf;
@@ -2107,9 +2154,6 @@ void TSOMPlace::dump()
     ProgTrace(TRACE5, buf.str().c_str());
 }
 
-typedef map<string, TSOMPlace> t_som_row;
-typedef map<string, t_som_row> t_som_comp;
-
 struct TSeatListContext {
     string first_xname, last_xname;
     char cur_seat_type;
@@ -2119,25 +2163,32 @@ struct TSeatListContext {
     void seat_to_str(string &list, string yname, string first_place,  string last_place);
 };
 
-struct TSOMList {
-    private:
-        t_som_comp comp;
-        void apply_comp(int point_id);
-        void get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats);
-        void get_place(int point_dep, TSOMPlace &place, string seat_no);
-        void dump_comp();
-        void dump_list(map<int, string> &list);
-        void get_seat_list(map<int, string> &list);
-    public:
-        vector<string> items;
-        void get(TTlgInfo &info);
-};
+void TSOMList::add_seat(int point_id, string xname, string yname, bool pr_lat)
+{
+    TSOMPlace place;
+    place.xname = xname;
+    place.yname = yname;
+    place.point_arv = point_id;
+    if(is_iata_row(place.yname) && is_iata_line(place.xname)) {
+        place.xname = denorm_iata_line(place.xname, pr_lat);
+        comp[norm_iata_row(place.yname)][place.xname] = place;
+    }
+}
 
 void TSOMList::dump_list(map<int, string> &list)
 {
     for(map<int, string>::iterator im = list.begin(); im != list.end(); im++) {
         ProgTrace(TRACE5, "point_arv: %d; seats: %s", im->first, (convert_seat_no(im->second, 1)).c_str());
     }
+}
+
+string  TSOMList::get_seat_list()
+{
+    map<int, string> list;
+    get_seat_list(list);
+    if(list.size() > 1)
+        throw Exception("TSOMList::get_seat_list(): wrong map size %d", list.size());
+    return list[0];
 }
 
 void TSOMList::get_seat_list(map<int, string> &list)
@@ -2220,7 +2271,7 @@ void TSOMList::get_place(int point_dep, TSOMPlace &place, string seat_no)
     }
 }
 
-void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats)
+void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2261,12 +2312,8 @@ void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_
         Qry.SetVariable("y", place.y);
         Qry.Execute();
         if(Qry.Eof)
-            throw Exception("TSOMList::get_places: next seat fetch failed. seqat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
-        place.xname = Qry.FieldAsString("xname");
-        place.yname = Qry.FieldAsString("yname");
-        place.point_arv = point_arv;
-        if(is_iata_row(place.yname) && is_iata_line(place.xname))
-            comp[norm_iata_row(place.yname)][place.xname] = place;
+            throw Exception("TSOMList::get_places: next seat fetch failed. seat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
+        add_seat(point_arv, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), pr_lat);
     }
 }
 
@@ -2284,7 +2331,7 @@ void TSOMList::dump_comp()
         }
 }
 
-void TSOMList::apply_comp(int point_id)
+void TSOMList::apply_comp(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2299,7 +2346,7 @@ void TSOMList::apply_comp(int point_id)
         "where "
         "   pax_grp.point_dep = :point_dep and "
         "   pax_grp.grp_id = pax.grp_id ";
-    Qry.CreateVariable("point_dep", otInteger, point_id);
+    Qry.CreateVariable("point_dep", otInteger, info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
@@ -2310,11 +2357,12 @@ void TSOMList::apply_comp(int point_id)
             if(Qry.FieldIsNULL(col_seat_no))
                 continue;
             get_places(
-                    point_id,
+                    info.point_id,
                     Qry.FieldAsInteger(col_point_arv),
                     Qry.FieldAsInteger(col_pax_id),
                     Qry.FieldAsString(col_seat_no),
-                    Qry.FieldAsInteger(col_seats)
+                    Qry.FieldAsInteger(col_seats),
+                    info.pr_lat
                     );
         }
     }
@@ -2322,7 +2370,7 @@ void TSOMList::apply_comp(int point_id)
 
 void TSOMList::get(TTlgInfo &info)
 {
-    apply_comp(info.point_id);
+    apply_comp(info);
     map<int, string> list;
     get_seat_list(list);
     // finally we got map with key - point_arv, data - string represents seat list for given point_arv
@@ -2591,20 +2639,23 @@ int TelegramInterface::create_tlg(
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "SELECT "
-            "   airline, "
-            "   flt_no, "
-            "   suffix, "
-            "   scd_out scd, "
-            "   act_out, "
-            "   craft, "
-            "   bort, "
-            "   airp, "
-            "   point_num, "
-            "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
+            "   points.airline, "
+            "   points.flt_no, "
+            "   points.suffix, "
+            "   points.scd_out scd, "
+            "   points.act_out, "
+            "   points.craft, "
+            "   points.bort, "
+            "   points.airp, "
+            "   points.point_num, "
+            "   DECODE(points.pr_tranzit,0,points.point_id,points.first_point) first_point, "
+            "   nvl(trip_sets.pr_lat_seat, 1) pr_lat_seat "
             "from "
-            "   points "
+            "   points, "
+            "   trip_sets "
             "where "
-            "   point_id = :vpoint_id AND pr_del>=0";
+            "   points.point_id = :vpoint_id AND points.pr_del>=0 and "
+            "   points.point_id = trip_sets.point_id(+) ";
         Qry.CreateVariable("vpoint_id", otInteger, vpoint_id);
         Qry.Execute();
         if(Qry.Eof)
@@ -2621,6 +2672,7 @@ int TelegramInterface::create_tlg(
         info.airline = TlgElemIdToElem(etAirline, info.airline, info.pr_lat);
         info.suffix = TlgElemIdToElem(etSuffix, info.suffix, info.pr_lat);
         info.airp_dep = TlgElemIdToElem(etAirp, info.own_airp, info.pr_lat);
+        info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
 
         string tz_region=AirpTZRegion(info.own_airp);
         info.scd_local = UTCToLocal( info.scd, tz_region );
