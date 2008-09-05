@@ -1046,19 +1046,13 @@ bool TSeatPlaces::SeatsPassenger_OnBasePlace( string &placeName, TSeatStep Step 
   bool OldCanUseSmoke = CanUseSmoke;
   bool CanUseGood = false;
   bool CanUseSmoke = false;
-  string nplaceName = placeName;
   try {
     if ( !placeName.empty() ) {
       /* конвертация номеров мест пассажиров в зависимости от лат. или рус. салона */
-      if ( placeName == CharReplace( nplaceName, rus_seat, lat_seat ) )
-        CharReplace( nplaceName, lat_seat, rus_seat );
-      if ( placeName == nplaceName )
-        nplaceName.clear();
       for ( vector<TPlaceList*>::iterator iplaceList=CurrSalon->placelists.begin();
             iplaceList!=CurrSalon->placelists.end(); iplaceList++ ) {
         TPoint FP;
-        if ( (*iplaceList)->GetisPlaceXY( placeName, FP ) ||
-             (*iplaceList)->GetisPlaceXY( nplaceName, FP ) ) {
+        if ( (*iplaceList)->GetisPlaceXY( placeName, FP ) ) {
           CurrSalon->SetCurrPlaceList( *iplaceList );
           if ( SeatSubGrp_On( FP, Step, 0 ) ) {
             CanUseGood = OldCanUseGood;
@@ -1641,12 +1635,12 @@ bool ExistsBasePlace( TPassenger &pass, int lang )
   vector<TPlace*> vpl;
   string placeName = pass.placeName;
   string nplaceName = placeName;
-  if ( lang == 1 ) {
+/*  if ( lang == 1 ) {
     if ( placeName == CharReplace( nplaceName, rus_seat, lat_seat ) )
       CharReplace( nplaceName, lat_seat, rus_seat );
     if ( placeName == nplaceName ) // в лат. и рус. одинаковое название
       nplaceName.clear();
-  }
+  }*/
   for ( vector<TPlaceList*>::iterator plList=CurrSalon->placelists.begin();
         plList!=CurrSalon->placelists.end(); plList++ ) {
     if ( !lang && pass.placeList ) { /* у пассажира уже есть ссылка на нужный салон */
@@ -1655,9 +1649,10 @@ bool ExistsBasePlace( TPassenger &pass, int lang )
     }
     else
       placeList = *plList;
-    if ( !lang && pass.placeList ||
-         !lang && !pass.placeList && placeList->GetisPlaceXY( placeName, FP ) ||
-          lang && !nplaceName.empty() && placeList->GetisPlaceXY( nplaceName, FP ) ) {
+    if ( /*!lang && */pass.placeList ||
+         /*!lang && !pass.placeList &&*/ 
+         placeList->GetisPlaceXY( placeName, FP )/* ||
+          lang && !nplaceName.empty() && placeList->GetisPlaceXY( nplaceName, FP )*/ ) {
       int j = 0;
       for ( ; j<pass.countPlace; j++ ) {
         if ( !placeList->ValidPlace( FP ) )
@@ -1859,6 +1854,7 @@ void SelectPassengers( TSalons *Salons, TPassengers &p )
   p.Clear();
   tst();
   TQuery Qry( &OraSession );
+  //!!!
   Qry.SQLText = "SELECT points.airline,pax_grp.grp_id,pax.pax_id,pax.reg_no,surname,pax.name, "\
                 "       seat_no,prev_seat_no,pax_grp.class,cls_grp.code subclass,seats,pax.tid,step "\
                 " FROM pax_grp,pax, cls_grp, points, "\
@@ -2004,8 +2000,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   switch ( layer_type ) {
   	case cltCheckin:
       Qry.SQLText =
-       "SELECT surname, name, reg_no, grp_id, seats, a.step step, tid, "" target, "
-       "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'seats',rownum) AS seat_no, "          
+       "SELECT surname, name, reg_no, grp_id, seats, a.step step, tid, '' target, 0 point_id,"
+       "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'seats',rownum) AS seat_no "          
        " FROM pax, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2200,6 +2196,9 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   }
 
   TReqInfo *reqinfo = TReqInfo::Instance();
+  string new_seat_no = denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat );
+  if ( seats.size() > 1 )
+  	new_seat_no += string( "+" ) + IntToString( seats.size() - 1 );
 
   switch( seat_type ) {
   	case stSeat:
@@ -2207,13 +2206,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   			case cltCheckin:
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " посажен на место: " + 
-                             denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat ),
+                             new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         case cltPreseat:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
                              " предварительно назначено место. Новое место: " + 
-                             denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat ),
+                             new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         default:;
@@ -2224,13 +2223,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   			case cltCheckin:
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
                              " пересажен. Новое место: " + 
-                             denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat ),
+                             new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         case cltPreseat:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
                              " предварительно назначено место. Новое место: " + 
-                             denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat ),
+                             new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         default:;
@@ -2482,7 +2481,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
                  continue;
                break;
           }
-          if ( ExistsBasePlace( pass, vSeats ) )
+          if ( ExistsBasePlace( pass, vSeats ) ) //??? кодировка !!!
             continue;
           if ( SeatOnNotBase ) {
             tst();
@@ -2517,6 +2516,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
     TQuery SQry( &OraSession );
     SQry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
     TQuery Qry( &OraSession );
+    //!!!
     Qry.SQLText = "BEGIN "\
                   "  UPDATE pax set seat_no=:seat_no,prev_seat_no=:prev_seat_no,tid=tid__seq.currval "\
                   "  WHERE pax_id=:pax_id; "\
@@ -2587,7 +2587,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
   ProgTrace( TRACE5, "passengers.count=%d", p.getCount() );
 }
 
-void SavePlaces( )
+/*void SavePlaces( )
 {
   TQuery Qry( &OraSession );
   TQuery RQry( &OraSession ); //удаление забронированных мест в салоне
@@ -2677,7 +2677,7 @@ void SavePlaces( )
       Qry.Execute();
     }
   }
-}
+}*/
 
 } /* end namespace SEATS */
 

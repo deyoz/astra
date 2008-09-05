@@ -422,21 +422,39 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   vector<SALONS::TSalonSeat> seats;
   
   try {  		
-  	SEATS::ChangeLayer( cltPreseat, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+  	SEATS::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
   	SALONS::getSalonChanges( Salons, seats );
   	Qry.Clear();
-  	Qry.SQLText =
-  	  "SELECT "
-      "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "     
-      "  salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "          
-      "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no "          
-      "FROM crs_pnr,crs_pax,pax,pax_grp "
-      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-      "      crs_pax.pax_id=pax.pax_id(+) AND "
-      "      pax.grp_id=pax_grp.grp_id(+) AND "
-      "      crs_pax.pax_id=:pax_id";
+  	switch( layer_type ) {
+  	  case cltCheckin:
+    	  Qry.SQLText =
+    	    "SELECT "
+          "  '' AS crs_seat_no, "     
+          "  '' AS preseat_no, "          
+          "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no "          
+          "FROM pax,pax_grp "
+          "WHERE pax.grp_id=pax_grp.grp_id AND "
+          "      pax.pax_id=:pax_id";  	  	
+        break;
+  	  case cltPreseat:
+    	  Qry.SQLText =
+    	    "SELECT "
+          "  salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "     
+          "  salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "          
+          "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no "          
+          "FROM crs_pnr,crs_pax,pax,pax_grp "
+          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+          "      crs_pax.pax_id=pax.pax_id(+) AND "
+          "      pax.grp_id=pax_grp.grp_id(+) AND "
+          "      crs_pax.pax_id=:pax_id";
+        Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );          
+        break;    
+      default:        
+      	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
+      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+    }
+        
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
-    Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
     Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );    
     Qry.Execute();
     if ( Qry.Eof )
@@ -777,6 +795,36 @@ void SalonsInterface::ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 void SalonsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -735,11 +735,27 @@ string TPlaceList::GetYsName( int y )
 
 bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
-  if ( !placeName.empty() && placeName[ 0 ] == '0' )
-    placeName.erase( 0, 1 );
+	placeName = trim( placeName );
+	if ( placeName.empty() )
+		return false;		
+  /* конвертация номеров мест в зависимости от лат. или рус. салона */
+  size_t i = 0;
+  for (; i < placeName.size(); i++)
+    if ( placeName[ i ] != '0' )
+      break;
+  if ( i )
+    placeName.erase( 0, i );  
+  string seat_no = placeName, salon_seat_no;
+  if ( placeName == CharReplace( seat_no, rus_seat, lat_seat ) )
+    CharReplace( seat_no, lat_seat, rus_seat );
+  if ( placeName == seat_no )
+    seat_no.clear();
+  ProgTrace( TRACE5, "GetisPlaceXY: seat_no=%s, new_seat_no=%s", placeName.c_str(), seat_no.c_str() );
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
-      if ( placeName == *iy + *ix ) {
+    	salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false); 
+      if ( placeName == salon_seat_no ||
+      	   !seat_no.empty() && seat_no == salon_seat_no ) {
       	p.x = distance( xs.begin(), ix );
       	p.y = distance( ys.begin(), iy );
       	return place( p )->isplace;
@@ -848,6 +864,7 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
 bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
 {
   TQuery Qry( &OraSession );
+  //!!!
   string sql = "SELECT pax.pax_id FROM pax_grp, pax "\
                " WHERE pax_grp.grp_id=pax.grp_id AND "\
                "       point_dep=:point_id AND "\

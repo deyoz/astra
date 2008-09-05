@@ -9,7 +9,6 @@
 
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
-//enum TSeatsType { sreseats, sreserve };
 enum TSeatsType { stSeat, stReseat, stDropseat };
 
 class TSeat
@@ -239,7 +238,7 @@ void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNo
 void Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
 void SelectPassengers( TSalons *Salons, TPassengers &p );
 void SeatsPassengers( TSalons *Salons, bool FUse_BR=false );
-void SavePlaces( );
+//void SavePlaces( );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats, int pax_id );
