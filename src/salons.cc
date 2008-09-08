@@ -389,6 +389,7 @@ void TSalons::Write( TReadStyle readStyle )
 
 void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
 {
+	wo_invalid_seat_no = true;
   if ( readStyle == rTripSalons )
     ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
                trip_id, ClName.c_str() );
@@ -435,23 +436,26 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     if ( wo_invalid_seat_no )
     	sql_text += 
     	  " MINUS "
-    	  "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
-        "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type "
-    	  " FROM trip_comp_layers l, pax, pax_grp, trip_comp_ranges r, trip_comp_elems t "
-    	  "WHERE l.point_id=:point_id AND "
-    	  "      l.layer_type=:layer_type AND "
-    	  "      l.pax_id=pax.pax_id AND "
-    	  "      pax.grp_id=pax_grp.grp_id AND "
-    	  "      salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,pax_grp.point_dep,'one',rownum) IS NULL AND "         
-    	  "      r.point_id=l.point_id AND "
-    	  "      r.range_id=l.range_id AND "
-    	  "      t.point_id=r.point_id AND "
-    	  "      t.num=r.num AND "
-    	  "      t.x=r.num AND "
-    	  "      t.y=r.y ";
-    sql_text += " ORDER BY t.num, t.x desc, t.y desc ";
+        "SELECT DISTINCT t1.num,t1.x,t1.y,t1.elem_type,t1.xprior,t1.yprior,t1.agle, "
+        "t1.pr_smoke,t1.not_good,t1.xname,t1.yname,t1.class,r.layer_type "
+        " FROM trip_comp_layers l, pax, pax_grp, "
+        "      trip_comp_ranges r, trip_comp_elems t1 "
+        "WHERE l.point_id=:point_id AND "
+        "      l.layer_type=:layer_type AND "
+        "      l.pax_id=pax.pax_id AND "
+        "      r.point_id=l.point_id AND "
+        "      r.range_id=l.range_id AND "
+        "      t1.point_id=r.point_id AND "
+        "      t1.num=r.num AND "
+        "      t1.x=r.num AND "
+        "      t1.y=r.y AND "
+        "      pax_grp.point_dep=:point_id AND "
+        "      pax.grp_id=pax_grp.grp_id AND "
+        "      salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,pax_grp.point_dep,'one',rownum) IS NULL ";
+    sql_text += " ORDER BY num, x desc, y desc ";
     Qry.SQLText = sql_text;
     Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
   }
   else {
     Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
@@ -580,7 +584,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   TRem rem;
   int lat_count=0, rus_count=0;  
   string rus_lines = rus_seat, lat_lines = lat_seat;
-  ProgTrace( TRACE5, "rus)lines=%s, lat_lines=%s", rus_lines.c_str(), lat_lines.c_str() );
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -612,11 +615,9 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       if ( !pr_lat_seat_init ) {      	
       	if ( rus_lines.find( place.xname ) != string::npos ) {      		
           rus_count++;
-          ProgTrace( TRACE5, "place.xname=%s, find=%d", place.xname.c_str(), rus_lines.find( place.xname ) );
         }
     	  if ( lat_lines.find( place.xname ) != string::npos ) {
           lat_count++;           	
-          ProgTrace( TRACE5, "place.xname=%s, find=%d", place.xname.c_str(), lat_lines.find( place.xname ) );          
         }
     	}      
       place.xname = norm_iata_line( place.xname );
@@ -667,7 +668,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
     salonNode = salonNode->next;
   }
   if ( !pr_lat_seat_init ) {
-  	ProgTrace( TRACE5, "lat_count=%d, rus_count=%d", lat_count, rus_count );
   	pr_lat_seat = ( lat_count>=rus_count );
   }
 }
