@@ -2263,7 +2263,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
 {
   if ( Salons.placelists.empty() )
-    throw Exception( "Не задан салон для автоматической рассадки" );
+    throw Exception( "Не задан салон для автоматической рассадки" );    
   CurrSalon = &Salons;
   SeatAlg = sSeatPassengers;
   CanUseStatus = false; /* не учитываем статус мест */

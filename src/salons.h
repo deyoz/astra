@@ -118,7 +118,7 @@ class TSalons {
        
     bool getLatSeat() { return pr_lat_seat; };  
     void Build( xmlNodePtr salonsNode );
-    void Read( TReadStyle readStyle );
+    void Read( TReadStyle readStyle, bool wo_invalid_seat_no=false );
     void Write( TReadStyle readStyle );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );

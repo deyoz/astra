@@ -387,7 +387,7 @@ void TSalons::Write( TReadStyle readStyle )
   }
 }
 
-void TSalons::Read( TReadStyle readStyle )
+void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
 {
   if ( readStyle == rTripSalons )
     ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
@@ -423,7 +423,7 @@ void TSalons::Read( TReadStyle readStyle )
   Qry.Clear();  	
 
   if ( readStyle == rTripSalons ) {
-    Qry.SQLText = 
+  	string sql_text =     
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
       "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type "
       " FROM trip_comp_elems t, trip_comp_ranges r "
@@ -431,8 +431,26 @@ void TSalons::Read( TReadStyle readStyle )
       "      t.point_id=r.point_id(+) AND "
       "      t.num=r.num(+) AND "
       "      t.x=r.x(+) AND "
-      "      t.y=r.y(+) "
-      " ORDER BY t.num, t.x desc, t.y desc ";
+      "      t.y=r.y(+) ";
+    if ( wo_invalid_seat_no )
+    	sql_text += 
+    	  " MINUS "
+    	  "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
+        "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type "
+    	  " FROM trip_comp_layers l, pax, pax_grp, trip_comp_ranges r, trip_comp_elems t "
+    	  "WHERE l.point_id=:point_id AND "
+    	  "      l.layer_type=:layer_type AND "
+    	  "      l.pax_id=pax.pax_id AND "
+    	  "      pax.grp_id=pax_grp.grp_id AND "
+    	  "      salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,pax_grp.point_dep,'one',rownum) IS NULL AND "         
+    	  "      r.point_id=l.point_id AND "
+    	  "      r.range_id=l.range_id AND "
+    	  "      t.point_id=r.point_id AND "
+    	  "      t.num=r.num AND "
+    	  "      t.x=r.num AND "
+    	  "      t.y=r.y ";
+    sql_text += " ORDER BY t.num, t.x desc, t.y desc ";
+    Qry.SQLText = sql_text;
     Qry.CreateVariable( "point_id", otInteger, trip_id );
   }
   else {
@@ -547,10 +565,12 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   if ( salonsNode == NULL )
     return;
   xmlNodePtr node;
+  bool pr_lat_seat_init=false;
   node = GetNode( "@pr_lat_seat", salonsNode );
   if ( node ) {
   	tst();
   	pr_lat_seat = NodeAsInteger( node ); 
+  	pr_lat_seat_init=true;
   }
   Clear();
   map<string,bool> ispl;
@@ -630,6 +650,25 @@ void TSalons::Parse( xmlNodePtr salonsNode )
     }
     placelists.push_back( placeList );
     salonNode = salonNode->next;
+  }
+  if ( !pr_lat_seat_init ) {
+  	int lat_count=0, rus_count=0;
+  	char line[ 2 ];
+  	line[ 1 ] = 0;
+  	for ( vector<TPlaceList*>::iterator p=placelists.begin(); p!=placelists.end(); p++ ) {
+  		for (int x=0; x<(*p)->GetXsCount(); x++ ) {
+       for(size_t i = 0; i < strlen(rus_seat); i++) {
+       	 line[ 0 ] = rus_seat[i];
+         if( (*p)->GetXsName(x) == string(line) )
+          	rus_count++;
+         line[ 0 ] = lat_seat[i];
+       }
+         if( (*p)->GetXsName(x) == string(line) )
+          	lat_count++;
+  		}
+  	}
+  	ProgTrace( TRACE5, "lat_count=%d, rus_count=%d", lat_count, rus_count );
+  	pr_lat_seat = ( lat_count>=rus_count );
   }
 }
 
