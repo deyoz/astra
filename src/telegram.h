@@ -74,8 +74,6 @@ struct TTlgSeatList {
     private:
         t_tlg_comp comp;
         void apply_comp(TTlgInfo &info);
-        void get_places(int point_dep, int point_arv, int pax_id, std::string seat_no, int seats, bool pr_lat);
-        void get_place(int point_dep, TTlgPlace &place, std::string seat_no);
         void dump_comp();
         void dump_list(std::map<int, std::string> &list);
         void get_seat_list(std::map<int, std::string> &list);
