@@ -367,7 +367,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
         "       :GATE, "
         "       :REG_NO, "
         "       :NAME, "
-        "       :SEAT_NO, "
+        "       :LIST_SEAT_NO, "
         "       :PR_SMOKE, "
         "       :BAG_AMOUNT, "
         "       :BAG_WEIGHT, "
@@ -392,7 +392,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     prnQry->DeclareVariable("GATE", otString);
     prnQry->DeclareVariable("REG_NO", otInteger);
     prnQry->DeclareVariable("NAME", otString);
-    prnQry->DeclareVariable("SEAT_NO", otString);
+    prnQry->DeclareVariable("LIST_SEAT_NO", otString);
     prnQry->DeclareVariable("PR_SMOKE", otInteger);
     prnQry->DeclareVariable("BAG_AMOUNT", otInteger);
     prnQry->DeclareVariable("BAG_WEIGHT", otInteger);
@@ -457,8 +457,8 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data.find("SEAT_NO");
-    if(printed(di1))
+    di1 = data.find("LIST_SEAT_NO");
+    if(di1 != data.end())
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
@@ -1002,6 +1002,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
+            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list',NULL,0) AS list_seat_no, "
             "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,0) AS str_seat_no, "
             "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,0) AS seat_no, "
