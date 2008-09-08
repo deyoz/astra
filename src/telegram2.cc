@@ -146,53 +146,6 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
     return id1;
 }
 
-struct TTlgInfo {
-    // кодировка салона
-    bool pr_lat_seat;
-    string tlg_type;
-    //адреса получателей
-    string addrs;
-    //адрес отправителя
-    string sender;
-    //наш аэропорт
-    string own_airp;
-    //рейс
-    int point_id;
-    string airline;
-    int flt_no;
-    string suffix;
-    string airp_dep;
-    string airp_arv;
-    TDateTime scd;
-    TDateTime scd_local;
-    TDateTime act_local;
-    bool pr_summer;
-    string craft;
-    string bort;
-    //вспомогательные чтобы вытаскивать маршрут
-    int first_point;
-    int point_num;
-    //направление
-    string airp;
-    //центр бронирования
-    string crs;
-    //дополнительная инфа
-    string extra;
-    //разные настройки
-    bool pr_lat;
-    TTlgInfo() {
-        point_id = -1;
-        flt_no = -1;
-        scd = 0;
-        scd_local = 0;
-        act_local = 0;
-        pr_summer = false;
-        first_point = -1;
-        point_num = -1;
-        pr_lat = false;
-    };
-};
-
 string fetch_addr(string &addr)
 {
     string result;
@@ -244,37 +197,6 @@ string format_addr_line(string vaddrs)
         result += addr_line + br;
     return result;
 }
-
-struct TSOMPlace {
-    int x, y, num, point_arv;
-    string xname, yname;
-    void dump();
-    TSOMPlace() {
-        num = NoExists;
-        x = NoExists;
-        y = NoExists;
-        point_arv = NoExists;
-    }
-};
-
-typedef map<string, TSOMPlace> t_som_row;
-typedef map<string, t_som_row> t_som_comp;
-
-struct TSOMList {
-    private:
-        t_som_comp comp;
-        void apply_comp(TTlgInfo &info);
-        void get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat);
-        void get_place(int point_dep, TSOMPlace &place, string seat_no);
-        void dump_comp();
-        void dump_list(map<int, string> &list);
-        void get_seat_list(map<int, string> &list);
-    public:
-        vector<string> items;
-        void get(TTlgInfo &info);
-        void add_seat(int point_id, string xname, string yname, bool pr_lat); // used in PRL too
-        string get_seat_list(); // used in PRL
-};
 
 namespace PRL_SPACE {
     struct TPNRItem {
@@ -823,7 +745,7 @@ namespace PRL_SPACE {
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
-            TSOMList seats;
+            TTlgSeatList seats;
             for(; !Qry.Eof; Qry.Next())
                 seats.add_seat(0, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), (info.pr_lat or info.pr_lat_seat));
             string seat_list = seats.get_seat_list();
@@ -2140,7 +2062,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
-void TSOMPlace::dump()
+void TTlgPlace::dump()
 {
     ostringstream buf;
     buf
@@ -2163,9 +2085,9 @@ struct TSeatListContext {
     void seat_to_str(string &list, string yname, string first_place,  string last_place);
 };
 
-void TSOMList::add_seat(int point_id, string xname, string yname, bool pr_lat)
+void TTlgSeatList::add_seat(int point_id, string xname, string yname, bool pr_lat)
 {
-    TSOMPlace place;
+    TTlgPlace place;
     place.xname = xname;
     place.yname = yname;
     place.point_arv = point_id;
@@ -2175,31 +2097,31 @@ void TSOMList::add_seat(int point_id, string xname, string yname, bool pr_lat)
     }
 }
 
-void TSOMList::dump_list(map<int, string> &list)
+void TTlgSeatList::dump_list(map<int, string> &list)
 {
     for(map<int, string>::iterator im = list.begin(); im != list.end(); im++) {
         ProgTrace(TRACE5, "point_arv: %d; seats: %s", im->first, (/*convert_seat_no(*/im->second/*, 1)*/).c_str());
     }
 }
 
-string  TSOMList::get_seat_list()
+string  TTlgSeatList::get_seat_list()
 {
     map<int, string> list;
     get_seat_list(list);
     if(list.size() > 1)
-        throw Exception("TSOMList::get_seat_list(): wrong map size %d", list.size());
+        throw Exception("TTlgSeatList::get_seat_list(): wrong map size %d", list.size());
     return list[0];
 }
 
-void TSOMList::get_seat_list(map<int, string> &list)
+void TTlgSeatList::get_seat_list(map<int, string> &list)
 {
-    for(t_som_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
+    for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
         map<int, TSeatListContext> ctxt;
         string *first_xname = NULL;
         string *last_xname = NULL;
         string *str_seat = NULL;
         TSeatListContext *cur_ctxt = NULL;
-        for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
+        for(t_tlg_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
             cur_ctxt = &ctxt[ax->second.point_arv];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
@@ -2252,7 +2174,7 @@ void TSeatListContext::seat_to_str(string &list, string yname, string first_xnam
     }
 }
 
-void TSOMList::get_place(int point_dep, TSOMPlace &place, string seat_no)
+void TTlgSeatList::get_place(int point_dep, TTlgPlace &place, string seat_no)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2271,7 +2193,7 @@ void TSOMList::get_place(int point_dep, TSOMPlace &place, string seat_no)
     }
 }
 
-void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat)
+void TTlgSeatList::get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2285,9 +2207,9 @@ void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(Qry.Eof)
-        throw Exception("TSOMList::get_places: pr_vert fetch failed for pax_id: %d", pax_id);
+        throw Exception("TTlgSeatList::get_places: pr_vert fetch failed for pax_id: %d", pax_id);
     bool pr_vert = Qry.FieldAsInteger(0) != 0;
-    TSOMPlace place;
+    TTlgPlace place;
     get_place(point_dep, place, seat_no);
     place.point_arv = point_arv;
     if(is_iata_row(place.yname) && is_iata_line(place.xname))
@@ -2312,15 +2234,15 @@ void TSOMList::get_places(int point_dep, int point_arv, int pax_id, string seat_
         Qry.SetVariable("y", place.y);
         Qry.Execute();
         if(Qry.Eof)
-            throw Exception("TSOMList::get_places: next seat fetch failed. seat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
+            throw Exception("TTlgSeatList::get_places: next seat fetch failed. seat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
         add_seat(point_arv, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), pr_lat);
     }
 }
 
-void TSOMList::dump_comp()
+void TTlgSeatList::dump_comp()
 {
-    for(t_som_comp::iterator ay = comp.begin(); ay != comp.end(); ay++)
-        for(t_som_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
+    for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++)
+        for(t_tlg_row::iterator ax = ay->second.begin(); ax != ay->second.end(); ax++) {
             ostringstream buf;
             buf
                 << "yname: " << ay->first << "; "
@@ -2331,7 +2253,7 @@ void TSOMList::dump_comp()
         }
 }
 
-void TSOMList::apply_comp(TTlgInfo &info)
+void TTlgSeatList::apply_comp(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -2368,7 +2290,7 @@ void TSOMList::apply_comp(TTlgInfo &info)
     }
 }
 
-void TSOMList::get(TTlgInfo &info)
+void TTlgSeatList::get(TTlgInfo &info)
 {
     apply_comp(info);
     map<int, string> list;
@@ -2438,7 +2360,7 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TSOMList SOMList;
+    TTlgSeatList SOMList;
     SOMList.get(info);
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();

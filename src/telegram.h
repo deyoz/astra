@@ -7,6 +7,87 @@
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
 
+struct TTlgInfo {
+    // кодировка салона
+    bool pr_lat_seat;
+    std::string tlg_type;
+    //адреса получателей
+    std::string addrs;
+    //адрес отправителя
+    std::string sender;
+    //наш аэропорт
+    std::string own_airp;
+    //рейс
+    int point_id;
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    std::string airp_dep;
+    std::string airp_arv;
+    BASIC::TDateTime scd;
+    BASIC::TDateTime scd_local;
+    BASIC::TDateTime act_local;
+    bool pr_summer;
+    std::string craft;
+    std::string bort;
+    //вспомогательные чтобы вытаскивать маршрут
+    int first_point;
+    int point_num;
+    //направление
+    std::string airp;
+    //центр бронирования
+    std::string crs;
+    //дополнительная инфа
+    std::string extra;
+    //разные настройки
+    bool pr_lat;
+    TTlgInfo() {
+        point_id = -1;
+        flt_no = -1;
+        scd = 0;
+        scd_local = 0;
+        act_local = 0;
+        pr_summer = false;
+        first_point = -1;
+        point_num = -1;
+        pr_lat = false;
+    };
+};
+
+// stuff used to form seat ranges in tlgs
+struct TTlgPlace {
+    int x, y, num, point_arv;
+    std::string xname, yname;
+    void dump();
+    TTlgPlace() {
+        num = ASTRA::NoExists;
+        x = ASTRA::NoExists;
+        y = ASTRA::NoExists;
+        point_arv = ASTRA::NoExists;
+    }
+};
+
+typedef std::map<std::string, TTlgPlace> t_tlg_row;
+typedef std::map<std::string, t_tlg_row> t_tlg_comp;
+
+struct TTlgSeatList {
+    private:
+        t_tlg_comp comp;
+        void apply_comp(TTlgInfo &info);
+        void get_places(int point_dep, int point_arv, int pax_id, std::string seat_no, int seats, bool pr_lat);
+        void get_place(int point_dep, TTlgPlace &place, std::string seat_no);
+        void dump_comp();
+        void dump_list(std::map<int, std::string> &list);
+        void get_seat_list(std::map<int, std::string> &list);
+    public:
+        std::vector<std::string> items;
+        void get(TTlgInfo &info);
+        void add_seat(int point_id, std::string xname, std::string yname, bool pr_lat); // used in PRL too
+        std::string get_seat_list(); // used in PRL
+};
+
+// End of previous stuff
+
 class TBSMTagItem
 {
   public:
