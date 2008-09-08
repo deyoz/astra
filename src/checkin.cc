@@ -1999,7 +1999,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             };
             ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
             //запись в базу
-            SEATS::SaveTripSeatRanges( point_dep, cltCheckin, ranges, pax_id );
+            SEATS::SaveTripSeatRanges( point_dep, cltCheckin, ranges, pax_id, point_dep, point_arv );
             //seat_no=pas.seat_no.begin()->
             i++;
           };

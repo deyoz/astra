@@ -144,10 +144,8 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
    Salons.Read( rTripSalons );
    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
    Salons.Build( salonsNode );
-   SEATS::SelectPassengers( &Salons, Passengers );
-   tst();
-   if ( Passengers.existsNoSeats() )
-     Passengers.Build( dataNode );
+   if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, Passengers, Salons.getLatSeat() ) )  
+ 	   Passengers.Build( Salons, dataNode );     
  }
  catch( UserException ue ) {
    showErrorMessage( ue.what() );
@@ -187,22 +185,16 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Qry.Execute();
   tst();
   Salons.Write( rTripSalons );
-  tst();
-  bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );
-
-  if ( pr_initcomp ) { /* изменение компоновки */
-    /* инициализация */
-    Qry.Clear();
-    Qry.SQLText = "BEGIN "\
-                  " salons.initcomp( :point_id, 1 ); "\
-                  "END; ";
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", trip_id );
-    Qry.Execute();
-    /* запись в лог */
-    xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
-    string msg = string( "Изменена компоновка рейса. Классы: " ) +
-                 NodeAsString( "classes", refcompNode );
+  bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );  
+  /* инициализация VIP */  
+  SALONS::InitVIP( trip_id );    
+  xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
+  string msg = string( "Изменена компоновка рейса. Классы: " ) +
+               NodeAsString( "classes", refcompNode );     	
+  msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode ); //???
+  TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );   
+  
+  if ( pr_initcomp ) { /* изменение компоновки */  	
     xmlNodePtr ctypeNode = NodeAsNode( "ctype", refcompNode );
     bool cBase = false;
     bool cChange = false;
@@ -227,59 +219,20 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
     msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
-    /* перечитываение компоновки из БД */
-    Salons.Read(  rTripSalons );
   }
-  else {
-    /* инициализация */
-    tst();
-    Qry.Clear();
-    Qry.SQLText = "BEGIN "\
-                  " salons.initcomp( :point_id, 0 ); "\
-                  "END; ";
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", trip_id );
-    Qry.Execute(); 
-    xmlNodePtr refcompNode = NodeAsNode( "refcompon", reqNode );
-    string msg = string( "Изменена компоновка рейса. Классы: " ) +
-                 NodeAsString( "classes", refcompNode );     	
-    msg += string( ", кодировка: " ) + NodeAsString( "lang", refcompNode );
-    TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );   
-    /* перечитываение компоновки из БД */	
-    Salons.Read(  rTripSalons );              
-  }
-  Passengers.Clear();
-  if ( SALONS::InternalExistsRegPassenger( trip_id, false ) ) { /* есть зарегистрированные пассажиры */
-    /* рассаживаем, записываем */
-    SEATS::ReSeatsPassengers( &Salons, !pr_initcomp, false ); /* при старой компоновке удаляем занятые места */
-    Salons.Write( rTripSalons ); /* сохранение салона с пересаженными пассажирами */
-  }
-  Qry.Clear();
-  Qry.SQLText =
-     "BEGIN "\
-     "DELETE trip_classes WHERE point_id = :point_id; "\
-     "INSERT INTO trip_classes(point_id,class,cfg,block,prot) "
-     " SELECT :point_id, class, NVL( SUM( DECODE( class, NULL, 0, 1 ) ), 0 ), "
-     "        NVL( SUM( DECODE( class, NULL, 0, DECODE( enabled, NULL, 1, 0 ) ) ), 0 ), 0 "\
-     "  FROM trip_comp_elems, comp_elem_types "\
-     " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "\
-     "       comp_elem_types.pr_seat <> 0 AND "\
-     "       trip_comp_elems.point_id = :point_id "\
-     " GROUP BY class; "\
-     "ckin.recount( :point_id ); "\
-     "END; ";
-  Qry.DeclareVariable( "point_id", otInteger );
-  Qry.SetVariable( "point_id", trip_id );
-  Qry.Execute();
+  SALONS::setTRIP_CLASSES( trip_id );
+ 
+    
+  /* перечитываение компоновки из БД */	
+  Salons.Read( rTripSalons );                
+  
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   SALONS::GetTripParams( trip_id, dataNode );
   Salons.Build( salonsNode );
   tst();
-  if ( Passengers.existsNoSeats() ) {
-    tst();
-    Passengers.Build( dataNode );
-  }
+  if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, Passengers, Salons.getLatSeat() ) )  
+    Passengers.Build( Salons, dataNode );
 }
 
 void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -364,6 +317,8 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );    
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );
+    if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, Passengers, Salons.getLatSeat() ) )  
+      Passengers.Build( Salons, dataNode );    
   	showErrorMessageAndRollback( ue.what() );
   }  
 }
@@ -413,7 +368,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   else
   	if ( GetNode( "reserve", reqNode ) )
   		layer_type = cltPreseat;
-  	else layer_type = cltUnknown;
+  	else layer_type = cltCheckin; // cltUnknown -new; это в страом терминале так сделано 
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d", point_id, pax_id, tid );
   
   TSalons Salons;
@@ -482,22 +437,8 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );    
     SALONS::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );
-/*???    
-    if ( !checkinNode ) {
-      if ( errmsg.empty() )
-      	if ( setseatNode )
-      		errmsg = "Невозможно предварительное назначение данного места. Обновите данные";
-      	else {
-          errmsg = "Пересадка невозможна. Обновите данные";
-          SEATS::SelectPassengers( &Salons, Passengers );
-          tst();
-          if ( Passengers.existsNoSeats() )
-            Passengers.Build( dataNode );
-        }
-    }
-    else
-    	if ( errmsg.empty() )
-    		errmsg = "Пересадка невозможна";*/
+    if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, Passengers, Salons.getLatSeat() ) )  
+      Passengers.Build( Salons, dataNode );    
   	showErrorMessageAndRollback( ue.what() );
   }
   
@@ -505,7 +446,6 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
 
 void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  //TReqInfo::Instance()->user.check_access( amWrite );
   int trip_id = NodeAsInteger( "trip_id", reqNode );
   ProgTrace(TRACE5, "SalonsInterface::AutoReseatsPassengers, trip_id=%d", trip_id );
   TQuery Qry( &OraSession );
@@ -516,20 +456,32 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.Execute();
   tst();
   TSalons Salons;
+  vector<SALONS::TSalonSeat> seats;  
   Salons.trip_id = trip_id;
   Salons.Read( rTripSalons );
-  SEATS::SelectPassengers( &Salons, Passengers );
-  SEATS::ReSeatsPassengers( &Salons, true, true ); /* рассадка в новый салон, true - удаление занятых мест в салоне */
-  Salons.Write( rTripSalons ); /* сохранение самого салона с пересаженными местами */
+  TPassengers passengers;
+  
+  
+  if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, passengers, Salons.getLatSeat() ) ) {
+  	SEATS::AutoReSeatsPassengers( Salons, passengers );
+  }
+  else
+  	throw UserException( "Пассажиры все пассажены. Автоматическая рассадка не требуется" );
+  	
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-  SALONS::GetTripParams( trip_id, dataNode );
-  Salons.Build( salonsNode );
-  if ( Passengers.existsNoSeats() ) {
-    tst();
-    Passengers.Build( dataNode );
+  SALONS::GetTripParams( trip_id, dataNode );  	
+  	
+  try {
+    SALONS::getSalonChanges( Salons, seats );  		  
+    SALONS::BuildSalonChanges( dataNode, seats );    	
   }
-  tst();
+  catch(...) { //???
+  	Salons.Read( rTripSalons );
+    Salons.Build( salonsNode );  	
+  }
+  if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, passengers, Salons.getLatSeat() ) )  
+    passengers.Build( Salons, dataNode );
 }
 
 void SalonsInterface::BaseComponFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -775,7 +727,7 @@ void SalonsInterface::ChangeBC(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "BEGIN "\
-    " UPDATE points SET cfaft = :craft WHERE point_id = :point_id; "\
+    " UPDATE points SET craft = :craft WHERE point_id = :point_id; "\
     " UPDATE trip_sets SET comp_id = NULL WHERE point_id = :point_id; "\
     " DELETE trip_comp_rem WHERE point_id = :point_id; "\
     " DELETE trip_comp_elems WHERE point_id = :point_id; "\

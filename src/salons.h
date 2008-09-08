@@ -135,6 +135,7 @@ namespace SALONS
                  std::string airp,  int f, int c, int y );
   int SetCraft( int point_id, std::string &craft, int comp_id );      	                    	
   void InitVIP( int point_id );
+  void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void SetFree( const std::string &layer, TPlace &pl );  
   void SetBlock( const std::string &layer, TPlace &pl );  

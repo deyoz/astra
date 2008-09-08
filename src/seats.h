@@ -184,7 +184,7 @@ class TPassengers {
     void copyFrom( VPassengers &npass );
     void SetCountersForPass( TPassenger  &pass );
     bool existsNoSeats();
-    void Build( xmlNodePtr passNode );
+    void Build( TSalons &Salons, xmlNodePtr passNode ); 
     void sortByIndex();
 };
 
@@ -234,15 +234,13 @@ class TSeatPlaces {
 namespace SEATS {
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void ReSeatsPassengers( TSalons *Salons, bool DeleteNotFreePlaces, bool SeatOnNotBase );
-void Reseat( TSeatsType seatstype, int trip_id, int pax_id, int &tid, int num, int x, int y, std::string &nplaceName, bool cancel=false );
-void SelectPassengers( TSalons *Salons, TPassengers &p );
+void AutoReSeatsPassengers( TSalons &Salons, TPassengers &passengers );
 void SeatsPassengers( TSalons *Salons, bool FUse_BR=false );
-//void SavePlaces( );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
-void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats, int pax_id );
-bool SeatNoInSeats( std::vector<TSeat> &seats, std::string seat_no);
+void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats, 
+	                       int pax_id, int point_dep, int point_arv );
+bool GetPassengersForManualSeat( int point_id, ASTRA::TCompLayerType layer_type, TPassengers &p, bool pr_lat_seat );
 }
 extern TPassengers Passengers;
 
