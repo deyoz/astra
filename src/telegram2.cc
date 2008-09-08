@@ -2174,71 +2174,6 @@ void TSeatListContext::seat_to_str(string &list, string yname, string first_xnam
     }
 }
 
-void TTlgSeatList::get_place(int point_dep, TTlgPlace &place, string seat_no)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT num, x, y, xname, yname FROM trip_comp_elems WHERE "
-        "   yname||xname = DECODE( INSTR( :seat_no, '0' ), 1, SUBSTR( :seat_no, 2 ), :seat_no ) AND "
-        "   point_id=:point_id";
-    Qry.CreateVariable("point_id", otInteger, point_dep);
-    Qry.CreateVariable("seat_no", otString, seat_no);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        place.num = Qry.FieldAsInteger("num");
-        place.x = Qry.FieldAsInteger("x");
-        place.y = Qry.FieldAsInteger("y");
-        place.xname = Qry.FieldAsString("xname");
-        place.yname = Qry.FieldAsString("yname");
-    }
-}
-
-void TTlgSeatList::get_places(int point_dep, int point_arv, int pax_id, string seat_no, int seats, bool pr_lat)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   decode(count(*), 0, 0, 1) "
-        "from "
-        "   pax_rem "
-        "where "
-        "   pax_id = :pax_id and "
-        "   rem_code = 'STCR'";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw Exception("TTlgSeatList::get_places: pr_vert fetch failed for pax_id: %d", pax_id);
-    bool pr_vert = Qry.FieldAsInteger(0) != 0;
-    TTlgPlace place;
-    get_place(point_dep, place, seat_no);
-    place.point_arv = point_arv;
-    if(is_iata_row(place.yname) && is_iata_line(place.xname))
-        comp[norm_iata_row(place.yname)][place.xname] = place;
-    Qry.Clear();
-    Qry.SQLText =
-        "select yname, xname from trip_comp_elems where "
-        "   point_id = :point_id and "
-        "   x = :x and "
-        "   y = :y and "
-        "   num = :num ";
-    Qry.CreateVariable("point_id", otInteger, point_dep);
-    Qry.CreateVariable("num", otInteger, place.num);
-    Qry.DeclareVariable("x", otInteger);
-    Qry.DeclareVariable("y", otInteger);
-    for(int i = 1; i < seats; i++) {
-        if(pr_vert)
-            place.y++;
-        else
-            place.x++;
-        Qry.SetVariable("x", place.x);
-        Qry.SetVariable("y", place.y);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("TTlgSeatList::get_places: next seat fetch failed. seat_no: %s, x: %d, y: %d", seat_no.c_str(), place.x, place.y);
-        add_seat(point_arv, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), pr_lat);
-    }
-}
-
 void TTlgSeatList::dump_comp()
 {
     for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++)
@@ -2257,34 +2192,36 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select "
-        "   pax.pax_id, "
-        "   pax.seat_no, "
-        "   pax.seats, "
-        "   pax_grp.point_arv "
+        "select distinct "
+        "   trip_comp_layers.point_arv, "
+        "   trip_comp_elems.xname, "
+        "   trip_comp_elems.yname "
         "from "
-        "   pax_grp, "
-        "   pax "
+        "   trip_comp_layers, "
+        "   trip_comp_ranges, "
+        "   trip_comp_elems "
         "where "
-        "   pax_grp.point_dep = :point_dep and "
-        "   pax_grp.grp_id = pax.grp_id ";
-    Qry.CreateVariable("point_dep", otInteger, info.point_id);
+        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
+        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
+        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
+        "   trip_comp_elems.num = trip_comp_ranges.num and "
+        "   trip_comp_elems.x = trip_comp_ranges.x and "
+        "   trip_comp_elems.y = trip_comp_ranges.y and "
+        "   trip_comp_layers.layer_type = :ckin_layer and "
+        "   trip_comp_layers.point_id = :point_id ";
+    Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
-        int col_pax_id = Qry.FieldIndex("pax_id");
-        int col_seat_no = Qry.FieldIndex("seat_no");
-        int col_seats = Qry.FieldIndex("seats");
         int col_point_arv = Qry.FieldIndex("point_arv");
+        int col_xname = Qry.FieldIndex("xname");
+        int col_yname = Qry.FieldIndex("yname");
         for(; !Qry.Eof; Qry.Next()) {
-            if(Qry.FieldIsNULL(col_seat_no))
-                continue;
-            get_places(
-                    info.point_id,
+            add_seat(
                     Qry.FieldAsInteger(col_point_arv),
-                    Qry.FieldAsInteger(col_pax_id),
-                    Qry.FieldAsString(col_seat_no),
-                    Qry.FieldAsInteger(col_seats),
-                    info.pr_lat
+                    Qry.FieldAsString(col_xname),
+                    Qry.FieldAsString(col_yname),
+                    (info.pr_lat or info.pr_lat_seat)
                     );
         }
     }
