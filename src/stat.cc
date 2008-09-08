@@ -1432,8 +1432,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
-                "   LPAD(seat_no,3,'0')|| "
-                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   salons.get_seat_no(pax.pax_id, :ckin_layer, pax.seats, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   halls2.name hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
@@ -1456,6 +1455,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 else
                     SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
             }
+            Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
         } else {
             ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
@@ -3017,8 +3017,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
-                "   LPAD(seat_no,3,'0')|| "
-                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   salons.get_seat_no(pax.pax_id, :ckin_layer, pax.seats, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
@@ -3064,6 +3063,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
                 SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
+            Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
         } else {
             ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
             SQLText =
@@ -3140,6 +3140,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and arx_pax.document = :document ";
             if(!ticket_no.empty())
                 SQLText += " and arx_pax.ticket_no = :ticket_no ";
+            Qry.DeleteVariable("ckin_layer");
         }
         ProgTrace(TRACE5, "Qry.SQLText [%d] : %s", i, SQLText.c_str());
         Qry.SQLText = SQLText;
