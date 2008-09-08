@@ -578,6 +578,9 @@ void TSalons::Parse( xmlNodePtr salonsNode )
   node = salonsNode->children;
   xmlNodePtr salonNode = NodeAsNodeFast( "placelist", node );
   TRem rem;
+  int lat_count=0, rus_count=0;  
+  string rus_lines = rus_seat, lat_lines = lat_seat;
+  ProgTrace( TRACE5, "rus)lines=%s, lat_lines=%s", rus_lines.c_str(), lat_lines.c_str() );
   while ( salonNode ) {
     TPlaceList *placeList = new TPlaceList();
     placeList->num = NodeAsInteger( "@num", salonNode );
@@ -604,7 +607,19 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       place.clname = NodeAsStringFast( "class", node );
       place.pr_smoke = GetNodeFast( "pr_smoke", node );
       place.not_good = GetNodeFast( "not_good", node );
-      place.xname = norm_iata_line( NodeAsStringFast( "xname", node ) );
+      place.xname = NodeAsStringFast( "xname", node );
+      
+      if ( !pr_lat_seat_init ) {      	
+      	if ( rus_lines.find( place.xname ) != string::npos ) {      		
+          rus_count++;
+          ProgTrace( TRACE5, "place.xname=%s, find=%d", place.xname.c_str(), rus_lines.find( place.xname ) );
+        }
+    	  if ( lat_lines.find( place.xname ) != string::npos ) {
+          lat_count++;           	
+          ProgTrace( TRACE5, "place.xname=%s, find=%d", place.xname.c_str(), lat_lines.find( place.xname ) );          
+        }
+    	}      
+      place.xname = norm_iata_line( place.xname );
       place.yname = norm_iata_row( NodeAsStringFast( "yname", node ) );
       if ( !GetNodeFast( "status", node ) )
         place.status = "FP";
@@ -652,21 +667,6 @@ void TSalons::Parse( xmlNodePtr salonsNode )
     salonNode = salonNode->next;
   }
   if ( !pr_lat_seat_init ) {
-  	int lat_count=0, rus_count=0;
-  	char line[ 2 ];
-  	line[ 1 ] = 0;
-  	for ( vector<TPlaceList*>::iterator p=placelists.begin(); p!=placelists.end(); p++ ) {
-  		for (int x=0; x<(*p)->GetXsCount(); x++ ) {
-       for(size_t i = 0; i < strlen(rus_seat); i++) {
-       	 line[ 0 ] = rus_seat[i];
-         if( (*p)->GetXsName(x) == string(line) )
-          	rus_count++;
-         line[ 0 ] = lat_seat[i];
-       }
-         if( (*p)->GetXsName(x) == string(line) )
-          	lat_count++;
-  		}
-  	}
   	ProgTrace( TRACE5, "lat_count=%d, rus_count=%d", lat_count, rus_count );
   	pr_lat_seat = ( lat_count>=rus_count );
   }
@@ -1154,7 +1154,7 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
     " WHERE point_id=:point_id AND layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
     "                            pr_smoke,not_good,xname,yname,status,pr_free,enabled) "
-    " SELECT :point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
+    " SELECT :point_id,num,x,y,elem_typpppe,xprior,yprior,agle,class, "
     "        pr_smoke,not_good,xname,yname,'FP',1,1 "
     "  FROM comp_elems "
     " WHERE comp_id = :comp_id; "
