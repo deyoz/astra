@@ -1523,9 +1523,11 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
       int pax_id=Qry.FieldAsInteger("pax_id");
       Qry.Clear();
       Qry.SQLText =
-        "SELECT reg_no,surname,name,seat_no, "
+        "SELECT reg_no,surname,name, "
+        "       salons.get_seat_no(pax_id,:checkin_layer,seats,NULL,'tlg') AS seat_no, "
         "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
         "FROM pax WHERE pax_id=:pax_id";
+      Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (!Qry.Eof)

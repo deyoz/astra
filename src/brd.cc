@@ -318,19 +318,23 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
   else return false;
 }
 
-bool ChckSt(int pax_id, string seat_no)
+bool ChckSt(int pax_id, string& curr_seat_no)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT LPAD(seat_no,3,'0') AS seat_no1, LPAD(:seat_no,3,'0') AS seat_no2 FROM bp_print, "
-        "  (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
-        "WHERE pax_id=:pax_id AND bp_print.time_print=a.time_print ";
+        "SELECT salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list') AS seat_no1, "
+        "       bp_print.seat_no AS seat_no2 "
+        "FROM bp_print,pax, "
+        "     (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
+        "WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
+        "      pax.pax_id=:pax_id ";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("seat_no", otString, seat_no);
+    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
     Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    if (!Qry.Eof)
     {
-      if (!Qry.FieldIsNULL("seat_no1") &&
+      curr_seat_no=Qry.FieldAsString("seat_no1");
+      if (!Qry.FieldIsNULL("seat_no2") &&
           strcmp(Qry.FieldAsString("seat_no1"), Qry.FieldAsString("seat_no2"))!=0)
         return false;
     };
@@ -462,8 +466,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pers_type, "
         "    class, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'one',rownum) AS seat_no, "
-        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no_str, "
+        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "    seats, "
         "    ticket_no, "
         "    coupon_no, "
@@ -509,7 +512,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "pers_type", Qry.FieldAsString("pers_type"), EncodePerson(adult));
         NewTextChild(paxNode, "class", Qry.FieldAsString("class"), EncodeClass(Y));
         NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
-        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no_str"), "");
+        NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"), "");
         NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"), 1);
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"), "");
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"), 0);
@@ -620,21 +623,21 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                     }
                 else
                 {
-
+                    string curr_seat_no;
                     if(reqInfo->screen.name == "BRDBUS.EXE" &&
                             boarding &&
                             GetNode("confirmations/seat_no",reqNode)==NULL &&
-                            !ChckSt(pax_id, Qry.FieldAsString("seat_no")))
+                            !ChckSt(pax_id, curr_seat_no))
                     {
                         xmlNodePtr confirmNode=NewTextChild(dataNode,"confirmation");
                         NewTextChild(confirmNode,"reset",true);
                         NewTextChild(confirmNode,"type","seat_no");
                         ostringstream msg;
-                        if (Qry.FieldIsNULL("seat_no"))
+                        if (curr_seat_no.empty())
                             msg << "Номер места пассажира в салоне не определен." << endl;
                         else
                             msg << "Номер места пассажира в салоне был изменен на "
-                                << Qry.FieldAsString("seat_no") << "." << endl;
+                                << curr_seat_no << "." << endl;
 
                         msg << "Номер места, указанный в посадочном талоне, недействителен!" << endl
                             << "Продолжить операцию посадки?";
