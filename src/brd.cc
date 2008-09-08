@@ -322,20 +322,24 @@ bool ChckSt(int pax_id, string& curr_seat_no)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list') AS seat_no1, "
-        "       bp_print.seat_no AS seat_no2 "
-        "FROM bp_print,pax, "
-        "     (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
-        "WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
-        "      pax.pax_id=:pax_id ";
+      "SELECT curr_seat_no,bp_seat_no, "
+      "       TRANSLATE(UPPER(curr_seat_no),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS curr_seat_no2, "
+      "       TRANSLATE(UPPER(bp_seat_no),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS bp_seat_no2 "
+      "FROM "
+      " (SELECT salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list') AS curr_seat_no, "
+      "         bp_print.seat_no AS bp_seat_no "
+      "  FROM bp_print,pax, "
+      "       (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
+      "  WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
+      "        pax.pax_id=:pax_id)";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
     Qry.Execute();
     if (!Qry.Eof)
     {
-      curr_seat_no=Qry.FieldAsString("seat_no1");
-      if (!Qry.FieldIsNULL("seat_no2") &&
-          strcmp(Qry.FieldAsString("seat_no1"), Qry.FieldAsString("seat_no2"))!=0)
+      curr_seat_no=Qry.FieldAsString("curr_seat_no");
+      if (!Qry.FieldIsNULL("bp_seat_no") &&
+          strcmp(Qry.FieldAsString("curr_seat_no2"), Qry.FieldAsString("bp_seat_no2"))!=0)
         return false;
     };
     return true;
