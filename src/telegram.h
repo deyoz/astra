@@ -8,16 +8,16 @@
 #include "astra_consts.h"
 
 struct TTlgInfo {
-    // ╨║╨╛╨┤╨╕╤А╨╛╨▓╨║╨░ ╤Б╨░╨╗╨╛╨╜╨░
+    // кодировка салона
     bool pr_lat_seat;
     std::string tlg_type;
-    //╨░╨┤╤А╨╡╤Б╨░ ╨┐╨╛╨╗╤Г╤З╨░╤В╨╡╨╗╨╡╨╣
+    //адреса получателей
     std::string addrs;
-    //╨░╨┤╤А╨╡╤Б ╨╛╤В╨┐╤А╨░╨▓╨╕╤В╨╡╨╗╤П
+    //адрес отправителя
     std::string sender;
-    //╨╜╨░╤И ╨░╤Н╤А╨╛╨┐╨╛╤А╤В
+    //наш аэропорт
     std::string own_airp;
-    //╤А╨╡╨╣╤Б
+    //рейс
     int point_id;
     std::string airline;
     int flt_no;
@@ -30,16 +30,16 @@ struct TTlgInfo {
     bool pr_summer;
     std::string craft;
     std::string bort;
-    //╨▓╤Б╨┐╨╛╨╝╨╛╨│╨░╤В╨╡╨╗╤М╨╜╤Л╨╡ ╤З╤В╨╛╨▒╤Л ╨▓╤Л╤В╨░╤Б╨║╨╕╨▓╨░╤В╤М ╨╝╨░╤А╤И╤А╤Г╤В
+    //вспомогательные чтобы вытаскивать маршрут
     int first_point;
     int point_num;
-    //╨╜╨░╨┐╤А╨░╨▓╨╗╨╡╨╜╨╕╨╡
+    //направление
     std::string airp;
-    //╤Ж╨╡╨╜╤В╤А ╨▒╤А╨╛╨╜╨╕╤А╨╛╨▓╨░╨╜╨╕╤П
+    //центр бронирования
     std::string crs;
-    //╨┤╨╛╨┐╨╛╨╗╨╜╨╕╤В╨╡╨╗╤М╨╜╨░╤П ╨╕╨╜╤Д╨░
+    //дополнительная инфа
     std::string extra;
-    //╤А╨░╨╖╨╜╤Л╨╡ ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨╕
+    //разные настройки
     bool pr_lat;
     TTlgInfo() {
         point_id = -1;
