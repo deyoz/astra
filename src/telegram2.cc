@@ -747,7 +747,7 @@ namespace PRL_SPACE {
         if(!Qry.Eof) {
             TTlgSeatList seats;
             for(; !Qry.Eof; Qry.Next())
-                seats.add_seat(0, Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), (info.pr_lat or info.pr_lat_seat));
+                seats.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), (info.pr_lat or info.pr_lat_seat));
             string seat_list = seats.get_seat_list();
             if(!seat_list.empty()) {
                 TRemItem rem;
