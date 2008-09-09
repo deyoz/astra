@@ -80,7 +80,10 @@ struct TTlgSeatList {
     public:
         std::vector<std::string> items;
         void get(TTlgInfo &info);
-        void add_seat(int point_id, std::string xname, std::string yname, bool pr_lat); // used in PRL too
+        void add_seat(int point_id, std::string xname, std::string yname, bool pr_lat); // used in SOM
+        void add_seat(std::string xname, std::string yname, bool pr_lat) { // used in PRL
+            add_seat(0, xname, yname, pr_lat);
+        };
         std::string get_seat_list(); // used in PRL
 };
 
