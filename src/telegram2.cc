@@ -22,6 +22,35 @@ const size_t PART_SIZE = 2000;
 const size_t LINE_SIZE = 64;
 int TST_TLG_ID; // for test purposes
 
+void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list)
+{
+    seat_list.Clear();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select distinct "
+        "   trip_comp_elems.xname, "
+        "   trip_comp_elems.yname "
+        "from "
+        "   trip_comp_layers, "
+        "   trip_comp_ranges, "
+        "   trip_comp_elems "
+        "where "
+        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
+        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
+        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
+        "   trip_comp_elems.num = trip_comp_ranges.num and "
+        "   trip_comp_elems.x = trip_comp_ranges.x and "
+        "   trip_comp_elems.y = trip_comp_ranges.y and "
+        "   trip_comp_layers.layer_type = :ckin_layer and "
+        "   trip_comp_layers.pax_id = :pax_id ";
+    Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(layer));
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(!Qry.Eof)
+        for(; !Qry.Eof; Qry.Next())
+            seat_list.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"));
+}
+
 void TelegramInterface::delete_tst_tlg(int tlg_id)
 {
     TQuery Qry(&OraSession);
@@ -723,37 +752,13 @@ namespace PRL_SPACE {
             rem.rem = "1CHD";
             items.push_back(rem);
         }
-        Qry.Clear();
-        Qry.SQLText =
-            "select distinct "
-            "   trip_comp_elems.xname, "
-            "   trip_comp_elems.yname "
-            "from "
-            "   trip_comp_layers, "
-            "   trip_comp_ranges, "
-            "   trip_comp_elems "
-            "where "
-            "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
-            "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
-            "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
-            "   trip_comp_elems.num = trip_comp_ranges.num and "
-            "   trip_comp_elems.x = trip_comp_ranges.x and "
-            "   trip_comp_elems.y = trip_comp_ranges.y and "
-            "   trip_comp_layers.layer_type = :ckin_layer and "
-            "   trip_comp_layers.pax_id = :pax_id ";
-        Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
-        Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
-        Qry.Execute();
-        if(!Qry.Eof) {
-            TTlgSeatList seats;
-            for(; !Qry.Eof; Qry.Next())
-                seats.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"), (info.pr_lat or info.pr_lat_seat));
-            string seat_list = seats.get_seat_list();
-            if(!seat_list.empty()) {
-                TRemItem rem;
-                rem.rem = "SEAT " + seat_list;
-                items.push_back(rem);
-            }
+        TTlgSeatList seats;
+        get_seat_list(pax.pax_id, cltCheckin, seats);
+        string seat_list = seats.get_seat_list(info.pr_lat or info.pr_lat_seat);
+        if(!seat_list.empty()) {
+            TRemItem rem;
+            rem.rem = "SEAT " + seat_list;
+            items.push_back(rem);
         }
         Qry.Clear();
         Qry.SQLText =
@@ -2082,18 +2087,17 @@ struct TSeatListContext {
     TSeatListContext() {
         cur_seat_type = 'i'; // i - interval (6A-E); a - alone (6A or 6ACE or similar)
     }
-    void seat_to_str(string &list, string yname, string first_place,  string last_place);
+    void seat_to_str(string &list, string yname, string first_place,  string last_place, bool pr_lat);
 };
 
-void TTlgSeatList::add_seat(int point_id, string xname, string yname, bool pr_lat)
+void TTlgSeatList::add_seat(int point_id, string xname, string yname)
 {
-    TTlgPlace place;
-    place.xname = xname;
-    place.yname = yname;
-    place.point_arv = point_id;
-    if(is_iata_row(place.yname) && is_iata_line(place.xname)) {
-        place.xname = denorm_iata_line(place.xname, pr_lat);
-        comp[norm_iata_row(place.yname)][place.xname] = place;
+    if(is_iata_row(yname) && is_iata_line(xname)) {
+        TTlgPlace place;
+        place.xname = norm_iata_line(xname);
+        place.yname = norm_iata_row(yname);
+        place.point_arv = point_id;
+        comp[place.yname][place.xname] = place;
     }
 }
 
@@ -2104,16 +2108,16 @@ void TTlgSeatList::dump_list(map<int, string> &list)
     }
 }
 
-string  TTlgSeatList::get_seat_list()
+string  TTlgSeatList::get_seat_list(bool pr_lat)
 {
     map<int, string> list;
-    get_seat_list(list);
+    get_seat_list(list, pr_lat);
     if(list.size() > 1)
         throw Exception("TTlgSeatList::get_seat_list(): wrong map size %d", list.size());
     return list[0];
 }
 
-void TTlgSeatList::get_seat_list(map<int, string> &list)
+void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
 {
     for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
         map<int, TSeatListContext> ctxt;
@@ -2133,7 +2137,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list)
                 if(prev_iata_line(ax->first) == *last_xname)
                     *last_xname = ax->first;
                 else {
-                    cur_ctxt->seat_to_str(*str_seat, ax->second.yname, *first_xname, *last_xname);
+                    cur_ctxt->seat_to_str(*str_seat, ax->second.yname, *first_xname, *last_xname, pr_lat);
                     *first_xname = ax->first;
                     *last_xname = *first_xname;
                 }
@@ -2147,26 +2151,29 @@ void TTlgSeatList::get_seat_list(map<int, string> &list)
             last_xname = &cur_ctxt->last_xname;
             str_seat = &im->second;
             if(first_xname != NULL and !first_xname->empty())
-                cur_ctxt->seat_to_str(*str_seat, ay->first, *first_xname, *last_xname);
+                cur_ctxt->seat_to_str(*str_seat, ay->first, *first_xname, *last_xname, pr_lat);
         }
     }
 }
 
-void TSeatListContext::seat_to_str(string &list, string yname, string first_xname, string last_xname)
+void TSeatListContext::seat_to_str(string &list, string yname, string first_xname, string last_xname, bool pr_lat)
 {
+    yname = denorm_iata_row(yname);
+    first_xname = denorm_iata_line(first_xname, pr_lat);
+    last_xname = denorm_iata_line(last_xname, pr_lat);
     if(first_xname == last_xname) {
         if(cur_seat_type == 'a')
             list += first_xname;
         else {
             if(!list.empty())
                 list += " ";
-            list += denorm_iata_row(yname) + first_xname;
+            list += yname + first_xname;
             cur_seat_type = 'a';
         }
     } else {
         if(!list.empty())
             list += " ";
-        list += denorm_iata_row(yname) + first_xname;
+        list += yname + first_xname;
         if(prev_iata_line(last_xname) != first_xname)
             list += "-";
         list += last_xname;
@@ -2220,8 +2227,7 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
             add_seat(
                     Qry.FieldAsInteger(col_point_arv),
                     Qry.FieldAsString(col_xname),
-                    Qry.FieldAsString(col_yname),
-                    (info.pr_lat or info.pr_lat_seat)
+                    Qry.FieldAsString(col_yname)
                     );
         }
     }
@@ -2231,7 +2237,7 @@ void TTlgSeatList::get(TTlgInfo &info)
 {
     apply_comp(info);
     map<int, string> list;
-    get_seat_list(list);
+    get_seat_list(list, (info.pr_lat or info.pr_lat_seat));
     // finally we got map with key - point_arv, data - string represents seat list for given point_arv
 
     TQuery Qry(&OraSession);

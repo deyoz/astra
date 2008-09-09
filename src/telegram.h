@@ -76,16 +76,19 @@ struct TTlgSeatList {
         void apply_comp(TTlgInfo &info);
         void dump_comp();
         void dump_list(std::map<int, std::string> &list);
-        void get_seat_list(std::map<int, std::string> &list);
+        void get_seat_list(std::map<int, std::string> &list, bool pr_lat);
     public:
         std::vector<std::string> items;
         void get(TTlgInfo &info);
-        void add_seat(int point_id, std::string xname, std::string yname, bool pr_lat); // used in SOM
-        void add_seat(std::string xname, std::string yname, bool pr_lat) { // used in PRL
-            add_seat(0, xname, yname, pr_lat);
+        void add_seat(int point_id, std::string xname, std::string yname); // used in SOM
+        void add_seat(std::string xname, std::string yname) { // used in PRL
+            add_seat(0, xname, yname);
         };
-        std::string get_seat_list(); // used in PRL
+        std::string get_seat_list(bool pr_lat); // used in PRL
+        void Clear() { comp.clear(); };
 };
+
+void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list);
 
 // End of previous stuff
 
