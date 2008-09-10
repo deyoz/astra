@@ -1384,6 +1384,12 @@ void TPassengers::Add( TPassenger &pass )
 {
 	ProgTrace( TRACE5, "agent_seat=%s, preseat=%s, placeName=%s", 
 	           pass.agent_seat.c_str(), pass.preseat.c_str(), pass.placeName.c_str() );
+  size_t i = 0;
+  for (; i < pass.agent_seat.size(); i++)
+    if ( pass.agent_seat[ i ] != '0' )
+      break;
+  if ( i )
+    pass.agent_seat.erase( 0, i );  	           
 	if ( !pass.agent_seat.empty() )
 	 pass.placeName = pass.agent_seat;
   if ( !pass.preseat.empty() && !pass.placeName.empty() && pass.preseat != pass.placeName ) {
