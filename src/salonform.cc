@@ -929,7 +929,7 @@ void convert_salons()
 	 "SELECT DISTINCT point_dep, point_arv,pax.pax_id,NVL(seat_no,prev_seat_no) seat_no,seats, rem_code "
 	 " FROM pax, pax_grp, pax_rem "
 	 " WHERE pax_grp.grp_id = pax.grp_id AND NVL(seat_no,prev_seat_no) IS NOT NULL AND "
-	 "       pax.pax_id=pax_rem.pax_id(+) AND rem_code='STCR' AND seats>1"
+	 "       pax.pax_id=pax_rem.pax_id(+) AND rem_code(+)='STCR' AND seats>1"
 	 "ORDER BY point_dep,pax.pax_id ";
 	Qry.Execute();
 	ProgTrace( TRACE5, "exec time4 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	

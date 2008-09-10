@@ -284,14 +284,11 @@ void TSalons::Write( TReadStyle readStyle )
 
   Qry.Clear();
   if ( readStyle == rTripSalons ) {
-    Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "\
-                  "                            pr_smoke,not_good,xname,yname,pr_free,enabled) "\
-                  " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "\
-                  "        :pr_smoke,:not_good,:xname,:yname,:pr_free,:enabled)";
+    Qry.SQLText = "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
+                  "                            pr_smoke,not_good,xname,yname) "
+                  " VALUES(:point_id,:num,:x,:y,:elem_type,:xprior,:yprior,:agle,:class, "
+                  "        :pr_smoke,:not_good,:xname,:yname)";
     Qry.DeclareVariable( "point_id", otInteger );
-//    Qry.DeclareVariable( "status", otString );
-    Qry.DeclareVariable( "pr_free", otInteger ); //!!! убрать
-    Qry.DeclareVariable( "enabled", otInteger ); //!!! убрать
     Qry.SetVariable( "point_id", trip_id );
   }
   else {
@@ -348,17 +345,6 @@ void TSalons::Write( TReadStyle readStyle )
         Qry.SetVariable( "not_good", 1 );
       Qry.SetVariable( "xname", place->xname );
       Qry.SetVariable( "yname", place->yname );
-      if ( readStyle == rTripSalons ) {
-        //Qry.SetVariable( "status", place->status );
-        if ( !place->pr_free )
-          Qry.SetVariable( "pr_free", FNull );
-        else
-          Qry.SetVariable( "pr_free", 1 );
-        if ( place->block )
-          Qry.SetVariable( "enabled", FNull );
-        else
-          Qry.SetVariable( "enabled", 1 );
-      }
       Qry.Execute();
       if ( !place->rems.empty() ) {
         RQry.SetVariable( "x", place->x );
@@ -648,18 +634,19 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	while( remsNode ) {
       		remNode = remsNode->children;
       		string l = EncodeLayer( NodeAsStringFast( "layer_type", remNode ) );
-      		if ( !l.empty() )
-      		  place.layers.push_back( l );
+/*new version      		if ( !l.empty() )
+      		  place.layers.push_back( l ); */
       		remsNode = remsNode->next;
       	}
       }
       else { //old version
       		string l = EncodeLayer( place.status );
-      		ProgTrace( TRACE5, "status-layer=%s", l.c_str() );
       		if ( !l.empty()  )
       		  place.layers.push_back( l );
-      		if ( place.block && find( place.layers.begin(), place.layers.end(), string("BL") ) == place.layers.end() )
+      		if ( place.block ) {
+      			place.layers.clear();
       			place.layers.push_back( EncodeLayer( "BL" ) );
+      		}
       }
       place.visible = true;
       placeList->Add( place );
@@ -1004,25 +991,39 @@ void setTRIP_CLASSES( int point_id )
     "BEGIN "
     "DELETE trip_classes WHERE point_id = :point_id; "    
     "INSERT INTO trip_classes(point_id,class,cfg,block,prot) "
-    " SELECT :point_id, "
-    "        class, "
-    "        NVL( SUM( DECODE( class, NULL, 0, 1 ) ), 0 ), "
-    "        NVL( SUM( DECODE( class, NULL, 0, DECODE( layer_type, :blockcent_layer, 1, 0 ) ) ), 0 ), "
-    "        0 "
-    "  FROM trip_comp_elems t, comp_elem_types, trip_comp_ranges r1 "
-    " WHERE t.elem_type = comp_elem_types.code AND "
-    "       t.point_id=r1.point_id(+) AND "
-    "       t.num=r1.num(+) AND "
-    "       t.x=r1.x(+) AND "
-    "       t.y=r1.y(+) AND "
-    "       r1.layer_type(+)=:blockcent_layer AND "
-    "       comp_elem_types.pr_seat <> 0 AND "
-    "       t.point_id=:point_id "
-    " GROUP BY class; "
+    "  SELECT  :point_id, "
+    "          b.class, "
+    "          NVL(b.cfg,0), "
+    "          NVL(block,0), "
+    "          NVL(prot,0) "
+    "  FROM "
+    " ( SELECT class, "
+    "          NVL(SUM(DECODE( layer_type, :blockcent_layer, 1, 0 )),0) block, "
+    "          NVL(SUM(DECODE( layer_type, :reserve_layer, 1, 0 )),0) prot "
+    "    FROM trip_comp_ranges r, trip_comp_elems t, comp_elem_types "
+    "   WHERE r.point_id=:point_id AND "
+    "         t.point_id=r.point_id AND "
+    "         t.num=r.num AND "
+    "         t.x=r.x AND "
+    "         t.y=r.y AND "
+    "         t.elem_type = comp_elem_types.code AND "
+    "         comp_elem_types.pr_seat <> 0 "
+    "   GROUP BY class "
+    "  ) a, "
+    "  ( SELECT trip_comp_elems.class, "
+    "           NVL( SUM( DECODE( trip_comp_elems.class, NULL, 0, 1 ) ), 0 ) cfg "
+    "     FROM trip_comp_elems, comp_elem_types "
+    "    WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+    "          comp_elem_types.pr_seat <> 0 AND "
+    "          trip_comp_elems.point_id=:point_id "
+    "    GROUP BY class "
+    "  ) b "
+    " WHERE b.class=a.class(+); "
     " ckin.recount( :point_id ); "
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType(ASTRA::cltBlockCent) );
+  Qry.CreateVariable( "reserve_layer", otString, EncodeCompLayerType(ASTRA::cltProtect) );  	
   Qry.Execute();	
 }
 
@@ -1153,9 +1154,9 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
     "DELETE trip_comp_layers "
     " WHERE point_id=:point_id AND layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
-    "                            pr_smoke,not_good,xname,yname,status,pr_free,enabled) "
+    "                            pr_smoke,not_good,xname,yname) "
     " SELECT :point_id,num,x,y,elem_typpppe,xprior,yprior,agle,class, "
-    "        pr_smoke,not_good,xname,yname,'FP',1,1 "
+    "        pr_smoke,not_good,xname,yname "
     "  FROM comp_elems "
     " WHERE comp_id = :comp_id; "
     "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
