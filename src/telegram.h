@@ -85,6 +85,7 @@ struct TTlgSeatList {
             add_seat(0, xname, yname);
         };
         std::string get_seat_list(bool pr_lat); // used in PRL
+        std::string get_seat_one(bool pr_lat);
         void Clear() { comp.clear(); };
 };
 

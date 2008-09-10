@@ -2108,6 +2108,17 @@ void TTlgSeatList::dump_list(map<int, string> &list)
     }
 }
 
+string  TTlgSeatList::get_seat_one(bool pr_lat)
+{
+    string result;
+    if(!comp.empty()) {
+        t_tlg_comp::iterator ay = comp.begin();
+        t_tlg_row::iterator ax = ay->second.begin();
+        result = denorm_iata_row(ay->first) + denorm_iata_line(ax->first, pr_lat);
+    }
+    return result;
+}
+
 string  TTlgSeatList::get_seat_list(bool pr_lat)
 {
     map<int, string> list;
