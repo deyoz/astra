@@ -185,7 +185,6 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
-  tst();
   Salons.Write( rTripSalons );
   bool pr_initcomp = NodeAsInteger( "initcomp", reqNode );  
   /* инициализация VIP */  

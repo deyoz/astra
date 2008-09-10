@@ -2000,9 +2000,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             		if ( !pas.isValidPlace )
             			invalid_seat_no = true;
               } // end for 
-              if ( !pr_found_agent_seat_no ) // есть место и оно изменилось
+              if ( !pas.agent_seat.empty() && !pr_found_agent_seat_no ) // есть место и оно изменилось
               	change_agent_seat_no = true;
-              if ( !pr_found_preseat_no ) // есть предварительное место и оно изменилось
+              if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
               	change_preseat_no = true;
             
           /*  if (!pas.agent_seat.empty() && pas.agent_seat != pas.placeName) //было из crs или введено агентом, но оно не рассадилось

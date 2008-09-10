@@ -206,12 +206,14 @@ void TSalons::Write( TReadStyle readStyle )
                   " DELETE trip_comp_rem WHERE point_id=:point_id; "
                   " DELETE trip_comp_elems WHERE point_id=:point_id; "
                   " DELETE trip_comp_layers "                  
-                  " WHERE point_id=:point_id AND layer_type IN ( 'TRANZIT', 'BLOCK_CENT', 'PROTECT' );"
+                  " WHERE point_id=:point_id AND layer_type IN ( :tranzit_layer, :blockcent_layer, :prot_layer );"
 //                  layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
                   "END;";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );    
-    tst();
+    Qry.CreateVariable( "tranzit_layer", otString, EncodeCompLayerType( cltTranzit ) );    
+    Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType( cltBlockCent ) );    
+    Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtect ) );    
   }
   else { /* сохранение компоновки */
     if ( modify == mAdd ) {
