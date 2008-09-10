@@ -123,7 +123,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,trace_level,lang "
+    "SELECT city,trace_level,lang,NVL(under_constr,0) AS under_constr "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -131,6 +131,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
+  if (Qry.FieldAsInteger("under_constr")!=0)
+    throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
   desk.city = Qry.FieldAsString( "city" );
   desk.lang = Qry.FieldAsString( "lang" );
   if (!Qry.FieldIsNULL("trace_level"))
