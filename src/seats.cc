@@ -1382,12 +1382,14 @@ void TPassengers::sortByIndex()
 
 void TPassengers::Add( TPassenger &pass )
 {
+	ProgTrace( TRACE5, "agent_seat=%s, preseat=%s, placeName=%s", 
+	           pass.agent_seat.c_str(), pass.preseat.c_str(), pass.placeName.c_str() );
 	if ( !pass.agent_seat.empty() )
 	 pass.placeName = pass.agent_seat;
   if ( !pass.preseat.empty() && !pass.placeName.empty() && pass.preseat != pass.placeName ) {
     pass.placeName = pass.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
   }
-  ProgTrace( TRACE5, "pass.placeName=%s", pass.placeName.c_str() );
+  ProgTrace( TRACE5, "pass.placeName=%s, pass.oldplacename=%s", pass.placeName.c_str(), pass.OldPlaceName.c_str() );
 	
   if ( pass.countPlace > MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
@@ -1904,7 +1906,6 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRa
                          int pax_id, int point_dep, int point_arv )
 {
   if (seats.empty()) return;
-  ProgTrace( TRACE5, "SaveTripSeatRanges: pax_id=%d, layer_type=%s", pax_id, EncodeCompLayerType( layer_type ) );
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -2262,8 +2263,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
    
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
 {
-	
-	
+	// салон содержит все нормальные места (нет инфалидных мест, например с разрывами 	
   if ( Salons.placelists.empty() )
     throw Exception( "Не задан салон для автоматической рассадки" );    
   CurrSalon = &Salons;
@@ -2284,11 +2284,12 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
   int s;  
   try {
     for ( int vClass=0; vClass<=2; vClass++ ) {
-      for ( int vSeats=0; vSeats<=1; vSeats++ ) {
+      //!!!for ( int vSeats=0; vSeats<=1; vSeats++ ) {
         Passengers.Clear();
         s = APass.getCount();
         for ( int i=0; i<s; i++ ) {
           TPassenger &pass = APass.Get( i );
+          ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.placeName=%s", pass.isSeat, pass.pax_id, pass.placeName.c_str() );
           if ( pass.isSeat ) // пассажир посажен
             continue; 
           pass.OldPlaceName = pass.placeName;
@@ -2306,7 +2307,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
                  continue;
                break;
           }
-          if ( ExistsBasePlace( Salons, pass ) ) // пассажир не посажен, но нашлось для него базовое место   //??? кодировка !!!
+          if ( ExistsBasePlace( Salons, pass ) ) // пассажир не посажен, но нашлось для него базовое место - пометили как занято //??? кодировка !!!
             continue;
           Passengers.Add( pass ); /* накапливаются те у которых не нашлось базовых мест */
         } /* пробежались по всем пассажирам */
@@ -2326,11 +2327,36 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
             	break;
             }
           }
-        }
+        //!!!}
       }
     }
+    TQuery QryPax( &OraSession );
+    TQuery QryLayer( &OraSession );    
+    TQuery QryUpd( &OraSession );        
+    QryPax.SQLText =
+      "SELECT point_dep, point_arv FROM pax, pax_grp "
+      " WHERE pax.pax_id=:pax_id AND "
+      "       pax.grp_id=pax_grp.grp_id ";
+    QryPax.DeclareVariable( "pax_id", otInteger );
+    QryLayer.SQLText =
+      "DELETE FROM trip_comp_layers "
+      " WHERE point_id=:point_id AND "
+      "       layer_type=:layer_type AND "
+      "       pax_id=:pax_id ";
+    QryLayer.CreateVariable( "point_id", otInteger, CurrSalon->trip_id );
+    QryLayer.DeclareVariable( "pax_id", otInteger );
+    QryLayer.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
+    QryUpd.SQLText =
+      "BEGIN "
+      " UPDATE pax SET tid=tid__seq.nextval WHERE pax_id=:pax_id;"
+      " mvd.sync_pax(:pax_id,:term); "
+      "END;";
+    QryUpd.DeclareVariable( "pax_id", otInteger );
+    QryUpd.DeclareVariable( "term", otString );        
+    
     ProgTrace( TRACE5, "passengers.count=%d", Passengers.getCount() );
-    Passengers.Clear();
+    Passengers.Clear();    
+    
     s = APass.getCount();
     for ( int i=0; i<s; i++ ) {
     	TPassenger &pass = APass.Get( i );
@@ -2349,32 +2375,20 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       		TSeatRange r(*i,*i);
       		seats.push_back( r );
       	}
-        TQuery Qry( &OraSession );
-        Qry.SQLText =
-          "SELECT point_dep, point_arv FROM pax, pax_grp "
-          " WHERE pax.pax_id=:pax_id AND "
-          "       pax.grp_id=pax_grp.grp_id ";
-        Qry.CreateVariable( "pax_id", otInteger, pass.pax_id );
-        Qry.Execute();
-        if ( Qry.Eof )
+      	QryPax.SetVariable( "pax_id", pass.pax_id );
+        QryPax.Execute();
+        if ( QryPax.Eof )
         	throw UserException( "Не задано направление у пассажира" );
-        int point_dep = Qry.FieldAsInteger( "point_dep" );
-        int point_arv = Qry.FieldAsInteger( "point_arv" );
-        Qry.Clear();        
-        Qry.SQLText = "SELECT tid__seq.nextval AS tid FROM dual";
-        Qry.Execute();
-        int tid = Qry.FieldAsInteger( "tid" );
+        int point_dep = QryPax.FieldAsInteger( "point_dep" );
+        int point_arv = QryPax.FieldAsInteger( "point_arv" );
+        // необходимо вначале удалить все его инвалидные места из слоя регистрации
+        QryLayer.CreateVariable( "pax_id", otInteger, pass.pax_id );
+        QryLayer.Execute();        
   		  SaveTripSeatRanges( Salons.trip_id, cltCheckin, seats, pass.pax_id, point_dep, point_arv );
-    	  Qry.Clear();  		  
-  		  Qry.SQLText =
-          "BEGIN "
-          " UPDATE pax SET tid=:tid WHERE pax_id=:pax_id;"
-          " mvd.sync_pax(:pax_id,:term); "
-          "END;";
-        Qry.CreateVariable( "pax_id", otInteger, pass.pax_id );
-        Qry.CreateVariable( "tid", otInteger, tid );
-        Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
-        Qry.Execute();
+  		  QryUpd.SetVariable( "pax_id", pass.pax_id );
+        QryUpd.SetVariable( "term", TReqInfo::Instance()->desk.code );
+        QryUpd.Execute();
+        ProgTrace( TRACE5, "oldplace=%s, newplace=%s", pass.OldPlaceName.c_str(), pass.placeName.c_str() );
       	if ( pass.placeName != pass.OldPlaceName )/* пересадили на другое место */
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +

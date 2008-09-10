@@ -389,14 +389,14 @@ void TSalons::Write( TReadStyle readStyle )
 
 void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
 {
-	wo_invalid_seat_no = true;
   if ( readStyle == rTripSalons )
-    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
-               trip_id, ClName.c_str() );
+  	;
+/*    ProgTrace( TRACE5, "TSalons::Read TripSalons with params trip_id=%d, ClassName=%s",
+               trip_id, ClName.c_str() );*/
   else {
     ClName.clear();
-    ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
-               comp_id );
+/*    ProgTrace( TRACE5, "TSalons::Read ComponSalons with params comp_id=%d",
+               comp_id );*/
   }
   Clear();
   map<string,bool> ispl;
@@ -447,7 +447,7 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
         "      r.range_id=l.range_id AND "
         "      t1.point_id=r.point_id AND "
         "      t1.num=r.num AND "
-        "      t1.x=r.num AND "
+        "      t1.x=r.x AND "
         "      t1.y=r.y AND "
         "      pax_grp.point_dep=:point_id AND "
         "      pax.grp_id=pax_grp.grp_id AND "
@@ -455,7 +455,8 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     sql_text += " ORDER BY num, x desc, y desc ";
     Qry.SQLText = sql_text;
     Qry.CreateVariable( "point_id", otInteger, trip_id );
-    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
+    if ( wo_invalid_seat_no )
+      Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
   }
   else {
     Qry.SQLText = "SELECT num,x,y,elem_type,xprior,yprior,agle,pr_smoke,not_good,xname,yname,class "
@@ -789,7 +790,6 @@ bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
     CharReplace( seat_no, lat_seat, rus_seat );
   if ( placeName == seat_no )
     seat_no.clear();
-  ProgTrace( TRACE5, "GetisPlaceXY: seat_no=%s, new_seat_no=%s", placeName.c_str(), seat_no.c_str() );
   for( vector<string>::iterator ix=xs.begin(); ix!=xs.end(); ix++ )
     for ( vector<string>::iterator iy=ys.begin(); iy!=ys.end(); iy++ ) {
     	salon_seat_no = denorm_iata_row(*iy) + denorm_iata_line(*ix,false); 
@@ -1015,7 +1015,7 @@ void setTRIP_CLASSES( int point_id )
     "       t.num=r1.num(+) AND "
     "       t.x=r1.x(+) AND "
     "       t.y=r1.y(+) AND "
-    "       r1.layer_type=:blockcent_layer AND "
+    "       r1.layer_type(+)=:blockcent_layer AND "
     "       comp_elem_types.pr_seat <> 0 AND "
     "       t.point_id=:point_id "
     " GROUP BY class; "
@@ -1431,4 +1431,5 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
 
 
 } // end namespace
+
 
