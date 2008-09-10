@@ -325,6 +325,7 @@ class TPaxItem
     long seats;
     std::vector<TSeatRange> seatRanges;
     TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
+    char seat_type[5];
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
@@ -334,6 +335,7 @@ class TPaxItem
     {
       pers_type=ASTRA::adult;
       seats=1;
+      *seat_type=0;
     };
 };
 
@@ -619,6 +621,7 @@ void crs_recount(int point_id_tlg);
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
                        int crs_pax_id,int tlg_id,bool UsePriorContext);
+void SyncTlgCompLayers(int point_id_tlg, ASTRA::TCompLayerType layer_type);
 
 #endif
 

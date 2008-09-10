@@ -388,7 +388,14 @@ void bind_tlg(void)
   for(;!Qry.Eof;Qry.Next(),count++)
   {
     if (bind_tlg(Qry))
-      crs_recount(Qry.FieldAsInteger("point_id"));
+    {
+      int point_id_tlg=Qry.FieldAsInteger("point_id");
+      crs_recount(point_id_tlg);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPreseat);
+    };
   };
   OraSession.Commit();
 

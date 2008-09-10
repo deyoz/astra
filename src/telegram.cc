@@ -1353,7 +1353,8 @@ void TelegramInterface::CompareBSMContent(TBSMContent& con1, TBSMContent& con2, 
                  con1.pax.reg_no==con2.pax.reg_no &&
                  con1.pax.surname==con2.pax.surname &&
                  con1.pax.name==con2.pax.name &&
-                 con1.pax.seat_no==con2.pax.seat_no &&
+                 con1.pax.seat_no.get_seat_one(con1.pr_lat_seat)==
+                   con2.pax.seat_no.get_seat_one(con2.pr_lat_seat) &&
                  con1.pax.pnr_addr==con2.pax.pnr_addr &&
                  con1.bag.rk_weight==con2.bag.rk_weight);
     if (!pr_chd)
@@ -1434,9 +1435,12 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   Qry.Clear();
   Qry.SQLText=
     "SELECT airline,flt_no,suffix,airp,scd_out, "
-    "       airp_arv,class "
-    "FROM points,pax_grp "
-    "WHERE point_id=point_dep AND points.pr_del>=0 AND grp_id=:grp_id AND bag_refuse=0";
+    "       airp_arv,class,NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat "
+    "FROM points,pax_grp,trip_sets "
+    "WHERE points.point_id=pax_grp.point_dep AND points.pr_del>=0 AND "
+    "      points.point_id=trip_sets.point_id(+) AND "
+    "      grp_id=:grp_id AND bag_refuse=0";
+
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof) return;
@@ -1447,12 +1451,12 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   strcpy(con.OutFlt.airp_arv,Qry.FieldAsString("airp_arv"));
   strcpy(con.OutFlt.subcl,Qry.FieldAsString("class"));
   con.OutFlt.scd=UTCToLocal(Qry.FieldAsDateTime("scd_out"),AirpTZRegion(con.OutFlt.airp_dep));
+  con.pr_lat_seat=Qry.FieldAsInteger("pr_lat_seat")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
 
   Qry.Clear();
   Qry.SQLText=
-
     "SELECT airline,flt_no,suffix,scd,airp_dep,airp_arv,subclass "
     "FROM transfer,trfer_trips "
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
@@ -1524,10 +1528,8 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
       Qry.Clear();
       Qry.SQLText =
         "SELECT reg_no,surname,name, "
-        "       salons.get_seat_no(pax_id,:checkin_layer,seats,NULL,'tlg') AS seat_no, "
         "       DECODE(pr_brd,NULL,'N',0,'C','B') AS status "
         "FROM pax WHERE pax_id=:pax_id";
-      Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (!Qry.Eof)
@@ -1535,9 +1537,10 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
         con.pax.reg_no=Qry.FieldAsInteger("reg_no");
         con.pax.surname=Qry.FieldAsString("surname");
         con.pax.name=Qry.FieldAsString("name");
-        con.pax.seat_no=Qry.FieldAsString("seat_no");
         con.pax.status=Qry.FieldAsString("status");
       };
+      get_seat_list(pax_id,cltCheckin,con.pax.seat_no);
+
       vector<TPnrAddrItem> pnrs;
       con.pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
     };
@@ -1664,7 +1667,7 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   if (con.pax.reg_no!=-1)
     body << ".S/"
          << (con.indicator==DEL?'N':'Y') << '/'
-         << /*convert_seat_no(*/con.pax.seat_no/*,pr_lat)!!!*/ << '/'
+         << con.pax.seat_no.get_seat_one(con.pr_lat_seat || pr_lat) << '/'
          << con.pax.status << '/'
          << setw(3) << setfill('0') << con.pax.reg_no << ENDL;
 

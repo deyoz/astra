@@ -119,7 +119,8 @@ class TBSMBagItem
 class TBSMPaxItem
 {
   public:
-    std::string surname,name,seat_no,status,pnr_addr;
+    std::string surname,name,status,pnr_addr;
+    TTlgSeatList seat_no;
     int reg_no;
     TBSMPaxItem()
     {
@@ -132,6 +133,7 @@ class TBSMContent
   public:
     TIndicator indicator;
     TTransferItem OutFlt;
+    bool pr_lat_seat;
     std::vector<TTransferItem> OnwardFlt;
     std::vector<TBSMTagItem> tags;
     TBSMPaxItem pax;
@@ -139,6 +141,7 @@ class TBSMContent
     TBSMContent()
     {
       indicator=None;
+      pr_lat_seat=false;
     };
 };
 

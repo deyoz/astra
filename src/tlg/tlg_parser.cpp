@@ -2598,28 +2598,18 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                     if (iPaxItem2==ne.pax.end())
                     {
                       iPaxItem->seat=seat;
+                      if (strcmp(i->rem,"NSST")==0||
+                          strcmp(i->rem,"NSSA")==0||
+                          strcmp(i->rem,"NSSW")==0||
+                          strcmp(i->rem,"SMST")==0||
+                          strcmp(i->rem,"SMSA")==0||
+                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem->seat_type,i->rem);
                       break;
                     };
                   }
                   while (NextSeatInRange(*i,seat));
                 };
               };
-/*              for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
-              {
-                if (i->first.line!=0 && i->first.row>0)
-                {
-
-                     if (i->first.row==iPaxItem2->seat.row&&
-                         i->first.line==iPaxItem2->seat.line) break;
-
-                   if (iPaxItem2==ne.pax.end())
-                   {
-                     iPaxItem->seat=i->first;
-                     break;
-                   };
-                };
-              };*/
-
             };
             continue;
           };
@@ -2753,6 +2743,12 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                     if (iPaxItem2->seat.Empty())
                     {
                       iPaxItem2->seat=seat;
+                      if (strcmp(i->rem,"NSST")==0||
+                          strcmp(i->rem,"NSSA")==0||
+                          strcmp(i->rem,"NSSW")==0||
+                          strcmp(i->rem,"SMST")==0||
+                          strcmp(i->rem,"SMSA")==0||
+                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
                       break;
                     };
                   if (iPaxItem2!=ne.pax.end()) continue;
@@ -2764,6 +2760,12 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                       if (iPaxItem2->seat.Empty())
                       {
                         iPaxItem2->seat=seat;
+                        if (strcmp(i->rem,"NSST")==0||
+                            strcmp(i->rem,"NSSA")==0||
+                            strcmp(i->rem,"NSSW")==0||
+                            strcmp(i->rem,"SMST")==0||
+                            strcmp(i->rem,"SMSA")==0||
+                            strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
                         break;
                       };
                     if (iPaxItem2!=iNameElement->pax.end()) break;
@@ -2771,40 +2773,6 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
                 };
               }
               while (NextSeatInRange(*i,seat));
-
-
-         /*   for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
-            {
-              if (i->first.line!=0 && i->first.row>0)
-              {
-                //хорошо бы поискать среди всего pnr
-
-
-                //записать место из seat, если не найдено ни у кого другого
-                 for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                   if (i->first.row==iPaxItem2->seat.row&&
-                       i->first.line==iPaxItem2->seat.line) break;
-
-                 if (iPaxItem2==ne.pax.end())
-                   //найти пассажира, которому не проставлено место
-                   if (strcmp(iRemItem->code,"EXST")==0)
-                   {
-                     for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                       if (iPaxItem2->seat.line==0&&
-                           iPaxItem2->name=="EXST")
-                       {
-                         iPaxItem2->seat=i->first;
-                         break;
-                       };
-                   };
-                 if (iPaxItem2==ne.pax.end())
-                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                     if (iPaxItem2->seat.line==0)
-                     {
-                       iPaxItem2->seat=i->first;
-                       break;
-                     };
-              };*/
             };
           };
           continue;
@@ -5079,11 +5047,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN\
              IF :pax_id IS NULL THEN\
                SELECT pax_id.nextval INTO :pax_id FROM dual;\
-               INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seats,pr_del,last_op,tid)\
-               VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seats,:pr_del,:last_op,tid__seq.currval);\
+               INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_type,seats,pr_del,last_op,tid)\
+               VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval);\
              ELSE\
                UPDATE crs_pax\
-               SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname,\
+               SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_type= :seat_type,\
                    pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval\
                WHERE pax_id=:pax_id;\
              END IF;\
@@ -5095,6 +5063,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.DeclareVariable("pers_type",otString);
         CrsPaxInsQry.DeclareVariable("seat_xname",otString);
         CrsPaxInsQry.DeclareVariable("seat_yname",otString);
+        CrsPaxInsQry.DeclareVariable("seat_type",otString);
         CrsPaxInsQry.DeclareVariable("seats",otInteger);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
         CrsPaxInsQry.DeclareVariable("last_op",otDate);
@@ -5326,11 +5295,13 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 {
                   CrsPaxInsQry.SetVariable("seat_xname",iPaxItem->seat.line);
                   CrsPaxInsQry.SetVariable("seat_yname",iPaxItem->seat.row);
+                  CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat_type);
                 }
                 else
                 {
                   CrsPaxInsQry.SetVariable("seat_xname",FNull);
                   CrsPaxInsQry.SetVariable("seat_yname",FNull);
+                  CrsPaxInsQry.SetVariable("seat_type",FNull);
                 };
 
                 CrsPaxInsQry.SetVariable("seats",(int)iPaxItem->seats);
@@ -5530,20 +5501,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        //разметим забронированные места в салоне
-     /*!!!   Qry.Clear();
-        Qry.SQLText=
-          "DECLARE "
-          "  CURSOR cur IS "
-          "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
-          "curRow cur%ROWTYPE; "
-          "BEGIN "
-          "  FOR curRow IN cur LOOP "
-          "    salons.initcomp(CurRow.point_id_spp); "
-          "  END LOOP; "
-          "END;";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.Execute();*/
       };
 
       int pr_pnl_new=pr_pnl;

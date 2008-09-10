@@ -14,6 +14,7 @@
 #include "payment.h"
 #include "astra_misc.h"
 #include "base_tables.h"
+#include "convert.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1322,7 +1323,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  class,pax.subclass, "
-    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "              
+    "  salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
     "  seats,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
@@ -1683,6 +1684,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (grp_status==psTransit && !pr_tranz_reg)
       throw UserException("Перерегистрация транзита на данный рейс не производится");
 
+    TSalons Salons;
+
     if (!pr_unaccomp)
     {
       int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
@@ -1818,7 +1821,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           tst();
       };
       // начитка салона
-      TSalons Salons;
       Salons.trip_id = point_dep;
       Salons.ClName = cl;
       Salons.Read( rTripSalons );
@@ -1973,7 +1975,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           int pax_id=Qry.GetVariableAsInteger("pax_id");
           ReplaceTextChild(node,"pax_id",pax_id);
 
-          string seat_no;
+          ostringstream seat_no_str;
           //запись номеров мест
           if (seats>0 && i<Passengers.getCount())
           {
@@ -1993,8 +1995,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             vector<TSeatRange> ranges;
             for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
             {
+              seat_no_str << " "
+                          << denorm_iata_row(iSeat->row)
+                          << denorm_iata_line(iSeat->line,Salons.getLatSeat());
+
               TSeatRange range(*iSeat,*iSeat);
-              tst();
               ranges.push_back(range);
             };
             ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
@@ -2003,6 +2008,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             //seat_no=pas.seat_no.begin()->
             i++;
           };
+          if (seat_no_str.str().empty()) seat_no_str << " нет";
+
 
           //запись pax_doc и pax_fqt
           CrsQry.SetVariable("pax_id",pax_id);
@@ -2021,9 +2028,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   ((pr_brd_with_reg && pr_exam_with_brd)?", прошел досмотр":"")+
                   (pr_brd_with_reg?" , прошел посадку":"")+
                   ". "+
-                  "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+", место: "+
-                  (seats>0?seat_no+(seats>1?"+"+IntToString(seats-1):""):"нет")+
-                  ". Баг.нормы: "+normStr;
+                  "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+
+                  ", место:"+seat_no_str.str()+". Баг.нормы: "+normStr;
           reqInfo->MsgToLog(msg);
           reg_no++;
         };
