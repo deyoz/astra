@@ -903,6 +903,13 @@ void convert_salons()
 	bool pr_found;
 	count = 0;
 	TSeat s_e_a_t;
+	TQuery Q(&OraSession);
+	Q.SQLText = 
+	  "UPDATE crs_pax SET seat_xname=:xname, seat_yname=:yname WHERE pax_id=:pax_id";
+	Q.DeclareVariable( "pax_id", otInteger );
+	Q.DeclareVariable( "xname", otString );
+	Q.DeclareVariable( "yname", otString );
+	  
 	while ( !Qry.Eof ) {
 		count++;
     try {
@@ -915,6 +922,10 @@ void convert_salons()
         SaveTlgSeatRanges( Qry.FieldAsInteger( "point_id" ), Qry.FieldAsString( "target" ), 
                            cltPNLCkin, seats, 
                            Qry.FieldAsInteger( "pax_id" ), 0, false );
+        Q.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
+        Q.SetVariable( "xname", s_e_a_t.line );
+        Q.SetVariable( "yname", s_e_a_t.row );
+        Q.Execute();
       }
     }
     catch( EConvertError &e ) {
@@ -1194,10 +1205,71 @@ void convert_salons()
 		                    Qry.FieldAsString("new_seat_no"));
    		                    
 	};  
-	  
-	  
 	ProgTrace( TRACE5, "exec time14 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
-//	throw UserException( "END OF CONVERT!!!" );     
+	Qry.Clear();	      	
+	Qry.SQLText=	  
+   " SELECT pax_id, new_crs_seat_no, seat_no "
+   " FROM  "
+   " ( SELECT pax_id, seat_xname, seat_yname, seats, seat_no, rownum, "
+   " salons.get_crs_seat_no(seat_xname,seat_yname,seats,NULL,'one',rownum,0) AS new_crs_seat_no,  "
+   " salons.get_crs_seat_no(seat_xname,seat_yname,seats,NULL,'one',rownum,1) AS new_crs_seat_no_lat  "
+   " FROM crs_pax WHERE seat_no IS NOT NULL ) a "
+   " WHERE NVL(a.seat_no,' ')<>NVL(new_crs_seat_no,' ')	AND "
+   "       NVL(a.seat_no,' ')<>NVL(new_crs_seat_no_lat,' ') ";
+   Qry.Execute();
+	for(;!Qry.Eof;Qry.Next())
+	{
+		ProgTrace( TRACE5, "Different seat_no (pax_id=%d, old_seat_no=%s, new_seat_no=%s)",
+		                    Qry.FieldAsInteger("pax_id"),
+		                    Qry.FieldAsString("seat_no"), 
+		                    Qry.FieldAsString("new_crs_seat_no"));
+   		                    
+	};  
+	
+	Qry.Clear();
+	Qry.SQLText=	  
+   " SELECT pax_id, new_preseat_no, preseat_no "
+   " FROM  "
+   " ( SELECT pax_id, seats, preseat_no, rownum, "
+   " salons.get_crs_seat_no(pax_id,:layer_type,seats,NULL,'one',rownum) AS new_preseat_no "   
+   " FROM crs_pax WHERE preseat_no IS NOT NULL ) a "
+   " WHERE NVL(a.preseat_no,' ')<>NVL(new_preseat_no,' ') ";
+  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( cltPreseat ) );
+  Qry.Execute();
+	for(;!Qry.Eof;Qry.Next())
+	{
+		ProgTrace( TRACE5, "Different preseat_no (layer) (pax_id=%d, old_preseat_no=%s, new_preseat_no=%s)",
+		                    Qry.FieldAsInteger("pax_id"),
+		                    Qry.FieldAsString("preseat_no"), 
+		                    Qry.FieldAsString("new_preseat_no"));
+   		                    
+	};
+	
+	Qry.Clear();
+	Qry.SQLText=	  
+   " SELECT pax_id, new_seat_no, seat_no "
+   " FROM  "
+   " ( SELECT pax_id, seats, seat_no, rownum, "
+   " salons.get_crs_seat_no(pax_id,:layer_type,seats,NULL,'one',rownum,0) AS new_seat_no, "   
+   " salons.get_crs_seat_no(pax_id,:layer_type,seats,NULL,'one',rownum,1) AS new_seat_no_lat "   
+   " FROM crs_pax WHERE seat_no IS NOT NULL ) a "
+   " WHERE NVL(a.seat_no,' ')<>NVL(new_seat_no,' ') AND "
+   "       NVL(a.seat_no,' ')<>NVL(new_seat_no_lat,' ') ";
+  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( cltPNLCkin ) );
+  Qry.Execute();
+	for(;!Qry.Eof;Qry.Next())
+	{
+		ProgTrace( TRACE5, "Different seat_no (layer) (pax_id=%d, old_seat_no=%s, new_seat_no=%s)",
+		                    Qry.FieldAsInteger("pax_id"),
+		                    Qry.FieldAsString("seat_no"), 
+		                    Qry.FieldAsString("new_seat_no"));
+   		                    
+	};  
+	
+	  
+	  
+	ProgTrace( TRACE5, "exec time15 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
+	throw UserException( "END OF CONVERT!!!" );     
 }
 
 
