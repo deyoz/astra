@@ -749,6 +749,23 @@ void SalonsInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
 };
 
+void ParseSeat(string str, TSeat &seat)
+{
+  seat.Clear();
+  char c;
+  int res;
+
+  c=0;
+  res=sscanf(str.c_str(),"%3[0-9]%1[A-ZА-ЯЁ]%c",
+             seat.row,seat.line,&c);
+  if (c==0 && res==2)
+  {
+    NormalizeSeat(seat);    
+    return;
+  };
+  throw EConvertError("ParseSeat: wrong seat %s", str.c_str());  
+}      
+
 void convert_salons()
 {
 	TDateTime v = NowUTC();
@@ -769,6 +786,7 @@ void convert_salons()
 	Qry.SQLText = 
 	  "SELECT comp_id FROM comps";
 	Qry.Execute();
+	ProgTrace( TRACE5, "exec time1=%s", DateTimeToStr(  NowUTC() - v ).c_str() );			
 	TSalons Salons;
   string rus_lines = rus_seat, lat_lines = lat_seat;	
   int count=0;
@@ -794,6 +812,7 @@ void convert_salons()
     //ProgTrace( TRACE5, "comp_id=%d, lat_count=%d, rus_count=%d", Qry.FieldAsInteger( "comp_id" ), lat_count, rus_count );
 	  QryUpd.SetVariable( "pr_lat_seat", ( lat_count>=rus_count ) );
 	  QryUpd.SetVariable( "comp_id", Qry.FieldAsInteger( "comp_id" ) );    
+	  QryUpd.Execute();
 	  if ( lat_count > 0 && rus_count > 0 ) {
 	  	QryLog.SetVariable( "comp_id", Qry.FieldAsInteger( "comp_id" ) );
 	  	QryLog.SetVariable( "point_id", FNull );
@@ -801,10 +820,11 @@ void convert_salons()
 	  	             IntToString( lat_count ) + ", rus=" + IntToString( rus_count );
 	  	QryLog.SetVariable( "msg", msg.c_str() );
 	  	QryLog.Execute();
+	  	ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );
 	  }
 		Qry.Next();
 	}
-	ProgTrace( TRACE5, "exec time1.25 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );		
+	ProgTrace( TRACE5, "exec time2 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );		
 	//2. Определение для всех назначенных компоновок pr_lat_seat b запись их в trip_sets
 	Qry.Clear();
 	QryUpd.Clear();
@@ -837,6 +857,7 @@ void convert_salons()
     }
 	  QryUpd.SetVariable( "pr_lat_seat", ( lat_count>=rus_count ) );
 	  QryUpd.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );    
+	  QryUpd.Execute();
 	  if ( lat_count > 0 && rus_count > 0 ) {
 	  	QryLog.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
 	  	QryLog.SetVariable( "comp_id", FNull );
@@ -844,10 +865,11 @@ void convert_salons()
 	  	             IntToString( lat_count ) + ", rus=" + IntToString( rus_count );
 	  	QryLog.SetVariable( "msg", msg.c_str() );
 	  	QryLog.Execute();
+	  	ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );	  	
 	  }		
 		Qry.Next();
 	}
-	ProgTrace( TRACE5, "exec time1.5 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );			
+	ProgTrace( TRACE5, "exec time3 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );			
 	// приводим салоны к нормализованному виду
 	Qry.Clear();
 	Qry.SQLText = 
@@ -857,7 +879,7 @@ void convert_salons()
 	Qry.SQLText = 
 	 "UPDATE trip_comp_elems SET xname=xname, yname=yname";
 	Qry.Execute();  		
-	ProgTrace( TRACE5, "exec time1 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );
+	ProgTrace( TRACE5, "exec time4 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );
 	// работая со слоями
 	// удаление всех слоев из tlg
 	Qry.Clear();
@@ -874,17 +896,20 @@ void convert_salons()
     " WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "      ( seat_no IS NOT NULL OR preseat_no IS NOT NULL ) ";
 	Qry.Execute();
-	ProgTrace( TRACE5, "exec time2 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
+	ProgTrace( TRACE5, "exec time5 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
 	vector<TSeatRange> seats;  
 	Salons.trip_id = -1;
 	TPoint p;
 	bool pr_found;
 	count = 0;
+	TSeat s_e_a_t;
 	while ( !Qry.Eof ) {
 		count++;
     try {
     	if ( !Qry.FieldIsNULL( "seat_no" ) ) {
-        ParseSeatRange(Qry.FieldAsString( "seat_no" ), seats, false);
+        ParseSeat(Qry.FieldAsString( "seat_no" ), s_e_a_t);
+        seats.clear();
+        seats.push_back(TSeatRange(s_e_a_t,s_e_a_t));
         for (vector<TSeatRange>::iterator p=seats.begin(); p!=seats.end(); p++ )
       	  strcpy( p->rem, Qry.FieldAsString( "seat_type" ) );      
         SaveTlgSeatRanges( Qry.FieldAsInteger( "point_id" ), Qry.FieldAsString( "target" ), 
@@ -898,10 +923,13 @@ void convert_salons()
 	  	string msg = string(e.what()) + ",pax_id=" + Qry.FieldAsString( "pax_id" ) + ",layer_type=PNL_CKIN";
 	  	QryLog.SetVariable( "msg", msg.c_str() );
 	  	QryLog.Execute();    	    	
+	  	ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );	  	
     }
     try {
     	if ( !Qry.FieldIsNULL( "preseat_no" ) ) {
-        ParseSeatRange(Qry.FieldAsString( "preseat_no" ), seats, false);
+        ParseSeat(Qry.FieldAsString( "preseat_no" ), s_e_a_t);
+        seats.clear();
+        seats.push_back(TSeatRange(s_e_a_t,s_e_a_t));
         SaveTlgSeatRanges( Qry.FieldAsInteger( "point_id" ), Qry.FieldAsString( "target" ), 
                            cltPreseat, seats, 
                            Qry.FieldAsInteger( "pax_id" ), 0, false );
@@ -913,10 +941,11 @@ void convert_salons()
 	  	string msg = string(e.what()) + ",pax_id=" + Qry.FieldAsString( "pax_id" ) + ",layer_type=PRESEAT";
 	  	QryLog.SetVariable( "msg", msg.c_str() );
 	  	QryLog.Execute();    	    	
+	  	ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );	  	
     }    
 		Qry.Next();
 	}
-	ProgTrace( TRACE5, "exec time3=%s, count=%d", DateTimeToStr( NowUTC() - v ).c_str(), count );	
+	ProgTrace( TRACE5, "exec time6=%s, count=%d", DateTimeToStr( NowUTC() - v ).c_str(), count );	
 	Qry.Clear();
 	Qry.SQLText =
 	 "DELETE trip_comp_layers";
@@ -927,11 +956,11 @@ void convert_salons()
   Qry.SQLText =
 	 "SELECT DISTINCT point_dep, point_arv,pax.pax_id,NVL(seat_no,prev_seat_no) seat_no,seats, rem_code "
 	 " FROM pax, pax_grp, pax_rem "
-	 " WHERE pax_grp.grp_id = pax.grp_id AND NVL(seat_no,prev_seat_no) IS NOT NULL AND "
+	 " WHERE pax_grp.grp_id = pax.grp_id AND NVL(seat_no,prev_seat_no) IS NOT NULL AND refuse IS NULL AND "
 	 "       pax.pax_id=pax_rem.pax_id(+) AND rem_code(+)='STCR' AND seats>1"
 	 "ORDER BY point_dep,pax.pax_id ";
 	Qry.Execute();
-	ProgTrace( TRACE5, "exec time4 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
+	ProgTrace( TRACE5, "exec time7 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
 	Salons.trip_id = -1;
 	count=0;
 	while ( !Qry.Eof ) {
@@ -960,6 +989,7 @@ void convert_salons()
 	  	                   " в компоновке рейса задано неверно (x=" + IntToString(p.x) + ",y=" + IntToString(p.y) + "), pax_id=" + Qry.FieldAsString( "pax_id" );
 	  	      QryLog.SetVariable( "msg", msg.c_str() );
 	  	      QryLog.Execute();    			      	
+	  	      ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );	  	      
 		      }
 		      if ( !Qry.FieldIsNULL( "rem_code" ) )
 		      	p.y++;
@@ -980,11 +1010,12 @@ void convert_salons()
 	  	string msg = string( "Место pax.seat_no=" ) + Qry.FieldAsString( "seat_no" ) + " в компоновке рейса не найдено" + "), pax_id=" + Qry.FieldAsString( "pax_id" );
 	  	QryLog.SetVariable( "msg", msg.c_str() );
 	  	QryLog.Execute();    	
+	  	ProgTrace( TRACE5, "convert_salons: %s", msg.c_str() );	  	
     }
  	  seats.clear();      
 		Qry.Next();
 	}  
-	ProgTrace( TRACE5, "exec time5=%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
+	ProgTrace( TRACE5, "exec time8=%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
 	QryUpd.Clear();
 	QryUpd.SQLText =
 	 "SELECT xname, yname FROM trip_comp_elems WHERE point_id=:point_id AND old_yname||old_xname=:seat_no";
@@ -994,16 +1025,18 @@ void convert_salons()
 	Qry.SQLText =
 	 "SELECT point_dep, point_arv,pax.pax_id,NVL(seat_no,prev_seat_no) seat_no "
 	 " FROM pax, pax_grp "
-	 " WHERE pax_grp.grp_id = pax.grp_id AND seats=1";
+	 " WHERE pax_grp.grp_id = pax.grp_id AND seats=1 AND refuse IS NULL";
 	Qry.Execute();
-	ProgTrace( TRACE5, "exec time6 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
+	ProgTrace( TRACE5, "exec time9 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
 	count=0;
-	while ( Qry.Eof ) {
+	while ( !Qry.Eof ) {
 		try {
 			count++;
-		  ParseSeatRange(Qry.FieldAsString( "seat_no" ), seats, false);
+      ParseSeat(Qry.FieldAsString( "seat_no" ), s_e_a_t);
+      seats.clear();
+      seats.push_back(TSeatRange(s_e_a_t,s_e_a_t));
     	SEATS::SaveTripSeatRanges( Qry.FieldAsInteger( "point_dep" ), 
-    		                         DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), seats, 
+    		                         cltCheckin, seats, 
   	                             Qry.FieldAsInteger( "pax_id" ), Qry.FieldAsInteger( "point_dep" ), 
   	                             Qry.FieldAsInteger( "point_arv" ) ); 		  
 		}
@@ -1013,21 +1046,26 @@ void convert_salons()
 	    QryUpd.SetVariable( "seat_no", Qry.FieldAsString( "seat_no" ) ); 
 	    QryUpd.Execute();
 	    if ( QryUpd.Eof ) {    	
-	  	  QryLog.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
+	  	  QryLog.SetVariable( "point_id", Qry.FieldAsInteger( "point_dep" ) );
 	  	  QryLog.SetVariable( "comp_id", FNull );
  	  	  string msg = string(e.what()) + ",pax_id=" + Qry.FieldAsString( "pax_id" ) + ",layer_type=CHECKIN";
 	  	  QryLog.SetVariable( "msg", msg.c_str() );
 	  	  QryLog.Execute();    	    	
+  	  	ProgTrace( TRACE5, "convert_salons: %s, point_dep=%d, seat_no=%s", msg.c_str(), 
+  	  	           Qry.FieldAsInteger( "point_dep" ), Qry.FieldAsString( "seat_no" ) );
 	  	}
 	  	else {
 	  		seats.clear();
         TSeatRange r;
         strcpy( r.first.line, norm_iata_line( QryUpd.FieldAsString( "xname" ) ).c_str() );
         strcpy( r.first.row, norm_iata_row( QryUpd.FieldAsString( "yname" ) ).c_str() );
+        ProgTrace( TRACE5, "Not ParseSeat: pax_id=%d, r.first.line=%s, r.first.row=%s, xname=%s, yname=%s",
+                   Qry.FieldAsInteger( "pax_id" ), r.first.line, r.first.row,
+                   QryUpd.FieldAsString( "xname" ), QryUpd.FieldAsString( "yname" ) );
         r.second = r.first;
         seats.push_back(r);      		
 	    	SEATS::SaveTripSeatRanges( Qry.FieldAsInteger( "point_dep" ), 
-      		                         DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), seats, 
+      		                         cltCheckin, seats, 
   	                               Qry.FieldAsInteger( "pax_id" ), Qry.FieldAsInteger( "point_dep" ), 
   	                               Qry.FieldAsInteger( "point_arv" ) ); 		  	  		
 	    }
@@ -1035,7 +1073,7 @@ void convert_salons()
     }    		
 		Qry.Next();
 	}
-  ProgTrace( TRACE5, "exec time7 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );
+  ProgTrace( TRACE5, "exec time10 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );
  
 	 
   //6. Удаление trip_comp_elems.pr_free, trip_comp_elems.enabled, trip_comp_elems.status
@@ -1045,14 +1083,14 @@ void convert_salons()
     "SELECT point_id, xname, yname, enabled, status "
     " FROM trip_comp_elems WHERE enabled IS NULL OR status IN ('RZ','TR') ";
 	Qry.Execute();
-	ProgTrace( TRACE5, "exec time8 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
+	ProgTrace( TRACE5, "exec time11 =%s", DateTimeToStr(  NowUTC() - v ).c_str() );	
 	TCompLayerType layer_type;
 	vector<TSeatRange> RZseats, TRseats;  
 	count=0;
 	while ( !Qry.Eof ) {
 		count++;
 		layer_type = cltUnknown;
-		if ( !Qry.FieldIsNULL( "enabled" ) ) {
+		if ( Qry.FieldIsNULL( "enabled" ) ) {
  	    seats.clear();      			
       TSeatRange r;
       strcpy( r.first.line, norm_iata_line( Qry.FieldAsString( "xname" ) ).c_str() );
@@ -1063,10 +1101,10 @@ void convert_salons()
     		                         cltBlockCent, seats, 
     	                           0, Qry.FieldAsInteger( "point_id" ), 0 );
 		}
-		if ( Qry.FieldAsString( "status" ) == "RZ" )
+		if ( string(Qry.FieldAsString( "status" )) == string("RZ") )
 			layer_type = cltProtect;
 		else
-			if ( Qry.FieldAsString( "status" ) == "TR" )
+			if ( string(Qry.FieldAsString( "status" )) == string("TR") )
 			  layer_type = cltTranzit;
 			else 
 				layer_type = cltUnknown;
@@ -1083,8 +1121,83 @@ void convert_salons()
     }
 		Qry.Next();
 	} 
-	ProgTrace( TRACE5, "exec time9 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );
-	throw UserException( "END OF CONVERT!!!" );     
+	ProgTrace( TRACE5, "exec time12 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );
+	// проверка
+	Qry.Clear();
+	Qry.SQLText =	
+	  "SELECT point_id,diff_check,diff_tranzit,diff_block_cent,diff_protect "
+	  " FROM ( "
+	  "SELECT a.point_id, "
+	  "NVL(a.checkin,0)-NVL(b.checkin,0) diff_check, "
+	  "NVL(a.tranzit,0)-NVL(b.tranzit,0) diff_tranzit, "
+	  "NVL(a.block_cent,0)-NVL(b.block_cent,0) diff_block_cent, "
+	  "NVL(a.protect,0)-NVL(b.protect,0) diff_protect "	  
+	  " FROM "
+	  "( "
+    "SELECT point_id, "
+    " SUM(DECODE(old_pr_free,NULL,1,0)) checkin, "
+    " SUM(DECODE(old_status, 'TR',1,0)) tranzit, "
+    " SUM(DECODE(old_enabled,NULL,1,0)) block_cent, "
+    " SUM(DECODE(old_status, 'RZ',1,0)) protect "    
+    " FROM trip_comp_elems "    
+    "	GROUP BY point_id " 
+    " ) a, "
+	  " ( "
+	  "SELECT r.point_id,"
+	  "  SUM(DECODE(layer_type, 'CHECKIN', 1, 0) ) checkin, "
+	  "  SUM(DECODE(layer_type, 'TRANZIT', 1, 0) ) tranzit, "
+	  "  SUM(DECODE(layer_type, 'BLOCK_CENT', 1, 0) ) block_cent, "
+	  "  SUM(DECODE(layer_type, 'PROTECT', 1, 0) ) protect "
+	  " FROM trip_comp_ranges r "
+	  "GROUP BY r.point_id "
+	  " ) b "
+	  " WHERE a.point_id=b.point_id(+) ) "
+	  " WHERE diff_check <> 0 OR diff_tranzit <> 0 OR diff_block_cent <> 0 OR diff_protect <> 0 ";
+	Qry.Execute();
+	while ( !Qry.Eof ) {
+	  QryLog.SetVariable( "point_id", Qry.FieldAsInteger( "point_id" ) );
+ 	  QryLog.SetVariable( "comp_id", FNull );
+ 	  string msg = string("Количество мест не совпадает, point_id=") + IntToString(Qry.FieldAsInteger( "point_id" ));
+ 	  if ( Qry.FieldAsInteger( "diff_check" ) )
+ 	  	msg += string(" регистрация: ") + Qry.FieldAsString( "diff_check" );
+ 	  if ( Qry.FieldAsInteger( "diff_tranzit" ) )
+ 	  	msg += string(" транзит: ") + Qry.FieldAsString( "diff_tranzit" );
+ 	  if ( Qry.FieldAsInteger( "diff_block_cent" ) )
+ 	  	msg += string(" блокировка центровки: ") + Qry.FieldAsString( "diff_block_cent" );
+ 	  if ( Qry.FieldAsInteger( "diff_protect" ) )
+ 	  	msg += string(" резерв: ") + Qry.FieldAsString( "diff_protect" );
+	  QryLog.SetVariable( "msg", msg.c_str() );
+ 	  QryLog.Execute();    	    			
+ 	  ProgTrace( TRACE5, "convert_salons: verify layers: %s", msg.c_str() );
+		Qry.Next();
+	} 
+	ProgTrace( TRACE5, "exec time13 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
+	
+	Qry.Clear();
+	Qry.SQLText=
+	  "SELECT pax_id,grp_id,prev_seat_no,seat_no,salons.get_seat_no(pax_id,'CHECKIN',seats,NULL,'one') AS new_seat_no	"
+	  "FROM pax WHERE NVL(seat_no,' ')<>NVL(salons.get_seat_no(pax_id,'CHECKIN',seats,NULL,'one'),' ')";
+	Qry.Execute();
+	QryUpd.Clear();
+	QryUpd.SQLText = "SELECT point_id, airline||flt_no||' '||airp||' '||TO_CHAR(scd_out) flt FROM pax_grp, points "
+	" WHERE pax_grp.point_dep=points.point_id AND pax_grp.grp_id=:grp_id";
+  QryUpd.DeclareVariable( "grp_id", otInteger );
+	for(;!Qry.Eof;Qry.Next())
+	{
+		QryUpd.SetVariable( "grp_id", Qry.FieldAsInteger( "grp_id" ) );
+		QryUpd.Execute();
+		ProgTrace( TRACE5, "Different seat_no (point_id=%d, flt=%s,pax_id=%d, old_seat_no=%s, prev_seat_no=%s, new_seat_no=%s)",
+		                    QryUpd.FieldAsInteger( "point_id" ),  QryUpd.FieldAsString( "flt" ),  
+		                    Qry.FieldAsInteger("pax_id"),
+		                    Qry.FieldAsString("seat_no"), 
+		                    Qry.FieldAsString("prev_seat_no"),
+		                    Qry.FieldAsString("new_seat_no"));
+   		                    
+	};  
+	  
+	  
+	ProgTrace( TRACE5, "exec time14 =%s, count=%d", DateTimeToStr(  NowUTC() - v ).c_str(), count );	
+//	throw UserException( "END OF CONVERT!!!" );     
 }
 
 
@@ -1093,6 +1206,7 @@ void SalonsInterface::Convert_salons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	tst();
 	convert_salons();
 }
+
 
 
 

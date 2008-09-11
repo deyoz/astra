@@ -2,6 +2,8 @@
 #include "astra_consts.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
+#include "basic.h"
+#include "exceptions.h"
 #include <sstream>
 #include <iomanip>
 
@@ -26,7 +28,10 @@ bool is_iata_row(std::string row)
 {
     bool result = false;
     try {
-        int row_num = ToInt(row);
+    	  int row_num;
+        if ( BASIC::StrToInt( row.c_str(), row_num ) == EOF )
+        	throw EXCEPTIONS::EConvertError( "Can't convert %s to int", row.c_str() );
+        
         if(row_num >= 1 and row_num <=99 or row_num >= 101 and row_num <= 199)
             result = true;
     } catch(...) {
