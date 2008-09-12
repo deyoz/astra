@@ -683,31 +683,6 @@ void DevTuningInterface::BPListCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     }
 }
 
-void get_versions(int id, xmlNodePtr rowNode)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   version, "
-        "   descr "
-        "from "
-        "   prn_form_vers "
-        "where "
-        "   id = :id "
-        "order by "
-        "   version ";
-    Qry.CreateVariable("id", otInteger, id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        xmlNodePtr versNode = NewTextChild(rowNode, "vers");
-        for(; !Qry.Eof; Qry.Next()) {
-            xmlNodePtr itemNode = NewTextChild(versNode, "item");
-            NewTextChild(itemNode, "vers", Qry.FieldAsInteger("version"));
-            NewTextChild(itemNode, "descr", Qry.FieldAsString("descr"));
-        }
-    }
-}
-
 void DevTuningInterface::LoadPrnForms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
@@ -715,24 +690,45 @@ void DevTuningInterface::LoadPrnForms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         "select "
         "  prn_forms.id, "
         "  prn_forms.fmt_type, "
-        "  prn_forms.name "
+        "  prn_forms.name, "
+        "  prn_form_vers.version, "
+        "  prn_form_vers.descr "
         "from "
-        "  prn_forms "
+        "  prn_forms, "
+        "  prn_form_vers "
         "where "
-        "  prn_forms.op_type = :op_type "
+        "  prn_forms.op_type = :op_type and "
+        "  prn_forms.id = prn_form_vers.id "
         "order by "
         "  prn_forms.fmt_type, "
-        "  prn_forms.name ";
+        "  prn_forms.name, "
+        "  prn_form_vers.version ";
     Qry.CreateVariable("op_type", otString, NodeAsString("op_type", reqNode));
     Qry.Execute();
     xmlNodePtr prnFormsNode = NewTextChild(resNode, "prn_forms");
-    for(; !Qry.Eof; Qry.Next()) {
-        xmlNodePtr rowNode = NewTextChild(prnFormsNode, "row");
-        int id = Qry.FieldAsInteger("id");
-        NewTextChild(rowNode, "id", id);
-        NewTextChild(rowNode, "fmt_type", Qry.FieldAsString("fmt_type"));
-        NewTextChild(rowNode, "name", Qry.FieldAsString("name"));
-        get_versions(id, rowNode);
+    if(!Qry.Eof) {
+        int col_id = Qry.FieldIndex("id");
+        int col_fmt_type = Qry.FieldIndex("fmt_type");
+        int col_name = Qry.FieldIndex("name");
+        int col_version = Qry.FieldIndex("version");
+        int col_descr = Qry.FieldIndex("descr");
+        string name;
+        xmlNodePtr rowNode = NULL;
+        xmlNodePtr versNode = NULL;
+        for(; !Qry.Eof; Qry.Next()) {
+            string tmp_name = Qry.FieldAsString(col_name);
+            if(name != tmp_name) {
+                name = tmp_name;
+                rowNode = NewTextChild(prnFormsNode, "row");
+                NewTextChild(rowNode, "id", Qry.FieldAsInteger(col_id));
+                NewTextChild(rowNode, "fmt_type", Qry.FieldAsString(col_fmt_type));
+                NewTextChild(rowNode, "name", name);
+                versNode = NewTextChild(rowNode, "vers");
+            }
+            xmlNodePtr itemNode = NewTextChild(versNode, "item");
+            NewTextChild(itemNode, "vers", Qry.FieldAsInteger(col_version));
+            NewTextChild(itemNode, "descr", Qry.FieldAsString(col_descr));
+        }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
