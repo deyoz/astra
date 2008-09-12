@@ -933,6 +933,7 @@ void convert_salons( int step )
     	    Qry.Execute();
     	    Salons.trip_id = -1;
     	    count=0;
+    	    seats.clear();
     	    while ( !Qry.Eof ) {
     		    count++;
     		    if ( Salons.trip_id != Qry.FieldAsInteger( "point_dep" ) ) {
