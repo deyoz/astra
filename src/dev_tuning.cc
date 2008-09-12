@@ -101,21 +101,23 @@ void DevTuningInterface::LoadBPList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   dev_models.name dev_model, "
         "   prn_forms.fmt_type, "
         "   prn_forms.id, "
-        "   prn_forms.version, "
-        "   prn_forms.descr prn_form "
+        "   prn_form_vers.version, "
+        "   prn_forms.name||' ('||prn_form_vers.descr||')' prn_form "
         "from "
         "   bp_models, "
         "   prn_forms, "
+        "   prn_form_vers, "
         "   dev_models "
         "where "
         "   bp_models.id = prn_forms.id and "
-        "   bp_models.version = prn_forms.version and "
-        "   bp_models.dev_model = dev_models.code "
+        "   bp_models.dev_model = dev_models.code and "
+        "   bp_models.id = prn_form_vers.id and "
+        "   bp_models.version = prn_form_vers.version "
         "order by "
         "   bp_models.form_type, "
         "   dev_models.name, "
         "   prn_forms.fmt_type, "
-        "   prn_forms.descr ";
+        "   prn_forms.name ";
     Qry.Execute();
     xmlNodePtr operTypesNode = NewTextChild(resNode, "bp_list");
     for(; !Qry.Eof; Qry.Next()) {
@@ -160,7 +162,8 @@ void DevTuningInterface::LoadPrnForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
         "   prn_forms.form, "
         "   prn_forms.data, "
         "   prn_forms.descr, "
-        "   prn_forms.version  "
+        "   prn_forms.version,  "
+        "   prn_forms.fmt_type  "
         "from "
         "   prn_forms, "
         "   ( "
@@ -179,12 +182,13 @@ void DevTuningInterface::LoadPrnForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.CreateVariable("id", otInteger, NodeAsInteger("id", reqNode));
     Qry.Execute();
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
-    if(!Qry.Eof) {
-        NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
-        NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
-        NewTextChild(prnFormNode, "descr", Qry.FieldAsString("descr"));
-        NewTextChild(prnFormNode, "version", Qry.FieldAsString("version"));
-    }
+    if(Qry.Eof)
+        throw UserException("Форма не найдена. Обновите данные.");
+    NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
+    NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
+    NewTextChild(prnFormNode, "descr", Qry.FieldAsString("descr"));
+    NewTextChild(prnFormNode, "version", Qry.FieldAsString("version"));
+    NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
 }
 
 void DevTuningInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -207,7 +211,7 @@ void DevTuningInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.CreateVariable("version", otInteger, version + delta);
     Qry.Execute();
     if(Qry.Eof)
-        throw Exception("DevTuningInterface::PrevNext: data not found");
+        throw UserException("Информация по форме недоступна. Обновите данные.");
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
     NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
     NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
@@ -317,7 +321,16 @@ void DevTuningInterface::Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("version", otInteger, version);
     Qry.SQLText = SQLText;
-    Qry.Execute();
+    try {
+        Qry.Execute();
+    } catch(EOracleError E) {
+        if(E.Code == 1403)
+            throw UserException("Информация по форме недоступна. Обновите данные.");
+        else
+            throw;
+    } catch(...) {
+        throw;
+    }
 }
 
 void DevTuningInterface::GetPrintData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -587,33 +600,55 @@ void DevTuningInterface::BPListCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
         xmlNodePtr fieldNode = currNode->children;
         TBPState state = (TBPState)NodeAsIntegerFast("state", fieldNode);
         TQuery Qry(&OraSession);
-        string form_type, dev_model;
+        string form_type, dev_model, fmt_type;
+        int id, version;
         switch(state) {
             case bpAdd:
+                form_type = NodeAsStringFast("form_type", fieldNode);
+                dev_model = NodeAsStringFast("dev_model", fieldNode);
+                fmt_type = NodeAsStringFast("fmt_type", fieldNode);
+                id = NodeAsIntegerFast("id", fieldNode);
+                version = NodeAsIntegerFast("version", fieldNode);
+                {
+                    TQuery Qry(&OraSession);
+                    Qry.SQLText = "select fmt_type from prn_forms where id = :id and version = :version";
+                    Qry.CreateVariable("id", otInteger, id);
+                    Qry.CreateVariable("version", otInteger, version);
+                    Qry.Execute();
+                    if(Qry.Eof)
+                        throw Exception("BPListCommit bpAdd: prn_form not found, id: %d, version: %d", id, version);
+                    if(Qry.FieldAsString(0) != fmt_type)
+                        throw UserException("Формат формы не соответствует формату устройства");
+                }
                 Qry.SQLText =
                     "insert into bp_models ( "
                     "   form_type, "
                     "   dev_model, "
+                    "   fmt_type, "
                     "   id, "
                     "   version "
                     ") values ( "
                     "   :form_type, "
                     "   :dev_model, "
+                    "   :fmt_type, "
                     "   :id, "
                     "   :version "
                     ") ";
-                Qry.CreateVariable("form_type", otString, NodeAsStringFast("form_type", fieldNode));
-                Qry.CreateVariable("dev_model", otString, NodeAsStringFast("dev_model", fieldNode));
-                Qry.CreateVariable("id", otInteger, NodeAsIntegerFast("id", fieldNode));
-                Qry.CreateVariable("version", otInteger, NodeAsIntegerFast("version", fieldNode));
+                Qry.CreateVariable("form_type", otString, form_type);
+                Qry.CreateVariable("dev_model", otString, dev_model);
+                Qry.CreateVariable("fmt_type", otString, fmt_type);
+                Qry.CreateVariable("id", otInteger, id);
+                Qry.CreateVariable("version", otInteger, version);
                 break;
             case bpDel:
                 Qry.SQLText =
                     "delete from bp_models where "
                     "   form_type = :form_type and "
+                    "   fmt_type = :fmt_type and "
                     "   dev_model = :dev_model ";
                 Qry.CreateVariable("form_type", otString, NodeAsStringFast("form_type", fieldNode));
                 Qry.CreateVariable("dev_model", otString, NodeAsStringFast("dev_model", fieldNode));
+                Qry.CreateVariable("fmt_type", otString, NodeAsStringFast("fmt_type", fieldNode));
                 break;
             case bpUpd:
                 Qry.SQLText =
@@ -622,9 +657,11 @@ void DevTuningInterface::BPListCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
                     "   version = :version "
                     "where "
                     "   form_type = :form_type and "
+                    "   fmt_type = :fmt_type and "
                     "   dev_model = :dev_model ";
                 Qry.CreateVariable("form_type", otString, NodeAsStringFast("form_type", fieldNode));
                 Qry.CreateVariable("dev_model", otString, NodeAsStringFast("dev_model", fieldNode));
+                Qry.CreateVariable("fmt_type", otString, NodeAsStringFast("fmt_type", fieldNode));
                 Qry.CreateVariable("id", otInteger, NodeAsIntegerFast("id", fieldNode));
                 Qry.CreateVariable("version", otInteger, NodeAsIntegerFast("version", fieldNode));
                 break;
@@ -646,47 +683,56 @@ void DevTuningInterface::BPListCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     }
 }
 
+void get_versions(int id, xmlNodePtr rowNode)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   version, "
+        "   descr "
+        "from "
+        "   prn_form_vers "
+        "where "
+        "   id = :id "
+        "order by "
+        "   version ";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr versNode = NewTextChild(rowNode, "vers");
+        for(; !Qry.Eof; Qry.Next()) {
+            xmlNodePtr itemNode = NewTextChild(versNode, "item");
+            NewTextChild(itemNode, "vers", Qry.FieldAsInteger("version"));
+            NewTextChild(itemNode, "descr", Qry.FieldAsString("descr"));
+        }
+    }
+}
+
 void DevTuningInterface::LoadPrnForms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   prn_forms.id, "
-        "   prn_forms.descr, "
-        "   prn_forms.version, "
-        "   prn_forms.fmt_type "
+        "  prn_forms.id, "
+        "  prn_forms.fmt_type, "
+        "  prn_forms.name "
         "from "
-        "   prn_forms, "
-        "   ( "
-        "       select "
-        "           id, "
-        "           max(version) version "
-        "       from "
-        "           prn_forms "
-        "       group by "
-        "           id "
-        "   ) a "
+        "  prn_forms "
         "where "
-        "   prn_forms.op_type = :op_type and "
-        "   nvl2(:fmt_type, prn_forms.fmt_type, ' ') = nvl(:fmt_type, ' ') and "
-        "   prn_forms.id = a.id and "
-        "   prn_forms.version = a.version "
+        "  prn_forms.op_type = :op_type "
         "order by "
-        "   prn_forms.descr, "
-        "   prn_forms.version, "
-        "   prn_forms.fmt_type ";
+        "  prn_forms.fmt_type, "
+        "  prn_forms.name ";
     Qry.CreateVariable("op_type", otString, NodeAsString("op_type", reqNode));
-    string fmt_type;
-    if(xmlNodePtr node = GetNode("fmt_type", reqNode))
-        fmt_type = NodeAsString(node);
-    Qry.CreateVariable("fmt_type", otString, fmt_type);
     Qry.Execute();
     xmlNodePtr prnFormsNode = NewTextChild(resNode, "prn_forms");
     for(; !Qry.Eof; Qry.Next()) {
         xmlNodePtr rowNode = NewTextChild(prnFormsNode, "row");
-        NewTextChild(rowNode, "id", Qry.FieldAsString("id"));
-        NewTextChild(rowNode, "descr", Qry.FieldAsString("descr"));
-        NewTextChild(rowNode, "version", Qry.FieldAsString("version"));
+        int id = Qry.FieldAsInteger("id");
+        NewTextChild(rowNode, "id", id);
         NewTextChild(rowNode, "fmt_type", Qry.FieldAsString("fmt_type"));
+        NewTextChild(rowNode, "name", Qry.FieldAsString("name"));
+        get_versions(id, rowNode);
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
