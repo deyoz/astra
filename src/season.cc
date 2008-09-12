@@ -733,7 +733,7 @@ string AddDays( string days, int delta )
   for ( int i=0; i<7; i++ ) {
     if ( days[ i ] == '.' )
       continue;
-    int day = ToInt( days[ i ] ) + delta;
+    int day = ToInt( days.substr(i,1) ) + delta;
     if ( day > 7 )
       day -= 7;
     else
