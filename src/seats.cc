@@ -1962,11 +1962,12 @@ bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr
     case cltPreseat:
       Qry.SQLText =
         "SELECT xname, yname FROM trip_comp_elems t, "
-        "(SELECT num, x, y FROM trip_comp_elems "
+        "(SELECT num, x, y, class FROM trip_comp_elems "
         "  WHERE point_id=:point_id AND xname = :xname AND yname = :yname ) a, "
         "( SELECT code FROM comp_elem_types WHERE pr_seat <> 0 ) e "
         " WHERE t.point_id=:point_id AND "
         " t.num = a.num AND "
+        " t.class = a.class AND "
         " t.x = DECODE(:pr_down,0,1,0) + a.x AND "
         " t.y = DECODE(:pr_down,0,0,1) + a.y AND "
         " t.elem_type = e.code ";
@@ -2012,7 +2013,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltCheckin:
       Qry.SQLText =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'seats',rownum) AS seat_no "          
+       "       0 point_id, salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'list',rownum) AS seat_no "          
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2023,7 +2024,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     case cltPreseat:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
-        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no "
+        "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'list',rownum) AS seat_no "
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2209,10 +2210,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   }
 
   TReqInfo *reqinfo = TReqInfo::Instance();
-  string new_seat_no = denorm_iata_row( first_yname ) + denorm_iata_line( first_xname, pr_lat_seat );
-  if ( seats.size() > 1 )
-  	new_seat_no += string( "+" ) + IntToString( seats.size() - 1 );
-
+  string new_seat_no;
+  for (vector<TSeatRange>::iterator ns=seats.begin(); ns!=seats.end(); ns++ ) {
+  	if ( !new_seat_no.empty() )
+  		new_seat_no += " ";
+    new_seat_no += denorm_iata_row( ns->first.row ) + denorm_iata_line( ns->first.line, pr_lat_seat );
+  }
   switch( seat_type ) {
   	case stSeat:
   		switch( layer_type ) {
@@ -2340,10 +2343,13 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
     TQuery QryLayer( &OraSession );    
     TQuery QryUpd( &OraSession );        
     QryPax.SQLText =
-      "SELECT point_dep, point_arv FROM pax, pax_grp "
+      "SELECT point_dep, point_arv, "
+      "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,point_dep,'list',rownum) AS seat_no "
+      " FROM pax, pax_grp "
       " WHERE pax.pax_id=:pax_id AND "
       "       pax.grp_id=pax_grp.grp_id ";
     QryPax.DeclareVariable( "pax_id", otInteger );
+    QryPax.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin) );
     QryLayer.SQLText =
       "DELETE FROM trip_comp_layers "
       " WHERE point_id=:point_id AND "
@@ -2369,11 +2375,19 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
     	Passengers.Add( pass );
     	if ( pass.isSeat )
     		continue;
+     	QryPax.SetVariable( "pax_id", pass.pax_id );
+      QryPax.Execute();
+      if ( QryPax.Eof )
+      	throw UserException( "Не задано направление у пассажира" );
+      int point_dep = QryPax.FieldAsInteger( "point_dep" );
+      int point_arv = QryPax.FieldAsInteger( "point_arv" );
+      string prev_seat_no = QryPax.FieldAsString( "seat_no" );
+    		
     	if ( !pass.InUse ) { /* не смогли посадить */
     		if ( !pass.placeName.empty() )
           TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки высажен с места " +
-                                          pass.placeName, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );    			
+                                          prev_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );    			
       }
       else {
       	std::vector<TSeatRange> seats;
@@ -2381,12 +2395,6 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       		TSeatRange r(*i,*i);
       		seats.push_back( r );
       	}
-      	QryPax.SetVariable( "pax_id", pass.pax_id );
-        QryPax.Execute();
-        if ( QryPax.Eof )
-        	throw UserException( "Не задано направление у пассажира" );
-        int point_dep = QryPax.FieldAsInteger( "point_dep" );
-        int point_arv = QryPax.FieldAsInteger( "point_arv" );
         // необходимо вначале удалить все его инвалидные места из слоя регистрации
         QryLayer.CreateVariable( "pax_id", otInteger, pass.pax_id );
         QryLayer.Execute();        
@@ -2394,11 +2402,13 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
   		  QryUpd.SetVariable( "pax_id", pass.pax_id );
         QryUpd.SetVariable( "term", TReqInfo::Instance()->desk.code );
         QryUpd.Execute();
-        ProgTrace( TRACE5, "oldplace=%s, newplace=%s", pass.OldPlaceName.c_str(), pass.placeName.c_str() );
-      	if ( pass.placeName != pass.OldPlaceName )/* пересадили на другое место */
+        QryPax.Execute();        
+        string new_seat_no = QryPax.FieldAsString( "seat_no" );        
+        ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
+      	if ( prev_seat_no != new_seat_no )/* пересадили на другое место */
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +
-                                          pass.placeName, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );             	
+                                          new_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );             	
       }
     }
   }
