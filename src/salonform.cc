@@ -766,7 +766,7 @@ void ParseSeat(string str, TSeat &seat)
   throw EConvertError("ParseSeat: wrong seat %s", str.c_str());
 }
 
-void convert_salons( int step )
+void convert_salons( int step, bool pr_commit )
 {
 	TDateTime v = NowUTC();
 	tst();
@@ -1161,7 +1161,8 @@ void convert_salons( int step )
     		                       Qry.FieldAsString("new_seat_no"));
     
     	    };    	    
-    	    OraSession.Rollback();
+    	    if ( !pr_commit )
+    	      OraSession.Rollback();
           		
         	Points.Next();
        	}
@@ -1343,7 +1344,8 @@ void convert_salons( int step )
     		                       Qry.FieldAsString("new_seat_no"));
     
     	    };
-    	    OraSession.Rollback();
+    	    if ( !pr_commit )
+    	      OraSession.Rollback();
           		
         	Points.Next();
        	}
@@ -1357,7 +1359,7 @@ void convert_salons( int step )
 
 void SalonsInterface::Convert_salons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-	convert_salons(NodeAsInteger( "step", reqNode ));
+	convert_salons(NodeAsInteger( "step", reqNode ), NodeAsInteger( "pr_commit", reqNode ));
 }
 
 
