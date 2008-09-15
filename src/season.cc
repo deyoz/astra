@@ -2795,8 +2795,8 @@ bool ConvertPeriodToLocal( TDateTime &first, TDateTime &last, string &days, stri
   TDateTime l;
 
   try {
-    f = UTCToLocal( first, region );
-    l = UTCToLocal( last, region );
+    f = UTCToClient( first, region );
+    l = UTCToClient( last, region );
   }
   catch( Exception &e ) {
   	if ( errtz == NoExists )
