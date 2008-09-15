@@ -899,11 +899,12 @@ bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull )
                "       point_dep=:point_id AND "\
                "       pax.pr_brd IS NOT NULL AND "\
                "       seats > 0 AND rownum <= 1 ";
- if ( SeatNoIsNull )
-  sql += " AND seat_no IS NULL";
+ if ( SeatNoIsNull ) {
+  sql += " AND salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'one',rownum) IS NULL";
+  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) ); 
+ }  
  Qry.SQLText = sql;
- Qry.DeclareVariable( "point_id", otInteger );
- Qry.SetVariable( "point_id", trip_id );
+ Qry.CreateVariable( "point_id", otInteger, trip_id );
  Qry.Execute( );
  return Qry.RowCount();
 }	
