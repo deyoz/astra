@@ -2078,11 +2078,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром  	
     Qry.Clear();
     Qry.SQLText =
-      "SELECT layer_type, pax_id, crs_pax_id "
-      " FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND "
-      "       first_yname=:first_yname AND "
-      "       first_xname=:first_xname ";
+      "SELECT r.layer_type, t.pax_id, t.crs_pax_id "
+      " FROM trip_comp_layers t,trip_comp_ranges r"
+      " WHERE t.point_id=:point_id AND "
+      "       t.first_yname=:first_yname AND "
+      "       t.first_xname=:first_xname AND "
+      "       t.point_id=r.point_id AND "
+      "       t.range_id=r.range_id ";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.DeclareVariable( "first_xname", otString );
     Qry.DeclareVariable( "first_yname", otString );
