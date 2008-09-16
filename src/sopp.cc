@@ -1380,6 +1380,14 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	else*/
   	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
     next_date = first_date + 1; // добавляем сутки
+    if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
+      first_date = f-1; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на 
+                        // сутки и клиент этот рейс отфильтрует    	
+      next_date = f+1;
+    }
+
+    ProgTrace( TRACE5, "first_date=%s, next_date=%s", DateTimeToStr( first_date ).c_str(), DateTimeToStr( next_date ).c_str() ); 
+
     if ( arx )
     	NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
     else
