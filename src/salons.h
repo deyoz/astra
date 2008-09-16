@@ -92,9 +92,16 @@ class TPlaceList {
     void Add( TPlace &pl );
 };
 
+struct TLayerPriority {
+	std::string code;
+	std::string layer;
+	int priority;
+};
+
 class TSalons {
   private:
-  	std::map<std::string,int> layer_priority;
+  	std::map<std::string,int> status_priority;
+  	std::vector<TLayerPriority> layer_priority;
     TPlaceList* FCurrPlaceList;
     bool pr_lat_seat;
   public:
@@ -137,6 +144,7 @@ namespace SALONS
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
+  void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void SetFree( const std::string &layer, TPlace &pl );  
   void SetBlock( const std::string &layer, TPlace &pl );  
   void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );

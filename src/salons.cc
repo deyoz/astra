@@ -78,8 +78,13 @@ TSalons::TSalons()
   string status;
   while ( !Qry.Eof ) {
   	status = DecodeLayer( Qry.FieldAsString( "code" ) );  	
-  	if ( !status.empty() && layer_priority.find( status ) == layer_priority.end() )
-  	  layer_priority[ status ] = Qry.FieldAsInteger( "priority" );
+  	if ( !status.empty() && status_priority.find( status ) == status_priority.end() )
+  	  status_priority[ status ] = Qry.FieldAsInteger( "priority" );
+  	TLayerPriority lp;
+  	lp.layer = Qry.FieldAsString( "code" );
+  	lp.code = status;
+  	lp.priority = Qry.FieldAsInteger( "priority" );
+  	layer_priority.push_back( lp );
   	Qry.Next();
   }
 }
@@ -375,6 +380,21 @@ void TSalons::Write( TReadStyle readStyle )
   }
 }
 
+  struct TPlaceLayer {
+  	TPlaceList *placelist;
+  	int x, y;
+  	string layer;
+  	int priority;
+  	TPlaceLayer() {
+  		layer = "FP";
+  		priority = INT_MAX;
+  		placelist = NULL;
+  		x = -1;
+  		y = -1;
+  	}
+  };
+
+
 void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
 {
   if ( readStyle == rTripSalons )
@@ -414,18 +434,21 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
   if ( readStyle == rTripSalons ) {
   	string sql_text =     
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
-      "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type "
-      " FROM trip_comp_elems t, trip_comp_ranges r "
+      "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
+      "                NVL(l.pax_id, l.crs_pax_id) pax_id "
+      " FROM trip_comp_elems t, trip_comp_ranges r, trip_comp_layers l "
       "WHERE t.point_id=:point_id AND "
       "      t.point_id=r.point_id(+) AND "
       "      t.num=r.num(+) AND "
       "      t.x=r.x(+) AND "
-      "      t.y=r.y(+) ";
+      "      t.y=r.y(+) AND "
+      "      r.range_id=l.range_id(+) ";
     if ( wo_invalid_seat_no )
     	sql_text += 
     	  " MINUS "
         "SELECT DISTINCT t1.num,t1.x,t1.y,t1.elem_type,t1.xprior,t1.yprior,t1.agle, "
-        "t1.pr_smoke,t1.not_good,t1.xname,t1.yname,t1.class,r.layer_type "
+        "                t1.pr_smoke,t1.not_good,t1.xname,t1.yname,t1.class,r.layer_type, "
+        "                NVL(l.pax_id, l.crs_pax_id) pax_id "
         " FROM trip_comp_layers l, pax, pax_grp, "
         "      trip_comp_ranges r, trip_comp_elems t1 "
         "WHERE l.point_id=:point_id AND "
@@ -478,6 +501,9 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
   TPlaceList *placeList = NULL;
   int num = -1;
   TPoint point_p;
+  int pax_id;
+  map<int,TPlaceLayer> mp;
+  map<int,TPlaceLayer>::iterator imp;
   while ( !Qry.Eof ) {
     if ( num != Qry.FieldAsInteger( "num" ) ) {
       if ( placeList && !ClName.empty() && ClName.find( ClName ) == string::npos ) {
@@ -495,6 +521,10 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     TPlace place;
     point_p.x = Qry.FieldAsInteger( "x" );
     point_p.y = Qry.FieldAsInteger( "y" );
+    if ( readStyle != rTripSalons || Qry.FieldIsNULL( "pax_id" ) )
+    	pax_id = -1;
+    else
+    	pax_id = Qry.FieldAsInteger( "pax_id" );    
     // если место еще не определено или место есть, но не проинициализировано
     if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
     	place.x = point_p.x;
@@ -536,7 +566,7 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
       tst();
     }
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
-      SALONS::SetLayer( this->layer_priority, Qry.FieldAsString( "layer_type" ), place );
+      SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
       SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
     }
     if ( readStyle == rTripSalons )
@@ -544,6 +574,37 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     else
       place.block = 0;
     place.visible = true;
+    if ( pax_id > 0 ) { 
+    	int priority = -1;
+    	for (vector<TLayerPriority>::iterator ipr=layer_priority.begin(); ipr!=layer_priority.end(); ipr++ ) {
+    		if ( ipr->layer == Qry.FieldAsString( "layer_type" ) ) {
+    			priority = ipr->priority;
+    			break;
+    		}
+    	}
+    	ProgTrace( TRACE5, "pax_id=%d, layer=%s, priority=%d", pax_id, Qry.FieldAsString( "layer_type" ), priority );      	
+    	if ( priority >= 0 ) {
+    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d", 
+    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
+    		if ( mp[ pax_id ].priority > priority ) {
+    			if ( mp[ pax_id ].placelist ) {
+    			  TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
+    			  tst();
+    			  SALONS::ClearLayer( this->status_priority, mp[ pax_id ].layer, *mp[ pax_id ].placelist->place( p ) );
+    			}
+          mp[ pax_id ].placelist = placeList;
+          mp[ pax_id ].x = place.x;
+          mp[ pax_id ].y = place.y;
+          mp[ pax_id ].layer = Qry.FieldAsString( "layer_type" );
+          mp[ pax_id ].priority = priority;
+    		}
+    		else
+    		  if ( mp[ pax_id ].priority < priority ) {
+    			  tst();
+    			  SALONS::ClearLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place ); 
+    		  }
+    	}
+    }
     placeList->Add( place );
     Qry.Next();
   }	/* end while */
@@ -1235,12 +1296,16 @@ void InitVIP( int point_id )
   Qry.Execute();
   tst();
   QryVIP.SQLText =
-    "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "
-    " SELECT :point_id,num,x,y,'VIP', 0 FROM trip_comp_elems "
+    "INSERT INTO trip_comp_rem(point_id,num,x,y,rem,pr_denial) "    
+    " SELECT :point_id,num,x,y,'VIP', 0 FROM "
+    " ( SELECT :point_id,num,x,y FROM trip_comp_elems "
     "  WHERE point_id = :point_id AND num = :num AND "
-    "        pr_free <> 0 AND enabled IS NOT NULL AND "
     "        elem_type IN ( SELECT code FROM comp_elem_types WHERE pr_seat <> 0 ) AND "
     "        trip_comp_elems.y = :y "
+    "   MINUS "
+    "  SELECT :point_id,num,x,y FROM trip_comp_ranges "
+    "   WHERE point_id=:point_id AND layer_type IN (:block_cent_layer, :checkin_layer) "
+    " ) "
     " MINUS "
     " SELECT :point_id,num,x,y,rem, 0 FROM trip_comp_rem "
     "  WHERE point_id = :point_id AND num = :num AND "
@@ -1248,6 +1313,8 @@ void InitVIP( int point_id )
   QryVIP.CreateVariable( "point_id", otInteger, point_id );
   QryVIP.DeclareVariable( "num", otInteger );
   QryVIP.DeclareVariable( "y", otInteger );
+  QryVIP.CreateVariable( "block_cent_layer", otString, EncodeCompLayerType(cltBlockCent) );
+  QryVIP.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
   while ( !Qry.Eof ) {
   	int ycount;
   	tst();
@@ -1278,19 +1345,41 @@ void InitVIP( int point_id )
   tst();
 }
 
-void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl )
+void SetLayer( const std::map<std::string,int> &status_priority, const std::string &layer, TPlace &pl )
 {
 	if ( layer.empty() )
 		return;		
-  const map<string,int>::const_iterator n = layer_priority.find( DecodeLayer( layer ) );
-  const map<string,int>::const_iterator p = layer_priority.find( pl.status );
+  const map<string,int>::const_iterator n = status_priority.find( DecodeLayer( layer ) );
+  const map<string,int>::const_iterator p = status_priority.find( pl.status );
  
-  if ( n != layer_priority.end() ) {
-  	 if ( p == layer_priority.end() || n->second < p->second )
+  if ( n != status_priority.end() ) {
+  	 if ( p == status_priority.end() || n->second < p->second )
   	 	pl.status = n->first;
   }  
   pl.layers.push_back( layer );
 }
+void ClearLayer( const std::map<std::string,int> &status_priority, const std::string &layer, TPlace &pl )
+{
+	if ( layer.empty() )
+		return;		
+  tst();
+  vector<string>::iterator il = find( pl.layers.begin(), pl.layers.end(), layer );
+  if ( il != pl.layers.end() ) {
+  	pl.status = "FP";
+  	tst();
+  	pl.layers.erase( il );
+  	tst();
+  	vector<string> layers = pl.layers;
+  	pl.layers.clear();
+  	for ( vector<string>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
+  		tst();
+  		SetLayer( status_priority, *i, pl );
+  		tst();
+  	}
+  }
+  tst();
+}
+
 void SetFree( const std::string &layer, TPlace &pl )
 {
 	if ( DecodeCompLayerType( (char*)layer.c_str() ) == cltCheckin )
