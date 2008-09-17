@@ -1219,7 +1219,7 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
     " WHERE point_id=:point_id AND layer_type IN ( SELECT code from comp_layer_types where del_if_comp_chg<>0 ); "
     "INSERT INTO trip_comp_elems(point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
     "                            pr_smoke,not_good,xname,yname) "
-    " SELECT :point_id,num,x,y,elem_typpppe,xprior,yprior,agle,class, "
+    " SELECT :point_id,num,x,y,elem_type,xprior,yprior,agle,class, "
     "        pr_smoke,not_good,xname,yname "
     "  FROM comp_elems "
     " WHERE comp_id = :comp_id; "
