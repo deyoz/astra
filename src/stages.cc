@@ -168,9 +168,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       	  pr_manual = 1;
      Qry.SetVariable( "pr_manual", pr_manual );
      Qry.Execute( );
-     tst();
      if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
-     	 tst();
        try
        {
          exec_stage( point_id, (int)i->first );
@@ -197,7 +195,6 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      	UpdQry.SetVariable( "pr_auto", -1 );
      UpdQry.SetVariable( "pr_manual", pr_manual );
      UpdQry.Execute();
-     tst();
      TStagesRules *r = TStagesRules::Instance();
      string tolog = string( "Этап '" ) + r->stage_name( i->first, airp ) + "'";
      if ( i->second.old_act == NoExists && i->second.act > NoExists )
@@ -510,6 +507,7 @@ TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const s
 
 void exec_stage( int point_id, int stage_id )
 {
+//	ProgTrace( TRACE5, "exec_stage: point_id=%d, stage_id=%d", point_id, stage_id );
   switch( (TStage)stage_id ) {
   	case sNoActive:
            /*не активен*/
@@ -602,13 +600,15 @@ void astra_timer( TDateTime utcdate )
   		  QCanStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
   		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
     		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-    		// запись в лог о выполнении шага
-        TStagesRules *r = TStagesRules::Instance();
-        string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
-        tolog += " выполнен: факт. время=";
-        tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
-        TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   		  canstage = QCanStage.GetVariableAsInteger( "canstage" );        	
+  		  if ( canstage ) {
+    		  // запись в лог о выполнении шага
+          TStagesRules *r = TStagesRules::Instance();
+          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
+          tolog += " выполнен: факт. время=";
+          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
+          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );  		  	
+  		  }
   		}
       catch( Exception &E ) {
       	try { OraSession.Rollback( ); } catch(...) { };
@@ -653,7 +653,6 @@ void astra_timer( TDateTime utcdate )
 
 void SetCraft( int point_id, TStage stage )
 {
-	tst();
 	if ( stage != sPrepCheckIn && stage != sOpenCheckIn )
 		return;
 	TQuery Qry(&OraSession);
@@ -682,7 +681,6 @@ void SetCraft( int point_id, TStage stage )
     	TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
     }     
   }	
-  tst();
 }
 
 void PrepCheckIn( int point_id )
