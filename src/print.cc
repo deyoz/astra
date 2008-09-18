@@ -1224,6 +1224,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
             rcpt.form_type != "664 451" &&
             rcpt.form_type != "298 451" &&
             rcpt.form_type != "ЮХ 451" &&
+            rcpt.form_type != "ОП 401" &&
             rcpt.form_type != "35"
             )
         throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
@@ -3124,6 +3125,7 @@ string get_validator(TBagReceipt &rcpt)
     } else if(
             validator_type == "ЮТ" ||
             validator_type == "ЮХ" ||
+            validator_type == "ОП" ||
             validator_type == "ЛА" ||
             validator_type == "ИАТА") {
         validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
