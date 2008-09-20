@@ -33,6 +33,10 @@ public:
      AddEvent("BPListCommit",evHandle);
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::PrnFormsCommit);
      AddEvent("PrnFormsCommit",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::Cache);
+     AddEvent("cache",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::ApplyCache);
+     AddEvent("apply_cache",evHandle);
   };
 
   void PrnFormsCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -46,6 +50,8 @@ public:
   void LoadBTList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadBPList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadOperTypes(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 

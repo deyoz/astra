@@ -10,6 +10,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "print.h"
+#include "xml_stuff.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -728,6 +729,120 @@ void DevTuningInterface::LoadPrnForms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
             xmlNodePtr itemNode = NewTextChild(versNode, "item");
             NewTextChild(itemNode, "vers", Qry.FieldAsInteger(col_version));
             NewTextChild(itemNode, "descr", Qry.FieldAsString(col_descr));
+        }
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
+/*
+<rows tid="-1">
+  <row pr_del="0">
+    <col>ATB</col>
+    <col>ATB-формат</col>
+  </row>
+  <row pr_del="0">
+    <col>BTP</col>
+    <col>BTP-формат</col>
+  </row>
+  <row pr_del="0">
+    <col>EPL2</col>
+    <col>EPL2-формат</col>
+  </row>
+  <row pr_del="0">
+    <col>ZPL2</col>
+    <col>ZPL2-формат</col>
+  </row>
+  <row pr_del="0">
+    <col>TEXT</col>
+    <col>Текстовой формат вывода</col>
+  </row>
+  <row pr_del="0">
+    <col>EPSON</col>
+    <col>EPSON-формат вывода</col>
+  </row>
+  <row pr_del="0">
+    <col>FRX</col>
+    <col>Формат генератора отчетов</col>
+  </row>
+  <row pr_del="0">
+    <col>SCAN1</col>
+    <col>Формат чтения штрих-кода</col>
+  </row>
+</rows>
+*/
+
+void get_ident_list(xmlNodePtr ifaceNode, vector<int> ident_list)
+{
+    xmlNodePtr fieldsNode = NodeAsNodeFast("fields", ifaceNode);
+    fieldsNode = fieldsNode->children;
+    for(; fieldsNode; fieldsNode = fieldsNode->next) {
+        int index = PropAsInteger("index", fieldsNode);
+        if(NodeAsIntegerFast("Ident", fieldsNode->children) == 1)
+            ident_list.push_back(index);
+    }
+}
+
+vector<int> CacheHeader(xmlNodePtr reqNode, xmlNodePtr dataNode)
+{
+    xmlNodePtr paramsNode = NodeAsNodeFast("params", reqNode->children);
+    paramsNode = paramsNode->children;
+    string code = NodeAsStringFast("code", paramsNode);
+    int client_data_ver = NodeAsIntegerFast("data_ver", paramsNode);
+    int client_interface_ver = NodeAsIntegerFast("interface_ver", paramsNode);
+
+    // общие данные кэша
+    NewTextChild(dataNode, "code", code);
+    NewTextChild(dataNode, "Forbidden", 0);
+    NewTextChild(dataNode, "ReadOnly", 0);
+    NewTextChild(dataNode, "Keep_Locally", 0);
+
+    string name = code + ".xml";
+    xmlKeepBlanksDefault(0);
+    xmlDocPtr ifaceDoc = xmlParseFile(name.c_str());
+    int iface_version = -1;
+    vector<int> ident_list;
+    try {
+        if(ifaceDoc == NULL)
+            throw Exception(name + " not parsed successfully.");
+        xmlNodePtr ifaceNode = xmlDocGetRootElement(ifaceDoc);
+        if(!ifaceNode)
+            throw Exception(name + " is empty");
+        get_ident_list(ifaceNode, ident_list);
+        iface_version = NodeAsInteger("/iface/fields/@tid", ifaceNode);
+        if(iface_version > client_interface_ver) {
+            xml_decode_nodelist(ifaceNode);
+            xmlAddChild(dataNode, xmlCopyNode(ifaceNode, 1));
+        }
+        xmlFreeDoc(ifaceDoc);
+    } catch(...) {
+        xmlFreeDoc(ifaceDoc);
+        throw;
+    }
+    return ident_list;
+}
+
+void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    CacheHeader(resNode, dataNode);
+}
+
+void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    CacheHeader(resNode, dataNode);
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select id, name, fmt_type from prn_forms where op_type = 'PRINT_BP'";
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr rowsNode = NewTextChild(dataNode, "rows");
+        SetProp(rowsNode, "tid", "-1");
+        for(; !Qry.Eof; Qry.Next()) {
+            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
+            SetProp(rowNode, "pr_del", "0");
+            NewTextChild(rowNode, "col", Qry.FieldAsInteger("id"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString("name"));
+            NewTextChild(rowNode, "col", Qry.FieldAsString("fmt_type"));
         }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
