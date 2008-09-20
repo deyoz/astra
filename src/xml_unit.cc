@@ -176,6 +176,21 @@ int NodeAsInteger(xmlNodePtr node)
   return Value;
 };
 
+int PropAsInteger(char* expr, xmlNodePtr cur)
+{
+    int Result;
+    xmlChar *val = xmlGetProp(cur, BAD_CAST expr);
+    try {
+        if ( StrToInt( (char *)val, Result ) == EOF )
+            throw EXMLError(string("Cannot get property '") + expr + "' as Integer");
+        xmlFree(val);
+        return Result;
+    } catch(...) {
+        xmlFree(val);
+        throw;
+    }
+}
+
 int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   int Value;
