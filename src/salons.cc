@@ -582,10 +582,10 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     			break;
     		}
     	}
-    	ProgTrace( TRACE5, "pax_id=%d, layer=%s, priority=%d", pax_id, Qry.FieldAsString( "layer_type" ), priority );      	
+//    	ProgTrace( TRACE5, "pax_id=%d, layer=%s, priority=%d", pax_id, Qry.FieldAsString( "layer_type" ), priority );      	
     	if ( priority >= 0 ) {
-    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d", 
-    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
+//    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d", 
+//    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
     		if ( mp[ pax_id ].priority > priority ) {
     			if ( mp[ pax_id ].placelist ) {
     			  TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
@@ -890,7 +890,7 @@ bool Checkin( int pax_id )
 	
 void GetTripParams( int trip_id, xmlNodePtr dataNode )
 {
-  ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
+//  ProgTrace( TRACE5, "GetTripParams trip_id=%d", trip_id );
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -1041,7 +1041,7 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
     }
   	Qry.Next();
   }
- ProgTrace( TRACE5, "CompMap.size()=%d", CompMap.size() );
+// ProgTrace( TRACE5, "CompMap.size()=%d", CompMap.size() );
  if ( !CompMap.size() )
  	return -1;
  else
