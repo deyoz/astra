@@ -59,22 +59,22 @@ string DecodeCanUseRems( TUseRem VCanUseRems )
 {
 	string res;
 	switch( VCanUseRems ) {
-		case sAllUse: 
+		case sAllUse:
 			  res = "sAllUse";
 			  break;
-		case sOnlyUse: 
+		case sOnlyUse:
 			  res = "sOnlyUse";
 			  break;
-		case sMaxUse: 
+		case sMaxUse:
 			  res = "sMaxUse";
 			  break;
-		case sNotUseDenial: 
+		case sNotUseDenial:
 			  res = "sNotUseDenial";
 			  break;
-		case sNotUse: 
+		case sNotUse:
 			  res = "sNotUse";
 			  break;
-		case sIgnoreUse: 
+		case sIgnoreUse:
 			  res = "sIgnoreUse";
 			  break;
 		default:;
@@ -365,8 +365,8 @@ int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatSte
         case 2: Need += p_RCount2*2; /* если надо 2 => то не надо 3-х или общее кол-во мест не позволяет, */
                 break;               /* тогда надо учитывать только 1-х и 2-х места */
       }
-      
-      
+
+
       /* Need - это общее нужное кол-во мест, которое возможно удасться выделить
          теперь определяем направление */
       if ( p_Prior >= p_Next && Need > p_Next ) { /* слева больше мест, начнем справа */
@@ -407,9 +407,9 @@ int TSeatPlaces::Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatSte
         }
       } /* конец определения направления ( p_Prior >= p_Next ... ) */
     } /* конец p_Step = 0 */
-    
+
     /* закончили определять исходную позицию места и направления рассад */
-    
+
     /* выделяем еще одно место под набор мест */
     TSeatPlace seatplace;
     seatplace.placeList = placeList;
@@ -566,6 +566,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
            if ( prem == place->rems.end() || DoNotRemsSeats( place->rems ) )
              return Result;
          }
+         ProgTrace( TRACE5, "result=%d, FP=(%d,%d)", Result, FP.x, FP.y );
          break;
       case sNotUseDenial:
       	if ( DoNotRemsSeats( place->rems ) )
@@ -610,7 +611,7 @@ int TSeatPlaces::FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step )
    CanUseTube - поиск при Step = sRight через проходы
    Alone - посадить одно пассажира в ряду можно только один раз */
 bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
-{	
+{
   if ( Step == sLeft )
     Step = sRight;
   if ( Step == sUp )
@@ -650,7 +651,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     }
   }
   foundCount += foundBefore;
-//  ProgTrace( TRACE5, "FP=(%d,%d), foundbefore=%d", FP.x, FP.y, foundBefore );  
+//  ProgTrace( TRACE5, "FP=(%d,%d), foundbefore=%d", FP.x, FP.y, foundBefore );
   if ( foundBefore && Wanted ) { // если мы нашли места и нам надо Wanted
     if ( foundBefore > Wanted )
       foundBefore = Wanted;
@@ -670,14 +671,14 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
  /* далее попытаемся поискать через проход, при условии что поиск по горизонтали */
   if ( CanUseTube && Step == sRight && foundCount < MAXPLACE() ) {
     EP.x = FP.x + foundAfter + 1; //???/* устанавливаемся на предполагаемое место */
-//    ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );      
+//    ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
     if ( placeList->ValidPlace( EP ) ) {
       TPoint p( EP.x - 1, EP.y );
       TPlace *place = placeList->place( p ); /* берем пред. место */
       if ( !place->visible ) {
         foundTubeAfter = FindPlaces_From( EP, foundCount, Step ); /* поиск после прохода */
         foundCount += foundTubeAfter; /* увеличиваем общее кол-во мест */
-//       ProgTrace( TRACE5, "FP=(%d,%d), foundTubeAfter=%d", EP.x, EP.y, foundTubeAfter );        
+//       ProgTrace( TRACE5, "FP=(%d,%d), foundTubeAfter=%d", EP.x, EP.y, foundTubeAfter );
         if ( foundTubeAfter && Wanted ) { /* если мы нашли места и нам надо Wanted */
           if ( foundTubeAfter > Wanted )
             foundTubeAfter = Wanted;
@@ -685,7 +686,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
          /* т.к. точка отсчета должна находится на первом месте после прохода,
             иначе работать не будет */
            if ( Wanted <= 0 ) {
-             return true; /* Ура все нашлось */             
+             return true; /* Ура все нашлось */
            }
         }
       }
@@ -693,15 +694,15 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
     /* далее поиск налево через проход */
     if ( foundCount < MAXPLACE() ) {
       EP.x = FP.x - foundBefore - 2; // устанавливаемся на предполагаемое место
-      TPoint VP = EP;      
-//      ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );  
+      TPoint VP = EP;
+//      ProgTrace( TRACE5, "EP=(%d,%d)", EP.x, EP.y );
       if ( placeList->ValidPlace( EP ) ) {
         TPoint p( EP.x + 1, EP.y );
         TPlace *place = placeList->place( p ); /* берем след. место */
         if ( !place->visible ) { /* следующее место не видно => проход */
           foundTubeBefore = FindPlaces_From( EP, foundCount, sLeft );
           foundCount += foundTubeBefore;
-//          ProgTrace( TRACE5, "EP=(%d,%d), foundTubeBefore=%d", EP.x, EP.y, foundTubeBefore );    
+//          ProgTrace( TRACE5, "EP=(%d,%d), foundTubeBefore=%d", EP.x, EP.y, foundTubeBefore );
           if ( foundTubeBefore && Wanted ) { /* если мы нашли места и нам надо Wanted */
             if ( foundTubeBefore > Wanted )
               foundTubeBefore = Wanted;
@@ -808,15 +809,15 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
   	TPoint f=FP;
   	f.x = line;
 //  	ProgTrace( TRACE5, "line=%d, name=%s", line, placeList->GetXsName( line ).c_str() );
-  	if ( placeList->GetXsName( line ).empty() || 
+  	if ( placeList->GetXsName( line ).empty() ||
   		   !placeList->ValidPlace( f ) ||
   		   !placeList->place( f )->visible ||
   		   !placeList->place( f )->isplace )
   		continue;
-    visible++;		
+    visible++;
   }
-//  ProgTrace( TRACE5, "getCanUseOneRow()=%d, canUseOneRow=%d, foundCount=%d, visible=%d", 
-//             getCanUseOneRow(), canUseOneRow, foundCount, visible );  
+//  ProgTrace( TRACE5, "getCanUseOneRow()=%d, canUseOneRow=%d, foundCount=%d, visible=%d",
+//             getCanUseOneRow(), canUseOneRow, foundCount, visible );
   if ( !getCanUseOneRow() || !canUseOneRow || canUseOneRow && foundCount == visible ) {
   /* переходим на следующий ряд ???canUseOneRow??? */
     EP = FP;
@@ -842,7 +843,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
       if ( EP.x < 0 || EP.y < 0 ||
            !SeatSubGrp_On( EP, Step, 0 ) ) // ничего не смогли найти дальше
         return false;
-    }  
+    }
   }
   else return false;
   return true;
@@ -1000,12 +1001,12 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       continue;
   	ispPlaceName_lat.clear();
   	ispPlaceName_rus.clear();
-    TPlaceList *placeList = isp->placeList;  	      
+    TPlaceList *placeList = isp->placeList;
     ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ) );
     ispPlaceName_rus = ispPlaceName_lat;
     ispPlaceName_lat += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 1 );
     ispPlaceName_rus += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 0 );
-    
+
     int EqualQ = 0;
     if ( (int)isp->oldPlaces.size() == pass.countPlace )
       EqualQ = pass.countPlace*10000; //??? always true!
@@ -1031,7 +1032,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       } /* конец пробега по местам */
     } /* конец пробега по ремаркам пассажира */
     //ProgTrace( TRACE5, "EqualQ=%d", EqualQ );
-                       
+
     if ( pass.placeName == ispPlaceName_lat || pass.placeName == ispPlaceName_rus ||
     	   pass.preseat == ispPlaceName_lat || pass.preseat == ispPlaceName_rus )
       EqualQ += PR_EQUAL_N_PLACE;
@@ -1097,8 +1098,8 @@ void TSeatPlaces::PlacesToPassengers()
   for (ISeatPlace isp=seatplaces.begin(); isp!=seatplaces.end(); isp++)
     isp->InUse = false;
   sort(seatplaces.begin(),seatplaces.end(),CompSeats);
-  
-    
+
+
   int lp = Passengers.getCount();
   for ( int i=0; i<lp; i++ ) {
     TPassenger &pass = Passengers.Get( i );
@@ -1117,7 +1118,7 @@ void TSeatPlaces::PlacesToPassengers()
 /* рассадка всей группы начиная с позиции FP */
 bool TSeatPlaces::SeatsGrp_On( TPoint FP  )
 {
-//  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );	
+//  ProgTrace( TRACE5, "FP(x=%d, y=%d)", FP.x, FP.y );
   /* очистить помеченные места */
   RollBack( );
   /* если есть пассажиры в группе с вертикальной рассадкой, то пробуем их рассадить */
@@ -1320,7 +1321,7 @@ bool isValidPlaceToPassenger( const vector<string> &passrems, const vector<TPlac
 /* рассадка пассажиров по местам не учитывая группу */
 bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
 {
-//ProgTrace( TRACE5, "SeatsPassengers( )" );
+//  ProgTrace( TRACE5, "SeatsPassengers( ), canusemcls=%d", canUseMCLS );
   bool OLDFindMCLS = FindMCLS;
   bool OLDcanUseMCLS = canUseMCLS;
   vector<TPassenger> npass;
@@ -1345,17 +1346,17 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
           	  	continue;
             	FindMCLS = true;
             	canUseMCLS = true;
+          }
+          else
+          	if ( i == 1 ) {
+          		if ( find( ipass->rems.begin(), ipass->rems.end(), string("MCLS") ) != ipass->rems.end() )
+          			continue;
+          	  FindMCLS = false;
+          	  canUseMCLS = true;
             }
-            else
-            	if ( i == 1 ) {
-            		if ( find( ipass->rems.begin(), ipass->rems.end(), string("MCLS") ) != ipass->rems.end() )
-            			continue;
-            	  FindMCLS = false;
-            	  canUseMCLS = true;
-              }
-              else {
-                canUseMCLS = false;
-              }
+            else {
+              canUseMCLS = false;
+            }
         }
         Passengers.Add( *ipass );
         ipass->index = old_index;
@@ -1409,9 +1410,9 @@ void TPassenger::set_seat_no()
     strcpy( s.row, placeList->GetYsName( y ).c_str() );
     seat_no.push_back( s );
     switch( (int)Step ) {
-    	case sRight: 
+    	case sRight:
     		x++;
-    		break;  
+    		break;
     	case sDown:
     		y++;
     		break;
@@ -1460,7 +1461,7 @@ void TPassengers::LoadRemarksPriority( )
   while ( !Qry.Eof ) {
     remarks[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_comp" );
     Qry.Next();
-  }	
+  }
 }
 
 void TPassengers::addRemPriority( TPassenger &pass )
@@ -1474,8 +1475,9 @@ void TPassengers::addRemPriority( TPassenger &pass )
       priority = remarks[ *irem ];
       pass.maxRem = *irem;
     }
+    pass.priority += remarks[ *irem ]*pass.countPlace; //???
   }
-  pass.priority += priority*pass.countPlace;
+//???  pass.priority += priority*pass.countPlace;
 }
 
 void TPassengers::Calc_Priority( TPassenger &pass)
@@ -1502,24 +1504,24 @@ void TPassengers::sortByIndex()
 
 void TPassengers::Add( TPassenger &pass )
 {
-	ProgTrace( TRACE5, "agent_seat=%s, preseat=%s, placeName=%s", 
-	           pass.agent_seat.c_str(), pass.preseat.c_str(), pass.placeName.c_str() );
+//ProgTrace( TRACE5, "agent_seat=%s, preseat=%s, placeName=%s",
+//	           pass.agent_seat.c_str(), pass.preseat.c_str(), pass.placeName.c_str() );
   if ( pass.countPlace > CONST_MAXPLACE || pass.countPlace <= 0 )
    throw Exception( "Не допустимое кол-во мест для расадки" );
-	           
+
   size_t i = 0;
   for (; i < pass.agent_seat.size(); i++)
     if ( pass.agent_seat[ i ] != '0' )
       break;
   if ( i )
-    pass.agent_seat.erase( 0, i );  	           
+    pass.agent_seat.erase( 0, i );
 	if ( !pass.agent_seat.empty() )
 	 pass.placeName = pass.agent_seat;
   if ( !pass.preseat.empty() && !pass.placeName.empty() && pass.preseat != pass.placeName ) {
     pass.placeName = pass.preseat; //!!! при регистрации нельзя изменить предварительно назначенное место
   }
 //  ProgTrace( TRACE5, "pass.placeName=%s, pass.oldplacename=%s", pass.placeName.c_str(), pass.OldPlaceName.c_str() );
-	
+
 //  ProgTrace( TRACE5, "pass.placeStatus=%s, pass.preseat=%s", pass.placeStatus.c_str(), pass.preseat.c_str() );
   if ( pass.placeStatus == "BR" && !pass.preseat.empty() && pass.preseat == pass.placeName )
   	pass.placeStatus = "PS"; //???
@@ -1554,7 +1556,7 @@ void TPassengers::Add( TPassenger &pass )
  // высчитываем приоритет
   if ( remarks.empty() )
   	LoadRemarksPriority();
-//  ProgTrace( TRACE5, "pass.rems.size()=%d", pass.rems.size() );  	
+//  ProgTrace( TRACE5, "pass.rems.size()=%d", pass.rems.size() );
   for (vector<string>::iterator ir=pass.rems.begin(); ir!=pass.rems.end();  ) {
   	if ( remarks.find( *ir ) == remarks.end() )
   		ir = pass.rems.erase( ir );
@@ -1820,6 +1822,10 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
   GET_LINE_ARRAY( );
   SeatAlg = sSeatGrpOnBasePlace;
 
+  FindMCLS = false;
+  canUseMCLS = false;
+  bool pr_MCLS = false;
+
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
   /* определение есть ли в группе пассажир с предварительной рассадкой */
@@ -1829,6 +1835,9 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
   	if ( pass.placeStatus == "PS" ) {
   		Status_preseat = true;
   	}
+  	if ( find( pass.rems.begin(), pass.rems.end(), string( "MCLS" ) ) != pass.rems.end() ) {
+  		pr_MCLS = true;
+    }
   }
   /*!!!*/
   bool SeatOnlyBasePlace=true;
@@ -1842,6 +1851,10 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
 
 
   try {
+   for ( int FCanUserMCLS=(int)pr_MCLS; FCanUserMCLS>=0; FCanUserMCLS-- ) {
+    FindMCLS = FCanUserMCLS;
+    canUseMCLS = FCanUserMCLS;
+
    for ( int FSeatAlg=0; FSeatAlg<seatAlgLength; FSeatAlg++ ) {
      SeatAlg = (TSeatAlg)FSeatAlg;
      /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
@@ -1855,15 +1868,15 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                case sIgnoreUse:
                case sNotUseDenial:
                case sNotUse:
-                 continue; 
+                 continue;
              }
-             break;          	
+             break;
           case sSeatGrp:
              switch( (int)CanUseRems ) {
                case sAllUse:
                case sMaxUse:
                case sOnlyUse:
-               case sIgnoreUse:               	
+               case sIgnoreUse:
                case sNotUseDenial: //???
                  continue; /*??? что главнее группа или места с ремарками, кот не надо учитывать */
              }
@@ -1907,14 +1920,14 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                   if ( FCanUseTube && CanUseAlone == uFalse3 )
                     continue;
               	  if ( canUseOneRow && !FCanUseTube )
-              	  	continue;                    
+              	  	continue;
                   CanUseTube = FCanUseTube;
                   for ( int FCanUseSmoke=Passengers.UseSmoke; FCanUseSmoke>=0; FCanUseSmoke-- ) {
                     if ( !FCanUseSmoke && CanUseAlone == uFalse3 )
                       continue;
                     CanUseSmoke = FCanUseSmoke;
-//                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d",
-                               //(int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow);
+                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseMCLS=%d",
+                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow,canUseMCLS);
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
                         if ( SeatPlaces.SeatGrpOnBasePlace( ) )
@@ -1936,11 +1949,12 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                   } /* end for smoke */
                 } /* end for tube */
               } /* end for canuseonerow */
-            } /* end for status */              
+            } /* end for status */
           } /* end for use status */
         } /* end for alone */
       } /* end for CanUseRem */
     } /* end for FSeatAlg */
+   }
     SeatAlg = (TSeatAlg)0;
   }
   catch( int ierror ) {
@@ -1970,7 +1984,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
   TQuery QrySeat( &OraSession );
   switch( layer_type ) {
   	case cltCheckin:
-	    Qry.SQLText = //!!!   
+	    Qry.SQLText = //!!!
         "SELECT points.airline,"
         "       pax_grp.grp_id,"
         "       pax.pax_id,"
@@ -2001,19 +2015,19 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
       break;
     default:
     	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct GetPassengersForManualSeat",  EncodeCompLayerType( layer_type ) );
-    	throw UserException( "Устанавливаемый слой запрещен для ручной рассадке пассажиров" );    	
+    	throw UserException( "Устанавливаемый слой запрещен для ручной рассадке пассажиров" );
   }
-  QrySeat.CreateVariable( "point_id", otInteger, point_id );  
+  QrySeat.CreateVariable( "point_id", otInteger, point_id );
   QrySeat.DeclareVariable( "pax_id", otInteger );
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );    
+  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
   Qry.Execute();
   int pax_id = -1;
   while ( !Qry.Eof ) {
     if ( pax_id != Qry.FieldAsInteger( "pax_id" ) ) {
       TPassenger pass;
       pass.pax_id = Qry.FieldAsInteger( "pax_id" );
-      pass.placeName = Qry.FieldAsString( "seat_no" );      
+      pass.placeName = Qry.FieldAsString( "seat_no" );
       pass.clname = Qry.FieldAsString( "class" );
       pass.countPlace = Qry.FieldAsInteger( "seats" );
       pass.tid = Qry.FieldAsInteger( "tid" );
@@ -2023,17 +2037,17 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
       pass.fullName = TrimString( fname ) + " " + Qry.FieldAsString( "name" );
       pass.InUse = ( !pass.placeName.empty() );
       pass.isSeat = pass.InUse;
-      
+
       if ( !pass.InUse ) { // ???необходимо выбрать предыдущее место
-      	res = true;      	
+      	res = true;
       	QrySeat.SetVariable( "pax_id", pass.pax_id );
       	QrySeat.Execute();
       	if ( !QrySeat.Eof )
-      		//!!!pass.PrevPlaceName = 
-      		pass.placeName = denorm_iata_row( QrySeat.FieldAsString( "first_yname" ) ) + 
+      		//!!!pass.PrevPlaceName =
+      		pass.placeName = denorm_iata_row( QrySeat.FieldAsString( "first_yname" ) ) +
       		                 denorm_iata_line( QrySeat.FieldAsString( "first_xname" ), pr_lat_seat );
       }
-      
+
       if ( Qry.FieldAsInteger( "step" ) ) {
         pass.rems.push_back( "STCR" );
       }
@@ -2043,17 +2057,17 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
     	   ) {
         ProgTrace( TRACE5, "subcls=%s", Qry.FieldAsString( "subclass" ) );
     	  pass.rems.push_back( "MCLS" );
-      }     
+      }
       ProgTrace( TRACE5, "seat_no=%s", pass.placeName.c_str() );
       p.Add( pass );
-      pax_id = pass.pax_id;      
+      pax_id = pass.pax_id;
     }
     Qry.Next();
   }
   return res;
 }
 
-void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats, 
+void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRange> &seats,
                          int pax_id, int point_dep, int point_arv )
 {
   if (seats.empty()) return;
@@ -2083,7 +2097,7 @@ void SaveTripSeatRanges( int point_id, TCompLayerType layer_type, vector<TSeatRa
   if ( point_arv > 0 )
     Qry.CreateVariable( "point_arv", otInteger, point_arv );
   else
-  	Qry.CreateVariable( "point_arv", otInteger, FNull );  	
+  	Qry.CreateVariable( "point_arv", otInteger, FNull );
   Qry.DeclareVariable( "first_xname", otString );
   Qry.DeclareVariable( "last_xname", otString );
   Qry.DeclareVariable( "first_yname", otString );
@@ -2156,7 +2170,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	case cltCheckin:
       Qry.SQLText =
        "SELECT surname, name, reg_no, pax.grp_id, pax.seats, a.step step, pax.tid, '' target, point_dep, point_arv, "
-       "       0 point_id, salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'list',rownum) AS seat_no "          
+       "       0 point_id, salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,:point_dep,'list',rownum) AS seat_no "
        " FROM pax, pax_grp, "
        "( SELECT COUNT(*) step FROM pax_rem "
        "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
@@ -2213,9 +2227,9 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
   	throw UserException( "Пассажир зарегистрирован. Обновите данные" );
   }
-  vector<TSeatRange> seats;  
+  vector<TSeatRange> seats;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
-  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром  	
+  // считываем слои по новому месту и делаем проверку на то, что этот слой уже занят другим пассажиром
     Qry.Clear();
     Qry.SQLText =
       "SELECT r.layer_type, t.pax_id, t.crs_pax_id "
@@ -2229,8 +2243,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.DeclareVariable( "first_xname", otString );
     Qry.DeclareVariable( "first_yname", otString );
-    TQuery Qry1( &OraSession );    
-    Qry1.SQLText = 
+    TQuery Qry1( &OraSession );
+    Qry1.SQLText =
       "SELECT c1.code "
       " FROM trip_comp_layers t, trip_comp_ranges r, "
       "      comp_layer_types c1, comp_layer_types c2 "
@@ -2240,12 +2254,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       "       t.crs_pax_id=:crs_pax_id AND "
       "       t.first_yname||t.first_xname!=:first_yname||:first_xname AND "
       "       c1.code=r.layer_type AND "
-      "       c2.code=:layer_type AND "      
+      "       c2.code=:layer_type AND "
       "       c1.priority<=c2.priority AND rownum<2";
     Qry1.CreateVariable( "point_id", otInteger, point_id );
-    Qry1.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );    
+    Qry1.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
     Qry1.DeclareVariable( "first_xname", otString );
-    Qry1.DeclareVariable( "first_yname", otString );    
+    Qry1.DeclareVariable( "first_yname", otString );
     Qry1.DeclareVariable( "crs_pax_id", otInteger );
     TSeatRange r;
     strcpy( r.first.line, first_xname.c_str() );
@@ -2278,15 +2292,15 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           default:
       	    ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	    throw UserException( "Устанавливаемый слой запрещен для разметки" );
-        }  	
+        }
        // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира
         if ( /*string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) && ???*/
     	       p_id > NoExists && pax_id != p_id ) {
   	      switch( layer_type ) {
   		      case cltPreseat:
               Qry1.SetVariable( "first_xname", r.first.line );
-              Qry1.SetVariable( "first_yname", r.first.row );  		    	  	      	
-              Qry1.SetVariable( "crs_pax_id", p_id );              
+              Qry1.SetVariable( "first_yname", r.first.row );
+              Qry1.SetVariable( "crs_pax_id", p_id );
               Qry1.Execute();
               ProgTrace( TRACE5, "Qry1.Eof=%d, crs_pax_id=%d, placename=%s", Qry1.Eof, p_id, string(string(r.first.row)+(r.first.line)).c_str() );
               if ( !Qry1.Eof ) { // есть другое место с более высоким приоритетом
@@ -2297,7 +2311,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             default:
       	      ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	      throw UserException( "Устанавливаемый слой запрещен для разметки" );
-          }  	
+          }
         }
   	    Qry.Next();
       }
@@ -2306,7 +2320,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	throw UserException( "Указанное место недоступно для пассажира" );
     }
   }
-  
+
   if ( seat_type != stSeat ) { // пересадка, высадка - удаление старого слоя
   	Qry.Clear();
   	switch( layer_type ) {
@@ -2390,13 +2404,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		switch( layer_type ) {
   			case cltCheckin:
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " посажен на место: " + 
+                             " посажен на место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         case cltPreseat:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                             " предварительно назначено место. Новое место: " + 
+                             " предварительно назначено место. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
@@ -2407,13 +2421,13 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     	switch( layer_type ) {
   			case cltCheckin:
           reqinfo->MsgToLog( string( "Пассажир " ) + fullname +
-                             " пересажен. Новое место: " + 
+                             " пересажен. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
         case cltPreseat:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
-                             " предварительно назначено место. Новое место: " + 
+                             " предварительно назначено место. Новое место: " +
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
@@ -2437,12 +2451,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		break;
   }
 }
-   
+
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
 {
-	// салон содержит все нормальные места (нет инфалидных мест, например с разрывами 	
+	// салон содержит все нормальные места (нет инфалидных мест, например с разрывами
   if ( Salons.placelists.empty() )
-    throw Exception( "Не задан салон для автоматической рассадки" );    
+    throw Exception( "Не задан салон для автоматической рассадки" );
   CurrSalon = &Salons;
   SeatAlg = sSeatPassengers;
   CanUseStatus = false; /* не учитываем статус мест */
@@ -2457,8 +2471,8 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
   SeatPlaces.Clear();
 
   //!!! не задано pass.placeName, pass.PrevPlaceName, pass.OldPlaceName, pass.placeList,pass.InUse ,x,y???
-    
-  int s;  
+
+  int s;
   try {
     for ( int vClass=0; vClass<=2; vClass++ ) {
       //!!!for ( int vSeats=0; vSeats<=1; vSeats++ ) {
@@ -2468,7 +2482,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
           TPassenger &pass = APass.Get( i );
           ProgTrace( TRACE5, "isSeat=%d, pass.pax_id=%d, pass.placeName=%s", pass.isSeat, pass.pax_id, pass.placeName.c_str() );
           if ( pass.isSeat ) // пассажир посажен
-            continue; 
+            continue;
           pass.OldPlaceName = pass.placeName;
           switch( vClass ) {
             case 0:
@@ -2507,8 +2521,8 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       }
     }
     TQuery QryPax( &OraSession );
-    TQuery QryLayer( &OraSession );    
-    TQuery QryUpd( &OraSession );        
+    TQuery QryLayer( &OraSession );
+    TQuery QryUpd( &OraSession );
     QryPax.SQLText =
       "SELECT point_dep, point_arv, "
       "       salons.get_seat_no(pax.pax_id,:layer_type,pax.seats,point_dep,'list',rownum) AS seat_no "
@@ -2531,11 +2545,11 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       " mvd.sync_pax(:pax_id,:term); "
       "END;";
     QryUpd.DeclareVariable( "pax_id", otInteger );
-    QryUpd.DeclareVariable( "term", otString );        
-    
+    QryUpd.DeclareVariable( "term", otString );
+
     ProgTrace( TRACE5, "passengers.count=%d", Passengers.getCount() );
-    Passengers.Clear();    
-    
+    Passengers.Clear();
+
     s = APass.getCount();
     for ( int i=0; i<s; i++ ) {
     	TPassenger &pass = APass.Get( i );
@@ -2549,12 +2563,12 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       int point_dep = QryPax.FieldAsInteger( "point_dep" );
       int point_arv = QryPax.FieldAsInteger( "point_arv" );
       string prev_seat_no = QryPax.FieldAsString( "seat_no" );
-    		
+
     	if ( !pass.InUse ) { /* не смогли посадить */
     		if ( !pass.placeName.empty() )
           TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки высажен с места " +
-                                          prev_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );    			
+                                          prev_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );
       }
       else {
       	std::vector<TSeatRange> seats;
@@ -2564,18 +2578,18 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
       	}
         // необходимо вначале удалить все его инвалидные места из слоя регистрации
         QryLayer.CreateVariable( "pax_id", otInteger, pass.pax_id );
-        QryLayer.Execute();        
+        QryLayer.Execute();
   		  SaveTripSeatRanges( Salons.trip_id, cltCheckin, seats, pass.pax_id, point_dep, point_arv );
   		  QryUpd.SetVariable( "pax_id", pass.pax_id );
         QryUpd.SetVariable( "term", TReqInfo::Instance()->desk.code );
         QryUpd.Execute();
-        QryPax.Execute();        
-        string new_seat_no = QryPax.FieldAsString( "seat_no" );        
+        QryPax.Execute();
+        string new_seat_no = QryPax.FieldAsString( "seat_no" );
         ProgTrace( TRACE5, "oldplace=%s, newplace=%s", prev_seat_no.c_str(), new_seat_no.c_str() );
       	if ( prev_seat_no != new_seat_no )/* пересадили на другое место */
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +
-                                          new_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );             	
+                                          new_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );
       }
     }
   }
@@ -2607,14 +2621,14 @@ void TPassengers::Build( TSalons &Salons, xmlNodePtr dataNode )
     NewTextChild( pNode, "grp_id", p->grpId );
     NewTextChild( pNode, "reg_no", p->regNo );
     NewTextChild( pNode, "name", p->fullName );
-    if ( !p->rems.empty() && 
+    if ( !p->rems.empty() &&
     	   find( p->rems.begin(), p->rems.end(), string("STCR") ) != p->rems.end() )
       NewTextChild( pNode, "step", "В" );
     else
       NewTextChild( pNode, "step", "Г" );
     NewTextChild( pNode, "inuse", p->InUse ); //???
-    
-    
+
+
     // !!!old version
     for ( vector<TPlaceList*>::iterator placeList=Salons.placelists.begin();
           placeList!=Salons.placelists.end(); placeList++ ) {
@@ -2623,10 +2637,10 @@ void TPassengers::Build( TSalons &Salons, xmlNodePtr dataNode )
         break;
       }
     }
-    // !!!end old version      
-    
-    
-    
+    // !!!end old version
+
+
+
     NewTextChild( pNode, "x", p->Pos.x ); //???
     NewTextChild( pNode, "y", p->Pos.y ); //???
     if ( p->placeList )
