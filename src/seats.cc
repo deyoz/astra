@@ -1914,7 +1914,7 @@ void SeatsPassengers( TSalons *Salons, bool FUse_PS )
                       continue;
                     CanUseSmoke = FCanUseSmoke;
 //                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d",
-//                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow);
+                               //(int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow);
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
                         if ( SeatPlaces.SeatGrpOnBasePlace( ) )
@@ -2262,7 +2262,10 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   	    switch( layer_type ) {
           case cltCheckin:
           	if ( Qry.FieldIsNULL( "pax_id" ) )
-          		p_id = NoExists;
+          		if ( Qry.FieldIsNULL( "crs_pax_id" ) )
+          			p_id = NoExists;
+          		else
+          		  p_id = Qry.FieldAsInteger( "crs_pax_id" );
           	else
       	      p_id = Qry.FieldAsInteger( "pax_id" );
       	    break;
