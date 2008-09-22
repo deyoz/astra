@@ -1804,6 +1804,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               	   strcmp(rem_code,"UMNR")==0 ||
               	   strcmp(rem_code,"WCHS")==0 ||
               	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
+              if (strcmp(rem_code,"MCLS")==0) continue; //добавим ремарку MCLS позже
               pas.rems.push_back(rem_code);
             };
           };
@@ -1930,7 +1931,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       bool change_agent_seat_no = false;
       bool change_preseat_no = false;
       bool exists_preseats = false;
-      bool invalid_seat_no = false;      
+      bool invalid_seat_no = false;
       for(int k=0;k<=1;k++)
       {
         node=NodeAsNode("passengers",reqNode);
@@ -1986,7 +1987,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             TPassenger pas = Passengers.Get(i);
             if (pas.seat_no.empty()) throw Exception("SeatsPassengers: empty seat_no");
             	string pas_seat_no;
-            	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;      	
+            	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
             	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
             		if ( !pas.agent_seat.empty() ) { //было из crs или введено агентом
             		  pas_seat_no = denorm_iata_row( iseat->row ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
@@ -1999,12 +2000,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             		}
             		if ( !pas.isValidPlace )
             			invalid_seat_no = true;
-              } // end for 
+              } // end for
               if ( !pas.agent_seat.empty() && !pr_found_agent_seat_no ) // есть место и оно изменилось
               	change_agent_seat_no = true;
               if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
               	change_preseat_no = true;
-            
+
           /*  if (!pas.agent_seat.empty() && pas.agent_seat != pas.placeName) //было из crs или введено агентом, но оно не рассадилось
             {
             	if (!pas.preseat.empty() && pas.preseat == pas.placeName) //если была предв рассадка и она сработала при рассадке
@@ -2040,7 +2041,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           	else
           	  if ( change_agent_seat_no || change_preseat_no )
             		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
-          
+
           if (seat_no_str.str().empty()) seat_no_str << " нет";
 
 
