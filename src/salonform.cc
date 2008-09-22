@@ -821,7 +821,7 @@ void convert_salons( int step, bool pr_commit )
   	    if ( lat_count > 0 && rus_count > 0 ) {
   	    	string msg = string( "Неоднозначное определение признака pr_lat_seat: lat=" ) +
   	    	             IntToString( lat_count ) + ", rus=" + IntToString( rus_count );
-  	    	ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
+  	    	ProgError( STDLOG, "convert_salons: %s, comp_id=%d", msg.c_str(), Qry.FieldAsInteger( "comp_id" ) );
   	    }
   		  Qry.Next();
   	  }
@@ -870,7 +870,7 @@ void convert_salons( int step, bool pr_commit )
 	      if ( lat_count > 0 && rus_count > 0 ) {
 	  	    string msg = string( "Неоднозначное определение признака pt_lat_seat: lat=" ) +
 	  	                 IntToString( lat_count ) + ", rus=" + IntToString( rus_count );
-	  	    ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
+	  	    ProgError( STDLOG, "convert_salons: %s, point_id=%d", msg.c_str(), Qry.FieldAsInteger( "point_id" ) );
 	      }
 		    Qry.Next();
 	    }
