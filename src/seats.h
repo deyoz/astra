@@ -166,6 +166,7 @@ class TPassengers {
   private:
     std::map<std::string, int> remarks;
     VPassengers FPassengers;
+    void LoadRemarksPriority();
     void addRemPriority( TPassenger &pass );
     void Calc_Priority( TPassenger &pass );
   public:
