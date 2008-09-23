@@ -10,9 +10,6 @@
 #include "astra_consts.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
-#define TAG_REFRESH_DATA        "DATA_VER"
-#define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
-#define TAG_CODE                "CODE"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
@@ -44,7 +41,7 @@ void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
 
 /* конструктор класса - выбираем общие параметры + общие переменные для sql запроса
    + выборка данных из таблицы cache_tables, cache_fields */
-TCacheTable::TCacheTable(xmlNodePtr cacheNode)
+void TCacheTable::Init(xmlNodePtr cacheNode)
 {
   if ( cacheNode == NULL )
     throw Exception("wrong message format");
@@ -976,7 +973,8 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
-  TCacheTable cache( reqNode );
+  TCacheTable cache;
+  cache.Init(reqNode);
   tst();
   cache.refresh();
   tst();
@@ -985,12 +983,14 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE2, "CacheInterface::SaveCache");
-  TCacheTable cache( reqNode );
+  TCacheTable cache;
+  cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
     throw UserException( "Версия интерфейса изменилась. Обновите данные." );
   cache.ApplyUpdates( reqNode );
@@ -1002,6 +1002,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
   showMessage( "Изменения успешно сохранены" );
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

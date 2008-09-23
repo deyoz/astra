@@ -27,6 +27,9 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
+#define TAG_REFRESH_DATA        "DATA_VER"
+#define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
+#define TAG_CODE                "CODE"
 
 enum TCacheFieldCharCase {ecNormal, ecUpperCase, ecLowerCase};
 enum TAlignment {taLeftJustify, taRightJustify, taCenter};
@@ -94,7 +97,7 @@ typedef struct {
 typedef std::vector<TRow> TTable;
 
 class TCacheTable {
-    private:
+    protected:
         TQuery *Qry;
         TParams Params, SQLParams;
         std::string Title;
@@ -123,7 +126,7 @@ class TCacheTable {
         void getParams(xmlNodePtr paramNode, TParams &vparams);
         bool refreshInterface();
         bool refreshData();
-        void initFields();
+        virtual void initFields();
         void XMLInterface(const xmlNodePtr resNode);
         void XMLData(const xmlNodePtr resNode);
         void DeclareSysVariables(std::vector<std::string> &vars, TQuery *Qry);
@@ -140,8 +143,8 @@ class TCacheTable {
         bool changeIfaceVer();
         std::string code();
         int FieldIndex( const std::string name );
-        TCacheTable(xmlNodePtr cacheNode);
-        ~TCacheTable();
+        virtual void Init(xmlNodePtr cacheNode);
+        virtual ~TCacheTable();
 };
 #endif /*_CACHE_H_*/
 
