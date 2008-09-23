@@ -511,7 +511,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     else
     	NewTextChild( NodeA, "BNP", tr->bort_in );
     NewTextChild( NodeA, "NMSF", tr->park_in );
-    NewTextChild( NodeA, "RPVSN", GetMinutes( tr->scd_in, tr->est_in ) );
+    NewTextChild( NodeA, "RPVSN", GetMinutes( tr->scd_in, tr->est_in ).substr(0,3) );
  	  if ( tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in == tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out )
  	    NewTextChild( NodeA, "PRIZ", IntToString( 2 ) );
  	  else
@@ -615,7 +615,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     else
  	  	NewTextChild( NodeD, "BNP", tr->bort_out );
  	  NewTextChild( NodeD, "NMSF", tr->park_out );
- 	  NewTextChild( NodeD, "RPVSN", GetMinutes( tr->scd_out, tr->est_out ) );
+ 	  NewTextChild( NodeD, "RPVSN", GetMinutes( tr->scd_out, tr->est_out ).substr(0,3) );
  	  if ( tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in == tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out )
  	    NewTextChild( NodeD, "PRIZ", IntToString( 2 ) );
  	  else
