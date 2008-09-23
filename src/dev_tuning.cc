@@ -11,6 +11,7 @@
 #include "oralib.h"
 #include "print.h"
 #include "xml_stuff.h"
+#include "cache.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -771,79 +772,256 @@ void DevTuningInterface::LoadPrnForms(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 </rows>
 */
 
-void get_ident_list(xmlNodePtr ifaceNode, vector<int> ident_list)
+namespace TUNE {
+    struct TField {
+        string Name;
+        int DataSize;
+        TCacheFieldType DataType;
+        TField() { DataType = ftUnknown; DataSize = -1; };
+    };
+
+    typedef vector<TField> TFields;
+
+    void get_fields(xmlNodePtr ifaceNode, TFields &Fields)
+    {
+        xmlNodePtr curNode = ifaceNode->children;
+        curNode = NodeAsNodeFast("fields", curNode);
+        curNode = curNode->children;
+        for(; curNode; curNode = curNode->next) {
+            TField Field;
+            xmlNodePtr paramNode = curNode->children;
+            Field.Name = NodeAsStringFast("Name", paramNode);
+            Field.DataSize = NodeAsIntegerFast("DataSize", paramNode);
+            Field.DataType = TCacheFieldType(NodeAsIntegerFast("DataType", paramNode));
+            Fields.push_back(Field);
+        }
+    }
+
+    TFields CacheHeader(xmlNodePtr reqNode, xmlNodePtr dataNode)
+    {
+        xmlNodePtr paramsNode = NodeAsNodeFast("params", reqNode->children);
+        paramsNode = paramsNode->children;
+        string code = NodeAsStringFast("code", paramsNode);
+//        int client_data_ver = NodeAsIntegerFast("data_ver", paramsNode);
+        int client_interface_ver = NodeAsIntegerFast("interface_ver", paramsNode);
+
+        // общие данные кэша
+        NewTextChild(dataNode, "code", code);
+        NewTextChild(dataNode, "Forbidden", 0);
+        NewTextChild(dataNode, "ReadOnly", 0);
+        NewTextChild(dataNode, "Keep_Locally", 0);
+
+        string name = code + ".xml";
+        xmlKeepBlanksDefault(0);
+        xmlDocPtr ifaceDoc = xmlParseFile(name.c_str());
+        int iface_version = -1;
+        TFields Fields;
+        try {
+            if(ifaceDoc == NULL)
+                throw Exception(name + " not parsed successfully.");
+            xmlNodePtr ifaceNode = xmlDocGetRootElement(ifaceDoc);
+            if(!ifaceNode)
+                throw Exception(name + " is empty");
+            get_fields(ifaceNode, Fields);
+            iface_version = NodeAsInteger("/iface/fields/@tid", ifaceNode);
+            if(iface_version > client_interface_ver) {
+                xml_decode_nodelist(ifaceNode);
+                xmlAddChild(dataNode, xmlCopyNode(ifaceNode, 1));
+            }
+            xmlFreeDoc(ifaceDoc);
+        } catch(...) {
+            xmlFreeDoc(ifaceDoc);
+            throw;
+        }
+        return Fields;
+    }
+
+}
+
+class TTuneTable: public TCacheTable {
+    protected:
+        xmlDocPtr ifaceDoc;
+        xmlNodePtr ifaceNode;
+        void GetSQL(string code);
+        void initFields();
+    public:
+        void Init(xmlNodePtr cacheNode);
+        ~TTuneTable();
+};
+
+TTuneTable::~TTuneTable()
 {
-    xmlNodePtr fieldsNode = NodeAsNodeFast("fields", ifaceNode);
-    fieldsNode = fieldsNode->children;
-    for(; fieldsNode; fieldsNode = fieldsNode->next) {
-        int index = PropAsInteger("index", fieldsNode);
-        if(NodeAsIntegerFast("Ident", fieldsNode->children) == 1)
-            ident_list.push_back(index);
+    xmlFreeDoc(ifaceDoc);
+}
+
+void TTuneTable::initFields()
+{
+    string code = Params[TAG_CODE].Value;
+    // считаем инфу о полях кэша
+    xmlNodePtr fieldNode = NodeAsNode("/iface/fields/field", ifaceNode);
+    for(; fieldNode; fieldNode = fieldNode->next) {
+        xmlNodePtr propNode = fieldNode->children;
+        TCacheField2 FField;
+        FField.Name = NodeAsStringFast("Name", propNode);
+        FField.Name = upperc( FField.Name );
+        if(FField.Name.find(';') != string::npos)
+            throw Exception((string)"Wrong field name '"+code+"."+FField.Name+"'");
+        if ((FField.Name == "TID") || (FField.Name == "PR_DEL"))
+            throw Exception((string)"Field name '"+code+"."+FField.Name+"' reserved");
+        FField.Title = NodeAsStringFast("Title", propNode);
+        FField.Width = NodeAsIntegerFast("Width", propNode);
+        if(FField.Width == 0) {
+            switch(FField.DataType) {
+                case ftSignedNumber:
+                case ftUnsignedNumber:
+                    FField.Width = FField.DataSize;
+                    if (FField.DataType == ftSignedNumber) FField.Width++;
+                    if(FField.Scale>0) {
+                        FField.Width++;
+                        if (FField.DataSize == FField.Scale) FField.Width++;
+                    }
+                    break;
+                case ftDate:
+                    if (FField.DataSize>=1 && FField.DataSize<=7)
+                        FField.Width = 5; /* dd.mm */
+                    else
+                        if (FField.DataSize>=8 && FField.DataSize<=9)
+                            FField.Width = 8; /* dd.mm.yy */
+                        else FField.Width = 10; /* dd.mm.yyyy */
+                        break;
+                case ftTime:
+                        FField.Width = 5;
+                        break;
+                default:
+                        FField.Width = FField.DataSize;
+            }
+        }
+        FField.CharCase = ecNormal;
+        if(NodeAsStringFast("CharCase", propNode) == "L") FField.CharCase = ecLowerCase;
+        if(NodeAsStringFast("CharCase", propNode) == "U") FField.CharCase = ecUpperCase;
+        FField.Align = TAlignment(NodeAsIntegerFast("Align", propNode));
+        FField.DataType = (TCacheFieldType)NodeAsIntegerFast("DataType", propNode);
+        FField.DataSize = NodeAsIntegerFast("DataSize", propNode);
+        FField.Scale = NodeAsIntegerFast("Scale", propNode);
+        FField.Nullable = NodeAsIntegerFast("Nullable", propNode) != 0;
+        FField.Ident = NodeAsIntegerFast("Ident", propNode) != 0;
+        FField.ReadOnly = NodeAsIntegerFast("ReadOnly", propNode) != 0;
+        FField.ReferCode = NodeAsStringFast("ReferCode", propNode);
+        FField.ReferName = NodeAsStringFast("ReferName", propNode);
+        FField.ReferLevel = NodeAsIntegerFast("ReferLevel", propNode);
+        /* проверим, чтобы имена полей не дублировались */
+        for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
+            if(FField.Name == i->Name)
+                throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
+        FFields.push_back(FField);
     }
 }
 
-vector<int> CacheHeader(xmlNodePtr reqNode, xmlNodePtr dataNode)
+void TTuneTable::GetSQL(string code)
 {
-    xmlNodePtr paramsNode = NodeAsNodeFast("params", reqNode->children);
-    paramsNode = paramsNode->children;
-    string code = NodeAsStringFast("code", paramsNode);
-    int client_data_ver = NodeAsIntegerFast("data_ver", paramsNode);
-    int client_interface_ver = NodeAsIntegerFast("interface_ver", paramsNode);
+    string fileName = code + ".xml";
+    ifaceDoc = xmlParseFile(fileName.c_str());
+    if(ifaceDoc == NULL)
+        throw Exception(fileName + " not parsed successfully.");
+    ifaceNode = xmlDocGetRootElement(ifaceDoc);
+    if(!ifaceNode)
+        throw Exception(fileName + " is empty");
+    xml_decode_nodelist(ifaceNode);
+    xmlNodePtr propNode = ifaceNode->children;
+    Title = NodeAsStringFast("title", propNode);
+    curVerIface = NodeAsInteger("/iface/fields/@tid", ifaceNode); /* текущая версия интерфейса */
 
-    // общие данные кэша
-    NewTextChild(dataNode, "code", code);
-    NewTextChild(dataNode, "Forbidden", 0);
-    NewTextChild(dataNode, "ReadOnly", 0);
-    NewTextChild(dataNode, "Keep_Locally", 0);
-
-    string name = code + ".xml";
-    xmlKeepBlanksDefault(0);
-    xmlDocPtr ifaceDoc = xmlParseFile(name.c_str());
-    int iface_version = -1;
-    vector<int> ident_list;
-    try {
-        if(ifaceDoc == NULL)
-            throw Exception(name + " not parsed successfully.");
-        xmlNodePtr ifaceNode = xmlDocGetRootElement(ifaceDoc);
-        if(!ifaceNode)
-            throw Exception(name + " is empty");
-        get_ident_list(ifaceNode, ident_list);
-        iface_version = NodeAsInteger("/iface/fields/@tid", ifaceNode);
-        if(iface_version > client_interface_ver) {
-            xml_decode_nodelist(ifaceNode);
-            xmlAddChild(dataNode, xmlCopyNode(ifaceNode, 1));
-        }
-        xmlFreeDoc(ifaceDoc);
-    } catch(...) {
-        xmlFreeDoc(ifaceDoc);
-        throw;
+    if(code == "PRN_FORMS") {
+        SelectSQL = "select id, op_type, name, fmt_type from prn_forms order by name, fmt_type";
+        InsertSQL = "insert into prn_forms(id, name, fmt_type, op_type) values(id__seq.nextval, :name, :fmt_type, :op_type)";
+        UpdateSQL = "update prn_forms set name = :name, fmt_type = :fmt_type, op_type = :op_type where id = :OLD_id";
+        DeleteSQL = "delete from prn_forms where id = :OLD_id";
     }
-    return ident_list;
+    if(code == "PRN_FORM_VERS") {
+        SelectSQL = "select id, version, descr from prn_form_vers order by id, version, descr";
+        InsertSQL = "insert into prn_form_vers(id, version, descr) values(:id, :version, :descr)";
+        UpdateSQL = "update prn_form_vers set descr = :descr where id = :id and version = :version";
+        DeleteSQL = "delete from prn_form_vers where id = :OLD_id and version = :OLD_version";
+    }
+    if(code == "BLANK_LIST") {
+        SelectSQL = "select id, version, form_type, dev_model, fmt_type from bp_models";
+        InsertSQL = "insert into bp_models(id, version, form_type, dev_model, fmt_type) values(:id, :version, :form_type, :dev_model, :fmt_type)";
+        UpdateSQL = "update bp_models set form_type = :form_type, dev_model = :dev_model, fmt_type = :fmt_type where id = :id and version = :version";
+        DeleteSQL = "delete from bp_models where id = :OLD_id and version = :OLD_version";
+    }
+    if(code == "BT_BLANK_LIST") {
+        SelectSQL = "select id, version, form_type, dev_model, fmt_type, num from bt_models order by form_type, dev_model, fmt_type, num";
+        InsertSQL = "insert into bt_models(id, version, form_type, dev_model, fmt_type, num) values(:id, :version, :form_type, :dev_model, :fmt_type, :num)";
+        UpdateSQL =
+            "update bt_models set form_type = :form_type, dev_model = :dev_model, fmt_type = :fmt_type where "
+            " id = :id and version = :version and num = :num";
+        DeleteSQL = "delete from bt_models where id = :OLD_id and version = :OLD_version and num = :OLD_NUM";
+    }
+    Logging = 1;
+    Keep_Locally = 0;
+    EventType = evtSystem;
+    //получим права доступа до операций
+    SelectRight=-1;
+    InsertRight= 1;
+    UpdateRight= 1;
+    DeleteRight= 1;
+    Forbidden = SelectRight>=0;
+    ReadOnly = SelectRight>=0 ||
+        (InsertSQL.empty() || InsertRight<0) &&
+        (UpdateSQL.empty() || UpdateRight<0) &&
+        (DeleteSQL.empty() || DeleteRight<0);
+}
+
+void TTuneTable::Init(xmlNodePtr cacheNode)
+{
+  if ( cacheNode == NULL )
+    throw Exception("wrong message format");
+  getParams(GetNode("params", cacheNode), Params); /* общие параметры */
+  getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
+  if ( Params.find( TAG_CODE ) == Params.end() )
+    throw Exception("wrong message format");
+  string code = Params[TAG_CODE].Value;
+  Qry = OraSession.CreateQuery();
+  Forbidden = true;
+  ReadOnly = true;
+  clientVerData = -1;
+  clientVerIface = -1;
+  GetSQL(code);
+  initFields(); /* инициализация FFields */
 }
 
 void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    CacheHeader(resNode, dataNode);
+    ProgTrace(TRACE2, "DevTuningInterface::ApplyCache");
+    TTuneTable cache;
+    cache.Init(reqNode);
+    if ( cache.changeIfaceVer() )
+        throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+    cache.ApplyUpdates( reqNode );
+    cache.refresh();
+    tst();
+    SetProp(resNode, "handle", "1");
+    xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
+    SetProp(ifaceNode, "id", "cache");
+    SetProp(ifaceNode, "ver", "1");
+    cache.buildAnswer(resNode);
+    showMessage( "Изменения успешно сохранены" );
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    CacheHeader(resNode, dataNode);
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select id, name, fmt_type from prn_forms where op_type = 'PRINT_BP'";
-    Qry.Execute();
-    if(!Qry.Eof) {
-        xmlNodePtr rowsNode = NewTextChild(dataNode, "rows");
-        SetProp(rowsNode, "tid", "-1");
-        for(; !Qry.Eof; Qry.Next()) {
-            xmlNodePtr rowNode = NewTextChild(rowsNode, "row");
-            SetProp(rowNode, "pr_del", "0");
-            NewTextChild(rowNode, "col", Qry.FieldAsInteger("id"));
-            NewTextChild(rowNode, "col", Qry.FieldAsString("name"));
-            NewTextChild(rowNode, "col", Qry.FieldAsString("fmt_type"));
-        }
-    }
+    ProgTrace(TRACE2, "DevTuningInterface::Cache, reqNode->Name=%s, resNode->Name=%s",
+            (char*)reqNode->name,(char*)resNode->name);
+    TTuneTable cache;
+    cache.Init(reqNode);
+    tst();
+    cache.refresh();
+    tst();
+    SetProp(resNode, "handle", "1");
+    xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
+    SetProp(ifaceNode, "id", "cache");
+    SetProp(ifaceNode, "ver", "1");
+    cache.buildAnswer(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }

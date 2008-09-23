@@ -36,7 +36,7 @@ public:
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::Cache);
      AddEvent("cache",evHandle);
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::ApplyCache);
-     AddEvent("apply_cache",evHandle);
+     AddEvent("cache_apply",evHandle);
   };
 
   void PrnFormsCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
