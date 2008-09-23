@@ -508,7 +508,7 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 	return true;
 }
 
-string addCondition( const char *sql )
+string addCondition( const char *sql, bool pr_arx )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	bool pr_OR = ( !reqInfo->user.access.airlines.empty() && !reqInfo->user.access.airps.empty() );
@@ -518,20 +518,40 @@ string addCondition( const char *sql )
    	where_sql = " AND ( ";
    else
    	where_sql = " AND ";
-   if ( reqInfo->user.access.airlines_permit )
-     where_sql += "points.airline IN " + GetSQLEnum( reqInfo->user.access.airlines );
-   else
-     where_sql += "points.airline NOT IN " + GetSQLEnum( reqInfo->user.access.airlines );
+   if ( reqInfo->user.access.airlines_permit ) {
+   	 if ( pr_arx )
+   	 	 where_sql += "arx_points.airline IN ";
+   	 else
+       where_sql += "points.airline IN ";
+     where_sql += GetSQLEnum( reqInfo->user.access.airlines );
+   }
+   else {
+   	 if ( pr_arx )
+   	 	 where_sql += "arx_points.airline NOT IN ";
+   	 else
+       where_sql += "points.airline NOT IN ";
+     where_sql += GetSQLEnum( reqInfo->user.access.airlines );
+   }
   };
   if ( !reqInfo->user.access.airps.empty() ) {
   	if ( pr_OR )
   		where_sql += " OR ";
   	else
   		where_sql += " AND ";
-    if ( reqInfo->user.access.airps_permit )
-      where_sql += "points.airp IN " + GetSQLEnum( reqInfo->user.access.airps );
-    else
-      where_sql += "points.airp NOT IN " + GetSQLEnum( reqInfo->user.access.airps );
+    if ( reqInfo->user.access.airps_permit ) {
+    	if ( pr_arx )
+    		where_sql += "arx_points.airp IN ";
+    	else
+        where_sql += "points.airp IN ";
+      where_sql += GetSQLEnum( reqInfo->user.access.airps );
+    }
+    else {
+    	if ( pr_arx )
+        where_sql += "arx_points.airp NOT IN ";
+    	else
+        where_sql += "points.airp NOT IN ";
+      where_sql += GetSQLEnum( reqInfo->user.access.airps );
+    }
     if ( pr_OR )
     	where_sql += " ) ";
   };
@@ -558,15 +578,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
   if ( arx )
   	if ( pr_isg )
-  		PointsQry.SQLText = addCondition( arx_points_ISG_SQL ).c_str();
+  		PointsQry.SQLText = addCondition( arx_points_ISG_SQL, arx ).c_str();
   	else
-  	  PointsQry.SQLText = addCondition( arx_points_SOPP_SQL ).c_str();
+  	  PointsQry.SQLText = addCondition( arx_points_SOPP_SQL, arx ).c_str();
   else
   	if ( pr_isg )
-  	  PointsQry.SQLText = addCondition( points_ISG_SQL ).c_str();
+  	  PointsQry.SQLText = addCondition( points_ISG_SQL, arx ).c_str();
   	else
   		if ( point_id == NoExists )
-	  		PointsQry.SQLText = addCondition( points_SOPP_SQL ).c_str();
+	  		PointsQry.SQLText = addCondition( points_SOPP_SQL, arx ).c_str();
   		else {
   			PointsQry.SQLText = points_id_SOPP_SQL;
   			PointsQry.CreateVariable( "point_id", otInteger, point_id );
@@ -1381,12 +1401,12 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
     next_date = first_date + 1; // добавляем сутки
     if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
-      first_date = f-1; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на 
-                        // сутки и клиент этот рейс отфильтрует    	
+      first_date = f-1; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на
+                        // сутки и клиент этот рейс отфильтрует
       next_date = f+1;
     }
 
-    ProgTrace( TRACE5, "first_date=%s, next_date=%s", DateTimeToStr( first_date ).c_str(), DateTimeToStr( next_date ).c_str() ); 
+    ProgTrace( TRACE5, "first_date=%s, next_date=%s", DateTimeToStr( first_date ).c_str(), DateTimeToStr( next_date ).c_str() );
 
     if ( arx )
     	NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
