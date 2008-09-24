@@ -35,7 +35,9 @@ typedef enum {
     ptIER508BR,
     ptOKIML390,
     ptOKIML3310,
-    ptOLIVETTI
+    ptOLIVETTI,
+    ptZEBRA,
+    ptOLIVETTICOM
 } TPrnType;
 
 namespace to_esc {
@@ -117,6 +119,7 @@ namespace to_esc {
         double y_modif, x_modif;
         switch(prn_type) {
             case ptOLIVETTI:
+            case ptOLIVETTICOM:
                 x_modif = 4.76;
                 y_modif = 6.9;
                 break;
