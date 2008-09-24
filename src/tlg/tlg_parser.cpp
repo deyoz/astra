@@ -189,7 +189,7 @@ char GetSalonLine(char line)
 
 enum TNsiType {ntCountries,ntAirlines,ntAirps,ntClass,ntSubcls,ntGenderTypes,ntPaxDocTypes};
 
-char* GetNsiCode(char* value, TNsiType nsi, char* code)
+char* GetNsiCode(char* value, TNsiType nsi, char* code, bool with_icao=false)
 {
   switch(nsi)
   {
@@ -206,16 +206,30 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
       };
       break;
     case ntAirlines:
+      try
       {
         TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",value));
         strcpy(code,row.code.c_str());
       }
+      catch (EBaseTableError)
+      {
+        if (!with_icao) throw;
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code_icao/code_icao_lat",value));
+        strcpy(code,row.code.c_str());
+      };
       break;
     case ntAirps:
+      try
       {
         TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",value));
         strcpy(code,row.code.c_str());
       }
+      catch (EBaseTableError)
+      {
+        if (!with_icao) throw;
+        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code_icao/code_icao_lat",value));
+        strcpy(code,row.code.c_str());
+      };
       break;
     case ntSubcls:
       {
@@ -245,14 +259,14 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
   return code;
 };
 
-char* GetAirline(char* airline)
+char* GetAirline(char* airline, bool with_icao=false)
 {
-  return GetNsiCode(airline,ntAirlines,airline);
+  return GetNsiCode(airline,ntAirlines,airline,with_icao);
 };
 
-char* GetAirp(char* airp)
+char* GetAirp(char* airp, bool with_icao=false)
 {
-  return GetNsiCode(airp,ntAirps,airp);
+  return GetNsiCode(airp,ntAirps,airp,with_icao);
 };
 
 TClass GetClass(char* subcl)
@@ -928,7 +942,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetAirline(flt.airline);
+            GetAirline(flt.airline,true);
             //переведем day в TDateTime
             int year,mon,currday;
             DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
