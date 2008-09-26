@@ -128,8 +128,8 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           sql+="AND (tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
                "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
         else
-          sql+="AND NOT(tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-               "        tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
+          sql+="AND (tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+               "     tlg_trips.airp_arv NOT IN "+GetSQLEnum(info.user.access.airps)+")" ;
       };
     };
     sql+=" UNION "

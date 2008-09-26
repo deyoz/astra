@@ -476,11 +476,11 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 if (!reqInfo.user.access.airps.empty()) {
                     if (reqInfo.user.access.airps_permit)
                         SQLText+="AND (points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                            "          ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                     else
-                        SQLText+="AND NOT(points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                        SQLText+="AND (points.airp NOT IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "          ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             } else {
@@ -518,8 +518,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             "     arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num, arx_points.part_key) IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                     else
-                        SQLText+="AND NOT(arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "        arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num,arx_points.part_key) IN "+
+                        SQLText+="AND (arx_points.airp NOT IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "          arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num,arx_points.part_key) NOT IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             }
