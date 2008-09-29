@@ -737,7 +737,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
             if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time !=ustTimeUTC*//*==ustTimeLocalAirp,*/
             	                     errcity, pr_isg ) ) {
             	vector<TSOPPTrip>::iterator v=vtrips.end();
-            	if ( pr_isg ) {
+            	if ( pr_isg && reqInfo->desk.city != "óãÅ" ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
               		if ( EqualTrips( ntr, *v ) )
               			break;
@@ -847,7 +847,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
          if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time != ustTimeUTC*//*==ustTimeLocalAirp,*/
          	                      errcity, pr_isg ) ) {
           	vector<TSOPPTrip>::iterator v=vtrips.end();
-          	if ( pr_isg ) {
+          	if ( pr_isg && reqInfo->desk.city != "óãÅ" ) {
            	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
            	  	if ( EqualTrips( ntr, *v ) )
            	  		break;
