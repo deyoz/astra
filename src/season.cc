@@ -1649,7 +1649,7 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
       throw UserException( "Для диапазона не задан маршрут" );
     ip->pr_del = im->second.pr_del;
     if ( ip->first > ip->last ) {
-    	string errstr = "Начальная дата диапазона выполнения боьше конечной ";
+    	string errstr = "Начальная дата диапазона выполнения больше конечной ";
     	errstr +=DateTimeToStr( ip->first, "dd.mm.yy" );
     	errstr += "-";
     	errstr +=DateTimeToStr( ip->last, "dd.mm.yy" );
