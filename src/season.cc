@@ -1621,8 +1621,8 @@ ProgTrace( TRACE5, "id->airline=%s", id->airline.c_str() );
         else
           flg.push_back( f );
       }
-      if ( id != im->second.dests.begin() && id->airp == pid->airp )
-        throw UserException( "Маршрут не может содержать два одинаковых подряд идущих п.п." );
+/*29.10 for chelb      if ( id != im->second.dests.begin() && id->airp == pid->airp )
+        throw UserException( "Маршрут не может содержать два одинаковых подряд идущих п.п." );*/
       if ( !id->pr_del )
         notpr_del++;
 ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_in, id->scd_out );
