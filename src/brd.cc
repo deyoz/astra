@@ -206,23 +206,21 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "  FOR curRow IN cur LOOP ";
 
   if (reqInfo->screen.name == "BRDBUS.EXE")
-  {
     sql+=   "    UPDATE pax SET pr_brd=DECODE(:mark,0,1,0),tid=tid__seq.currval "
-            "    WHERE pax_id=curRow.pax_id AND pr_brd=:mark; "
-            "    IF SQL%FOUND THEN "
-            "      mvd.sync_pax(curRow.pax_id,:term); "
-            "    END IF; ";
-    Qry.CreateVariable( "term", otString, reqInfo->desk.code );
-  }
+            "    WHERE pax_id=curRow.pax_id AND pr_brd=:mark; ";
   else
     sql+=   "    UPDATE pax SET pr_exam=DECODE(:mark,0,1,0),tid=tid__seq.currval "
             "    WHERE pax_id=curRow.pax_id AND pr_exam=:mark; ";
 
-  sql+=     "  END LOOP; "
+  sql+=     "    IF SQL%FOUND THEN "
+            "      mvd.sync_pax(curRow.pax_id,:term); "
+            "    END IF; "
+            "  END LOOP; "
             "END; ";
   Qry.SQLText=sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "mark", otInteger, (int)!boarding );
+  Qry.CreateVariable( "term", otString, reqInfo->desk.code );
   Qry.Execute();
   char *msg;
   if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -277,17 +275,15 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
   Qry.Execute();
   if (Qry.RowsProcessed()>0)
   {
-    if (reqInfo->screen.name == "BRDBUS.EXE")
-    {
-      Qry.Clear();
-      Qry.SQLText=
-        "BEGIN "
-        "  mvd.sync_pax(:pax_id, :term); "
-        "END;";
-      Qry.CreateVariable("pax_id", otInteger, pax_id);
-      Qry.CreateVariable("term", otString, reqInfo->desk.code);
-      Qry.Execute();
-    };
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  mvd.sync_pax(:pax_id, :term); "
+      "END;";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.CreateVariable("term", otString, reqInfo->desk.code);
+    Qry.Execute();
+
     Qry.Clear();
     Qry.SQLText=
       "SELECT surname,name,reg_no,grp_id FROM pax WHERE pax_id=:pax_id";
