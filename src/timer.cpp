@@ -105,7 +105,7 @@ void exec_tasks( void )
 	    	  			  else
 	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
 	    	  			  	else
-	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );	
+	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;
@@ -623,7 +623,7 @@ void arx_move(int move_id, TDateTime part_key)
 
 void get_full_stat(TDateTime utcdate)
 {
-	//соберем статистику по истечении двух дней от вылета, 
+	//соберем статистику по истечении двух дней от вылета,
 	//если не проставлен признак окончательного сбора статистики pr_stat
 	ProgTrace(TRACE5,"arx_daily: statist.get_full_stat(:point_id)");
 	TQuery Qry(&OraSession);
@@ -649,7 +649,7 @@ void get_full_stat(TDateTime utcdate)
   	Qry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
   	Qry.Execute();
   	OraSession.Commit();
-  };  
+  };
 };
 
 void arx_daily(TDateTime utcdate)
@@ -811,7 +811,7 @@ void arx_daily(TDateTime utcdate)
     "INSERT INTO arx_tlgs_in "
     "  (id,num,page_no,type,addr,heading,body,ending,merge_key,time_create,time_receive,time_parse,part_key) "
     "SELECT "
-    "   id,num,:page_no,type,addr,heading,:body,ending,merge_key,time_create,time_receive,time_parse,time_parse "
+    "   id,num,:page_no,type,addr,heading,:body,ending,merge_key,time_create,time_receive,time_parse,NVL(time_parse,time_receive) "
     "FROM tlgs_in "
     "WHERE id=:id AND num=:num";
   InsQry.DeclareVariable("id",otInteger);

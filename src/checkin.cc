@@ -858,7 +858,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         reqInfo->desk.city=="†‚"||
         reqInfo->desk.city=="ŽŒ‘"||
         reqInfo->desk.city=="•€‘"||
-        reqInfo->desk.city=="†‚")
+        reqInfo->desk.city=="‘Œ˜")
     {
       fmt.persCountFmt=1;
       fmt.infSeatsFmt=1;
