@@ -12,6 +12,7 @@
 #include "season.h"
 #include "brd.h"
 #include "xml_stuff.h"
+#include "astra_misc.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -339,18 +340,31 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
-int GetRPEncoding(string target)
+int GetRPEncoding(int point_id, string target)
 {
+    TBaseTable &airps = base_tables.get("AIRPS");
+    TBaseTable &cities = base_tables.get("CITIES");
+    int result = 0;
     if(
             target.empty() ||
             target == "tot" ||
             target == "etm" ||
             target == "tpm"
-            ) return 0;
-    TBaseTable &airps = base_tables.get("AIRPS");
-    TBaseTable &cities = base_tables.get("CITIES");
-    return cities.get_row("code",
-             airps.get_row("code",target).AsString("city")).AsString("country") != "РФ";
+      ) {
+        TTripRoute route;
+        route.get(point_id);
+        for(vector<TTripRouteItem>::iterator iv = route.items.begin(); iv != route.items.end(); iv++) {
+            ProgTrace(TRACE5, "%s %s", iv->airp.c_str(), iv->city.c_str());
+            ProgTrace(TRACE5, "%s", cities.get_row("code",
+                    airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
+            result = result or cities.get_row("code",
+                    airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
+        }
+    } else {
+        result = cities.get_row("code",
+                airps.get_row("code",target).AsString("city")).AsString("country") != "РФ";
+    }
+    return result;
 }
 
 void RunCRS(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
@@ -645,7 +659,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(prBrdPaxNode)
         pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     string target = NodeAsString("target", reqNode);
-    int pr_lat = GetRPEncoding(target);
+    int pr_lat = GetRPEncoding(point_id, target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
 
@@ -1474,7 +1488,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     TQuery Qry(&OraSession);
     string target = NodeAsString("target", reqNode);
-    int pr_lat = GetRPEncoding(target);
+    int pr_lat = GetRPEncoding(point_id, target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     bool pr_trfer = (string)NodeAsString("name", reqNode) == "BMTrfer";
 
@@ -1618,16 +1632,16 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         tagsQry.CreateVariable("grp_id", otInteger, cur_grp_id);
         tagsQry.CreateVariable("bag_num", otInteger, cur_bag_num);
         tagsQry.Execute();
-        bool pr_bound = false;
+        int bound_tags_amount = 0;
         for(; !tagsQry.Eof; tagsQry.Next()) {
-            pr_bound = true;
             bag_tags.push_back(bag_tag_row);
             bag_tags.back().tag_type = tagsQry.FieldAsString("tag_type");
             bag_tags.back().color = tagsQry.FieldAsString("color");
             bag_tags.back().no = tagsQry.FieldAsFloat("no");
+            bound_tags_amount++;
         }
 
-        if(not pr_bound) {
+        if(bound_tags_amount < bag_tag_row.amount) { // остались непривязанные бирки
             if(grps.find(cur_grp_id) == grps.end()) {
                 grps[cur_grp_id]; // Создаем пустой вектор, чтобы в след разы if который выше не срабатывал
                 // ищем непривязанные бирки для каждой группы
