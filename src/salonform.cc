@@ -884,7 +884,7 @@ void convert_salons( int step, bool pr_commit )
 	  case 2:
 	  {
    	  // 2.приводим компоновки к нормализованному виду
-  	  Qry.Clear();
+  	/*  Qry.Clear();
   	  Qry.SQLText =
   	    "UPDATE comp_elems SET xname=xname, yname=yname";
   	  Qry.Execute();
@@ -892,7 +892,7 @@ void convert_salons( int step, bool pr_commit )
   	  if ( !pr_commit )
     	  OraSession.Rollback();
     	else
-    	  OraSession.Commit();
+    	  OraSession.Commit();*/
   	  break;
   	}
     case 3:
@@ -911,11 +911,11 @@ void convert_salons( int step, bool pr_commit )
       	Points.SetVariable( "scd_out", scd );
       	Points.Execute();
       	while ( !Points.Eof ) {
-          Qry.Clear();
+       /*   Qry.Clear();
     	    Qry.SQLText =
   	      "UPDATE trip_comp_elems SET xname=xname, yname=yname WHERE point_id=:point_id";
   	      Qry.CreateVariable( "point_id", otInteger, Points.FieldAsInteger( "point_id" ) );
-  	      Qry.Execute();
+  	      Qry.Execute();*/
     	  	//5. Перенос поля pax.seat_no, pax.prev_seat_no в слой trip_comp_layers
      	    Qry.Clear();
     	    Qry.SQLText =
@@ -931,53 +931,53 @@ void convert_salons( int step, bool pr_commit )
     	      "ORDER BY point_dep,pax.pax_id ";
     	    Qry.CreateVariable( "point_id", otInteger, Points.FieldAsInteger( "point_id" ) );
     	    Qry.Execute();
-    	    Salons.trip_id = -1;
-    	    count=0;
-    	    seats.clear();
-    	    while ( !Qry.Eof ) {
-    		    count++;
-    		    if ( Salons.trip_id != Qry.FieldAsInteger( "point_dep" ) ) {
-              Salons.trip_id = Qry.FieldAsInteger( "point_dep" );
-              Salons.Read( rTripSalons );
-            }
-            pr_found = false;
-            for ( vector<TPlaceList*>::iterator placeList=Salons.placelists.begin();
-                  placeList!=Salons.placelists.end(); placeList++ ) {
-              if ( (*placeList)->GetisPlaceXY( Qry.FieldAsString( "seat_no" ), p ) ) {
-          	    for ( int i=0; i<Qry.FieldAsInteger( "seats" ); i++ ) {
-                  TSeatRange r;
-                  TPlace *place = (*placeList)->place( p );
-                  if ( place->visible && place->isplace ) {
-                    strcpy( r.first.line, norm_iata_line( place->xname ).c_str() );
-                    strcpy( r.first.row, norm_iata_row( place->yname ).c_str() );
-                    r.second = r.first;
-    		            seats.push_back(r);
-    		          }
-    		          else {
-    	  	          string msg = string( "Место NVL(pax.seat_no.pax.prev_seat_no)=" ) + Qry.FieldAsString( "seat_no" ) +
-    	  	                       " в компоновке рейса задано неверно (x=" + IntToString(p.x) + ",y=" + IntToString(p.y) + "), pax_id=" + Qry.FieldAsString( "pax_id" );
-    	  	          ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
-    		          }
-    		          if ( !Qry.FieldIsNULL( "rem_code" ) )
-    		      	    p.y++;
-    		          else
-    		      	    p.x++;
-          	    }
-          	    pr_found = true;
+    	    if (!Qry.Eof)
+    	    {
+      	    Salons.trip_id = Points.FieldAsInteger( "point_id" );
+      	    Salons.Read( rTripSalons );
+      	    count=0;
+      	    seats.clear();
+      	    while ( !Qry.Eof ) {
+      		    count++;
+              pr_found = false;
+              for ( vector<TPlaceList*>::iterator placeList=Salons.placelists.begin();
+                    placeList!=Salons.placelists.end(); placeList++ ) {
+                if ( (*placeList)->GetisPlaceXY( Qry.FieldAsString( "seat_no" ), p ) ) {
+            	    for ( int i=0; i<Qry.FieldAsInteger( "seats" ); i++ ) {
+                    TSeatRange r;
+                    TPlace *place = (*placeList)->place( p );
+                    if ( place->visible && place->isplace ) {
+                      strcpy( r.first.line, norm_iata_line( place->xname ).c_str() );
+                      strcpy( r.first.row, norm_iata_row( place->yname ).c_str() );
+                      r.second = r.first;
+      		            seats.push_back(r);
+      		          }
+      		          else {
+      	  	          string msg = string( "Место NVL(pax.seat_no.pax.prev_seat_no)=" ) + Qry.FieldAsString( "seat_no" ) +
+      	  	                       " в компоновке рейса задано неверно (x=" + IntToString(p.x) + ",y=" + IntToString(p.y) + "), pax_id=" + Qry.FieldAsString( "pax_id" );
+      	  	          ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
+      		          }
+      		          if ( !Qry.FieldIsNULL( "rem_code" ) )
+      		      	    p.y++;
+      		          else
+      		      	    p.x++;
+            	    }
+            	    pr_found = true;
+                }
               }
-            }
-            if ( pr_found )	{
-        	    SEATS::SaveTripSeatRanges( Qry.FieldAsInteger( "point_dep" ), cltCheckin, seats,
-        	                               Qry.FieldAsInteger( "pax_id" ), Qry.FieldAsInteger( "point_dep" ),
-        	                               Qry.FieldAsInteger( "point_arv" ) );
-            }
-            else {
-    	  	    string msg = string( "Место pax.seat_no=" ) + Qry.FieldAsString( "seat_no" ) + " в компоновке рейса не найдено" + "), pax_id=" + Qry.FieldAsString( "pax_id" );
-    	  	    ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
-            }
-     	      seats.clear();
-    		    Qry.Next();
-    	    }
+              if ( pr_found )	{
+          	    SEATS::SaveTripSeatRanges( Qry.FieldAsInteger( "point_dep" ), cltCheckin, seats,
+          	                               Qry.FieldAsInteger( "pax_id" ), Qry.FieldAsInteger( "point_dep" ),
+          	                               Qry.FieldAsInteger( "point_arv" ) );
+              }
+              else {
+      	  	    string msg = string( "Место pax.seat_no=" ) + Qry.FieldAsString( "seat_no" ) + " в компоновке рейса не найдено" + "), pax_id=" + Qry.FieldAsString( "pax_id" );
+      	  	    ProgError( STDLOG, "convert_salons: %s", msg.c_str() );
+              }
+       	      seats.clear();
+      		    Qry.Next();
+      	    }
+      	  };
     	    QryUpd.Clear();
     	    QryUpd.SQLText =
     	     "SELECT xname, yname FROM trip_comp_elems WHERE point_id=:point_id AND old_yname||old_xname=:seat_no";
@@ -1017,9 +1017,9 @@ void convert_salons( int step, bool pr_commit )
                 TSeatRange r;
                 strcpy( r.first.line, norm_iata_line( QryUpd.FieldAsString( "xname" ) ).c_str() );
                 strcpy( r.first.row, norm_iata_row( QryUpd.FieldAsString( "yname" ) ).c_str() );
-                /*ProgTrace( TRACE5, "Not ParseSeat: pax_id=%d, r.first.line=%s, r.first.row=%s, xname=%s, yname=%s",
-                           Qry.FieldAsInteger( "pax_id" ), r.first.line, r.first.row,
-                           QryUpd.FieldAsString( "xname" ), QryUpd.FieldAsString( "yname" ) );*/
+                //ProgTrace( TRACE5, "Not ParseSeat: pax_id=%d, r.first.line=%s, r.first.row=%s, xname=%s, yname=%s",
+                //         Qry.FieldAsInteger( "pax_id" ), r.first.line, r.first.row,
+                //         QryUpd.FieldAsString( "xname" ), QryUpd.FieldAsString( "yname" ) );
                 r.second = r.first;
                 seats.push_back(r);
     	    	    SEATS::SaveTripSeatRanges( Qry.FieldAsInteger( "point_dep" ),
@@ -1076,6 +1076,7 @@ void convert_salons( int step, bool pr_commit )
             }
     		    Qry.Next();
     	    }
+
     	    //7. Проверка
     	    Qry.Clear();
     	    Qry.SQLText =
