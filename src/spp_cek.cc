@@ -951,11 +951,11 @@ void put_string_into_snapshot( int point_id, string type, string point_addr, xml
   string sres = XMLTreeToText( doc );
   int i=0;
   while ( !sres.empty() ) {
-  	Qry.SetVariable( "record", sres.substr( 0, 100 ) );
+  	Qry.SetVariable( "record", sres.substr( 0, 1000 ) );
   	Qry.SetVariable( "page_no", i );
   	Qry.Execute();
   	i++;
-  	sres.erase( 0, 100 );
+  	sres.erase( 0, 1000 );
   }
 }
 
