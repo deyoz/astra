@@ -972,16 +972,15 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string file_type = FILE_SPPCEK_TYPE;
 	string record;
 	TQuery Qry( &OraSession );
- 	TDateTime UTCNow;
+ 	TDateTime UTCNow = NowUTC();
  	TDateTime LocalNow;
  	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
- 	modf( NowUTC(), &UTCNow );
+ 	modf( UTCNow, &UTCNow );
 
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
 	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );
 	}
-
 	TFileData fd;
   TSOPPTrips trips;
   createSOPPTrip( point_id, trips );
