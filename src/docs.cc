@@ -668,9 +668,11 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target.empty() ||
             target == "tot"
       ) {
-        xmlNodePtr formNode = NodeAsNode("form", resNode);
-        xmlUnlinkNode(formNode);
-        xmlFreeNode(formNode);
+        xmlNodePtr formNode = GetNode("form", resNode);
+        if(formNode) {
+            xmlUnlinkNode(formNode);
+            xmlFreeNode(formNode);
+        }
         get_report_form("PMTotalEL", resNode);
         string et, et_lat;
         if(target.empty()) {
@@ -2072,6 +2074,7 @@ void get_report_form(const string name, xmlNodePtr node)
     Qry.Execute();
     if(Qry.Eof) {
         NewTextChild(node, "FormNotExists", name);
+        SetProp(NewTextChild(node, "form"), "name", name);
         return;
     }
     // положим в ответ шаблон отчета
