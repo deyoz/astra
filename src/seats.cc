@@ -2251,7 +2251,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       " WHERE t.point_id=:point_id AND "
       "       t.point_id=r.point_id AND "
       "       t.range_id=r.range_id AND "
-      "       t.crs_pax_id=:crs_pax_id AND "
+      "       (t.crs_pax_id=:crs_pax_id OR t.pax_id=:crs_pax_id) AND "
       "       t.first_yname||t.first_xname!=:first_yname||:first_xname AND "
       "       c1.code=r.layer_type AND "
       "       c2.code=:layer_type AND "
@@ -2293,21 +2293,22 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	    ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	    throw UserException( "Устанавливаемый слой запрещен для разметки" );
         }
-       // пытаемся задать слой на месте, которое и так имеет этот слой для другого пассажира
-        if ( /*string( EncodeCompLayerType( layer_type ) ) == Qry.FieldAsString( "layer_type" ) && ???*/
-    	       p_id > NoExists && pax_id != p_id ) {
+       // пытаемся задать слой на месте, которое и так имеет слой для другого пассажира
+        if ( p_id > NoExists && pax_id != p_id ) {
   	      switch( layer_type ) {
+            case cltCheckin:
+            	if ( !Qry.FieldIsNULL( "pax_id" ) )
+            		throw UserException( "Место занято другим пассажиром" );
   		      case cltPreseat:
               Qry1.SetVariable( "first_xname", r.first.line );
               Qry1.SetVariable( "first_yname", r.first.row );
               Qry1.SetVariable( "crs_pax_id", p_id );
               Qry1.Execute();
               ProgTrace( TRACE5, "Qry1.Eof=%d, crs_pax_id=%d, placename=%s", Qry1.Eof, p_id, string(string(r.first.row)+(r.first.line)).c_str() );
-              if ( !Qry1.Eof ) { // есть другое место с более высоким приоритетом
-                break;
+              if ( Qry1.Eof ) { // нет другого места с более высоким приоритетом
+              	throw UserException( "Место занято другим пассажиром" );
               }
-            case cltCheckin:
-            	throw UserException( "Место занято другим пассажиром" );
+              break;
             default:
       	      ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
       	      throw UserException( "Устанавливаемый слой запрещен для разметки" );
