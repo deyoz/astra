@@ -404,63 +404,88 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
 	TFileData fd;
 	string sql_str;
 	xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+	string filename;
 	try {
 	  xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
+	  filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
+    sql_str = string("DROP TABLE ") + filename;
     xmlNodePtr sqlNode = NewTextChild( queryNode, "sql", sql_str );
     NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A(";
+    filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
+    sql_str = string("CREATE TABLE ") + filename + "(";
     sql_str += spp__a_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
 
+    filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
+    sql_str = string("DROP TABLE ") + filename;
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
     NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D(";
+    filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
+    sql_str = string("CREATE TABLE ") + filename + "(";
     sql_str += spp__d_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
 
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+	  filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("DROP TABLE ") + filename;
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
     NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(";
+    filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("CREATE TABLE ") + filename + "(";
     sql_str += spp__ak_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK ON ";
+	  filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("CREATE INDEX ") + filename + " ON ";
     sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR ASC)";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".NTX" );
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK1 ON ";
+	  filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK1";
+    sql_str = string("CREATE INDEX ") + filename + " ON ";
     sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR DESC)";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
-
+    NewTextChild( queryNode, "file_rollback", filename + ".NTX" );
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+	  filename =  string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("DROP TABLE ") + filename;
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
     NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(";
+    filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("CREATE TABLE ") + filename + "(";
     sql_str += spp__dk_dbf_fields + ") IN DATABASE";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".DBF" );
 	  queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "DK ON ";
+	  filename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("CREATE INDEX ") + filename + " ON ";
     sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(PNR ASC,SPUR ASC)";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", filename + ".NTX" );
+	  queryNode = NewTextChild( doc->children, "query" );
+    sql_str = "DELETE FROM SPPCIKL WHERE DSPP={d'" + DateTimeToStr( sppdate, "yyyy-mm-dd" ) + "'}";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
 	  queryNode = NewTextChild( doc->children, "query" );
     sql_str = "INSERT INTO SPPCIKL(DADP,DFSPP,VFSPP,DSPP) VALUES( '" +
                reqInfo->desk.city + "',{d'" + DateTimeToStr( reqInfo->desk.time, "yyyy-mm-dd" ) +
                "'},'" + DateTimeToStr( reqInfo->desk.time, "hh:nn" ) + "',{d'" + DateTimeToStr( sppdate, "yyyy-mm-dd" ) + "'})";
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "file_rollback", "SPPCIKL.DBF" );
 	  if ( doc ) {
 	  	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
-  	  fd.params[ PARAM_FILE_NAME ] =  "SPP" + DateTimeToStr( sppdate, "dd" ) + "A.DBF";
-   		fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
+  		fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
     	string s = XMLTreeToText( doc );
     	s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
     	fd.file_data = s;
