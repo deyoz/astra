@@ -5,7 +5,7 @@
   <CanInsert>1</CanInsert>
   <CanUpdate>1</CanUpdate>
   <CanDelete>1</CanDelete>
-  <fields tid='374243'>
+  <fields tid='374244'>
     <field index='0'>
       <Name>ID</Name>
       <Title/>
@@ -66,8 +66,8 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>1</ReadOnly>
-      <ReferCode>DEV_FMT_TYPES</ReferCode>
-      <ReferName>CODE</ReferName>
+      <ReferCode>DEV_FMT_OPERS</ReferCode>
+      <ReferName>FMT_TYPE</ReferName>
       <ReferLevel>-1</ReferLevel>
     </field>
   </fields>
