@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='cp866'?>
+<iface>
+  <title>Шаблоны бланков</title>
+  <CanRefresh>0</CanRefresh>
+  <CanInsert>1</CanInsert>
+  <CanUpdate>1</CanUpdate>
+  <CanDelete>1</CanDelete>
+  <fields tid='374240'>
+    <field index='0'>
+      <Name>CODE</Name>
+      <Title>Тип бланка</Title>
+      <Width>0</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>5</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode>BP_TYPES</ReferCode>
+      <ReferName>CODE</ReferName>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='1'>
+      <Name>DEV_MODEL</Name>
+      <Title>Принтер</Title>
+      <Width>10</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>10</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode>DEV_MODELS</ReferCode>
+      <ReferName>CODE</ReferName>
+      <ReferLevel>0</ReferLevel>
+    </field>
+    <field index='2'>
+      <Name>FMT_TYPE</Name>
+      <Title>Формат</Title>
+      <Width>10</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>10</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode>DEV_MODELS</ReferCode>
+      <ReferName>FMT_TYPE</ReferName>
+      <ReferLevel>0</ReferLevel>
+    </field>
+    <field index='3'>
+      <Name>FORM_NAME</Name>
+      <Title>Форма</Title>
+      <Width>25</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>50</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='4'>
+      <Name>VERSION</Name>
+      <Title>Вер. </Title>
+      <Width>5</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>1</DataType>
+      <DataSize>9</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>1</Ident>
+      <ReadOnly>1</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='5'>
+      <Name>DESCR</Name>
+      <Title>Описание</Title>
+      <Width>55</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>100</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+  </fields>
+</iface>
