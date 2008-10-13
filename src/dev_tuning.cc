@@ -12,6 +12,8 @@
 #include "print.h"
 #include "xml_stuff.h"
 #include "cache.h"
+//!!!
+#include <fstream>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -840,11 +842,13 @@ namespace TUNE {
 
 class TTuneTable: public TCacheTable {
     protected:
+        string FCode;
         xmlDocPtr ifaceDoc;
         xmlNodePtr ifaceNode;
         void GetSQL(string code);
         void initFields();
     public:
+        string GetCode() { return FCode; };
         void Init(xmlNodePtr cacheNode);
         ~TTuneTable();
 };
@@ -920,6 +924,15 @@ void TTuneTable::initFields()
 void TTuneTable::GetSQL(string code)
 {
     string fileName = code + ".xml";
+    /* cause seg fault in later progtrace of a result tree
+    { // check if a file exists
+        ifstream in(fileName.c_str());
+        if(!in.good()) {
+            in.close();
+            throw Exception("TTuneTable::GetSQL: problem with " + fileName);
+        }
+        in.close();
+    }*/
     ifaceDoc = xmlParseFile(fileName.c_str());
     if(ifaceDoc == NULL)
         throw Exception(fileName + " not parsed successfully.");
@@ -931,6 +944,29 @@ void TTuneTable::GetSQL(string code)
     Title = NodeAsStringFast("title", propNode);
     curVerIface = NodeAsInteger("/iface/fields/@tid", ifaceNode); /* текущая версия интерфейса */
 
+    if(code == "BP_MODELS") {
+        SelectSQL =
+            "select "
+            "   bp_models.form_type code, "
+            "   bp_models.dev_model, "
+            "   bp_models.fmt_type, "
+            "   prn_forms.name form_name, "
+            "   bp_models.version, "
+            "   prn_form_vers.descr "
+            "from "
+            "   bp_models, "
+            "   prn_forms, "
+            "   prn_form_vers "
+            "where "
+            "   bp_models.id = prn_forms.id and "
+            "   bp_models.id = prn_form_vers.id and "
+            "   bp_models.version = prn_form_vers.version "
+            "order by "
+            "   bp_models.dev_model, "
+            "   bp_models.fmt_type, "
+            "   prn_forms.name, "
+            "   bp_models.version ";
+    }
     if(code == "PRN_FORMS") {
         SelectSQL = "select id, op_type, name, fmt_type from prn_forms order by name, fmt_type";
         InsertSQL = "insert into prn_forms(id, name, fmt_type, op_type) values(id__seq.nextval, :name, :fmt_type, :op_type)";
@@ -938,9 +974,9 @@ void TTuneTable::GetSQL(string code)
         DeleteSQL = "delete from prn_forms where id = :OLD_id";
     }
     if(code == "PRN_FORM_VERS") {
-        SelectSQL = "select id, version, descr from prn_form_vers order by id, version, descr";
-        InsertSQL = "insert into prn_form_vers(id, version, descr) values(:id, :version, :descr)";
-        UpdateSQL = "update prn_form_vers set descr = :descr where id = :id and version = :version";
+        SelectSQL = "select id, version, descr, decode(read_only, 0, 1, 0) read_only from prn_form_vers order by id, version, descr";
+        InsertSQL = "insert into prn_form_vers(id, version, descr, read_only) values(:id, :version, :descr, decode(:read_only, 0, 1, 0))";
+        UpdateSQL = "update prn_form_vers set descr = :descr, read_only = decode(:read_only, 0, 1, 0) where id = :id and version = :version";
         DeleteSQL = "delete from prn_form_vers where id = :OLD_id and version = :OLD_version";
     }
     if(code == "BLANK_LIST") {
@@ -980,31 +1016,135 @@ void TTuneTable::Init(xmlNodePtr cacheNode)
   getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
   if ( Params.find( TAG_CODE ) == Params.end() )
     throw Exception("wrong message format");
-  string code = Params[TAG_CODE].Value;
+  FCode = Params[TAG_CODE].Value;
   Qry = OraSession.CreateQuery();
   Forbidden = true;
   ReadOnly = true;
   clientVerData = -1;
   clientVerIface = -1;
-  GetSQL(code);
+  GetSQL(FCode);
   initFields(); /* инициализация FFields */
+}
+
+string FieldAsString(TCacheTable &cache, const TRow &row, string name)
+{
+    int FieldIndex = cache.FieldIndex(name);
+    if ( FieldIndex < 0 )
+        throw Exception( "FieldAsString: Ошибка при поиске поля " + name);
+    return row.cols[FieldIndex];
+}
+
+string OldFieldAsString(TCacheTable &cache, const TRow &row, string name)
+{
+    int FieldIndex = cache.FieldIndex(name);
+    if ( FieldIndex < 0 )
+        throw Exception( "OldFieldAsString: Ошибка при поиске поля " + name);
+    return row.old_cols[FieldIndex];
+}
+
+void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
+{
+    if(cache.GetCacheCode() == "PRN_FORMS") {
+        if(
+                row.status == usDeleted
+          ) {
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select * from prn_form_vers where id = :id";
+            Qry.CreateVariable("id", otString, ToInt(OldFieldAsString(cache, row, "id")));
+            Qry.Execute();
+            if(!Qry.Eof)
+                throw UserException("Для формы " + OldFieldAsString(cache, row, "name") + " задан список версий.");
+        }
+    }
+    if(cache.GetCacheCode() == "PRN_FORM_VERS") {
+        if(row.status == usInserted) {
+            if(FieldAsString(cache, row, "read_only") == "0")
+                    throw UserException("Версия " + FieldAsString(cache, row, "version") + ". При создании версии, редактирование должно быть включено.");
+        }
+        if(
+                row.status == usModified or
+                row.status == usDeleted
+                ) {
+            if(OldFieldAsString(cache, row, "read_only") == "0")
+                    throw UserException("Редактирование версии " + OldFieldAsString(cache, row, "version") + " запрещено.");
+            if(row.status == usDeleted) {
+                TQuery Qry(&OraSession);
+                Qry.SQLText =
+                    "select * from bp_models where id = :id and version = :version";
+                Qry.CreateVariable("id", otString, ToInt(OldFieldAsString(cache, row, "id")));
+                Qry.CreateVariable("version", otString, ToInt(OldFieldAsString(cache, row, "version")));
+                Qry.Execute();
+                if(!Qry.Eof)
+                    throw UserException("Для версии " + OldFieldAsString(cache, row, "version") + " задан список бланков.");
+            }
+        }
+    }
+    if(cache.GetCacheCode() == "BLANK_LIST") {
+        if(row.status == usInserted) {
+            string form_type = FieldAsString(cache, row, "form_type");
+            string dev_model = FieldAsString(cache, row, "dev_model");
+            string fmt_type = FieldAsString(cache, row, "fmt_type");
+            int id = ToInt(FieldAsString(cache, row, "id"));
+            int version = ToInt(FieldAsString(cache, row, "version"));
+            TQuery Qry(&OraSession);
+            Qry.SQLText = "select * from prn_form_vers where id = :id and version = :version and form is null and data is null";
+            Qry.CreateVariable("id", otInteger, id);
+            Qry.CreateVariable("version", otInteger, version);
+            Qry.Execute();
+            if(!Qry.Eof)
+                throw UserException("Вер. " + IntToString(version) + ". Форма не заполнена.");
+            Qry.Clear();
+            Qry.SQLText =
+                "select "
+                "   prn_forms.name form_name, "
+                "   bp_models.version "
+                "from "
+                "   prn_forms, "
+                "   bp_models "
+                "where "
+                "   bp_models.form_type = :form_type and "
+                "   bp_models.dev_model = :dev_model and "
+                "   bp_models.fmt_type = :fmt_type and "
+                "   bp_models.id = prn_forms.id ";
+            Qry.CreateVariable("form_type", otString, form_type);
+            Qry.CreateVariable("dev_model", otString, dev_model);
+            Qry.CreateVariable("fmt_type", otString, fmt_type);
+            Qry.Execute();
+            if(!Qry.Eof) {
+                throw UserException(
+                        "На бланк " + FieldAsString(cache, row, "form_type") + " " +
+                        dev_model + " " + fmt_type + " назначена форма " + 
+                        Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
+                        );
+            }
+        }
+    }
 }
 
 void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE2, "DevTuningInterface::ApplyCache");
-    TTuneTable cache;
-    cache.Init(reqNode);
-    if ( cache.changeIfaceVer() )
+    TCacheTable *base_cache_ptr = NULL;
+    TTuneTable tune_cache;
+    TCacheTable orig_cache;
+    try {
+        tune_cache.Init(reqNode);
+        base_cache_ptr = &tune_cache;
+    } catch(...) {
+        orig_cache.Init(reqNode);
+        base_cache_ptr = &orig_cache;
+    }
+    if ( base_cache_ptr->changeIfaceVer() )
         throw UserException( "Версия интерфейса изменилась. Обновите данные." );
-    cache.ApplyUpdates( reqNode );
-    cache.refresh();
+    base_cache_ptr->OnBeforeApply = BeforeApplyUpdates;
+    base_cache_ptr->ApplyUpdates( reqNode );
+    base_cache_ptr->refresh();
     tst();
     SetProp(resNode, "handle", "1");
     xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
-    cache.buildAnswer(resNode);
+    base_cache_ptr->buildAnswer(resNode);
     showMessage( "Изменения успешно сохранены" );
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
@@ -1013,15 +1153,95 @@ void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
     ProgTrace(TRACE2, "DevTuningInterface::Cache, reqNode->Name=%s, resNode->Name=%s",
             (char*)reqNode->name,(char*)resNode->name);
-    TTuneTable cache;
-    cache.Init(reqNode);
+
+    TCacheTable *base_cache_ptr = NULL;
+    TTuneTable tune_cache;
+    TCacheTable orig_cache;
+    try {
+        tune_cache.Init(reqNode);
+        base_cache_ptr = &tune_cache;
+    } catch(...) {
+        orig_cache.Init(reqNode);
+        base_cache_ptr = &orig_cache;
+    }
+    
     tst();
-    cache.refresh();
+    base_cache_ptr->refresh();
     tst();
     SetProp(resNode, "handle", "1");
     xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
-    cache.buildAnswer(resNode);
+    base_cache_ptr->buildAnswer(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
+const char *not_avail_err = "Информация по форме недоступна. Обновите данные.";
+
+void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int id = NodeAsInteger("id", reqNode);
+    int version = NodeAsInteger("version", reqNode);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select descr, form, data, read_only from prn_form_vers where "
+        "   id = :id and "
+        "   version = :version";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("version", otInteger, version);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException(not_avail_err);
+    xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
+    NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
+    NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
+    NewTextChild(prnFormNode, "descr", Qry.FieldAsString("descr"));
+    NewTextChild(prnFormNode, "read_only", Qry.FieldAsInteger("read_only"));
+    Qry.Clear();
+    Qry.SQLText = "select name from prn_forms where id = :id";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException(not_avail_err);
+    NewTextChild(prnFormNode, "name", Qry.FieldAsString("name"));
+    Qry.Clear();
+    Qry.SQLText = "select id, version, descr, read_only from prn_form_vers where id = :id order by version";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException(not_avail_err);
+    xmlNodePtr verLstNode = NewTextChild(prnFormNode, "verLst");
+    for(; not Qry.Eof; Qry.Next()) {
+        xmlNodePtr itemNode = NewTextChild(verLstNode, "item");
+        NewTextChild(itemNode, "id", Qry.FieldAsInteger("id"));
+        NewTextChild(itemNode, "version", Qry.FieldAsInteger("version"));
+        NewTextChild(itemNode, "descr", Qry.FieldAsString("descr"));
+        NewTextChild(itemNode, "read_only", Qry.FieldAsInteger("read_only"));
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
+
+void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = reqNode->children;
+    int id = NodeAsIntegerFast("id", node);
+    int vers = NodeAsIntegerFast("vers", node);
+    string form = NodeAsStringFast("form", node);
+    string data = NodeAsStringFast("data", node);
+    string descr = NodeAsStringFast("descr", node);
+    TQuery Qry(&OraSession);
+    if(*(char*)reqNode->name == 'U') // Update
+        Qry.SQLText =
+            "update prn_form_vers set form = :form, data = :data, descr = :descr where id = :id and version = :vers";
+    else // Copy
+        Qry.SQLText =
+            "insert into prn_form_vers(id, version, descr, form, data, read_only) values(:id, :vers, :descr, :form, :data, 0)";
+    Qry.CreateVariable("id", otInteger, id);
+    Qry.CreateVariable("vers", otInteger, vers);
+    Qry.CreateVariable("form", otString, form);
+    Qry.CreateVariable("data", otString, data);
+    Qry.CreateVariable("descr", otString, descr);
+    Qry.Execute();
+    if(Qry.RowsProcessed() == 0)
+        throw UserException(not_avail_err);
 }

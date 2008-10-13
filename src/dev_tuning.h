@@ -33,11 +33,22 @@ public:
      AddEvent("BPListCommit",evHandle);
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::PrnFormsCommit);
      AddEvent("PrnFormsCommit",evHandle);
+
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::Cache);
      AddEvent("cache",evHandle);
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::ApplyCache);
      AddEvent("cache_apply",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::Load);
+     AddEvent("Load",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::UpdateCopy);
+     AddEvent("Copy",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::UpdateCopy);
+     AddEvent("Update",evHandle);
   };
+
+  void UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Copy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void PrnFormsCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BTListCommit(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
