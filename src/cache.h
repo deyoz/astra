@@ -96,6 +96,10 @@ typedef struct {
 
 typedef std::vector<TRow> TTable;
 
+class TCacheTable;
+
+typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &);
+
 class TCacheTable {
     protected:
         TQuery *Qry;
@@ -137,12 +141,15 @@ class TCacheTable {
         void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus );
         void Clear();
     public:
+        TBeforeApplyEvent OnBeforeApply;
+        const std::string GetCacheCode() { return Params[TAG_CODE].Value; };
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
         bool changeIfaceVer();
         std::string code();
         int FieldIndex( const std::string name );
+        TCacheTable() { OnBeforeApply = NULL; };
         virtual void Init(xmlNodePtr cacheNode);
         virtual ~TCacheTable();
 };

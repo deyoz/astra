@@ -769,6 +769,17 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
         if ( iv->status != status )
           continue;
 
+        if(OnBeforeApply)
+            try {
+                (*OnBeforeApply)(*this, *iv);
+            } catch(UserException E) {
+                throw;
+            } catch(Exception E) {
+                ProgTrace(TRACE5, "OnBeforeApply failed: %s", E.what());
+            } catch(...) {
+                ProgTrace(TRACE5, "OnBeforeApply failed: something unexpected");
+            }
+
         SetVariables( *iv, vars );
         try {
           Qry->Execute();
