@@ -1504,7 +1504,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString("receipts"));
-      NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger("pr_payment"));
+      // все ли квитанции распечатаны 0 - частично напечатаны, 1 - все напечатаны, 2 - нет ни одной квитанции
+      if (!Qry.FieldIsNULL("receipts"))
+        NewTextChild(paxNode,"rcpt_complete",Qry.FieldAsInteger("pr_payment"));
+      else
+        NewTextChild(paxNode,"rcpt_complete",2);
     };
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));

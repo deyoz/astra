@@ -1146,9 +1146,34 @@ string pieces(int ex_amount, bool pr_lat)
     };
 }
 
+int separate_double(double d, int precision, int *iptr)
+{
+  double pd;
+  int pi;
+  switch (precision)
+  {
+    case 0: pd=1.0;     pi=1;     break;
+    case 1: pd=10.0;    pi=10;    break;
+    case 2: pd=100.0;   pi=100;   break;
+    case 3: pd=1000.0;  pi=1000;  break;
+    case 4: pd=10000.0; pi=10000; break;
+   default: throw Exception("separate_double: wrong precision %d",precision);
+  };
+  int i=int(round(d*pd));
+  if (iptr!=NULL) *iptr=i/pi;
+  return i%pi;
+};
+
 int get_exch_precision(double rate)
 {
-    double iptr;
+  int i;
+  i=separate_double(rate,4,NULL);
+
+  if (i==0) return 0;
+  if (i%100==0) return 2;
+  return 4;
+
+    /*double iptr;
     ostringstream ssbuf;
     ssbuf << noshowpoint << modf(rate, &iptr);
     int precision = ssbuf.str().size();
@@ -1161,7 +1186,7 @@ int get_exch_precision(double rate)
         precision = 4;
     else if(precision >= 1)
         precision = 2;
-    return precision;
+    return precision; */
 }
 
 int get_rate_precision(double rate, string rate_cur)
@@ -1174,13 +1199,13 @@ int get_rate_precision(double rate, string rate_cur)
             rate_cur == "ГБП"
       )
         precision = 2;
-    else {
-        double iptr;
-        if(modf(rate, &iptr) < 0.01)
-            precision = 0;
-        else
-            precision = 2;
-    }
+    else
+    {
+      if (separate_double(rate,2,NULL)!=0)
+        precision = 2;
+      else
+        precision = 0;
+    };
     return precision;
 }
 
@@ -1201,7 +1226,7 @@ string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2,
         << rate2
         << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat);
     return buf.str();
-}
+};
 
 string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 {
@@ -1216,33 +1241,60 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
     if (fmt_type!=2 && pr_lat)
       buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     return buf.str();
-}
+};
+
+double CalcPayRate(const TBagReceipt &rcpt)
+{
+  double pay_rate;
+  if (rcpt.pay_rate_cur != rcpt.rate_cur)
+    pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+  else
+    pay_rate = rcpt.rate;
+  return pay_rate;
+};
+
+double CalcRateSum(const TBagReceipt &rcpt)
+{
+  double rate_sum;
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      rate_sum = rcpt.rate * rcpt.ex_weight;
+  } else {
+      rate_sum = rcpt.rate * rcpt.value_tax/100;
+  }
+  return rate_sum;
+};
+
+double CalcPayRateSum(const TBagReceipt &rcpt)
+{
+  double pay_rate_sum;
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      pay_rate_sum = CalcPayRate(rcpt) * rcpt.ex_weight;
+  } else {
+      pay_rate_sum = CalcPayRate(rcpt) * rcpt.value_tax/100;
+  }
+  return pay_rate_sum;
+};
 
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
-    if(
-            rcpt.form_type != "K95" &&
-            rcpt.form_type != "M61" &&
-            rcpt.form_type != "Z61" &&
-            rcpt.form_type != "664 451" &&
-            rcpt.form_type != "298 451" &&
-            rcpt.form_type != "ЮХ 451" &&
-            rcpt.form_type != "ОП 401" &&
-            rcpt.form_type != "35"
-            )
-        throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
+  TQuery Qry(&OraSession);
+
   add_tag("pax_name",rcpt.pax_name);
   add_tag("pax_doc",rcpt.pax_doc);
 
-  TQuery Qry(&OraSession);
+  Qry.Clear();
   Qry.SQLText =  "select name, name_lat from rcpt_service_types where code = :code";
   Qry.CreateVariable("code", otInteger, rcpt.service_type);
   Qry.Execute();
   if(Qry.Eof) throw Exception("fillMSOMap: service_type not found (code = %d)", rcpt.service_type);
   add_tag("service_type", (string)"10 " + Qry.FieldAsString("name"));
   add_tag("service_type_lat", (string)"10 " + Qry.FieldAsString("name_lat"));
-  string bag_name, bag_name_lat;
-  if(rcpt.service_type == 2 && rcpt.bag_type != -1) {
+
+  if(rcpt.service_type == 2 && rcpt.bag_type != -1)
+  {
+    string bag_name, bag_name_lat;
+    if (rcpt.bag_name.empty())
+    {
       Qry.Clear();
       Qry.SQLText =
           "select "
@@ -1257,127 +1309,107 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       Qry.CreateVariable("code", otInteger, rcpt.bag_type);
       Qry.Execute();
       if(Qry.Eof) throw Exception("fillMSOMap: bag_type not found (code = %d)", rcpt.bag_type);
+
       bag_name = Qry.FieldAsString("name");
       bag_name_lat = Qry.FieldAsString("name_lat");
-      if(rcpt.bag_type == 1 || rcpt.bag_type == 2) {
+      if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+      {
+        //негабарит
           bag_name += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 0);
           bag_name_lat += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 1);
       }
       bag_name = upperc(bag_name);
       bag_name_lat = upperc(bag_name_lat);
-      add_tag("bag_name", bag_name);
-      add_tag("bag_name_lat", bag_name_lat);
-  } else {
-      add_tag("bag_name", "");
-      add_tag("bag_name_lat", "");
-  }
+    }
+    else
+    {
+      //bag_name введен вручную
+      bag_name = rcpt.bag_name;
+      bag_name_lat = rcpt.bag_name;
+    };
 
-  string
-      SkiBT,
-      GolfBT,
-      PetBT,
-      BulkyBT, BulkyBTLetter,
-      OtherBT, OtherBTLetter,  OtherBTLetter_lat,
-      ValueBT, ValueBTLetter, ValueBTLetter_lat;
-  if(rcpt.service_type == 3) {
-      ValueBT = "x";
+    add_tag("bag_name", bag_name);
+    add_tag("bag_name_lat", bag_name_lat);
 
-      {
-          double iptr, fract;
-          fract = modf(rcpt.rate, &iptr);
-          string buf_ru = vs_number(int(iptr), 0);
-          string buf_lat = vs_number(int(iptr), 1);
-          if(fract >= 0.01) {
-              string str_fract = " " + IntToString(int(fract * 100)) + "/100";
-              buf_ru += str_fract;
-              buf_lat += str_fract;
-          }
-          ValueBTLetter = upperc(buf_ru) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
-          ValueBTLetter_lat = upperc(buf_lat) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
-      }
-  }
-  add_tag("ValueBT", ValueBT);
-  add_tag("ValueBTLetter", ValueBTLetter);
-  add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
-  if(rcpt.bag_type != -1) {
-      if(
-              rcpt.form_type == "664 451" ||
-              rcpt.form_type == "298 451" ||
-              rcpt.form_type == "ЮХ 451" ||
-              rcpt.form_type == "35"
-              ) {
-          switch(rcpt.bag_type) {
-              case 20:
-                  SkiBT = "x";
-                  break;
-              case 21:
-                  GolfBT = "x";
-                  break;
-              case 4:
-                  PetBT = "x";
-                  break;
-              case 1:
-              case 2:
-                  BulkyBT = "x";
-                  BulkyBTLetter = IntToString(rcpt.ex_amount);
-                  break;
-              default:
-                  OtherBT = "x";
-                  OtherBTLetter = bag_name;
-                  OtherBTLetter_lat = bag_name_lat;
-                  break;
-          }
-      } else if(rcpt.form_type == "Z61") {
-          switch(rcpt.bag_type) {
-              case 20:
-                  SkiBT = "x";
-                  break;
-              case 4:
-                  PetBT = "x";
-                  break;
-              case 1:
-              case 2:
-                  BulkyBT = "x";
-                  BulkyBTLetter = IntToString(rcpt.ex_amount);
-                  break;
-              default:
-                  OtherBT = "x";
-                  OtherBTLetter = bag_name;
-                  OtherBTLetter_lat = bag_name_lat;
-                  break;
-          }
-      }
-  }
-  add_tag("SkiBT", SkiBT);
-  add_tag("GolfBT", GolfBT);
-  add_tag("PetBT", PetBT);
-  add_tag("BulkyBT", BulkyBT);
-  add_tag("BulkyBTLetter", BulkyBTLetter);
-  add_tag("OtherBT", OtherBT);
-  add_tag("OtherBTLetter", OtherBTLetter);
-  add_tag("OtherBTLetter_lat", OtherBTLetter_lat);
+    bool pr_other=true;
 
-  double pay_rate;
-  if (rcpt.pay_rate_cur != rcpt.rate_cur)
-    pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+    if(rcpt.bag_type == 20) //лыжи
+    {
+      add_tag("SkiBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("SkiBT", "");
+
+    if(rcpt.bag_type == 21 && rcpt.form_type != "Z61") //гольф
+    {
+      add_tag("GolfBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("GolfBT", "");
+
+    if(rcpt.bag_type == 4)  //животные
+    {
+      add_tag("PetBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("PetBT", "");
+
+    if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+    {
+      //негабарит
+      add_tag("BulkyBT", "x");
+      add_tag("BulkyBTLetter", IntToString(rcpt.ex_amount));
+      pr_other=false;
+    }
+    else
+    {
+      add_tag("BulkyBT", "");
+      add_tag("BulkyBTLetter", "");
+    };
+
+    if (pr_other)
+    {
+      add_tag("OtherBT", "x");
+      add_tag("OtherBTLetter", bag_name);
+      add_tag("OtherBTLetter_lat", bag_name_lat);
+    }
+    else
+    {
+      add_tag("OtherBT", "");
+      add_tag("OtherBTLetter", "");
+      add_tag("OtherBTLetter_lat", "");
+    };
+  }
   else
-    pay_rate = rcpt.rate;
-  double rate_sum;
-  double pay_rate_sum;
-  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
-      rate_sum = rcpt.rate * rcpt.ex_weight;
-      pay_rate_sum = pay_rate * rcpt.ex_weight;
-  } else {
-      rate_sum = rcpt.rate * rcpt.value_tax/100;
-      pay_rate_sum = pay_rate * rcpt.value_tax/100;
-  }
+  {
+    //это не платный багаж
+    add_tag("bag_name", "");
+    add_tag("bag_name_lat", "");
 
+    add_tag("SkiBT", "");
+    add_tag("GolfBT", "");
+    add_tag("PetBT", "");
+    add_tag("BulkyBT", "");
+    add_tag("BulkyBTLetter", "");
+    add_tag("OtherBT", "");
+    add_tag("OtherBTLetter", "");
+    add_tag("OtherBTLetter_lat", "");
+  };
 
-  ostringstream remarks, remarks_lat, rate, rate_lat, ex_weight, ex_weight_lat;
+  double pay_rate=CalcPayRate(rcpt);
+  double rate_sum=CalcRateSum(rcpt);
+  double pay_rate_sum=CalcPayRateSum(rcpt);
 
-  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+  ostringstream remarks, remarks_lat, rate, rate_lat, ex_weight, ex_weight_lat,
+                pay_types, pay_types_lat;
+
+  bool pr_exchange=false;
+
+  if(rcpt.service_type == 1 || rcpt.service_type == 2)
+  {
       remarks << "ТАРИФ ЗА КГ=";
       remarks_lat << "RATE PER KG=";
       if(
@@ -1386,31 +1418,62 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
               rcpt.pay_rate_cur == "ЕВР") &&
               rcpt.pay_rate_cur != rcpt.rate_cur
         ) {
-          remarks
+          rate
               << RateToString(pay_rate, rcpt.pay_rate_cur, false, 0)
-              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, false, 0) << ")"
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, false, 0) << ")";
+          rate_lat
+              << RateToString(pay_rate, rcpt.pay_rate_cur, true, 0)
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, true, 0) << ")";
+
+          remarks
+              << rate.str()
               << "(" << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false)
               << ")";
           remarks_lat
-              << RateToString(pay_rate, rcpt.pay_rate_cur, true, 0)
-              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, true, 0) << ")"
+              << rate_lat.str()
               << "(RATE " << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true)
               << ")";
+          pr_exchange=true;
       } else {
           rate << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
           rate_lat << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+
           remarks << rate.str();
           remarks_lat << rate_lat.str();
       }
       ex_weight << IntToString(rcpt.ex_weight) << "КГ";
       ex_weight_lat << IntToString(rcpt.ex_weight) << "KG";
-  } else {
+
+      add_tag("rate", rate.str());
+      add_tag("rate_lat", rate_lat.str());
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
+      add_tag("remarks2", ex_weight.str());
+      add_tag("remarks2_lat", ex_weight_lat.str());
+      if (rcpt.form_type == "M61")
+      {
+        add_tag("ex_weight", ex_weight.str());
+        add_tag("ex_weight_lat", ex_weight_lat.str());
+      }
+      else
+      {
+        add_tag("ex_weight", IntToString(rcpt.ex_weight));
+        add_tag("ex_weight_lat", IntToString(rcpt.ex_weight));
+      };
+
+      add_tag("ValueBT", "");
+      add_tag("ValueBTLetter", "");
+      add_tag("ValueBTLetter_lat", "");
+  }
+  else
+  {
       //багаж с объявленной ценностью
       rate
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax <<"%";
       rate_lat
-          << rate.str();
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax <<"%";
       remarks
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OT "
@@ -1419,19 +1482,39 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OF "
             << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+      add_tag("rate", rate.str());
+      add_tag("rate_lat", rate_lat.str());
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
       add_tag("remarks2", "");
       add_tag("remarks2_lat", "");
-  }
-  add_tag("rate", rate.str());
-  add_tag("rate_lat", rate_lat.str());
-  add_tag("remarks1", remarks.str());
-  add_tag("remarks1_lat", remarks_lat.str());
-  add_tag("remarks2", ex_weight.str());
-  add_tag("remarks2_lat", ex_weight_lat.str());
-  add_tag("ex_weight", ex_weight.str());
-  add_tag("ex_weight_lat", ex_weight_lat.str());
+      add_tag("ex_weight", "");
+      add_tag("ex_weight_lat", "");
 
-  for(int fmt=1;fmt<=2;fmt++)
+      string ValueBTLetter, ValueBTLetter_lat;
+      {
+          int iptr, fract;
+          fract=separate_double(rcpt.rate, 2, &iptr);
+
+          string buf_ru = vs_number(iptr, 0);
+          string buf_lat = vs_number(iptr, 1);
+
+          if(fract!=0) {
+              string str_fract = IntToString(fract) + "/100 ";
+              buf_ru += str_fract;
+              buf_lat += str_fract;
+          }
+          ValueBTLetter = upperc(buf_ru) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
+          ValueBTLetter_lat = upperc(buf_lat) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
+      }
+      add_tag("ValueBT", "x");
+      add_tag("ValueBTLetter", ValueBTLetter);
+      add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
+  };
+
+  for(int fmt=0;fmt<=2;fmt++)
   {
     remarks.str("");
     remarks_lat.str("");
@@ -1451,12 +1534,17 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
         remarks << RateToString(rate_sum, rcpt.rate_cur, false, fmt);
         remarks_lat << RateToString(rate_sum, rcpt.rate_cur, true, fmt);
     };
+    if (fmt==0)
+    {
+      add_tag("charge", remarks.str());
+      add_tag("charge_lat", remarks_lat.str());
+    };
     if (fmt==1)
     {
       add_tag("amount_figures", remarks.str());
       add_tag("amount_figures_lat", remarks_lat.str());
-    }
-    else
+    };
+    if (fmt==2)
     {
       add_tag("currency", remarks.str());
       add_tag("currency_lat", remarks_lat.str());
@@ -1476,12 +1564,14 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   //amount in figures
   {
-      double iptr, fract;
-      fract = modf(fare_sum, &iptr);
-      string buf_ru = vs_number(int(iptr), 0);
-      string buf_lat = vs_number(int(iptr), 1);
-      if(fract >= 0.01) {
-          string str_fract = " " + IntToString(int(fract * 100)) + "/100";
+      int iptr, fract;
+      fract=separate_double(fare_sum, 2, &iptr);
+
+      string buf_ru = vs_number(iptr, 0);
+      string buf_lat = vs_number(iptr, 1);
+
+      if(fract!=0) {
+          string str_fract = IntToString(fract) + "/100 ";
           buf_ru += str_fract;
           buf_lat += str_fract;
       }
@@ -1492,21 +1582,18 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   //exchange_rate
   remarks.str("");
   remarks_lat.str("");
-  if (!(
-         (rcpt.pay_rate_cur == "РУБ" ||
-          rcpt.pay_rate_cur == "ДОЛ" ||
-          rcpt.pay_rate_cur == "ЕВР") &&
-          rcpt.pay_rate_cur != rcpt.rate_cur)
-     )
+
+  if (rcpt.pay_rate_cur != rcpt.rate_cur &&
+      (!pr_exchange || rcpt.form_type != "M61"))
   {
-      if (rcpt.pay_rate_cur != rcpt.rate_cur)
-      {
-          remarks
-              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false);
-          remarks_lat
-              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true);
-      };
+      remarks
+          << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false);
+
+      if (rcpt.form_type != "M61") remarks_lat << "RATE ";
+      remarks_lat
+          << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true);
   };
+
   add_tag("exchange_rate", remarks.str());
   add_tag("exchange_rate_lat", remarks_lat.str());
 
@@ -1516,7 +1603,53 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   add_tag("tickets", rcpt.tickets);
   add_tag("prev_no", rcpt.prev_no);
-  add_tag("pay_form", rcpt.pay_form);
+
+  vector<TBagPayType>::iterator i;
+  TBaseTable& payTypeCodes=base_tables.get("pay_types");
+  if (rcpt.pay_types.size()==1)
+  {
+    //одна форма оплаты
+    i=rcpt.pay_types.begin();
+    pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false);
+    pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true);
+    if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+    {
+      pay_types     << ' ' << i->extra;
+      pay_types_lat << ' ' << i->extra;
+    };
+  }
+  else
+  {
+    //несколько форм оплаты
+    //первой всегда идет НАЛ
+    for(int k=0;k<=1;k++)
+    {
+      for(i=rcpt.pay_types.begin();i!=rcpt.pay_types.end();i++)
+      {
+        if (k==0 && i->pay_type!=CASH_PAY_TYPE ||
+            k!=0 && i->pay_type==CASH_PAY_TYPE) continue;
+
+        if (!pay_types.str().empty())
+        {
+          pay_types     << '+';
+          pay_types_lat << '+';
+        };
+        pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false)
+                      << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, false, 0);
+
+        pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true)
+                      << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, true, 0);
+        if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+        {
+          pay_types     << ' ' << i->extra;
+          pay_types_lat << ' ' << i->extra;
+        };
+      };
+    };
+  };
+
+  add_tag("pay_form", pay_types.str());
+  add_tag("pay_form_lat", pay_types_lat.str());
 
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", rcpt.airline);
   if(!airline.short_name.empty())
@@ -1621,182 +1754,6 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   dump_data();
 };
-
-/*
-void PrintDataParser::t_field_map::fillMSOMap()
-{
-    TQuery *Qry;
-
-    Qry = OraSession.CreateQuery();
-    Qry->SQLText =
-        "select "
-        " receipt_id, "
-        " no, "
-        " form_type, "
-        " grp_id, "
-        " status, "
-        " pr_lat, "
-        " tickets, "
-        " prev_no, "
-        " airline, "
-        " aircode, "
-        " flt_no, "
-        " suffix, "
-        " airp_dep, "
-        " airp_arv, "
-        " ex_amount, "
-        " ex_weight, "
-        " bag_type, "
-        " bag_name, "
-        " value_tax, "
-        " rate, "
-        " rate_cur, "
-        " pay_rate, "
-        " pay_rate_cur, "
-        " pay_type, "
-        " pay_doc, "
-        " remarks, "
-        " issue_date, "
-        " issue_place, "
-        расчетный код а/к " issue_user_id, "
-        " annul_date, "
-        " annul_user_id, "
-        " pax " //, "
-//        " document "
-        "from "
-        " bag_receipts "
-        "where "
-        " receipt_id = :id ";
-    Qry->CreateVariable("id", otInteger, pax_id);
-    Qrys.push_back(Qry);
-    Qry->Execute();
-    add_tag("pax", Qry->FieldAsString("pax"));
-    add_tag("pax_lat", transliter(Qry->FieldAsString("pax"),true));
-//    add_tag("document", Qry->FieldAsString("document"));
-//    add_tag("document_lat", transliter(Qry->FieldAsString("document"),true));
-    add_tag("issue_date", UTCToLocal(Qry->FieldAsDateTime("issue_date"), TReqInfo::Instance()->desk.tz_region));
-    int ex_weight = Qry->FieldAsInteger("ex_weight");
-    float rate = Qry->FieldAsFloat("rate");
-    float pay_rate = Qry->FieldAsFloat("pay_rate");
-    float fare_sum = ex_weight * rate;
-    float pay_fare_sum = ex_weight * pay_rate;
-    string pay_curr = Qry->FieldAsString("pay_rate_cur");
-    string curr = Qry->FieldAsString("rate_cur");
-
-    {
-        double iptr, fract;
-        fract = modf(fare_sum, &iptr);
-        string buf_ru = vs_number(int(iptr), 0);
-        string buf_lat = vs_number(int(iptr), 1);
-        if(fract != 0) {
-            string str_fract = " " + IntToString(int(fract * 100)) + "/100";
-            buf_ru += str_fract;
-            buf_lat += str_fract;
-        }
-        buf_ru.append(33, '-');
-        buf_lat.append(33, '-');
-        add_tag("amount_letter", buf_ru);
-        add_tag("amount_letter_lat", buf_lat);
-    }
-
-    {
-        ostringstream buf;
-        buf
-            << setprecision(0)
-            << fixed
-            << fare_sum;
-        if(pay_curr != curr)
-            buf
-                << "("
-                << setprecision(2)
-                << pay_fare_sum << ")";
-        add_tag("amount_figure", buf.str());
-    }
-
-    TBaseTable &currency = base_tables.get("currency");
-    {
-        string buf, buf_lat;
-        TBaseTableRow &curr_row = currency.get_row("code", curr);
-        buf = curr_row.AsString("code", 0);
-        buf_lat = curr_row.AsString("code", 1);
-        if(curr != pay_curr) {
-            TBaseTableRow &pay_curr_row = currency.get_row("code", pay_curr);
-            buf += "(" + pay_curr_row.AsString("code", 0) + ")";
-            buf_lat += "(" + pay_curr_row.AsString("code", 1) + ")";
-        }
-        add_tag("currency", buf);
-        add_tag("currency_lat", buf_lat);
-    }
-
-    {
-        ostringstream buf;
-        buf
-            << setprecision(2)
-            << fixed
-            << fare_sum;
-        add_tag("total", buf.str() + currency.get_row("code", curr).AsString("code", 0));
-        add_tag("total_lat", currency.get_row("code", curr).AsString("code", 1) + buf.str());
-    }
-
-    {
-        string airp_dep = Qry->FieldAsString("airp_dep");
-        string airp_arv = Qry->FieldAsString("airp_arv");
-
-        string point_dep, point_dep_lat;
-        string point_arv, point_arv_lat;
-
-        get_mso_point(airp_dep, point_dep, point_dep_lat);
-        get_mso_point(airp_arv, point_arv, point_arv_lat);
-
-        add_tag("to", point_dep + "-" + point_arv);
-        add_tag("to_lat", point_dep_lat + "-" + point_arv_lat);
-    }
-    add_tag("tickets", Qry->FieldAsString("tickets"));
-    {
-        ostringstream buf, buf_lat;
-        buf
-            << setprecision(2)
-            << fixed
-            << rate
-            << curr;
-        buf_lat
-            << currency.get_row("code", curr).AsString("code", 1)
-            << setprecision(2)
-            << fixed
-            << rate;
-        if(pay_curr != curr) {
-            buf
-                << "("
-                << pay_rate
-                << pay_curr
-                << ")";
-            buf_lat
-                << "("
-                << currency.get_row("code", pay_curr).AsString("code", 1)
-                << pay_rate
-                << ")";
-        }
-        add_tag("rate", buf.str());
-        add_tag("rate_lat", buf_lat.str());
-    }
-    add_tag("ex_weight", Qry->FieldAsString("ex_weight"));
-    TBaseTableRow &pt_row = base_tables.get("pay_types").get_row("code", Qry->FieldAsString("pay_type"));
-    add_tag("pay_type", pt_row.AsString("code"));
-    add_tag("pay_type_lat", pt_row.AsString("code", 1));
-
-    TBaseTableRow &airline = base_tables.get("airlines").get_row("code", Qry->FieldAsString("airline"));
-    add_tag("airline", airline.AsString("short_name"));
-    add_tag("airline_lat", airline.AsString("short_name", 1));
-    add_tag("aircode", Qry->FieldAsString("aircode"));
-
-    vector<string> validator;
-    get_validator(validator);
-
-    add_tag("agency", validator[0]);
-    add_tag("agency_descr",validator[1]);
-    add_tag("agency_city",validator[2]);
-    add_tag("agency_code",validator[3]);
-}*/
 
 PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
 {

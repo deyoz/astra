@@ -6,6 +6,13 @@
 #include "basic.h"
 #include "oralib.h"
 
+struct TBagPayType
+{
+  std::string pay_type;
+  double pay_rate_sum;
+  std::string extra;
+};
+
 struct TBagReceipt
 {
   bool pr_lat;
@@ -20,11 +27,15 @@ struct TBagReceipt
   int ex_amount,ex_weight;
   double value_tax,rate,exch_pay_rate;
   int exch_rate;
-  std::string rate_cur,pay_rate_cur,pay_form;
+  std::string rate_cur,pay_rate_cur;
+  std::vector<TBagPayType> pay_types;
   std::string remarks;
   BASIC::TDateTime issue_date,annul_date;
   std::string issue_desk,annul_desk,issue_place;
 };
+
+#define CASH_PAY_TYPE "çÄã"
+#define NONE_PAY_TYPE "çÖí"
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
@@ -114,6 +125,9 @@ void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
 void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
 void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
 std::string get_validator(TBagReceipt &rcpt);
+double CalcPayRate(const TBagReceipt &rcpt);
+double CalcRateSum(const TBagReceipt &rcpt);
+double CalcPayRateSum(const TBagReceipt &rcpt);
 
 class PrintInterface: public JxtInterface
 {

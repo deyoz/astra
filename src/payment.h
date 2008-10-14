@@ -15,6 +15,7 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::LoadPax);
      AddEvent("PaxByPaxId",evHandle);
+     AddEvent("PaxByGrpId",evHandle);
      AddEvent("PaxByRegNo",evHandle);
      AddEvent("PaxByReceiptNo",evHandle);
      evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::SaveBag);
@@ -56,7 +57,7 @@ public:
   void PutReceipt(TBagReceipt &rcpt, int rcpt_id, xmlNodePtr resNode);
 
   //образ из структуры в XML
-  void PutReceiptFields(TBagReceipt &rcpt, PrintDataParser &parser, xmlNodePtr node);
+  void PutReceiptFields(TBagReceipt &rcpt, xmlNodePtr node);
   //образ из базы в XML
   void PutReceiptFields(int id, xmlNodePtr node);
 
