@@ -30,6 +30,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
+    sleep(10);
     OpenLogFile("logairimp");
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
