@@ -187,8 +187,8 @@ string fetch_addr(string &addr)
     if(addr.size() == len)
         addr.erase();
     else
-        addr = addr.substr(len + 1);
-    if(result.size() > 7)
+        addr = addr.substr(len + i);
+    if(not(result.empty() or result.size() == 7))
         throw UserException("Неверно указан SITA-адрес " + result);
     for(i = 0; i < result.size(); i++) {
         // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
