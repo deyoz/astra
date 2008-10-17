@@ -515,14 +515,20 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
     {
-      int prn_type=NodeAsInteger("prn_type",node);
-      GetTripBPPectabs( point_id, prn_type, dataNode );
+        if(xmlNodePtr tmpNode = GetNode("prn_type", node)) {
+            int prn_type=NodeAsInteger(tmpNode);
+            GetTripBPPectabs( point_id, prn_type, dataNode );
+        } else
+            GetTripBPPectabs( point_id, NodeAsString("dev_model", node), dataNode );
     };
     node=GetNode( "tripBTpectabs", reqNode );
     if (node!=NULL)
     {
-      int prn_type=NodeAsInteger("prn_type",node);
-      GetTripBTPectabs( point_id, prn_type, dataNode );
+        if(xmlNodePtr tmpNode = GetNode("prn_type", node)) {
+            int prn_type=NodeAsInteger(tmpNode);
+            GetTripBTPectabs( point_id, prn_type, dataNode );
+        } else
+            GetTripBTPectabs( point_id, NodeAsString("dev_model", node), dataNode );
     };
   };
   if (reqInfo->screen.name == "CENT.EXE")
