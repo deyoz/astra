@@ -5,7 +5,7 @@
   <CanInsert>1</CanInsert>
   <CanUpdate>1</CanUpdate>
   <CanDelete>1</CanDelete>
-  <fields tid='374240'>
+  <fields tid='374244'>
     <field index='0'>
       <Name>CODE</Name>
       <Title>Тип бланка</Title>
@@ -66,11 +66,27 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode/>
-      <ReferName/>
-      <ReferLevel>-1</ReferLevel>
+      <ReferCode>TUNE::PrnForms</ReferCode>
+      <ReferName>NAME</ReferName>
+      <ReferLevel>2</ReferLevel>
     </field>
     <field index='4'>
+      <Name>ID</Name>
+      <Title/>
+      <Width>0</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>1</DataType>
+      <DataSize>9</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>1</Ident>
+      <ReadOnly>1</ReadOnly>
+      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferName>ID</ReferName>
+      <ReferLevel>2</ReferLevel>
+    </field>
+    <field index='5'>
       <Name>VERSION</Name>
       <Title>Вер. </Title>
       <Width>5</Width>
@@ -82,11 +98,11 @@
       <Nullable>0</Nullable>
       <Ident>1</Ident>
       <ReadOnly>1</ReadOnly>
-      <ReferCode/>
-      <ReferName/>
-      <ReferLevel>-1</ReferLevel>
+      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferName>VERSION</ReferName>
+      <ReferLevel>2</ReferLevel>
     </field>
-    <field index='5'>
+    <field index='6'>
       <Name>DESCR</Name>
       <Title>Описание</Title>
       <Width>55</Width>
@@ -98,9 +114,9 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode/>
-      <ReferName/>
-      <ReferLevel>-1</ReferLevel>
+      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferName>DESCR</ReferName>
+      <ReferLevel>2</ReferLevel>
     </field>
   </fields>
 </iface>
