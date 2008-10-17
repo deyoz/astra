@@ -23,6 +23,7 @@
 #include "astra_service.h"
 #include "payment.h"
 #include "dev_tuning.h"
+#include "print2.h"
 
 #include "astra_utils.h"
 #include "basic.h"
@@ -62,6 +63,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new SoppInterface();
     new StatInterface();
     new PrintInterface();
+    new Print2Interface();
     new DocsInterface();
     new TelegramInterface();
     new DesignBlankInterface();
