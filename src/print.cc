@@ -23,22 +23,6 @@ using namespace ASTRA;
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
-typedef enum {
-    ptIER506A = 1,
-    ptIER508A,
-    ptIER506B,
-    ptIER508B,
-    ptIER557A,
-    ptIER567A,
-    ptGenicom,
-    ptDRV,
-    ptIER508BR,
-    ptOKIML390,
-    ptOKIML3310,
-    ptOLIVETTI,
-    ptZEBRA,
-    ptOLIVETTICOM
-} TPrnType;
 
 namespace to_esc {
     struct TPrnParams {
@@ -114,7 +98,7 @@ namespace to_esc {
         out << data;
     }
 
-    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL)
+    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
     {
         double y_modif, x_modif;
         switch(prn_type) {
@@ -2185,41 +2169,90 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 //////////////////////////////// END CLASS PrintDataParser ///////////////////////////////////
 
+void GetTripBPPectabs(int point_id, string dev_model, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   prn_form_vers.form "
+        "from "
+        "   bp_models, "
+        "   prn_form_vers "
+        "where "
+        "   bp_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bp_models.dev_model = :dev_model and "
+        "   bp_models.id = prn_form_vers.id and "
+        "   bp_models.version = prn_form_vers.version and "
+        "   prn_form_vers.form is not null";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("dev_model", otString, dev_model);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bp_forms");
+    for(;!Qry.Eof;Qry.Next())
+      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+}
+
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
 {
     if (node==NULL) return;
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
-            "select  "
-            "   bp_forms.form "
-            "from  "
-            "   bp_forms, "
-            "   ( "
-            "    select "
-            "        bp_type, "
-            "        prn_type, "
-            "        max(version) version "
-            "    from "
-            "        bp_forms "
-            "    group by "
-            "        bp_type, "
-            "        prn_type "
-            "   ) a "
-            "where  "
-            "   a.bp_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
-            "   a.prn_type = :prn_type and "
-            "   a.bp_type = bp_forms.bp_type and "
-            "   a.prn_type = bp_forms.prn_type and "
-            "   a.version = bp_forms.version and "
-            "   bp_forms.form IS NOT NULL ";
+        "select  "
+        "   bp_forms.form "
+        "from  "
+        "   bp_forms, "
+        "   ( "
+        "    select "
+        "        bp_type, "
+        "        prn_type, "
+        "        max(version) version "
+        "    from "
+        "        bp_forms "
+        "    group by "
+        "        bp_type, "
+        "        prn_type "
+        "   ) a "
+        "where  "
+        "   a.bp_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   a.prn_type = :prn_type and "
+        "   a.bp_type = bp_forms.bp_type and "
+        "   a.prn_type = bp_forms.prn_type and "
+        "   a.version = bp_forms.version and "
+        "   bp_forms.form IS NOT NULL ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
 };
+
+void GetTripBTPectabs(int point_id, string dev_model, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   prn_form_vers.form "
+        "from "
+        "   bt_models, "
+        "   prn_form_vers "
+        "where "
+        "   bt_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bt_models.dev_model = :dev_model and "
+        "   bt_models.id = prn_form_vers.id and "
+        "   bt_models.version = prn_form_vers.version ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("dev_model", otString, dev_model);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bt_forms");
+    for(;!Qry.Eof;Qry.Next())
+        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+}
 
 void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
 {
@@ -2465,6 +2498,40 @@ void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
+void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
+{
+    prn_forms.clear();
+    TQuery FormsQry(&OraSession);
+    FormsQry.SQLText =
+        "select "
+        "   bt_models.num, "
+        "   prn_form_vers.form, "
+        "   prn_form_vers.data "
+        "from "
+        "   bt_models, "
+        "   prn_form_vers "
+        "where "
+        "   bt_models.form_type = :form_type and "
+        "   bt_models.dev_model = :dev_model and "
+        "   bt_models.fmt_type = :fmt_type and "
+        "   bt_models.id = prn_form_vers.id and "
+        "   bt_models.version = prn_form_vers.version ";
+    FormsQry.CreateVariable("form_type", otString, tag_type);
+    FormsQry.CreateVariable("dev_model", otString, dev_model);
+    FormsQry.CreateVariable("fmt_type", otString, fmt_type);
+    FormsQry.Execute();
+    if(FormsQry.Eof)
+      throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+    while(!FormsQry.Eof)
+    {
+        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        if (FormsQry.FieldIsNULL("data"))
+          throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        FormsQry.Next();
+    };
+}
+
 void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
     prn_forms.clear();
@@ -2566,6 +2633,8 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
 }
 
 struct TTagKey {
+    string dev_model; // instead of prn_type in new terminal
+    string fmt_type; // entirely new property from new terminal
     int grp_id, prn_type, pr_lat;
     double no; //no = Float!
     string type, color;
@@ -2652,6 +2721,19 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
 
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
+    /* temporarily disabled
+    if(tag_key.prn_type != NoExists) {
+        if(tag_key.prn_type == 90) {
+            tag_key.dev_model = "ATB CUTE";
+            tag_key.fmt_type = "ATB";
+        } else if(tag_key.prn_type == 91) {
+            tag_key.dev_model = "BTP CUTE";
+            tag_key.fmt_type = "BTP";
+        } else
+            throw UserException("Версия терминала устарела. Обновите терминал.");
+        tag_key.prn_type = NoExists;
+    }
+    */
     vector<TBTRouteItem> route;
     get_route(tag_key, route);
     TQuery Qry(&OraSession);
@@ -2740,7 +2822,10 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
+            if(tag_key.dev_model.empty())
+                get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
+            else
+                get_bt_forms(tag_type, tag_key.dev_model, tag_key.fmt_type, pectabsNode, prn_forms);
         }
 
         u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
@@ -2804,6 +2889,8 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     TTagKey tag_key;
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
+    tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
+    tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     tag_key.type = NodeAsString("type", reqNode);
@@ -2817,7 +2904,9 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     TTagKey tag_key;
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
-    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
+    tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     GetPrintDataBT(dataNode, tag_key);
 }

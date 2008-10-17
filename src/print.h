@@ -37,6 +37,27 @@ struct TBagReceipt
 #define CASH_PAY_TYPE "çÄã"
 #define NONE_PAY_TYPE "çÖí"
 
+typedef enum {
+    ptIER506A = 1,
+    ptIER508A,
+    ptIER506B,
+    ptIER508B,
+    ptIER557A,
+    ptIER567A,
+    ptGenicom,
+    ptDRV,
+    ptIER508BR,
+    ptOKIML390,
+    ptOKIML3310,
+    ptOLIVETTI,
+    ptZEBRA,
+    ptOLIVETTICOM
+} TPrnType;
+
+namespace to_esc {
+    void convert(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
+}
+
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
@@ -118,6 +139,10 @@ class PrintDataParser {
         void add_tag(std::string name, BASIC::TDateTime val) { return field_map.add_tag(name, val); };
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
 };
+
+// !!! Next generation
+void GetTripBPPectabs(int point_id, std::string dev_model, xmlNodePtr node);
+void GetTripBTPectabs(int point_id, std::string dev_model, xmlNodePtr node);
 
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node);
