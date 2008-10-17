@@ -951,6 +951,7 @@ void TTuneTable::GetSQL(string code)
             "   bp_models.dev_model, "
             "   bp_models.fmt_type, "
             "   prn_forms.name form_name, "
+            "   bp_models.id, "
             "   bp_models.version, "
             "   prn_form_vers.descr "
             "from "
