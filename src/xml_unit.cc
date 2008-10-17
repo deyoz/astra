@@ -159,6 +159,38 @@ char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return NodeContent(node);
 };
 
+char* NodeAsString(char* expr, xmlNodePtr cur, char *nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsString(node);
+    else
+        return nvl;
+};
+
+int NodeAsInteger(char* expr, xmlNodePtr cur, int nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsInteger(node);
+    else
+        return nvl;
+};
+
+double NodeAsFloat(char* expr, xmlNodePtr cur, double nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsFloat(node);
+    else
+        return nvl;
+};
+
+TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, TDateTime nvl)
+{
+    if(xmlNodePtr node = GetNode(expr, cur))
+        return NodeAsDateTime(node);
+    else
+        return nvl;
+};
+
 char* NodeAsString(char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
