@@ -6,6 +6,8 @@
 #include "basic.h"
 #include "oralib.h"
 
+void check_CUTE_certified(int &prn_type, std::string &dev_model, std::string &fmt_type);
+
 struct TBagPayType
 {
   std::string pay_type;
@@ -141,14 +143,12 @@ class PrintDataParser {
 };
 
 // !!! Next generation
-void GetTripBPPectabs(int point_id, std::string dev_model, xmlNodePtr node);
-void GetTripBTPectabs(int point_id, std::string dev_model, xmlNodePtr node);
+void GetTripBPPectabs(int point_id, std::string dev_model, std::string fmt_type, xmlNodePtr node);
+void GetTripBTPectabs(int point_id, std::string dev_model, std::string fmt_type, xmlNodePtr node);
 
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
-void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
-void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
 std::string get_validator(TBagReceipt &rcpt);
 double CalcPayRate(const TBagReceipt &rcpt);
 double CalcRateSum(const TBagReceipt &rcpt);
@@ -160,9 +160,8 @@ class PrintInterface: public JxtInterface
         PrintInterface(): JxtInterface("123", "print")
         {
             Handler *evHandle;
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBPXML);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
             AddEvent("GetPrintDataBP",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetGRPPrintDataBPXML);
             AddEvent("GetGRPPrintDataBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ReprintDataBTXML);
             AddEvent("ReprintDataBT",evHandle);
@@ -177,8 +176,7 @@ class PrintInterface: public JxtInterface
         }
 
         void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

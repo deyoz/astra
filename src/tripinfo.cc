@@ -19,10 +19,12 @@
 #include "docs.h"
 #include "stat.h"
 #include "print.h"
+#include "astra_consts.h"
 
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace ASTRA;
 
 struct TTrferItem {
   std::string last_trfer;
@@ -515,20 +517,26 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
     {
-        if(xmlNodePtr tmpNode = GetNode("prn_type", node)) {
-            int prn_type=NodeAsInteger(tmpNode);
+        int prn_type = NodeAsInteger("prn_type", node, NoExists);
+        string dev_model = NodeAsString("dev_model", node, "");
+        string fmt_type = NodeAsString("fmt_type", node, "");
+        check_CUTE_certified(prn_type, dev_model, fmt_type);
+        if(dev_model.empty())
             GetTripBPPectabs( point_id, prn_type, dataNode );
-        } else
-            GetTripBPPectabs( point_id, NodeAsString("dev_model", node), dataNode );
+        else
+            GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
     };
     node=GetNode( "tripBTpectabs", reqNode );
     if (node!=NULL)
     {
-        if(xmlNodePtr tmpNode = GetNode("prn_type", node)) {
-            int prn_type=NodeAsInteger(tmpNode);
+        int prn_type = NodeAsInteger("prn_type", node, NoExists);
+        string dev_model = NodeAsString("dev_model", node, "");
+        string fmt_type = NodeAsString("fmt_type", node, "");
+        check_CUTE_certified(prn_type, dev_model, fmt_type);
+        if(dev_model.empty())
             GetTripBTPectabs( point_id, prn_type, dataNode );
-        } else
-            GetTripBTPectabs( point_id, NodeAsString("dev_model", node), dataNode );
+        else
+            GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
     };
   };
   if (reqInfo->screen.name == "CENT.EXE")
