@@ -628,6 +628,30 @@ void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
   };
 };
 
+bool CheckTrferPermit(string airline_in, int flt_no_in,
+                      string airp,
+                      string airline_out, int flt_no_out)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_permit "
+    "FROM trfer_set,trfer_set_flts flts_in,trfer_set_flts flts_out "
+    "WHERE trfer_set.id=flts_in.id(+) AND flts_in.pr_onward(+)=0 AND "
+    "      trfer_set.id=flts_out.id(+) AND flts_out.pr_onward(+)=1 AND "
+    "      airline_in=:airline_in AND airp=:airp AND airline_out=:airline_out AND "
+    "      (flts_in.flt_no IS NULL OR flts_in.flt_no=:flt_no_in) AND "
+    "      (flts_out.flt_no IS NULL OR flts_out.flt_no=:flt_no_out) "
+    "ORDER BY flts_out.flt_no,flts_in.flt_no ";
+  Qry.CreateVariable("airline_in",otString,airline_in);
+  Qry.CreateVariable("flt_no_in",otInteger,flt_no_in);
+  Qry.CreateVariable("airp",otString,airp);
+  Qry.CreateVariable("airline_out",otString,airline_out);
+  Qry.CreateVariable("flt_no_out",otInteger,flt_no_out);
+  Qry.Execute();
+  return (!Qry.Eof && Qry.FieldAsInteger("pr_permit")!=0);
+};
+
 int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
 {
   TQuery TrferQry(&OraSession);
@@ -650,7 +674,6 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
   int point_id=-1;
   int pnr_id=-1, pax_id;
   xmlNodePtr tripNode,pnrNode,paxNode,node;
-  string airp_dep="",airp_dep_lat="";
 
   int count=0;
   tripNode=NewTextChild(resNode,"trips");
@@ -667,22 +690,6 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
       NewTextChild(node,"scd",DateTimeToStr(PaxQry.FieldAsDateTime("scd")));
       NewTextChild(node,"airp_dep",PaxQry.FieldAsString("airp_dep"));
       pnrNode=NewTextChild(node,"groups");
-
-      TQuery Qry(&OraSession);
-      Qry.SQLText =
-        "SELECT code,code_lat FROM airps WHERE :code IN (code,code_lat)";
-      Qry.CreateVariable("code",otString,PaxQry.FieldAsString("airp_dep"));
-      Qry.Execute();
-      if (!Qry.Eof)
-      {
-        airp_dep=Qry.FieldAsString("code");
-        airp_dep_lat=Qry.FieldAsString("code_lat");
-      }
-      else
-      {
-        airp_dep="";
-        airp_dep_lat="";
-      };
     };
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
     {
@@ -698,13 +705,34 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
       TrferQry.Execute();
       if (!TrferQry.Eof)
       {
-        string airp_arv;
+        string airp_dep=PaxQry.FieldAsString("airp_dep");
+        string airline_in=PaxQry.FieldAsString("airline");
+        int flt_no_in=PaxQry.FieldAsInteger("flt_no");
+        string airp_trfer=PaxQry.FieldAsString("target");
+        string airline_out;
+        int flt_no_out;
+
+        bool pr_permit=true;
         xmlNodePtr trferNode=NewTextChild(node,"transfer");
         for(;!TrferQry.Eof;TrferQry.Next())
         {
-          airp_arv=TrferQry.FieldAsString("airp_arv");
-          if (!airp_arv.empty() &&
-              (airp_arv==airp_dep || airp_arv==airp_dep_lat)) break;
+          if (pr_permit)
+          {
+            //проверим оформление трансфера
+            try
+            {
+              TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code/code_lat",TrferQry.FieldAsString("airline"));
+              airline_out=row.code;
+              flt_no_out=TrferQry.FieldAsInteger("flt_no");
+              if (!CheckTrferPermit(airline_in,flt_no_in,airp_trfer,airline_out,flt_no_out))
+                pr_permit=false;
+            }
+            catch(EBaseTableError &e)
+            {
+              pr_permit=false;
+            };
+          };
+
           xmlNodePtr node2=NewTextChild(trferNode,"segment");
           NewTextChild(node2,"num",TrferQry.FieldAsInteger("transfer_num"));
           NewTextChild(node2,"airline",TrferQry.FieldAsString("airline"));
@@ -713,6 +741,28 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
           NewTextChild(node2,"local_date",TrferQry.FieldAsInteger("local_date"));
           NewTextChild(node2,"airp_arv",TrferQry.FieldAsString("airp_arv"));
           NewTextChild(node2,"subclass",TrferQry.FieldAsString("subclass"));
+          NewTextChild(node2,"pr_permit",(int)pr_permit);
+
+          if (pr_permit)
+          {
+            try
+            {
+              airline_in=airline_out;
+              flt_no_in=flt_no_out;
+              TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code/code_lat",TrferQry.FieldAsString("airp_arv"));
+              airp_trfer=row.code;
+              if (airp_dep==airp_trfer)
+              {
+                //обратный сегмент, а не стыковочный
+                pr_permit=false;
+                ReplaceTextChild(node2,"pr_permit",(int)pr_permit);
+              };
+            }
+            catch(EBaseTableError &e)
+            {
+              pr_permit=false;
+            };
+          };
         };
       };
 
@@ -3134,6 +3184,9 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
   TrferQry.Execute();
   if (TrferQry.Eof) throw Exception("Passenger group not found (grp_id=%d)",grp_id);
 
+  string airline_in=TrferQry.FieldAsString("airline");
+  int flt_no_in=TrferQry.FieldAsInteger("flt_no");
+
   TTypeBSendInfo sendInfo;
   sendInfo.airline=TrferQry.FieldAsString("airline");
   sendInfo.flt_no=TrferQry.FieldAsInteger("flt_no");
@@ -3340,7 +3393,20 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
 
     TrferQry.SetVariable("pr_final",(int)(trferNode->next==NULL));
 
+    //проверим разрешено ли оформление трансфера
+
+    if (!CheckTrferPermit(airline_in,
+                          flt_no_in,
+                          TrferQry.GetVariableAsString("airp_dep"),
+                          TrferQry.GetVariableAsString("airline"),
+                          TrferQry.GetVariableAsInteger("flt_no")))
+      throw UserException("Запрещено оформление трансфера на стыковочный рейс %s",flt.str().c_str());
+
     TrferQry.Execute();
+
+    airline_in=TrferQry.GetVariableAsString("airline");
+    flt_no_in=TrferQry.GetVariableAsInteger("flt_no");
+
   };
 
   return msg.str();
