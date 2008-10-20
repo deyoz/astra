@@ -87,7 +87,8 @@ const char * arx_points_SOPP_SQL =
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
-    "WHERE arx_points.move_id = p.move_id AND "
+    "WHERE arx_points.part_key>=:first_date AND "
+    "      arx_points.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
 const char * arx_points_ISG_SQL =
@@ -104,7 +105,9 @@ const char * arx_points_ISG_SQL =
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
     "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
-    "WHERE arx_points.move_id = p.move_id AND "
+    "WHERE arx_points.part_key>=:first_date AND "
+    "      arx_move_ref.part_key>=:first_date AND "
+    "      arx_points.move_id = p.move_id AND "
     "      arx_move_ref.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
