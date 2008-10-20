@@ -145,18 +145,27 @@ void TCodeBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
 
 void TCodeBaseTable::delete_row(TBaseTableRow *row)
 {
-  if (row!=NULL) code.erase(((TCodeBaseTableRow*)row)->code);
-  if (row!=NULL) code_lat.erase(((TCodeBaseTableRow*)row)->code_lat);
+  if (row!=NULL)
+  {
+    map<string, TBaseTableRow*>::iterator i;
+    i=code.find(((TCodeBaseTableRow*)row)->code);
+    if (i->second==row) code.erase(i);
+    i=code_lat.find(((TCodeBaseTableRow*)row)->code_lat);
+    if (i->second==row) code_lat.erase(i);
+  };
   TBaseTable::delete_row(row);
 };
 
 void TCodeBaseTable::add_row(TBaseTableRow *row)
 {
   TBaseTable::add_row(row);
-  if (row!=NULL && !((TCodeBaseTableRow*)row)->code.empty())
-    code[((TCodeBaseTableRow*)row)->code]=row;
-  if (row!=NULL && !((TCodeBaseTableRow*)row)->code_lat.empty())
-    code_lat[((TCodeBaseTableRow*)row)->code_lat]=row;
+  if (row!=NULL && !row->deleted())
+  {
+    if (!((TCodeBaseTableRow*)row)->code.empty())
+      code[((TCodeBaseTableRow*)row)->code]=row;
+    if (!((TCodeBaseTableRow*)row)->code_lat.empty())
+      code_lat[((TCodeBaseTableRow*)row)->code_lat]=row;
+  };
 };
 
 TBaseTableRow& TCodeBaseTable::get_row(std::string field, std::string value, bool with_deleted)
@@ -224,7 +233,12 @@ void TTIDBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow *
 
 void TTIDBaseTable::delete_row(TBaseTableRow *row)
 {
-  if (row!=NULL) id.erase(((TTIDBaseTableRow*)row)->id);
+  if (row!=NULL)
+  {
+    map<int, TBaseTableRow*>::iterator i;
+    i=id.find(((TTIDBaseTableRow*)row)->id);
+    if (i->second==row) id.erase(i);
+  };
   TCodeBaseTable::delete_row(row);
 };
 
@@ -260,8 +274,14 @@ TBaseTableRow& TTIDBaseTable::get_row(std::string field, int value, bool with_de
 
 void TICAOBaseTable::delete_row(TBaseTableRow *row)
 {
-  if (row!=NULL) code_icao.erase(((TICAOBaseTableRow*)row)->code_icao);
-  if (row!=NULL) code_icao_lat.erase(((TICAOBaseTableRow*)row)->code_icao_lat);
+  if (row!=NULL)
+  {
+    map<string, TBaseTableRow*>::iterator i;
+    i=code_icao.find(((TICAOBaseTableRow*)row)->code_icao);
+    if (i->second==row) code_icao.erase(i);
+    i=code_icao_lat.find(((TICAOBaseTableRow*)row)->code_icao_lat);
+    if (i->second==row) code_icao_lat.erase(i);
+  };
   TTIDBaseTable::delete_row(row);
 };
 
@@ -324,7 +344,12 @@ void TICAOBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow 
 
 void TCountries::delete_row(TBaseTableRow *row)
 {
-  if (row!=NULL) code_iso.erase(((TCountriesRow*)row)->code_iso);
+  if (row!=NULL)
+  {
+    map<string, TBaseTableRow*>::iterator i;
+    i=code_iso.find(((TCountriesRow*)row)->code_iso);
+    if (i->second==row) code_iso.erase(i);
+  };
   TTIDBaseTable::delete_row(row);
 };
 
