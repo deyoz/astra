@@ -138,11 +138,9 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     if ( !compsNode )
       throw UserException( "Нет компоновок по данному типу ВС" );
-   tst();
    TSalons Salons;
    Salons.trip_id = trip_id;
    Salons.ClName.clear();
-   tst();
    Salons.Read( rTripSalons );
    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
    Salons.Build( salonsNode );
@@ -151,7 +149,6 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
  }
  catch( UserException ue ) {
    showErrorMessage( ue.what() );
-   tst();
  }
 }
 
@@ -200,7 +197,6 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     bool cBase = false;
     bool cChange = false;
     if ( ctypeNode ) {
-    	tst();
       ctypeNode = ctypeNode->children; /* value */
       while ( ctypeNode ) {
       	string stype = NodeAsString( ctypeNode );
@@ -231,7 +227,6 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   SALONS::GetTripParams( trip_id, dataNode );
   Salons.Build( salonsNode );
-  tst();
   if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, Passengers, Salons.getLatSeat() ) )
     Passengers.Build( Salons, dataNode );
 }
@@ -430,7 +425,6 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     SALONS::BuildSalonChanges( dataNode, seats );
   }
   catch( UserException ue ) {
-    tst();
     TSalons Salons;
     Salons.trip_id = point_id;
     Salons.Read( rTripSalons );
@@ -451,11 +445,19 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   ProgTrace(TRACE5, "SalonsInterface::AutoReseatsPassengers, trip_id=%d", trip_id );
   TQuery Qry( &OraSession );
   /* лочим рейс */
-  Qry.SQLText = "UPDATE points SET point_id=point_id WHERE point_id=:point_id";
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT point_id,airline,flt_no,airp FROM points "
+    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", trip_id );
   Qry.Execute();
-  tst();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  int algo=SEATS::GetSeatAlgo(Qry,
+                              Qry.FieldAsString("airline"),
+                              Qry.FieldAsInteger("flt_no"),
+                              Qry.FieldAsString("airp"));
+
   TSalons Salons;
   vector<SALONS::TSalonSeat> seats;
   Salons.trip_id = trip_id;
@@ -464,7 +466,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
 
 
   if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, passengers, Salons.getLatSeat() ) ) {
-  	SEATS::AutoReSeatsPassengers( Salons, passengers );
+  	SEATS::AutoReSeatsPassengers( Salons, passengers, algo );
   }
   else
   	throw UserException( "Пассажиры все пассажены. Автоматическая рассадка не требуется" );
@@ -769,7 +771,6 @@ void ParseSeat(string str, TSeat &seat)
 void convert_salons( int step, bool pr_commit )
 {
 	TDateTime v = NowUTC();
-	tst();
 	TQuery Qry(&OraSession);
 	TQuery QryUpd(&OraSession);
 	int count=0;

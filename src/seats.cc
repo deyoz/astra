@@ -124,12 +124,14 @@ bool canUseMCLS=false;
 
 bool canUseOneRow=true; // использовать при рассадке только один ряд
 
+int FSeatAlgo=0; // алгоритм рассадки
+
 int MAXPLACE() {
 	return (canUseOneRow)?1000:CONST_MAXPLACE; // при рассадке в один ряд кол-во мест в ряду неограничено иначе 3 места
 };
 
 bool getCanUseOneRow() {
-	return true; //???
+	return FSeatAlgo; //???
 }
 
 TCounters::TCounters()
@@ -1807,10 +1809,11 @@ bool ExistsBasePlace( TSalons &Salons, TPassenger &pass )
 
 namespace SEATS {
 /* рассадка пассажиров */
-void SeatsPassengers( TSalons *Salons, bool FUse_PS )
+void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FUse_PS )
 {
   if ( !Passengers.getCount() )
     return;
+  FSeatAlgo = SeatAlgo;
   SeatPlaces.Clear();
   CurrSalon = Salons;
   vector<string> Statuses;
@@ -2453,11 +2456,12 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   }
 }
 
-void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
+void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
 {
 	// салон содержит все нормальные места (нет инфалидных мест, например с разрывами
   if ( Salons.placelists.empty() )
     throw Exception( "Не задан салон для автоматической рассадки" );
+  FSeatAlgo = SeatAlgo;
   CurrSalon = &Salons;
   SeatAlg = sSeatPassengers;
   CanUseStatus = false; /* не учитываем статус мест */
@@ -2601,6 +2605,33 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass )
   SeatPlaces.RollBack( );
   ProgTrace( TRACE5, "passengers.count=%d", APass.getCount() );
 }
+
+int GetSeatAlgo(TQuery &Qry, string airline, int flt_no, string airp_dep)
+{
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT algo_type, "
+    "       DECODE(airline,NULL,0,8)+ "
+    "       DECODE(flt_no,NULL,0,2)+ "
+    "       DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM seat_algo_sets "
+    "WHERE (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("airline",otString,airline);
+  Qry.CreateVariable("flt_no",otInteger,flt_no);
+  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.Execute();
+  int algo=0;
+  if (!Qry.Eof)
+  {
+    algo=Qry.FieldAsInteger("algo_type");
+    if (algo!=0) algo=1;
+  };
+  Qry.Close();
+  return algo;
+};
 
 } /* end namespace SEATS */
 
@@ -2800,5 +2831,3 @@ bool NextSeatInRange(TSeatRange &range, TSeat &seat)
   else NextNormSeatLine(seat);
   return true;
 };
-
-

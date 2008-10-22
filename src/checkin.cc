@@ -905,17 +905,26 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     fmt.persCountFmt=0;
     fmt.infSeatsFmt=0;
 
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if (reqInfo->desk.city=="СУР"||
-        reqInfo->desk.city=="КЗН"||
-        reqInfo->desk.city=="СХД"||
-        reqInfo->desk.city=="НЖВ"||
-        reqInfo->desk.city=="ОМС"||
-        reqInfo->desk.city=="ХАС"||
-        reqInfo->desk.city=="НЖВ")
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "SELECT pers_count_fmt,inf_seats_fmt "
+      "FROM desks,desk_grp_sets "
+      "WHERE desks.grp_id=desk_grp_sets.grp_id AND desks.code=:desk ";
+    Qry.CreateVariable("desk",otString,TReqInfo::Instance()->desk.code);
+    Qry.Execute();
+    if (!Qry.Eof)
     {
-      fmt.persCountFmt=1;
-      fmt.infSeatsFmt=1;
+      if (!Qry.FieldIsNULL("pers_count_fmt"))
+      {
+        fmt.persCountFmt=Qry.FieldAsInteger("pers_count_fmt");
+        if (fmt.persCountFmt!=0) fmt.persCountFmt=1;
+      };
+      if (!Qry.FieldIsNULL("inf_seats_fmt"))
+      {
+        fmt.infSeatsFmt=Qry.FieldAsInteger("inf_seats_fmt");
+        if (fmt.infSeatsFmt!=0) fmt.infSeatsFmt=1;
+      };
     };
 
     GetInquiryInfo(grp,fmt,sum);
@@ -1598,6 +1607,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   string airline=Qry.FieldAsString("airline");
+  int flt_no=Qry.FieldAsInteger("flt_no");
 
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
@@ -1879,9 +1889,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Salons.trip_id = point_dep;
       Salons.ClName = cl;
       Salons.Read( rTripSalons );
+      //определим алгоритм рассадки
+      int algo=SEATS::GetSeatAlgo(Qry,airline,flt_no,airp_dep);
       //рассадка
-      SEATS::SeatsPassengers( &Salons, GetUsePS()/*!!! иногда True - возможна рассажка на забронированные места, когда */
-      	                              /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */ );
+      SEATS::SeatsPassengers( &Salons, GetUsePS(), algo );
+        /*!!! иногда True - возможна рассажка на забронированные места, когда */
+      	/* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
+
       //SEATS::SavePlaces( ); //???
       //заполним номера мест после рассадки
 /*      node=NodeAsNode("passengers",reqNode);
