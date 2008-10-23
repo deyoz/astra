@@ -3027,21 +3027,23 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Execute();
   		string tolog;
   	  double f;
-  		if ( id->est_out > id->scd_out ) {
-  			modf( id->est_out - id->scd_out, &f );
-  			tolog = "Задержка выполнения технологического графика на ";
-  			if ( f )
-  				tolog += IntToString( (int)f ) + " ";
-  			tolog += DateTimeToStr( id->est_out - id->scd_out, "hh:nn" );
+  	  if ( id->est_out != id->old_est_out ) {
+  		  if ( id->est_out > id->scd_out ) {
+  		  	modf( id->est_out - id->scd_out, &f );
+  		  	tolog = "Задержка выполнения технологического графика на ";
+  		  	if ( f )
+  		  		tolog += IntToString( (int)f ) + " ";
+  		  	tolog += DateTimeToStr( id->est_out - id->scd_out, "hh:nn" );
 
-  		}
-  		else {
-  			modf( id->scd_out - id->est_out, &f );
-  			tolog = "Опережение выполнения технологического графика на ";
-  		  if ( f )
-  		    tolog += IntToString( (int)f ) + " ";
-  		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
-  		}
+  		  }
+  		  else {
+  			  modf( id->scd_out - id->est_out, &f );
+  			  tolog = "Опережение выполнения технологического графика на ";
+  		    if ( f )
+    		    tolog += IntToString( (int)f ) + " ";
+    		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
+  	  	}
+  	  }
 
   		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
