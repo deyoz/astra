@@ -2646,6 +2646,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   int first_point;
   bool insert_point;
   bool pr_begin = true;
+  bool change_est_out;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -2699,6 +2700,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	point_num++;
     	continue;
     }
+  	change_est_out = false;
 
     if ( insert_point ) {
     	ch_craft = false;
@@ -2777,6 +2779,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.pr_del = Qry.FieldAsInteger( "pr_del" );
   	  old_dest.pr_reg = Qry.FieldAsInteger( "pr_reg" );
   	  old_dest.remark = Qry.FieldAsString( "remark" );
+
+  	  change_est_out = id->est_out != old_dest.est_out;
+
   	  if ( !old_dest.pr_reg && id->pr_reg && !id->pr_del ) {
   	    Qry.Clear();
   	    Qry.SQLText = "SELECT COUNT(*) c FROM trip_stages WHERE point_id=:point_id AND rownum<2";
@@ -3027,7 +3032,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Execute();
   		string tolog;
   	  double f;
-  	  if ( id->est_out != id->old_est_out ) {
+  	  if ( change_est_out ) {
   		  if ( id->est_out > id->scd_out ) {
   		  	modf( id->est_out - id->scd_out, &f );
   		  	tolog = "Задержка выполнения технологического графика на ";
