@@ -3011,6 +3011,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    airline, "
         "    airp ";
 
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+
     Qry.SQLText = SQLText;
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
