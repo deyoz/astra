@@ -279,7 +279,7 @@ TStagesRules *TStagesRules::Instance()
 TStagesRules::TStagesRules()
 {
 	UpdateGraph_Stages( );
- 
+
   Update();
 }
 
@@ -287,10 +287,10 @@ void TStagesRules::UpdateGraph_Stages( )
 {
 	Graph_Stages.clear();
 	TQuery Qry( &OraSession );
-  Qry.SQLText = 
+  Qry.SQLText =
     "SELECT stage_id, name, NULL airp FROM graph_stages "
     "UNION "
-    "SELECT stage_id, name, airp FROM stage_names " 
+    "SELECT stage_id, name, airp FROM stage_names "
     " ORDER BY stage_id, airp";
   Qry.Execute();
 
@@ -367,9 +367,9 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
       snode = NewTextChild( node, "stage" );
       NewTextChild( snode, "stage_id", (int)i->stage );
       NewTextChild( snode, "name", i->name );
-      NewTextChild( snode, "airp", i->airp );    
+      NewTextChild( snode, "airp", i->airp );
     }
-  }	
+  }
 }
 
 void TStagesRules::Build( xmlNodePtr dataNode )
@@ -403,9 +403,9 @@ void TStagesRules::Build( xmlNodePtr dataNode )
 //      NewTextChild( stagestatusNode, "lvl", s->lvl );
     }
   }
-  
+
   BuildGraph_Stages( "", dataNode );
-  
+
   node = NewTextChild( dataNode, "GrphLvl" );
   for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
     snode = NewTextChild( node, "stage_level" );
@@ -443,7 +443,7 @@ string TStagesRules::stage_name( TStage stage, std::string airp )
 	  		res1 = n->name;
 			else
 			  if ( n->airp == airp )
-			  	res = n->name;				
+			  	res = n->name;
 	}
 	if ( res.empty() )
 		return res1;
@@ -453,7 +453,7 @@ string TStagesRules::stage_name( TStage stage, std::string airp )
 
 
 TStageTimes::TStageTimes( TStage istage )
-{	
+{
 	stage = istage;
 	GetStageTimes( );
 }
@@ -486,7 +486,7 @@ void TStageTimes::GetStageTimes( )
   }
 }
 
-TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const string &triptype, 
+TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const string &triptype,
                                 TDateTime vtime )
 {
 	TDateTime res = NoExists;
@@ -502,7 +502,7 @@ TDateTime TStageTimes::GetTime( const string &airp, const string &craft, const s
        break;
     }
 	}
-	return res;	
+	return res;
 }
 
 void exec_stage( int point_id, int stage_id )
@@ -595,19 +595,19 @@ void astra_timer( TDateTime utcdate )
   		QCanStage.SetVariable( "point_id", point_id );
   		QCanStage.SetVariable( "stage_id", stage_id );
   	  TDateTime execTime2 = NowUTC();
-  	  bool canstage = false; 
+  	  bool canstage = false;
   	  try {
   		  QCanStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
   		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
     		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-  		  canstage = QCanStage.GetVariableAsInteger( "canstage" );        	
+  		  canstage = QCanStage.GetVariableAsInteger( "canstage" );
   		  if ( canstage ) {
     		  // запись в лог о выполнении шага
           TStagesRules *r = TStagesRules::Instance();
           string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
           tolog += " выполнен: факт. время=";
           tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
-          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );  		  	
+          TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   		  }
   		}
       catch( Exception &E ) {
@@ -629,7 +629,7 @@ void astra_timer( TDateTime utcdate )
 			    exec_stage( point_id, stage_id );
           if ( NowUTC() - execStep > 1.0/(1440.0*60) )
  	          ProgTrace( TRACE5, "Attention execute point_id=%d, stage_id=%d time > 1 sec !!!, time=%s, count=%d", point_id, stage_id,
- 	                     DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );			    
+ 	                     DateTimeToStr( NowUTC() - execStep, "nn:ss" ).c_str(), count );
 			  }
         catch( Exception &E ) {
       	  try { OraSession.Rollback( ); } catch(...) { };
@@ -641,7 +641,7 @@ void astra_timer( TDateTime utcdate )
 			  catch( ... ) {
 			  	try { OraSession.Rollback( ); } catch(...) { };
 			  	ProgError( STDLOG, "unknown timer error" );
- 			  }  			
+ 			  }
   		}
       OraSession.Commit();
   		Qry.Next();
@@ -671,26 +671,26 @@ void SetCraft( int point_id, TStage stage )
   string craft = Qry.FieldAsString( "craft" );
   if ( stage == sPrepCheckIn && (!Qry.FieldIsNULL( "bort" ) || string( "СОЧ" ) != Qry.FieldAsString( "airp" )) ||
   	   stage == sOpenCheckIn && string( "СОЧ" ) == Qry.FieldAsString( "airp" ) ) {
-  	Qry.Clear();
-  	Qry.SQLText =
-      " SELECT COUNT(*) c FROM trip_comp_elems "
-      "  WHERE point_id = :point_id AND rownum<2 ";
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    Qry.Execute();
-    if ( !Qry.FieldAsInteger( "c" ) && SALONS::SetCraft( point_id, craft, -1 ) < 0 ) {
-    	TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
-    }     
-  }	
+    if ( SALONS::AutoSetCraft( point_id, craft, -1 ) < 0 ) {
+  	  TReqInfo::Instance()->MsgToLog( string( "Подходящая для рейса компоновка " ) + craft + " не найдена", evtFlt, point_id );
+  	}
+  }
 }
 
 void PrepCheckIn( int point_id )
 {
-	SetCraft( point_id, sPrepCheckIn ); 
+	SetCraft( point_id, sPrepCheckIn );
 }
 
 void OpenCheckIn( int point_id )
 {
-	SetCraft( point_id, sOpenCheckIn ); 
+	tst();
+	SetCraft( point_id, sOpenCheckIn );
+	TQuery Qry(&OraSession);
+	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  tst();
 }
 
 void CloseCheckIn( int point_id )
