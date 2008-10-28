@@ -16,6 +16,7 @@
 #include "tripinfo.h"
 #include "docs.h"
 #include "stat.h"
+#include "salons.h"
 
 using namespace std;
 using namespace BASIC;
@@ -345,6 +346,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
                                       evtFlt, point_id );
       node = node->next;
     };
+    string craft;
+    SALONS::AutoSetCraft( point_id, craft, -1 );
   };
 
   node = GetNode( "trip_sets", reqNode );
@@ -570,6 +573,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "tripcounters", reqNode ) ) {
     readTripCounters( point_id, dataNode );
