@@ -765,7 +765,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
     d.airp = PointsQry.FieldAsString( col_airp );
     d.airp_fmt = PointsQry.FieldAsInteger( col_airp_fmt );
-    d.city = ((TAirpsRow&)airps.get_row( "code", d.airp )).city;
+    d.city = ((TAirpsRow&)airps.get_row( "code", d.airp, true )).city;
 
     if ( PointsQry.FieldIsNULL( col_first_point ) )
       d.first_point = NoExists;
@@ -815,7 +815,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.pr_reg = PointsQry.FieldAsInteger( col_pr_reg );
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
-    d.region = ((TCitiesRow&)cities.get_row( "code", d.city )).region;
+    d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).region;
 
     if ( pr_isg ) {
    	  DelaysQry.SetVariable( "point_id", d.point_id );
@@ -2647,6 +2647,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool insert_point;
   bool pr_begin = true;
   bool change_est_out;
+  bool reSetCraft;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	set_pr_del = false;
   	set_act_out = false;
@@ -2701,6 +2702,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	continue;
     }
   	change_est_out = false;
+  	reSetCraft = false;
 
     if ( insert_point ) {
     	ch_craft = false;
@@ -2804,6 +2806,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         	id->remark = string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) + id->remark;
         reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
   	  }*/
+  	  if ( id->pr_del != -1 && id->airline+IntToString(id->flt_no)+id->suffix != old_dest.airline+IntToString(old_dest.flt_no)+old_dest.suffix ) {
+  	  	reSetCraft = true;
+  	  }
   	  if ( id->pr_del != -1 && !id->craft.empty() && id->craft != old_dest.craft && !old_dest.craft.empty() ) {
   	  	ch_craft = true;
   	  	if ( !old_dest.craft.empty() ) {
@@ -2814,6 +2819,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	else {
   	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
+  	  	reSetCraft = true;
   	  }
   	  if ( id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
@@ -2824,6 +2830,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	else {
   	  		reqInfo->MsgToLog( string( "Назначение борта " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
+  	  	reSetCraft = true;
   	  }
   	  if ( id->pr_del != old_dest.pr_del ) {
   	  	if ( id->pr_del == 1 )
@@ -3048,10 +3055,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		    tolog += IntToString( (int)f ) + " ";
     		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
   	  	}
+  		 reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
+  		 ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	  }
-
-  		reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
-  		ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	}
     if ( set_act_out ) {
     	//!!! еще point_num не записан
@@ -3101,16 +3107,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   		}
   	}
-/*  	if ( ch_dests ) {
-  		Qry.Clear();
-  		Qry.SQLText =
-  		"BEGIN "\
-  		" UPDATE points SET remark=:remark WHERE point_id=:point_id; "\
-  		" ckin.recount(:point_id); "\
-  		"END ";
-  		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		Qry.Execute();
-  	}	*/
+   if ( reSetCraft ) {
+   	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) > 0 )
+   	 	 ch_craft = false;
+   }
   	point_num++;
   } // end for
   if ( ch_point_num ) {
@@ -3186,7 +3186,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     catch( EConvertError &e ) {
       throw UserException( "Неправильно задан код аэропорта" );
     }
-		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp )).city;
+		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp, true )).city;
 		region = CityTZRegion( city );
 		d.region = region;
 		fnode = GetNodeFast( "airline", snode );
