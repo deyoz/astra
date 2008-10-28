@@ -28,6 +28,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "helpcpp.h"
 #include "misc.h"
 #include "stages.h"
+#include "salons.h"
 
 
 using namespace std;
@@ -1493,6 +1494,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 		err++;
 	}
 	else { // update
+		bool change_comp=false;
 		string remark;
 	  AODB_Flight old_fl;
 		point_id = Qry.FieldAsInteger( "point_id" );
@@ -1541,6 +1543,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  	}
  	  	else {
  	  		reqInfo->MsgToLog( string( "Назначение ВС " ) + fl.craft + " порт ВНК" , evtDisp, move_id, point_id );
+ 	  		change_comp = true;
  	  	}
  	  }
  	  Qry.CreateVariable( "bort", otString, fl.bort );
@@ -1552,6 +1555,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  	}
  	  	else {
  	  		reqInfo->MsgToLog( string( "Назначение борта " ) + fl.bort + " порт ВНК", evtDisp, move_id, point_id );
+ 	  		change_comp = true;
  	  	}
  	  }
  	  string tl;
@@ -1635,6 +1639,8 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  	  err++;
  	  Qry.Execute();
  	  err++;
+ 	  if ( change_comp )
+ 	  	SALONS::AutoSetCraft( point_id, fl.craft, -1 );
  	  // теперь работа с пунктами посадки
 /*    int num = 0;
     int point_num = 0;*/
