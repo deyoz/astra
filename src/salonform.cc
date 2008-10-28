@@ -218,6 +218,11 @@ void SalonsInterface::SalonFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     TReqInfo::Instance()->MsgToLog( msg, evtFlt, trip_id );
   }
   SALONS::setTRIP_CLASSES( trip_id );
+  //set flag auto change in false state
+  Qry.Clear();
+	Qry.SQLText = "UPDATE trip_sets SET auto_comp_chg=0 WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, trip_id );
+  Qry.Execute();
 
 
   /* перечитываение компоновки из БД */
