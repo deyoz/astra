@@ -108,7 +108,7 @@ class TSalons {
     int trip_id;
     int comp_id;
     std::string airline;
-    std::string airp;    	
+    std::string airp;
     std::string craft;
     std::string bort;
     std::string descr;
@@ -122,8 +122,8 @@ class TSalons {
     void SetCurrPlaceList( TPlaceList *newPlaceList );
 
     void Clear( );
-       
-    bool getLatSeat() { return pr_lat_seat; };  
+
+    bool getLatSeat() { return pr_lat_seat; };
     void Build( xmlNodePtr salonsNode );
     void Read( TReadStyle readStyle, bool wo_invalid_seat_no = false );
     void Write( TReadStyle readStyle );
@@ -138,15 +138,16 @@ namespace SALONS
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
   void GetTripParams( int trip_id, xmlNodePtr dataNode );
   void GetCompParams( int comp_id, xmlNodePtr dataNode );
-  int GetCompId( const std::string craft, const std::string bort, const std::string airline, 
+  int GetCompId( const std::string craft, const std::string bort, const std::string airline,
                  std::string airp,  int f, int c, int y );
-  int SetCraft( int point_id, std::string &craft, int comp_id );      	                    	
+  int AutoSetCraft( int point_id, std::string &craft, int comp_id );
+  int SetCraft( int point_id, std::string &craft, int comp_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
   void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
   void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
-  void SetFree( const std::string &layer, TPlace &pl );  
-  void SetBlock( const std::string &layer, TPlace &pl );  
+  void SetFree( const std::string &layer, TPlace &pl );
+  void SetBlock( const std::string &layer, TPlace &pl );
   void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
   void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
 }
