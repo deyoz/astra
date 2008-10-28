@@ -52,7 +52,9 @@ class TLines {
 enum TSeatAlg { sSeatGrpOnBasePlace, sSeatGrp, sSeatPassengers, seatAlgLength };
 enum TUseRem { sAllUse, sMaxUse, sOnlyUse, sNotUse, sNotUseDenial, sIgnoreUse, useremLength };
 /* Нельзя разбивать трех, нельзя сажать по одному более одного раза, все можно */
-enum TUseAlone { uFalse3, uFalse1, uTrue };
+enum TUseAlone { uFalse3 /* нельзя оставлять одного при рассадке группы*/,
+	               uFalse1 /* можно оставлять одного только один раз при рассадке группы*/,
+	               uTrue /*можно оставлять одного при рассадке группы любое кол-во раз*/ };
 
 
 string DecodeCanUseRems( TUseRem VCanUseRems )
@@ -624,7 +626,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
   int foundTubeBefore = 0;
   int foundTubeAfter = 0;
   TPlaceList *placeList = CurrSalon->CurrPlaceList();
-  if ( !Wanted && seatplaces.empty() && CanUseAlone != uFalse3 )
+  if ( !Wanted && seatplaces.empty() && CanUseAlone != uFalse3 ) /*нельзя оставлять одного*/
     Alone = true;// это первый заход сюда, надо проинициализировать гл. переменную Alone
   int foundAfter = FindPlaces_From( FP, 0, Step );
   if ( !foundAfter )
@@ -794,7 +796,7 @@ bool TSeatPlaces::SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted )
   }
   /* теперь обсудим следующий вариант: в текущем ряду нашли всего одно место.
      пусть такое допустимо только однажды */
-  if ( foundCount == 1 && CanUseAlone != uTrue )
+  if ( foundCount == 1 && CanUseAlone != uTrue ) /*нельзя оставлять одного*/
     if ( Alone )
       Alone = false;
     else  /* нельзя 2 раза чтобы появлялось одно место в ряду. */
@@ -1888,14 +1890,14 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
         /* оставлять одного несколько раз на рядах при Рассадке группы */
         for ( int FCanUseAlone=uFalse3; FCanUseAlone<=uTrue; FCanUseAlone++ ) {
           CanUseAlone = (TUseAlone)FCanUseAlone;
-          if ( CanUseAlone == uFalse3 &&
+/*          if ( CanUseAlone == uFalse3 &&
                !( !Passengers.counters.p_Count_3( sRight ) &&
                   !Passengers.counters.p_Count_2( sRight ) &&
                   Passengers.counters.p_Count( sRight ) == 3 &&
                   !Passengers.counters.p_Count_3( sDown ) &&
                   !Passengers.counters.p_Count_2( sDown )
-                 ) )
-            continue;
+                 ) ) //???
+            continue;???*/
           if ( CanUseAlone == uTrue && SeatAlg == sSeatPassengers )
             continue;
           /* использование статусов мест */
@@ -1904,6 +1906,7 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
               continue;
             if ( !KeyStatus && ( SeatAlg == sSeatGrpOnBasePlace || SeatAlg == sSeatGrp ) )
             	continue;
+
             /* задаем массив статусов мест */
             SetStatuses( Statuses, Passengers.Get( 0 ).placeStatus, KeyStatus, Status_preseat );
             /* пробег по статусом */
@@ -1926,11 +1929,12 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
               	  	continue;
                   CanUseTube = FCanUseTube;
                   for ( int FCanUseSmoke=Passengers.UseSmoke; FCanUseSmoke>=0; FCanUseSmoke-- ) {
-                    if ( !FCanUseSmoke && CanUseAlone == uFalse3 )
-                      continue;
+/*                    if ( !FCanUseSmoke && CanUseAlone == uFalse3 )
+                      continue; ???*/
+
                     CanUseSmoke = FCanUseSmoke;
-//                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseMCLS=%d",
-//                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow,canUseMCLS);
+/*                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyStatus=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseMCLS=%d",
+                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,KeyStatus,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow,canUseMCLS);*/
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
                         if ( SeatPlaces.SeatGrpOnBasePlace( ) )
