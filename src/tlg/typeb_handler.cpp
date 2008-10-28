@@ -391,7 +391,7 @@ void bind_tlg(void)
     if (bind_tlg(Qry))
     {
       int point_id_tlg=Qry.FieldAsInteger("point_id");
-      crs_recount(point_id_tlg);
+      crs_recount(point_id_tlg,true);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
       SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);

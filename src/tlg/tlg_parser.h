@@ -616,7 +616,7 @@ enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 bool bind_tlg(TQuery &Qry);
 bool bind_tlg(int point_id);
-void crs_recount(int point_id_tlg);
+void crs_recount(int point_id_tlg, bool check_comp);
 
 void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
 void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
