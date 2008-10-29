@@ -1402,7 +1402,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	}
   	else*/
   	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
-    next_date = first_date + 1; // добавляем сутки
+  	  next_date = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region );
     if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
       first_date = f-1; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на
                         // сутки и клиент этот рейс отфильтрует
