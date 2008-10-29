@@ -78,16 +78,16 @@ const char * arx_points_SOPP_SQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
     "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid "
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
     " FROM arx_points,"
-    " (SELECT DISTINCT move_id FROM arx_points "
+    " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
     "         ( :first_date IS NULL OR "
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date ) ) p "
-    "WHERE arx_points.part_key>=:first_date AND "
+    "WHERE arx_points.part_key = p.part_key AND "
     "      arx_points.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
@@ -95,9 +95,9 @@ const char * arx_points_ISG_SQL =
     "SELECT arx_points.move_id,point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
     "       suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
-    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref "
+    "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
     " FROM arx_points, arx_move_ref,"
-    " (SELECT DISTINCT move_id FROM arx_points "
+    " (SELECT DISTINCT move_id, part_key FROM arx_points "
     "   WHERE part_key>=:first_date AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
@@ -105,8 +105,8 @@ const char * arx_points_ISG_SQL =
     "           NVL(act_in,NVL(est_in,scd_in)) >= :first_date AND NVL(act_in,NVL(est_in,scd_in)) < :next_date OR "
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
     "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
-    "WHERE arx_points.part_key>=:first_date AND "
-    "      arx_move_ref.part_key>=:first_date AND "
+    "WHERE arx_points.part_key=p.part_key AND "
+    "      arx_move_ref.part_key=p.part_key AND "
     "      arx_points.move_id = p.move_id AND "
     "      arx_move_ref.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
@@ -120,16 +120,16 @@ const char* classesSQL =
 const char* arx_classesSQL =
     "SELECT class,cfg "\
     " FROM arx_trip_classes,classes "\
-    "WHERE part_key>=:arx_date AND arx_trip_classes.point_id=:point_id AND arx_trip_classes.class=classes.code "\
+    "WHERE part_key=:part_key AND arx_trip_classes.point_id=:point_id AND arx_trip_classes.class=classes.code "\
     "ORDER BY priority";
 const char* regSQL =
     "SELECT SUM(tranzit)+SUM(ok)+SUM(goshow) AS reg FROM counters2 "
     "WHERE point_dep=:point_id";
 const char* arx_regSQL =
     "SELECT SUM(arx_pax.seats) as reg "
-    " FROM arx_pax_grp, arx_pax "\
-    " WHERE arx_pax_grp.part_key>=:arx_date AND arx_pax_grp.point_dep=:point_id AND "\
-    "       arx_pax.part_key>=:arx_date AND "
+    " FROM arx_pax_grp, arx_pax "
+    " WHERE arx_pax_grp.part_key=:part_key AND arx_pax_grp.point_dep=:point_id AND "\
+    "       arx_pax.part_key=:part_key AND "
     "       arx_pax_grp.grp_id=arx_pax.grp_id AND arx_pax.pr_brd IS NOT NULL ";
 const char* resaSQL =
     "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
@@ -139,7 +139,7 @@ const char *stagesSQL =
     " ORDER BY stage_id ";
 const char *arx_stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM arx_trip_stages "
-    " WHERE part_key>=:arx_date AND point_id=:point_id "
+    " WHERE part_key=:part_key AND point_id=:point_id "
     " ORDER BY stage_id ";
 const char* stationsSQL =
     "SELECT stations.name,stations.work_mode,trip_stations.pr_main FROM stations,trip_stations "\
@@ -176,7 +176,7 @@ const char* crs_displace_to_SQL =
 const char* arx_trip_delays_SQL =
   "SELECT delay_num,delay_code,time "
   " FROM arx_trip_delays "
-  "WHERE arx_trip_delays.part_key>=:arx_date AND arx_trip_delays.point_id=:point_id "
+  "WHERE arx_trip_delays.part_key=:part_key AND arx_trip_delays.point_id=:point_id "
   "ORDER BY delay_num";
 const char* trip_delays_SQL =
   "SELECT delay_code,time "
@@ -212,7 +212,7 @@ struct change_act {
 };
 
 
-void read_tripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id );
+void read_tripStages( vector<TSoppStage> &stages, TDateTime part_key, TDateTime first_date, int point_id );
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode, bool pr_isg );
 string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry );
 
@@ -285,6 +285,8 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   trip.airp_fmt = id->airp_fmt;
   trip.city = id->city;
   trip.pr_del = id->pr_del;
+  trip.part_key = id->part_key;
+
   if ( !trip.places_out.empty() ) { // trip is takeoffing
     trip.airline_out = id->airline;
     trip.airline_out_fmt = id->airline_fmt;
@@ -409,13 +411,13 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
   return true;
 }
 
-void read_TripStages( vector<TSoppStage> &stages, bool arx, TDateTime first_date, int point_id )
+void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, TDateTime first_date, int point_id )
 {
 	stages.clear();
   TQuery StagesQry( &OraSession );
-  if ( arx ) {
+  if ( part_key > NoExists ) {
   	StagesQry.SQLText = arx_stagesSQL;
-  	StagesQry.CreateVariable( "arx_date", otDate, first_date - 2 );
+  	StagesQry.CreateVariable( "part_key", otDate, part_key );
   }
   else
     StagesQry.SQLText = stagesSQL;
@@ -615,7 +617,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   TQuery ClassesQry( &OraSession );
   if ( arx ) {
   	ClassesQry.SQLText = arx_classesSQL;
-  	ClassesQry.CreateVariable( "arx_date" ,otDate, first_date - 2 );
+  	ClassesQry.DeclareVariable( "part_key" ,otDate );
   }
   else
     ClassesQry.SQLText = classesSQL;
@@ -623,7 +625,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   TQuery RegQry( &OraSession );
   if ( arx ) {
   	RegQry.SQLText = arx_regSQL;
-  	RegQry.CreateVariable( "arx_date", otDate, first_date - 2 );
+  	RegQry.DeclareVariable( "part_key", otDate );
   }
   else
   	RegQry.SQLText = regSQL;
@@ -661,7 +663,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   if ( pr_isg ) {
     if ( arx ) {
       DelaysQry.SQLText = arx_trip_delays_SQL;
-      DelaysQry.CreateVariable( "arx_date", otDate, first_date - 2 );
+      DelaysQry.DeclareVariable( "part_key", otDate );
     }
     else {
       DelaysQry.SQLText = trip_delays_SQL;
@@ -717,6 +719,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 	int col_name = -1;
 	int col_work_mode = -1;
 	int col_pr_main = -1;
+	int col_part_key = -1;
+	if ( arx )
+		col_part_key = PointsQry.FieldIndex( "part_key" );
   vector<TSOPPTrip> vtrips;
   while ( !PointsQry.Eof ) {
     if ( move_id != PointsQry.FieldAsInteger( col_move_id ) ) {
@@ -816,9 +821,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     d.pr_del = PointsQry.FieldAsInteger( col_pr_del );
     d.tid = PointsQry.FieldAsInteger( col_tid );
     d.region = ((TCitiesRow&)cities.get_row( "code", d.city, true )).region;
+    if ( arx )
+    	d.part_key = PointsQry.FieldAsDateTime( col_part_key );
+    else
+    	d.part_key = NoExists;
 
     if ( pr_isg ) {
    	  DelaysQry.SetVariable( "point_id", d.point_id );
+   	  if ( arx )
+   	  	DelaysQry.SetVariable( "part_key", d.part_key );
       DelaysQry.Execute();
     	while ( !DelaysQry.Eof ) {
     		TSOPPDelay delay;
@@ -874,6 +885,8 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       // добор информации
       if ( !pr_isg ) {
         ClassesQry.SetVariable( "point_id", tr->point_id );
+        if ( arx )
+        	ClassesQry.SetVariable( "part_key", tr->part_key );
         ClassesQry.Execute();
         while ( !ClassesQry.Eof ) {
         	if ( col_class == -1 ) {
@@ -894,6 +907,8 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       if ( !pr_isg ) {
         ///////////////////////////// reg /////////////////////////
         RegQry.SetVariable( "point_id", tr->point_id );
+        if ( arx )
+        	RegQry.SetVariable( "part_key", tr->part_key );
         RegQry.Execute();
         if ( !RegQry.Eof ) {
           tr->reg = RegQry.FieldAsInteger( "reg" );
@@ -918,7 +933,10 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
       } //!pr_isg
       ////////////////////// stages ///////////////////////////////
-      read_TripStages( tr->stages, arx, first_date, tr->point_id );
+      if ( arx )
+        read_TripStages( tr->stages, tr->part_key, first_date, tr->point_id );
+      else
+      	read_TripStages( tr->stages, NoExists, first_date, tr->point_id );
       ////////////////////////// stations //////////////////////////////
       if ( !arx && !pr_isg ) {
         StationsQry.SetVariable( "point_id", tr->point_id );

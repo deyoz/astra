@@ -92,6 +92,7 @@ struct TSOPPDest {
   BASIC::TDateTime scd_out;
   BASIC::TDateTime est_out;
   BASIC::TDateTime act_out;
+  BASIC::TDateTime part_key;
   std::vector<TSOPPDelay> delays;
   std::string triptype;
   std::string litera;
@@ -164,6 +165,7 @@ struct TSOPPTrip {
   BASIC::TDateTime scd_out;
   BASIC::TDateTime est_out;
   BASIC::TDateTime act_out;
+  BASIC::TDateTime part_key;
   std::string triptype_out;
   std::string litera_out;
   std::string park_out;
@@ -198,6 +200,7 @@ struct TSOPPTrip {
     scd_out = ASTRA::NoExists;
     est_out = ASTRA::NoExists;
     act_out = ASTRA::NoExists;
+    part_key = ASTRA::NoExists;
     pr_del_out = -1;
     pr_del = 0;
     reg = 0;
@@ -245,11 +248,11 @@ public:
      AddEvent("WriteDests",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DropFlightFact);
      AddEvent("DropFlightFact",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteISGTrips);     	
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteISGTrips);
      AddEvent("WriteISGTrips",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteISGTrips);     	     	
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteISGTrips);
      AddEvent("DeleteISGTrips",evHandle);
-     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetReportForm);     	     	
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetReportForm);
      AddEvent("get_report_form",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -258,15 +261,15 @@ public:
   void GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+  void WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
-  void GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);    
+  void DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
