@@ -967,6 +967,18 @@ void TTuneTable::GetSQL(string code)
             "   bp_models.fmt_type, "
             "   prn_forms.name, "
             "   bp_models.version ";
+        InsertSQL =
+            "insert into bp_models(form_type, dev_model, fmt_type, id, version) values (:code, :dev_model, :fmt_type, :id, :version)";
+        UpdateSQL =
+            "update bp_models set id = :id, version = :version where "
+            "   form_type = :OLD_code and "
+            "   dev_model = :OLD_dev_model and "
+            "   fmt_type = :OLD_fmt_type ";
+        DeleteSQL =
+            "delete from bp_models where "
+            "   form_type = :OLD_code and "
+            "   dev_model = :OLD_dev_model and "
+            "   fmt_type = :OLD_fmt_type ";
     }
     if(code == "PRN_FORMS") {
         SelectSQL = "select id, op_type, name, fmt_type from prn_forms order by name, fmt_type";
