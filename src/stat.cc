@@ -20,6 +20,61 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 
+const string AIRP_PERIODS =
+" (SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
+"        DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
+" FROM \n"
+" (SELECT distinct change_point AS period_first_date, \n"
+"         get_airp_period_last_date(:ap,change_point) AS period_last_date \n"
+"  FROM pacts, \n"
+"   (SELECT first_date AS change_point \n"
+"    FROM pacts \n"
+"    WHERE airp=:ap \n"
+"    UNION \n"
+"    SELECT last_date   \n"
+"    FROM pacts \n"
+"    WHERE airp=:ap AND last_date IS NOT NULL) a \n"
+"  WHERE airp=:ap AND  \n"
+"        change_point>=first_date AND  \n"
+"        (last_date IS NULL OR change_point<last_date) AND \n"
+"        airline IS NULL) periods \n"
+"WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND  \n"
+"      period_first_date<:LastDate) periods \n";
+const string AIRLINE_PERIODS =
+" (SELECT DECODE(SIGN(period_first_date-:FirstDate),1,period_first_date,:FirstDate) AS period_first_date, \n"
+"        DECODE(SIGN(period_last_date- :LastDate),-1,period_last_date, :LastDate) AS period_last_date \n"
+" FROM \n"
+"  (SELECT distinct change_point AS period_first_date, \n"
+"          get_airline_period_last_date(:ak,change_point) AS period_last_date \n"
+"   FROM pacts,  \n"
+"    (SELECT first_date AS change_point \n"
+"     FROM pacts \n"
+"     WHERE airline=:ak \n"
+"     UNION \n"
+"     SELECT last_date   \n"
+"     FROM pacts \n"
+"     WHERE airline=:ak AND last_date IS NOT NULL) a \n"
+"  WHERE airline=:ak AND  \n"
+"        change_point>=first_date AND  \n"
+"        (last_date IS NULL OR change_point<last_date)) periods \n"
+" WHERE (period_last_date IS NULL OR period_last_date>:FirstDate) AND  \n"
+"       period_first_date<:LastDate) periods \n";
+
+const string AIRLINE_LIST =
+" (SELECT airline  \n"
+"  FROM pacts  \n"
+"  WHERE airp=:ap AND \n"
+"  first_date<=periods.period_first_date AND  \n"
+"  (last_date IS NULL OR periods.period_first_date<last_date) AND \n"
+"  airline IS NOT NULL) \n";
+
+const string AIRP_LIST =
+" (SELECT airp  \n"
+"  FROM pacts  \n"
+"  WHERE airline=:ak AND \n"
+"  first_date<=periods.period_first_date AND  \n"
+"  (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
+
 void GetPaxSrcDestSQL(TQuery &Qry);
 void GetPaxSrcAwkSQL(TQuery &Qry);
 void GetPaxListSQL(TQuery &Qry);
@@ -2253,28 +2308,37 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TQuery Qry(&OraSession);
     string SQLText =
-        "select "
-        "  points.airp, "
-        "  points.airline, "
-        "  points.flt_no, "
-        "  points.scd_out, "
-        "  stat.point_id, "
-        "  ckin.get_airps(stat.point_id) places, "
-        "  sum(adult + child + baby) pax_amount, "
-        "  sum(adult) adult, "
-        "  sum(child) child, "
-        "  sum(baby) baby, "
-        "  sum(unchecked) rk_weight, "
-        "  sum(pcs) bag_amount, "
-        "  sum(weight) bag_weight, "
-        "  sum(excess) excess "
-        "from "
-        "  points, "
-        "  stat, "
-        "  pacts "
-        "where "
-        "  points.point_id = stat.point_id and points.pr_del>=0 and "
-        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        "select \n"
+        "  points.airp, \n"
+        "  points.airline, \n"
+        "  points.flt_no, \n"
+        "  points.scd_out, \n"
+        "  stat.point_id, \n"
+        "  ckin.get_airps(stat.point_id) places, \n"
+        "  sum(adult + child + baby) pax_amount, \n"
+        "  sum(adult) adult, \n"
+        "  sum(child) child, \n"
+        "  sum(baby) baby, \n"
+        "  sum(unchecked) rk_weight, \n"
+        "  sum(pcs) bag_amount, \n"
+        "  sum(weight) bag_weight, \n"
+        "  sum(excess) excess \n"
+        "from \n"
+        "  points, \n"
+        "  stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n"
+        "  points.point_id = stat.point_id and points.pr_del>=0 and \n";
+    if(ap.empty() and ak.empty())
+        SQLText +=
+            "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    else
+        SQLText +=
+            "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2289,71 +2353,59 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and points.airp = :ap and "
-            " points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(points.point_id,points.airline) not in( "
-            "    select p.point_id, p.airline from points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and points.airp = :ap and \n"
+            " points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and points.airline = :ak and "
-            " points.airline = pacts.airline and "
-            " points.airp = pacts.airp and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and points.airline = :ak and \n"
+            " points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText +=
-        "group by "
-        "  points.airp, "
-        "  points.airline, "
-        "  points.flt_no, "
-        "  points.scd_out, "
-        "  stat.point_id "
-        "union "
-        "select "
-        "  arx_points.airp, "
-        "  arx_points.airline, "
-        "  arx_points.flt_no, "
-        "  arx_points.scd_out, "
-        "  arx_stat.point_id, "
-        "  arch.get_airps(arx_stat.point_id, arx_stat.part_key) places, "
-        "  sum(adult + child + baby) pax_amount, "
-        "  sum(adult) adult, "
-        "  sum(child) child, "
-        "  sum(baby) baby, "
-        "  sum(unchecked) rk_weight, "
-        "  sum(pcs) bag_amount, "
-        "  sum(weight) bag_weight, "
-        "  sum(excess) excess "
-        "from "
-        "  arx_points, "
-        "  arx_stat, "
-        "  pacts "
-        "where "
-        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
-        "  arx_points.pr_del>=0 AND "
-        "  arx_points.part_key = arx_stat.part_key AND "
-        "  arx_points.point_id = arx_stat.point_id ";
+        "group by \n"
+        "  points.airp, \n"
+        "  points.airline, \n"
+        "  points.flt_no, \n"
+        "  points.scd_out, \n"
+        "  stat.point_id \n"
+        "union \n"
+        "select \n"
+        "  arx_points.airp, \n"
+        "  arx_points.airline, \n"
+        "  arx_points.flt_no, \n"
+        "  arx_points.scd_out, \n"
+        "  arx_stat.point_id, \n"
+        "  arch.get_airps(arx_stat.point_id, arx_stat.part_key) places, \n"
+        "  sum(adult + child + baby) pax_amount, \n"
+        "  sum(adult) adult, \n"
+        "  sum(child) child, \n"
+        "  sum(baby) baby, \n"
+        "  sum(unchecked) rk_weight, \n"
+        "  sum(pcs) bag_amount, \n"
+        "  sum(weight) bag_weight, \n"
+        "  sum(excess) excess \n"
+        "from \n"
+        "  arx_points, \n"
+        "  arx_stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n";
+    if(ap.empty() and ak.empty())
+        SQLText +=
+            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
+            "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND ";
+    else
+        SQLText +=
+        "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND "
+        "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND ";
+    SQLText +=
+        "  arx_points.pr_del>=0 AND \n"
+        "  arx_points.part_key = arx_stat.part_key AND \n"
+        "  arx_points.point_id = arx_stat.point_id \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2368,61 +2420,37 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and arx_points.airp = :ap and "
-            " arx_points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(arx_points.point_id,arx_points.airline) not in( "
-            "    select p.point_id, p.airline from arx_points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.part_key >= :FirstDate -5 AND p.part_key < :LastDate AND "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = arx_points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and arx_points.airp = :ap and \n"
+            " arx_points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and arx_points.airline = :ak and "
-            " arx_points.airline = pacts.airline and "
-            " arx_points.airp = pacts.airp and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and arx_points.airline = :ak and \n"
+            " arx_points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText +=
-        "group by "
-        "  arx_points.airp, "
-        "  arx_points.airline, "
-        "  arx_points.flt_no, "
-        "  arx_points.scd_out, "
-        "  arx_stat.point_id, "
-        "  arx_stat.part_key "
-        "order by ";
+        "group by \n"
+        "  arx_points.airp, \n"
+        "  arx_points.airline, \n"
+        "  arx_points.flt_no, \n"
+        "  arx_points.scd_out, \n"
+        "  arx_stat.point_id, \n"
+        "  arx_stat.part_key \n"
+        "order by \n";
     if(ap.size())
         SQLText +=
-            "    airp, "
-            "    airline, ";
+            "    airp, \n"
+            "    airline, \n";
     else
         SQLText +=
-            "    airline, "
-            "    airp, ";
+            "    airline, \n"
+            "    airp, \n";
     SQLText +=
-        "    flt_no, "
-        "    scd_out, "
-        "    point_id, "
-        "    places ";
+        "    flt_no, \n"
+        "    scd_out, \n"
+        "    point_id, \n"
+        "    places \n";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
 
@@ -2612,35 +2640,44 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TQuery Qry(&OraSession);
     string SQLText =
-        "select  ";
+        "select  \n";
     if(ap.size())
         SQLText +=
-        "    airp,  ";
+        "    airp,  \n";
     else
         SQLText +=
-        "    airline,  ";
+        "    airline,  \n";
     SQLText +=
-        "    sum(flt_amount) flt_amount, "
-        "    sum(pax_amount) pax_amount "
-        "from  "
-        "( "
-        "select  ";
+        "    sum(flt_amount) flt_amount, \n"
+        "    sum(pax_amount) pax_amount \n"
+        "from  \n"
+        "( \n"
+        "select  \n";
     if(ap.size())
         SQLText +=
-        "    points.airp,  ";
+        "    points.airp,  \n";
     else
         SQLText +=
-        "    points.airline,  ";
+        "    points.airline,  \n";
     SQLText +=
-        "    count(distinct stat.point_id) flt_amount, "
-        "    sum(adult + child + baby) pax_amount "
-        "from  "
-        "  points, "
-        "  stat, "
-        "  pacts "
-        "where "
-        "  points.point_id = stat.point_id and points.pr_del>=0 and "
-        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        "    count(distinct stat.point_id) flt_amount, \n"
+        "    sum(adult + child + baby) pax_amount \n"
+        "from  \n"
+        "  points, \n"
+        "  stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n"
+        "  points.point_id = stat.point_id and points.pr_del>=0 and \n";
+    if(ap.empty() and ak.empty())
+        SQLText +=
+            "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    else
+        SQLText +=
+            "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2655,68 +2692,56 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and points.airp = :ap and "
-            " points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(points.point_id,points.airline) not in( "
-            "    select p.point_id, p.airline from points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and points.airp = :ap and \n"
+            " points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and points.airline = :ak and "
-            " points.airline = pacts.airline and "
-            " points.airp = pacts.airp and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and points.airline = :ak and \n"
+            " points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText +=
-        "group by  ";
+        "group by  \n";
     if(ap.size())
         SQLText +=
-        "    points.airp ";
+        "    points.airp \n";
     else
         SQLText +=
-        "    points.airline ";
+        "    points.airline \n";
     SQLText +=
-        "union "
-        "select  ";
+        "union \n"
+        "select  \n";
     if(ap.size())
         SQLText +=
-        "    arx_points.airp,  ";
+        "    arx_points.airp,  \n";
     else
         SQLText +=
-        "    arx_points.airline,  ";
+        "    arx_points.airline,  \n";
     SQLText +=
-        "    count(distinct arx_stat.point_id) flt_amount, "
-        "    sum(adult + child + baby) pax_amount "
-        "from  "
-        "  arx_points, "
-        "  arx_stat, "
-        "  pacts "
-        "where "
-        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
-        "  arx_points.pr_del>=0 AND "
-        "  arx_points.part_key = arx_stat.part_key AND "
-        "  arx_points.point_id = arx_stat.point_id ";
+        "    count(distinct arx_stat.point_id) flt_amount, \n"
+        "    sum(adult + child + baby) pax_amount \n"
+        "from  \n"
+        "  arx_points, \n"
+        "  arx_stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n";
+    if(ap.empty() and ak.empty())
+        SQLText +=
+            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND \n"
+            "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
+    else
+        SQLText +=
+        "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND \n"
+        "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND \n";
+    SQLText +=
+        "  arx_points.pr_del>=0 AND \n"
+        "  arx_points.part_key = arx_stat.part_key AND \n"
+        "  arx_points.point_id = arx_stat.point_id \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2731,63 +2756,39 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and arx_points.airp = :ap and "
-            " arx_points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(arx_points.point_id,arx_points.airline) not in( "
-            "    select p.point_id, p.airline from arx_points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.part_key >= :FirstDate -5 AND p.part_key < :LastDate AND "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = arx_points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and arx_points.airp = :ap and \n"
+            " arx_points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and arx_points.airline = :ak and "
-            " arx_points.airline = pacts.airline and "
-            " arx_points.airp = pacts.airp and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and arx_points.airline = :ak and \n"
+            " arx_points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
         SQLText +=
-        "group by  ";
+        "group by  \n";
     if(ap.size())
         SQLText +=
-        "    arx_points.airp ";
+        "    arx_points.airp \n";
     else
         SQLText +=
-        "    arx_points.airline ";
+        "    arx_points.airline \n";
         SQLText +=
-        ") group by  ";
+        ") group by  \n";
     if(ap.size())
         SQLText +=
-        "    airp ";
+        "    airp \n";
     else
         SQLText +=
-        "    airline ";
+        "    airline \n";
     SQLText +=
-        "order by  ";
+        "order by  \n";
     if(ap.size())
         SQLText +=
-        "    airp ";
+        "    airp \n";
     else
         SQLText +=
-        "    airline ";
+        "    airline \n";
 
     ProgTrace(TRACE5, "%s", SQLText.c_str());
 
@@ -2861,25 +2862,34 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     TQuery Qry(&OraSession);
     string SQLText =
-        "select "
-        "    airp, "
-        "    airline, "
-        "    sum(flt_amount) flt_amount, "
-        "    sum(pax_amount) pax_amount "
-        "from "
-        "( "
-        "select "
-        "  points.airp, "
-        "  points.airline, "
-        "  count(distinct stat.point_id) flt_amount, "
-        "  sum(adult + child + baby) pax_amount "
-        "from "
-        "  points, "
-        "  stat, "
-        "  pacts "
-        "where "
-        "  points.point_id = stat.point_id and points.pr_del>=0 and "
-        "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+        "select \n"
+        "    airp, \n"
+        "    airline, \n"
+        "    sum(flt_amount) flt_amount, \n"
+        "    sum(pax_amount) pax_amount \n"
+        "from \n"
+        "( \n"
+        "select \n"
+        "  points.airp, \n"
+        "  points.airline, \n"
+        "  count(distinct stat.point_id) flt_amount, \n"
+        "  sum(adult + child + baby) pax_amount \n"
+        "from \n"
+        "  points, \n"
+        "  stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n"
+        "  points.point_id = stat.point_id and points.pr_del>=0 and \n";
+    if(ap.empty() and ak.empty())
+        SQLText +=
+            "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+    else
+        SQLText +=
+            "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2894,58 +2904,46 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and points.airp = :ap and "
-            " points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(points.point_id,points.airline) not in( "
-            "    select p.point_id, p.airline from points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and points.airp = :ap and \n"
+            " points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and points.airline = :ak and "
-            " points.airline = pacts.airline and "
-            " points.airp = pacts.airp and "
-            " points.scd_out >= pacts.first_date and "
-            " points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and points.airline = :ak and \n"
+            " points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
+    SQLText +=
+        "group by \n"
+        "  points.airp, \n"
+        "  points.airline \n"
+        "union \n"
+        "select \n"
+        "  arx_points.airp, \n"
+        "  arx_points.airline, \n"
+        "  count(distinct arx_stat.point_id) flt_amount, \n"
+        "  sum(adult + child + baby) pax_amount \n"
+        "from \n"
+        "  arx_points, \n"
+        "  arx_stat \n";
+    if(!ap.empty())
+        SQLText += ", " + AIRP_PERIODS;
+    else if(!ak.empty())
+        SQLText += ", " + AIRLINE_PERIODS;
+    SQLText +=
+        "where \n";
+    if(ap.empty() and ak.empty())
         SQLText +=
-        "group by "
-        "  points.airp, "
-        "  points.airline "
-        "union "
-        "select "
-        "  arx_points.airp, "
-        "  arx_points.airline, "
-        "  count(distinct arx_stat.point_id) flt_amount, "
-        "  sum(adult + child + baby) pax_amount "
-        "from "
-        "  arx_points, "
-        "  arx_stat, "
-        "  pacts "
-        "where "
-        "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
-        "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND "
-        "  arx_points.pr_del>=0 AND "
-        "  arx_points.part_key = arx_stat.part_key AND "
-        "  arx_points.point_id = arx_stat.point_id ";
+            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND \n"
+            "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
+    else
+        SQLText +=
+            "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND \n"
+            "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND \n";
+    SQLText +=
+        "  arx_points.pr_del>=0 AND \n"
+        "  arx_points.part_key = arx_stat.part_key AND \n"
+        "  arx_points.point_id = arx_stat.point_id \n";
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             SQLText += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -2960,56 +2958,32 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
     if(ap.size()) {
         SQLText +=
-            " and arx_points.airp = :ap and "
-            " arx_points.airp = pacts.airp and "
-            " pacts.airline is null and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate and "
-            "(arx_points.point_id,arx_points.airline) not in( "
-            "    select p.point_id, p.airline from arx_points p, pacts pp where  "
-            "     p.pr_del>=0 and "
-            "     p.scd_out >= :FirstDate AND "
-            "     p.scd_out < :LastDate  and "
-            "     p.part_key >= :FirstDate -5 AND p.part_key < :LastDate AND "
-            "     p.airp = :ap and "
-            "     p.airp = pp.airp and "
-            "     pp.airline = arx_points.airline and "
-            "     p.scd_out >= pp.first_date and "
-            "     p.scd_out < nvl(pp.last_date, :LastDate) and "
-            "     pp.first_date < :LastDate and "
-            "     nvl(pp.last_date, :LastDate)  >= :LastDate "
-            ") ";
+            " and arx_points.airp = :ap and \n"
+            " arx_points.airline not in " + AIRLINE_LIST;
         Qry.CreateVariable("ap", otString, ap);
     } else if(ak.size()) {
         SQLText +=
-            " and arx_points.airline = :ak and "
-            " arx_points.airline = pacts.airline and "
-            " arx_points.airp = pacts.airp and "
-            " arx_points.scd_out >= pacts.first_date and "
-            " arx_points.scd_out < nvl(pacts.last_date, :LastDate) and "
-            " pacts.first_date < :LastDate and "
-            " nvl(pacts.last_date, :LastDate)  >= :FirstDate ";
+            " and arx_points.airline = :ak and \n"
+            " arx_points.airp in " + AIRP_LIST;
         Qry.CreateVariable("ak", otString, ak);
     }
-        SQLText +=
-        "group by "
-        "  arx_points.airp, "
-        "  arx_points.airline "
-        ") "
-        "group by "
-        "    airp, "
-        "    airline "
-        "order by  ";
+    SQLText +=
+        "group by \n"
+        "  arx_points.airp, \n"
+        "  arx_points.airline \n"
+        ") \n"
+        "group by \n"
+        "    airp, \n"
+        "    airline \n"
+        "order by  \n";
     if(ap.size())
         SQLText +=
-        "    airp, "
-        "    airline ";
+            "    airp, \n"
+            "    airline \n";
     else
         SQLText +=
-        "    airline, "
-        "    airp ";
+            "    airline, \n"
+            "    airp \n";
 
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
 
