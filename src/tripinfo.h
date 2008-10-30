@@ -48,18 +48,19 @@ public:
 
 std::string convertLastTrfer(std::string s);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
-void viewPNL( int point_id, xmlNodePtr dataNode );
+/*void viewPNL( int point_id, xmlNodePtr dataNode );*/
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
 class TTripInfo
 {
   public:
     std::string airline,suffix,airp;
-    int flt_no;
+    int flt_no, pr_del;
     BASIC::TDateTime scd_out,real_out,real_out_local_date;
     TTripInfo()
     {
       flt_no=0;
+      pr_del = ASTRA::NoExists;
       scd_out=ASTRA::NoExists;
       real_out=ASTRA::NoExists;
       real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
@@ -73,6 +74,7 @@ class TTripInfo
       scd_out=Qry.FieldAsDateTime("scd_out");
       real_out=Qry.FieldAsDateTime("real_out");
       real_out_local_date=ASTRA::NoExists;
+      pr_del = ASTRA::NoExists;
     };
 };
 

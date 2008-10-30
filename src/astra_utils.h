@@ -224,6 +224,8 @@ ASTRA::TQueue DecodeQueue(int q);
 int EncodeQueue(ASTRA::TQueue q);
 ASTRA::TPaxStatus DecodePaxStatus(char* s);
 char* EncodePaxStatus(ASTRA::TPaxStatus s);
+ASTRA::TCompLayerType DecodeCompLayerType(char* s);
+char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 
 
 char DecodeStatus(char* s);
@@ -286,7 +288,6 @@ class UserException2:public EXCEPTIONS::UserException
     UserException2(): UserException(""){};
 };
 
-std::string convert_seat_no(const std::string &value, bool pr_lat);
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);

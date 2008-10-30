@@ -29,6 +29,7 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
+    sleep(10);
     OpenLogFile("logairimp");
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
@@ -59,11 +60,11 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
     }; // end of loop
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
-    ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+    ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s)",E.Code,E.what(),E.SQLText());
   }
-  catch(Exception E)
+  catch(Exception &E)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
   }
@@ -173,8 +174,11 @@ void handle_tlg(void)
         EOracleError *orae=dynamic_cast<EOracleError*>(&E);
       	if (orae!=NULL&&
       	    (orae->Code==4061||orae->Code==4068)) continue;
-        ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
-        sendErrorTlg("Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
+      	if (orae!=NULL)
+      	  ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s\nSQL: %s",tlg_id,tlg_num,E.what(),orae->SQLText());
+      	else
+          ProgError(STDLOG,"Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
+        //sendErrorTlg("Telegram (tlgs_in.id: %d, tlgs_in.num: %d): %s",tlg_id,tlg_num,E.what());
         TlgInUpdQry.Execute();
         OraSession.Commit();
         continue;
@@ -281,6 +285,15 @@ void handle_tlg(void)
               OraSession.Commit();
               count++;
             };
+            if (strcmp(info.tlg_type,"SOM")==0)
+            {
+              TSOMContent con;
+              ParseSOMContent(part,info,con);
+              SaveSOMContent(tlg_id,info,con);
+              TlgInUpdQry.Execute();
+              OraSession.Commit();
+              count++;
+            };
             break;
           }
           case tcBSM:
@@ -329,8 +342,11 @@ void handle_tlg(void)
         	EOracleError *orae=dynamic_cast<EOracleError*>(&E);
         	if (orae!=NULL&&
         	    (orae->Code==4061||orae->Code==4068)) continue;
-          ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
-          sendErrorTlg("Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+        	if (orae!=NULL)
+        	  ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s\nSQL: %s",tlg_id,E.what(),orae->SQLText());
+        	else
+            ProgError(STDLOG,"Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
+          //sendErrorTlg("Telegram (tlgs_in.id: %d): %s",tlg_id,E.what());
           TlgInUpdQry.Execute();
           OraSession.Commit();
         }
@@ -373,7 +389,14 @@ void bind_tlg(void)
   for(;!Qry.Eof;Qry.Next(),count++)
   {
     if (bind_tlg(Qry))
-      crs_recount(Qry.FieldAsInteger("point_id"));
+    {
+      int point_id_tlg=Qry.FieldAsInteger("point_id");
+      crs_recount(point_id_tlg,true);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltSOMTrzt);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPRLTrzt);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPNLCkin);
+      SyncTlgCompLayers(point_id_tlg, ASTRA::cltPreseat);
+    };
   };
   OraSession.Commit();
 

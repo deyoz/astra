@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <libxml/tree.h>
 
 enum TReadStyle { rTripSalons, rComponSalons };
@@ -47,6 +48,7 @@ class TPlace {
     bool block;
     bool passSel;
     std::vector<TRem> rems;
+    std::vector<std::string> layers;
     TPlace() {
       x = -1;
       y = -1;
@@ -56,11 +58,13 @@ class TPlace {
       yprior = -1;
       xnext = -1;
       ynext = -1;
+      agle = 0;
       pr_smoke = false;
       not_good = false;
       status = "FP";
       pr_free = true;
       block = false;
+      passSel = false;
     }
     void Assign( TPlace &pl );
 };
@@ -88,14 +92,23 @@ class TPlaceList {
     void Add( TPlace &pl );
 };
 
+struct TLayerPriority {
+	std::string code;
+	std::string layer;
+	int priority;
+};
+
 class TSalons {
   private:
+  	std::map<std::string,int> status_priority;
+  	std::vector<TLayerPriority> layer_priority;
     TPlaceList* FCurrPlaceList;
+    bool pr_lat_seat;
   public:
     int trip_id;
     int comp_id;
     std::string airline;
-    std::string airp;    	
+    std::string airp;
     std::string craft;
     std::string bort;
     std::string descr;
@@ -109,15 +122,35 @@ class TSalons {
     void SetCurrPlaceList( TPlaceList *newPlaceList );
 
     void Clear( );
-    static bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
-    static void GetTripParams( int trip_id, xmlNodePtr dataNode );
-    static void GetCompParams( int comp_id, xmlNodePtr dataNode );
+
+    bool getLatSeat() { return pr_lat_seat; };
     void Build( xmlNodePtr salonsNode );
-    void Read( TReadStyle readStyle );
+    void Read( TReadStyle readStyle, bool wo_invalid_seat_no = false );
     void Write( TReadStyle readStyle );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );
 };
+
+namespace SALONS
+{
+	typedef std::pair<int,TPlace> TSalonSeat;
+	bool Checkin( int pax_id );
+  bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
+  void GetTripParams( int trip_id, xmlNodePtr dataNode );
+  void GetCompParams( int comp_id, xmlNodePtr dataNode );
+  int GetCompId( const std::string craft, const std::string bort, const std::string airline,
+                 std::string airp,  int f, int c, int y );
+  int AutoSetCraft( int point_id, std::string &craft, int comp_id );
+  int SetCraft( int point_id, std::string &craft, int comp_id );
+  void InitVIP( int point_id );
+  void setTRIP_CLASSES( int point_id );
+  void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
+  void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
+  void SetFree( const std::string &layer, TPlace &pl );
+  void SetBlock( const std::string &layer, TPlace &pl );
+  void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
+  void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
+}
 
 #endif /*_SALONS_H_*/
 

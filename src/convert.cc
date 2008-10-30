@@ -26,7 +26,7 @@ bool is_iata_row(std::string row)
 {
     bool result = false;
     try {
-        int row_num = StrToInt(row);
+        int row_num = ToInt(row);
         if(row_num >= 1 and row_num <=99 or row_num >= 101 and row_num <= 199)
             result = true;
     } catch(...) {
@@ -34,7 +34,12 @@ bool is_iata_row(std::string row)
     return result;
 }
 
-string norm_iata_line(std::string line, bool pr_lat)
+string norm_iata_line(std::string line)
+{
+    return denorm_iata_line(line, true);
+}
+
+string denorm_iata_line(std::string line, bool pr_lat)
 {
     if(is_iata_line(line)) {
         for(size_t i = 0; i < strlen(rus_seat); i++)

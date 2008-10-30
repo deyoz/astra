@@ -123,7 +123,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,trace_level,lang "
+    "SELECT city,trace_level,lang,NVL(under_constr,0) AS under_constr "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -131,6 +131,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
+  if (Qry.FieldAsInteger("under_constr")!=0)
+    throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
   desk.city = Qry.FieldAsString( "city" );
   desk.lang = Qry.FieldAsString( "lang" );
   if (!Qry.FieldIsNULL("trace_level"))
@@ -548,8 +550,8 @@ string EncodeEventType(const TEventType ev_type )
 TDocType DecodeDocType(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TDocTypeS);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
-  if (i<sizeof(TDocTypeS))
+  for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
+  if (i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]))
     return (TDocType)i;
   else
     return dtUnknown;
@@ -563,8 +565,8 @@ char* EncodeDocType(TDocType doc)
 TClass DecodeClass(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TClassS);i+=1) if (strcmp(s,TClassS[i])==0) break;
-  if (i<sizeof(TClassS))
+  for(i=0;i<sizeof(TClassS)/sizeof(TClassS[0]);i+=1) if (strcmp(s,TClassS[i])==0) break;
+  if (i<sizeof(TClassS)/sizeof(TClassS[0]))
     return (TClass)i;
   else
     return NoClass;
@@ -578,8 +580,8 @@ char* EncodeClass(TClass cl)
 TPerson DecodePerson(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TPersonS);i+=1) if (strcmp(s,TPersonS[i])==0) break;
-  if (i<sizeof(TPersonS))
+  for(i=0;i<sizeof(TPersonS)/sizeof(TPersonS[0]);i+=1) if (strcmp(s,TPersonS[i])==0) break;
+  if (i<sizeof(TPersonS)/sizeof(TPersonS[0]))
     return (TPerson)i;
   else
     return NoPerson;
@@ -593,8 +595,8 @@ char* EncodePerson(TPerson p)
 TQueue DecodeQueue(int q)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TQueueS);i+=1) if (q==TQueueS[i]) break;
-  if (i<sizeof(TQueueS))
+  for(i=0;i<sizeof(TQueueS)/sizeof(TQueueS[0]);i+=1) if (q==TQueueS[i]) break;
+  if (i<sizeof(TQueueS)/sizeof(TQueueS[0]))
     return (TQueue)i;
   else
     return NoQueue;
@@ -608,8 +610,8 @@ int EncodeQueue(TQueue q)
 TPaxStatus DecodePaxStatus(char* s)
 {
   unsigned int i;
-  for(i=0;i<sizeof(TPaxStatusS);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
-  if (i<sizeof(TPaxStatusS))
+  for(i=0;i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
+  if (i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]))
     return (TPaxStatus)i;
   else
     return psOk;
@@ -618,6 +620,21 @@ TPaxStatus DecodePaxStatus(char* s)
 char* EncodePaxStatus(TPaxStatus s)
 {
   return (char*)TPaxStatusS[s];
+};
+
+TCompLayerType DecodeCompLayerType(char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(CompLayerTypeS)/sizeof(CompLayerTypeS[0]);i+=1) if (strcmp(s,CompLayerTypeS[i])==0) break;
+  if (i<sizeof(CompLayerTypeS)/sizeof(CompLayerTypeS[0]))
+    return (TCompLayerType)i;
+  else
+    return cltUnknown;
+};
+
+char* EncodeCompLayerType(TCompLayerType s)
+{
+  return (char*)CompLayerTypeS[s];
 };
 
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
@@ -1084,6 +1101,7 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
     case etSuffix:
   		msg2 = "etSuffix";
   		break;
+  	default:;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
   throw EConvertError( msg1.c_str() );
@@ -1562,24 +1580,6 @@ bool is_dst(TDateTime d, string region)
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   return ( tz->has_dst() && ld.is_dst() );
 }
-
-char ToLatSeatNo(char c)
-{
-  if ((unsigned char)c>=0x80)
-  {
-    ByteReplace(&c,1,rus_seat,lat_seat);
-    if ((unsigned char)c>=0x80) c='?';
-  };
-  return c;
-};
-
-string convert_seat_no(const string &value, bool pr_lat)
-{
-  string result = value;
-  if (pr_lat)
-    transform(result.begin(), result.end(), result.begin(), ToLatSeatNo);
-  return result;
-};
 
 char ToLatPnrAddr(char c)
 {

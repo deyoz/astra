@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
+#include "seats.h"
 
 class ETlgError:public EXCEPTIONS::Exception
 {
@@ -41,10 +42,14 @@ enum TTlgElement
                TotalsByDestination,
                //PTM
                TransferPassengerData,
+               //SOM
+               SeatingCategories,
+               SeatsByDestination,
+               SupplementaryInfo,
                //общие
                EndOfMessage};
 
-extern const char* TTlgElementS[13];
+extern const char* TTlgElementS[16];
 
 enum TIndicator{None,ADD,CHG,DEL};
 
@@ -59,13 +64,6 @@ class TTlgPartInfo
     {
       p=NULL;
       line=0;
-    };
-    TTlgPartInfo& operator =(const TTlgPartInfo &info)
-    {
-      if (this == &info) return *this;
-      p=info.p;
-      line=info.line;
-      return *this;
     };
 };
 
@@ -216,22 +214,6 @@ typedef struct
   std::vector<TSeatsItem> seats;
 } TRouteItem;
 
-class TSeat
-{
-  public:
-    int row;
-    char line;
-    char rem[5];
-    TSeat()
-    {
-      row=0;
-      line=0;
-      *rem=0;
-    };
-};
-
-typedef std::pair<TSeat,TSeat> TSeatRange;
-
 class TDocItem
 {
   public:
@@ -341,7 +323,9 @@ class TPaxItem
     std::string name;
     ASTRA::TPerson pers_type;
     long seats;
-    TSeat seat;
+    std::vector<TSeatRange> seatRanges;
+    TSeat seat; //это место, назначенное разборщиком на основе tlg_comp_layers
+    char seat_type[5];
     std::vector<TRemItem> rem;
     std::vector<TInfItem> inf;
     std::vector<TDocItem> doc;
@@ -351,6 +335,7 @@ class TPaxItem
     {
       pers_type=ASTRA::adult;
       seats=1;
+      *seat_type=0;
     };
 };
 
@@ -383,6 +368,7 @@ class TNameElement
     std::string surname;
     std::vector<TPaxItem> pax;
     std::vector<TRemItem> rem;
+    std::vector<TSeatRange> seatRanges;
     TNameElement()
     {
       Clear();
@@ -394,6 +380,7 @@ class TNameElement
       surname.clear();
       pax.clear();
       rem.clear();
+      seatRanges.clear();
     };
 };
 
@@ -510,6 +497,34 @@ class TPtmContent
     };
 };
 
+class TSeatsByDest
+{
+  public:
+    char airp_arv[4];
+    std::vector<TSeatRange> ranges;
+    TSeatsByDest()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      *airp_arv=0;
+      ranges.clear();
+    };
+};
+
+class TSOMContent
+{
+  public:
+    TFltInfo flt;
+    std::vector<TSeatsByDest> seats;
+    void Clear()
+    {
+      flt.Clear();
+      seats.clear();
+    };
+};
+
 class TBtmTagItem
 {
   public:
@@ -590,16 +605,23 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
 void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent& con);
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con);
 void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con);
+void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con);
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly);
 void SavePTMContent(int tlg_id, TDCSHeadingInfo& info, TPtmContent& con);
 void SaveBTMContent(int tlg_id, TBSMHeadingInfo& info, TBtmContent& con);
+void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con);
 void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt);
 
 enum TBindType {btFirstSeg=0,btAllSeg=2,btLastSeg=1};
 int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type);
 bool bind_tlg(TQuery &Qry);
 bool bind_tlg(int point_id);
-void crs_recount(int point_id_tlg);
+void crs_recount(int point_id_tlg, bool check_comp);
+
+void ParseSeatRange(std::string str, std::vector<TSeatRange> &ranges, bool usePriorContext);
+void SaveTlgSeatRanges(int point_id,std::string airp_arv,ASTRA::TCompLayerType layer_type,std::vector<TSeatRange> &seats,
+                       int crs_pax_id,int tlg_id,bool UsePriorContext);
+void SyncTlgCompLayers(int point_id_tlg, ASTRA::TCompLayerType layer_type);
 
 #endif
 

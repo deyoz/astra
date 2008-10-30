@@ -5,12 +5,15 @@
 #include <time.h>
 #include <list>
 #include "tlg_parser.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "misc.h"
 #include "tlg.h"
+#include "convert.h"
+#include "seats.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -38,10 +41,12 @@ const TMonthCode Months[12] =
      {"ДЕК","DEC"}};
 
 const char* TTlgElementS[] =
-              {"Address",
+              {//общие
+               "Address",
                "CommunicationsReference",
                "MessageIdentifier",
                "FlightElement",
+               //PNL и ADL
                "AssociationNumber",
                "BonusPrograms",
                "Configuration",
@@ -49,14 +54,20 @@ const char* TTlgElementS[] =
                "SpaceAvailableElement",
                "TranzitElement",
                "TotalsByDestination",
+               //PTM
                "TransferPassengerData",
+               //SOM
+               "SeatingCategories",
+               "SeatsByDestination",
+               "SupplementaryInfo",
+               //общие
                "EndOfMessage"};
 
 char lexh[MAX_LEXEME_SIZE+1];
 
 void ParseNameElement(char* p, vector<string> &names, TElemPresence num_presence);
 void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &pr_prev_rem);
-void ParseRemarks(TTlgParser &tlg, TNameElement &ne);
+void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne);
 bool ParseCHDRem(TTlgParser &tlg,string &rem_text,vector<TChdItem> &chd);
 bool ParseINFRem(TTlgParser &tlg,string &rem_text,vector<TInfItem> &inf);
 bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc);
@@ -178,7 +189,7 @@ char GetSalonLine(char line)
 
 enum TNsiType {ntCountries,ntAirlines,ntAirps,ntClass,ntSubcls,ntGenderTypes,ntPaxDocTypes};
 
-char* GetNsiCode(char* value, TNsiType nsi, char* code)
+char* GetNsiCode(char* value, TNsiType nsi, char* code, bool with_icao=false)
 {
   switch(nsi)
   {
@@ -195,16 +206,30 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
       };
       break;
     case ntAirlines:
+      try
       {
         TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",value));
         strcpy(code,row.code.c_str());
       }
+      catch (EBaseTableError)
+      {
+        if (!with_icao) throw;
+        TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code_icao/code_icao_lat",value));
+        strcpy(code,row.code.c_str());
+      };
       break;
     case ntAirps:
+      try
       {
         TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",value));
         strcpy(code,row.code.c_str());
       }
+      catch (EBaseTableError)
+      {
+        if (!with_icao) throw;
+        TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code_icao/code_icao_lat",value));
+        strcpy(code,row.code.c_str());
+      };
       break;
     case ntSubcls:
       {
@@ -234,14 +259,14 @@ char* GetNsiCode(char* value, TNsiType nsi, char* code)
   return code;
 };
 
-char* GetAirline(char* airline)
+char* GetAirline(char* airline, bool with_icao=false)
 {
-  return GetNsiCode(airline,ntAirlines,airline);
+  return GetNsiCode(airline,ntAirlines,airline,with_icao);
 };
 
-char* GetAirp(char* airp)
+char* GetAirp(char* airp, bool with_icao=false)
 {
-  return GetNsiCode(airp,ntAirps,airp);
+  return GetNsiCode(airp,ntAirps,airp,with_icao);
 };
 
 TClass GetClass(char* subcl)
@@ -261,7 +286,8 @@ TTlgCategory GetTlgCategory(char *tlg_type)
   cat=tcUnknown;
   if (strcmp(tlg_type,"PNL")==0||
       strcmp(tlg_type,"ADL")==0||
-      strcmp(tlg_type,"PTM")==0) cat=tcDCS;
+      strcmp(tlg_type,"PTM")==0||
+      strcmp(tlg_type,"SOM")==0) cat=tcDCS;
   if (strcmp(tlg_type,"BTM")==0) cat=tcBSM;
   if (strcmp(tlg_type,"MVT")==0||
       strcmp(tlg_type,"LDM")==0) cat=tcAHM;
@@ -602,11 +628,10 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
 
   TBSMInfo *data=NULL;
 
+  line_p=body.p;
+  line=body.line-1;
   try
   {
-    line_p=body.p;
-    line=body.line-1;
-
     char airp[4]; //аэропорт в котором происходит трансфер
     strcpy(airp,info.airp);
     GetAirp(airp);
@@ -728,7 +753,10 @@ void ParseBTMContent(TTlgPartInfo body, TBSMHeadingInfo& info, TBtmContent& con)
   }
   catch (ETlgError E)
   {
-    throw ETlgError("Line %d: %s",line,E.what());
+    if (tlg.GetToEOLLexeme(line_p)!=NULL)
+      throw ETlgError("%s\n>>>>>LINE %d: %s",E.what(),line,tlg.lex);
+    else
+      throw ETlgError("%s\n>>>>>LINE %d",E.what(),line);
   };
   return;
 };
@@ -792,7 +820,8 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
               throw ETlgError("Can't convert local date");
             };
             if (strcmp(info.tlg_type,"PNL")==0||
-                strcmp(info.tlg_type,"ADL")==0)
+                strcmp(info.tlg_type,"ADL")==0||
+                strcmp(info.tlg_type,"SOM")==0)
             {
               if ((p=tlg.GetLexeme(p))!=NULL)
               {
@@ -913,7 +942,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             if (c!=0||res<2||flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
-            GetAirline(flt.airline);
+            GetAirline(flt.airline,true);
             //переведем day в TDateTime
             int year,mon,currday;
             DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
@@ -1227,6 +1256,128 @@ void ParseEnding(TTlgPartInfo ending, THeadingInfo *headingInfo, TEndingInfo* &i
   return;
 };
 
+void ParseSOMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TSOMContent& con)
+{
+  con.Clear();
+
+  int line,res;
+  char c,*p,*line_p;
+  TTlgParser tlg;
+  TTlgElement e;
+
+  line_p=body.p;
+  line=body.line-1;
+  e=FlightElement;
+  try
+  {
+    strcpy(con.flt.airline,info.flt.airline);
+    GetAirline(con.flt.airline);
+    con.flt.flt_no=info.flt.flt_no;
+    strcpy(con.flt.suffix,info.flt.suffix);
+    con.flt.scd=info.flt.scd;
+    con.flt.pr_utc=info.flt.pr_utc;
+    strcpy(con.flt.airp_dep,info.flt.airp_dep);
+    GetAirp(con.flt.airp_dep);
+
+    vector<TSeatsByDest>::iterator iSeats;
+    char cat[5];
+    *cat=0;
+    bool usePriorContext=false;
+    vector<TSeatRange> ranges;
+
+    e=SeatingCategories;
+    do
+    {
+      line++;
+      if (tlg.GetToEOLLexeme(line_p)==NULL) continue;
+      strcpy(lexh,tlg.lex);
+      switch (e)
+      {
+        case SeatingCategories:
+          if (lexh[0]=='-')
+          {
+            e=SeatsByDestination;
+          }
+          else throw ETlgError("Seats by destination expected");
+        case SeatsByDestination:
+          if (strcmp(lexh,"PROT EX")==0)
+          {
+            strcpy(cat,"PROT");
+            e=SeatingCategories;
+            break;
+          };
+          if (strcmp(lexh,"SI")==0)
+          {
+            e=SupplementaryInfo;
+            break;
+          };
+          if (lexh[0]=='-')
+          {
+            TSeatsByDest seats;
+            iSeats=con.seats.insert(con.seats.end(),seats);
+            //разбор
+            p=strchr(lexh,'.');
+            if (p==NULL) throw ETlgError("Wrong seats by destination");
+            //делим lexh на две строки
+            *p=0;
+            c=0;
+            res=sscanf(lexh,"-%3[A-ZА-ЯЁ]%c",iSeats->airp_arv,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong airport code");
+            GetAirp(iSeats->airp_arv);
+            usePriorContext=false;
+            p++;
+          }
+          else
+            p=lexh;
+
+          while((p=tlg.GetLexeme(p))!=NULL)
+          {
+            try
+            {
+              ParseSeatRange(tlg.lex,ranges,usePriorContext);
+              for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+              {
+                strcpy(i->rem,cat);
+              };
+              iSeats->ranges.insert(iSeats->ranges.end(),ranges.begin(),ranges.end());
+              usePriorContext=true;
+            }
+            catch(EConvertError)
+            {
+              //диапазон не разобрался
+              if (lexh[0]=='-')
+                throw ETlgError("Wrong seats element %s",tlg.lex);
+              else
+                break;
+            };
+          };
+          if (lexh[0]!='-' && p!=NULL)
+          {
+            //это может быть только категория
+            c=0;
+            res=sscanf(lexh,"%3[A-Z]%c",cat,&c);
+            if (c!=0||res!=1) throw ETlgError("Wrong seating category");
+            e=SeatingCategories;
+          };
+          break;
+        case SupplementaryInfo: break;
+        default:;
+      };
+    }
+    while ((line_p=tlg.NextLine(line_p))!=NULL);
+  }
+  catch (ETlgError E)
+  {
+    if (tlg.GetToEOLLexeme(line_p)!=NULL)
+      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
+    else
+      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
+
+
+  };
+  return;
+};
+
 void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
 {
   vector<TPtmOutFltInfo>::iterator iOut;
@@ -1237,12 +1388,12 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   char c,*p,*line_p,*ph;
   TTlgParser tlg;
   TTlgElement e;
+
+  line_p=body.p;
+  line=body.line-1;
+  e=FlightElement;
   try
   {
-    line_p=body.p;
-    line=body.line-1;
-    e=FlightElement;
-
     strcpy(con.InFlt.airline,info.flt.airline);
     GetAirline(con.InFlt.airline);
     con.InFlt.flt_no=info.flt.flt_no;
@@ -1425,7 +1576,10 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
   }
   catch (ETlgError E)
   {
-    throw ETlgError("%s, line %d: %s",GetTlgElementName(e),line,E.what());
+    if (tlg.GetToEOLLexeme(line_p)!=NULL)
+      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
+    else
+      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
   };
   return;
 };
@@ -1448,12 +1602,12 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
   TIndicator Indicator;
   int e_part;
   bool pr_prev_rem;
+
+  line_p=body.p;
+  line=body.line-1;
+  e=FlightElement;
   try
   {
-    line_p=body.p;
-    line=body.line-1;
-    e=FlightElement;
-
     strcpy(con.flt.airline,info.flt.airline);
     GetAirline(con.flt.airline);
     con.flt.flt_no=info.flt.flt_no;
@@ -1893,7 +2047,7 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
       for(iPnrItem=iTotals->pnr.begin();iPnrItem!=iTotals->pnr.end();iPnrItem++)
         for(i=iPnrItem->ne.begin();i!=iPnrItem->ne.end();i++)
         {
-          ParseRemarks(tlg,*i);
+          ParseRemarks(tlg,*iPnrItem,*i);
           // проставить для EXST и STCR реальное кол-во мест
           for(iPaxItem=i->pax.begin();iPaxItem!=i->pax.end();)
           {
@@ -1917,7 +2071,10 @@ void ParsePNLADLContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPnlAdlContent
   }
   catch (ETlgError E)
   {
-    throw ETlgError("%s, line %d: %s",GetTlgElementName(e),line,E.what());
+    if (tlg.GetToEOLLexeme(line_p)!=NULL)
+      throw ETlgError("%s: %s\n>>>>>LINE %d: %s",GetTlgElementName(e),E.what(),line,tlg.lex);
+    else
+      throw ETlgError("%s: %s\n>>>>>LINE %d",GetTlgElementName(e),E.what(),line);
   };
   return;
 };
@@ -2205,7 +2362,7 @@ string OnlyAlphaInLexeme(string lex)
   return lex;
 };
 
-void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
+void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
 {
   char c;
   int res,k;
@@ -2217,6 +2374,7 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
   int num;
   vector<TRemItem>::iterator iRemItem;
   vector<TPaxItem>::iterator iPaxItem,iPaxItem2;
+  vector<TNameElement>::iterator iNameElement;
   for(iRemItem=ne.rem.begin();iRemItem!=ne.rem.end();iRemItem++)
   {
     TrimString(iRemItem->text);
@@ -2435,25 +2593,37 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
               strcmp(iRemItem->code,"SMSW")==0)
           {
             vector<TSeatRange> seats;
+            TSeat seat;
             if (ParseSEATRem(tlg,iRemItem->text,seats))
             {
-              for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+              sort(seats.begin(),seats.end());
+              iPaxItem->seatRanges.insert(iPaxItem->seatRanges.end(),seats.begin(),seats.end());
+              if (iPaxItem->seat.Empty())
               {
-                if (i->first.line!=0 && i->first.row>0)
+                //если место не определено, попробовать привязать
+                for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
                 {
-                  //записать место из seat, если не найдено ни у кого другого
-                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                     if (i->first.row==iPaxItem2->seat.row&&
-                         i->first.line==iPaxItem2->seat.line) break;
-
-                   if (iPaxItem2==ne.pax.end())
-                   {
-                     iPaxItem->seat=i->first;
-                     break;
-                   };
+                  seat=i->first;
+                  do
+                  {
+                    //записать место из seat, если не найдено ни у кого другого
+                    for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                      if (!iPaxItem2->seat.Empty() && iPaxItem2->seat==seat) break;
+                    if (iPaxItem2==ne.pax.end())
+                    {
+                      iPaxItem->seat=seat;
+                      if (strcmp(i->rem,"NSST")==0||
+                          strcmp(i->rem,"NSSA")==0||
+                          strcmp(i->rem,"NSSW")==0||
+                          strcmp(i->rem,"SMST")==0||
+                          strcmp(i->rem,"SMSA")==0||
+                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem->seat_type,i->rem);
+                      break;
+                    };
+                  }
+                  while (NextSeatInRange(*i,seat));
                 };
               };
-
             };
             continue;
           };
@@ -2547,42 +2717,77 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
             strcmp(iRemItem->code,"SMSW")==0)
         {
           vector<TSeatRange> seats;
+          TSeat seat;
           if (ParseSEATRem(tlg,iRemItem->text,seats))
           {
+            sort(seats.begin(),seats.end());
+            ne.seatRanges.insert(ne.seatRanges.end(),seats.begin(),seats.end());
+
+            //попробуем привязать
             for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
             {
-              if (i->first.line!=0 && i->first.row>0)
+              seat=i->first;
+              do
               {
-                //хорошо бы поискать среди всего pnr
+                //записать место из seat, если не найдено ни у кого другого из группы
+                for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
+                {
+                  for(iPaxItem2=iNameElement->pax.begin();iPaxItem2!=iNameElement->pax.end();iPaxItem2++)
+                    if (!iPaxItem2->seat.Empty() && iPaxItem2->seat==seat) break;
+                  if (iPaxItem2!=iNameElement->pax.end()) break;
+                };
+                if (iNameElement==pnr.ne.end())
+                {
+                  //место ни у кого из группы не найдено
+                  //найти пассажира, которому не проставлено место
+                  if (strcmp(iRemItem->code,"EXST")==0)
+                  {
+                    for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                      if (iPaxItem2->seat.Empty()&&
+                          iPaxItem2->name=="EXST")
+                      {
+                        iPaxItem2->seat=seat;
+                        break;
+                      };
+                    if (iPaxItem2!=ne.pax.end()) continue;
+                  };
 
+                  //в первую очередь распределяем места текущему NameElement
+                  for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
+                    if (iPaxItem2->seat.Empty())
+                    {
+                      iPaxItem2->seat=seat;
+                      if (strcmp(i->rem,"NSST")==0||
+                          strcmp(i->rem,"NSSA")==0||
+                          strcmp(i->rem,"NSSW")==0||
+                          strcmp(i->rem,"SMST")==0||
+                          strcmp(i->rem,"SMSA")==0||
+                          strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
+                      break;
+                    };
+                  if (iPaxItem2!=ne.pax.end()) continue;
 
-                //записать место из seat, если не найдено ни у кого другого
-                 for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                   if (i->first.row==iPaxItem2->seat.row&&
-                       i->first.line==iPaxItem2->seat.line) break;
-
-                 if (iPaxItem2==ne.pax.end())
-                   //найти пассажира, которому не проставлено место
-                   if (strcmp(iRemItem->code,"EXST")==0)
-                   {
-                     for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                       if (iPaxItem2->seat.line==0&&
-                           iPaxItem2->name=="EXST")
-                       {
-                         iPaxItem->seat=i->first;
-                         break;
-                       };
-                   };
-                 if (iPaxItem2==ne.pax.end())
-                   for(iPaxItem2=ne.pax.begin();iPaxItem2!=ne.pax.end();iPaxItem2++)
-                     if (iPaxItem2->seat.line==0)
-                     {
-                       iPaxItem2->seat=i->first;
-                       break;
-                     };
-              };
+                  //пробежимся по всей группе
+                  for(iNameElement=pnr.ne.begin();iNameElement!=pnr.ne.end();iNameElement++)
+                  {
+                    for(iPaxItem2=iNameElement->pax.begin();iPaxItem2!=iNameElement->pax.end();iPaxItem2++)
+                      if (iPaxItem2->seat.Empty())
+                      {
+                        iPaxItem2->seat=seat;
+                        if (strcmp(i->rem,"NSST")==0||
+                            strcmp(i->rem,"NSSA")==0||
+                            strcmp(i->rem,"NSSW")==0||
+                            strcmp(i->rem,"SMST")==0||
+                            strcmp(i->rem,"SMSA")==0||
+                            strcmp(i->rem,"SMSW")==0) strcpy(iPaxItem2->seat_type,i->rem);
+                        break;
+                      };
+                    if (iPaxItem2!=iNameElement->pax.end()) break;
+                  };
+                };
+              }
+              while (NextSeatInRange(*i,seat));
             };
-
           };
           continue;
         };
@@ -2712,6 +2917,230 @@ void ParseRemarks(TTlgParser &tlg, TNameElement &ne)
   };
 };
 
+void ParseSeatRange(string str, vector<TSeatRange> &ranges, bool usePriorContext)
+{
+  char c;
+  int res;
+  TSeatRange seatr,seatr2;
+  char lexh[MAX_LEXEME_SIZE+1];
+
+  static TSeat priorMaxSeat;
+
+  ranges.clear();
+
+  do
+  {
+    //проверим диапазон (напр. 21C-24F )
+    c=0;
+    res=sscanf(str.c_str(),"%3[0-9]%1[A-ZА-ЯЁ]-%3[0-9]%1[A-ZА-ЯЁ]%c",
+               seatr.first.row,seatr.first.line,
+               seatr.second.row,seatr.second.line,
+               &c);
+    if (c==0 && res==4)
+    {
+      NormalizeSeatRange(seatr);
+      if (strcmp(seatr.first.row,seatr.second.row)>0)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+
+      //разобъем на поддиапазоны
+      if (strcmp(seatr.first.row,seatr.second.row)==0)
+      {
+        //один ряд
+        if (strcmp(seatr.first.line,seatr.second.line)>0)
+          throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+
+        ranges.push_back(seatr);
+      }
+      else
+      {
+        //много рядов
+        if (strcmp(seatr.first.line,FirstNormSeatLine(seatr2.first).line)!=0)
+        {
+          //первый ряд
+          strcpy(seatr2.first.row,seatr.first.row);
+          strcpy(seatr2.second.row,seatr.first.row);
+          strcpy(seatr2.first.line,seatr.first.line);
+          LastNormSeatLine(seatr2.second);
+
+          if (!NextNormSeatRow(seatr.first))
+            throw EConvertError("ParseSeatRange: error in procedure norm_iata_row (range %s)", str.c_str());
+
+          ranges.push_back(seatr2);
+        };
+        if (strcmp(seatr.second.line,LastNormSeatLine(seatr2.first).line)!=0)
+        {
+          //последний ряд
+          strcpy(seatr2.first.row,seatr.second.row);
+          strcpy(seatr2.second.row,seatr.second.row);
+          FirstNormSeatLine(seatr2.first);
+          strcpy(seatr2.second.line,seatr.second.line);
+
+          if (!PriorNormSeatRow(seatr.second))
+            throw EConvertError("ParseSeatRange: error in procedure norm_iata_row (range %s)", str.c_str());
+
+          ranges.push_back(seatr2);
+        };
+        if (strcmp(seatr.first.row,seatr.second.row)<=0)
+        {
+          strcpy(seatr2.first.row,seatr.first.row);
+          strcpy(seatr2.second.row,seatr.second.row);
+          FirstNormSeatLine(seatr2.first);
+          LastNormSeatLine(seatr2.second);
+
+          ranges.push_back(seatr2);
+        };
+      };
+      break;
+    };
+
+    //проверим блок мест (напр. 21-24A-D )
+    c=0;
+    res=sscanf(str.c_str(),"%3[0-9]-%3[0-9]%1[A-ZА-ЯЁ]-%1[A-ZА-ЯЁ]%c",
+               seatr.first.row,seatr.second.row,
+               seatr.first.line,seatr.second.line,
+               &c);
+    if (c==0 && res==4)
+    {
+      NormalizeSeatRange(seatr);
+      if (strcmp(seatr.first.row,seatr.second.row)>0 ||
+          strcmp(seatr.first.line,seatr.second.line)>0)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+      ranges.push_back(seatr);
+      break;
+    };
+
+    //проверим блок мест одной линии (напр. 21-23A )
+    c=0;
+    res=sscanf(str.c_str(),"%3[0-9]-%3[0-9]%1[A-ZА-ЯЁ]%c",
+               seatr.first.row,seatr.second.row,
+               seatr.first.line,
+               &c);
+    if (c==0 && res==3)
+    {
+      strcpy(seatr.second.line,seatr.first.line);
+      NormalizeSeatRange(seatr);
+      if (strcmp(seatr.first.row,seatr.second.row)>0)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+      ranges.push_back(seatr);
+      break;
+    };
+
+    //проверим блок мест одного ряда (напр. 21A-C )
+    c=0;
+    res=sscanf(str.c_str(),"%3[0-9]%1[A-ZА-ЯЁ]-%1[A-ZА-ЯЁ]%c",
+               seatr.first.row,
+               seatr.first.line,seatr.second.line,
+               &c);
+    if (c==0 && res==3)
+    {
+      strcpy(seatr.second.row,seatr.first.row);
+      NormalizeSeatRange(seatr);
+      if (strcmp(seatr.first.line,seatr.second.line)>0)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+      ranges.push_back(seatr);
+      break;
+    };
+
+    //проверим ROW
+    c=0;
+    res=sscanf(str.c_str(),"%3[0-9]%3[ROW]%c",seatr.first.row,lexh,&c);
+    if (c==0 && res==2 && strcmp(lexh,"ROW")==0)
+    {
+      strcpy(seatr.second.row,seatr.first.row);
+      FirstNormSeatLine(seatr.first);
+      LastNormSeatLine(seatr.second);
+      NormalizeSeatRange(seatr);
+      ranges.push_back(seatr);
+      break;
+    };
+
+    if (str=="NIL") break;
+
+    if (str=="ALL")
+    {
+      FirstNormSeatRow(seatr.first);
+      FirstNormSeatLine(seatr.first);
+      LastNormSeatRow(seatr.second);
+      LastNormSeatLine(seatr.second);
+      NormalizeSeatRange(seatr);
+      ranges.push_back(seatr);
+      break;
+    };
+
+    if (str=="REST")
+    {
+      if (usePriorContext &&
+          !priorMaxSeat.Empty()&&
+          NextNormSeat(priorMaxSeat) )
+      {
+        seatr.first=priorMaxSeat;
+        LastNormSeatRow(seatr.second);
+        LastNormSeatLine(seatr.second);
+        NormalizeSeatRange(seatr);
+        ranges.push_back(seatr);
+      };
+      break;
+    };
+
+    //проверим перечисление (напр. 4C5A6B20AC21ABD)
+    //важно, что этот блок разбора идет последним в ParseSeatRange!
+    if (str.size()>=sizeof(lexh))
+      throw EConvertError("ParseSeatRange: too long range lexeme %s", str.c_str());
+    strcpy(lexh,str.c_str());
+
+    vector<TSeat> seats;
+    TSeat seat;
+    char *p=lexh;
+    do
+    {
+      res=sscanf(p,"%3[0-9]%s",seat.row,lexh);
+      if (res!=2)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+
+      for(p=lexh;IsUpperLetter(*p)&&*p!=0;p++)
+      {
+        seat.line[0]=*p;
+        seat.line[1]=0;
+        NormalizeSeat(seat);
+        seats.push_back(seat);
+      };
+
+      if (p==lexh&&*p!=0)
+        throw EConvertError("ParseSeatRange: wrong seat range %s", str.c_str());
+    }
+    while(*p!=0);
+    //упорядочим seats и попробуем преобразовать в диапазоны
+    sort(seats.begin(),seats.end());
+    seatr.second.Clear();
+    for(vector<TSeat>::iterator i=seats.begin();i!=seats.end();i++)
+    {
+      strcpy(seat.row,i->row);
+      strcpy(seat.line,i->line);
+
+      if (seatr.second.Empty()||
+          strcmp(seatr.second.row,seat.row)!=0||
+          strcmp(seatr.second.line,seat.line)!=0&&
+          (!PriorNormSeatLine(seat)||
+           strcmp(seatr.second.line,seat.line)!=0))
+      {
+        if (!seatr.second.Empty()) ranges.push_back(seatr);
+        strcpy(seatr.first.row,i->row);
+        strcpy(seatr.first.line,i->line);
+      };
+      strcpy(seatr.second.row,i->row);
+      strcpy(seatr.second.line,i->line);
+    };
+    if (!seatr.second.Empty()) ranges.push_back(seatr);
+  }
+  while (false);
+
+  priorMaxSeat.Clear();
+  for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
+  {
+    if (priorMaxSeat<i->second) priorMaxSeat=i->second;
+  };
+};
+
 bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
 {
   char c;
@@ -2743,80 +3172,24 @@ bool ParseSEATRem(TTlgParser &tlg,string &rem_text,vector<TSeatRange> &seats)
       strcmp(rem_code,"SMSB")==0||
       strcmp(rem_code,"SMSW")==0)
   {
+    bool usePriorContext=false;
+    vector<TSeatRange> ranges;
     while((p=tlg.GetLexeme(p))!=NULL)
     {
-
-      //проверим диапазон
-      c=0;
-      res=sscanf(tlg.lex,"%3[0-9]%c-%3[0-9]%c%c",
-                 row.first,&line.first,
-                 row.second,&line.second,
-                 &c);
-      if (c==0&&res==4)
+      try
       {
-        TSeatRange seatr;
-        if (StrToInt(row.first,seatr.first.row)==EOF ||
-            StrToInt(row.second,seatr.second.row)==EOF ||
-            (seatr.first.line=GetSalonLine(line.first))==0 ||
-            (seatr.second.line=GetSalonLine(line.second))==0) continue;
-
-        strcpy(seatr.first.rem,rem_code);
-        strcpy(seatr.second.rem,rem_code);
-        seats.push_back(seatr);
-        continue;
-      };
-
-      //проверим ROW
-      c=0;
-      *lexh=0;
-      res=sscanf(tlg.lex,"%3[0-9]%[ROW]%c",row.first,lexh,&c);
-      if (c==0&&res==2&&strcmp(lexh,"ROW")==0)
-      {
-        TSeat seat;
-        strcpy(seat.rem,rem_code);
-        if (StrToInt(row.first,seat.row)==EOF) continue;
-
-        TSeatRange seatr(seat,seat);
-        seats.push_back(seatr);
-        continue;
-      };
-
-      //проверим перечисление
-      bool pr_parse=true;
-      vector<TSeat> seatsh;
-      do
-      {
-        TSeat seat;
-        strcpy(seat.rem,rem_code);
-        *row.first=0;
-        *lexh=0;
-        res=sscanf(tlg.lex,"%3[0-9]%[A-ZА-ЯЁ]%s",row.first,lexh,tlg.lex);
-        if (res<2||*row.first==0||*lexh==0||
-            StrToInt(row.first,seat.row)==EOF)
+        ParseSeatRange(tlg.lex,ranges,usePriorContext);
+        for(vector<TSeatRange>::iterator i=ranges.begin();i!=ranges.end();i++)
         {
-          pr_parse=false;
-          break;
+          strcpy(i->rem,rem_code);
         };
-        char *pline=lexh;
-        for(;*pline!=0;pline++)
-        {
-          if ((seat.line=GetSalonLine(*pline))==0) break;
-          seatsh.push_back(seat);
-        };
-        if (*pline!=0)
-        {
-          pr_parse=false;
-          break;
-        };
+        seats.insert(seats.end(),ranges.begin(),ranges.end());
+        usePriorContext=true;
       }
-      while(res==3);
-      if (pr_parse)
+      catch(EConvertError)
       {
-        for(vector<TSeat>::iterator i=seatsh.begin();i!=seatsh.end();i++)
-        {
-          TSeatRange seatr(*i,*i);
-          seats.push_back(seatr);
-        };
+        //диапазон не разобрался - ну и хрен с ним
+        usePriorContext=false;
       };
     };
     return true;
@@ -3702,6 +4075,37 @@ int SaveFlt(int tlg_id, TFltInfo& flt, TBindType bind_type)
   return point_id;
 };
 
+bool DeleteSOMContent(int point_id, THeadingInfo& info)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT MAX(time_create) AS max_time_create "
+    "FROM tlgs_in,tlg_comp_layers "
+    "WHERE tlg_comp_layers.tlg_id=tlgs_in.id AND "
+    "      tlg_comp_layers.point_id=:point_id AND "
+    "      tlg_comp_layers.layer_type=:layer_type";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltSOMTrzt));
+  Qry.Execute();
+  if (!Qry.Eof && !Qry.FieldIsNULL("max_time_create"))
+  {
+    if (Qry.FieldAsDateTime("max_time_create") > info.time_create) return false;
+    Qry.SQLText=
+      "BEGIN "
+      "  DELETE FROM "
+      "  (SELECT * FROM tlg_comp_layers,trip_comp_layers "
+      "   WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
+      "         tlg_comp_layers.point_id=:point_id AND "
+      "         tlg_comp_layers.layer_type=:layer_type); "
+      "  DELETE FROM tlg_comp_layers "
+      "  WHERE point_id=:point_id AND layer_type=:layer_type; "
+      "END;";
+    Qry.Execute();
+  };
+  return true;
+};
+
 bool DeletePTMBTMContent(int point_id_in, THeadingInfo& info)
 {
   TQuery Qry(&OraSession);
@@ -4047,22 +4451,324 @@ void SaveFQTRem(int pax_id, vector<TFQTItem> &fqt)
   };
 };
 
-void crs_recount(int point_id_tlg)
+struct TPointIds
 {
+  int point_dep,point_arv,point_id;
+};
+
+void SyncTlgCompLayers(int range_id,
+                       int point_id_tlg,
+                       string airp_arv,
+                       TCompLayerType layer_type,
+                       TSeatRange &range,
+                       int crs_pax_id,
+                       bool UsePriorContext)
+{
+  if (!(layer_type==cltSOMTrzt||
+        layer_type==cltPRLTrzt||
+        layer_type==cltPNLCkin||
+        layer_type==cltPreseat)) return;
+
+  static int prior_point_id_tlg=-1;
+  static string prior_airp_arv;
+  static TCompLayerType prior_layer_type=cltUnknown;
+  static vector<TPointIds> prior_point_ids;
+
+  TQuery InsQry(&OraSession);
+  InsQry.Clear();
+  InsQry.SQLText=
+    "INSERT INTO trip_comp_layers(range_id,point_id,point_dep,point_arv,layer_type, "
+    "  first_xname,last_xname,first_yname,last_yname,crs_pax_id,pax_id) "
+    "VALUES(:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
+    "  :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,NULL)";
+  InsQry.CreateVariable("range_id",otInteger,range_id);
+  InsQry.DeclareVariable("point_id",otInteger);
+  InsQry.DeclareVariable("point_dep",otInteger);
+  InsQry.DeclareVariable("point_arv",otInteger);
+  InsQry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
+  InsQry.CreateVariable("first_xname",otString,range.first.line);
+  InsQry.CreateVariable("last_xname",otString,range.second.line);
+  InsQry.CreateVariable("first_yname",otString,range.first.row);
+  InsQry.CreateVariable("last_yname",otString,range.second.row);
+  if (crs_pax_id>0)
+    InsQry.CreateVariable("crs_pax_id",otInteger,crs_pax_id);
+  else
+    InsQry.CreateVariable("crs_pax_id",otInteger,FNull);
+
+
+  if (!(point_id_tlg==prior_point_id_tlg &&
+        airp_arv==prior_airp_arv &&
+        layer_type==prior_layer_type &&
+        UsePriorContext))
+  {
+
+    prior_point_id_tlg=point_id_tlg;
+    prior_airp_arv=airp_arv;
+    prior_layer_type=layer_type;
+    prior_point_ids.clear();
+
+    TQuery PointsQry(&OraSession);
+    PointsQry.Clear();
+    PointsQry.SQLText=
+      "SELECT point_id,airp,pr_tranzit FROM points "
+      "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 "
+      "ORDER BY point_num";
+    PointsQry.DeclareVariable("first_point",otInteger);
+    PointsQry.DeclareVariable("point_num",otInteger);
+
+    TQuery LayerQry(&OraSession);
+    LayerQry.Clear();
+    LayerQry.SQLText=
+      "DECLARE "
+      "  max_point_num points.point_num%TYPE; "
+      "BEGIN "
+      "  SELECT MAX(point_num) "
+      "  INTO max_point_num "
+      "  FROM points,trip_comp_layers "
+      "  WHERE points.point_id=trip_comp_layers.point_dep AND "
+      "        trip_comp_layers.point_id=:point_id AND "
+      "        trip_comp_layers.layer_type=:layer_type; "
+      "  IF max_point_num IS NOT NULL THEN "
+      "    IF max_point_num<:point_num_dep THEN "
+      "      DELETE FROM trip_comp_layers "
+      "      WHERE point_id=:point_id AND layer_type=:layer_type; "
+      "    ELSE "
+      "      IF max_point_num>:point_num_dep THEN :point_id:=NULL; END IF; "
+      "    END IF; "
+      "  END IF; "
+      "END;";
+    LayerQry.DeclareVariable("point_id",otInteger);
+    LayerQry.DeclareVariable("layer_type",otString);
+    LayerQry.DeclareVariable("point_num_dep",otInteger);
+
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT point_id,point_num, "
+      "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+      "FROM tlg_binding,points "
+      "WHERE tlg_binding.point_id_spp=points.point_id AND tlg_binding.point_id_tlg=:point_id_tlg";
+    Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
+    Qry.Execute();
+    TPointIds ids;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      //цикл по привязанным рейсам
+      ids.point_dep=Qry.FieldAsInteger("point_id");
+      PointsQry.SetVariable("first_point",Qry.FieldAsInteger("first_point"));
+      PointsQry.SetVariable("point_num",Qry.FieldAsInteger("point_num"));
+      PointsQry.Execute();
+      if (!PointsQry.Eof)
+      {
+        vector<int> point_id;
+        if (!(layer_type==cltSOMTrzt||
+              layer_type==cltPRLTrzt)) point_id.push_back(ids.point_dep); //point_id=point_dep
+
+
+      /*  {
+          if (PointsQry.FieldAsInteger("pr_tranzit")!=0)
+            ids.point_id=PointsQry.FieldAsInteger("point_id");
+          else
+            continue;
+        }
+        else
+          ids.point_id=ids.point_dep;*/
+
+
+        for(;!PointsQry.Eof;PointsQry.Next())
+        {
+          if (PointsQry.FieldAsString("airp")==airp_arv) break;
+          if (layer_type==cltSOMTrzt ||
+              layer_type==cltPRLTrzt)
+          {
+            //проверим наличие слоев SOM_TRZT или PRL_TRZT
+            LayerQry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
+            LayerQry.SetVariable("layer_type",EncodeCompLayerType(layer_type));
+            LayerQry.SetVariable("point_num_dep",Qry.FieldAsInteger("point_num"));
+            //ProgTrace(TRACE5,"### point_id=%d point_num_dep=%d"
+            LayerQry.Execute();
+            if (!LayerQry.VariableIsNULL("point_id"))
+              point_id.push_back(PointsQry.FieldAsInteger("point_id"));
+          };
+        };
+        if (!PointsQry.Eof)
+        {
+          //нашли пункт прилета
+          ids.point_arv=PointsQry.FieldAsInteger("point_id");
+          for(vector<int>::iterator i=point_id.begin();i!=point_id.end();i++)
+          {
+            ids.point_id=*i;
+            prior_point_ids.push_back(ids);
+          };
+        };
+      };
+    };
+  };
+
+  for(vector<TPointIds>::iterator i=prior_point_ids.begin();i!=prior_point_ids.end();i++)
+  {
+    InsQry.SetVariable("point_id",i->point_id);
+    InsQry.SetVariable("point_dep",i->point_dep);
+    InsQry.SetVariable("point_arv",i->point_arv);
+    InsQry.Execute();
+  };
+};
+
+void SyncTlgCompLayers(int point_id_tlg,
+                       TCompLayerType layer_type)
+{
+  if (!(layer_type==cltSOMTrzt||
+        layer_type==cltPRLTrzt||
+        layer_type==cltPNLCkin||
+        layer_type==cltPreseat)) return;
+
+  TQuery Qry(&OraSession);
+  //сначала удалим слой из trip_comp_layers
+  Qry.Clear();
+  Qry.SQLText=
+    "DELETE FROM "
+    "(SELECT * FROM tlg_comp_layers,trip_comp_layers "
+    " WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
+    "       tlg_comp_layers.point_id=:point_id AND "
+    "       tlg_comp_layers.layer_type=:layer_type) ";
+  Qry.CreateVariable("point_id",otInteger,point_id_tlg);
+  Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
+  Qry.Execute();
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT range_id,airp_arv,layer_type, "
+    "       first_xname,last_xname,first_yname,last_yname,rem_code, "
+    "       crs_pax_id "
+    "FROM tlg_comp_layers "
+    "WHERE point_id=:point_id AND layer_type=:layer_type "
+    "ORDER BY airp_arv";
+  Qry.CreateVariable("point_id",otInteger,point_id_tlg);
+  Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
+  Qry.Execute();
+  bool UsePriorContext=false;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TSeatRange range;
+    strcpy(range.first.line,Qry.FieldAsString("first_xname"));
+    strcpy(range.second.line,Qry.FieldAsString("last_xname"));
+    strcpy(range.first.row,Qry.FieldAsString("first_yname"));
+    strcpy(range.second.row,Qry.FieldAsString("last_yname"));
+    strcpy(range.rem,Qry.FieldAsString("rem_code"));
+    SyncTlgCompLayers(Qry.FieldAsInteger("range_id"),
+                      point_id_tlg,
+                      Qry.FieldAsString("airp_arv"),
+                      layer_type,
+                      range,
+                      Qry.FieldAsInteger("crs_pax_id"),
+                      UsePriorContext);
+    UsePriorContext=true;
+  };
+};
+
+void SaveTlgSeatRanges(int point_id,
+                       string airp_arv,
+                       TCompLayerType layer_type,
+                       vector<TSeatRange> &seats,
+                       int crs_pax_id,
+                       int tlg_id,
+                       bool UsePriorContext)
+{
+  if (seats.empty()) return;
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "DECLARE "
-    "  CURSOR cur IS "
-    "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
-    "curRow cur%ROWTYPE; "
     "BEGIN "
-    "  FOR curRow IN cur LOOP "
-    "    ckin.crs_recount(curRow.point_id_spp); "
-    "  END LOOP; "
+    "  SELECT comp_layers__seq.nextval INTO :range_id FROM dual; "
+    "  INSERT INTO tlg_comp_layers "
+    "    (range_id,point_id,airp_arv,layer_type, "
+    "     first_xname,last_xname,first_yname,last_yname,rem_code, "
+    "     crs_pax_id,tlg_id) "
+    "  VALUES "
+    "    (:range_id,:point_id,:airp_arv,:layer_type, "
+    "     :first_xname,:last_xname,:first_yname,:last_yname,:rem_code, "
+    "     :crs_pax_id,:tlg_id); "
+    "END; ";
+  Qry.CreateVariable("range_id",otInteger,FNull);
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("airp_arv",otString,airp_arv);
+  Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(layer_type));
+
+  if (crs_pax_id>0)
+    Qry.CreateVariable("crs_pax_id",otInteger,crs_pax_id);
+  else
+    Qry.CreateVariable("crs_pax_id",otInteger,FNull);
+
+  if (tlg_id>0)
+    Qry.CreateVariable("tlg_id",otInteger,tlg_id);
+  else
+    Qry.CreateVariable("tlg_id",otInteger,FNull);
+
+  Qry.DeclareVariable("first_xname",otString);
+  Qry.DeclareVariable("last_xname",otString);
+  Qry.DeclareVariable("first_yname",otString);
+  Qry.DeclareVariable("last_yname",otString);
+  Qry.DeclareVariable("rem_code",otString);
+
+  for(vector<TSeatRange>::iterator i=seats.begin();i!=seats.end();i++)
+  {
+    Qry.SetVariable("first_xname",i->first.line);
+    Qry.SetVariable("last_xname",i->second.line);
+    Qry.SetVariable("first_yname",i->first.row);
+    Qry.SetVariable("last_yname",i->second.row);
+    Qry.SetVariable("rem_code",i->rem);
+    Qry.Execute();
+    SyncTlgCompLayers(Qry.GetVariableAsInteger("range_id"),
+                      point_id,
+                      airp_arv,
+                      layer_type,
+                      *i,
+                      crs_pax_id,
+                      UsePriorContext);
+  };
+};
+
+void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
+{
+  //vector<TSeatsByDest>::iterator iSeats;
+  int point_id=SaveFlt(tlg_id,con.flt,btFirstSeg);
+  if (!DeleteSOMContent(point_id,info)) return;
+
+  bool usePriorContext=false;
+  for(vector<TSeatsByDest>::iterator i=con.seats.begin();i!=con.seats.end();i++)
+  {
+    SaveTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,-1,tlg_id,usePriorContext);
+    usePriorContext=true;
+  };
+};
+
+void crs_recount(int point_id_tlg, bool check_comp)
+{
+  TQuery ProcQry(&OraSession);
+  ProcQry.Clear();
+  ProcQry.SQLText=
+    "BEGIN "
+    "  ckin.crs_recount(:point_id_spp); "
     "END;";
-  Qry.CreateVariable("point_id",otInteger,point_id_tlg);
+  ProcQry.DeclareVariable("point_id_spp", otInteger);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id_tlg";
+  Qry.CreateVariable("point_id_tlg",otInteger,point_id_tlg);
   Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    ProcQry.SetVariable("point_id_spp", Qry.FieldAsInteger("point_id_spp"));
+    ProcQry.Execute();
+    if (check_comp)
+    {
+      string craft;
+  	  SALONS::AutoSetCraft( Qry.FieldAsInteger("point_id_spp"), craft, -1 );
+  	};
+  };
 };
 
 bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, bool forcibly)
@@ -4133,13 +4839,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     };
   };
 
-  TDateTime last_resa=0,last_tranzit=0,last_cfg=0;
+  TDateTime last_resa=NoExists,
+            last_tranzit=NoExists,
+            last_avail=NoExists,
+            last_cfg=NoExists;
   int pr_pnl=0;
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT last_resa,last_tranzit,last_cfg,pr_pnl FROM crs_data_stat \
-     WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
+    "SELECT last_resa,last_tranzit,last_avail,last_cfg,pr_pnl FROM crs_data_stat "
+    "WHERE point_id=:point_id AND crs=:crs FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.CreateVariable("crs",otString,crs);
   Qry.Execute();
@@ -4149,6 +4858,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       last_resa=Qry.FieldAsDateTime("last_resa");
     if (!Qry.FieldIsNULL("last_tranzit"))
       last_tranzit=Qry.FieldAsDateTime("last_tranzit");
+    if (!Qry.FieldIsNULL("last_avail"))
+      last_avail=Qry.FieldAsDateTime("last_avail");
     if (!Qry.FieldIsNULL("last_cfg"))
       last_cfg=Qry.FieldAsDateTime("last_cfg");
     pr_pnl=Qry.FieldAsInteger("pr_pnl");
@@ -4163,7 +4874,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
   bool pr_recount=false;
   //записать цифровые данные
-  if (!con.resa.empty()&&(last_resa==0||last_resa<=info.time_create))
+  if (!con.resa.empty()&&(last_resa==NoExists||last_resa<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
@@ -4207,7 +4918,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     };
   };
 
-  if (!con.transit.empty()&&(last_tranzit==0||last_tranzit<=info.time_create))
+  if (!con.transit.empty()&&(last_tranzit==NoExists||last_tranzit<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
@@ -4252,13 +4963,58 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     };
   };
 
-  if (!con.cfg.empty()&&!con.avail.empty()&&(last_cfg==0||last_cfg<=info.time_create))
+  if (!con.avail.empty()&&(last_avail==NoExists||last_avail<=info.time_create))
   {
     pr_recount=true;
     Qry.Clear();
     Qry.SQLText=
       "BEGIN \
-         UPDATE crs_data SET cfg=NULL,avail=NULL WHERE point_id=:point_id AND crs=:crs; \
+         UPDATE crs_data SET avail=NULL WHERE point_id=:point_id AND crs=:crs; \
+         UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:crs; \
+         IF SQL%NOTFOUND THEN \
+           INSERT INTO crs_data_stat(point_id,crs,last_avail) \
+           VALUES(:point_id,:crs,:time_create); \
+         END IF; \
+       END;";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("crs",otString,crs);
+    Qry.CreateVariable("time_create",otDate,info.time_create);
+    Qry.Execute();
+
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN\
+         UPDATE crs_data SET avail=NVL(avail+:avail,:avail)\
+         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
+         IF SQL%NOTFOUND THEN \
+           INSERT INTO crs_data(point_id,target,class,crs,avail) \
+           VALUES(:point_id,:target,:class,:crs,:avail); \
+         END IF; \
+       END;";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.DeclareVariable("target",otString);
+    Qry.DeclareVariable("class",otString);
+    Qry.CreateVariable("crs",otString,crs);
+    Qry.DeclareVariable("avail",otInteger);
+    for(iRouteItem=con.avail.begin();iRouteItem!=con.avail.end();iRouteItem++)
+    {
+      Qry.SetVariable("target",iRouteItem->station);
+      for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
+      {
+        Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
+        Qry.SetVariable("avail",(int)iSeatsItem->seats);
+        Qry.Execute();
+      };
+    };
+  };
+
+  if (!con.cfg.empty()&&(last_cfg==NoExists||last_cfg<=info.time_create))
+  {
+    pr_recount=true;
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN \
+         UPDATE crs_data SET cfg=NULL WHERE point_id=:point_id AND crs=:crs; \
          UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:crs; \
          IF SQL%NOTFOUND THEN \
            INSERT INTO crs_data_stat(point_id,crs,last_cfg) \
@@ -4295,34 +5051,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         Qry.Execute();
       };
     };
-
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN\
-         UPDATE crs_data SET avail=NVL(avail+:avail,:avail)\
-         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data(point_id,target,class,crs,avail) \
-           VALUES(:point_id,:target,:class,:crs,:avail); \
-         END IF; \
-       END;";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.DeclareVariable("target",otString);
-    Qry.DeclareVariable("class",otString);
-    Qry.CreateVariable("crs",otString,crs);
-    Qry.DeclareVariable("avail",otInteger);
-    for(iRouteItem=con.avail.begin();iRouteItem!=con.avail.end();iRouteItem++)
-    {
-      Qry.SetVariable("target",iRouteItem->station);
-      for(iSeatsItem=iRouteItem->seats.begin();iSeatsItem!=iRouteItem->seats.end();iSeatsItem++)
-      {
-        Qry.SetVariable("class",EncodeClass(iSeatsItem->cl));
-        Qry.SetVariable("avail",(int)iSeatsItem->seats);
-        Qry.Execute();
-      };
-    };
   };
-  if (pr_recount) crs_recount(point_id);
+  if (pr_recount) crs_recount(point_id,true);
 
   OraSession.Commit();
 
@@ -4413,11 +5143,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN\
              IF :pax_id IS NULL THEN\
                SELECT pax_id.nextval INTO :pax_id FROM dual;\
-               INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_no,seat_type,seats,pr_del,last_op,tid)\
-               VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_no,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval);\
+               INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_type,seats,pr_del,last_op,tid)\
+               VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval);\
              ELSE\
                UPDATE crs_pax\
-               SET pers_type= :pers_type, seat_no= :seat_no, seat_type= :seat_type,\
+               SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_type= :seat_type,\
                    pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval\
                WHERE pax_id=:pax_id;\
              END IF;\
@@ -4427,7 +5157,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPaxInsQry.DeclareVariable("surname",otString);
         CrsPaxInsQry.DeclareVariable("name",otString);
         CrsPaxInsQry.DeclareVariable("pers_type",otString);
-        CrsPaxInsQry.DeclareVariable("seat_no",otString);
+        CrsPaxInsQry.DeclareVariable("seat_xname",otString);
+        CrsPaxInsQry.DeclareVariable("seat_yname",otString);
         CrsPaxInsQry.DeclareVariable("seat_type",otString);
         CrsPaxInsQry.DeclareVariable("seats",otInteger);
         CrsPaxInsQry.DeclareVariable("pr_del",otInteger);
@@ -4470,6 +5201,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
         int pnr_id,pax_id;
         bool pr_sync_pnr;
+        bool UsePriorContext=false;
         for(iTotals=con.resa.begin();iTotals!=con.resa.end();iTotals++)
         {
           CrsPnrQry.SetVariable("target",iTotals->dest);
@@ -4655,32 +5387,19 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
                 CrsPaxInsQry.SetVariable("name",iPaxItem->name);
                 CrsPaxInsQry.SetVariable("pers_type",EncodePerson(iPaxItem->pers_type));
-                if (ne.indicator!=DEL)
+                if (ne.indicator!=DEL && !iPaxItem->seat.Empty())
                 {
-                  if (iPaxItem->seat.line!=0)
-                  {
-                    char buf[20];
-                    sprintf(buf,"%d%c",iPaxItem->seat.row,iPaxItem->seat.line);
-                    CrsPaxInsQry.SetVariable("seat_no",buf);
-                  }
-                  else
-                    CrsPaxInsQry.SetVariable("seat_no",FNull);
-
-                  if (strcmp(iPaxItem->seat.rem,"NSST")==0||
-                      strcmp(iPaxItem->seat.rem,"NSSA")==0||
-                      strcmp(iPaxItem->seat.rem,"NSSW")==0||
-                      strcmp(iPaxItem->seat.rem,"SMST")==0||
-                      strcmp(iPaxItem->seat.rem,"SMSA")==0||
-                      strcmp(iPaxItem->seat.rem,"SMSW")==0)
-                    CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat.rem);
-                  else
-                    CrsPaxInsQry.SetVariable("seat_type",FNull);
+                  CrsPaxInsQry.SetVariable("seat_xname",iPaxItem->seat.line);
+                  CrsPaxInsQry.SetVariable("seat_yname",iPaxItem->seat.row);
+                  CrsPaxInsQry.SetVariable("seat_type",iPaxItem->seat_type);
                 }
                 else
                 {
-                  CrsPaxInsQry.SetVariable("seat_no",FNull);
+                  CrsPaxInsQry.SetVariable("seat_xname",FNull);
+                  CrsPaxInsQry.SetVariable("seat_yname",FNull);
                   CrsPaxInsQry.SetVariable("seat_type",FNull);
                 };
+
                 CrsPaxInsQry.SetVariable("seats",(int)iPaxItem->seats);
                 if (ne.indicator==DEL)
                   CrsPaxInsQry.SetVariable("pr_del",1);
@@ -4710,8 +5429,20 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
+                    "  DELETE FROM "
+                    "   (SELECT * FROM tlg_comp_layers,trip_comp_layers "
+                    "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
+                    "          tlg_comp_layers.crs_pax_id=:pax_id AND "
+                    "          tlg_comp_layers.layer_type IN (:cltPNLCkin,:cltPreseat)); "
+                    "  DELETE FROM tlg_comp_layers "
+                    "  WHERE crs_pax_id=:pax_id AND layer_type IN (:cltPNLCkin,:cltPreseat); "
                     "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
+                  Qry.CreateVariable("cltPNLCkin",otString,EncodeCompLayerType(cltPNLCkin));
+                  if (ne.indicator==DEL)
+                    Qry.CreateVariable("cltPreseat",otString,EncodeCompLayerType(cltPreseat));
+                  else
+                    Qry.CreateVariable("cltPreseat",otString,FNull); //если изменения то preseat не удаляем
                   Qry.Execute();
                 };
                 if (ne.indicator!=DEL)
@@ -4720,8 +5451,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   int inf_id;
 
                   CrsPaxInsQry.SetVariable("pers_type",EncodePerson(baby));
-                  CrsPaxInsQry.SetVariable("seat_no",FNull);
-                  CrsPaxInsQry.SetVariable("seat_type",FNull);
+                  CrsPaxInsQry.SetVariable("seat_xname",FNull);
+                  CrsPaxInsQry.SetVariable("seat_yname",FNull);
                   CrsPaxInsQry.SetVariable("seats",0);
                   CrsPaxInsQry.SetVariable("pr_del",0);
                   CrsPaxInsQry.SetVariable("last_op",info.time_create);
@@ -4746,8 +5477,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   SaveDOCSRem(pax_id,iPaxItem->doc);
                   SaveTKNRem(pax_id,iPaxItem->tkn);
                   SaveFQTRem(pax_id,iPaxItem->fqt);
+                  SaveTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,iPaxItem->seatRanges,
+                                    pax_id,tlg_id,UsePriorContext);
+                  UsePriorContext=true;
                   //ремарки, не привязанные к пассажиру
                   SavePNLADLRemarks(pax_id,ne.rem);
+                  SaveTlgSeatRanges(point_id,iTotals->dest,cltPNLCkin,ne.seatRanges,
+                                    pax_id,tlg_id,UsePriorContext);
+                  //восстановим номер места предварительной рассадки
                 };
 
                 if (!pr_sync_pnr)
@@ -4860,20 +5597,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
           };//for(iPnrItem=iTotals->pnr.begin()
         };
-        //разметим забронированные места в салоне
-        Qry.Clear();
-        Qry.SQLText=
-          "DECLARE "
-          "  CURSOR cur IS "
-          "    SELECT point_id_spp FROM tlg_binding WHERE point_id_tlg=:point_id; "
-          "curRow cur%ROWTYPE; "
-          "BEGIN "
-          "  FOR curRow IN cur LOOP "
-          "    salons.initcomp(CurRow.point_id_spp); "
-          "  END LOOP; "
-          "END;";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.Execute();
       };
 
       int pr_pnl_new=pr_pnl;

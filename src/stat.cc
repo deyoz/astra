@@ -423,6 +423,11 @@ bool lessPointsRow(const TPointsRow& item1,const TPointsRow& item2)
 
 void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    bool pr_show_del = false;
+    xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
+    if(prDelNode)
+        pr_show_del = NodeAsInteger(prDelNode) == 1;
+    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
@@ -451,13 +456,17 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    nvl(points.suffix, ' ') suffix, "
                     "    points.scd_out, "
                     "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+                    "    points.pr_del, "
                     "    move_id, "
                     "    point_num "
                     "FROM "
                     "    points "
                     "WHERE "
-                    "    points.pr_del >= 0 and "
                     "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
+                if(scr == PaxList)
+                    SQLText += " and points.pr_del = 0 ";
+                if(scr == FltLog and !pr_show_del)
+                    SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -467,11 +476,11 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 if (!reqInfo.user.access.airps.empty()) {
                     if (reqInfo.user.access.airps_permit)
                         SQLText+="AND (points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                            "          ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                     else
-                        SQLText+="AND NOT(points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
+                        SQLText+="AND (points.airp NOT IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "          ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             } else {
@@ -485,14 +494,18 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    nvl(arx_points.suffix, ' ') suffix, "
                     "    arx_points.scd_out, "
                     "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+                    "    arx_points.pr_del, "
                     "    move_id, "
                     "    point_num "
                     "FROM "
                     "    arx_points "
                     "WHERE "
-                    "    arx_points.pr_del >= 0 and "
                     "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
                     "    arx_points.part_key >= :FirstDate ";
+                if(scr == PaxList)
+                    SQLText += " and arx_points.pr_del = 0 ";
+                if(scr == FltLog and !pr_show_del)
+                    SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -505,8 +518,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             "     arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num, arx_points.part_key) IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                     else
-                        SQLText+="AND NOT(arx_points.airp IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
-                            "        arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num,arx_points.part_key) IN "+
+                        SQLText+="AND (arx_points.airp NOT IN "+GetSQLEnum(reqInfo.user.access.airps)+" OR "+
+                            "          arch.next_airp(DECODE(arx_points.pr_tranzit,0,arx_points.point_id,arx_points.first_point),arx_points.point_num,arx_points.part_key) NOT IN "+
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             }
@@ -529,6 +542,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 int col_move_id=Qry.FieldIndex("move_id");
                 int col_point_num=Qry.FieldIndex("point_num");
                 int col_point_id=Qry.FieldIndex("point_id");
+                int col_pr_del=Qry.FieldIndex("pr_del");
                 int col_part_key=Qry.FieldIndex("part_key");
                 for( ; !Qry.Eof; Qry.Next()) {
                     tripInfo.airline = Qry.FieldAsString(col_airline);
@@ -538,6 +552,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
                     tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
                     tripInfo.real_out_local_date=ASTRA::NoExists;
+                    tripInfo.pr_del=Qry.FieldAsInteger(col_pr_del);
                     try
                     {
                         trip_name = GetTripName(tripInfo,false,true);
@@ -688,7 +703,11 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         part_key = NoExists;
     else
         part_key = NodeAsDateTime(partKeyNode);
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNodeFast("client_with_trip_col_in_SysLog", paramNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
@@ -731,7 +750,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from points where point_id = :point_id AND pr_del >= 0";
+            Qry.SQLText = "select move_id from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
@@ -749,7 +768,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "   events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
             "   events.id1=:point_id  ";
-        qry2 = 
+        qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
             "       events.screen,  "
@@ -759,12 +778,11 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "FROM events  "
             "WHERE "
             "events.type IN (:evtDisp) AND "
-            "events.id1=:move_id  AND "
-            "events.id2=:point_id  ";
+            "events.id1=:move_id  ";
     } else {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id and pr_del >= 0";
+            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
@@ -784,7 +802,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "   arx_events.part_key = :part_key and "
             "   arx_events.type IN (:evtFlt,:evtGraph,:evtPax,:evtPay,:evtTlg) AND  "
             "   arx_events.id1=:point_id  ";
-        qry2 = 
+        qry2 =
             "SELECT msg, time,  "
             "       id2 AS point_id,  "
             "       arx_events.screen,  "
@@ -795,13 +813,13 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "WHERE "
             "      arx_events.part_key = :part_key and "
             "      arx_events.type IN (:evtDisp) AND "
-            "      arx_events.id1=:move_id  AND "
-            "      arx_events.id2=:point_id  ";
+            "      arx_events.id1=:move_id  ";
     }
 
 
     TPerfTimer tm;
     tm.Init();
+    xmlNodePtr rowsNode = NULL;
     for(int i = 0; i < 2; i++) {
         Qry.Clear();
         if(i == 0) {
@@ -814,7 +832,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("evtTlg",otString,EncodeEventType(ASTRA::evtTlg));
         } else {
             Qry.SQLText = qry2;
-            Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.CreateVariable("move_id", otInteger, move_id);
             Qry.CreateVariable("evtDisp",otString,EncodeEventType(ASTRA::evtDisp));
         }
@@ -831,7 +848,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
         if(Qry.Eof && part_key == NoExists) {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select point_id from points where point_id = :point_id and pr_del >= 0";
+            Qry.SQLText = "select point_id from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof)
@@ -851,7 +868,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             int col_ev_order=Qry.FieldIndex("ev_order");
             int col_screen=Qry.FieldIndex("screen");
 
-            xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+            if(!rowsNode)
+                rowsNode = NewTextChild(paxLogNode, "rows");
             for( ; !Qry.Eof; Qry.Next()) {
                 string ev_user = Qry.FieldAsString(col_ev_user);
                 string station = Qry.FieldAsString(col_station);
@@ -919,7 +937,11 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     else
         part_key = NodeAsDateTime(partKeyNode);
 
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции по пассажиру");
@@ -1060,9 +1082,17 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         throw UserException("Не найдено ни одной операции.");
 }
 
+typedef struct {
+    string trip, scd_out;
+} TTripItem;
+
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    get_report_form("ArxPaxLog", resNode);
+    xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
+    if(client_with_trip_col_in_SysLogNode == NULL)
+        get_report_form("ArxPaxLog", resNode);
+    else
+        get_report_form("SystemLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
@@ -1104,6 +1134,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     SetProp(colNode, "width", 750);
     SetProp(colNode, "align", taLeftJustify);
 
+    map<int, string> TripItems;
     for(int j = 0; j < 2; j++) {
         Qry.Clear();
         if (j==0) {
@@ -1149,7 +1180,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "FROM "
                 "   arx_events "
                 "WHERE "
-                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для 
+                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для
                 "  arx_events.part_key < :LastDate + 5 and "   // разных типов событий
                 "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
                 "  arx_events.time < :LastDate and "
@@ -1280,6 +1311,33 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         );
                 NewTextChild(rowNode, "msg", Qry.FieldAsString(col_msg));
                 NewTextChild(rowNode, "ev_order", Qry.FieldAsInteger(col_ev_order));
+                if(!Qry.FieldIsNULL(col_point_id)) {
+                    int point_id = Qry.FieldAsInteger(col_point_id);
+                    if(TripItems.find(point_id) == TripItems.end()) {
+                        TQuery tripQry(&OraSession);
+                        string SQLText =
+                            "select "
+                            "   airline, "
+                            "   flt_no, "
+                            "   suffix, "
+                            "   airp, "
+                            "   scd_out, "
+                            "   NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
+                            "   pr_del "
+                            "from ";
+                        SQLText += (j == 0 ? "points" : "arx_points");
+                        SQLText +=
+                            " where "
+                            "   point_id = :point_id ";
+                        tripQry.SQLText = SQLText;
+                        tripQry.CreateVariable("point_id", otInteger,  point_id);
+                        tripQry.Execute();
+                        TTripInfo trip_info(tripQry);
+                        trip_info.pr_del = tripQry.FieldAsInteger("pr_del");
+                        TripItems[point_id] = GetTripName(trip_info);
+                    }
+                    NewTextChild(rowNode, "trip", TripItems[point_id]);
+                }
                 if(!Qry.FieldIsNULL(col_grp_id))
                     NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
                 if(!Qry.FieldIsNULL(col_reg_no))
@@ -1305,6 +1363,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     }
     if(!count)
         throw UserException("Не найдено ни одной операции.");
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 struct THallItem {
@@ -1373,8 +1432,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
-                "   LPAD(seat_no,3,'0')|| "
-                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   salons.get_seat_no(pax.pax_id, :ckin_layer, pax.seats, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   halls2.name hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
@@ -1397,6 +1455,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 else
                     SQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
             }
+            Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
         } else {
             ProgTrace(TRACE5, "PaxListRun: arx base qry");
             SQLText =
@@ -2883,10 +2942,6 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-typedef struct {
-    string trip, scd_out;
-} TTripItem;
-
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -2932,7 +2987,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if(!tag_no.empty()) {
         if(tag_no.size() < 3)
             throw UserException("Номер бирки должен содержать не менее 3-х последних цифр");
-        Qry.CreateVariable("tag_no", otInteger, StrToInt(tag_no));
+        Qry.CreateVariable("tag_no", otInteger, ToInt(tag_no));
     }
     int count = 0;
     xmlNodePtr paxListNode = NULL;
@@ -2962,8 +3017,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
-                "   LPAD(seat_no,3,'0')|| "
-                "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
+                "   salons.get_seat_no(pax.pax_id, :ckin_layer, pax.seats, pax_grp.point_dep, 'seats', rownum) seat_no, "
                 "   pax_grp.hall hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
@@ -3009,6 +3063,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and pax.document like '%'||:document||'%' ";
             if(!ticket_no.empty())
                 SQLText += " and pax.ticket_no like '%'||:ticket_no||'%' ";
+            Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
         } else {
             ProgTrace(TRACE5, "PaxSrcRun: arx base qry");
             SQLText =
@@ -3085,6 +3140,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 SQLText += " and arx_pax.document = :document ";
             if(!ticket_no.empty())
                 SQLText += " and arx_pax.ticket_no = :ticket_no ";
+            Qry.DeleteVariable("ckin_layer");
         }
         ProgTrace(TRACE5, "Qry.SQLText [%d] : %s", i, SQLText.c_str());
         Qry.SQLText = SQLText;

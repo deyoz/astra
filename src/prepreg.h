@@ -13,14 +13,14 @@ public:
      Handler *evHandle;
      evHandle=JxtHandler<PrepRegInterface>::CreateHandler(&PrepRegInterface::CrsDataApplyUpdates);
      AddEvent("CrsDataApplyUpdates",evHandle);
-     evHandle=JxtHandler<PrepRegInterface>::CreateHandler(&PrepRegInterface::ViewPNL);
-     AddEvent("ViewPNL",evHandle);
+/*     evHandle=JxtHandler<PrepRegInterface>::CreateHandler(&PrepRegInterface::ViewPNL);
+     AddEvent("ViewPNL",evHandle);*/
      evHandle=JxtHandler<PrepRegInterface>::CreateHandler(&PrepRegInterface::ViewCRSList);
      AddEvent("ViewCRSList",evHandle);
   };
 
   void CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+ /* void ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);*/
   void ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 

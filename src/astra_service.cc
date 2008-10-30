@@ -57,7 +57,7 @@ bool deleteFile( int id )
     Qry.SQLText=
       " BEGIN "
       " DELETE file_queue WHERE id= :id; "
-      "END; ";      
+      "END; ";
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     return Qry.RowsProcessed()>0;
@@ -131,12 +131,12 @@ int putFile( const string &receiver,
 bool errorFile( int id, const string &msg )
 {
 	TQuery ErrQry(&OraSession);
-	ErrQry.SQLText = 
+	ErrQry.SQLText =
 	 "SELECT in_order FROM file_types, files "
 	 " WHERE files.id=:id AND files.type=file_types.code";
 	ErrQry.CreateVariable( "id", otInteger, id );
 	ErrQry.Execute();
-	
+
   if ( ( ErrQry.Eof || !ErrQry.FieldAsInteger( "in_order" ) ) && deleteFile(id) ) {
     ErrQry.Clear();
     ErrQry.SQLText=
@@ -175,7 +175,7 @@ bool doneFile( int id )
   	return false;
 }
 
-void getFileParams( const std::string client_canon_name, const std::string &type, 
+void getFileParams( const std::string client_canon_name, const std::string &type,
 	                  int id, map<string,string> &fileparams, bool send )
 {
 	fileparams.clear();
@@ -205,11 +205,11 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 		ParamQry.Next();
 	}
 	ParamQry.Clear();
-	ParamQry.SQLText = 
+	ParamQry.SQLText =
 	  "SELECT param_name, param_value,"
     "       DECODE( file_param_sets.airp, NULL, 0, 4 ) + "
     "       DECODE( file_param_sets.airline, NULL, 0, 2 ) + "
-    "       DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "	  
+    "       DECODE( file_param_sets.flt_no, NULL, 0, 1 ) AS priority "
     " FROM file_param_sets "
 	  " WHERE file_param_sets.own_point_addr=:own_point_addr AND "
 	  "       file_param_sets.point_addr=:point_addr AND "
@@ -230,11 +230,11 @@ void getFileParams( const std::string client_canon_name, const std::string &type
 	if ( flt_no.empty() )
 		ParamQry.CreateVariable( "flt_no", otInteger, FNull );
 	else
-		ParamQry.CreateVariable( "flt_no", otInteger, flt_no );		
+		ParamQry.CreateVariable( "flt_no", otInteger, flt_no );
 	ParamQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	ParamQry.CreateVariable( "point_addr", otString, client_canon_name );
 	ParamQry.CreateVariable( "type", otString, type );
-  ParamQry.CreateVariable( "send", otInteger, send );	
+  ParamQry.CreateVariable( "send", otInteger, send );
 	ParamQry.Execute();
 	int priority = -1;
 	while ( !ParamQry.Eof ) {
@@ -249,11 +249,11 @@ void getFileParams( const std::string client_canon_name, const std::string &type
   }
   // испраывить!!!! ВЛАД АУ!!!
   if ( type != "BSM" )
-    fileparams[ PARAM_FILE_TYPE ] = type;        	
+    fileparams[ PARAM_FILE_TYPE ] = type;
   else
   	fileparams[ PARAM_TYPE ] = type;
-  fileparams[ PARAM_FILE_ID ] = IntToString( id );  
-	ParamQry.Clear();  
+  fileparams[ PARAM_FILE_ID ] = IntToString( id );
+	ParamQry.Clear();
 	ParamQry.SQLText = "SELECT NVL(in_order,0) as in_order FROM file_types WHERE code=:type";
 	ParamQry.CreateVariable( "type", otString, type );
 	ParamQry.Execute();
@@ -317,7 +317,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
   	file_id = ScanQry.FieldAsInteger( "id" );
   	in_order_key = string( ScanQry.FieldAsString( "type" ) ) + ScanQry.FieldAsString( "receiver" );
     try
-    { 
+    {
     	if ( !ScanQry.FieldAsInteger( "in_order" ) || // не важен порядок отправки
     		   !(find( vecType.begin(), vecType.end(), in_order_key ) != vecType.end()) &&
     		   ( ScanQry.FieldAsString( "status" ) != "SEND" || // или этот файл еще не отправлен и не было перед ним такого же
@@ -344,7 +344,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
         	fileparams[ PARAM_NEXT_FILE ] = "FALSE";
         buildFileParams( dataNode, fileparams );
 //        ProgTrace( TRACE5, "file_id=%d, msg.size()=%d", file_id, len );
-        sendFile( file_id );        
+        sendFile( file_id );
         break;
       }
     }
@@ -371,7 +371,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
       }
     };
     if ( ScanQry.FieldAsInteger( "in_order" ) )
-      vecType.push_back( in_order_key );    
+      vecType.push_back( in_order_key );
     ScanQry.Next();
   }	 // end while
   if ( p )
@@ -380,12 +380,12 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
 }
 
 void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name )
-{ /* теперь есть разделение по а/к */	
-	JxtCont *sysCont = getJxtContHandler()->sysContext();	
-	int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request	
+{ /* теперь есть разделение по а/к */
+	JxtCont *sysCont = getJxtContHandler()->sysContext();
+	int prior_id = sysCont->readInt( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 ); // for sort request
 	ProgTrace( TRACE5, "get prior_id=%d", prior_id );
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT type,airline,param_name,param_value FROM file_param_sets "
 	 " WHERE point_addr=:point_addr AND own_point_addr=:own_point_addr AND pr_send=:send "
 	 " ORDER BY type,airline ";
@@ -394,18 +394,18 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	Qry.CreateVariable( "send", otInteger, 0 );
 	Qry.Execute();
   if ( Qry.Eof )
-		return;		
+		return;
 	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
 	map<string,string> fileparams, first_fileparams;
 	string airline, first_airline;
 	int new_id = -1, first_new_id;
 	int id=0;
-	while ( !Qry.Eof ) {		
+	while ( !Qry.Eof ) {
 		ProgTrace( TRACE5, "new_id=%d", id );
 		if ( fileparams.find( PARAM_FILE_TYPE ) == fileparams.end() ) {
 		  fileparams[ PARAM_FILE_TYPE ] = Qry.FieldAsString( "type" );
 			airline = Qry.FieldAsString( "airline" );
-			new_id = id;		
+			new_id = id;
 			ProgTrace( TRACE5, "new_id=%d", new_id  );
 		}
 		if ( fileparams[ PARAM_FILE_TYPE ] != Qry.FieldAsString( "type" ) ||
@@ -420,7 +420,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 			ProgTrace( TRACE5, "prior_id=%d, new_id=%d", prior_id, new_id );
 			if ( prior_id >= new_id || fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {
 				tst();
-				fileparams.clear();				
+				fileparams.clear();
 				continue;
 		  }
 		  else {
@@ -429,9 +429,9 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 		  }
 		}
 		else {
-	    fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );			   	
+	    fileparams[ Qry.FieldAsString( "param_name" ) ] = Qry.FieldAsString( "param_value" );
 	    tst();
-	  }	    
+	  }
 	  id++;
 		Qry.Next();
 	}
@@ -440,15 +440,15 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	if ( Qry.Eof ) // next find from first row
 		new_id = -1;
 	ProgTrace( TRACE5, "new_id=%d", new_id );
-	
+
 	if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() && !first_fileparams.empty() ) {
 		fileparams = first_fileparams;
 		airline = first_airline;
 		new_id = first_new_id;
 	}
-		
-  if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {  	
-  	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 );	  	
+
+  if ( fileparams.find( PARAM_LOAD_DIR ) == fileparams.end() ) {
+  	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", -1 );
   	if ( Qry.RowCount() )
   	  ProgError( STDLOG, "AstraService Exception: invalid value of table file_params_sets, param LOADDIR not found" );
   	return;
@@ -458,11 +458,11 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 		if ( airline.empty() )
 			return;
 	  string region = CityTZRegion( "МОВ" );
-	  TDateTime d = UTCToLocal( NowUTC(), region );	 
+	  TDateTime d = UTCToLocal( NowUTC(), region );
 	  string filename = string( "SPP" ) + DateTimeToStr( d, "yymmdd" ) + ".txt";
 	  fileparams[ PARAM_FILE_NAME ] = filename;
 	  Qry.Clear();
-	  Qry.SQLText = 
+	  Qry.SQLText =
 	   "BEGIN "
 	   " SELECT rec_no INTO :rec_no FROM aodb_spp_files "
 	   "  WHERE filename=:filename AND point_addr=:point_addr AND NVL(airline,'Z')=NVL(:airline,'Z');"
@@ -471,7 +471,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	   "  :rec_no := -1; "
 	   "  INSERT INTO aodb_spp_files(filename,point_addr,airline,rec_no) VALUES(:filename,:point_addr,:airline,:rec_no); "
 	   " END;"
-	   "END;";	 
+	   "END;";
 	  Qry.CreateVariable( "filename", otString, filename );
 	  Qry.CreateVariable( "point_addr", otString, client_canon_name );
 	  Qry.CreateVariable( "airline", otString, airline );
@@ -479,9 +479,9 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	  Qry.Execute();
 	  fileparams[ PARAM_FILE_REC_NO ] = Qry.GetVariableAsString( "rec_no" );
 	}
-	buildFileParams( dataNode, fileparams );	
-	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", new_id );	
-	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline", airline );	
+	buildFileParams( dataNode, fileparams );
+	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.id", new_id );
+	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline", airline );
 }
 
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -490,7 +490,7 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 	if ( !node )
 		throw UserException( "param canon_name not found" );
 	string client_canon_name = NodeAsString( node );
-	string curmode = NodeAsString( "curmode", reqNode );	
+	string curmode = NodeAsString( "curmode", reqNode );
 	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
 	if ( curmode == "OUT" )	{
 		double wait_time;
@@ -500,11 +500,11 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
     Qry.CreateVariable( "id", otInteger, file_id );
     Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
-    Qry.Execute();  
+    Qry.Execute();
     if ( !Qry.Eof ) {
       TLogMsg msg;
     	string desk_code;
-    	msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );    	
+    	msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );
       Qry.SetVariable( "name", PARAM_CANON_NAME );
       Qry.Execute();
       if ( !Qry.Eof )
@@ -512,20 +512,20 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    msg.id1 = StrToInt( Qry.FieldAsString( "value" ) );
+  	    msg.id1 = ToInt( Qry.FieldAsString( "value" ) );
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    msg.id2 = StrToInt( Qry.FieldAsString( "value" ) );
+  	    msg.id2 = ToInt( Qry.FieldAsString( "value" ) );
       Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
       Qry.Execute();
       if ( !Qry.Eof )
-  	    msg.id3 = StrToInt( Qry.FieldAsString( "value" ) );
+  	    msg.id3 = ToInt( Qry.FieldAsString( "value" ) );
   	  Qry.Clear();
   	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   	  Qry.CreateVariable( "id", otInteger, file_id );
   	  Qry.Execute();
-  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", адресат=" + desk_code + ", ид.=") + 
+  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", адресат=" + desk_code + ", ид.=") +
                 IntToString( file_id ) + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)";
   	  TReqInfo::Instance()->MsgToLog( msg );
     }
@@ -536,16 +536,16 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-  int file_id = NodeAsInteger( "file_id", reqNode );  
+  int file_id = NodeAsInteger( "file_id", reqNode );
   ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
   Qry.CreateVariable( "id", otInteger, file_id );
   Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
-  Qry.Execute();  
+  Qry.Execute();
   TLogMsg msg;
 	string desk_code;
-  if ( !Qry.Eof )	
+  if ( !Qry.Eof )
  	  msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", PARAM_CANON_NAME );
   Qry.Execute();
@@ -554,23 +554,23 @@ void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	msg.id1 = StrToInt( Qry.FieldAsString( "value" ) );
+  	msg.id1 = ToInt( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	msg.id2 = StrToInt( Qry.FieldAsString( "value" ) );
+  	msg.id2 = ToInt( Qry.FieldAsString( "value" ) );
   Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
   Qry.Execute();
   if ( !Qry.Eof )
-  	msg.id3 = StrToInt( Qry.FieldAsString( "value" ) );
+  	msg.id3 = ToInt( Qry.FieldAsString( "value" ) );
   Qry.Clear();
   Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
   Qry.CreateVariable( "id", otInteger, file_id );
   Qry.Execute();
-  string ftype = Qry.FieldAsString( "type" );  	
+  string ftype = Qry.FieldAsString( "type" );
   doneFile( file_id );
   msg.msg = string("Файл доставлен (тип=" + ftype + ", адресат=" + desk_code + ", ид.=") + IntToString( file_id ) + ")";
-  TReqInfo::Instance()->MsgToLog( msg );  
+  TReqInfo::Instance()->MsgToLog( msg );
 }
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -615,19 +615,19 @@ string getFileEncoding( const string &file_type, const string &point_addr )
       "   pr_send = 1";
   EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
   EncodeQry.CreateVariable( "type", otString, file_type );
-  EncodeQry.CreateVariable( "point_addr", otString, point_addr );	
+  EncodeQry.CreateVariable( "point_addr", otString, point_addr );
   EncodeQry.Execute();
-  if ( !EncodeQry.Eof ) 
+  if ( !EncodeQry.Eof )
   	res = EncodeQry.FieldAsString( "encoding" );
   return res;
 }
 
-bool CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline, 
+bool CreateCommonFileData( int id, const std::string type, const std::string &airp, const std::string &airline,
 	                         const std::string &flt_no )
 {
 	bool res = false;
     TQuery Qry( &OraSession );
-    Qry.SQLText = 
+    Qry.SQLText =
         "SELECT point_addr, param_name, param_value,"
         " airp, airline, flt_no, "
         " DECODE( airp, NULL, 0, 4 ) + "
@@ -640,8 +640,8 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
         "       ( airp IS NULL OR airp=:airp ) AND "
         "       ( airline IS NULL OR airline=:airline ) AND "
         "       ( flt_no IS NULL OR flt_no=:flt_no ) "
-        " ORDER BY point_addr,priority DESC";	              		              
-    Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );		        
+        " ORDER BY point_addr,priority DESC";
+    Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
     Qry.CreateVariable( "type", otString, type );
     if ( airp.empty() )
         Qry.CreateVariable( "airp", otString, FNull );
@@ -654,13 +654,13 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
     if ( flt_no.empty() )
         Qry.CreateVariable( "flt_no", otInteger, FNull );
     else
-        Qry.CreateVariable( "flt_no", otInteger, flt_no );		
+        Qry.CreateVariable( "flt_no", otInteger, flt_no );
     Qry.Execute();
 //    map<string,int> cname; /* canon_name, priority */
     map<string,string> inparams;
     TFileDatas fds;
 //    int priority;
-    string client_canon_name; 
+    string client_canon_name;
     bool master_params = false;
     while ( 1 ) {
         if ( client_canon_name.empty() && !Qry.Eof )
@@ -669,22 +669,22 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
         	   !Qry.Eof && client_canon_name != Qry.FieldAsString( "point_addr" ) ) { /* если нет такого имени */
           if ( master_params ) {
             fds.clear();
-            TFileData fd;            
+            TFileData fd;
             try {
-                if ( 
-                        type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) || 
-                        type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||                        
+                if (
+                        type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
+                        type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
-                    	i->params[PARAM_CANON_NAME] = client_canon_name; 
+                    	i->params[PARAM_CANON_NAME] = client_canon_name;
                       i->params[ NS_PARAM_AIRP ] = airp;
                       i->params[ NS_PARAM_AIRLINE ] = airline;
                       i->params[ NS_PARAM_FLT_NO ] = flt_no;
                     	string str_file = i->file_data;
-                      if ( !encoding.empty() )              
+                      if ( !encoding.empty() )
                           try {
                               str_file = ConvertCodePage( encoding, "CP866", str_file );
                           } catch(EConvertError &E) {
@@ -698,13 +698,13 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                       if ( i->params.find( NS_PARAM_EVENT_TYPE ) != i->params.end() ) {
                     	  msg.ev_type = DecodeEventType( i->params[ NS_PARAM_EVENT_TYPE ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID1 ) != i->params.end() )
-                    		  msg.id1 = StrToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
+                    		  msg.id1 = ToInt( i->params[ NS_PARAM_EVENT_ID1 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID2 ) != i->params.end() )
-                    		  msg.id2 = StrToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
+                    		  msg.id2 = ToInt( i->params[ NS_PARAM_EVENT_ID2 ] );
                     	  if ( i->params.find( NS_PARAM_EVENT_ID3 ) != i->params.end() )
-                    		  msg.id3 = StrToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
+                    		  msg.id3 = ToInt( i->params[ NS_PARAM_EVENT_ID3 ] );
                     		msg.msg = string("Файл создан (тип=" + type + ", адресат=" + client_canon_name + ", ид.=") + IntToString( file_id ) + ")";
-                    		TReqInfo::Instance()->MsgToLog( msg );  
+                    		TReqInfo::Instance()->MsgToLog( msg );
                       }
                     }
                 }
@@ -734,12 +734,12 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
         if ( im == inparams.end() ) {
         	inparams.insert( make_pair( Qry.FieldAsString( "param_name" ), Qry.FieldAsString( "param_value" ) ) );
         	if ( string( Qry.FieldAsString( "param_name" ) ).find( "DEP" ) == std::string::npos ) {
-        	 	master_params = true;        	
+        	 	master_params = true;
         	}
         }
         Qry.Next();
-    }	
-  return res;  
+    }
+  return res;
 }
 
 void CreateCentringFileDATA( int point_id )
@@ -767,7 +767,7 @@ void createSofiFileDATA( int receipt_id )
 	Qry.Execute();
 	if ( !Qry.Eof )
 		CreateCommonFileData( receipt_id, FILE_SOFI_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
+		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
 }
 
 /*void createAODBFileDATA( int point_id )
@@ -778,22 +778,22 @@ void createSofiFileDATA( int receipt_id )
 	Qry.Execute();
 	if ( !Qry.Eof )
 		CreateCommonFileData( point_id, FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
-		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	
+		                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
 }*/
 
 void sync_aodb( void )
 {
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
 		 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
 		 " FROM points, file_param_sets "
 		 " WHERE gtimer.is_final_stage( points.point_id, :ckin_stage_type, :prep_checkin_stage_id)=0 AND "
-     "       gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "		 
+     "       gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "
 		 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 		 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 		 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "
 		 "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
-		 "       points.act_out IS NULL AND points.pr_del=0 ";		 
+		 "       points.act_out IS NULL AND points.pr_del=0 ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
 	Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
@@ -810,22 +810,22 @@ void sync_aodb( void )
 void sync_sppcek( void )
 {
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
 	 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
 	 " FROM points, file_param_sets "
 	 " WHERE file_param_sets.type=:file_type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
 	 "       ( points.scd_in >= system.UTCSYSDATE-1 OR "
-   "         points.scd_out >= system.UTCSYSDATE-1 ) AND "	 
+   "         points.scd_out >= system.UTCSYSDATE-1 ) AND "
 	 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 	 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 	 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
 	Qry.CreateVariable( "file_type", otString, FILE_SPPCEK_TYPE );
-//!!!	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );	
+//!!!	Qry.CreateVariable( "spp_days", otInteger, CREATE_SPP_DAYS() );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
 		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_SPPCEK_TYPE, Qry.FieldAsString( "airp" ),
-  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );	      	                      
+  	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
 		Qry.Next();
 	}
 
@@ -847,9 +847,9 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 	if ( !dataNode ) {
 		ProgError( STDLOG, "saveFileData tag file\\data not found!" );
 		return;
-	}	
+	}
 	string file_data = NodeAsString( dataNode );
-	file_data = b64_decode( file_data.c_str(), file_data.size() ); 
+	file_data = b64_decode( file_data.c_str(), file_data.size() );
 	TQuery Qry( &OraSession );
   TQuery EncodeQry( &OraSession );
   EncodeQry.SQLText =
@@ -860,7 +860,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       "   pr_send = 0";
   EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
   EncodeQry.CreateVariable( "point_addr", otString, fileparams[ "canon_name" ] );
-  EncodeQry.Execute();    	
+  EncodeQry.Execute();
 
   string convert_aodb;
   if ( !EncodeQry.Eof )
@@ -868,21 +868,21 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       	  convert_aodb = EncodeQry.FieldAsString( "encoding" );
           file_data = ConvertCodePage( "CP866", convert_aodb, file_data );
           convert_aodb.clear();
-      } 
+      }
       catch( EConvertError &E ) {
         ProgError(STDLOG, E.what());
       }
   JxtCont *sysCont = getJxtContHandler()->sysContext();
-  string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );	
+  string airline = sysCont->read( fileparams[ "canon_name" ] + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline" );
   ParseAndSaveSPP( fileparams[ PARAM_FILE_NAME ], fileparams[ "canon_name" ], airline, file_data, convert_aodb );
 }
 
 void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
-{ 
+{
 	TQuery Qry( &OraSession );
 	Qry.SQLText = "SELECT code, name from file_types";
 	Qry.Execute();
-  xmlNodePtr node = NewTextChild( resNode, "file_types" );	
+  xmlNodePtr node = NewTextChild( resNode, "file_types" );
 	while (!Qry.Eof) {
 		xmlNodePtr n = NewTextChild( node, "type" );
 		NewTextChild( n, "code", Qry.FieldAsString( "code" ) );
@@ -892,7 +892,7 @@ void AstraServiceInterface::getFileParams( XMLRequestCtxt *ctxt, xmlNodePtr reqN
 	Qry.Clear();
 	Qry.SQLText = "SELECT DISTINCT type, receiver FROM files";
 	Qry.Execute();
-	node = NewTextChild( resNode, "point_addrs" );	
+	node = NewTextChild( resNode, "point_addrs" );
 	while (!Qry.Eof) {
 		xmlNodePtr n = NewTextChild( node, "addrs" );
 		NewTextChild( n, "type", Qry.FieldAsString( "type" ) );
@@ -909,7 +909,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	TDateTime last_day = NodeAsDateTime( "last_day", reqNode );
 	ProgTrace( TRACE5, "type=%s, receiver=%s, first_day=%f, last_day=%f", type.c_str(), receiver.c_str(), first_day, last_day );
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
 	"SELECT files.id, time, value FROM files, file_params "
 	" WHERE type=:type AND receiver=:receiver AND time>=:first_day AND time<=:last_day AND "
 	"      files.id=file_params.id(+) AND 'FileName'=file_params.name(+) ";
@@ -926,7 +926,7 @@ void AstraServiceInterface::viewFileIds( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 		NewTextChild( n, "filename", Qry.FieldAsString( "value" ) );
 		Qry.Next();
 	}
-	
+
 }
 
 
@@ -934,7 +934,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 {
 	int file_id = NodeAsInteger( "file_id", reqNode );
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT type, receiver, error, data FROM files WHERE id=:file_id";	
+	Qry.SQLText = "SELECT type, receiver, error, data FROM files WHERE id=:file_id";
 	Qry.CreateVariable( "file_id", otInteger, file_id );
 	Qry.Execute();
 	if ( Qry.Eof )
@@ -949,7 +949,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   ProgTrace( TRACE5, "encoding=%s, file_str=%s", encoding.c_str(), str_file.c_str() );
   if ( !encoding.empty() )
   	str_file = ConvertCodePage( "CP866", encoding, str_file );
-  str_file = ConvertCodePage( "WINDOWS-1251", "CP866", str_file );	
+  str_file = ConvertCodePage( "WINDOWS-1251", "CP866", str_file );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
   NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
   free( p );
@@ -968,18 +968,18 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 void AstraServiceInterface::getAodbFiles( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT filename, point_addr, airline FROM aodb_spp_files";		
+	Qry.SQLText = "SELECT filename, point_addr, airline FROM aodb_spp_files";
 	Qry.Execute();
 	xmlNodePtr node = NewTextChild( resNode, "files" );
 	while ( !Qry.Eof ) {
 		xmlNodePtr n = NewTextChild( node, "file" );
 		NewTextChild( n, "filename", Qry.FieldAsString( "filename" ) );
 		NewTextChild( n, "point_addr", Qry.FieldAsString( "point_addr" ) );
-		NewTextChild( n, "airline", Qry.FieldAsString( "airline" ) );		
+		NewTextChild( n, "airline", Qry.FieldAsString( "airline" ) );
 		Qry.Next();
 	}
 }
-		
+
 
 void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
@@ -987,13 +987,13 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 	string point_addr = NodeAsString( "point_addr", reqNode );
 	string airline = NodeAsString( "airline", reqNode );
 	TQuery Qry( &OraSession );
-	Qry.SQLText = 
+	Qry.SQLText =
 	"SELECT rec_no, record, msg, type, time FROM aodb_events "
 	" WHERE filename=:filename AND point_addr=:point_addr AND airline=:airline"
 	" ORDER BY rec_no ";
-	Qry.CreateVariable( "filename", otString, filename );	
-	Qry.CreateVariable( "point_addr", otString, point_addr );	
-	Qry.CreateVariable( "airline", otString, airline );	
+	Qry.CreateVariable( "filename", otString, filename );
+	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.CreateVariable( "airline", otString, airline );
 	Qry.Execute();
 	ProgTrace( TRACE5, "filename=%s, point_addr=%s, airline=%s", filename.c_str(), point_addr.c_str(), airline.c_str() );
 	xmlNodePtr node = NewTextChild( resNode, "records" );
@@ -1001,8 +1001,8 @@ void AstraServiceInterface::getAodbData( XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 		xmlNodePtr n = NewTextChild( node, "record" );
 		NewTextChild( n, "rec_no", Qry.FieldAsInteger( "rec_no" ) );
 		NewTextChild( n, "record", Qry.FieldAsString( "record" ) );
-		NewTextChild( n, "msg", Qry.FieldAsString( "msg" ) );		
-		NewTextChild( n, "type", Qry.FieldAsString( "type" ) );		
+		NewTextChild( n, "msg", Qry.FieldAsString( "msg" ) );
+		NewTextChild( n, "type", Qry.FieldAsString( "type" ) );
 		NewTextChild( n, "time", DateTimeToStr( Qry.FieldAsDateTime( "time" ), ServerFormatDateTimeAsString ) );
 		Qry.Next();
 	}

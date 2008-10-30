@@ -35,6 +35,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 {
   try
   {
+    sleep(10);
     OpenLogFile("logairimp");
 
     int SRV_PORT;
@@ -428,11 +429,11 @@ void scan_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,system.UTCSYSDATE AS now,tlg_queue.time,ttl\
-       FROM tlgs,tlg_queue\
-       WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
-             tlg_queue.type='INB' AND tlg_queue.status='PUT'\
-       ORDER BY tlg_queue.time,tlg_queue.id";
+      "SELECT tlg_queue.id,tlgs.tlg_text,system.UTCSYSDATE AS now,tlg_queue.time,ttl "
+      "FROM tlgs,tlg_queue "
+      "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
+      "      tlg_queue.type='INB' AND tlg_queue.status='PUT' "
+      "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
 
   };
@@ -442,15 +443,15 @@ void scan_tlg(void)
   {
     TlgIdQry.Clear();
     TlgIdQry.SQLText=
-     "BEGIN\
-        SELECT id INTO :id FROM tlgs_in\
-        WHERE type= :tlg_type AND\
-              time_create BETWEEN :min_time_create AND :max_time_create AND\
-              merge_key= :merge_key AND rownum=1 FOR UPDATE;\
-      EXCEPTION\
-        WHEN NO_DATA_FOUND THEN\
-          SELECT tlg_in_out__seq.nextval INTO :id FROM dual;\
-      END;";
+     "BEGIN "
+     "  SELECT id INTO :id FROM tlgs_in "
+     "  WHERE type= :tlg_type AND "
+     "        time_create BETWEEN :min_time_create AND :max_time_create AND "
+     "        merge_key= :merge_key AND rownum=1 FOR UPDATE; "
+     "EXCEPTION "
+     "  WHEN NO_DATA_FOUND THEN "
+     "    SELECT tlg_in_out__seq.nextval INTO :id FROM dual; "
+     "END;";
     TlgIdQry.DeclareVariable("id",otInteger);
     TlgIdQry.DeclareVariable("tlg_type",otString);
     TlgIdQry.DeclareVariable("min_time_create",otDate);
@@ -463,11 +464,11 @@ void scan_tlg(void)
   {
     InsQry.Clear();
     InsQry.SQLText=
-       "INSERT INTO tlgs_in(id,num,type,addr,heading,body,ending,\
-                           merge_key,time_create,time_receive,time_parse)\
-        VALUES(NVL(:id,tlg_in_out__seq.nextval),\
-               :part_no,:tlg_type,:addr,:heading,:body,:ending,\
-               :merge_key,:time_create,system.UTCSYSDATE,NULL)";
+       "INSERT INTO tlgs_in(id,num,type,addr,heading,body,ending, "
+       "                   merge_key,time_create,time_receive,time_parse) "
+       "VALUES(NVL(:id,tlg_in_out__seq.nextval), "
+       "       :part_no,:tlg_type,:addr,:heading,:body,:ending, "
+       "       :merge_key,:time_create,system.UTCSYSDATE,NULL)";
     InsQry.DeclareVariable("id",otInteger);
     InsQry.DeclareVariable("part_no",otInteger);
     InsQry.DeclareVariable("tlg_type",otString);

@@ -16,6 +16,7 @@
 #include "tripinfo.h"
 #include "docs.h"
 #include "stat.h"
+#include "salons.h"
 
 using namespace std;
 using namespace BASIC;
@@ -345,6 +346,8 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
                                       evtFlt, point_id );
       node = node->next;
     };
+    string craft;
+    SALONS::AutoSetCraft( point_id, craft, -1 );
   };
 
   node = GetNode( "trip_sets", reqNode );
@@ -570,13 +573,14 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
+
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   if ( GetNode( "tripcounters", reqNode ) ) {
     readTripCounters( point_id, dataNode );
   }
 }
 
-void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+/*void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
   int pr_lat = 0;
@@ -588,7 +592,7 @@ void PrepRegInterface::ViewPNL(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   STAT::set_variables(resNode);
   xmlNodePtr formDataNode = GetNode("form_data/variables", resNode);
   PaxListVars(point_id, pr_lat, formDataNode);
-}
+}*/
 
 void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {

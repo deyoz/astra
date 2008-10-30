@@ -7,6 +7,92 @@
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
 
+struct TTlgInfo {
+    // кодировка салона
+    bool pr_lat_seat;
+    std::string tlg_type;
+    //адреса получателей
+    std::string addrs;
+    //адрес отправителя
+    std::string sender;
+    //наш аэропорт
+    std::string own_airp;
+    //рейс
+    int point_id;
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    std::string airp_dep;
+    std::string airp_arv;
+    BASIC::TDateTime scd;
+    BASIC::TDateTime scd_local;
+    BASIC::TDateTime act_local;
+    bool pr_summer;
+    std::string craft;
+    std::string bort;
+    //вспомогательные чтобы вытаскивать маршрут
+    int first_point;
+    int point_num;
+    //направление
+    std::string airp;
+    //центр бронирования
+    std::string crs;
+    //дополнительная инфа
+    std::string extra;
+    //разные настройки
+    bool pr_lat;
+    TTlgInfo() {
+        point_id = -1;
+        flt_no = -1;
+        scd = 0;
+        scd_local = 0;
+        act_local = 0;
+        pr_summer = false;
+        first_point = -1;
+        point_num = -1;
+        pr_lat = false;
+    };
+};
+
+// stuff used to form seat ranges in tlgs
+struct TTlgPlace {
+    int x, y, num, point_arv;
+    std::string xname, yname;
+    void dump();
+    TTlgPlace() {
+        num = ASTRA::NoExists;
+        x = ASTRA::NoExists;
+        y = ASTRA::NoExists;
+        point_arv = ASTRA::NoExists;
+    }
+};
+
+typedef std::map<std::string, TTlgPlace> t_tlg_row;
+typedef std::map<std::string, t_tlg_row> t_tlg_comp;
+
+struct TTlgSeatList {
+    private:
+        t_tlg_comp comp;
+        void apply_comp(TTlgInfo &info);
+        void dump_comp();
+        void dump_list(std::map<int, std::string> &list);
+        void get_seat_list(std::map<int, std::string> &list, bool pr_lat);
+    public:
+        std::vector<std::string> items;
+        void get(TTlgInfo &info);
+        void add_seat(int point_id, std::string xname, std::string yname); // used in SOM
+        void add_seat(std::string xname, std::string yname) { // used in PRL
+            add_seat(0, xname, yname);
+        };
+        std::string get_seat_list(bool pr_lat); // used in PRL
+        std::string get_seat_one(bool pr_lat);
+        void Clear() { comp.clear(); };
+};
+
+void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list);
+
+// End of previous stuff
+
 class TBSMTagItem
 {
   public:
@@ -33,7 +119,8 @@ class TBSMBagItem
 class TBSMPaxItem
 {
   public:
-    std::string surname,name,seat_no,status,pnr_addr;
+    std::string surname,name,status,pnr_addr;
+    TTlgSeatList seat_no;
     int reg_no;
     TBSMPaxItem()
     {
@@ -46,6 +133,7 @@ class TBSMContent
   public:
     TIndicator indicator;
     TTransferItem OutFlt;
+    bool pr_lat_seat;
     std::vector<TTransferItem> OnwardFlt;
     std::vector<TBSMTagItem> tags;
     TBSMPaxItem pax;
@@ -53,6 +141,7 @@ class TBSMContent
     TBSMContent()
     {
       indicator=None;
+      pr_lat_seat=false;
     };
 };
 
@@ -110,6 +199,9 @@ public:
      AddEvent("SendTlg",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::DeleteTlg);
      AddEvent("DeleteTlg",evHandle);
+
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::TestSeatRanges);
+     AddEvent("TestSeatRanges",evHandle);
   };
 
   void GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -121,6 +213,8 @@ public:
   void SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+
+  void TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(

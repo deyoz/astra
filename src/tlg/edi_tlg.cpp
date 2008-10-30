@@ -520,7 +520,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
     if (!reqInfo.desk.code.empty())
     {
         ServerFramework::getQueryRunner().getEdiHelpManager().
-                configForPerespros(prepareKickText("ETStatus").c_str(),15);
+                configForPerespros(STDLOG,prepareKickText("ETStatus").c_str(),15);
     };
 }
 
@@ -689,7 +689,7 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
     if (!reqInfo.desk.code.empty())
     {
       ServerFramework::getQueryRunner().getEdiHelpManager().
-              configForPerespros(prepareKickText("ETSearchForm").c_str(),15);
+              configForPerespros(STDLOG,prepareKickText("ETSearchForm").c_str(),15);
     };
 }
 

@@ -212,7 +212,7 @@ typedef std::vector<TSOPPTrip> TSOPPTrips;
 
 void createSOPPTrip( int point_id, TSOPPTrips &trips );
 
-bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, bool LocalAll,
+bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
 
 

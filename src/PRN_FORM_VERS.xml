@@ -1,0 +1,74 @@
+<?xml version='1.0' encoding='cp866'?>
+<iface>
+  <title>Список версий</title>
+  <CanRefresh>0</CanRefresh>
+  <CanInsert>1</CanInsert>
+  <CanUpdate>1</CanUpdate>
+  <CanDelete>1</CanDelete>
+  <fields tid='374248'>
+    <field index='0'>
+      <Name>ID</Name>
+      <Title/>
+      <Width>0</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>1</DataType>
+      <DataSize>9</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>1</Ident>
+      <ReadOnly>1</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='1'>
+      <Name>VERSION</Name>
+      <Title>Вер.</Title>
+      <Width>1</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>1</DataType>
+      <DataSize>9</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>1</Ident>
+      <ReadOnly>1</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='2'>
+      <Name>DESCR</Name>
+      <Title>Описание</Title>
+      <Width>95</Width>
+      <CharCase>U</CharCase>
+      <Align>0</Align>
+      <DataType>4</DataType>
+      <DataSize>100</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='3'>
+      <Name>READ_ONLY</Name>
+      <Title>Ред.</Title>
+      <Width>1</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>5</DataType>
+      <DataSize>1</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+  </fields>
+</iface>

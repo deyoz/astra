@@ -92,8 +92,8 @@ const string spp__a_dbf_fields =
 "NSOP CHAR(1),"
 "BP NUMERIC(3,0),"
 "MBCF NUMERIC(6,0),"
-"CBCF NUMERIC(4,2),"
-"RVC NUMERIC(4,2),"
+"CBCF NUMERIC(5,2),"
+"RVC NUMERIC(5,2),"
 "TST NUMERIC(4,0),"
 "TVZ NUMERIC(5,0),"
 "TRS NUMERIC(5,0),"
@@ -196,8 +196,8 @@ const string spp__d_dbf_fields =
 "NSOP CHAR(1),"
 "BP NUMERIC(3,0),"
 "MBCF NUMERIC(6,0),"
-"CBCF NUMERIC(4,2),"
-"RVC NUMERIC(4,2),"
+"CBCF NUMERIC(5,2),"
+"RVC NUMERIC(5,2),"
 "TST NUMERIC(4,0),"
 "TVZ NUMERIC(5,0),"
 "TRS NUMERIC(5,0),"
@@ -369,14 +369,11 @@ const string spp__dk_dbf_fields =
 inline string GetMinutes( TDateTime d1, TDateTime d2 )
 {
 	if ( d2 > NoExists ) {
-    int Hour, Min, Sec, Year, Month, Day;
-    TDateTime d = d2-d1;
-    if ( d >= 1 )
-    	DecodeDate( d, Year, Month, Day );
-    else
-    	Day = 0;
-    DecodeTime( d, Hour, Min, Sec );
-    return IntToString( Day*24*60 + Hour*60 + Min );
+    int Hour, Min, Sec, Year, Month, Day1, Day2;
+   	DecodeDate( d1, Year, Month, Day1 );
+   	DecodeDate( d2, Year, Month, Day2 );
+    DecodeTime( d2-d1, Hour, Min, Sec );
+    return IntToString( (Day2-Day1)*24*60 + Hour*60 + Min );
 	}
 	else
 		return "0";
@@ -406,64 +403,101 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
 		return false;
 	TFileData fd;
 	string sql_str;
-	xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );	
+	xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+	xmlNodePtr rollbackNode;
+	string tablename;
 	try {
 	  xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
-    xmlNodePtr sqlNode = NewTextChild( queryNode, "sql", sql_str );  
-    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      
+	  tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
+    sql_str = string("DROP TABLE ") + tablename;
+    xmlNodePtr sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "A(";
+    tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "A";
+    sql_str = string("CREATE TABLE ") + tablename + "(";
     sql_str += spp__a_dbf_fields + ") IN DATABASE";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
 
-	  queryNode = NewTextChild( doc->children, "query" );    
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
-    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      
+    tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
+	  queryNode = NewTextChild( doc->children, "query" );
+    sql_str = string("DROP TABLE ") + tablename;
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "D(";
+    tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "D";
+    sql_str = string("CREATE TABLE ") + tablename + "(";
     sql_str += spp__d_dbf_fields + ") IN DATABASE";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );    
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
 
-	  queryNode = NewTextChild( doc->children, "query" );    
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
-    NewTextChild( queryNode, "ignoreErrorCode", 5004 );          
+	  queryNode = NewTextChild( doc->children, "query" );
+	  tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("DROP TABLE ") + tablename;
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(";
+    tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("CREATE TABLE ") + tablename + "(";
     sql_str += spp__ak_dbf_fields + ") IN DATABASE";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
-	  queryNode = NewTextChild( doc->children, "query" );  
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK ON ";
-    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR ASC)";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
-	  queryNode = NewTextChild( doc->children, "query" );    
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "AK1 ON ";
-    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR DESC)"; 
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      	  
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
 
-	  queryNode = NewTextChild( doc->children, "query" );    
-    sql_str = string("DROP TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );  
-    NewTextChild( queryNode, "ignoreErrorCode", 5004 );      	  
+/*    queryNode = NewTextChild( doc->children, "query" );
+	  tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK";
+    sql_str = string("CREATE INDEX ") + tablename + " ON ";
+    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR ASC)";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+
+	  queryNode = NewTextChild( doc->children, "query" );
+	  tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK1";
+    sql_str = string("CREATE INDEX ") + tablename + " ON ";
+    sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "AK(PNR ASC,SPUR DESC)";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );*/
+
+	  queryNode = NewTextChild( doc->children, "query" );
+	  tablename =  string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("DROP TABLE ") + tablename;
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+    NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+
     queryNode = NewTextChild( doc->children, "query" );
-    sql_str = string("CREATE TABLE SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(";
+    tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("CREATE TABLE ") + tablename + "(";
     sql_str += spp__dk_dbf_fields + ") IN DATABASE";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
-	  queryNode = NewTextChild( doc->children, "query" );      
-    sql_str = string("CREATE INDEX SPP") + DateTimeToStr( sppdate, "dd" ) + "DK ON ";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+
+/*	  queryNode = NewTextChild( doc->children, "query" );
+	  tablename = string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK";
+    sql_str = string("CREATE INDEX ") + tablename + " ON ";
     sql_str += string("SPP") + DateTimeToStr( sppdate, "dd" ) + "DK(PNR ASC,SPUR ASC)";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
-	  queryNode = NewTextChild( doc->children, "query" );      
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );*/
+
+	  queryNode = NewTextChild( doc->children, "query" );
+    sql_str = "DELETE FROM SPPCIKL WHERE DSPP={d'" + DateTimeToStr( sppdate, "yyyy-mm-dd" ) + "'}";
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+
+
+	  queryNode = NewTextChild( doc->children, "query" );
     sql_str = "INSERT INTO SPPCIKL(DADP,DFSPP,VFSPP,DSPP) VALUES( '" +
                reqInfo->desk.city + "',{d'" + DateTimeToStr( reqInfo->desk.time, "yyyy-mm-dd" ) +
                "'},'" + DateTimeToStr( reqInfo->desk.time, "hh:nn" ) + "',{d'" + DateTimeToStr( sppdate, "yyyy-mm-dd" ) + "'})";
-    sqlNode = NewTextChild( queryNode, "sql", sql_str );      
+    sqlNode = NewTextChild( queryNode, "sql", sql_str );
+
 	  if ( doc ) {
 	  	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
-  	  fd.params[ PARAM_FILE_NAME ] =  "SPP" + DateTimeToStr( sppdate, "dd" ) + "A.DBF";
-   		fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
+  		fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
     	string s = XMLTreeToText( doc );
     	s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
     	fd.file_data = s;
@@ -474,7 +508,7 @@ bool createSPPCEK( TDateTime sppdate, const string &file_type, const string &poi
 	catch ( ... ) {
 		xmlFreeDoc( doc );
 		throw;
-	}  
+	}
   Qry.Clear();
   Qry.SQLText =
   "INSERT INTO snapshot_params(file_type,point_addr,name,value) VALUES(:file_type,:point_addr,:sppdate,'SPP')";
@@ -493,44 +527,54 @@ void createParam( xmlNodePtr paramsNode, const string &name, const string &value
   	NewTextChild( Nparam, "type", type );
 }
 
+string getPNR( const string airline, int flt_no, const string suffix )
+{
+	string pnr;
+	if ( airline == "ЬЬ" )
+		pnr = IntToString( flt_no ) + suffix;
+	else
+		pnr = airline + IntToString( flt_no ) + suffix;
+	return pnr;
+}
+
 xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
 {
 	TDateTime tm;
-	Luggage lug_in, lug_out;  
-  int cargo_in=0, cargo_out=0, mail_in=0, mail_out=0;	
+	Luggage lug_in, lug_out;
+  int cargo_in=0, cargo_out=0, mail_in=0, mail_out=0;
   lug_in.max_commerce = 0; lug_out.max_commerce = 0;
 	if ( !doc )
-	  doc = CreateXMLDoc( "UTF-8", "xmltrip" );		
+	  doc = CreateXMLDoc( "UTF-8", "xmltrip" );
 	xmlNodePtr tripNode = NewTextChild( doc->children, "trip" );
 	NewTextChild( tripNode, "point_id", tr->point_id );
 	if ( !tr->places_in.empty() ) {
 		xmlNodePtr NodeA = NewTextChild( tripNode, "A" );
-  	NewTextChild( NodeA, "PNR", tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in ); 	
+  	NewTextChild( NodeA, "PNR", getPNR( tr->airline_in, tr->flt_no_in, tr->suffix_in ) );
   	NewTextChild( NodeA, "DN", GetStrDate( tr->scd_in ) );
   	NewTextChild( NodeA, "KUG", tr->airline_in );
   	NewTextChild( NodeA, "TVC", tr->craft_in );
     if ( tr->pr_del_in == 1 )
     	NewTextChild( NodeA, "BNP", "ОТМЕН" );
     else
-    	NewTextChild( NodeA, "BNP", tr->bort_in );
+    	NewTextChild( NodeA, "BNP", tr->bort_in.substr(0,5) );
     NewTextChild( NodeA, "NMSF", tr->park_in );
-    NewTextChild( NodeA, "RPVSN", GetMinutes( tr->scd_in, tr->est_in ) );
+    NewTextChild( NodeA, "RPVSN", GetMinutes( tr->scd_in, tr->est_in ).substr(0,3) );
  	  if ( tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in == tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out )
  	    NewTextChild( NodeA, "PRIZ", IntToString( 2 ) );
- 	  else 
+ 	  else
  	  	NewTextChild( NodeA, "PRIZ", IntToString( 1 ) );
     NewTextChild( NodeA, "KUR", IntToString( tr->places_in.size() ) );
     if ( tr->triptype_in == "м" )
     	NewTextChild( NodeA, "VDV", "МЕЖ" );
     else
-      NewTextChild( NodeA, "VDV", "ПАС" );    
+      NewTextChild( NodeA, "VDV", "ПАС" );
     int k = 0;
     int prior_point_id = ASTRA::NoExists;
     for ( TSOPPDests::iterator d=tr->places_in.begin(); d!= tr->places_in.end(); d++,k++ ) {
   	  if ( d->pr_del == 0 )
-  			prior_point_id = d->point_id;    	 
-      xmlNodePtr NodeAK = NewTextChild( NodeA, "AK" );  			 			
-    	NewTextChild( NodeAK, "PNR", tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in );
+  			prior_point_id = d->point_id;
+      xmlNodePtr NodeAK = NewTextChild( NodeA, "AK" );
+    	NewTextChild( NodeAK, "PNR", getPNR( tr->airline_in, tr->flt_no_in, tr->suffix_in ) );
     	NewTextChild( NodeAK, "AV", d->airp );
      /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
         расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
@@ -574,7 +618,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
        	NewTextChild( NodeAK, "DPF", GetStrDate( tr->act_in ) );
        	modf( tr->act_in, &tm );
        	NewTextChild( NodeAK, "VPF", GetMinutes( tm, tr->act_in ) );
-       	
+
        	NewTextChild( NodeAK, "PDV", GetStrDate( d->scd_out ) );
         modf( d->scd_out, &tm );
         NewTextChild( NodeAK, "PVV", GetMinutes( tm, d->scd_out ) );
@@ -591,49 +635,49 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       NewTextChild( NodeAK, "TPC", IntToString( 0 ) );
       NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
       NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
-    };    
+    };
 		if ( prior_point_id > ASTRA::NoExists ) {
  			GetLuggage( prior_point_id, lug_in );
- 		} 		
+ 		}
  		else lug_in.max_commerce = 0;
     for ( vector<Cargo>::iterator wc=lug_in.vcargo.begin(); wc!=lug_in.vcargo.end(); wc++ ) {
     	if ( wc->point_arv == tr->point_id ) {
      	  cargo_in += wc->cargo;
        	mail_in += wc->mail;
        }
-     }    
+     }
     NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
-    NewTextChild( NodeA, "F9", IntToString( cargo_in ) );    
+    NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
     NewTextChild( NodeA, "F11", IntToString( mail_in ) );
-	} // end if !place_in.empty()	
+	} // end if !place_in.empty()
 	if ( !tr->places_out.empty() ) {
   	GetLuggage( tr->point_id, lug_out );
 		xmlNodePtr NodeD = NewTextChild( tripNode, "D" );
-		NewTextChild( NodeD, "PNR", tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out );
+		NewTextChild( NodeD, "PNR", getPNR( tr->airline_out, tr->flt_no_out, tr->suffix_out ) );
 		NewTextChild( NodeD, "DN", GetStrDate( tr->scd_out ) );
   	NewTextChild( NodeD, "KUG", tr->airline_out );
   	NewTextChild( NodeD, "TVC", tr->craft_out );
     if ( tr->pr_del_out == 1 )
     	NewTextChild( NodeD, "BNP", "ОТМЕН" );
     else
- 	  	NewTextChild( NodeD, "BNP", tr->bort_out );
+ 	  	NewTextChild( NodeD, "BNP", tr->bort_out.substr(0,5) );
  	  NewTextChild( NodeD, "NMSF", tr->park_out );
- 	  NewTextChild( NodeD, "RPVSN", GetMinutes( tr->scd_out, tr->est_out ) );
+ 	  NewTextChild( NodeD, "RPVSN", GetMinutes( tr->scd_out, tr->est_out ).substr(0,3) );
  	  if ( tr->airline_in + IntToString( tr->flt_no_in ) + tr->suffix_in == tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out )
  	    NewTextChild( NodeD, "PRIZ", IntToString( 2 ) );
- 	  else 
+ 	  else
  	  	NewTextChild( NodeD, "PRIZ", IntToString( 1 ) );
     if ( tr->triptype_out == "м" )
     	NewTextChild( NodeD, "VDV", "МЕЖ" );
     else
     	NewTextChild( NodeD, "VDV", "ПАС" );
-    // теперь создание записей по плечам        
+    // теперь создание записей по плечам
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
     	ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
-      vector<Cargo>::iterator c=lug_out.vcargo.end();            	
+      vector<Cargo>::iterator c=lug_out.vcargo.end();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
-      NewTextChild( NodeDK, "PNR", tr->airline_out + IntToString( tr->flt_no_out ) + tr->suffix_out );
+      NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->flt_no_out, tr->suffix_out ) );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
       NewTextChild( NodeDK, "AP", d->airp );
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
@@ -680,7 +724,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
        	modf( d->est_in, &tm );
        	NewTextChild( NodeDK, "VPR", GetMinutes( tm, d->est_in ) );
        	NewTextChild( NodeDK, "DPF", GetStrDate( d->act_in ) );
-       	modf( d->act_in, &tm );          	
+       	modf( d->act_in, &tm );
        	NewTextChild( NodeDK, "VPF", GetMinutes( tm, d->act_in ) );
 
         NewTextChild( NodeDK, "PDV", GetStrDate( tr->scd_out ) );
@@ -695,7 +739,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
         for ( c=lug_in.vcargo.begin(); c!=lug_in.vcargo.end(); c++ ) {
   	      if ( c->point_arv == tr->point_id )
      	      break;
-        }                    	
+        }
       }
       NewTextChild( NodeDK, "PUR", IntToString( k + 1 ) );
       NewTextChild( NodeDK, "PR", IntToString( 0 ) );
@@ -713,13 +757,13 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     for ( vector<Cargo>::iterator wc=lug_out.vcargo.begin(); wc!=lug_out.vcargo.end(); wc++ ) {
     	cargo_out += wc->cargo;
     	mail_out += wc->mail;
-    }  		
+    }
  	  NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
  	  NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
  	  NewTextChild( NodeD, "F11", IntToString( mail_out ) );
- 	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );    
-	}   	
-	return doc;  
+ 	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );
+	}
+	return doc;
 }
 
 string GetXMLRow( xmlNodePtr node )
@@ -736,14 +780,15 @@ string GetXMLRow( xmlNodePtr node )
 void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const string &day, bool pr_land )
 {
   xmlNodePtr nodeP, nodeN;
-  string sql_str;  
+  string sql_str;
   xmlNodePtr paramsNode;
-  xmlNodePtr queryNode, sqlNode;
+  xmlNodePtr queryNode, sqlNode, rollbackNode;
   string dbf_type;
   if ( pr_land )
   	dbf_type = "A";
   else
   	dbf_type = "D";
+  string tablename = string("SPP") + day + dbf_type;
   if ( old_doc )
     nodeP = GetNode( (char*)dbf_type.c_str(), old_doc, old_doc->children->children );
   else
@@ -753,65 +798,67 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   else
   	nodeN = 0;
   bool pr_insert = ( !nodeP && nodeN ||
-                     nodeP && nodeN && 
-                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) != 
+                     nodeP && nodeN &&
+                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
                      string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN ) );
-  bool pr_delete = ( nodeP && !nodeN || 
-                     nodeP && nodeN && 
-                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) != 
+  bool pr_delete = ( nodeP && !nodeN ||
+                     nodeP && nodeN &&
+                     string(NodeAsString( "PNR", nodeP )) + NodeAsString( "DN", nodeP ) !=
                      string(NodeAsString( "PNR", nodeN )) + NodeAsString( "DN", nodeN ) );
-  bool pr_update = false; 
+  bool pr_update = false;
   if ( nodeP && nodeN && !pr_delete ) {
    string old_val = GetXMLRow( nodeP );
    string new_val = GetXMLRow( nodeN );
    pr_update = ( old_val != new_val );
   }
   ProgTrace( TRACE5, "pr_insert=%d, pr_delete=%d, pr_update=%d", pr_insert, pr_delete, pr_update );
-  
+
   if ( pr_insert || pr_update || pr_delete ) {
   	if ( !sqldoc )
   	  sqldoc = CreateXMLDoc( "UTF-8", "sqls" );
   }
-  
+
   if ( pr_delete ) {
   	// delete прилет
-  	string deldays = NodeAsString( "DN", nodeP );  	
-  	deldays.erase(0, 8);
-   	sql_str =
-      string("DELETE FROM SPP") + deldays + dbf_type +
-      " WHERE PNR=:PNR AND DN=:DN";    	  	
+   	sql_str = string("DELETE FROM ") + tablename + " WHERE PNR=:PNR AND DN=:DN";
  	  queryNode = NewTextChild( sqldoc->children, "query" );
  	  sqlNode = NewTextChild( queryNode, "sql", sql_str );
- 	  paramsNode = NewTextChild( queryNode, "params" );      
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+ 	  paramsNode = NewTextChild( queryNode, "params" );
  	  createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeP ), DBF_TYPE_CHAR );
- 	  createParam( paramsNode, "DN", NodeAsString( "DN", nodeP ), DBF_TYPE_DATE );  	 	  
+ 	  createParam( paramsNode, "DN", NodeAsString( "DN", nodeP ), DBF_TYPE_DATE );
   };
  	if ( pr_insert )  {
 		//insert прилет
     sql_str =
-    string("INSERT INTO SPP") + day + dbf_type +
+    string("INSERT INTO ") + tablename +
     "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,F9,F11,KUR,VDV) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:F9,:F11,:KUR,:VDV)";  		
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:F9,:F11,:KUR,:VDV)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
-      string("UPDATE SPP") + day + dbf_type +
+      string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
       "    PRIZ=:PRIZ,PKZ=:PKZ,F9=:F9,F11=:F11,KUR=:KUR,VDV=:VDV "
-      " WHERE PNR=:PNR AND DN=:DN";    	  		
+      " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
     queryNode = NewTextChild( sqldoc->children, "query" );
     sqlNode = NewTextChild( queryNode, "sql", sql_str );
-    paramsNode = NewTextChild( queryNode, "params" );      
+    rollbackNode = NewTextChild( queryNode, "table_rollback" );
+    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+    paramsNode = NewTextChild( queryNode, "params" );
     if ( pr_update ) {
  	    createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeP ), DBF_TYPE_CHAR );
- 	    createParam( paramsNode, "DN", NodeAsString( "DN", nodeP ), DBF_TYPE_DATE );  	    
+ 	    createParam( paramsNode, "DN", NodeAsString( "DN", nodeP ), DBF_TYPE_DATE );
  	  }
  	  else {
  	    createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeN ), DBF_TYPE_CHAR );
- 	    createParam( paramsNode, "DN", NodeAsString( "DN", nodeN ), DBF_TYPE_DATE );  	     	  	
+ 	    createParam( paramsNode, "DN", NodeAsString( "DN", nodeN ), DBF_TYPE_DATE );
  	  }
 	  createParam( paramsNode, "KUG", NodeAsString( "KUG", nodeN ), DBF_TYPE_CHAR );
     createParam( paramsNode, "TVC", NodeAsString( "TVC", nodeN ), DBF_TYPE_CHAR );
@@ -828,7 +875,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   if ( pr_land )
   	dbf_type = "AK";
   else
-  	dbf_type = "DK";  
+  	dbf_type = "DK";
+  tablename = string("SPP") + day + dbf_type;
   // маршрут на прилет
   vector<xmlNodePtr>::iterator nodePK, nodeNK;
   vector<xmlNodePtr> nodesPK, nodesNK;
@@ -840,14 +888,14 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   nodeNK = nodesNK.begin();
   while ( nodePK != nodesPK.end() || nodeNK != nodesNK.end() ) {
     pr_insert = ( nodePK == nodesPK.end() && nodeNK !=nodesNK.end() ||
-                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() && 
-                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) != 
+                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
+                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
                   string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK ) );
     pr_delete = ( nodePK != nodesPK.end() && nodeNK == nodesNK.end() ||
-                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&  
-                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) != 
+                  nodePK != nodesPK.end() && nodeNK != nodesNK.end() &&
+                  string(NodeAsString( "PNR", *nodePK )) + NodeAsString( "DPP", *nodePK ) !=
                   string(NodeAsString( "PNR", *nodeNK )) + NodeAsString( "DPP", *nodeNK ) );
-    pr_update = false; 
+    pr_update = false;
     if ( nodePK != nodesPK.end() && nodeNK != nodesNK.end() && !pr_delete ) {
       string old_val = GetXMLRow( *nodePK );
       string new_val = GetXMLRow( *nodeNK );
@@ -856,50 +904,54 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     if ( pr_insert || pr_update || pr_delete ) {
   	  if ( !sqldoc )
   	    sqldoc = CreateXMLDoc( "UTF-8", "sqls" );
-    }    
+    }
     if ( pr_delete ) {
     	// delete прилет
-    	string deldays = NodeAsString( "DPP", *nodePK );  	
-    	deldays.erase(0, 8);
      	sql_str =
-        string("DELETE FROM SPP") + deldays + dbf_type +
-        " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";    	  	
+        string("DELETE FROM ") + tablename +
+        " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";
  	    queryNode = NewTextChild( sqldoc->children, "query" );
  	    sqlNode = NewTextChild( queryNode, "sql", sql_str );
- 	    paramsNode = NewTextChild( queryNode, "params" );      
+      rollbackNode = NewTextChild( queryNode, "table_rollback" );
+      NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+      NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+ 	    paramsNode = NewTextChild( queryNode, "params" );
  	    createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodePK ), DBF_TYPE_CHAR );
  	    createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );
-      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER ); 	    
+      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER );
     }
     if ( pr_insert ) {
-      sql_str = 
-        string("INSERT INTO SPP") + day + dbf_type +
+      sql_str =
+        string("INSERT INTO ") + tablename +
         "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR,PC,TPC,GRU,TGRU) "
-        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:PC,:TPC,:GRU,:TGRU)";   	
+        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:PC,:TPC,:GRU,:TGRU)";
     }
     if ( pr_update ) {
       sql_str =
-        string("UPDATE SPP") + day + dbf_type +
+        string("UPDATE ") + tablename +
         " SET "
         "AV=:AV,AP=:AP,DPP=:DPP,VPP=:VPP,DPR=:DPR,VPR=:VPR,DPF=:DPF,VPF=:VPF,PDV=:PDV,PVV=:PVV,RDV=:RDV,"
         "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR,PC=:PC,TPC=:TPC,GRU=:GRU,TGRU=:TGRU "
-        " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";    	  		        
+        " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";
     }
     if ( pr_insert || pr_update ) {
       queryNode = NewTextChild( sqldoc->children, "query" );
       sqlNode = NewTextChild( queryNode, "sql", sql_str );
-      paramsNode = NewTextChild( queryNode, "params" );          	
+      rollbackNode = NewTextChild( queryNode, "table_rollback" );
+      NewTextChild( rollbackNode, "table", tablename + ".DBF" );
+      NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+      paramsNode = NewTextChild( queryNode, "params" );
       if ( pr_update ) {
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodePK ), DBF_TYPE_CHAR );
- 	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );    	
- 	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER ); 	    
- 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_CHAR ); 	    
+ 	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );
+ 	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodePK ), DBF_TYPE_NUMBER );
+ 	      createParam( paramsNode, "SPUR", (string)" "+NodeAsString( "PUR", *nodePK ), DBF_TYPE_CHAR );
  	    }
  	    else {
  	      createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodeNK ), DBF_TYPE_CHAR );
- 	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );    	 	
- 	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_NUMBER ); 	        	
- 	      createParam( paramsNode, "SPUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_CHAR ); 	        	
+ 	      createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );
+ 	      createParam( paramsNode, "PUR", NodeAsString( "PUR", *nodeNK ), DBF_TYPE_NUMBER );
+ 	      createParam( paramsNode, "SPUR", (string)" "+NodeAsString( "PUR", *nodeNK ), DBF_TYPE_CHAR );
  	    }
       createParam( paramsNode, "AV", NodeAsString( "AV", *nodeNK ), DBF_TYPE_CHAR );
       createParam( paramsNode, "AP", NodeAsString( "AP", *nodeNK ), DBF_TYPE_CHAR );
@@ -908,7 +960,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
      	createParam( paramsNode, "VPR", NodeAsString( "VPR", *nodeNK ), DBF_TYPE_NUMBER );
      	createParam( paramsNode, "DPF", NodeAsString( "DPF", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "VPF", NodeAsString( "VPF", *nodeNK ), DBF_TYPE_NUMBER );
-          	
+
      	createParam( paramsNode, "PDV", NodeAsString( "PDV", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "PVV", NodeAsString( "PVV", *nodeNK ), DBF_TYPE_NUMBER );
      	createParam( paramsNode, "RDV", NodeAsString( "RDV", *nodeNK ), DBF_TYPE_DATE );
@@ -922,12 +974,12 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
       createParam( paramsNode, "GRU", NodeAsString( "GRU", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "TGRU", NodeAsString( "TGRU", *nodeNK ), DBF_TYPE_NUMBER );
     }
-    
+
     if ( nodePK != nodesPK.end() )
   		nodePK++;
   	if ( nodeNK != nodesNK.end() )
   		nodeNK++;
-  } // end while 
+  } // end while
 }
 
 void put_string_into_snapshot( int point_id, string type, string point_addr, xmlDocPtr old_doc, xmlDocPtr doc )
@@ -954,12 +1006,12 @@ void put_string_into_snapshot( int point_id, string type, string point_addr, xml
   string sres = XMLTreeToText( doc );
   int i=0;
   while ( !sres.empty() ) {
-  	Qry.SetVariable( "record", sres.substr( 0, 100 ) );
+  	Qry.SetVariable( "record", sres.substr( 0, 1000 ) );
   	Qry.SetVariable( "page_no", i );
   	Qry.Execute();
   	i++;
-  	sres.erase( 0, 100 );
-  }	
+  	sres.erase( 0, 1000 );
+  }
 }
 
 bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
@@ -967,7 +1019,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	ProgTrace( TRACE5, "CEK point_id=%d", point_id );
 	TReqInfo *reqInfo = TReqInfo::Instance();
 	reqInfo->user.sets.time = ustTimeLocalDesk;
-	reqInfo->Initialize("ЧЛБ");  
+	reqInfo->Initialize("ЧЛБ");
   reqInfo->user.user_type = utAirport;
   reqInfo->user.access.airps.push_back( "ЧЛБ" );
   reqInfo->user.access.airps_permit = true;
@@ -976,12 +1028,14 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string record;
 	TQuery Qry( &OraSession );
  	TDateTime UTCNow = NowUTC();
- 	TDateTime LocalNow =  UTCToClient( UTCNow, reqInfo->desk.tz_region );
+ 	TDateTime LocalNow;
+ 	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
+ 	modf( UTCNow, &UTCNow );
+
  	/* проверка на существование таблиц */
  	for ( int max_day=0; max_day<=CREATE_SPP_DAYS(); max_day++ ) {
-	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );	
+	  createSPPCEK( (int)LocalNow + max_day, file_type, point_addr, fds );
 	}
-	
 	TFileData fd;
   TSOPPTrips trips;
   createSOPPTrip( point_id, trips );
@@ -992,18 +1046,17 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	if ( tr->point_id != point_id ) continue;
   	bool res;
   	try {
-  		ProgTrace( TRACE5, "scd_out=%f, scd_in=%f", tr->scd_out, tr->scd_in );
-  	  res = FilterFlightDate( *tr, LocalNow, LocalNow + CREATE_SPP_DAYS(), true, errcity, false ); // фильтр по датам прилета-вылета рейса
+  	  res = FilterFlightDate( *tr, UTCNow, UTCNow + CREATE_SPP_DAYS() + 1, /*true,*/ errcity, false ); // фильтр по датам прилета-вылета рейса
   	}
   	catch(...) {
   		res = false;
   	}
     if ( !res ) continue;
+    ProgTrace( TRACE5, "CEK point_id=%d, res=%d, CREATE_SPP_DAYS()=%d", point_id, res, CREATE_SPP_DAYS() );
   	createXMLTrip( tr, doc );
-  	break;  	
+  	break;
   }
-  ProgTrace( TRACE5, "CEK point_id=%d", point_id );
-  if ( !doc )
+  if ( !doc && !trips.empty() ) // рейс не удален
   	return fds.size();
   ProgTrace( TRACE5, "CEK point_id=%d", point_id );
 	Qry.Clear();
@@ -1021,10 +1074,11 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	while ( !Qry.Eof ) {
 		record += Qry.FieldAsString( "record" );
 		Qry.Next();
-	}    	
-//	ProgTrace( TRACE5, "record=%s", record.c_str() );
-//	ProgTrace( TRACE5, "doc=%s", XMLTreeToText( doc ).c_str() );
-  if ( XMLTreeToText( doc ) == record ) {
+	}
+  string strdoc;
+  if ( doc )
+  	strdoc = XMLTreeToText( doc );
+  if ( strdoc == record ) {
   	return fds.size();
   }
   // есть изменения
@@ -1037,18 +1091,36 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
       xml_decode_nodelist( old_doc->children );
 		}
   }
-    
+
   xmlDocPtr sqldoc = 0;
-  createDBF( sqldoc, old_doc, doc, DateTimeToStr( tr->scd_in, "dd" ), true ); // на прилет  
-  if ( tr->scd_out > NoExists )  
-    createDBF( sqldoc, old_doc, doc, DateTimeToStr( tr->scd_out, "dd" ), false ); // на вылет
-  
+  TDateTime scd_in, scd_out;
+  if ( tr != trips.end() ) {
+  	scd_in = tr->scd_in;
+  	scd_out = tr->scd_out;
+  }
+  else {
+  	Qry.Clear();
+  	Qry.SQLText = "SELECT scd_in, scd_out FROM points WHERE point_id=:point_id";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+  	if ( Qry.FieldIsNULL( "scd_in" ) )
+  	  scd_in = NoExists;
+  	else
+  		scd_in = Qry.FieldAsDateTime( "scd_in" );
+  	if ( Qry.FieldIsNULL( "scd_out" ) )
+  	  scd_out = NoExists;
+  	else
+  		scd_out = Qry.FieldAsDateTime( "scd_out" );
+  }
+  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_in, "dd" ), true ); // на прилет
+  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_out, "dd" ), false ); // на вылет
+
   string sres;
   if ( sqldoc ) { // CP-866
   	string encoding = getFileEncoding( FILE_SPPCEK_TYPE, point_addr );
   	if ( encoding.empty() )
   		encoding = "CP866";
-  	fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL  	  	  	
+  	fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
   	sres = XMLTreeToText( sqldoc );
   	sres.replace( sres.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
   	fd.file_data = sres;
@@ -1062,7 +1134,7 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   if ( doc )
   	xmlFreeDoc( doc );
   if ( old_doc ) {
-  	xmlFreeDoc( old_doc );  
+  	xmlFreeDoc( old_doc );
   }
 	return !fds.empty();
 }

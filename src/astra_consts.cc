@@ -19,4 +19,6 @@ const int TQueueS[] = {1,2,4,6,8,0};
 
 const char* TPaxStatusS[] = {"K","P","T"};
 
+const char* CompLayerTypeS[] = {"CHECKIN","PRESEAT","PNL_CKIN","PRL_TRZT","SOM_TRZT","TRANZIT","BLOCK_CENT","PROTECT",""};
+
 };

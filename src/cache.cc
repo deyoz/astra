@@ -10,9 +10,6 @@
 #include "astra_consts.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
-#define TAG_REFRESH_DATA        "DATA_VER"
-#define TAG_REFRESH_INTERFACE   "INTERFACE_VER"
-#define TAG_CODE                "CODE"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
@@ -44,7 +41,7 @@ void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
 
 /* конструктор класса - выбираем общие параметры + общие переменные для sql запроса
    + выборка данных из таблицы cache_tables, cache_fields */
-TCacheTable::TCacheTable(xmlNodePtr cacheNode)
+void TCacheTable::Init(xmlNodePtr cacheNode)
 {
   if ( cacheNode == NULL )
     throw Exception("wrong message format");
@@ -571,14 +568,14 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       TParams::iterator ip = p.find( "POINT_ID" );
       if ( ip == p.end() )
         throw Exception( "Can't find variable point_id" );
-      point_id = StrToInt( ip->second.Value );
+      point_id = ToInt( ip->second.Value );
     }
     else {
       FieldIndex = cachetable->FieldIndex( "point_id" );
       if ( FieldIndex < 0 )
         throw Exception( "Ошибка при поиске поля point_id" );
       ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
-      point_id = StrToInt( row.old_cols[ FieldIndex ] );
+      point_id = ToInt( row.old_cols[ FieldIndex ] );
     }
     ProgTrace( TRACE5, "point_id=%d", point_id );
     message.id1 = point_id;
@@ -771,6 +768,17 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ ) {
         if ( iv->status != status )
           continue;
+
+        if(OnBeforeApply)
+            try {
+                (*OnBeforeApply)(*this, *iv);
+            } catch(UserException E) {
+                throw;
+            } catch(Exception E) {
+                ProgTrace(TRACE5, "OnBeforeApply failed: %s", E.what());
+            } catch(...) {
+                ProgTrace(TRACE5, "OnBeforeApply failed: something unexpected");
+            }
 
         SetVariables( *iv, vars );
         try {
@@ -976,7 +984,8 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 {
   ProgTrace(TRACE2, "CacheInterface::LoadCache, reqNode->Name=%s, resNode->Name=%s",
            (char*)reqNode->name,(char*)resNode->name);
-  TCacheTable cache( reqNode );
+  TCacheTable cache;
+  cache.Init(reqNode);
   tst();
   cache.refresh();
   tst();
@@ -985,12 +994,14 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE2, "CacheInterface::SaveCache");
-  TCacheTable cache( reqNode );
+  TCacheTable cache;
+  cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
     throw UserException( "Версия интерфейса изменилась. Обновите данные." );
   cache.ApplyUpdates( reqNode );
@@ -1002,6 +1013,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
   showMessage( "Изменения успешно сохранены" );
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

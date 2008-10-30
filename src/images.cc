@@ -15,7 +15,6 @@ using namespace BASIC;
 
 void ImagesInterface::GetisPlaceMap( map<string,bool> &ispl )
 {
-  tst();
   ispl.clear();
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT code, pr_seat FROM comp_elem_types WHERE pr_del IS NULL OR pr_del=0";
@@ -24,7 +23,6 @@ void ImagesInterface::GetisPlaceMap( map<string,bool> &ispl )
     ispl[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsInteger( "pr_seat" );
     Qry.Next();
   }
-  tst();
 }
 
 void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )

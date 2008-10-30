@@ -10,6 +10,18 @@ std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string 
 std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
 BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date);
 
+struct TTripRouteItem {
+    std::string airp, city;
+    int point_num;
+    TTripRouteItem() { point_num = ASTRA::NoExists; };
+};
+
+struct TTripRoute {
+    public:
+        std::vector<TTripRouteItem> items;
+        void get(int point_id);
+};
+
 #endif /*_ASTRA_MISC_H_*/
 
 

@@ -257,9 +257,9 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
              "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
                    GetSQLEnum(info.user.access.airps)+")";
       else
-        sql+="AND NOT(points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                      GetSQLEnum(info.user.access.airps)+")";
+        sql+="AND (points.airp NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
+                   GetSQLEnum(info.user.access.airps)+")";
     };
   };
   sql+="ORDER BY TRUNC(real_out) DESC,flt_no,airline, "
@@ -396,9 +396,9 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
              "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
                    GetSQLEnum(info.user.access.airps)+")";
       else
-        sql+="AND NOT(points.airp IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-             "        ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) IN "+
-                      GetSQLEnum(info.user.access.airps)+")";
+        sql+="AND (points.airp NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+             "     ckin.next_airp(DECODE(points.pr_tranzit,0,points.point_id,points.first_point),points.point_num) NOT IN "+
+                   GetSQLEnum(info.user.access.airps)+")";
     };
   };
 
@@ -1325,8 +1325,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
-     "      crs_pax.seat_no AS crs_seat_no, "
-     "      crs_pax.preseat_no, "
+     "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
+     "      salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
      "      crs_pax.seats seats, "
      "      crs_pnr.target, "
      "      crs_pnr.last_target, "
@@ -1338,10 +1338,10 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.point_id AS point_id_tlg, "
      "      ids.status, "
      "      pax.reg_no, "
-     "      pax.seat_no, "
+     "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
      "      pax.refuse, "
      "      pax.grp_id "
-     "FROM crs_pnr,crs_pax,pax, "
+     "FROM crs_pnr,crs_pax,pax,pax_grp, "
      "       ( "
      "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
      "        FROM crs_pnr, "
@@ -1409,12 +1409,15 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "WHERE crs_pnr.pnr_id=ids.pnr_id AND "
      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
      "      crs_pax.pax_id=pax.pax_id(+) AND "
+     "      pax.grp_id=pax_grp.grp_id(+) AND "
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psOk) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+  Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
+  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   Qry.Execute();
 
   //ремарки пассажиров
@@ -1545,7 +1548,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-void viewPNL( int point_id, xmlNodePtr dataNode )
+/*void viewPNL( int point_id, xmlNodePtr dataNode )
 {
   TQuery Qry( &OraSession );
   Qry.SQLText =
@@ -1621,7 +1624,7 @@ void viewPNL( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "tid", Qry.FieldAsInteger( "tid" ) );
     Qry.Next();
   }
-}
+}*/
 
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
@@ -1655,6 +1658,8 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
         reqInfo->user.access.airps_permit &&
         reqInfo->user.access.airps.size()==1)||showAirp)
     trip << " " << info.airp;
+  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
+      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
 
   return trip.str();
 };

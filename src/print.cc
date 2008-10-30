@@ -35,7 +35,9 @@ typedef enum {
     ptIER508BR,
     ptOKIML390,
     ptOKIML3310,
-    ptOLIVETTI
+    ptOLIVETTI,
+    ptZEBRA,
+    ptOLIVETTICOM
 } TPrnType;
 
 namespace to_esc {
@@ -84,10 +86,10 @@ namespace to_esc {
                 si = data.find(delim);
                 switch(i) {
                     case 0:
-                        len = StrToInt(buf);
+                        len = ToInt(buf);
                         break;
                     case 1:
-                        height = StrToInt(buf);
+                        height = ToInt(buf);
                         break;
                     case 2:
                         align = buf;
@@ -117,6 +119,7 @@ namespace to_esc {
         double y_modif, x_modif;
         switch(prn_type) {
             case ptOLIVETTI:
+            case ptOLIVETTICOM:
                 x_modif = 4.76;
                 y_modif = 6.9;
                 break;
@@ -165,7 +168,7 @@ namespace to_esc {
                     if(IsDigit(curr_char))
                         num += curr_char;
                     else if(curr_char == ',') {
-                        x = StrToInt(num);
+                        x = ToInt(num);
                         num.erase();
                         Mode = 'Y';
                     } else
@@ -175,7 +178,7 @@ namespace to_esc {
                     if(IsDigit(curr_char))
                         num += curr_char;
                     else if(curr_char == ',') {
-                        y = StrToInt(num);
+                        y = ToInt(num);
                         num.erase();
                         Mode = 'B';
                     } else
@@ -367,7 +370,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
         "       :GATE, "
         "       :REG_NO, "
         "       :NAME, "
-        "       :SEAT_NO, "
+        "       :LIST_SEAT_NO, "
         "       :PR_SMOKE, "
         "       :BAG_AMOUNT, "
         "       :BAG_WEIGHT, "
@@ -392,7 +395,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     prnQry->DeclareVariable("GATE", otString);
     prnQry->DeclareVariable("REG_NO", otInteger);
     prnQry->DeclareVariable("NAME", otString);
-    prnQry->DeclareVariable("SEAT_NO", otString);
+    prnQry->DeclareVariable("LIST_SEAT_NO", otString);
     prnQry->DeclareVariable("PR_SMOKE", otInteger);
     prnQry->DeclareVariable("BAG_AMOUNT", otInteger);
     prnQry->DeclareVariable("BAG_WEIGHT", otInteger);
@@ -457,8 +460,8 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
-    di1 = data.find("SEAT_NO");
-    if(printed(di1))
+    di1 = data.find("LIST_SEAT_NO");
+    if(di1 != data.end())
         prnQry->SetVariable(di1->first, di1->second.StringVal);
 
 
@@ -466,22 +469,22 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     di2 = data.find("NO_SMOKE");
     di3 = data.find("SMOKE");
     if(printed(di1) || printed(di2) || printed(di3))
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_AMOUNT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("BAG_WEIGHT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("RK_WEIGHT");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("TAGS");
@@ -501,7 +504,7 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
 
     di1 = data.find("FLT_NO");
     if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, StrToInt(di1->second.StringVal));
+        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
 
 
     di1 = data.find("SURNAME");
@@ -581,15 +584,7 @@ void PrintDataParser::t_field_map::dump_data()
 
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
-    tst();
-    ProgTrace(TRACE5, "TAG: %s", name.c_str());
     string result;
-    if(name == "ONE_CHAR" || print_mode == 2) {
-        if(len)
-            result = AlignString("8", len, align);
-        else
-            result = "8";
-    }
     if(name == "HUGE_CHAR") result.append(len, '8');
     if(result.size()) return result;
 
@@ -628,6 +623,10 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
         // Еще некоторые теги
         {
+            if(data["ETICKET_NO"].StringVal.empty())
+                add_tag("etkt", "");
+            else
+                add_tag("etkt", "ETKT" + data["ETICKET_NO"].StringVal);
             TTagValue TagValue;
             TagValue.pr_print = 0;
             TagValue.null = true;
@@ -741,6 +740,18 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             size_t result_size = result.size();
             result = "";
             result.append(result_size, '8');
+        }
+        if(name == "ONE_CHAR" || print_mode == 2) {
+            size_t result_size = result.size();
+            result = "";
+            if(
+                    name == "PAX_ID" ||
+                    name == "TEST_SERVER" ||
+                    data[name].type == otDate
+                    )
+                result.append(result_size, '8');
+            else
+                result = AlignString("8", result_size, align);
         }
         if(print_mode == 3) {
             size_t result_size = result.size();
@@ -994,12 +1005,11 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
-            "   ckin.get_seat_no(pax.pax_id, 'voland') str_seat_no, "
-            "   tlg.convert_seat_no(ckin.get_seat_no(pax.pax_id, 'voland'), 1) str_seat_no_lat, "
-            "   LPAD(seat_no,3,'0')|| "
-            "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') AS seat_no, "
-            "   tlg.convert_seat_no(LPAD(seat_no,3,'0')|| "
-            "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),''), 1) AS seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list',NULL,0) AS list_seat_no, "
+            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,0) AS str_seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,0) AS seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,1)) AS seat_no_lat, "
             "   pax.SEAT_TYPE, "
             "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
             "   to_char(DECODE( "
@@ -1024,8 +1034,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.REG_NO, "
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
-            "   decode(pax.coupon_no, null, '', pax.ticket_no||'/'||pax.coupon_no) eticket_no, "
-            "   decode(pax.coupon_no, null, '', 'ETKT'||pax.ticket_no||'/'||pax.coupon_no) etkt, "
+            "   nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) eticket_no, "
             "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
             "   system.transliter(pax.DOCUMENT, 1) document_lat, "
@@ -1042,6 +1051,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax_id = :pax_id and "
             "   pax.pers_type = pers_types.code";
         Qry->CreateVariable("pax_id", otInteger, pax_id);
+        Qry->CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     }
     Qrys.push_back(Qry);
 
@@ -1211,6 +1221,7 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
     if(
+            rcpt.form_type != "K95" &&
             rcpt.form_type != "M61" &&
             rcpt.form_type != "Z61" &&
             rcpt.form_type != "664 451" &&
@@ -1539,10 +1550,21 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           << point_dep << "-" << point_arv << " ";
 
       airline_code << airline.code;
+
+      ostringstream flt_no, flt_no_lat;
+
+      if(rcpt.flt_no != -1) {
+              flt_no << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+              flt_no_lat << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+
+      }
+      add_tag("flt_no", flt_no.str());
+      add_tag("flt_no_lat", flt_no_lat.str());
+
       if(rcpt.flt_no != -1)
           airline_code
               << " "
-              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, false);
+              << flt_no.str();
       buf << airline_code.str();
       add_tag("airline_code", airline_code.str());
       add_tag("to", buf.str());
@@ -1553,7 +1575,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       if(rcpt.flt_no != -1)
           airline_code_lat
               << " "
-              << setw(3) << setfill('0') << rcpt.flt_no << convert_suffix(rcpt.suffix, true);
+              << flt_no_lat.str();
       buf << airline_code_lat.str();
       add_tag("airline_code_lat", airline_code_lat.str());
       add_tag("to_lat", buf.str());
@@ -1954,7 +1976,7 @@ string PrintDataParser::parse_field1(int offset, string field)
             field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
     else
         result =
-            field_map.get_field(FieldName, StrToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
     return result;
 }
 
@@ -1994,7 +2016,7 @@ string PrintDataParser::parse_field0(int offset, string field)
                 if(!IsDigit(curr_char)) {
                     if(curr_char == ',') {
                         buf = field.substr(VarPos + 1, i - VarPos - 1);
-                        if(buf.size()) FieldLen = StrToInt(buf);
+                        if(buf.size()) FieldLen = ToInt(buf);
                         VarPos = i;
                         Mode = '2';
                     } else
