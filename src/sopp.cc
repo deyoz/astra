@@ -106,8 +106,8 @@ const char * arx_points_ISG_SQL =
     "           NVL(act_out,NVL(est_out,scd_out)) >= :first_date AND NVL(act_out,NVL(est_out,scd_out)) < :next_date OR "
     "           NVL(act_in,NVL(est_in,scd_in)) IS NULL AND NVL(act_out,NVL(est_out,scd_out)) IS NULL ) ) p "
     "WHERE arx_points.part_key=p.part_key AND "
-    "      arx_move_ref.part_key=p.part_key AND "
     "      arx_points.move_id = p.move_id AND "
+    "      arx_move_ref.part_key=p.part_key AND "
     "      arx_move_ref.move_id = p.move_id AND "
     "      arx_points.pr_del!=-1 "
     "ORDER BY arx_points.move_id,point_num,point_id ";
@@ -2181,7 +2181,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   if ( arx_date > NoExists ) {
   	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
     Qry.SQLText =
-      "SELECT reference FROM arx_move_ref WHERE part_key>=:arx_date AND move_id=:move_id";
+      "SELECT reference, part_key FROM arx_move_ref WHERE part_key>=:arx_date-10 AND part_key<:arx_date+5 AND move_id=:move_id";
     Qry.CreateVariable( "arx_date", otDate, arx_date );
   }
   else
@@ -2189,8 +2189,13 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
       "SELECT reference FROM move_ref WHERE move_id=:move_id";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
-  if ( Qry.RowCount() && !Qry.FieldIsNULL( "reference" ) )
-  	reference = Qry.FieldAsString( "reference" );
+  TDateTime part_key = NoExists;
+  if ( !Qry.Eof ) {
+  	 if ( !Qry.FieldIsNULL( "reference" ) )
+  	   reference = Qry.FieldAsString( "reference" );
+  	 if ( arx_date > NoExists )
+  	   part_key = Qry.FieldAsDateTime( "part_key" );
+  }
   dests.clear();
   Qry.Clear();
   if ( arx_date > NoExists ) {
@@ -2199,10 +2204,10 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del "
     " FROM arx_points "
-    " WHERE arx_points.part_key>=:arx_date AND arx_points.move_id=:move_id AND "
+    " WHERE arx_points.part_key=:part_key AND arx_points.move_id=:move_id AND "
     "       arx_points.pr_del!=-1 "
     " ORDER BY point_num ";
-    Qry.CreateVariable( "arx_date", otDate, arx_date );
+    Qry.CreateVariable( "part_key", otDate, part_key );
   }
   else
 	  Qry.SQLText =
@@ -2218,7 +2223,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   TQuery DQry(&OraSession);
   if ( arx_date > NoExists ) {
     DQry.SQLText = arx_trip_delays_SQL;
-    DQry.CreateVariable( "arx_date", otDate, arx_date );
+    DQry.CreateVariable( "part_key", otDate, part_key );
   }
   else {
     DQry.SQLText = trip_delays_SQL;
