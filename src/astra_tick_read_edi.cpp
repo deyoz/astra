@@ -1013,7 +1013,7 @@ namespace {
                     lIft.push_back(
                             FreeTextInfo(i,
                                          level,
-                                         FreeTextType::FTxtType(Type,Qualifier),
+                                         FreeTextType(Type,Qualifier),
                                          Text,
                                          currTicket,
                                          currCoupon));

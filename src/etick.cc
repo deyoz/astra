@@ -329,7 +329,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id)
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
-      Coupon_info ci (Qry.FieldAsInteger("coupon_no"),CouponStatus::OriginalIssue);
+        Coupon_info ci (Qry.FieldAsInteger("coupon_no"),CouponStatus(CouponStatus::OriginalIssue));
       TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd"),
                                      AirpTZRegion(Qry.FieldAsString("airp")));
       ptime scd(DateTimeToBoost(scd_local));
