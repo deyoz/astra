@@ -2452,11 +2452,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "where \n";
     if(ap.empty() and ak.empty())
         arxSQLText +=
-            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND "
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + 5 AND "
             "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND ";
     else
         arxSQLText +=
-        "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND "
+        "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date + 5 AND "
         "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND ";
     arxSQLText +=
         "  arx_points.pr_del>=0 AND \n"
@@ -2793,11 +2793,11 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "where \n";
     if(ap.empty() and ak.empty())
         arxSQLText +=
-            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND \n"
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + 5 AND \n"
             "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
     else
         arxSQLText +=
-        "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND \n"
+        "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date + 5 AND \n"
         "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND \n";
     arxSQLText +=
         "  arx_points.pr_del>=0 AND \n"
@@ -2989,11 +2989,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         "where \n";
     if(ap.empty() and ak.empty())
         arxSQLText +=
-            "  arx_points.part_key >= :FirstDate -5 AND arx_points.part_key < :LastDate AND \n"
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + 5 AND \n"
             "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
     else
         arxSQLText +=
-            "  arx_points.part_key >= periods.period_first_date -5 AND arx_points.part_key < periods.period_last_date  AND \n"
+            "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date  + 5 AND \n"
             "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND \n";
     arxSQLText +=
         "  arx_points.pr_del>=0 AND \n"
