@@ -81,7 +81,7 @@ const char * arx_points_SOPP_SQL =
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
     " FROM arx_points,"
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date-10 AND part_key<:next_date AND "
+    "   WHERE part_key>=:first_date AND part_key<:next_date+10 AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
     "         ( :first_date IS NULL OR "
@@ -98,7 +98,7 @@ const char * arx_points_ISG_SQL =
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
     " FROM arx_points, arx_move_ref,"
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date-10 AND part_key<:next_date AND "
+    "   WHERE part_key>=:first_date AND part_key<:next_date+10 AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
     "         ( :first_date IS NULL OR "
@@ -2181,7 +2181,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   if ( arx_date > NoExists ) {
   	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
     Qry.SQLText =
-      "SELECT reference, part_key FROM arx_move_ref WHERE part_key>=:arx_date-10 AND part_key<:arx_date+5 AND move_id=:move_id";
+      "SELECT reference, part_key FROM arx_move_ref WHERE part_key>=:arx_date AND part_key<:arx_date+10 AND move_id=:move_id";
     Qry.CreateVariable( "arx_date", otDate, arx_date );
   }
   else
