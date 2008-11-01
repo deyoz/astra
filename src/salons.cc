@@ -48,7 +48,7 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TC
   "WHERE trip_comp_layers.point_id=:point_id AND "
   "      trip_comp_layers.point_dep=a.point_id AND "
   "      layer_type IN (:som_layer,:prl_layer) "
-  "ORDER BY point_num,layer_type";
+  "ORDER BY point_num DESC,layer_type";
   Qry.CreateVariable( "first_point", otInteger, first_point );
   Qry.CreateVariable( "point_num", otInteger, point_num );
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -692,6 +692,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     }
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
       if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
+        ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
         SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
