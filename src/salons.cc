@@ -43,7 +43,7 @@ bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TC
   "SELECT DISTINCT point_dep,point_num,layer_type "
   "FROM trip_comp_layers, "
   "(SELECT point_id,point_num from points "
-  "  WHERE first_point=:first_point AND point_num<:point_num AND pr_del=0 "
+  "  WHERE NVL(first_point,point_id)=:first_point AND point_num<:point_num AND pr_del=0 "
   ") a "
   "WHERE trip_comp_layers.point_id=:point_id AND "
   "      trip_comp_layers.point_dep=a.point_id AND "
