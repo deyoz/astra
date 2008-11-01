@@ -4467,7 +4467,7 @@ void SyncTlgCompLayers(int range_id,
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
-        layer_type==cltPreseat)) return;
+        layer_type==cltProtCkin)) return;
 
   static int prior_point_id_tlg=-1;
   static string prior_airp_arv;
@@ -4620,7 +4620,7 @@ void SyncTlgCompLayers(int point_id_tlg,
   if (!(layer_type==cltSOMTrzt||
         layer_type==cltPRLTrzt||
         layer_type==cltPNLCkin||
-        layer_type==cltPreseat)) return;
+        layer_type==cltProtCkin)) return;
 
   TQuery Qry(&OraSession);
   //сначала удалим слой из trip_comp_layers
@@ -5433,16 +5433,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "   (SELECT * FROM tlg_comp_layers,trip_comp_layers "
                     "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
                     "          tlg_comp_layers.crs_pax_id=:pax_id AND "
-                    "          tlg_comp_layers.layer_type IN (:cltPNLCkin,:cltPreseat)); "
+                    "          tlg_comp_layers.layer_type IN (:cltPNLCkin,:cltProtCkin)); "
                     "  DELETE FROM tlg_comp_layers "
-                    "  WHERE crs_pax_id=:pax_id AND layer_type IN (:cltPNLCkin,:cltPreseat); "
+                    "  WHERE crs_pax_id=:pax_id AND layer_type IN (:cltPNLCkin,:cltProtCkin); "
                     "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.CreateVariable("cltPNLCkin",otString,EncodeCompLayerType(cltPNLCkin));
                   if (ne.indicator==DEL)
-                    Qry.CreateVariable("cltPreseat",otString,EncodeCompLayerType(cltPreseat));
+                    Qry.CreateVariable("cltProtCkin",otString,EncodeCompLayerType(cltProtCkin));
                   else
-                    Qry.CreateVariable("cltPreseat",otString,FNull); //если изменения то preseat не удаляем
+                    Qry.CreateVariable("cltProtCkin",otString,FNull); //если изменения то preseat не удаляем
                   Qry.Execute();
                 };
                 if (ne.indicator!=DEL)

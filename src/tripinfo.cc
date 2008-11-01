@@ -1340,7 +1340,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
      "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-     "      salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
+     "      salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
      "      crs_pax.seats seats, "
      "      crs_pnr.target, "
      "      crs_pnr.last_target, "
@@ -1430,7 +1430,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psOk) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
+  Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
   Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   Qry.Execute();
 

@@ -2125,7 +2125,7 @@ bool getNextSeat( TCompLayerType layer_type, int point_id, TSeatRange &r, int pr
 	TQuery Qry( &OraSession );
   switch ( layer_type ) {
   	case cltCheckin:
-    case cltPreseat:
+    case cltProtCkin:
       Qry.SQLText =
         "SELECT xname, yname FROM trip_comp_elems t, "
         "(SELECT num, x, y, class FROM trip_comp_elems "
@@ -2185,7 +2185,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
        "      pax_grp.grp_id=pax.grp_id ";
        Qry.CreateVariable( "point_dep", otInteger, point_id );
       break;
-    case cltPreseat:
+    case cltProtCkin:
       Qry.SQLText =
         "SELECT surname, name, 0 reg_no, crs_pax.pnr_id grp_id, seats, a.step step, crs_pax.tid, target, point_id, 0 point_arv, "
         "      salons.get_crs_seat_no(crs_pax.pax_id,:layer_type,crs_pax.seats,crs_pnr.point_id,'list',rownum) AS seat_no "
@@ -2290,7 +2290,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           	else
       	      p_id = Qry.FieldAsInteger( "pax_id" );
       	    break;
-  		    case cltPreseat:
+  		    case cltProtCkin:
   		    	if ( Qry.FieldIsNULL( "crs_pax_id" ) )
   		    		p_id = NoExists;
   		    	else
@@ -2306,7 +2306,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
             case cltCheckin:
             	if ( !Qry.FieldIsNULL( "pax_id" ) )
             		throw UserException( "Место занято другим пассажиром" );
-  		      case cltPreseat:
+  		      case cltProtCkin:
               Qry1.SetVariable( "first_xname", r.first.line );
               Qry1.SetVariable( "first_yname", r.first.row );
               Qry1.SetVariable( "crs_pax_id", p_id );
@@ -2340,7 +2340,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           "       pax_id=:pax_id ";
         Qry.CreateVariable( "point_id", otInteger, point_id );
       	break;
-  		case cltPreseat:
+  		case cltProtCkin:
   			// удаление из салона, если есть разметка
   	    Qry.SQLText =
           "DELETE FROM "
@@ -2386,7 +2386,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
           "END;";
         Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
         break;
-      case cltPreseat:
+      case cltProtCkin:
         SaveTlgSeatRanges( point_id_tlg, target, layer_type, seats, pax_id, 0, false );
 	      Qry.SQLText =
           "UPDATE crs_pax SET tid=:tid WHERE pax_id=:pax_id";
@@ -2416,7 +2416,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
-        case cltPreseat:
+        case cltProtCkin:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
                              " предварительно назначено место. Новое место: " +
                              new_seat_no,
@@ -2433,7 +2433,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              new_seat_no,
                              evtPax, point_id, idx1, idx2 );
           break;
-        case cltPreseat:
+        case cltProtCkin:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
                              " предварительно назначено место. Новое место: " +
                              new_seat_no,
@@ -2449,7 +2449,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                              " высажен. Место: " + prior_seat,
                              evtPax, point_id, idx1, idx2 );
           break;
-        case cltPreseat:
+        case cltProtCkin:
           reqinfo->MsgToLog( string( "Пассажиру " ) + fullname +
                              " отменено предварительно назначенное место: " + prior_seat,
                              evtPax, point_id, idx1, idx2 );
