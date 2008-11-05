@@ -1,5 +1,5 @@
-#ifndef _PAYMENT_H_
-#define _PAYMENT_H_
+#ifndef _PAYMENT2_H_
+#define _PAYMENT2_H_
 
 #include <libxml/tree.h>
 #include "JxtInterface.h"
@@ -7,28 +7,27 @@
 #include "oralib.h"
 #include "print.h"
 
-class PaymentInterface : public JxtInterface
+class PaymentOldInterface : public JxtInterface
 {
 public:
-  PaymentInterface() : JxtInterface("","BagPayment")
+  PaymentOldInterface() : JxtInterface("","payment")
   {
      Handler *evHandle;
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::LoadPax);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::LoadPax);
      AddEvent("PaxByPaxId",evHandle);
-     AddEvent("PaxByGrpId",evHandle);
      AddEvent("PaxByRegNo",evHandle);
      AddEvent("PaxByReceiptNo",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::SaveBag);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::SaveBag);
      AddEvent("SaveBag",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::UpdPrepay);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::UpdPrepay);
      AddEvent("UpdPrepay",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::ViewReceipt);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::ViewReceipt);
      AddEvent("ViewReceipt",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::ReplaceReceipt);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::ReplaceReceipt);
      AddEvent("ReplaceReceipt",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::PrintReceipt);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::PrintReceipt);
      AddEvent("PrintReceipt",evHandle);
-     evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::AnnulReceipt);
+     evHandle=JxtHandler<PaymentOldInterface>::CreateHandler(&PaymentOldInterface::AnnulReceipt);
      AddEvent("AnnulReceipt",evHandle);
   };
   void LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -57,7 +56,7 @@ public:
   void PutReceipt(TBagReceipt &rcpt, int rcpt_id, xmlNodePtr resNode);
 
   //образ из структуры в XML
-  void PutReceiptFields(TBagReceipt &rcpt, xmlNodePtr node);
+  void PutReceiptFields(TBagReceipt &rcpt, PrintDataParser &parser, xmlNodePtr node);
   //образ из базы в XML
   void PutReceiptFields(int id, xmlNodePtr node);
 

@@ -292,7 +292,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("PaxListVars: variables fetch failed for point_id " + IntToString(point_id));
+    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
