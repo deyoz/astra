@@ -575,12 +575,24 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      string err=chngStatAns.err2Tick(currTick->ticknum());
+      string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
       if (!err.empty())
       {
         ProgTrace(TRACE5,"ticket=%s error=%s",
                          currTick->ticknum().c_str(), err.c_str());
-      };
+      }
+      else
+      {
+          err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
+          if (!err.empty())
+          {
+              ProgTrace(TRACE5,"ticket=%s/cpn=%d error=%s",
+                        currTick->ticknum().c_str(),
+                        currTick->getCoupon().front().couponInfo().num(),
+                        err.c_str());
+          };
+      }
+
       if (currTick->getCoupon().empty()) continue;
 
       //получим ид. рейса

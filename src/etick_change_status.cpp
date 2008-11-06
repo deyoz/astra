@@ -38,9 +38,11 @@ namespace ChangeStatus
 
     ChngStatAnswer ChngStatAnswer::readEdiTlg(EDI_REAL_MES_STRUCT *pMes)
     {
-        if(*GetDBFName(pMes, DataElement(4343), SegmElement("MSG"), "PROG_ERR") != '3')
+        char status_code = *GetDBFName(pMes, DataElement(4343), SegmElement("MSG"), "PROG_ERR");
+        if(status_code != '3' && status_code != '6' /* particulary */)
         {
-            string GlobErr = GetDBFName(pMes, DataElement(9321), "PROG_ERR",CompElement("C901"), SegmElement("ERC"));
+            string GlobErr = GetDBFName(pMes, DataElement(9321),
+                                        "PROG_ERR",CompElement("C901"), SegmElement("ERC"));
             list<FreeTextInfo> lIft;
             TickReader::readEdiIFT(pMes, lIft);
             return ChngStatAnswer(pair<string, string>
@@ -48,7 +50,7 @@ namespace ChangeStatus
         }
 
         list<Ticket> lTick;
-        map<string, string> errMap;
+        ErrMap_t errMap;
         int tnum = GetNumSegGr(pMes, 1);
         if (!tnum)
             throw Exception("There are no tickets in positive answer");
@@ -72,19 +74,40 @@ namespace ChangeStatus
                 SetEdiPointToSegGrG(pMes, SegGrElement(2, j), "PROG_ERR");
                 Coupon_info ci = TickReader::MakeCouponInfo(pMes);
                 lCpn.push_back(Coupon(ci));
+
+                errMap[make_pair(ticketnum, ci.num())] = GetDBFName(pMes,
+                                    DataElement(9321),
+                                    SegmElement("ERC"));
+
                 PopEdiPoint_wdG(pMes);
             }
             PopEdiPointG(pMes);
             lTick.push_back(Ticket(ticketnum, lCpn));
             PopEdiPoint_wdG(pMes);
 
-            errMap[ticketnum] = GetDBFName(pMes,
-                                    DataElement(9321),
-                                    SegmElement("ERC"));
+            errMap[make_pair(ticketnum, 0)] = GetDBFName(pMes,
+                                         DataElement(9321),
+                                         SegmElement("ERC"));
 
         }
         PopEdiPointG(pMes);
         return ChngStatAnswer(lTick, errMap);
     }
+
+    std::string ChngStatAnswer::err2Tick(const std::string & tnum, unsigned cpn) const
+    {
+        ErrMap_t::const_iterator i;
+        i=ErrMap.find(make_pair(tnum,cpn));
+        if(i!=ErrMap.end())
+        {
+            return i->second;
+        }
+        else
+        {
+            return "";
+        }
+    }
+
 }
 }
+
