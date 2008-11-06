@@ -854,6 +854,15 @@ string CreateEdiInterchangeReference()
     return result;
 }
 
+
+string CreateEdiPaxlstFileName( const string& flightNumber, const string& origin,
+                                const string& destination,  const string& departureDate,
+                                const string& ext )
+{
+    return flightNumber + origin + destination + departureDate + "." + ext;
+}
+
+
 } // namespace Paxlst
 
 

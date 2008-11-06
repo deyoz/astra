@@ -30,6 +30,12 @@ namespace Paxlst
 
     string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo );
 
+    string CreateEdiPaxlstFileName( const string& flightNumber,
+                                    const string& origin,
+                                    const string& destination,
+                                    const string& departureDate,
+                                    const string& ext );
+
     string CreateEdiInterchangeReference();
 
 
