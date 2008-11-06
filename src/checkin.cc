@@ -808,8 +808,43 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
     NewTextChild(node,"seat_type",PaxQry.FieldAsString("seat_type"),"");
     NewTextChild(node,"seats",PaxQry.FieldAsInteger("seats"),1);
     NewTextChild(node,"document",PaxQry.FieldAsString("document"),"");
-    NewTextChild(node,"ticket",PaxQry.FieldAsString("ticket"),"");
-    NewTextChild(node,"is_tkne",(int)(PaxQry.FieldAsInteger("is_tkne")!=0),(int)false);
+    //обработка билетов
+    string ticket_no;
+    if (!PaxQry.FieldIsNULL("eticket"))
+    {
+      //билет TKNE
+      ticket_no=PaxQry.FieldAsString("eticket");
+      NewTextChild(node,"ticket",ticket_no);  // потом убрать 31.10.08
+      NewTextChild(node,"is_tkne",(int)true); // потом убрать 31.10.08
+
+      int coupon_no=0;
+      string::size_type pos=ticket_no.find_last_of('/');
+      if (pos!=string::npos)
+      {
+        if (StrToInt(ticket_no.substr(pos+1).c_str(),coupon_no)!=EOF &&
+            coupon_no>=1 && coupon_no<=4)
+          ticket_no.erase(pos);
+        else
+          coupon_no=0;
+      };
+
+      NewTextChild(node,"ticket_no",ticket_no);
+      NewTextChild(node,"coupon_no",coupon_no,0);
+      NewTextChild(node,"ticket_rem","TKNE");
+    }
+    else
+    {
+      if (!PaxQry.FieldIsNULL("ticket"))
+      {
+        //билет TKNA
+        ticket_no=PaxQry.FieldAsString("ticket");
+        NewTextChild(node,"ticket",ticket_no); //потом убрать 31.10.08
+        NewTextChild(node,"is_tkne",(int)false); // потом убрать 31.10.08
+
+        NewTextChild(node,"ticket_no",ticket_no);
+        NewTextChild(node,"ticket_rem","TKNA");
+      };
+    };
 
     RemQry.SetVariable("pax_id",pax_id);
     RemQry.Execute();
@@ -864,8 +899,8 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
-      "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
-      "       report.is_TKNE(crs_pax.pax_id) AS is_tkne "
+      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
+      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
       "FROM tlg_trips,crs_pnr,crs_pax,pax "
       "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1089,8 +1124,8 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       crs_pnr.pnr_id, "
       "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.scd,tlg_trips.airp_dep, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
-      "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
-      "       report.is_TKNE(crs_pax.pax_id) AS is_tkne "
+      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
+      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
       "FROM tlg_trips,crs_pnr,crs_pax,pax, ";
     if (sum.nPax>1)
       sql+=
@@ -1895,29 +1930,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         /*!!! иногда True - возможна рассажка на забронированные места, когда */
       	/* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
 
-      //SEATS::SavePlaces( ); //???
-      //заполним номера мест после рассадки
-/*      node=NodeAsNode("passengers",reqNode);
-      int i=0;
-      for(node=node->children;node!=NULL&&i<Passengers.getCount();node=node->next)
-      {
-          node2=node->children;
-          if (NodeAsIntegerFast("seats",node2)==0) continue;
-          TPassenger pas = Passengers.Get(i);
-          if (pas.placeName=="") throw Exception("SeatsPassengers: empty placeName");
-          string seat_no=NodeAsStringFast("seat_no",node2);
-          if (seat_no!=""&&seat_no!=pas.placeName)
-          	if (!pas.preseat.empty() && pas.preseat == pas.placeName)
-          		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
-          	else
-              showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
-          else
-          	if ( !pas.isValidPlace )
-          		showErrorMessage("Пассажиры посажены на запрещенные места");
-          ReplaceTextChild(node,"seat_no",Passengers.Get(i).placeName);
-          i++;
-      };*/
-      //if (node!=NULL||i<Passengers.getCount()) throw Exception("SeatsPassengers: wrong count");
     };
 
     Qry.Clear();
@@ -1977,9 +1989,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
         "  END IF; "
         "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
-        "                  refuse,reg_no,ticket_no,coupon_no,document,pr_exam,doc_check,subclass,tid) "
+        "                  refuse,reg_no,ticket_no,coupon_no,ticket_rem,document,pr_exam,doc_check,subclass,tid) "
         "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
-        "         NULL,:reg_no,:ticket_no,:coupon_no,:document,:pr_exam,0,:subclass,tid__seq.currval); "
+        "         NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:document,:pr_exam,0,:subclass,tid__seq.currval); "
         "END;";
       Qry.DeclareVariable("pax_id",otInteger);
       Qry.DeclareVariable("surname",otString);
@@ -1992,6 +2004,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.DeclareVariable("reg_no",otInteger);
       Qry.DeclareVariable("ticket_no",otString);
       Qry.DeclareVariable("coupon_no",otInteger);
+      Qry.DeclareVariable("ticket_rem",otString);
       Qry.DeclareVariable("document",otString);
       Qry.DeclareVariable("subclass",otString);
       int i=0;
@@ -2030,6 +2043,20 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
           else
             Qry.SetVariable("coupon_no",FNull);
+          if (GetNode("ticket_rem",node2)!=NULL)
+            Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+          else
+          {
+            if (!NodeIsNULLFast("ticket_no",node2))
+            {
+              if (!NodeIsNULLFast("coupon_no",node2))
+                Qry.SetVariable("ticket_rem","TKNE");
+              else
+                Qry.SetVariable("ticket_rem","TKNA");
+            }
+            else
+              Qry.SetVariable("ticket_rem",FNull);
+          };
           Qry.SetVariable("document",NodeAsStringFast("document",node2));
           Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
           try
@@ -2200,6 +2227,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                      "    refuse=:refuse, "
                      "    ticket_no=:ticket_no, "
                      "    coupon_no=:coupon_no, "
+                     "    ticket_rem=:ticket_rem, "
                      "    document=:document, "
                      "    subclass=:subclass, "
                      "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
@@ -2214,6 +2242,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       PaxQry.DeclareVariable("refuse",otString);
       PaxQry.DeclareVariable("ticket_no",otString);
       PaxQry.DeclareVariable("coupon_no",otInteger);
+      PaxQry.DeclareVariable("ticket_rem",otString);
       PaxQry.DeclareVariable("document",otString);
       PaxQry.DeclareVariable("subclass",otString);
 
@@ -2224,18 +2253,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       LayerQry.DeclareVariable("pax_id",otInteger);
       LayerQry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltCheckin));
 
-
-    /*  TQuery SalonQry(&OraSession);
-      SalonQry.Clear();
-      SalonQry.SQLText=
-        "BEGIN "
-        "  salons.seatpass( :point_id, :pax_id, :seat_no, 0,:agent_error ); "
-        "  UPDATE pax SET seat_no=NULL,prev_seat_no=seat_no WHERE pax_id=:pax_id; "
-        "END;";
-      SalonQry.CreateVariable("point_id",otInteger,point_dep);
-      SalonQry.DeclareVariable("pax_id",otInteger);
-      SalonQry.DeclareVariable("agent_error",otInteger); //???
-      SalonQry.DeclareVariable("seat_no",otString);*/
       node=GetNode("passengers",reqNode);
       if (node!=NULL)
       {
@@ -2256,13 +2273,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             //были изменения в информации по пассажиру
             if (!NodeIsNULLFast("refuse",node2))
             {
-             /* SalonQry.SetVariable("pax_id",pax_id);
-              if ( !strcmp( NodeAsStringFast("refuse",node2), "А" ) ) //???
-                SalonQry.SetVariable("agent_error", 1 );
-              else
-              	SalonQry.SetVariable("agent_error", 0 );
-              SalonQry.SetVariable("seat_no",Qry.FieldAsString("seat_no"));
-              SalonQry.Execute();*/
               LayerQry.SetVariable("pax_id",pax_id);
               LayerQry.Execute();
             };
@@ -2279,6 +2289,20 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
             else
               PaxQry.SetVariable("coupon_no",FNull);
+            if (GetNode("ticket_rem",node2)!=NULL)
+              PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+            else
+            {
+              if (!NodeIsNULLFast("ticket_no",node2))
+              {
+                if (!NodeIsNULLFast("coupon_no",node2))
+                  PaxQry.SetVariable("ticket_rem","TKNE");
+                else
+                  PaxQry.SetVariable("ticket_rem","TKNA");
+              }
+              else
+                PaxQry.SetVariable("ticket_rem",FNull);
+            };
             PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
             PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
             PaxQry.Execute();
@@ -2631,9 +2655,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "SELECT pax.pax_id,pax.surname,pax.name,pax.pers_type,"
       "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,'one',rownum) AS seat_no, "
       "       pax.seat_type, "
-      "       pax.seats,pax.refuse,pax.reg_no,pax.ticket_no,pax.coupon_no,pax.document,pax.subclass,pax.tid, "
-      "       crs_pax.pax_id AS crs_pax_id, "
-      "       report.is_TKNE(pax.pax_id) AS is_tkne "
+      "       pax.seats,pax.refuse,pax.reg_no, "
+      "       pax.ticket_no,pax.coupon_no,pax.ticket_rem, "
+      "       pax.document,pax.subclass,pax.tid, "
+      "       crs_pax.pax_id AS crs_pax_id "
       "FROM pax,crs_pax "
       "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
     PaxQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -2659,7 +2684,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         NewTextChild(paxNode,"coupon_no",PaxQry.FieldAsInteger("coupon_no"));
       else
         NewTextChild(paxNode,"coupon_no");
-      NewTextChild(paxNode,"is_tkne",(int)(PaxQry.FieldAsInteger("is_tkne")!=0));
+      NewTextChild(paxNode,"ticket_rem",PaxQry.FieldAsString("ticket_rem"));
+
+      NewTextChild(paxNode,"is_tkne",
+                   (int)(strcmp(PaxQry.FieldAsString("ticket_rem"),"TKNE")==0)); //потом убрать 31.10.08
 
       NewTextChild(paxNode,"document",PaxQry.FieldAsString("document"));
       NewTextChild(paxNode,"subclass",PaxQry.FieldAsString("subclass"));

@@ -1018,7 +1018,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.REG_NO, "
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
-            "   nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) eticket_no, "
+            "   DECODE(pax.ticket_rem,'TKNE',ticket_no||'/'||coupon_no,NULL) eticket_no, "
             "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
             "   system.transliter(pax.DOCUMENT, 1) document_lat, "
