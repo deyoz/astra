@@ -212,7 +212,7 @@ struct change_act {
 };
 
 
-void read_tripStages( vector<TSoppStage> &stages, TDateTime part_key, TDateTime first_date, int point_id );
+void read_tripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_id );
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode, bool pr_isg );
 string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery &Qry );
 
@@ -411,7 +411,7 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
   return true;
 }
 
-void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, TDateTime first_date, int point_id )
+void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_id )
 {
 	stages.clear();
   TQuery StagesQry( &OraSession );
@@ -934,9 +934,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       } //!pr_isg
       ////////////////////// stages ///////////////////////////////
       if ( arx )
-        read_TripStages( tr->stages, tr->part_key, first_date, tr->point_id );
+        read_TripStages( tr->stages, tr->part_key, tr->point_id );
       else
-      	read_TripStages( tr->stages, NoExists, first_date, tr->point_id );
+      	read_TripStages( tr->stages, NoExists, tr->point_id );
       ////////////////////////// stations //////////////////////////////
       if ( !arx && !pr_isg ) {
         StationsQry.SetVariable( "point_id", tr->point_id );
@@ -2157,7 +2157,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "stages", reqNode ) ) {
   	if ( !Qry.Eof ) {
   	  vector<TSoppStage> stages;
-  	  read_TripStages( stages, false, 0, point_id );
+  	  read_TripStages( stages, NoExists, point_id );
       string region = AirpTZRegion( airp );
       try {
   	    build_TripStages( stages, region, dataNode, false );
