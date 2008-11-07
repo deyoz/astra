@@ -1306,6 +1306,19 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
     Qry.CreateVariable("point_arv", otInteger, point_arv);
     Qry.CreateVariable("class", otString, cl);
     Qry.Execute();
+    if (Qry.Eof)
+    {
+      ProgError(STDLOG,"counters2 empty! (point_dep=%d point_arv=%d cl=%s)",point_dep,point_arv,cl);
+      TQuery RecountQry(&OraSession);
+      RecountQry.Clear();
+      RecountQry.SQLText=
+        "BEGIN "
+        "  ckin.recount(:point_dep); "
+        "END;";
+      RecountQry.CreateVariable("point_dep", otInteger, point_dep);
+      RecountQry.Execute();
+      Qry.Execute();
+    };
     if (Qry.Eof) return 0;
     TTripStages tripStages( point_dep );
     TStage ckin_stage =  tripStages.getStage( stCheckIn );
