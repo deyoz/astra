@@ -38,6 +38,24 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
         throw PaxlstException( "CreateEdiPaxlstString error: Passengers list has bad size" );
     }
 
+    if ( !paxlstInfo.isSenderNameSet() )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: Sendername is not set" );
+    }
+
+    if ( !paxlstInfo.isPartyNameSet() )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: Partyname is not set" );
+    }
+
+    for ( list< PassengerInfo >::const_iterator it = paxlstInfo.passangersList.begin();
+          it != paxlstInfo.passangersList.end(); ++it )
+    {
+        if ( !it->isPassengerSurnameSet() )
+            throw PaxlstException( "CreateEdiPaxlstString error: \
+Passengers list contains empty passenger( with empty surname )" );
+    }
+
     edi_mes_head edih;
     memset( &edih, 0, sizeof( edih ) );
 
@@ -218,87 +236,94 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
     SetEdiFullSegment( pMes, SegmElement( "BGM" ), "745" );
     //</BGM>
 
-    //<Segment Group 1>
-    SetEdiSegGr( pMes, SegGrElement( 1, 0 ) );
 
-    PushEdiPointW( pMes );
-    SetEdiPointToSegGrW( pMes, SegGrElement( 1, 0 ) );
-
-        //<NAD>
-        SetEdiSegment( pMes, SegmElement( "NAD" ) );
+    if ( paxlstInfo.isPartyNameSet() )
+    {
+        //<Segment Group 1>
+        SetEdiSegGr( pMes, SegGrElement( 1, 0 ) );
 
         PushEdiPointW( pMes );
-        SetEdiPointToSegmentW( pMes, SegmElement( "NAD" ) );
+        SetEdiPointToSegGrW( pMes, SegGrElement( 1, 0 ) );
 
-            //<DE:3035>
-            SetEdiDataElem( pMes, DataElement( 3035, 0 ), "MS" );
-            //</DE:3035>
-
-            //<C080>
-            SetEdiComposite( pMes, CompElement( "C080", 0 ) );
+            //<NAD>
+            SetEdiSegment( pMes, SegmElement( "NAD" ) );
 
             PushEdiPointW( pMes );
-            SetEdiPointToCompositeW( pMes, CompElement( "C080", 0 ) );
+            SetEdiPointToSegmentW( pMes, SegmElement( "NAD" ) );
 
-                //<DE:3036>
-                SetEdiDataElem( pMes, DataElement( 3036, 0 ),
-                                paxlstInfo.partyName.c_str() );
-                //</DE:3036>
+                //<DE:3035>
+                SetEdiDataElem( pMes, DataElement( 3035, 0 ), "MS" );
+                //</DE:3035>
+
+                //<C080>
+                SetEdiComposite( pMes, CompElement( "C080", 0 ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToCompositeW( pMes, CompElement( "C080", 0 ) );
+
+                    //<DE:3036>
+                    SetEdiDataElem( pMes, DataElement( 3036, 0 ),
+                                    paxlstInfo.partyName.c_str() );
+                    //</DE:3036>
+
+                PopEdiPointW( pMes );
+                //</C080>
 
             PopEdiPointW( pMes );
-            //</C080>
+            //</NAD>
+
+            if ( paxlstInfo.isPhoneAndFaxSet() )
+            {
+                //<COM>
+                SetEdiSegment( pMes, SegmElement( "COM" ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToSegmentW( pMes, SegmElement( "COM" ) );
+
+                    //<C076(1)>
+                    SetEdiComposite( pMes, CompElement( "C076", 0 ) );
+
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C076", 0 ) );
+
+                        //<DE:3148>
+                        SetEdiDataElem( pMes, DataElement( 3148, 0 ),
+                                        paxlstInfo.phone.c_str() );
+                        //</DE:3148>
+
+                        //<DE:3155>
+                        SetEdiDataElem( pMes, DataElement( 3155, 0 ), "TE" );
+                        //</DE:3155>
+
+                    PopEdiPointW( pMes );
+                    //</C076(1)>
+
+
+                    //<C076(2)>
+                    SetEdiComposite( pMes, CompElement( "C076", 1 ) );
+
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C076", 1 ) );
+
+                        //<DE:3148>
+                        SetEdiDataElem( pMes, DataElement( 3148, 0 ),
+                                        paxlstInfo.fax.c_str() );
+                        //</DE:3148>
+
+                        //<DE:3155>
+                        SetEdiDataElem( pMes, DataElement( 3155, 0 ), "FX" );
+                        //</DE:3155>
+
+                    PopEdiPointW( pMes );
+                    //</C076(2)>
+
+                PopEdiPointW( pMes );
+                //</COM>
+            }
 
         PopEdiPointW( pMes );
-        //</NAD>
-
-        //<COM>
-        SetEdiSegment( pMes, SegmElement( "COM" ) );
-
-        PushEdiPointW( pMes );
-        SetEdiPointToSegmentW( pMes, SegmElement( "COM" ) );
-
-            //<C076(1)>
-            SetEdiComposite( pMes, CompElement( "C076", 0 ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToCompositeW( pMes, CompElement( "C076", 0 ) );
-
-                //<DE:3148>
-                SetEdiDataElem( pMes, DataElement( 3148, 0 ),
-                                paxlstInfo.phone.c_str() );
-                //</DE:3148>
-
-                //<DE:3155>
-                SetEdiDataElem( pMes, DataElement( 3155, 0 ), "TE" );
-                //</DE:3155>
-
-            PopEdiPointW( pMes );
-            //</C076(1)>
-
-
-            //<C076(2)>
-            SetEdiComposite( pMes, CompElement( "C076", 1 ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToCompositeW( pMes, CompElement( "C076", 1 ) );
-
-                //<DE:3148>
-                SetEdiDataElem( pMes, DataElement( 3148, 0 ),
-                                paxlstInfo.fax.c_str() );
-                //</DE:3148>
-
-                //<DE:3155>
-                SetEdiDataElem( pMes, DataElement( 3155, 0 ), "FX" );
-                //</DE:3155>
-
-            PopEdiPointW( pMes );
-            //</C076(2)>
-
-        PopEdiPointW( pMes );
-        //</COM>
-
-    PopEdiPointW( pMes );
-    //</Segment Group 1>
+        //</Segment Group 1>
+    }
 
 
     //<Segment Group 2>
@@ -315,9 +340,15 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
 
             //<DE:8051>
             SetEdiDataElem( pMes, DataElement( 8051, 0 ), "20" );
-            SetEdiDataElem( pMes, DataElement( 8028, 0 ),
-                            paxlstInfo.flight.c_str() );
             //</DE:8051>
+            if ( paxlstInfo.isFlightSet() )
+            {
+                //<DE:8028>
+                SetEdiDataElem( pMes, DataElement( 8028, 0 ),
+                                paxlstInfo.flight.c_str() );
+                //</DE:8028>
+            }
+
 
         PopEdiPointW( pMes );
         //</TDT>
@@ -339,19 +370,22 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                 SetEdiDataElem( pMes, DataElement( 3227, 0 ), "125" );
                 //</DE:3227>
 
-                //<C517>
-                SetEdiComposite( pMes, CompElement( "C517", 0 ) );
+                if ( paxlstInfo.isDepartureAirportSet() )
+                {
+                    //<C517>
+                    SetEdiComposite( pMes, CompElement( "C517", 0 ) );
 
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
 
-                    //<DE:3225>
-                    SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                    paxlstInfo.departureAirport.c_str() );
-                    //</DE:3225>
+                        //<DE:3225>
+                        SetEdiDataElem( pMes, DataElement( 3225, 0 ),
+                                        paxlstInfo.departureAirport.c_str() );
+                        //</DE:3225>
 
-                PopEdiPointW( pMes );
-                //</C517>
+                    PopEdiPointW( pMes );
+                    //</C517>
+                }
 
             PopEdiPointW( pMes );
             //</LOC>
@@ -373,10 +407,13 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                     SetEdiDataElem( pMes, DataElement( 2005, 0 ), "189" );
                     //</DE:2005>
 
-                    //<DE:2380>
-                    SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                    BASIC::DateTimeToStr( paxlstInfo.departureDate, "yymmddhhnn" ) );
-                    //</DE:2380>
+                    if ( paxlstInfo.isDepartureDateSet() )
+                    {
+                        //<DE:2380>
+                        SetEdiDataElem( pMes, DataElement( 2380, 0 ),
+                                        BASIC::DateTimeToStr( paxlstInfo.departureDate, "yymmddhhnn" ) );
+                        //</DE:2380>
+                    }
 
                     //<DE:2379>
                     SetEdiDataElem( pMes, DataElement( 2379, 0 ), "201" );
@@ -408,19 +445,22 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                 SetEdiDataElem( pMes, DataElement( 3227, 0 ), "87" );
                 //</DE:3227>
 
-                //<C517>
-                SetEdiComposite( pMes, CompElement( "C517", 0 ) );
+                if ( paxlstInfo.isArrivalAirportSet() )
+                {
+                    //<C517>
+                    SetEdiComposite( pMes, CompElement( "C517", 0 ) );
 
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
 
-                    //<DE:3225>
-                    SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                    paxlstInfo.arrivalAirport.c_str() );
-                    //</DE:3225>
+                        //<DE:3225>
+                        SetEdiDataElem( pMes, DataElement( 3225, 0 ),
+                                        paxlstInfo.arrivalAirport.c_str() );
+                        //</DE:3225>
 
-                PopEdiPointW( pMes );
-                //</C517>
+                    PopEdiPointW( pMes );
+                    //</C517>
+                }
 
             PopEdiPointW( pMes );
             //</LOC>
@@ -442,10 +482,13 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                     SetEdiDataElem( pMes, DataElement( 2005, 0 ), "232" );
                     //</DE:2005>
 
-                    //<DE:2380>
-                    SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                    BASIC::DateTimeToStr( paxlstInfo.arrivalDate, "yymmddhhnn" ) );
-                    //</DE:2380>
+                    if ( paxlstInfo.isArrivalDateSet() )
+                    {
+                        //<DE:2380>
+                        SetEdiDataElem( pMes, DataElement( 2380, 0 ),
+                                        BASIC::DateTimeToStr( paxlstInfo.arrivalDate, "yymmddhhnn" ) );
+                        //</DE:2380>
+                    }
 
                     //<DE:2379>
                     SetEdiDataElem( pMes, DataElement( 2379, 0 ), "201" );
@@ -498,10 +541,13 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                                     it->passengerSurname.c_str() );
                     //</DE:3036(1)>
 
-                    //<DE:3036(2)>
-                    SetEdiDataElem( pMes, DataElement( 3036, 1 ),
-                                    it->passengerName.c_str() );
-                    //</DE:3036(2)>
+                    if ( it->isPassengerNameSet() )
+                    {
+                        //<DE:3036(2)>
+                        SetEdiDataElem( pMes, DataElement( 3036, 1 ),
+                                        it->passengerName.c_str() );
+                        //</DE:3036(2)>
+                    }
 
                 PopEdiPointW( pMes );
                 //</C080>
@@ -520,19 +566,22 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                 SetEdiDataElem( pMes, DataElement( 9017, 0 ), "2" );
                 //</DE:9017>
 
-                //<C956>
-                SetEdiComposite( pMes, CompElement( "C956", 0 ) );
+                if ( it->isPassengerSexSet() )
+                {
+                    //<C956>
+                    SetEdiComposite( pMes, CompElement( "C956", 0 ) );
 
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C956", 0 ) );
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C956", 0 ) );
 
-                    //<DE:9019>
-                    SetEdiDataElem( pMes, DataElement( 9019, 0 ),
-                                    it->passengerSex.c_str() );
-                    //</DE:9019>
+                        //<DE:9019>
+                        SetEdiDataElem( pMes, DataElement( 9019, 0 ),
+                                        it->passengerSex.c_str() );
+                        //</DE:9019>
 
-                PopEdiPointW( pMes );
-                //</C956>
+                    PopEdiPointW( pMes );
+                    //</C956>
+                }
 
             PopEdiPointW( pMes );
             //</ATT>
@@ -554,10 +603,13 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
                     SetEdiDataElem( pMes, DataElement( 2005, 0 ), "329" );
                     //</DE:2005>
 
-                    //<DE:2380>
-                    SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                    BASIC::DateTimeToStr( it->birthDate, "yymmdd" ) );
-                    //</DE:2380>
+                    if ( it->isBirthDateSet() )
+                    {
+                        //<DE:2380>
+                        SetEdiDataElem( pMes, DataElement( 2380, 0 ),
+                                        BASIC::DateTimeToStr( it->birthDate, "yymmdd" ) );
+                        //</DE:2380>
+                    }
 
                 PopEdiPointW( pMes );
                 //</C507>
@@ -565,238 +617,261 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
             PopEdiPointW( pMes );
             //</DTM>
 
-
-            //<LOC>
-            SetEdiSegment( pMes, SegmElement( "LOC", 0 ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToSegmentW( pMes, SegmElement( "LOC", 0 ) );
-
-
-            //<DE:3227>
-            SetEdiDataElem( pMes, DataElement( 3227, 0 ), "178" );
-            //</DE:3227>
-
-                //<C517>
-                SetEdiComposite( pMes, CompElement( "C517", 0 ) );
+            int sg4_LOC_counter = 0;
+            if ( it->isDeparturePassengerSet() )
+            {
+                //<LOC>
+                SetEdiSegment( pMes, SegmElement( "LOC", sg4_LOC_counter ) );
 
                 PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
-
-                    //<DE:3225>
-                    SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                    it->departurePassenger.c_str() );
-                    //</DE:3225>
-
-                PopEdiPointW( pMes );
-                //</C517>
-
-            PopEdiPointW( pMes );
-            //</LOC>
-
-
-            //<LOC>
-            SetEdiSegment( pMes, SegmElement( "LOC", 1 ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToSegmentW( pMes, SegmElement( "LOC", 1 ) );
+                SetEdiPointToSegmentW( pMes, SegmElement( "LOC", sg4_LOC_counter ) );
 
 
                 //<DE:3227>
-                SetEdiDataElem( pMes, DataElement( 3227, 0 ), "179" );
+                SetEdiDataElem( pMes, DataElement( 3227, 0 ), "178" );
                 //</DE:3227>
 
-                //<C517>
-                SetEdiComposite( pMes, CompElement( "C517", 0 ) );
-
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
-
-                    //<DE:3225>
-                    SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                    it->arrivalPassenger.c_str() );
-                    //</DE:3225>
-
-                PopEdiPointW( pMes );
-                //</C517>
-
-            PopEdiPointW( pMes );
-            //</LOC>
-
-
-            //<NAT>
-            SetEdiSegment( pMes, SegmElement( "NAT" ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToSegmentW( pMes, SegmElement( "NAT" ) );
-
-                //<DE:3493>
-                SetEdiDataElem( pMes, DataElement( 3493, 0 ), "2" );
-                //</DE:3493>
-
-                //<C042>
-                SetEdiComposite( pMes, CompElement( "U042", 0 ) );
-
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "U042", 0 ) );
-
-                    //<DE:3293>
-                    SetEdiDataElem( pMes, DataElement( 3293, 0 ),
-                                    it->passengerCountry.c_str() );
-                    //</DE:3293>
-
-                PopEdiPointW( pMes );
-                //</C042>
-
-            PopEdiPointW( pMes );
-            //</NAT>
-
-
-            //<RFF>
-            SetEdiSegment( pMes, SegmElement( "RFF" ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToSegmentW( pMes, SegmElement( "RFF" ) );
-
-                //<C506>
-                SetEdiComposite( pMes, CompElement( "C506", 0 ) );
-
-                PushEdiPointW( pMes );
-                SetEdiPointToCompositeW( pMes, CompElement( "C506", 0 ) );
-
-                    //<DE:1153>
-                    SetEdiDataElem( pMes, DataElement( 1153, 0 ), "AVF" );
-                    //</DE:1153>
-
-                    //<DE:1154>
-                    SetEdiDataElem( pMes, DataElement( 1154, 0 ),
-                                    it->passengerNumber.c_str() );
-                    //</DE:1154>
-
-                PopEdiPointW( pMes );
-                //</C506>
-
-            PopEdiPointW( pMes );
-            //</RFF>
-
-
-            //<Segment Group 5>
-            SetEdiSegGr( pMes, SegGrElement( 5, 0 ) );
-
-            PushEdiPointW( pMes );
-            SetEdiPointToSegGrW( pMes, SegGrElement( 5, 0 ) );
-
-                //<DOC>
-                SetEdiSegment( pMes, SegmElement( "DOC" ) );
-
-                PushEdiPointW( pMes );
-                SetEdiPointToSegmentW( pMes, SegmElement( "DOC" ) );
-
-                    //<C002>
-                    SetEdiComposite( pMes, CompElement( "C002", 0 ) );
+                    //<C517>
+                    SetEdiComposite( pMes, CompElement( "C517", 0 ) );
 
                     PushEdiPointW( pMes );
-                    SetEdiPointToCompositeW( pMes, CompElement( "C002", 0 ) );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
 
-                        //<DE:1001>
-                        SetEdiDataElem( pMes, DataElement( 1001, 0 ),
-                                        it->passengerType.c_str() );
-                        //</DE:1001>
-
-                        //<DE:1131>
-                        SetEdiDataElem( pMes, DataElement( 1131, 0 ), "110" );
-                        //</DE:1131>
-
-                        //<DE:3055>
-                        SetEdiDataElem( pMes, DataElement( 3055, 0 ), "111" );
-                        //</DE:3055>
+                        //<DE:3225>
+                        SetEdiDataElem( pMes, DataElement( 3225, 0 ),
+                                        it->departurePassenger.c_str() );
+                        //</DE:3225>
 
                     PopEdiPointW( pMes );
-                    //</C002>
-
-
-                    //<C503>
-                    SetEdiComposite( pMes, CompElement( "C503", 0 ) );
-
-                    PushEdiPointW( pMes );
-                    SetEdiPointToCompositeW( pMes, CompElement( "C503", 0 ) );
-
-                        //<DE:1004>
-                        SetEdiDataElem( pMes, DataElement( 1004, 0 ),
-                                        it->idNumber.c_str() );
-                        //</DE:1004>
-
-                    PopEdiPointW( pMes );
-                    //</C503>
+                    //</C517>
 
                 PopEdiPointW( pMes );
-                //</DOC>
+                //</LOC>
+
+                sg4_LOC_counter++;
+            }
 
 
-                if ( it->isExpirateDateSet() )
-                {
-                    //<DTM>
-                    SetEdiSegment( pMes, SegmElement( "DTM" ) );
+            if ( it->isArrivalPassengerSet() )
+            {
+                //<LOC>
+                SetEdiSegment( pMes, SegmElement( "LOC", sg4_LOC_counter ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToSegmentW( pMes, SegmElement( "LOC", sg4_LOC_counter ) );
+
+
+                    //<DE:3227>
+                    SetEdiDataElem( pMes, DataElement( 3227, 0 ), "179" );
+                    //</DE:3227>
+
+                    //<C517>
+                    SetEdiComposite( pMes, CompElement( "C517", 0 ) );
 
                     PushEdiPointW( pMes );
-                    SetEdiPointToSegmentW( pMes, SegmElement( "DTM" ) );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
 
-                        //<C507>
-                        SetEdiComposite( pMes, CompElement( "C507", 0 ) );
+                        //<DE:3225>
+                        SetEdiDataElem( pMes, DataElement( 3225, 0 ),
+                                        it->arrivalPassenger.c_str() );
+                        //</DE:3225>
+
+                    PopEdiPointW( pMes );
+                    //</C517>
+
+                PopEdiPointW( pMes );
+                //</LOC>
+            }
+
+
+            if ( it->isPassengerCountrySet() )
+            {
+                //<NAT>
+                SetEdiSegment( pMes, SegmElement( "NAT" ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToSegmentW( pMes, SegmElement( "NAT" ) );
+
+                    //<DE:3493>
+                    SetEdiDataElem( pMes, DataElement( 3493, 0 ), "2" );
+                    //</DE:3493>
+
+                        //<C042>
+                        SetEdiComposite( pMes, CompElement( "U042", 0 ) );
 
                         PushEdiPointW( pMes );
-                        SetEdiPointToCompositeW( pMes, CompElement( "C507", 0 ) );
+                        SetEdiPointToCompositeW( pMes, CompElement( "U042", 0 ) );
 
-                            //<DE:2005>
-                            SetEdiDataElem( pMes, DataElement( 2005, 0 ), "36" );
-                            //</DE:2005>
-
-                            //<DE:2380>
-                            SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                            BASIC::DateTimeToStr( it->expirateDate, "yymmdd" ) );
-                            //</DE:2380>
+                            //<DE:3293>
+                            SetEdiDataElem( pMes, DataElement( 3293, 0 ),
+                                            it->passengerCountry.c_str() );
+                            //</DE:3293>
 
                         PopEdiPointW( pMes );
-                        //</C507>
+                        //</C042>
 
-                    PopEdiPointW( pMes );
-                    //</DTM>
-                }
+                PopEdiPointW( pMes );
+                //</NAT>
+            }
 
 
-                if ( it->isDocCountrySet() )
-                {
-                    //<LOC>
-                    SetEdiSegment( pMes, SegmElement( "LOC" ) );
+            if ( it->isPassengerNumberSet() )
+            {
+                //<RFF>
+                SetEdiSegment( pMes, SegmElement( "RFF" ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToSegmentW( pMes, SegmElement( "RFF" ) );
+
+                    //<C506>
+                    SetEdiComposite( pMes, CompElement( "C506", 0 ) );
 
                     PushEdiPointW( pMes );
-                    SetEdiPointToSegmentW( pMes, SegmElement( "LOC" ) );
+                    SetEdiPointToCompositeW( pMes, CompElement( "C506", 0 ) );
 
+                        //<DE:1153>
+                        SetEdiDataElem( pMes, DataElement( 1153, 0 ), "AVF" );
+                        //</DE:1153>
 
-                        //<DE:3227>
-                        SetEdiDataElem( pMes, DataElement( 3227, 0 ), "91" );
-                        //</DE:3227>
-
-                        //<C517>
-                        SetEdiComposite( pMes, CompElement( "C517", 0 ) );
-
-                        PushEdiPointW( pMes );
-                        SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
-
-                            //<DE:3225>
-                            SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                            it->docCountry.c_str() );
-                            //</DE:3225>
-
-                        PopEdiPointW( pMes );
-                        //</C517>
+                            //<DE:1154>
+                            SetEdiDataElem( pMes, DataElement( 1154, 0 ),
+                                            it->passengerNumber.c_str() );
+                            //</DE:1154>
 
                     PopEdiPointW( pMes );
-                    //</LOC>
-                }
+                    //</C506>
 
-            PopEdiPointW( pMes );
-            //</Segment Group 5>
+                PopEdiPointW( pMes );
+                //</RFF>
+            }
+
+
+            if ( it->isPassengerTypeOrIdNumberSet() )
+            {
+                //<Segment Group 5>
+                SetEdiSegGr( pMes, SegGrElement( 5, 0 ) );
+
+                PushEdiPointW( pMes );
+                SetEdiPointToSegGrW( pMes, SegGrElement( 5, 0 ) );
+
+                    //<DOC>
+                    SetEdiSegment( pMes, SegmElement( "DOC" ) );
+
+                    PushEdiPointW( pMes );
+                    SetEdiPointToSegmentW( pMes, SegmElement( "DOC" ) );
+
+                        //<C002>
+                        SetEdiComposite( pMes, CompElement( "C002", 0 ) );
+
+                        PushEdiPointW( pMes );
+                        SetEdiPointToCompositeW( pMes, CompElement( "C002", 0 ) );
+
+                            if ( it->isPassengerTypeSet() )
+                            {
+                                //<DE:1001>
+                                SetEdiDataElem( pMes, DataElement( 1001, 0 ),
+                                                it->passengerType.c_str() );
+                                //</DE:1001>
+                            }
+
+                            //<DE:1131>
+                            SetEdiDataElem( pMes, DataElement( 1131, 0 ), "110" );
+                            //</DE:1131>
+
+                            //<DE:3055>
+                            SetEdiDataElem( pMes, DataElement( 3055, 0 ), "111" );
+                            //</DE:3055>
+
+                        PopEdiPointW( pMes );
+                        //</C002>
+
+
+                        //<C503>
+                        SetEdiComposite( pMes, CompElement( "C503", 0 ) );
+
+                        PushEdiPointW( pMes );
+                        SetEdiPointToCompositeW( pMes, CompElement( "C503", 0 ) );
+
+                            if ( it->isIdNumberSet() )
+                            {
+                                //<DE:1004>
+                                SetEdiDataElem( pMes, DataElement( 1004, 0 ),
+                                                it->idNumber.c_str() );
+                                //</DE:1004>
+                            }
+
+                        PopEdiPointW( pMes );
+                        //</C503>
+
+                    PopEdiPointW( pMes );
+                    //</DOC>
+
+
+                    if ( it->isExpirateDateSet() )
+                    {
+                        //<DTM>
+                        SetEdiSegment( pMes, SegmElement( "DTM" ) );
+
+                        PushEdiPointW( pMes );
+                        SetEdiPointToSegmentW( pMes, SegmElement( "DTM" ) );
+
+                            //<C507>
+                            SetEdiComposite( pMes, CompElement( "C507", 0 ) );
+
+                            PushEdiPointW( pMes );
+                            SetEdiPointToCompositeW( pMes, CompElement( "C507", 0 ) );
+
+                                //<DE:2005>
+                                SetEdiDataElem( pMes, DataElement( 2005, 0 ), "36" );
+                                //</DE:2005>
+
+                                //<DE:2380>
+                                SetEdiDataElem( pMes, DataElement( 2380, 0 ),
+                                                BASIC::DateTimeToStr( it->expirateDate, "yymmdd" ) );
+                                //</DE:2380>
+
+                            PopEdiPointW( pMes );
+                            //</C507>
+
+                        PopEdiPointW( pMes );
+                        //</DTM>
+                    }
+
+
+                    if ( it->isDocCountrySet() )
+                    {
+                        //<LOC>
+                        SetEdiSegment( pMes, SegmElement( "LOC" ) );
+
+                        PushEdiPointW( pMes );
+                        SetEdiPointToSegmentW( pMes, SegmElement( "LOC" ) );
+
+
+                            //<DE:3227>
+                            SetEdiDataElem( pMes, DataElement( 3227, 0 ), "91" );
+                            //</DE:3227>
+
+                            //<C517>
+                            SetEdiComposite( pMes, CompElement( "C517", 0 ) );
+
+                            PushEdiPointW( pMes );
+                            SetEdiPointToCompositeW( pMes, CompElement( "C517", 0 ) );
+
+                                //<DE:3225>
+                                SetEdiDataElem( pMes, DataElement( 3225, 0 ),
+                                                it->docCountry.c_str() );
+                                //</DE:3225>
+
+                            PopEdiPointW( pMes );
+                            //</C517>
+
+                        PopEdiPointW( pMes );
+                        //</LOC>
+                    }
+
+                PopEdiPointW( pMes );
+                //</Segment Group 5>
+            }
 
         PopEdiPointW( pMes );
         //</Segment Group 4(i)>
@@ -885,35 +960,35 @@ START_TEST( czech_file_test1 )
     Paxlst::PaxlstInfo paxlstInfo;
 
     paxlstInfo.partyName = "CDGKOAF";
-    paxlstInfo.phone = "0148642106";
-    paxlstInfo.fax = "0148643999";
+    //paxlstInfo.phone = "0148642106";
+    //paxlstInfo.fax = "0148643999";
 
     paxlstInfo.senderName = "1H";
-    paxlstInfo.senderCarrierCode = "ZZ";
-    paxlstInfo.recipientCarrierCode = "FR";
-    paxlstInfo.iataCode = "OK688/071008/1310";
+    //paxlstInfo.senderCarrierCode = "ZZ";
+    //paxlstInfo.recipientCarrierCode = "FR";
+    //paxlstInfo.iataCode = "OK688/071008/1310";
 
-    paxlstInfo.flight = "OK688";
-    paxlstInfo.departureAirport = "PRG";
-    BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
-    paxlstInfo.arrivalAirport = "BCN";
-    BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
+    //paxlstInfo.flight = "OK688";
+    //paxlstInfo.departureAirport = "PRG";
+    //BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
+    //paxlstInfo.arrivalAirport = "BCN";
+    //BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
 
 
     Paxlst::PassengerInfo passInfo1;
     passInfo1.passengerSurname = "STRANSKY";
-    passInfo1.passengerName = "JAROSLAV";
-    passInfo1.passengerSex = "M";
-    BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
-    passInfo1.departurePassenger = "ZDN";
-    passInfo1.arrivalPassenger = "BCN";
-    passInfo1.passengerCountry = "CZE";
-    passInfo1.passengerNumber = "Z9WKH";
-    passInfo1.passengerType = "I";
-    passInfo1.idNumber = "102865098";
+    //passInfo1.passengerName = "JAROSLAV";
+    //passInfo1.passengerSex = "M";
+    //BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
+    //passInfo1.departurePassenger = "ZDN";
+    //passInfo1.arrivalPassenger = "BCN";
+    //passInfo1.passengerCountry = "CZE";
+    //passInfo1.passengerNumber = "Z9WKH";
+    //passInfo1.passengerType = "I";
+    //passInfo1.idNumber = "102865098";
 
 
-    Paxlst::PassengerInfo passInfo2;
+    /*Paxlst::PassengerInfo passInfo2;
     passInfo2.passengerSurname = "KOVACS";
     passInfo2.passengerName = "PETR";
     passInfo2.passengerSex = "M";
@@ -938,12 +1013,12 @@ START_TEST( czech_file_test1 )
     passInfo3.passengerNumber = "Z57L3";
     passInfo3.passengerType = "P";
     passInfo3.idNumber = "34356146";
-    passInfo3.docCountry = "RUS";
+    passInfo3.docCountry = "RUS";*/
 
 
     paxlstInfo.passangersList.push_back( passInfo1 );
-    paxlstInfo.passangersList.push_back( passInfo2 );
-    paxlstInfo.passangersList.push_back( passInfo3 );
+    //paxlstInfo.passangersList.push_back( passInfo2 );
+    //paxlstInfo.passangersList.push_back( passInfo3 );
 
 
     std::string text = "", errText = "";
