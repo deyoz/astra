@@ -22,6 +22,12 @@
 #include <time.h>
 #include <boost/lexical_cast.hpp>
 
+#include <sstream>
+
+std::string InterchangeReferenceTst = "";
+std::string PrepareDateTst = "";
+std::string PrepareHourTst = "";
+
 
 namespace Paxlst
 {
@@ -56,6 +62,48 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
 Passengers list contains empty passenger( with empty surname )" );
     }
 
+    BASIC::TDateTime nowDateTime = BASIC::NowUTC();
+
+    string prepareDateStr = "", prepareHourStr = "",
+    departureDateStr = "", arrivalDateStr = "";
+
+    if ( !CreateDateTimeStr( prepareDateStr, nowDateTime, "yymmdd" ) )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while create \
+PrepareDate string" );
+    }
+
+    if ( !CreateDateTimeStr( prepareHourStr, nowDateTime, "hhnn" ) )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while create \
+PrepareTime string" );
+    }
+
+    if ( !CreateDateTimeStr( departureDateStr, paxlstInfo.departureDate, "yymmddhhnn" ) )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while create \
+DepartureDate string" );
+    }
+
+    if ( !CreateDateTimeStr( arrivalDateStr, paxlstInfo.arrivalDate, "yymmddhhnn" ) )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while create \
+ArrivalDate string" );
+    }
+
+    string interChangeRef = "asaaa";
+    if ( !CreateEdiInterchangeReference( interChangeRef ) )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while create \
+InterchangeReference string" );
+    }
+
+    //<TST>
+    InterchangeReferenceTst = interChangeRef;
+    PrepareDateTst = prepareDateStr;
+    PrepareHourTst = prepareHourStr;
+    //</TST>
+
     edi_mes_head edih;
     memset( &edih, 0, sizeof( edih ) );
 
@@ -63,18 +111,19 @@ Passengers list contains empty passenger( with empty surname )" );
     edih.syntax_ver = 4;
     edih.mes_num = 1;
 
-    BASIC::TDateTime nowDateTime = BASIC::NowUTC();
 
     strcpy( edih.chset, "UNOA" );
     strcpy( edih.to, "CZAPIS" );
-    strcpy(edih.date, BASIC::DateTimeToStr( nowDateTime, "yymmdd" ).c_str() );
-    strcpy(edih.time, BASIC::DateTimeToStr( nowDateTime, "hhnn" ).c_str() );
+    strcpy(edih.date, prepareDateStr.c_str() );
+    strcpy(edih.time, prepareHourStr.c_str() );
     strcpy( edih.from, paxlstInfo.senderName.c_str() );
     strcpy( edih.acc_ref, paxlstInfo.iataCode.c_str() );
 
     strcpy( edih.other_ref, "" );
     strcpy( edih.assoc_code, "" );
-    strcpy( edih.our_ref, CreateEdiInterchangeReference().c_str() );
+
+
+    strcpy( edih.our_ref, interChangeRef.c_str() );
     strcpy( edih.FseId, "APIS" );
 
     strcpy( edih.unh_number, "1" );
@@ -188,13 +237,11 @@ Passengers list contains empty passenger( with empty surname )" );
         SetEdiPointToCompositeW( pMes, CompElement( "S004", 0 ) );
 
             //<DE:0017>
-            SetEdiDataElem( pMes, DataElement( 17, 0 ),
-                            BASIC::DateTimeToStr( nowDateTime, "yymmdd" ) );
+            SetEdiDataElem( pMes, DataElement( 17, 0 ), prepareDateStr.c_str() );
             //</DE:0017>
 
             //<DE:0019>
-            SetEdiDataElem( pMes, DataElement( 19, 0 ),
-                            BASIC::DateTimeToStr( nowDateTime, "hhnn" ) );
+            SetEdiDataElem( pMes, DataElement( 19, 0 ), prepareHourStr.c_str() );
             //</DE:0019>
 
         PopEdiPointW( pMes );
@@ -411,7 +458,7 @@ Passengers list contains empty passenger( with empty surname )" );
                     {
                         //<DE:2380>
                         SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                        BASIC::DateTimeToStr( paxlstInfo.departureDate, "yymmddhhnn" ) );
+                                        departureDateStr.c_str() );
                         //</DE:2380>
                     }
 
@@ -486,7 +533,8 @@ Passengers list contains empty passenger( with empty surname )" );
                     {
                         //<DE:2380>
                         SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                        BASIC::DateTimeToStr( paxlstInfo.arrivalDate, "yymmddhhnn" ) );
+                                        arrivalDateStr.c_str() );
+
                         //</DE:2380>
                     }
 
@@ -606,8 +654,14 @@ Passengers list contains empty passenger( with empty surname )" );
                     if ( it->isBirthDateSet() )
                     {
                         //<DE:2380>
+                        string birthDateStr = "";
+                        if ( !CreateDateTimeStr( birthDateStr, it->birthDate, "yymmdd" ) )
+                        {
+                            throw PaxlstException( "CreateEdiPaxlstString error: \
+error while create birthDate string" );
+                        }
                         SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                        BASIC::DateTimeToStr( it->birthDate, "yymmdd" ) );
+                                        birthDateStr.c_str() );
                         //</DE:2380>
                     }
 
@@ -826,8 +880,14 @@ Passengers list contains empty passenger( with empty surname )" );
                                 //</DE:2005>
 
                                 //<DE:2380>
+                                string expirateDateStr = "";
+                                if ( !CreateDateTimeStr( expirateDateStr, it->expirateDate, "yymmdd" ) )
+                                {
+                                    throw PaxlstException( "CreateEdiPaxlstString error: \
+error while create expirateDate string" );
+                                }
                                 SetEdiDataElem( pMes, DataElement( 2380, 0 ),
-                                                BASIC::DateTimeToStr( it->expirateDate, "yymmdd" ) );
+                                                expirateDateStr.c_str() );
                                 //</DE:2380>
 
                             PopEdiPointW( pMes );
@@ -895,7 +955,7 @@ Passengers list contains empty passenger( with empty surname )" );
 
                 //<DE:6066>
                 SetEdiDataElem( pMes, DataElement( 6066, 0 ),
-                            lexical_cast< string >( paxlstInfo.passangersList.size() ).c_str() );
+                                lexical_cast< string >( paxlstInfo.passangersList.size() ).c_str() );
                 //</DE:6066>
 
             PopEdiPointW( pMes );
@@ -910,31 +970,104 @@ Passengers list contains empty passenger( with empty surname )" );
 
     }
 
-    return WriteEdiMessage( pMes );
+    string res = "";
+    try
+    {
+        res = WriteEdiMessage( pMes );
+    }
+    catch( edilib::Exception& e )
+    {
+        throw PaxlstException( "CreateEdiPaxlstString error: error while exec \
+edilib::WriteEdiMessage()" );
+    }
+
+    return "UNA:+.? '" + res;
 }
 
 
-string CreateEdiInterchangeReference()
+bool CreateEdiInterchangeReference( string& result )
 {
-    string result = "";
+    bool ret = false;
+    result = "";
     try
     {
         result = lexical_cast< string >( time( NULL ) );
     }
     catch ( bad_lexical_cast& e )
     {
-        return "bad_interch_ref";
+        result = "bad_interch_ref";
+        return false;
     }
 
-    return result;
+    ret = true;
+
+    return ret;
 }
 
 
-string CreateEdiPaxlstFileName( const string& flightNumber, const string& origin,
+bool CreateDateTimeStr( string& res, const BASIC::TDateTime& dt,
+                        const string& format )
+{
+    bool ret = false;
+    try
+    {
+        res = BASIC::DateTimeToStr( dt, format );
+    }
+    catch( std::exception& e )
+    {
+        return false;
+    }
+
+    ret = true;
+
+    return ret;
+}
+
+
+string CreateIATACode( const string& flight, const string& destDate,
+                       const string& destTime )
+{
+    return flight + "/" + destDate + "/" + destTime;
+}
+
+
+bool CreateIATACode( string& result, const string& flight,
+                     const BASIC::TDateTime& destDateTime )
+{
+    result = "";
+    string destDateTimeStr = "";
+
+    if ( !CreateDateTimeStr( destDateTimeStr, destDateTime, "yymmdd/hhnn" ) )
+        return false;
+
+    result = flight + "/" + destDateTimeStr;
+
+    return true;
+}
+
+
+string CreateEdiPaxlstFileName( const string& flight, const string& origin,
                                 const string& destination,  const string& departureDate,
                                 const string& ext )
 {
-    return flightNumber + origin + destination + departureDate + "." + ext;
+    return flight + origin + destination + departureDate + "." + ext;
+}
+
+
+bool CreateEdiPaxlstFileName( string& result,
+                              const string& flight, const string& origin,
+                              const string& destination,
+                              const BASIC::TDateTime& departureDate,
+                              const string& ext )
+{
+    result = "";
+    string depDateStr = "";
+    if ( !CreateDateTimeStr( depDateStr, departureDate, "yyyymmdd" ) )
+        return false;
+
+    result = flight + origin + destination + depDateStr + "." + ext;
+
+    return true;
 }
 
 
@@ -960,35 +1093,35 @@ START_TEST( czech_file_test1 )
     Paxlst::PaxlstInfo paxlstInfo;
 
     paxlstInfo.partyName = "CDGKOAF";
-    //paxlstInfo.phone = "0148642106";
-    //paxlstInfo.fax = "0148643999";
+    paxlstInfo.phone = "0148642106";
+    paxlstInfo.fax = "0148643999";
 
     paxlstInfo.senderName = "1H";
-    //paxlstInfo.senderCarrierCode = "ZZ";
-    //paxlstInfo.recipientCarrierCode = "FR";
-    //paxlstInfo.iataCode = "OK688/071008/1310";
+    paxlstInfo.senderCarrierCode = "ZZ";
+    paxlstInfo.recipientCarrierCode = "FR";
+    paxlstInfo.iataCode = "OK688/071008/1310";
 
-    //paxlstInfo.flight = "OK688";
-    //paxlstInfo.departureAirport = "PRG";
-    //BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
-    //paxlstInfo.arrivalAirport = "BCN";
-    //BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
+    paxlstInfo.flight = "OK688";
+    paxlstInfo.departureAirport = "PRG";
+    BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
+    paxlstInfo.arrivalAirport = "BCN";
+    BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
 
 
     Paxlst::PassengerInfo passInfo1;
     passInfo1.passengerSurname = "STRANSKY";
-    //passInfo1.passengerName = "JAROSLAV";
-    //passInfo1.passengerSex = "M";
-    //BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
-    //passInfo1.departurePassenger = "ZDN";
-    //passInfo1.arrivalPassenger = "BCN";
-    //passInfo1.passengerCountry = "CZE";
-    //passInfo1.passengerNumber = "Z9WKH";
-    //passInfo1.passengerType = "I";
-    //passInfo1.idNumber = "102865098";
+    passInfo1.passengerName = "JAROSLAV";
+    passInfo1.passengerSex = "M";
+    BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
+    passInfo1.departurePassenger = "ZDN";
+    passInfo1.arrivalPassenger = "BCN";
+    passInfo1.passengerCountry = "CZE";
+    passInfo1.passengerNumber = "Z9WKH";
+    passInfo1.passengerType = "I";
+    passInfo1.idNumber = "102865098";
 
 
-    /*Paxlst::PassengerInfo passInfo2;
+    Paxlst::PassengerInfo passInfo2;
     passInfo2.passengerSurname = "KOVACS";
     passInfo2.passengerName = "PETR";
     passInfo2.passengerSex = "M";
@@ -1013,12 +1146,12 @@ START_TEST( czech_file_test1 )
     passInfo3.passengerNumber = "Z57L3";
     passInfo3.passengerType = "P";
     passInfo3.idNumber = "34356146";
-    passInfo3.docCountry = "RUS";*/
+    passInfo3.docCountry = "RUS";
 
 
     paxlstInfo.passangersList.push_back( passInfo1 );
-    //paxlstInfo.passangersList.push_back( passInfo2 );
-    //paxlstInfo.passangersList.push_back( passInfo3 );
+    paxlstInfo.passangersList.push_back( passInfo2 );
+    paxlstInfo.passangersList.push_back( passInfo3 );
 
 
     std::string text = "", errText = "";
@@ -1027,11 +1160,199 @@ START_TEST( czech_file_test1 )
         fail( errText.c_str() );
     }
 
-    //BASIC::TDateTime dt = BASIC::NowUTC();
-    //BASIC::StrToDateTime( "01.01.86 00:00:00", dt );
-    //std::cout << "DateTime = " << BASIC::DateTimeToStr( dt, "yymmdd hh:nn:ss" ) << std::endl;
 
-    std::cout << text << std::endl;
+    std::stringstream dueResult; // Ожидаемый текст
+    dueResult << "UNA:+.? " << "'";
+    dueResult << "UNB+UNOA:4+1H:ZZ+CZAPIS:FR+";
+    dueResult << PrepareDateTst << ":" << PrepareHourTst << "+";
+    dueResult << InterchangeReferenceTst;
+    dueResult << "++APIS'\
+UNG+PAXLST+1H:ZZ+CZAPIS:FR+";
+    dueResult << PrepareDateTst << ":" << PrepareHourTst;
+    dueResult << "+1+UN+D:02B'\
+UNH+1+PAXLST:D:02B:UN:IATA+OK688/071008/1310+01:C'\
+BGM+745'\
+NAD+MS+++CDGKOAF'\
+COM+0148642106:TE+0148643999:FX'\
+TDT+20+OK688'\
+LOC+125+PRG'\
+DTM+189:0710081045:201'\
+LOC+87+BCN'\
+DTM+232:0710081310:201'\
+NAD+FL+++STRANSKY:JAROSLAV'\
+ATT+2++M'\
+DTM+329:670610'\
+LOC+178+ZDN'\
+LOC+179+BCN'\
+NAT+2+CZE'\
+RFF+AVF:Z9WKH'\
+DOC+I:110:111+102865098'\
+NAD+FL+++KOVACS:PETR'\
+ATT+2++M'\
+DTM+329:691209'\
+LOC+178+ZDN'\
+LOC+179+BCN'\
+NAT+2+CZE'\
+RFF+AVF:Z9WJK'\
+DOC+P:110:111+35485167'\
+DTM+36:080911'\
+NAD+FL+++LESKA:PAVEL'\
+ATT+2++M'\
+DTM+329:760502'\
+LOC+178+VIE'\
+LOC+179+BCN'\
+NAT+2+CZE'\
+RFF+AVF:Z57L3'\
+DOC+P:110:111+34356146'\
+LOC+91+RUS'\
+CNT+42:3'\
+UNT+39+1'\
+UNE+1+1'\
+UNZ+1+";
+    dueResult << InterchangeReferenceTst << "'";
+
+    // Сгенерированный текст
+    std::cout << "Test1 Text: " << std::endl << text << std::endl;
+
+    // Ожидаемый текст
+    //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
+
+    // Сравниваем
+    if ( dueResult.str() != text )
+    {
+        fail( "telegram bodies are not equivalent" );
+    }
+
+}
+END_TEST;
+
+
+START_TEST( czech_file_test2 )
+{
+    Paxlst::PaxlstInfo paxlstInfo;
+
+    paxlstInfo.partyName = "CDGKOAF";
+
+    paxlstInfo.senderName = "1H";
+
+    Paxlst::PassengerInfo passInfo1;
+    passInfo1.passengerSurname = "STRANSKY";
+
+
+    paxlstInfo.passangersList.push_back( passInfo1 );
+
+    std::string text = "", errText = "";
+    if ( !paxlstInfo.toEdiString( text, errText ) )
+    {
+        fail( errText.c_str() );
+    }
+
+
+    std::stringstream dueResult; // Ожидаемый текст
+    dueResult << "UNA:+.? " << "'";
+    dueResult << "UNB+UNOA:4+1H+CZAPIS+";
+    dueResult << PrepareDateTst << ":" << PrepareHourTst << "+";
+    dueResult << InterchangeReferenceTst;
+    dueResult << "++APIS'\
+UNG+PAXLST+1H+CZAPIS+";
+    dueResult << PrepareDateTst << ":" << PrepareHourTst;
+    dueResult << "+1+UN+D:02B'\
+UNH+1+PAXLST:D:02B:UN:IATA++01:C'\
+BGM+745'\
+NAD+MS+++CDGKOAF'\
+TDT+20'\
+LOC+125'\
+DTM+189::201'\
+LOC+87'\
+DTM+232::201'\
+NAD+FL+++STRANSKY'\
+ATT+2'\
+DTM+329'\
+CNT+42:1'\
+UNT+15+1'\
+UNE+1+1'\
+UNZ+1+";
+    dueResult << InterchangeReferenceTst << "'";
+
+    // Сгенерированный текст
+    std::cout << "Test2 Text: " << std::endl << text << std::endl;
+
+    // Ожидаемый текст
+    //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
+
+    // Сравниваем
+    if ( dueResult.str() != text )
+    {
+        fail( "telegram bodies are not equivalent" );
+    }
+
+}
+END_TEST;
+
+
+START_TEST( czech_file_test3 )
+{
+    std::string edi_paxlst_file_name =
+        Paxlst::CreateEdiPaxlstFileName( "OK0421", "CAI", "PRG", "20070907", "TXT" );
+
+    if ( edi_paxlst_file_name != "OK0421CAIPRG20070907.TXT" )
+    {
+        fail( "CreateEdiPaxlstFileName() failed" );
+    }
+}
+END_TEST;
+
+
+START_TEST( czech_file_test4 )
+{
+    std::string edi_paxlst_file_name =
+            Paxlst::CreateIATACode( "OK0012", "070915", "1210" );
+
+    if ( edi_paxlst_file_name != "OK0012/070915/1210" )
+    {
+        fail( "CreateIATACode() failed" );
+    }
+}
+END_TEST;
+
+
+START_TEST( czech_file_test5 )
+{
+    BASIC::TDateTime depDate;
+    BASIC::StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
+
+    std::string edi_paxlst_file_name = "";
+
+    if ( !Paxlst::CreateEdiPaxlstFileName( edi_paxlst_file_name,
+            "OK0421", "CAI", "PRG", depDate, "TXT" ) )
+    {
+        fail( "CreateEdiPaxlstFileName() return false" );
+    }
+
+    if ( edi_paxlst_file_name != "OK0421CAIPRG20070907.TXT" )
+    {
+        fail( "CreateEdiPaxlstFileName() failed" );
+    }
+}
+END_TEST;
+
+
+START_TEST( czech_file_test6 )
+{
+    BASIC::TDateTime destDate;
+    BASIC::StrToDateTime( "2007.09.15 12:10", "yyyy.mm.dd hh:nn", destDate );
+
+    std::string iataCode = "";
+
+    if ( !Paxlst::CreateIATACode( iataCode, "OK0012", destDate ) )
+    {
+        fail( "CreateIATACode() return false" );
+    }
+
+    if ( iataCode != "OK0012/070915/1210" )
+    {
+        fail( "CreateIATACode() failed" );
+    }
 }
 END_TEST;
 
@@ -1040,8 +1361,14 @@ END_TEST;
 TCASEREGISTER( init, tear_down)
 {
     ADD_TEST( czech_file_test1 );
+    ADD_TEST( czech_file_test2 );
+    ADD_TEST( czech_file_test3 );
+    ADD_TEST( czech_file_test4 );
+    ADD_TEST( czech_file_test5 );
+    ADD_TEST( czech_file_test6 );
 }
 TCASEFINISH;
+
 
 
 

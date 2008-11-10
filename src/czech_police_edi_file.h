@@ -30,13 +30,28 @@ namespace Paxlst
 
     string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo );
 
-    string CreateEdiPaxlstFileName( const string& flightNumber,
+    string CreateEdiPaxlstFileName( const string& flight,
                                     const string& origin,
                                     const string& destination,
                                     const string& departureDate,
                                     const string& ext );
 
-    string CreateEdiInterchangeReference();
+    bool CreateEdiPaxlstFileName(   string& result,
+                                    const string& flight, const string& origin,
+                                    const string& destination,
+                                    const BASIC::TDateTime& departureDate,
+                                    const string& ext );
+
+    bool CreateEdiInterchangeReference( string& res );
+
+    bool CreateDateTimeStr( string& res,
+                            const BASIC::TDateTime& dt, const string& format );
+
+    string CreateIATACode( const string& flight,
+                           const string& destDate, const string& destTime );
+
+    bool CreateIATACode( string& result, const string& flight,
+                         const BASIC::TDateTime& destDateTime );
 
 
     class PaxlstException: public exception
