@@ -19,6 +19,7 @@
 #include "astra_service.h"
 #include "cfgproc.h"
 #include "posthooks.h"
+#include "perfom.h"
 const int sleepsec = 25;
 
 using namespace ASTRA;
@@ -39,6 +40,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       try
       {
+      	PerfomInit();
         base_tables.Invalidate();
         exec_tasks();
       }
