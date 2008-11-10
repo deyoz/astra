@@ -840,205 +840,6 @@ namespace TUNE {
 
 }
 
-class TTuneTable: public TCacheTable {
-    protected:
-        string FCode;
-        xmlDocPtr ifaceDoc;
-        xmlNodePtr ifaceNode;
-        void GetSQL(string code);
-        void initFields();
-    public:
-        string GetCode() { return FCode; };
-        void Init(xmlNodePtr cacheNode);
-        ~TTuneTable();
-};
-
-TTuneTable::~TTuneTable()
-{
-    xmlFreeDoc(ifaceDoc);
-}
-
-void TTuneTable::initFields()
-{
-    string code = Params[TAG_CODE].Value;
-    // считаем инфу о полях кэша
-    xmlNodePtr fieldNode = NodeAsNode("/iface/fields/field", ifaceNode);
-    for(; fieldNode; fieldNode = fieldNode->next) {
-        xmlNodePtr propNode = fieldNode->children;
-        TCacheField2 FField;
-        FField.Name = NodeAsStringFast("Name", propNode);
-        FField.Name = upperc( FField.Name );
-        if(FField.Name.find(';') != string::npos)
-            throw Exception((string)"Wrong field name '"+code+"."+FField.Name+"'");
-        if ((FField.Name == "TID") || (FField.Name == "PR_DEL"))
-            throw Exception((string)"Field name '"+code+"."+FField.Name+"' reserved");
-        FField.Title = NodeAsStringFast("Title", propNode);
-        FField.Width = NodeAsIntegerFast("Width", propNode);
-        if(FField.Width == 0) {
-            switch(FField.DataType) {
-                case ftSignedNumber:
-                case ftUnsignedNumber:
-                    FField.Width = FField.DataSize;
-                    if (FField.DataType == ftSignedNumber) FField.Width++;
-                    if(FField.Scale>0) {
-                        FField.Width++;
-                        if (FField.DataSize == FField.Scale) FField.Width++;
-                    }
-                    break;
-                case ftDate:
-                    if (FField.DataSize>=1 && FField.DataSize<=7)
-                        FField.Width = 5; /* dd.mm */
-                    else
-                        if (FField.DataSize>=8 && FField.DataSize<=9)
-                            FField.Width = 8; /* dd.mm.yy */
-                        else FField.Width = 10; /* dd.mm.yyyy */
-                        break;
-                case ftTime:
-                        FField.Width = 5;
-                        break;
-                default:
-                        FField.Width = FField.DataSize;
-            }
-        }
-        FField.CharCase = ecNormal;
-        if(NodeAsStringFast("CharCase", propNode) == "L") FField.CharCase = ecLowerCase;
-        if(NodeAsStringFast("CharCase", propNode) == "U") FField.CharCase = ecUpperCase;
-        FField.Align = TAlignment(NodeAsIntegerFast("Align", propNode));
-        FField.DataType = (TCacheFieldType)NodeAsIntegerFast("DataType", propNode);
-        FField.DataSize = NodeAsIntegerFast("DataSize", propNode);
-        FField.Scale = NodeAsIntegerFast("Scale", propNode);
-        FField.Nullable = NodeAsIntegerFast("Nullable", propNode) != 0;
-        FField.Ident = NodeAsIntegerFast("Ident", propNode) != 0;
-        FField.ReadOnly = NodeAsIntegerFast("ReadOnly", propNode) != 0;
-        FField.ReferCode = NodeAsStringFast("ReferCode", propNode);
-        FField.ReferName = NodeAsStringFast("ReferName", propNode);
-        FField.ReferLevel = NodeAsIntegerFast("ReferLevel", propNode);
-        /* проверим, чтобы имена полей не дублировались */
-        for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
-            if(FField.Name == i->Name)
-                throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
-        FFields.push_back(FField);
-    }
-}
-
-void TTuneTable::GetSQL(string code)
-{
-    string fileName = code + ".xml";
-    /* cause seg fault in later progtrace of a result tree
-    { // check if a file exists
-        ifstream in(fileName.c_str());
-        if(!in.good()) {
-            in.close();
-            throw Exception("TTuneTable::GetSQL: problem with " + fileName);
-        }
-        in.close();
-    }*/
-    ifaceDoc = xmlParseFile(fileName.c_str());
-    if(ifaceDoc == NULL)
-        throw Exception(fileName + " not parsed successfully.");
-    ifaceNode = xmlDocGetRootElement(ifaceDoc);
-    if(!ifaceNode)
-        throw Exception(fileName + " is empty");
-    xml_decode_nodelist(ifaceNode);
-    xmlNodePtr propNode = ifaceNode->children;
-    Title = NodeAsStringFast("title", propNode);
-    curVerIface = NodeAsInteger("/iface/fields/@tid", ifaceNode); /* текущая версия интерфейса */
-
-    if(code == "BP_MODELS") {
-        SelectSQL =
-            "select "
-            "   bp_models.form_type code, "
-            "   bp_models.dev_model, "
-            "   bp_models.fmt_type, "
-            "   prn_forms.name form_name, "
-            "   bp_models.id, "
-            "   bp_models.version, "
-            "   prn_form_vers.descr "
-            "from "
-            "   bp_models, "
-            "   prn_forms, "
-            "   prn_form_vers "
-            "where "
-            "   bp_models.id = prn_forms.id and "
-            "   bp_models.id = prn_form_vers.id and "
-            "   bp_models.version = prn_form_vers.version "
-            "order by "
-            "   bp_models.dev_model, "
-            "   bp_models.fmt_type, "
-            "   prn_forms.name, "
-            "   bp_models.version ";
-        InsertSQL =
-            "insert into bp_models(form_type, dev_model, fmt_type, id, version) values (:code, :dev_model, :fmt_type, :id, :version)";
-        UpdateSQL =
-            "update bp_models set id = :id, version = :version where "
-            "   form_type = :OLD_code and "
-            "   dev_model = :OLD_dev_model and "
-            "   fmt_type = :OLD_fmt_type ";
-        DeleteSQL =
-            "delete from bp_models where "
-            "   form_type = :OLD_code and "
-            "   dev_model = :OLD_dev_model and "
-            "   fmt_type = :OLD_fmt_type ";
-    }
-    if(code == "PRN_FORMS") {
-        SelectSQL = "select id, op_type, name, fmt_type from prn_forms order by name, fmt_type";
-        InsertSQL = "insert into prn_forms(id, name, fmt_type, op_type) values(id__seq.nextval, :name, :fmt_type, :op_type)";
-        UpdateSQL = "update prn_forms set name = :name, fmt_type = :fmt_type, op_type = :op_type where id = :OLD_id";
-        DeleteSQL = "delete from prn_forms where id = :OLD_id";
-    }
-    if(code == "PRN_FORM_VERS") {
-        SelectSQL = "select id, version, descr, decode(read_only, 0, 1, 0) read_only from prn_form_vers order by id, version, descr";
-        InsertSQL = "insert into prn_form_vers(id, version, descr, read_only) values(:id, :version, :descr, decode(:read_only, 0, 1, 0))";
-        UpdateSQL = "update prn_form_vers set descr = :descr, read_only = decode(:read_only, 0, 1, 0) where id = :id and version = :version";
-        DeleteSQL = "delete from prn_form_vers where id = :OLD_id and version = :OLD_version";
-    }
-    if(code == "BLANK_LIST") {
-        SelectSQL = "select id, version, form_type, dev_model, fmt_type from bp_models";
-        InsertSQL = "insert into bp_models(id, version, form_type, dev_model, fmt_type) values(:id, :version, :form_type, :dev_model, :fmt_type)";
-        UpdateSQL = "update bp_models set form_type = :form_type, dev_model = :dev_model, fmt_type = :fmt_type where id = :id and version = :version";
-        DeleteSQL = "delete from bp_models where id = :OLD_id and version = :OLD_version";
-    }
-    if(code == "BT_BLANK_LIST") {
-        SelectSQL = "select id, version, form_type, dev_model, fmt_type, num from bt_models order by form_type, dev_model, fmt_type, num";
-        InsertSQL = "insert into bt_models(id, version, form_type, dev_model, fmt_type, num) values(:id, :version, :form_type, :dev_model, :fmt_type, :num)";
-        UpdateSQL =
-            "update bt_models set form_type = :form_type, dev_model = :dev_model, fmt_type = :fmt_type where "
-            " id = :id and version = :version and num = :num";
-        DeleteSQL = "delete from bt_models where id = :OLD_id and version = :OLD_version and num = :OLD_NUM";
-    }
-    Logging = 1;
-    Keep_Locally = 0;
-    EventType = evtSystem;
-    //получим права доступа до операций
-    SelectRight=-1;
-    InsertRight= 1;
-    UpdateRight= 1;
-    DeleteRight= 1;
-    Forbidden = SelectRight>=0;
-    ReadOnly = SelectRight>=0 ||
-        (InsertSQL.empty() || InsertRight<0) &&
-        (UpdateSQL.empty() || UpdateRight<0) &&
-        (DeleteSQL.empty() || DeleteRight<0);
-}
-
-void TTuneTable::Init(xmlNodePtr cacheNode)
-{
-  if ( cacheNode == NULL )
-    throw Exception("wrong message format");
-  getParams(GetNode("params", cacheNode), Params); /* общие параметры */
-  getParams(GetNode("sqlparams", cacheNode), SQLParams); /* параметры запроса sql */
-  if ( Params.find( TAG_CODE ) == Params.end() )
-    throw Exception("wrong message format");
-  FCode = Params[TAG_CODE].Value;
-  Qry = OraSession.CreateQuery();
-  Forbidden = true;
-  ReadOnly = true;
-  clientVerData = -1;
-  clientVerIface = -1;
-  GetSQL(FCode);
-  initFields(); /* инициализация FFields */
-}
-
 string FieldAsString(TCacheTable &cache, const TRow &row, string name)
 {
     int FieldIndex = cache.FieldIndex(name);
@@ -1072,14 +873,14 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
     if(cache.GetCacheCode() == "PRN_FORM_VERS") {
         if(row.status == usInserted) {
             if(FieldAsString(cache, row, "read_only") == "0")
-                    throw UserException("Версия " + FieldAsString(cache, row, "version") + ". При создании версии, редактирование должно быть включено.");
+                throw UserException("Версия " + FieldAsString(cache, row, "version") + ". При создании версии, редактирование должно быть включено.");
         }
         if(
                 row.status == usModified or
                 row.status == usDeleted
-                ) {
+          ) {
             if(OldFieldAsString(cache, row, "read_only") == "0")
-                    throw UserException("Редактирование версии " + OldFieldAsString(cache, row, "version") + " запрещено.");
+                throw UserException("Редактирование версии " + OldFieldAsString(cache, row, "version") + " запрещено.");
             if(row.status == usDeleted) {
                 TQuery Qry(&OraSession);
                 Qry.SQLText =
@@ -1092,9 +893,15 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
             }
         }
     }
-    if(cache.GetCacheCode() == "BLANK_LIST") {
-        if(row.status == usInserted) {
-            string form_type = FieldAsString(cache, row, "form_type");
+    if(
+            cache.GetCacheCode() == "BLANK_LIST" or
+            cache.GetCacheCode() == "BP_MODELS"
+      ) {
+        if(
+                row.status == usInserted or
+                row.status == usModified
+          ) {
+            string form_type = FieldAsString(cache, row, (cache.GetCacheCode() == "BLANK_LIST" ?  "form_type" : "code"));
             string dev_model = FieldAsString(cache, row, "dev_model");
             string fmt_type = FieldAsString(cache, row, "fmt_type");
             int id = ToInt(FieldAsString(cache, row, "id"));
@@ -1104,31 +911,41 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
             Qry.CreateVariable("id", otInteger, id);
             Qry.CreateVariable("version", otInteger, version);
             Qry.Execute();
-            if(!Qry.Eof)
-                throw UserException("Вер. " + IntToString(version) + ". Форма не заполнена.");
-            Qry.Clear();
-            Qry.SQLText =
-                "select "
-                "   prn_forms.name form_name, "
-                "   bp_models.version "
-                "from "
-                "   prn_forms, "
-                "   bp_models "
-                "where "
-                "   bp_models.form_type = :form_type and "
-                "   bp_models.dev_model = :dev_model and "
-                "   bp_models.fmt_type = :fmt_type and "
-                "   bp_models.id = prn_forms.id ";
-            Qry.CreateVariable("form_type", otString, form_type);
-            Qry.CreateVariable("dev_model", otString, dev_model);
-            Qry.CreateVariable("fmt_type", otString, fmt_type);
-            Qry.Execute();
             if(!Qry.Eof) {
-                throw UserException(
-                        "На бланк " + FieldAsString(cache, row, "form_type") + " " +
-                        dev_model + " " + fmt_type + " назначена форма " + 
-                        Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
-                        );
+                string err;
+                if(cache.GetCacheCode() == "BLANK_LIST")
+                    err = "Вер. " + IntToString(version) + ". ";
+                err += "Форма не заполнена.";
+                throw UserException(err);
+            }
+            if(
+                    row.status == usInserted and
+                    cache.GetCacheCode() == "BLANK_LIST"
+              ) {
+                Qry.Clear();
+                Qry.SQLText =
+                    "select "
+                    "   prn_forms.name form_name, "
+                    "   bp_models.version "
+                    "from "
+                    "   prn_forms, "
+                    "   bp_models "
+                    "where "
+                    "   bp_models.form_type = :form_type and "
+                    "   bp_models.dev_model = :dev_model and "
+                    "   bp_models.fmt_type = :fmt_type and "
+                    "   bp_models.id = prn_forms.id ";
+                Qry.CreateVariable("form_type", otString, form_type);
+                Qry.CreateVariable("dev_model", otString, dev_model);
+                Qry.CreateVariable("fmt_type", otString, fmt_type);
+                Qry.Execute();
+                if(!Qry.Eof) {
+                    throw UserException(
+                            "На бланк " + FieldAsString(cache, row, "form_type") + " " +
+                            dev_model + " " + fmt_type + " уже назначена форма " + 
+                            Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
+                            );
+                }
             }
         }
     }
@@ -1137,27 +954,19 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
 void DevTuningInterface::ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ProgTrace(TRACE2, "DevTuningInterface::ApplyCache");
-    TCacheTable *base_cache_ptr = NULL;
-    TTuneTable tune_cache;
-    TCacheTable orig_cache;
-    try {
-        tune_cache.Init(reqNode);
-        base_cache_ptr = &tune_cache;
-    } catch(...) {
-        orig_cache.Init(reqNode);
-        base_cache_ptr = &orig_cache;
-    }
-    if ( base_cache_ptr->changeIfaceVer() )
+    TCacheTable cache;
+    cache.Init(reqNode);
+    if ( cache.changeIfaceVer() )
         throw UserException( "Версия интерфейса изменилась. Обновите данные." );
-    base_cache_ptr->OnBeforeApply = BeforeApplyUpdates;
-    base_cache_ptr->ApplyUpdates( reqNode );
-    base_cache_ptr->refresh();
+    cache.OnBeforeApply = BeforeApplyUpdates;
+    cache.ApplyUpdates( reqNode );
+    cache.refresh();
     tst();
     SetProp(resNode, "handle", "1");
     xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
-    base_cache_ptr->buildAnswer(resNode);
+    cache.buildAnswer(resNode);
     showMessage( "Изменения успешно сохранены" );
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
@@ -1167,25 +976,14 @@ void DevTuningInterface::Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     ProgTrace(TRACE2, "DevTuningInterface::Cache, reqNode->Name=%s, resNode->Name=%s",
             (char*)reqNode->name,(char*)resNode->name);
 
-    TCacheTable *base_cache_ptr = NULL;
-    TTuneTable tune_cache;
-    TCacheTable orig_cache;
-    try {
-        tune_cache.Init(reqNode);
-        base_cache_ptr = &tune_cache;
-    } catch(...) {
-        orig_cache.Init(reqNode);
-        base_cache_ptr = &orig_cache;
-    }
-    
-    tst();
-    base_cache_ptr->refresh();
-    tst();
+    TCacheTable cache;
+    cache.Init(reqNode);
+    cache.refresh();
     SetProp(resNode, "handle", "1");
     xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
     SetProp(ifaceNode, "id", "cache");
     SetProp(ifaceNode, "ver", "1");
-    base_cache_ptr->buildAnswer(resNode);
+    cache.buildAnswer(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
