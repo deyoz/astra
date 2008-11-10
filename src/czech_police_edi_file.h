@@ -164,7 +164,6 @@ namespace Paxlst
     {
         // Full name of the company
         /* maxlen = 35 */
-        /* required = M */
         string partyName;
 
 
