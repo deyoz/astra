@@ -1106,7 +1106,7 @@ START_TEST( czech_file_test1 )
 
     Paxlst::PassengerInfo passInfo1;
     passInfo1.passengerSurname = "STRANSKY";
-    passInfo1.passengerName = "JAROSLAV";
+    passInfo1.passengerName = "JAROSLAV VICTOROVICH";
     passInfo1.passengerSex = "M";
     BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
     passInfo1.departurePassenger = "ZDN";
@@ -1175,7 +1175,7 @@ LOC+125+PRG'\
 DTM+189:0710081045:201'\
 LOC+87+BCN'\
 DTM+232:0710081310:201'\
-NAD+FL+++STRANSKY:JAROSLAV'\
+NAD+FL+++STRANSKY:JAROSLAV VICTOROVICH'\
 ATT+2++M'\
 DTM+329:670610'\
 LOC+178+ZDN'\
