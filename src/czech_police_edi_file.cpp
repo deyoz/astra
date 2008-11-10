@@ -49,10 +49,6 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
         throw PaxlstException( "CreateEdiPaxlstString error: Sendername is not set" );
     }
 
-    if ( !paxlstInfo.isPartyNameSet() )
-    {
-        throw PaxlstException( "CreateEdiPaxlstString error: Partyname is not set" );
-    }
 
     for ( list< PassengerInfo >::const_iterator it = paxlstInfo.passangersList.begin();
           it != paxlstInfo.passangersList.end(); ++it )
