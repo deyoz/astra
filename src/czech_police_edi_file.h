@@ -99,10 +99,10 @@ namespace Paxlst
 
         void resizeStrings()
         {
-            senderName.resize( 35 );
-            senderCarrierCode.resize( 4 );
-            recipientCarrierCode.resize( 4 );
-            iataCode.resize( 35 );
+            if ( senderName.size() > 35 ) senderName.resize( 35 );
+            if ( senderCarrierCode.size() > 4 ) senderCarrierCode.resize( 4 );
+            if ( recipientCarrierCode.size() > 4 ) recipientCarrierCode.resize( 4 );
+            if ( iataCode.size() > 35 ) iataCode.resize( 35 );
         }
     };
 
@@ -170,9 +170,9 @@ namespace Paxlst
 
         void resizeStrings()
         {
-            flight.resize( 17 );
-            departureAirport.resize( 25 );
-            arrivalAirport.resize( 25 );
+            if ( flight.size() > 17 ) flight.resize( 17 );
+            if ( departureAirport.size() > 25 ) departureAirport.resize( 25 );
+            if ( arrivalAirport.size() > 25 ) arrivalAirport.resize( 25 );
         }
     };
 
@@ -208,9 +208,9 @@ namespace Paxlst
 
         void resizeStrings()
         {
-            partyName.resize( 35 );
-            phone.resize( 25 );
-            fax.resize( 25 );
+            if ( partyName.size() > 35 ) partyName.resize( 35 );
+            if ( phone.size() > 25 ) phone.resize( 25 );
+            if ( fax.size() > 25 ) fax.resize( 25 );
         }
     };
 
@@ -241,6 +241,16 @@ namespace Paxlst
         /* maxlen = 17 */
         /* required = C */
         string passengerSex;
+
+        // Passenger's City
+        /* maxlen = 35 */
+        /* required = C */
+        string passengerCity;
+
+        // Passenger's Street
+        /* maxlen = 35 */
+        /* required = C */
+        string passengerStreet;
 
         // Passenger's date of birth
         /* required = C */
@@ -354,19 +364,31 @@ namespace Paxlst
             return !passengerName.empty();
         }
 
+        bool isPassengerCitySet() const
+        {
+            return !passengerCity.empty();
+        }
+
+        bool isPassengerStreetSet() const
+        {
+            return !passengerStreet.empty();
+        }
+
 
         void resizeStrings()
         {
-            passengerName.resize( 35 );
-            passengerSurname.resize( 35 );
-            passengerSex.resize( 17 );
-            departurePassenger.resize( 25 );
-            arrivalPassenger.resize( 25 );
-            passengerCountry.resize( 3 );
-            passengerNumber.resize( 35 );
-            passengerType.resize( 3 );
-            idNumber.resize( 35 );
-            docCountry.resize( 25 );
+            if ( passengerName.size() > 35 ) passengerName.resize( 35 );
+            if ( passengerSurname.size() > 35 ) passengerSurname.resize( 35 );
+            if ( passengerSex.size() > 17 ) passengerSex.resize( 17 );
+            if ( departurePassenger.size() > 25 ) departurePassenger.resize( 25 );
+            if ( arrivalPassenger.size() > 25 ) arrivalPassenger.resize( 25 );
+            if ( passengerCountry.size() > 3 ) passengerCountry.resize( 3 );
+            if ( passengerNumber.size() > 35 ) passengerNumber.resize( 35 );
+            if ( passengerType.size() > 3 ) passengerType.resize( 3 );
+            if ( idNumber.size() > 35 ) idNumber.resize( 35 );
+            if ( docCountry.size() > 25 )docCountry.resize( 25 );
+            if ( passengerCity.size() > 35 ) passengerCity.resize( 35 );
+            if ( passengerStreet.size() > 35 ) passengerStreet.resize( 35 );
         }
     };
 

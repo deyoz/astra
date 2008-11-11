@@ -596,6 +596,32 @@ InterchangeReference string" );
                 PopEdiPointW( pMes );
                 //</C080>
 
+                if ( it->isPassengerStreetSet() )
+                {
+                    //<U059>
+                    SetEdiComposite( pMes, CompElement( "U059", 0 ) );
+
+                    PushEdiPointW( pMes );
+                    SetEdiPointToCompositeW( pMes, CompElement( "U059", 0 ) );
+
+                        //<DE:3042>
+                        SetEdiDataElem( pMes, DataElement( 3042, 0 ),
+                                        it->passengerStreet.c_str() );
+                        //</DE:3042>
+
+                    PopEdiPointW( pMes );
+                    //</U059>
+                }
+
+                if( it->isPassengerCitySet() )
+                {
+                    //<DE:3164>
+                    SetEdiDataElem( pMes, DataElement( 3164, 0 ),
+                                    it->passengerCity.c_str() );
+                    //</DE:3164>
+                }
+
+
             PopEdiPointW( pMes );
             //</NAD>
 
@@ -1345,6 +1371,8 @@ START_TEST( czech_file_test3 )
     passInfo3.passengerType = "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
     passInfo3.idNumber = "34356146XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
     passInfo3.docCountry = "RUSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerCity = "MOSCOWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerStreet = "ARBATXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
 
     paxlstInfo.passangersList.push_back( passInfo1 );
