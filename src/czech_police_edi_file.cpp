@@ -16,7 +16,6 @@
 #include "query_runner.h"
 
 #include "xp_testing.h"
-#ifdef XP_TESTING
 #include "tlg/tlg.h"
 
 #include <time.h>
@@ -1096,6 +1095,7 @@ bool CreateEdiPaxlstFileName( string& result,
 } // namespace Paxlst
 
 
+#ifdef XP_TESTING
 
 namespace {
     void init()
