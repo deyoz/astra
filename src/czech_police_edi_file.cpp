@@ -1288,6 +1288,85 @@ END_TEST;
 
 START_TEST( czech_file_test3 )
 {
+    Paxlst::PaxlstInfo paxlstInfo;
+
+    paxlstInfo.partyName = "CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.phone = "0148642106XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.fax = "0148643999XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+
+    paxlstInfo.senderName = "1HXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.senderCarrierCode = "ZZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.recipientCarrierCode = "FRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.iataCode = "OK688/071008/1310XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+
+    paxlstInfo.flight = "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.departureAirport = "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
+    paxlstInfo.arrivalAirport = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
+
+
+    Paxlst::PassengerInfo passInfo1;
+    passInfo1.passengerSurname = "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.passengerName = "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.passengerSex = "M";
+    BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
+    passInfo1.departurePassenger = "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.passengerNumber = "Z9WKHXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.passengerType = "IXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.idNumber = "102865098XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+
+
+    Paxlst::PassengerInfo passInfo2;
+    passInfo2.passengerSurname = "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.passengerName = "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.passengerSex = "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    BASIC::StrToDateTime( "09.12.69 00:00:00", passInfo2.birthDate ); //"691209"
+    passInfo2.departurePassenger = "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.passengerNumber = "Z9WJKXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.passengerType = "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo2.idNumber = "35485167XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    BASIC::StrToDateTime( "11.09.08 00:00:00", passInfo2.expirateDate );
+
+
+    Paxlst::PassengerInfo passInfo3;
+    passInfo3.passengerSurname = "LESKAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerName = "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerSex = "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    BASIC::StrToDateTime( "02.05.76 00:00:00", passInfo3.birthDate ); //"760502"
+    passInfo3.departurePassenger = "VIEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerNumber = "Z57L3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.passengerType = "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.idNumber = "34356146XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.docCountry = "RUSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+
+
+    paxlstInfo.passangersList.push_back( passInfo1 );
+    paxlstInfo.passangersList.push_back( passInfo2 );
+    paxlstInfo.passangersList.push_back( passInfo3 );
+
+
+    std::string text = "", errText = "";
+    if ( !paxlstInfo.toEdiStringWithStringsResize( text, errText ) )
+    {
+        fail( errText.c_str() );
+    }
+
+    // Сгенерированный текст
+    std::cout << std::endl << "Test3 Text: " << std::endl << text << std::endl;
+
+}
+END_TEST;
+
+
+START_TEST( czech_file_test4 )
+{
     std::string edi_paxlst_file_name =
         Paxlst::CreateEdiPaxlstFileName( "OK0421", "CAI", "PRG", "20070907", "TXT" );
 
@@ -1299,7 +1378,7 @@ START_TEST( czech_file_test3 )
 END_TEST;
 
 
-START_TEST( czech_file_test4 )
+START_TEST( czech_file_test5 )
 {
     std::string edi_paxlst_file_name =
             Paxlst::CreateIATACode( "OK0012", "070915", "1210" );
@@ -1312,7 +1391,7 @@ START_TEST( czech_file_test4 )
 END_TEST;
 
 
-START_TEST( czech_file_test5 )
+START_TEST( czech_file_test6 )
 {
     BASIC::TDateTime depDate;
     BASIC::StrToDateTime( "2007.09.07", "yyyy.mm.dd", depDate );
@@ -1333,7 +1412,7 @@ START_TEST( czech_file_test5 )
 END_TEST;
 
 
-START_TEST( czech_file_test6 )
+START_TEST( czech_file_test7 )
 {
     BASIC::TDateTime destDate;
     BASIC::StrToDateTime( "2007.09.15 12:10", "yyyy.mm.dd hh:nn", destDate );
@@ -1362,6 +1441,7 @@ TCASEREGISTER( init, tear_down)
     ADD_TEST( czech_file_test4 );
     ADD_TEST( czech_file_test5 );
     ADD_TEST( czech_file_test6 );
+    ADD_TEST( czech_file_test7 );
 }
 TCASEFINISH;
 

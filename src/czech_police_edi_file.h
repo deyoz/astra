@@ -95,6 +95,15 @@ namespace Paxlst
         {
             return !senderName.empty();
         }
+
+
+        void resizeStrings()
+        {
+            senderName.resize( 35 );
+            senderCarrierCode.resize( 4 );
+            recipientCarrierCode.resize( 4 );
+            iataCode.resize( 35 );
+        }
     };
 
 
@@ -157,6 +166,14 @@ namespace Paxlst
         {
             return !flight.empty();
         }
+
+
+        void resizeStrings()
+        {
+            flight.resize( 17 );
+            departureAirport.resize( 25 );
+            arrivalAirport.resize( 25 );
+        }
     };
 
 
@@ -186,6 +203,14 @@ namespace Paxlst
         bool isPartyNameSet() const
         {
             return !partyName.empty();
+        }
+
+
+        void resizeStrings()
+        {
+            partyName.resize( 35 );
+            phone.resize( 25 );
+            fax.resize( 25 );
         }
     };
 
@@ -328,6 +353,21 @@ namespace Paxlst
         {
             return !passengerName.empty();
         }
+
+
+        void resizeStrings()
+        {
+            passengerName.resize( 35 );
+            passengerSurname.resize( 35 );
+            passengerSex.resize( 17 );
+            departurePassenger.resize( 25 );
+            arrivalPassenger.resize( 25 );
+            passengerCountry.resize( 3 );
+            passengerNumber.resize( 35 );
+            passengerType.resize( 3 );
+            idNumber.resize( 35 );
+            docCountry.resize( 25 );
+        }
     };
 
 
@@ -351,6 +391,38 @@ namespace Paxlst
             }
 
             return true;
+        }
+
+
+        bool toEdiStringWithStringsResize( string& out, string& err )
+        {
+            err = "";
+            try
+            {
+                resizeStrings();
+                out = CreateEdiPaxlstString( *this );
+            }
+            catch( PaxlstException& e )
+            {
+                err = e.errMsg();
+                return false;
+            }
+
+            return true;
+        }
+
+
+        void resizeStrings()
+        {
+            GeneralInfo::resizeStrings();
+            PartyInfo::resizeStrings();
+            FlightInfo::resizeStrings();
+
+            for ( list< PassengerInfo >::iterator it = passangersList.begin();
+                  it != passangersList.end(); ++it )
+            {
+                it->resizeStrings();
+            }
         }
 
     };
