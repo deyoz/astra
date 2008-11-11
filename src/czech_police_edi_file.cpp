@@ -1114,12 +1114,12 @@ START_TEST( czech_file_test1 )
 {
     Paxlst::PaxlstInfo paxlstInfo;
 
-    paxlstInfo.partyName = "CDGKOAF";
+    paxlstInfo.partyName = "cdgkoaf";
     paxlstInfo.phone = "0148642106";
     paxlstInfo.fax = "0148643999";
 
     paxlstInfo.senderName = "1H";
-    paxlstInfo.senderCarrierCode = "ZZ";
+    paxlstInfo.senderCarrierCode = "zz";
     paxlstInfo.recipientCarrierCode = "FR";
     paxlstInfo.iataCode = "OK688/071008/1310";
 
@@ -1136,7 +1136,7 @@ START_TEST( czech_file_test1 )
     passInfo1.passengerSex = "M";
     BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
     passInfo1.departurePassenger = "ZDN";
-    passInfo1.arrivalPassenger = "BCN";
+    passInfo1.arrivalPassenger = "bcn";
     passInfo1.passengerCountry = "CZE";
     passInfo1.passengerNumber = "Z9WKH";
     passInfo1.passengerType = "I";
@@ -1144,7 +1144,7 @@ START_TEST( czech_file_test1 )
 
 
     Paxlst::PassengerInfo passInfo2;
-    passInfo2.passengerSurname = "KOVACS";
+    passInfo2.passengerSurname = "kovacs";
     passInfo2.passengerName = "PETR";
     passInfo2.passengerSex = "M";
     BASIC::StrToDateTime( "09.12.69 00:00:00", passInfo2.birthDate ); //"691209"
@@ -1152,7 +1152,7 @@ START_TEST( czech_file_test1 )
     passInfo2.arrivalPassenger = "BCN";
     passInfo2.passengerCountry = "CZE";
     passInfo2.passengerNumber = "Z9WJK";
-    passInfo2.passengerType = "P";
+    passInfo2.passengerType = "p";
     passInfo2.idNumber = "35485167";
     BASIC::StrToDateTime( "11.09.08 00:00:00", passInfo2.expirateDate );
 
@@ -1165,7 +1165,7 @@ START_TEST( czech_file_test1 )
     passInfo3.departurePassenger = "VIE";
     passInfo3.arrivalPassenger = "BCN";
     passInfo3.passengerCountry = "CZE";
-    passInfo3.passengerNumber = "Z57L3";
+    passInfo3.passengerNumber = "z57l3";
     passInfo3.passengerType = "P";
     passInfo3.idNumber = "34356146";
     passInfo3.docCountry = "RUS";
@@ -1253,12 +1253,12 @@ START_TEST( czech_file_test2 )
 {
     Paxlst::PaxlstInfo paxlstInfo;
 
-    paxlstInfo.partyName = "CDGKOAF";
+    paxlstInfo.partyName = "CDGkoAF";
 
-    paxlstInfo.senderName = "1H";
+    paxlstInfo.senderName = "1h";
 
     Paxlst::PassengerInfo passInfo1;
-    passInfo1.passengerSurname = "STRANSKY";
+    passInfo1.passengerSurname = "StRaNsKy";
 
 
     paxlstInfo.passangersList.push_back( passInfo1 );

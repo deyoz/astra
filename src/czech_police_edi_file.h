@@ -17,6 +17,7 @@
 #include <exception>
 
 #include <basic.h>
+#include <stl_utils.h>
 
 
 namespace Paxlst
@@ -104,6 +105,14 @@ namespace Paxlst
             if ( recipientCarrierCode.size() > 4 ) recipientCarrierCode.resize( 4 );
             if ( iataCode.size() > 35 ) iataCode.resize( 35 );
         }
+
+        void upperStrings()
+        {
+            senderName = upperc( senderName );
+            senderCarrierCode = upperc( senderCarrierCode );
+            recipientCarrierCode = upperc( recipientCarrierCode );
+            iataCode = upperc( iataCode );
+        }
     };
 
 
@@ -174,6 +183,13 @@ namespace Paxlst
             if ( departureAirport.size() > 25 ) departureAirport.resize( 25 );
             if ( arrivalAirport.size() > 25 ) arrivalAirport.resize( 25 );
         }
+
+        void upperStrings()
+        {
+            flight = upperc( flight );
+            departureAirport = upperc( departureAirport );
+            arrivalAirport = upperc( arrivalAirport );
+        }
     };
 
 
@@ -211,6 +227,13 @@ namespace Paxlst
             if ( partyName.size() > 35 ) partyName.resize( 35 );
             if ( phone.size() > 25 ) phone.resize( 25 );
             if ( fax.size() > 25 ) fax.resize( 25 );
+        }
+
+        void upperStrings()
+        {
+            partyName = upperc( partyName );
+            phone = upperc( phone );
+            fax = upperc( fax );
         }
     };
 
@@ -390,6 +413,22 @@ namespace Paxlst
             if ( passengerCity.size() > 35 ) passengerCity.resize( 35 );
             if ( passengerStreet.size() > 35 ) passengerStreet.resize( 35 );
         }
+
+        void upperStrings()
+        {
+            passengerName = upperc( passengerName );
+            passengerSurname = upperc( passengerSurname );
+            passengerSex = upperc( passengerSex );
+            passengerCity = upperc( passengerCity );
+            passengerStreet = upperc( passengerStreet );
+            departurePassenger = upperc( departurePassenger );
+            arrivalPassenger = upperc( arrivalPassenger );
+            passengerCountry = upperc( passengerCountry );
+            passengerNumber = upperc( passengerNumber );
+            passengerType = upperc( passengerType );
+            idNumber = upperc( idNumber );
+            docCountry = upperc( docCountry );
+        }
     };
 
 
@@ -399,11 +438,12 @@ namespace Paxlst
         list< PassengerInfo > passangersList;
 
 
-        bool toEdiString( string& out, string& err ) const
+        bool toEdiString( string& out, string& err )
         {
             err = "";
             try
             {
+                upperStrings();
                 out = CreateEdiPaxlstString( *this );
             }
             catch( PaxlstException& e )
@@ -422,6 +462,8 @@ namespace Paxlst
             try
             {
                 resizeStrings();
+
+                upperStrings();
                 out = CreateEdiPaxlstString( *this );
             }
             catch( PaxlstException& e )
@@ -447,9 +489,23 @@ namespace Paxlst
             }
         }
 
+        void upperStrings()
+        {
+            GeneralInfo::upperStrings();
+            PartyInfo::upperStrings();
+            FlightInfo::upperStrings();
+            for ( list< PassengerInfo >::iterator it = passangersList.begin();
+                  it != passangersList.end(); ++it )
+            {
+                it->upperStrings();
+            }
+        }
+
     };
 
 } // namespace Paxlst
+
+
 
 
 #endif//_CZECH_POLICE_EDI_FILE_H_
