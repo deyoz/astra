@@ -213,7 +213,7 @@ namespace Paxlst
         // Passenger's Gender. One character. Validity includes:
         // M = Male
         // F = Female
-        /* maxlen = 1 */
+        /* maxlen = 17 */
         /* required = C */
         string passengerSex;
 
@@ -328,7 +328,6 @@ namespace Paxlst
         {
             return !passengerName.empty();
         }
-
     };
 
 

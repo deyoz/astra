@@ -1208,7 +1208,7 @@ UNZ+1+";
     dueResult << InterchangeReferenceTst << "'";
 
     // Сгенерированный текст
-    std::cout << "Test1 Text: " << std::endl << text << std::endl;
+    std::cout << std::endl << "Test1 Text: " << std::endl << text << std::endl;
 
     // Ожидаемый текст
     //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
@@ -1271,7 +1271,7 @@ UNZ+1+";
     dueResult << InterchangeReferenceTst << "'";
 
     // Сгенерированный текст
-    std::cout << "Test2 Text: " << std::endl << text << std::endl;
+    std::cout <<  std::endl << "Test2 Text: " << std::endl << text << std::endl;
 
     // Ожидаемый текст
     //std::cout << "DueText: " << std::endl << dueResult.str() << std::endl;
