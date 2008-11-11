@@ -484,6 +484,11 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 	sysCont->write( client_canon_name + "_" + OWN_POINT_ADDR() + "_file_param_sets.airline", airline );
 }
 
+void AstraServiceInterface::AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	tst();
+}
+
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
 	xmlNodePtr node = GetNode( "canon_name", reqNode );
