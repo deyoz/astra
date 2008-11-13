@@ -366,6 +366,14 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (dataNode==NULL)
       dataNode = NewTextChild(resNode, "data");
 
+    TQuery FltQry(&OraSession);
+    FltQry.Clear();
+    FltQry.SQLText=
+      "SELECT airline,flt_no,suffix,airp,scd_out, "
+      "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+      "FROM points WHERE point_id=:point_id AND pr_del>=0";
+    FltQry.DeclareVariable("point_id",otInteger);
+
     TQuery Qry(&OraSession);
     Qry.Clear();
     string condition;
@@ -421,13 +429,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         else
         {
-          TQuery FltQry(&OraSession);
-          FltQry.Clear();
-          FltQry.SQLText=
-            "SELECT airline,flt_no,suffix,airp,scd_out, "
-            "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
-            "FROM points WHERE point_id=:point_id AND pr_del>=0";
-          FltQry.CreateVariable("point_id",otInteger,point_id);
+          FltQry.SetVariable("point_id",point_id);
           FltQry.Execute();
           if (!FltQry.Eof)
           {
@@ -673,6 +675,17 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                     ReplaceTextChild(paxNode, "pr_exam", mark);
                                 ReplaceTextChild(paxNode, "tid", tid);
                                 ReplaceTextChild(dataNode,"updated");
+                                //pr_etl_only
+                                FltQry.SetVariable("point_id",point_id);
+                                FltQry.Execute();
+                                if (!FltQry.Eof)
+                                {
+                                  TTripInfo info(FltQry);
+                                  NewTextChild(NewTextChild(dataNode,"trip_sets"),"pr_etl_only",(int)GetTripSets(tsETLOnly,info));
+                                }
+                                else
+                                  throw UserException("Рейс не найден. Обновите данные");
+
                                 /*  if (reqInfo->screen.name == "BRDBUS.EXE" &&
                                     ETCheckStatus(Ticketing::OrigOfRequest(*reqInfo),pax_id,csaPax))
                                     showProgError("Нет связи с сервером эл. билетов");

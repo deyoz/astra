@@ -2002,9 +2002,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
         "  END IF; "
         "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
-        "                  refuse,reg_no,ticket_no,coupon_no,ticket_rem,document,pr_exam,doc_check,subclass,tid) "
+        "                  refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
+        "                  document,pr_exam,doc_check,subclass,tid) "
         "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
-        "         NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:document,:pr_exam,0,:subclass,tid__seq.currval); "
+        "         NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
+        "         :document,:pr_exam,0,:subclass,tid__seq.currval); "
         "END;";
       Qry.DeclareVariable("pax_id",otInteger);
       Qry.DeclareVariable("surname",otString);
@@ -2018,6 +2020,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.DeclareVariable("ticket_no",otString);
       Qry.DeclareVariable("coupon_no",otInteger);
       Qry.DeclareVariable("ticket_rem",otString);
+      Qry.DeclareVariable("ticket_confirm",otInteger);
       Qry.DeclareVariable("document",otString);
       Qry.DeclareVariable("subclass",otString);
       int i=0;
@@ -2056,19 +2059,32 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
           else
             Qry.SetVariable("coupon_no",FNull);
-          if (GetNode("ticket_rem",node2)!=NULL)
-            Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-          else
+          if (GetNodeFast("ticket_rem",node2)!=NULL)
           {
+            Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+            Qry.SetVariable("ticket_confirm",
+                            (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
+          }
+          else
+          { //потом убрать 31.10.08
             if (!NodeIsNULLFast("ticket_no",node2))
             {
               if (!NodeIsNULLFast("coupon_no",node2))
+              {
                 Qry.SetVariable("ticket_rem","TKNE");
+                Qry.SetVariable("ticket_confirm",(int)true);
+              }
               else
+              {
                 Qry.SetVariable("ticket_rem","TKNA");
+                Qry.SetVariable("ticket_confirm",(int)false);
+              };
             }
             else
+            {
               Qry.SetVariable("ticket_rem",FNull);
+              Qry.SetVariable("ticket_confirm",(int)false);
+            };
           };
           Qry.SetVariable("document",NodeAsStringFast("document",node2));
           Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
@@ -2241,6 +2257,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                      "    ticket_no=:ticket_no, "
                      "    coupon_no=:coupon_no, "
                      "    ticket_rem=:ticket_rem, "
+                     "    ticket_confirm=:ticket_confirm, "
                      "    document=:document, "
                      "    subclass=:subclass, "
                      "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
@@ -2256,6 +2273,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       PaxQry.DeclareVariable("ticket_no",otString);
       PaxQry.DeclareVariable("coupon_no",otInteger);
       PaxQry.DeclareVariable("ticket_rem",otString);
+      PaxQry.DeclareVariable("ticket_confirm",otInteger);
       PaxQry.DeclareVariable("document",otString);
       PaxQry.DeclareVariable("subclass",otString);
 
@@ -2302,19 +2320,32 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
             else
               PaxQry.SetVariable("coupon_no",FNull);
-            if (GetNode("ticket_rem",node2)!=NULL)
-              PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-            else
+            if (GetNodeFast("ticket_rem",node2)!=NULL)
             {
+              PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+              PaxQry.SetVariable("ticket_confirm",
+                            (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
+            }
+            else
+            { //потом убрать 31.10.08
               if (!NodeIsNULLFast("ticket_no",node2))
               {
                 if (!NodeIsNULLFast("coupon_no",node2))
+                {
                   PaxQry.SetVariable("ticket_rem","TKNE");
+                  PaxQry.SetVariable("ticket_confirm",(int)true);
+                }
                 else
+                {
                   PaxQry.SetVariable("ticket_rem","TKNA");
+                  PaxQry.SetVariable("ticket_confirm",(int)false);
+                };
               }
               else
+              {
                 PaxQry.SetVariable("ticket_rem",FNull);
+                PaxQry.SetVariable("ticket_confirm",(int)false);
+              };
             };
             PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
             PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
@@ -2587,6 +2618,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   LoadPax(ctxt,reqNode,resNode);
   //отправить на клиент счетчики
   readTripCounters(point_dep,resNode);
+  //pr_etl_only
+  TTripInfo info;
+  info.airline=airline;
+  info.flt_no=flt_no;
+  info.airp=airp_dep;
+  NewTextChild(NewTextChild(resNode,"trip_sets"),"pr_etl_only",(int)GetTripSets(tsETLOnly,info));
 };
 
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2669,7 +2706,7 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,:point_dep,'one',rownum) AS seat_no, "
       "       pax.seat_type, "
       "       pax.seats,pax.refuse,pax.reg_no, "
-      "       pax.ticket_no,pax.coupon_no,pax.ticket_rem, "
+      "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
       "       pax.document,pax.subclass,pax.tid, "
       "       crs_pax.pax_id AS crs_pax_id "
       "FROM pax,crs_pax "
@@ -2698,6 +2735,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       else
         NewTextChild(paxNode,"coupon_no");
       NewTextChild(paxNode,"ticket_rem",PaxQry.FieldAsString("ticket_rem"));
+      NewTextChild(paxNode,"ticket_confirm",
+                           (int)(PaxQry.FieldAsInteger("ticket_confirm")!=0));
 
       NewTextChild(paxNode,"is_tkne",
                    (int)(strcmp(PaxQry.FieldAsString("ticket_rem"),"TKNE")==0)); //потом убрать 31.10.08

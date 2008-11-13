@@ -22,12 +22,15 @@ struct TLogMsg {
   ASTRA::TEventType ev_type;
   int id1,id2,id3;
   TLogMsg() {
+    Clear();
+  };
+  void Clear() {
     ev_type = ASTRA::evtUnknown;
     msg = "";
     id1 = 0;
     id2 = 0;
     id3 = 0;
-  }
+  };
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };

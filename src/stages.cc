@@ -778,7 +778,7 @@ void Takeoff( int point_id )
     tlg_types.push_back("FTL");
     tlg_types.push_back("PRL");
     tlg_types.push_back("SOM");
-    tlg_types.push_back("ETL");
+//    tlg_types.push_back("ETL"); формируем по прилету в конечные пункт если не было интерактива с СЭБ
     tlg_types.push_back("LDM");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
@@ -794,7 +794,8 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_czech_police_file(point_id);
+    create_czech_police_file(point_id,true);
+    create_czech_police_file(point_id,false);
   }
   catch(std::exception &E)
   {

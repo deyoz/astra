@@ -80,6 +80,10 @@ class TTripInfo
 
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
 
+//настройки рейса
+enum TTripSetType { tsETLOnly=11 };
+bool GetTripSets( TTripSetType setType, TTripInfo &info );
+
 
 class TripsInterface : public JxtInterface
 {

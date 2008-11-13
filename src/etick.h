@@ -3,6 +3,7 @@
 
 #include "JxtInterface.h"
 #include "xmllibcpp.h"
+#include "astra_utils.h"
 
 class ETSearchInterface : public JxtInterface
 {
@@ -11,6 +12,7 @@ public:
   {
      Handler *evHandle;
      evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::SearchETByTickNo);
+     AddEvent("SearchETByTickNo",evHandle);
      AddEvent("TickPanel",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
   };
@@ -40,7 +42,7 @@ public:
 };
 
 enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
-bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id=-1);
+bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg &errMsg);
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {

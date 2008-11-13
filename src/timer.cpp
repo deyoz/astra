@@ -15,11 +15,15 @@
 #include <daemon.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "base_tables.h"
 #include "astra_service.h"
 #include "cfgproc.h"
 #include "posthooks.h"
 #include "perfom.h"
+#include "czech_police_edi_file.h"
+#include "tripinfo.h"
+#include "telegram.h"
 const int sleepsec = 25;
 
 using namespace ASTRA;
@@ -213,14 +217,18 @@ void ETCheckStatusFlt(void)
     Qry.Execute();
     OraSession.Commit();
 
+    TDateTime now=NowUTC();
+
     TQuery UpdQry(&OraSession);
     UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
+
     Qry.Clear();
     Qry.SQLText=
-     "SELECT p.point_id "
+     "SELECT p.point_id, p.airline, p.flt_no, p.airp, "
+     "       NVL(act_in,NVL(est_in,scd_in)) AS real_in "
      "FROM points, "
-     "  (SELECT points.point_id,point_num, "
+     "  (SELECT points.point_id,point_num,airline,flt_no,airp, "
      "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
      "   FROM points,trip_sets "
      "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
@@ -228,21 +236,75 @@ void ETCheckStatusFlt(void)
      "WHERE points.first_point=p.first_point AND "
      "      points.point_num>p.point_num AND points.pr_del=0 AND "
      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
-     "      NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
+     "      NVL(act_in,NVL(est_in,scd_in))<:now ";
+    Qry.CreateVariable("now",otDate,now);
     Qry.Execute();
+
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
+      int point_id=Qry.FieldAsInteger("point_id");
       try
       {
-      	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
-        if (!ETCheckStatus(Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
+        TTripInfo info;
+        info.airline=Qry.FieldAsString("airline");
+        info.flt_no=Qry.FieldAsInteger("flt_no");
+        info.airp=Qry.FieldAsString("airp");
+        if (Qry.FieldAsDateTime("real_in")+30.0/1440<now || //прошло более 30 минут с момента прилета в конечный пункт
+            GetTripSets(tsETLOnly,info))
         {
-          UpdQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
-          UpdQry.Execute();
+          //Работа с сервером эл. билетов в интерактивном режиме запрещена
+          //либо же никак не хотят подтверждаться конечные статусы
+          //Отправляем ETL если настроена автоотправка
+          try
+          {
+            vector<string>  tlg_types;
+            tlg_types.push_back("ETL");
+            TelegramInterface::SendTlg(point_id,tlg_types);
+            UpdQry.SetVariable("point_id",point_id);
+            UpdQry.Execute();
+            OraSession.Commit();
+          }
+          catch(std::exception &E)
+          {
+            ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",point_id,E.what());
+          };
+        }
+        else
+        {
+          //отправим интерактивно конечные статусы
+          try
+          {
+          	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",point_id);
+          	TLogMsg msg;
+            if (!ETCheckStatus(point_id,csaFlt,point_id,msg))
+            {
+              //надо бы проверить а есть ли неподтвержденные билеты - ведь они в интерактив не входят
+              TQuery PaxQry(&OraSession);
+              PaxQry.Clear();
+              PaxQry.SQLText=
+                "SELECT COUNT(*) AS count FROM pax_grp,pax "
+                "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.point_dep=:point_id AND "
+                "      pax.pr_brd=1 AND pax.ticket_rem='TKNE' AND pax.ticket_confirm=0";
+              PaxQry.CreateVariable("point_id",otInteger,point_id);
+              PaxQry.Execute();
+              if (PaxQry.Eof || PaxQry.FieldAsInteger("count")==0)
+              {
+                UpdQry.SetVariable("point_id",point_id);
+                UpdQry.Execute();
+              };
+            };
+            OraSession.Commit();
+          }
+          catch(std::exception &E)
+          {
+            ProgError(STDLOG,"ETCheckStatusFlt.ETCheckStatus (point_id=%d): %s",point_id,E.what());
+          };
         };
-        OraSession.Commit();
       }
-      catch(...) {};
+      catch(...)
+      {
+        ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",point_id);
+      };
     };
     Qry.Close();
     UpdQry.Close();
@@ -344,7 +406,7 @@ void create_mvd_file(TDateTime first_time, TDateTime last_time,
   };
 };
 
-void create_czech_police_file(int point_id)
+void create_czech_police_file(int point_id, bool is_edi)
 {
   try
   {
@@ -354,7 +416,10 @@ void create_czech_police_file(int point_id)
       "SELECT name,dir "
       "FROM file_sets "
       "WHERE code=:code AND pr_denial=0";
-    FilesQry.CreateVariable("code",otString,"ЧЕШСКАЯ ПОЛИЦИЯ");
+    if (is_edi)
+      FilesQry.CreateVariable("code",otString,"ЧЕШСКАЯ ПОЛИЦИЯ EDI");
+    else
+      FilesQry.CreateVariable("code",otString,"ЧЕШСКАЯ ПОЛИЦИЯ CSV");
     FilesQry.Execute();
     if (FilesQry.Eof) return;
 
@@ -420,13 +485,51 @@ void create_czech_police_file(int point_id)
       if (PointsQry.FieldIsNULL("act_in")) throw Exception("act_in empty (airp_arv=%s)",PointsQry.FieldAsString("airp"));
       TDateTime act_in_local = UTCToLocal(PointsQry.FieldAsDateTime("act_in"),tz_region);
 
-    	ostringstream file_name;
-    	file_name << FilesQry.FieldAsString("dir")
-    	          << airline.code_lat
-    	          << setw(4) << setfill('0') << Qry.FieldAsInteger("flt_no")
-    	          << airp_dep.code_lat << airp_arv.code_lat
-    	          << DateTimeToStr(scd_out_local,"yyyymmdd")
-    	          << FilesQry.FieldAsString("name");
+      ostringstream flight;
+
+      flight << airline.code_lat
+    	       << setw(4) << setfill('0') << Qry.FieldAsInteger("flt_no");
+
+      ostringstream file_name;
+
+      if (is_edi)
+        file_name << FilesQry.FieldAsString("dir") <<
+           Paxlst::CreateEdiPaxlstFileName(flight.str(),
+                                           airp_dep.code_lat,
+                                           airp_arv.code_lat,
+                                           DateTimeToStr(scd_out_local,"yyyymmdd"),
+                                           FilesQry.FieldAsString("name"));
+      else
+      	file_name << FilesQry.FieldAsString("dir")
+      	          << flight.str()
+      	          << airp_dep.code_lat
+      	          << airp_arv.code_lat
+      	          << DateTimeToStr(scd_out_local,"yyyymmdd") << "."
+      	          << FilesQry.FieldAsString("name");
+
+    	Paxlst::PaxlstInfo paxlstInfo;
+
+      if (is_edi)
+      {
+      	//информация о том, кто формирует сообщение
+      	paxlstInfo.partyName = "SIRENA-TRAVEL";
+        paxlstInfo.phone = "4959504991";
+        paxlstInfo.fax = "4959504973";
+
+        //информация об авиакомпании
+        if (airline.name_lat.empty()) throw Exception("airline.name_lat empty (code=%s)",airline.code.c_str());
+        paxlstInfo.senderName = airline.name_lat;
+        paxlstInfo.senderCarrierCode = airline.code_lat;
+        paxlstInfo.recipientCarrierCode = "ZZ";
+        if (!Paxlst::CreateIATACode(paxlstInfo.iataCode,flight.str(),act_in_local))
+          throw Exception("CreateIATACode error");
+
+        paxlstInfo.flight = flight.str();
+        paxlstInfo.departureAirport = airp_dep.code_lat;
+        paxlstInfo.departureDate = act_out_local;
+        paxlstInfo.arrivalAirport = airp_arv.code_lat;
+        paxlstInfo.arrivalDate = act_in_local;
+      };
 
     	int count=0;
   	  ostringstream body;
@@ -434,15 +537,27 @@ void create_czech_police_file(int point_id)
   	  PaxQry.Execute();
   	  for(;!PaxQry.Eof;PaxQry.Next(),count++)
   	  {
-  	  	if (PaxQry.FieldIsNULL("pax_id"))
+  	    Paxlst::PassengerInfo paxInfo;
+  	    if (PaxQry.FieldIsNULL("pax_id"))
   	  	{
-  	  		body << PaxQry.FieldAsString("surname") << ";"
-  	  		     << PaxQry.FieldAsString("name") << ";"
-  	  		     << ";;;;;" << PaxQry.FieldAsString("document") << ";;;"
-  	  		     << ENDL;
+  	  	  if (is_edi)
+          {
+    	      paxInfo.passengerName = PaxQry.FieldAsString("name");
+    	      paxInfo.passengerSurname = PaxQry.FieldAsString("surname");
+    	      paxInfo.idNumber = PaxQry.FieldAsString("document");
+    	    }
+    	    else
+    	    {
+  	        body << PaxQry.FieldAsString("surname") << ";"
+  	  		       << PaxQry.FieldAsString("name") << ";"
+  	  		       << ";;;;;" << PaxQry.FieldAsString("document") << ";;;"
+  	  		       << ENDL;
+  	  		};
   	    }
   	    else
   	    {
+  	      int pax_id=PaxQry.FieldAsInteger("pax_id");
+
   	      string gender;
   	      if (!PaxQry.FieldIsNULL("gender"))
   	      {
@@ -479,18 +594,64 @@ void create_czech_police_file(int point_id)
   	    	if (!PaxQry.FieldIsNULL("expiry_date"))
   	    	  expiry_date=DateTimeToStr(PaxQry.FieldAsDateTime("expiry_date"),"ddmmmyy",true);
 
-  	    	body << PaxQry.FieldAsString("doc_surname") << ";"
-  	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
-  	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
-  	  		     << birth_date << ";"
-  	  		     << gender << ";"
-  	  		     << nationality << ";"
-  	  		     << doc_type << ";"
-  	  		     << PaxQry.FieldAsString("no") << ";"
-  	  		     << expiry_date << ";"
-  	  		     << issue_country << ";"
-  	  		     << ENDL;
+          if (is_edi)
+          {
+    	    	paxInfo.passengerName = PaxQry.FieldAsString("doc_first_name");
+    	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
+    	    	{
+    	    	  if (!paxInfo.passengerName.empty()) paxInfo.passengerName += " ";
+              paxInfo.passengerName += PaxQry.FieldAsString("doc_second_name");
+    	    	};
+    	    	paxInfo.passengerSurname = PaxQry.FieldAsString("doc_surname");
+
+    	      paxInfo.passengerSex = gender.substr(0,1);
+    	      if (paxInfo.passengerSex!="M" &&
+    	          paxInfo.passengerSex!="F")
+    	        paxInfo.passengerSex = "M";
+
+    	      if (!PaxQry.FieldIsNULL("birth_date"))
+    	        paxInfo.birthDate = PaxQry.FieldAsDateTime("birth_date");
+
+    	      paxInfo.departurePassenger = airp_dep.code_lat;
+            paxInfo.arrivalPassenger = airp_arv.code_lat;
+            paxInfo.passengerCountry = nationality;
+            //PNR
+            vector<TPnrAddrItem> pnrs;
+            GetPaxPnrAddr(pax_id,pnrs);
+            if (!pnrs.empty())
+              paxInfo.passengerNumber = convert_pnr_addr(pnrs.begin()->addr, 1);
+
+            if (doc_type=="P")
+              paxInfo.passengerType = doc_type;
+            paxInfo.idNumber = PaxQry.FieldAsString("no");
+            if (!PaxQry.FieldIsNULL("expiry_date"))
+              paxInfo.expirateDate = PaxQry.FieldAsDateTime("expiry_date");
+            paxInfo.docCountry = issue_country;
+          }
+          else
+          {
+    	    	body << PaxQry.FieldAsString("doc_surname") << ";"
+    	  		     << PaxQry.FieldAsString("doc_first_name") << ";"
+    	  		     << PaxQry.FieldAsString("doc_second_name") << ";"
+    	  		     << birth_date << ";"
+    	  		     << gender << ";"
+    	  		     << nationality << ";"
+    	  		     << doc_type << ";"
+    	  		     << PaxQry.FieldAsString("no") << ";"
+    	  		     << expiry_date << ";"
+    	  		     << issue_country << ";"
+    	  		     << ENDL;
+    	  	};
   	    };
+  	    if (is_edi)
+  	      paxlstInfo.passangersList.push_back( paxInfo );
+  	  };
+
+      if (is_edi && !paxlstInfo.passangersList.empty())
+      {
+        string tlg,err;
+  	    if (!paxlstInfo.toEdiStringWithStringsResize(tlg,err)) throw Exception(err);
+  	    body << tlg;
   	  };
 
     	ofstream f;
@@ -498,13 +659,14 @@ void create_czech_police_file(int point_id)
       if (!f.is_open()) throw Exception("Can't open file '%s'",file_name.str().c_str());
       try
       {
-      	f << "csv;ROSSIYA;"
-      	  << airline.code_lat << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no") << ";"
-    	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-    	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
-    	    << count << ";" << ENDL
-    	    << body.str();
+        if (!is_edi)
+        	f << "csv;ROSSIYA;"
+        	  << airline.code_lat << setw(3) << setfill('0') << Qry.FieldAsInteger("flt_no") << ";"
+      	    << airp_dep.code_lat << ";" << DateTimeToStr(act_out_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+      	    << airp_arv.code_lat << ";" << DateTimeToStr(act_in_local,"yyyy-mm-dd'T'hh:nn:00.0") << ";"
+      	    << count << ";" << ENDL;
 
+      	f << body.str();
       	f.close();
       }
       catch(...)

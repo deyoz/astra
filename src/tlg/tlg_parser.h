@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "astra_consts.h"
+#include "astra_misc.h"
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
@@ -381,18 +382,6 @@ class TNameElement
       pax.clear();
       rem.clear();
       seatRanges.clear();
-    };
-};
-
-class TPnrAddrItem
-{
-  public:
-    char airline[4];
-    char addr[21];
-    TPnrAddrItem()
-    {
-      *airline=0;
-      *addr=0;
     };
 };
 
