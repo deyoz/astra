@@ -23,9 +23,9 @@
 
 #include <sstream>
 
-std::string InterchangeReferenceTst = "";
-std::string PrepareDateTst = "";
-std::string PrepareHourTst = "";
+static std::string InterchangeReferenceTst = "";
+static std::string PrepareDateTst = "";
+static std::string PrepareHourTst = "";
 
 
 namespace Paxlst
@@ -37,8 +37,8 @@ using boost::bad_lexical_cast;
 
 string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
 {
-    if ( paxlstInfo.passangersList.size() < 1 ||
-         paxlstInfo.passangersList.size() > 99999 )
+    if ( paxlstInfo.getPassengersList().size() < 1 ||
+         paxlstInfo.getPassengersList().size() > 99999 )
     {
         throw PaxlstException( "CreateEdiPaxlstString error: Passengers list has bad size" );
     }
@@ -49,8 +49,8 @@ string CreateEdiPaxlstString( const PaxlstInfo& paxlstInfo )
     }
 
 
-    for ( list< PassengerInfo >::const_iterator it = paxlstInfo.passangersList.begin();
-          it != paxlstInfo.passangersList.end(); ++it )
+    for ( list< PassengerInfo >::const_iterator it = paxlstInfo.getPassengersList().begin();
+          it != paxlstInfo.getPassengersList().end(); ++it )
     {
         if ( !it->isPassengerSurnameSet() )
             throw PaxlstException( "CreateEdiPaxlstString error: \
@@ -74,13 +74,13 @@ PrepareDate string" );
 PrepareTime string" );
     }
 
-    if ( !CreateDateTimeStr( departureDateStr, paxlstInfo.departureDate, "yymmddhhnn" ) )
+    if ( !CreateDateTimeStr( departureDateStr, paxlstInfo.getDepartureDate(), "yymmddhhnn" ) )
     {
         throw PaxlstException( "CreateEdiPaxlstString error: error while create \
 DepartureDate string" );
     }
 
-    if ( !CreateDateTimeStr( arrivalDateStr, paxlstInfo.arrivalDate, "yymmddhhnn" ) )
+    if ( !CreateDateTimeStr( arrivalDateStr, paxlstInfo.getArrivalDate(), "yymmddhhnn" ) )
     {
         throw PaxlstException( "CreateEdiPaxlstString error: error while create \
 ArrivalDate string" );
@@ -111,8 +111,8 @@ InterchangeReference string" );
     strcpy( edih.to, "CZAPIS" );
     strcpy(edih.date, prepareDateStr.c_str() );
     strcpy(edih.time, prepareHourStr.c_str() );
-    strcpy( edih.from, paxlstInfo.senderName.c_str() );
-    strcpy( edih.acc_ref, paxlstInfo.iataCode.c_str() );
+    strcpy( edih.from, paxlstInfo.getSenderName().c_str() );
+    strcpy( edih.acc_ref, paxlstInfo.getIATAcode().c_str() );
 
     strcpy( edih.other_ref, "" );
     strcpy( edih.assoc_code, "" );
@@ -156,7 +156,7 @@ InterchangeReference string" );
 
             //<DE:0007>
             SetEdiDataElem( pMes, DataElement( 7, 0 ),
-                            paxlstInfo.senderCarrierCode.c_str() );
+                            paxlstInfo.getSenderCarrierCode().c_str() );
             //</DE:0007>
 
         PopEdiPointW( pMes );
@@ -168,7 +168,7 @@ InterchangeReference string" );
 
             //<DE:0007>
             SetEdiDataElem( pMes, DataElement( 7, 0 ),
-                            paxlstInfo.recipientCarrierCode.c_str() );
+                            paxlstInfo.getRecipientCarrierCode().c_str() );
             //</DE:0007>
 
         PopEdiPointW( pMes );
@@ -196,12 +196,12 @@ InterchangeReference string" );
 
             //<DE:0040>
             SetEdiDataElem( pMes, DataElement( 40, 0 ),
-                            paxlstInfo.senderName.c_str() );
+                            paxlstInfo.getSenderName().c_str() );
             //</DE:0040>
 
             //<DE:0007>
             SetEdiDataElem( pMes, DataElement( 7, 0 ),
-                            paxlstInfo.senderCarrierCode.c_str() );
+                            paxlstInfo.getSenderCarrierCode().c_str() );
             //</DE:0007>
 
         PopEdiPointW( pMes );
@@ -219,7 +219,7 @@ InterchangeReference string" );
 
             //<DE:0007>
             SetEdiDataElem( pMes, DataElement( 7, 0 ),
-                            paxlstInfo.recipientCarrierCode.c_str() );
+                            paxlstInfo.getRecipientCarrierCode().c_str() );
             //</DE:0007>
 
         PopEdiPointW( pMes );
@@ -305,7 +305,7 @@ InterchangeReference string" );
 
                     //<DE:3036>
                     SetEdiDataElem( pMes, DataElement( 3036, 0 ),
-                                    paxlstInfo.partyName.c_str() );
+                                    paxlstInfo.getPartyName().c_str() );
                     //</DE:3036>
 
                 PopEdiPointW( pMes );
@@ -330,7 +330,7 @@ InterchangeReference string" );
 
                         //<DE:3148>
                         SetEdiDataElem( pMes, DataElement( 3148, 0 ),
-                                        paxlstInfo.phone.c_str() );
+                                        paxlstInfo.getPhone().c_str() );
                         //</DE:3148>
 
                         //<DE:3155>
@@ -349,7 +349,7 @@ InterchangeReference string" );
 
                         //<DE:3148>
                         SetEdiDataElem( pMes, DataElement( 3148, 0 ),
-                                        paxlstInfo.fax.c_str() );
+                                        paxlstInfo.getFax().c_str() );
                         //</DE:3148>
 
                         //<DE:3155>
@@ -387,7 +387,7 @@ InterchangeReference string" );
             {
                 //<DE:8028>
                 SetEdiDataElem( pMes, DataElement( 8028, 0 ),
-                                paxlstInfo.flight.c_str() );
+                                paxlstInfo.getFlight().c_str() );
                 //</DE:8028>
             }
 
@@ -422,7 +422,7 @@ InterchangeReference string" );
 
                         //<DE:3225>
                         SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                        paxlstInfo.departureAirport.c_str() );
+                                        paxlstInfo.getDepartureAirport().c_str() );
                         //</DE:3225>
 
                     PopEdiPointW( pMes );
@@ -497,7 +497,7 @@ InterchangeReference string" );
 
                         //<DE:3225>
                         SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                        paxlstInfo.arrivalAirport.c_str() );
+                                        paxlstInfo.getArrivalAirport().c_str() );
                         //</DE:3225>
 
                     PopEdiPointW( pMes );
@@ -552,8 +552,8 @@ InterchangeReference string" );
 
 
     int i = 0;
-    for ( list< Paxlst::PassengerInfo >::const_iterator it = paxlstInfo.passangersList.begin();
-          it != paxlstInfo.passangersList.end(); ++it )
+    for ( list< Paxlst::PassengerInfo >::const_iterator it = paxlstInfo.getPassengersList().begin();
+          it != paxlstInfo.getPassengersList().end(); ++it )
     {
         int segmGroupNum = i++;
         //<Segment Group 4(i)>
@@ -581,14 +581,14 @@ InterchangeReference string" );
 
                     //<DE:3036(1)>
                     SetEdiDataElem( pMes, DataElement( 3036, 0 ),
-                                    it->passengerSurname.c_str() );
+                                    it->getPassengerSurname().c_str() );
                     //</DE:3036(1)>
 
                     if ( it->isPassengerNameSet() )
                     {
                         //<DE:3036(2)>
                         SetEdiDataElem( pMes, DataElement( 3036, 1 ),
-                                        it->passengerName.c_str() );
+                                        it->getPassengerName().c_str() );
                         //</DE:3036(2)>
                     }
 
@@ -605,7 +605,7 @@ InterchangeReference string" );
 
                         //<DE:3042>
                         SetEdiDataElem( pMes, DataElement( 3042, 0 ),
-                                        it->passengerStreet.c_str() );
+                                        it->getPassengerStreet().c_str() );
                         //</DE:3042>
 
                     PopEdiPointW( pMes );
@@ -616,7 +616,7 @@ InterchangeReference string" );
                 {
                     //<DE:3164>
                     SetEdiDataElem( pMes, DataElement( 3164, 0 ),
-                                    it->passengerCity.c_str() );
+                                    it->getPassengerCity().c_str() );
                     //</DE:3164>
                 }
 
@@ -645,7 +645,7 @@ InterchangeReference string" );
 
                         //<DE:9019>
                         SetEdiDataElem( pMes, DataElement( 9019, 0 ),
-                                        it->passengerSex.c_str() );
+                                        it->getPassengerSex().c_str() );
                         //</DE:9019>
 
                     PopEdiPointW( pMes );
@@ -676,7 +676,7 @@ InterchangeReference string" );
                     {
                         //<DE:2380>
                         string birthDateStr = "";
-                        if ( !CreateDateTimeStr( birthDateStr, it->birthDate, "yymmdd" ) )
+                        if ( !CreateDateTimeStr( birthDateStr, it->getBirthDate(), "yymmdd" ) )
                         {
                             throw PaxlstException( "CreateEdiPaxlstString error: \
 error while create birthDate string" );
@@ -714,7 +714,7 @@ error while create birthDate string" );
 
                         //<DE:3225>
                         SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                        it->departurePassenger.c_str() );
+                                        it->getDeparturePassenger().c_str() );
                         //</DE:3225>
 
                     PopEdiPointW( pMes );
@@ -748,7 +748,7 @@ error while create birthDate string" );
 
                         //<DE:3225>
                         SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                        it->arrivalPassenger.c_str() );
+                                        it->getArrivalPassenger().c_str() );
                         //</DE:3225>
 
                     PopEdiPointW( pMes );
@@ -779,7 +779,7 @@ error while create birthDate string" );
 
                             //<DE:3293>
                             SetEdiDataElem( pMes, DataElement( 3293, 0 ),
-                                            it->passengerCountry.c_str() );
+                                            it->getPassengerCountry().c_str() );
                             //</DE:3293>
 
                         PopEdiPointW( pMes );
@@ -810,7 +810,7 @@ error while create birthDate string" );
 
                             //<DE:1154>
                             SetEdiDataElem( pMes, DataElement( 1154, 0 ),
-                                            it->passengerNumber.c_str() );
+                                            it->getPassengerNumber().c_str() );
                             //</DE:1154>
 
                     PopEdiPointW( pMes );
@@ -845,7 +845,7 @@ error while create birthDate string" );
                             {
                                 //<DE:1001>
                                 SetEdiDataElem( pMes, DataElement( 1001, 0 ),
-                                                it->passengerType.c_str() );
+                                                it->getPassengerType().c_str() );
                                 //</DE:1001>
                             }
 
@@ -871,7 +871,7 @@ error while create birthDate string" );
                             {
                                 //<DE:1004>
                                 SetEdiDataElem( pMes, DataElement( 1004, 0 ),
-                                                it->idNumber.c_str() );
+                                                it->getIdNumber().c_str() );
                                 //</DE:1004>
                             }
 
@@ -902,7 +902,7 @@ error while create birthDate string" );
 
                                 //<DE:2380>
                                 string expirateDateStr = "";
-                                if ( !CreateDateTimeStr( expirateDateStr, it->expirateDate, "yymmdd" ) )
+                                if ( !CreateDateTimeStr( expirateDateStr, it->getExpirateDate(), "yymmdd" ) )
                                 {
                                     throw PaxlstException( "CreateEdiPaxlstString error: \
 error while create expirateDate string" );
@@ -940,7 +940,7 @@ error while create expirateDate string" );
 
                                 //<DE:3225>
                                 SetEdiDataElem( pMes, DataElement( 3225, 0 ),
-                                                it->docCountry.c_str() );
+                                                it->getDocCountry().c_str() );
                                 //</DE:3225>
 
                             PopEdiPointW( pMes );
@@ -976,7 +976,7 @@ error while create expirateDate string" );
 
                 //<DE:6066>
                 SetEdiDataElem( pMes, DataElement( 6066, 0 ),
-                                lexical_cast< string >( paxlstInfo.passangersList.size() ).c_str() );
+                                lexical_cast< string >( paxlstInfo.getPassengersList().size() ).c_str() );
                 //</DE:6066>
 
             PopEdiPointW( pMes );
@@ -1058,10 +1058,10 @@ bool CreateIATACode( string& result, const string& flight,
     result = "";
     string destDateTimeStr = "";
 
-    if ( !CreateDateTimeStr( destDateTimeStr, destDateTime, "yymmdd/hhnn" ) )
+    if ( !CreateDateTimeStr( destDateTimeStr, destDateTime, "/yymmdd/hhnn" ) )
         return false;
 
-    result = flight + "/" + destDateTimeStr;
+    result = flight + destDateTimeStr;
 
     return true;
 }
@@ -1114,66 +1114,76 @@ START_TEST( czech_file_test1 )
 {
     Paxlst::PaxlstInfo paxlstInfo;
 
-    paxlstInfo.partyName = "cdgkoaf";
-    paxlstInfo.phone = "0148642106";
-    paxlstInfo.fax = "0148643999";
+    paxlstInfo.setPartyName( "cdgKoaf" );
+    paxlstInfo.setPhone( "0148642106" );
+    paxlstInfo.setFax( "0148643999" );
 
-    paxlstInfo.senderName = "1H";
-    paxlstInfo.senderCarrierCode = "zz";
-    paxlstInfo.recipientCarrierCode = "FR";
-    paxlstInfo.iataCode = "OK688/071008/1310";
+    paxlstInfo.setSenderName( "1h" );
+    paxlstInfo.setSenderCarrierCode( "zZ" );
+    paxlstInfo.setRecipientCarrierCode( "fR" );
+    paxlstInfo.setIATAcode( "OK688/071008/1310" );
 
-    paxlstInfo.flight = "OK688";
-    paxlstInfo.departureAirport = "PRG";
-    BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
-    paxlstInfo.arrivalAirport = "BCN";
-    BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
-
+    paxlstInfo.setFlight( "OK688" );
+    paxlstInfo.setDepartureAirport( "PrG" );
+    BASIC::TDateTime depDate, arrDate;
+    BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+    paxlstInfo.setDepartureDate( depDate );
+    paxlstInfo.setArrivalAirport( "BCN" );
+    BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+    paxlstInfo.setArrivalDate( arrDate );
 
     Paxlst::PassengerInfo passInfo1;
-    passInfo1.passengerSurname = "STRANSKY";
-    passInfo1.passengerName = "JAROSLAV VICTOROVICH";
-    passInfo1.passengerSex = "M";
-    BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
-    passInfo1.departurePassenger = "ZDN";
-    passInfo1.arrivalPassenger = "bcn";
-    passInfo1.passengerCountry = "CZE";
-    passInfo1.passengerNumber = "Z9WKH";
-    passInfo1.passengerType = "I";
-    passInfo1.idNumber = "102865098";
+    passInfo1.setPassengerSurname( "STRANSKY" );
+    passInfo1.setPassengerName( "JAROSLAV VICtOROVICH" );
+    passInfo1.setPassengerSex( "M" );
+    BASIC::TDateTime bd1;
+    BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
+    passInfo1.setBirthDate( bd1 );
+    passInfo1.setDeparturePassenger( "ZdN" );
+    passInfo1.setArrivalPassenger( "bcN" );
+    passInfo1.setPassengerCountry( "CZe" );
+    passInfo1.setPassengerNumber( "Z9WkH" );
+    passInfo1.setPassengerType( "i" );
+    passInfo1.setIdNumber( "102865098" );
 
 
     Paxlst::PassengerInfo passInfo2;
-    passInfo2.passengerSurname = "kovacs";
-    passInfo2.passengerName = "PETR";
-    passInfo2.passengerSex = "M";
-    BASIC::StrToDateTime( "09.12.69 00:00:00", passInfo2.birthDate ); //"691209"
-    passInfo2.departurePassenger = "ZDN";
-    passInfo2.arrivalPassenger = "BCN";
-    passInfo2.passengerCountry = "CZE";
-    passInfo2.passengerNumber = "Z9WJK";
-    passInfo2.passengerType = "p";
-    passInfo2.idNumber = "35485167";
-    BASIC::StrToDateTime( "11.09.08 00:00:00", passInfo2.expirateDate );
+    passInfo2.setPassengerSurname( "kovacs" );
+    passInfo2.setPassengerName( "PETR" );
+    passInfo2.setPassengerSex( "M" );
+    BASIC::TDateTime bd2;
+    BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
+    passInfo2.setBirthDate( bd2 );
+    passInfo2.setDeparturePassenger( "ZDN" );
+    passInfo2.setArrivalPassenger( "BCN" );
+    passInfo2.setPassengerCountry( "CZE" );
+    passInfo2.setPassengerNumber( "Z9WJK" );
+    passInfo2.setPassengerType( "p" );
+    passInfo2.setIdNumber( "35485167" );
+    BASIC::TDateTime expd1;
+    BASIC::StrToDateTime( "11.09.08 00:00:00", expd1 );
+    passInfo2.setExpirateDate( expd1 );
 
 
     Paxlst::PassengerInfo passInfo3;
-    passInfo3.passengerSurname = "LESKA";
-    passInfo3.passengerName = "PAVEL";
-    passInfo3.passengerSex = "M";
-    BASIC::StrToDateTime( "02.05.76 00:00:00", passInfo3.birthDate ); //"760502"
-    passInfo3.departurePassenger = "VIE";
-    passInfo3.arrivalPassenger = "BCN";
-    passInfo3.passengerCountry = "CZE";
-    passInfo3.passengerNumber = "z57l3";
-    passInfo3.passengerType = "P";
-    passInfo3.idNumber = "34356146";
-    passInfo3.docCountry = "RUS";
+    passInfo3.setPassengerSurname( "LESKA" );
+    passInfo3.setPassengerName( "PAVEL" );
+    passInfo3.setPassengerSex( "M" );
+    BASIC::TDateTime bd3;
+    BASIC::StrToDateTime( "02.05.76 00:00:00", bd3 ); //"760502"
+    passInfo3.setBirthDate( bd3 );
+    passInfo3.setDeparturePassenger( "VIE" );
+    passInfo3.setArrivalPassenger( "BCN" );
+    passInfo3.setPassengerCountry( "CZE" );
+    passInfo3.setPassengerNumber( "z57l3" );
+    passInfo3.setPassengerType( "P" );
+    passInfo3.setIdNumber( "34356146" );
+    passInfo3.setDocCountry( "RUS" );
 
 
-    paxlstInfo.passangersList.push_back( passInfo1 );
-    paxlstInfo.passangersList.push_back( passInfo2 );
-    paxlstInfo.passangersList.push_back( passInfo3 );
+    paxlstInfo.addPassenger( passInfo1 );
+    paxlstInfo.addPassenger( passInfo2 );
+    paxlstInfo.addPassenger( passInfo3 );
 
 
     std::string text = "", errText = "";
@@ -1253,15 +1263,15 @@ START_TEST( czech_file_test2 )
 {
     Paxlst::PaxlstInfo paxlstInfo;
 
-    paxlstInfo.partyName = "CDGkoAF";
+    paxlstInfo.setPartyName( "CDGkoAF" );
 
-    paxlstInfo.senderName = "1h";
+    paxlstInfo.setSenderName( "1h" );
 
     Paxlst::PassengerInfo passInfo1;
-    passInfo1.passengerSurname = "StRaNsKy";
+    passInfo1.setPassengerSurname( "StRaNsKy" );
 
 
-    paxlstInfo.passangersList.push_back( passInfo1 );
+    paxlstInfo.addPassenger( passInfo1 );
 
     std::string text = "", errText = "";
     if ( !paxlstInfo.toEdiString( text, errText ) )
@@ -1316,72 +1326,86 @@ START_TEST( czech_file_test3 )
 {
     Paxlst::PaxlstInfo paxlstInfo;
 
-    paxlstInfo.partyName = "CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.phone = "0148642106XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.fax = "0148643999XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.setPartyName( "CDGKOAFXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setPhone( "0148642106XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setFax( "0148643999XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
-    paxlstInfo.senderName = "1HXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.senderCarrierCode = "ZZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.recipientCarrierCode = "FRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.iataCode = "OK688/071008/1310XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    paxlstInfo.setSenderName( "1HXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setSenderCarrierCode( "ZZXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setRecipientCarrierCode( "FRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    paxlstInfo.setIATAcode( "OK688/071008/1310XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
-    paxlstInfo.flight = "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    paxlstInfo.departureAirport = "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    BASIC::StrToDateTime( "08.10.07 10:45:00", paxlstInfo.departureDate ); //"0710081045"
-    paxlstInfo.arrivalAirport = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    BASIC::StrToDateTime( "08.10.07 13:10:00", paxlstInfo.arrivalDate ); //"0710081310"
+    paxlstInfo.setFlight( "OK688XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+
+    paxlstInfo.setDepartureAirport( "PRGXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    BASIC::TDateTime depDate;
+    BASIC::StrToDateTime( "08.10.07 10:45:00", depDate ); //"0710081045"
+    paxlstInfo.setDepartureDate( depDate );
+
+    paxlstInfo.setArrivalAirport( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    BASIC::TDateTime arrDate;
+    BASIC::StrToDateTime( "08.10.07 13:10:00", arrDate ); //"0710081310"
+    paxlstInfo.setArrivalDate( arrDate );
 
 
     Paxlst::PassengerInfo passInfo1;
-    passInfo1.passengerSurname = "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.passengerName = "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.passengerSex = "M";
-    BASIC::StrToDateTime( "10.06.67 00:00:00", passInfo1.birthDate ); //"670610"
-    passInfo1.departurePassenger = "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.passengerNumber = "Z9WKHXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.passengerType = "IXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo1.idNumber = "102865098XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo1.setPassengerSurname( "STRANSKYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setPassengerName( "JAROSLAV VICTOROVICHXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setPassengerSex( "M" );
+    BASIC::TDateTime bd1;
+    BASIC::StrToDateTime( "10.06.67 00:00:00", bd1 ); //"670610"
+    passInfo1.setBirthDate( bd1 );
+    passInfo1.setDeparturePassenger( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setArrivalPassenger( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setPassengerCountry( "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setPassengerNumber( "Z9WKHXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setPassengerType( "IXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo1.setIdNumber( "102865098XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
 
     Paxlst::PassengerInfo passInfo2;
-    passInfo2.passengerSurname = "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.passengerName = "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.passengerSex = "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    BASIC::StrToDateTime( "09.12.69 00:00:00", passInfo2.birthDate ); //"691209"
-    passInfo2.departurePassenger = "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.passengerNumber = "Z9WJKXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.passengerType = "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo2.idNumber = "35485167XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    BASIC::StrToDateTime( "11.09.08 00:00:00", passInfo2.expirateDate );
+    passInfo2.setPassengerSurname( "KOVACSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setPassengerName( "PETRXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setPassengerSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    BASIC::TDateTime bd2;
+    BASIC::StrToDateTime( "09.12.69 00:00:00", bd2 ); //"691209"
+    passInfo2.setBirthDate( bd2 );
+    passInfo2.setDeparturePassenger( "ZDNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setArrivalPassenger( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setPassengerCountry( "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setPassengerNumber( "Z9WJKXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setPassengerType( "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo2.setIdNumber( "35485167XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    BASIC::TDateTime expd2;
+    BASIC::StrToDateTime( "11.09.08 00:00:00", expd2 );
+    passInfo2.setExpirateDate( expd2 );
 
 
     Paxlst::PassengerInfo passInfo3;
-    passInfo3.passengerSurname = "LESKAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerName = "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerSex = "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    BASIC::StrToDateTime( "02.05.76 00:00:00", passInfo3.birthDate ); //"760502"
-    passInfo3.departurePassenger = "VIEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.arrivalPassenger = "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerCountry = "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerNumber = "Z57L3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerType = "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.idNumber = "34356146XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.docCountry = "RUSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerCity = "MOSCOWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-    passInfo3.passengerStreet = "ARBATXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+    passInfo3.setPassengerSurname( "LESKAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerName( "PAVELXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerSex( "MXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    BASIC::TDateTime bd3;
+    BASIC::StrToDateTime( "02.05.76 00:00:00", bd2 ); //"760502"
+    passInfo3.setBirthDate( bd3 );
+    passInfo3.setDeparturePassenger( "VIEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setArrivalPassenger( "BCNXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerCountry( "CZEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerNumber( "Z57L3XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerType( "PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setIdNumber( "34356146XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setDocCountry( "RUSXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerCity( "MOSCOWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
+    passInfo3.setPassengerStreet( "ARBATXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" );
 
 
-    paxlstInfo.passangersList.push_back( passInfo1 );
-    paxlstInfo.passangersList.push_back( passInfo2 );
-    paxlstInfo.passangersList.push_back( passInfo3 );
+    paxlstInfo.addPassenger( passInfo1 );
+    paxlstInfo.addPassenger( passInfo2 );
+    paxlstInfo.addPassenger( passInfo3 );
 
 
     std::string text = "", errText = "";
-    if ( !paxlstInfo.toEdiStringWithStringsResize( text, errText ) )
+    if ( !paxlstInfo.toEdiString( text, errText ) )
     {
         fail( errText.c_str() );
     }
