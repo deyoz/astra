@@ -2518,8 +2518,22 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
             vector<TInfItem> inf;
             if (ParseINFRem(tlg,iRemItem->text,inf))
             {
-              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();i++)
+              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+              {
                 if (i->surname.empty()) i->surname=ne.surname;
+                //проверим есть ли уже ребенок с таким именем и фамилией в iPaxItem->inf
+                //(защита от дублирования INF и INFT)
+                vector<TInfItem>::iterator j;
+                for(j=iPaxItem->inf.begin();j!=iPaxItem->inf.end();j++)
+                  if (i->surname==j->surname && i->name==j->name) break;
+                if (j!=iPaxItem->inf.end())
+                {
+                  //дублирование INF. удалим из inf
+                  i=inf.erase(i);
+                  continue;
+                };
+                i++;
+              };
               iPaxItem->inf.insert(iPaxItem->inf.end(),inf.begin(),inf.end());
             };
             continue;
@@ -2689,14 +2703,51 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
           vector<TInfItem> inf;
           if (ParseINFRem(tlg,iRemItem->text,inf))
           {
-            for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();i++)
+            for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+            {
               if (i->surname.empty()) i->surname=ne.surname;
+              if (ne.pax.size()==1 && ne.pax.begin()->inf.empty())
+              {
+                //проверим есть ли уже ребенок с таким именем и фамилией в ne.pax.begin()->inf
+                //(защита от дублирования INF и INFT)
+                vector<TInfItem>::iterator j;
+                for(j=ne.pax.begin()->inf.begin();j!=ne.pax.begin()->inf.end();j++)
+                  if (i->surname==j->surname && i->name==j->name) break;
+                if (j!=ne.pax.begin()->inf.end())
+                {
+                  //дублирование INF. удалим из inf
+                  i=inf.erase(i);
+                  continue;
+                };
+              };
+              i++;
+            };
 
             if (ne.pax.size()==1 && ne.pax.begin()->inf.empty() &&
                 inf.size()==1)
+            {
+              //однозначная привязка к единственному пассажиру
               ne.pax.begin()->inf.insert(ne.pax.begin()->inf.end(),inf.begin(),inf.end());
+            }
             else
+            {
+              for(vector<TInfItem>::iterator i=inf.begin();i!=inf.end();)
+              {
+                //проверим есть ли уже ребенок с таким именем и фамилией в infs
+                //(защита от дублирования INF и INFT)
+                vector<TInfItem>::iterator j;
+                for(j=infs.begin();j!=infs.end();j++)
+                  if (i->surname==j->surname && i->name==j->name) break;
+                if (j!=infs.end())
+                {
+                  //дублирование INF. удалим из inf
+                  i=inf.erase(i);
+                  continue;
+                };
+                i++;
+              };
               infs.insert(infs.end(),inf.begin(),inf.end());
+            };
           };
           continue;
         };
@@ -4510,13 +4561,13 @@ void SyncTlgCompLayers(int range_id,
     TQuery PointsQry(&OraSession);
     PointsQry.Clear();
     PointsQry.SQLText=
-      "SELECT point_id,airp,pr_tranzit FROM points "
+      "SELECT point_id,airp FROM points "
       "WHERE first_point=:first_point AND point_num>:point_num AND pr_del>=0 "
       "ORDER BY point_num";
     PointsQry.DeclareVariable("first_point",otInteger);
     PointsQry.DeclareVariable("point_num",otInteger);
 
-    TQuery LayerQry(&OraSession);
+  /*  TQuery LayerQry(&OraSession);
     LayerQry.Clear();
     LayerQry.SQLText=
       "DECLARE "
@@ -4539,7 +4590,7 @@ void SyncTlgCompLayers(int range_id,
       "END;";
     LayerQry.DeclareVariable("point_id",otInteger);
     LayerQry.DeclareVariable("layer_type",otString);
-    LayerQry.DeclareVariable("point_num_dep",otInteger);
+    LayerQry.DeclareVariable("point_num_dep",otInteger);*/
 
     TQuery Qry(&OraSession);
     Qry.Clear();
@@ -4564,30 +4615,19 @@ void SyncTlgCompLayers(int range_id,
         if (!(layer_type==cltSOMTrzt||
               layer_type==cltPRLTrzt)) point_id.push_back(ids.point_dep); //point_id=point_dep
 
-
-      /*  {
-          if (PointsQry.FieldAsInteger("pr_tranzit")!=0)
-            ids.point_id=PointsQry.FieldAsInteger("point_id");
-          else
-            continue;
-        }
-        else
-          ids.point_id=ids.point_dep;*/
-
-
         for(;!PointsQry.Eof;PointsQry.Next())
         {
           if (PointsQry.FieldAsString("airp")==airp_arv) break;
           if (layer_type==cltSOMTrzt ||
               layer_type==cltPRLTrzt)
           {
-            //проверим наличие слоев SOM_TRZT или PRL_TRZT
+       /*     //проверим наличие слоев SOM_TRZT или PRL_TRZT
             LayerQry.SetVariable("point_id",PointsQry.FieldAsInteger("point_id"));
             LayerQry.SetVariable("layer_type",EncodeCompLayerType(layer_type));
             LayerQry.SetVariable("point_num_dep",Qry.FieldAsInteger("point_num"));
             //ProgTrace(TRACE5,"### point_id=%d point_num_dep=%d"
             LayerQry.Execute();
-            if (!LayerQry.VariableIsNULL("point_id"))
+            if (!LayerQry.VariableIsNULL("point_id"))*/
               point_id.push_back(PointsQry.FieldAsInteger("point_id"));
           };
         };
