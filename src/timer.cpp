@@ -512,23 +512,24 @@ void create_czech_police_file(int point_id, bool is_edi)
       if (is_edi)
       {
       	//информация о том, кто формирует сообщение
-      	paxlstInfo.partyName = "SIRENA-TRAVEL";
-        paxlstInfo.phone = "4959504991";
-        paxlstInfo.fax = "4959504973";
+      	paxlstInfo.setPartyName("SIRENA-TRAVEL");
+        paxlstInfo.setPhone("4959504991");
+        paxlstInfo.setFax("4959504973");
 
         //информация об авиакомпании
         if (airline.name_lat.empty()) throw Exception("airline.name_lat empty (code=%s)",airline.code.c_str());
-        paxlstInfo.senderName = airline.name_lat;
-        paxlstInfo.senderCarrierCode = airline.code_lat;
-        paxlstInfo.recipientCarrierCode = "ZZ";
-        if (!Paxlst::CreateIATACode(paxlstInfo.iataCode,flight.str(),act_in_local))
+        paxlstInfo.setSenderName(airline.name_lat);
+        paxlstInfo.setSenderCarrierCode(airline.code_lat);
+        paxlstInfo.setRecipientCarrierCode("ZZ");
+        string iataCode;
+        if (!Paxlst::CreateIATACode(iataCode,flight.str(),act_in_local))
           throw Exception("CreateIATACode error");
-
-        paxlstInfo.flight = flight.str();
-        paxlstInfo.departureAirport = airp_dep.code_lat;
-        paxlstInfo.departureDate = act_out_local;
-        paxlstInfo.arrivalAirport = airp_arv.code_lat;
-        paxlstInfo.arrivalDate = act_in_local;
+        paxlstInfo.setIATAcode( iataCode );
+        paxlstInfo.setFlight(flight.str());
+        paxlstInfo.setDepartureAirport(airp_dep.code_lat);
+        paxlstInfo.setDepartureDate(act_out_local);
+        paxlstInfo.setArrivalAirport(airp_arv.code_lat);
+        paxlstInfo.setArrivalDate(act_in_local);
       };
 
     	int count=0;
@@ -542,9 +543,9 @@ void create_czech_police_file(int point_id, bool is_edi)
   	  	{
   	  	  if (is_edi)
           {
-    	      paxInfo.passengerName = PaxQry.FieldAsString("name");
-    	      paxInfo.passengerSurname = PaxQry.FieldAsString("surname");
-    	      paxInfo.idNumber = PaxQry.FieldAsString("document");
+    	      paxInfo.setPassengerName(PaxQry.FieldAsString("name"));
+    	      paxInfo.setPassengerSurname(PaxQry.FieldAsString("surname"));
+    	      paxInfo.setIdNumber(PaxQry.FieldAsString("document"));
     	    }
     	    else
     	    {
@@ -596,37 +597,40 @@ void create_czech_police_file(int point_id, bool is_edi)
 
           if (is_edi)
           {
-    	    	paxInfo.passengerName = PaxQry.FieldAsString("doc_first_name");
+    	    	paxInfo.setPassengerName(PaxQry.FieldAsString("doc_first_name"));
     	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
     	    	{
-    	    	  if (!paxInfo.passengerName.empty()) paxInfo.passengerName += " ";
-              paxInfo.passengerName += PaxQry.FieldAsString("doc_second_name");
+                  string passengerName = paxInfo.getPassengerName();
+                  if (!passengerName.empty()) passengerName += " ";
+              passengerName += PaxQry.FieldAsString("doc_second_name");
+                  paxInfo.setPassengerName( passengerName );
     	    	};
-    	    	paxInfo.passengerSurname = PaxQry.FieldAsString("doc_surname");
+    	    	paxInfo.setPassengerSurname( PaxQry.FieldAsString("doc_surname") );
 
-    	      paxInfo.passengerSex = gender.substr(0,1);
-    	      if (paxInfo.passengerSex!="M" &&
-    	          paxInfo.passengerSex!="F")
-    	        paxInfo.passengerSex = "M";
+    	      string passengerSex = gender.substr(0,1);
+              if (passengerSex!="M" &&
+                  passengerSex!="F")
+    	        passengerSex = "M";
+              paxInfo.setPassengerSex( passengerSex );
 
     	      if (!PaxQry.FieldIsNULL("birth_date"))
-    	        paxInfo.birthDate = PaxQry.FieldAsDateTime("birth_date");
+    	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
 
-    	      paxInfo.departurePassenger = airp_dep.code_lat;
-            paxInfo.arrivalPassenger = airp_arv.code_lat;
-            paxInfo.passengerCountry = nationality;
+    	    paxInfo.setDeparturePassenger(airp_dep.code_lat);
+            paxInfo.setArrivalPassenger(airp_arv.code_lat);
+            paxInfo.setPassengerCountry(nationality);
             //PNR
             vector<TPnrAddrItem> pnrs;
             GetPaxPnrAddr(pax_id,pnrs);
             if (!pnrs.empty())
-              paxInfo.passengerNumber = convert_pnr_addr(pnrs.begin()->addr, 1);
+              paxInfo.setPassengerNumber(convert_pnr_addr(pnrs.begin()->addr, 1));
 
             if (doc_type=="P")
-              paxInfo.passengerType = doc_type;
-            paxInfo.idNumber = PaxQry.FieldAsString("no");
+              paxInfo.setPassengerType(doc_type);
+            paxInfo.setIdNumber(PaxQry.FieldAsString("no"));
             if (!PaxQry.FieldIsNULL("expiry_date"))
-              paxInfo.expirateDate = PaxQry.FieldAsDateTime("expiry_date");
-            paxInfo.docCountry = issue_country;
+              paxInfo.setExpirateDate(PaxQry.FieldAsDateTime("expiry_date"));
+            paxInfo.setDocCountry(issue_country);
           }
           else
           {
@@ -644,13 +648,13 @@ void create_czech_police_file(int point_id, bool is_edi)
     	  	};
   	    };
   	    if (is_edi)
-  	      paxlstInfo.passangersList.push_back( paxInfo );
+  	      paxlstInfo.addPassenger( paxInfo );
   	  };
 
-      if (is_edi && !paxlstInfo.passangersList.empty())
+      if (is_edi && !paxlstInfo.getPassengersList().empty())
       {
         string tlg,err;
-  	    if (!paxlstInfo.toEdiStringWithStringsResize(tlg,err)) throw Exception(err);
+  	    if (!paxlstInfo.toEdiString(tlg,err)) throw Exception(err);
   	    body << tlg;
   	  };
 
