@@ -1002,7 +1002,7 @@ error while create expirateDate string" );
 edilib::WriteEdiMessage()" );
     }
 
-    return "UNA:+.? '" + res;
+    return "UNA:+.? '\n" + res;
 }
 
 
