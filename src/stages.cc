@@ -794,7 +794,8 @@ void Takeoff( int point_id )
   time_start=time(NULL);
   try
   {
-    create_czech_police_file(point_id);
+    create_czech_police_file(point_id,false);
+    create_czech_police_file(point_id,true);
   }
   catch(std::exception &E)
   {
