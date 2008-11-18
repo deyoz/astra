@@ -92,7 +92,7 @@ static edi_loaded_char_sets edi_chrset[]=
     {"IATA", "\x3A\x2B,\x3F \x27" /* :+,? ' */},
     {"IATB", "\x1F\x1D,\x3F\x1D\x1C" /*Пурга какая-то!*/},
     {"SIRE", "\x3A\x2B,\x3F \"\n"},
-    {"UNOA", "\x3A\x2B.\x3F \x27" /* :+.? ' */},
+    {"UNOA", "\x3A\x2B.\x3F '\n" /* :+.? ' */},
 };
 
 struct lsTKCREQ {
