@@ -19,6 +19,11 @@ public:
      AddEvent("UserLogoff",evHandle);
      evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::ChangePasswd);
      AddEvent("ChangePasswd",evHandle);
+
+     evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::GetDeviceList);
+     AddEvent("GetDeviceList",evHandle);
+     evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::GetDeviceInfo);
+     AddEvent("GetDeviceInfo",evHandle);
   };
 
   void CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -27,6 +32,11 @@ public:
   void ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   bool GetSessionAirlines(xmlNodePtr node, std::string &str);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+
+  void GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
+
+void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode);
 
 #endif /*_MAINDCS_H_*/
