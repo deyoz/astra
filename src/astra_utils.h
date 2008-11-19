@@ -161,6 +161,7 @@ class TScreen {
   public:
     int id;
     int version;
+    bool pr_logon;
     std::string name;
     TScreen()
     {
@@ -170,6 +171,7 @@ class TScreen {
     {
       id=0;
       version=0;
+      pr_logon = true;
       name.clear();
     };
 };
