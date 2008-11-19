@@ -257,6 +257,7 @@ void ETCheckStatusFlt(void)
           //Отправляем ETL если настроена автоотправка
           try
           {
+            ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
             vector<string>  tlg_types;
             tlg_types.push_back("ETL");
             TelegramInterface::SendTlg(point_id,tlg_types);
@@ -274,7 +275,7 @@ void ETCheckStatusFlt(void)
           //отправим интерактивно конечные статусы
           try
           {
-          	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",point_id);
+          	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
           	TLogMsg msg;
             if (!ETCheckStatus(point_id,csaFlt,point_id,msg))
             {
@@ -600,23 +601,23 @@ void create_czech_police_file(int point_id, bool is_edi)
     	    	paxInfo.setPassengerName(PaxQry.FieldAsString("doc_first_name"));
     	    	if (!PaxQry.FieldIsNULL("doc_second_name"))
     	    	{
-                  string passengerName = paxInfo.getPassengerName();
-                  if (!passengerName.empty()) passengerName += " ";
+              string passengerName = paxInfo.getPassengerName();
+              if (!passengerName.empty()) passengerName += " ";
               passengerName += PaxQry.FieldAsString("doc_second_name");
-                  paxInfo.setPassengerName( passengerName );
+              paxInfo.setPassengerName( passengerName );
     	    	};
     	    	paxInfo.setPassengerSurname( PaxQry.FieldAsString("doc_surname") );
 
     	      string passengerSex = gender.substr(0,1);
-              if (passengerSex!="M" &&
-                  passengerSex!="F")
+            if (passengerSex!="M" &&
+                passengerSex!="F")
     	        passengerSex = "M";
-              paxInfo.setPassengerSex( passengerSex );
+            paxInfo.setPassengerSex( passengerSex );
 
     	      if (!PaxQry.FieldIsNULL("birth_date"))
     	        paxInfo.setBirthDate( PaxQry.FieldAsDateTime("birth_date"));
 
-    	    paxInfo.setDeparturePassenger(airp_dep.code_lat);
+    	      paxInfo.setDeparturePassenger(airp_dep.code_lat);
             paxInfo.setArrivalPassenger(airp_arv.code_lat);
             paxInfo.setPassengerCountry(nationality);
             //PNR

@@ -133,7 +133,6 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
 
 void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  NewTextChild(resNode,"ok");
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
@@ -148,7 +147,6 @@ void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  NewTextChild(resNode,"ok");
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
@@ -163,7 +161,6 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  NewTextChild(resNode,"ok");
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
@@ -183,7 +180,6 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     JxtCont *sysCont = getJxtContHandler()->sysContext();
     string glob_err = sysCont->read("ChangeOfStatusError");
     sysCont->remove("ChangeOfStatusError");
-    NewTextChild(resNode,"ok");
     if (!glob_err.empty())
       showErrorMessage(string("Ошибка сервера эл. билетов: ")+glob_err);
 
