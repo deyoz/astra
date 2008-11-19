@@ -119,8 +119,9 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
-  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
-  	return; //???
+  screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
+/*  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
+  	return; //???*/
   Qry.Clear();
   Qry.SQLText =
     "SELECT city,trace_level,lang,NVL(under_constr,0) AS under_constr "
@@ -155,7 +156,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw UserException("Для города %s не задан регион",desk.city.c_str());
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
-
+  if ( !screen.pr_logon )
+  	return;
   Qry.Clear();
   Qry.SQLText =
     "SELECT user_id, login, descr, type, pr_denial "
@@ -166,7 +168,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
   {
-    if (!checkUserLogon)
+    if (!checkUserLogon )
      	return;
     else
       throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
