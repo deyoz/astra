@@ -109,7 +109,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( opr.empty() && (GetNode( "UserLogon", node ) == NULL))
+    if ( reqInfo->screen.pr_logon && opr.empty() && (GetNode( "UserLogon", node ) == NULL))
     { // оператор пришел пустой - отправляем инфу по оператору
         showBasicInfo();
     }
