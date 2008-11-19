@@ -63,7 +63,11 @@ public:
   {
      Handler *evHandle;
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::AstraTasksLogon);
-     AddEvent("UserLogon",evHandle);
+     AddEvent("AstraTasksLogon",evHandle);
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::ThreadTaskReqData);
+     AddEvent("ThreadTaskReqData",evHandle);
+     evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::ThreadTaskResData);
+     AddEvent("ThreadTaskResData",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::authorize);
      AddEvent("authorize",evHandle);
      evHandle=JxtHandler<AstraServiceInterface>::CreateHandler(&AstraServiceInterface::commitFileData);
@@ -90,6 +94,8 @@ public:
   };
 
   void AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
+  void ThreadTaskReqData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
+  void ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );
   void saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode );

@@ -21,6 +21,7 @@
 #include "timer.h"
 #include "stages.h"
 #include "cont_tools.h"
+#include "maindcs.h"
 #include "cfgproc.h"
 
 
@@ -32,6 +33,8 @@ using namespace JxtContext;
 const double WAIT_ANSWER_SEC = 30.0;   // ждем ответа 30 секунд
 const string PARAM_FILE_ID = "file_id";
 const string PARAM_NEXT_FILE = "NextFile";
+
+void CommitWork( int file_id );
 
 const char* OWN_POINT_ADDR()
 {
@@ -294,7 +297,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
 	TQuery ScanQry( &OraSession );
 	ScanQry.SQLText =
 		"SELECT file_queue.id,file_queue.sender,file_queue.receiver,file_queue.type,"
-		"       file_queue.status,file_queue.time,system.UTCSYSDATE AS now, "
+		"       file_queue.status,file_queue.time,files.time as wait_time,system.UTCSYSDATE AS now, "
 		"       files.data, NVL(file_types.in_order,0) in_order "
 		" FROM file_queue,files,file_types "
 		" WHERE file_queue.id=files.id AND "
@@ -335,7 +338,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
         NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
-        wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "time" );
+        wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
         NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
         if ( !ScanQry.Eof )
@@ -486,7 +489,23 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
 
 void AstraServiceInterface::AstraTasksLogon( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-	tst();
+  TQuery Qry( &OraSession );
+	Qry.SQLText =
+	  "SELECT DISTINCT thread_type FROM file_param_sets, file_types "
+	  " WHERE OWN_POINT_ADDR=:own_point_addr AND point_addr=:point_addr AND file_types.code=file_param_sets.type";
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "point_addr", otString, TReqInfo::Instance()->desk.code );
+	Qry.Execute();
+	if ( Qry.Eof )
+		return;
+	showBasicInfo();
+	GetDevices( reqNode, resNode );
+	xmlNodePtr node = NewTextChild( resNode, "tasks" );
+	while ( !Qry.Eof ) {
+    xmlNodePtr tNode = NewTextChild( node, "task" );
+    NewTextChild( tNode, "thread_type", Qry.FieldAsString( "thread_type" ) );
+		Qry.Next();
+	}
 }
 
 void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -535,13 +554,113 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   	  TReqInfo::Instance()->MsgToLog( msg );
     }
 	}
-	else
+	else {
 		buildLoadFileData( resNode, client_canon_name );
+	}
 }
 
-void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+void AstraServiceInterface::ThreadTaskReqData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
-  int file_id = NodeAsInteger( "file_id", reqNode );
+	string client_canon_name = TReqInfo::Instance()->desk.code;
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
+	 "SELECT pr_send, thread_type FROM file_param_sets, file_types "
+	 " WHERE own_point_addr=:own_point_addr AND point_addr=:point_addr AND file_types.code=file_param_sets.type AND rownum<2";
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "point_addr", otString, client_canon_name );
+	Qry.Execute();
+	if ( Qry.Eof )
+		return;
+	string thread_type = Qry.FieldAsString( "thread_type" );
+  ProgTrace( TRACE5, "client_canon_name=%s, pr_send=%d", client_canon_name.c_str(), Qry.FieldAsInteger( "pr_send" ) );
+  NewTextChild( resNode, "thread_type", thread_type );
+	if ( Qry.FieldAsInteger( "pr_send" ) ) {
+		double wait_time;
+	  int file_id = buildSaveFileData( resNode, client_canon_name, wait_time );
+    string event_type;
+    Qry.Clear();
+    Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
+    Qry.CreateVariable( "id", otInteger, file_id );
+    Qry.CreateVariable( "name", otString, NS_PARAM_EVENT_TYPE );
+    Qry.Execute();
+    if ( !Qry.Eof ) {
+      TLogMsg msg;
+    	string desk_code;
+    	msg.ev_type = DecodeEventType( Qry.FieldAsString( "value" ) );
+      Qry.SetVariable( "name", PARAM_CANON_NAME );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    desk_code = Qry.FieldAsString( "value" );
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID1 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    msg.id1 = ToInt( Qry.FieldAsString( "value" ) );
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID2 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    msg.id2 = ToInt( Qry.FieldAsString( "value" ) );
+      Qry.SetVariable( "name", NS_PARAM_EVENT_ID3 );
+      Qry.Execute();
+      if ( !Qry.Eof )
+  	    msg.id3 = ToInt( Qry.FieldAsString( "value" ) );
+  	  Qry.Clear();
+  	  Qry.SQLText = "SELECT type FROM file_queue WHERE id=:id";
+  	  Qry.CreateVariable( "id", otInteger, file_id );
+  	  Qry.Execute();
+  	  msg.msg = string("Файл отправлен (тип=" + string( Qry.FieldAsString( "type" ) ) + ", адресат=" + desk_code + ", ид.=") +
+                IntToString( file_id ) + ", задержка=" + IntToString( (int)(wait_time*60.0*60.0*24.0)) + "сек.)";
+  	  TReqInfo::Instance()->MsgToLog( msg );
+    }
+	}
+	else {
+		if ( thread_type == "ewAODBLoad" )
+		  buildLoadFileData( resNode, client_canon_name );
+	}
+}
+
+void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	string thread_type = NodeAsString( "thread_type", reqNode );
+	string client_canon_name = TReqInfo::Instance()->desk.code;
+	NewTextChild( resNode, "thread_type", thread_type );
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
+	 "SELECT pr_send FROM file_param_sets, file_types "
+	 " WHERE own_point_addr=:own_point_addr AND point_addr=:point_addr AND "
+	 "       file_types.code=file_param_sets.type AND thread_type=:thread_type AND rownum<2";
+	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
+	Qry.CreateVariable( "point_addr", otString, client_canon_name );
+	Qry.CreateVariable( "thread_type", otString, thread_type );
+	Qry.Execute();
+	if ( Qry.Eof )
+		return;
+	map<string,string> params;
+	xmlNodePtr n = NodeAsNode( "headers", reqNode );
+	if ( !n || !n->children ) {
+		showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+		return;
+	}
+  n = n->children;
+  while ( n ) {
+  	params[ NodeAsString( "key", n ) ] = NodeAsString( "value", n );
+  	ProgTrace( TRACE5, "key=%s, value=%s",NodeAsString( "key", n ), NodeAsString( "value", n ) );
+  	n = n->next;
+  }
+	if ( Qry.FieldAsInteger( "pr_send" ) ) {
+		tst();
+		string sfile_id = params[ PARAM_FILE_ID ];
+		int file_id;
+		if ( sfile_id.empty() || params[ "ANSWER" ].empty() || StrToInt( sfile_id.c_str(), file_id ) == EOF ) {
+			showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+			return;
+		}
+		if ( params[ "ANSWER" ] == "COMMIT" )
+		  CommitWork( file_id );
+  }
+}
+
+void CommitWork( int file_id )
+{
   ProgTrace( TRACE5, "commitFileData param file_id=%d", file_id );
   TQuery Qry( &OraSession );
   Qry.SQLText = "SELECT value FROM file_params WHERE id=:id AND name=:name";
@@ -576,6 +695,11 @@ void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr req
   doneFile( file_id );
   msg.msg = string("Файл доставлен (тип=" + ftype + ", адресат=" + desk_code + ", ид.=") + IntToString( file_id ) + ")";
   TReqInfo::Instance()->MsgToLog( msg );
+}
+
+void AstraServiceInterface::commitFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+  CommitWork( NodeAsInteger( "file_id", reqNode ) );
 }
 
 void AstraServiceInterface::errorFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
