@@ -77,6 +77,7 @@ namespace ChangeStatus
 
                 errMap[make_pair(ticketnum, ci.num())] = GetDBFName(pMes,
                                     DataElement(9321),
+                                    CompElement("C901"),
                                     SegmElement("ERC"));
 
                 PopEdiPoint_wdG(pMes);
@@ -87,6 +88,7 @@ namespace ChangeStatus
 
             errMap[make_pair(ticketnum, 0)] = GetDBFName(pMes,
                                          DataElement(9321),
+                                         CompElement("C901"),
                                          SegmElement("ERC"));
 
         }

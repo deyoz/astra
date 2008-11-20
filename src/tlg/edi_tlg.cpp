@@ -582,7 +582,11 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
         ProgTrace(TRACE5,"ticket=%s error=%s",
                          currTick->ticknum().c_str(), err.c_str());
       }
-      else
+
+      if (currTick->getCoupon().empty()) continue;
+
+
+      if (err.empty())
       {
           err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
           if (!err.empty())
@@ -594,7 +598,6 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
           };
       }
 
-      if (currTick->getCoupon().empty()) continue;
 
       //получим ид. рейса
       Qry.Clear();
