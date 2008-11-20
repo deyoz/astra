@@ -83,7 +83,7 @@ void TFilterLayers::getFilterLayers( int point_id )
 	setFlag( cltTranzit );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	"SELECT pr_tranz_reg,pr_block_trzt,pr_tranzit "
+	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
 	" FROM trip_sets, points "
 	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -692,7 +692,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     }
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
       if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
-        ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
+      	ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
         SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
@@ -1136,14 +1136,17 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
 	Qry.Execute();
 	ProgTrace( TRACE5, "bort=%s, airline=%s, airp=%s", bort.c_str(), airline.c_str(), airp.c_str() );
   while ( !Qry.Eof ) {
-    if ( bort == Qry.FieldAsString( "bort" ) &&
-    	   ( airline == Qry.FieldAsString( "airline" ) || airp == Qry.FieldAsString( "airp" ) ) )
-    	idx = 0; // когда совпадает борт+авиакомпания+аэропорт
+  	string comp_airline = Qry.FieldAsString( "airline" );
+  	string comp_airp = Qry.FieldAsString( "airp" );
+  	bool airline_OR_airp = !comp_airline.empty() && airline == comp_airline ||
+    	                     comp_airline.empty() && !comp_airp.empty() && airp == comp_airp;
+    if ( !bort.empty() && bort == Qry.FieldAsString( "bort" ) && airline_OR_airp )
+    	idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
     else
-    	if ( bort == Qry.FieldAsString( "bort" ) )
+    	if ( !bort.empty() && bort == Qry.FieldAsString( "bort" ) )
     		idx = 1; // когда совпадает борт
     	else
-    		if ( airline == Qry.FieldAsString( "airline" ) || airp == Qry.FieldAsString( "airp" ) )
+    		if ( airline_OR_airp )
     			idx = 2; // когда совпадает авиакомпания или аэропорт
     		else {
     			Qry.Next();
