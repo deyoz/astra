@@ -18,7 +18,7 @@
 #include "base_tables.h"
 #include "jxt_cont.h"
 
-#include "tcl_utils.h"
+#include "tclmon/tcl_utils.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -459,7 +459,7 @@ long TReqInfo::getExecuteMSec()
 	return pt.total_milliseconds();
 }
 
-void MsgToLog(TLogMsg &msg, string &screen, string &user, string &desk)
+void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const string &desk)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -492,6 +492,17 @@ void MsgToLog(TLogMsg &msg, string &screen, string &user, string &desk)
     else
         Qry.SetVariable("id3", FNull);
     Qry.Execute();
+};
+
+void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3)
+{
+    TLogMsg msgh;
+    msgh.msg = msg;
+    msgh.ev_type = ev_type;
+    msgh.id1 = id1;
+    msgh.id2 = id2;
+    msgh.id3 = id3;
+    MsgToLog(msgh,"","","");
 };
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)

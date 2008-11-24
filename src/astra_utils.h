@@ -217,7 +217,15 @@ class TReqInfo
 };
 
 std::string GetSQLEnum(std::vector<std::string> &values);
-void MsgToLog(TLogMsg &msg, std::string &screen, std::string &user, std::string &desk);
+void MsgToLog(TLogMsg &msg,
+              const std::string &screen,
+              const std::string &user,
+              const std::string &desk);
+void MsgToLog(std::string msg,
+              ASTRA::TEventType ev_type,
+              int id1 = 0,
+              int id2 = 0,
+              int id3 = 0);
 
 ASTRA::TDocType DecodeDocType(char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
@@ -232,9 +240,7 @@ char* EncodePaxStatus(ASTRA::TPaxStatus s);
 ASTRA::TCompLayerType DecodeCompLayerType(char* s);
 char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 
-
 char DecodeStatus(char* s);
-
 
 #define sign( x ) ( ( x ) > 0 ? 1 : ( x ) < 0 ? -1 : 0 )
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
@@ -247,11 +253,7 @@ void showMessage( const std::string &message );
 void showErrorMessageAndRollback(const std::string &message );
 void showBasicInfo(void);
 
-void MsgToLog(std::string msg, ASTRA::TEventType ev_type,
-        int id1 = 0,
-        int id2 = 0,
-        int id3 = 0);
-void MsgToLog(TLogMsg &msg);
+
 
 ASTRA::TOperMode DecodeOperMode( const std::string mode );
 std::string EncodeOperMode(const ASTRA::TOperMode mode );
