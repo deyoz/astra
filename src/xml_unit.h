@@ -87,4 +87,26 @@ xmlDocPtr TextToXMLTree( const std::string& str );
 std::string XMLTreeToText( xmlDocPtr doc);
 std::string GetXMLDocText( xmlDocPtr doc);
 
+class XMLDoc
+{
+  public:
+    xmlDocPtr docPtr;
+    XMLDoc()
+    {
+      docPtr=NULL;
+    };
+    XMLDoc(const std::string &text)
+    {
+      if (!text.empty())
+        docPtr=TextToXMLTree(text);
+      else
+        docPtr=NULL;
+    };
+    ~XMLDoc()
+    {
+      if (docPtr!=NULL) xmlFreeDoc(docPtr);
+    };
+};
+
+
 #endif
