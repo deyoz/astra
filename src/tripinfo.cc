@@ -655,6 +655,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
 
   if (reqInfo->screen.name == "AIR.EXE" ||
+      reqInfo->screen.name == "BRDBUS.EXE" ||
+      reqInfo->screen.name == "EXAM.EXE" ||
       reqInfo->screen.name == "DOCS.EXE" ||
       reqInfo->screen.name == "PREPREG.EXE")
   {
@@ -669,29 +671,45 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Clear();
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
+      "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
-      "       pr_reg_with_tkn,pr_reg_with_doc "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
     if (Qryh.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-    NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
-    NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
-    NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
-    NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
-    NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
-    NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
-    NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
-    NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
-    NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
-  };
-  if (reqInfo->screen.name == "AIR.EXE" ||
-      reqInfo->screen.name == "BRDBUS.EXE" ||
-      reqInfo->screen.name == "EXAM.EXE")
-  {
-    NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
-  };
+    if (Qryh.FieldAsInteger("pr_etstatus")<0)
+    {
+      //вывод "Нет связи с СЭБ" в информации по рейсу
+      string remark=Qry.FieldAsString( "remark" );
+      if (!remark.empty()) remark.append(" ");
+      remark.append("Нет связи с СЭБ.");
+      ReplaceTextChild(node, "remark",  remark);
+    };
 
+    if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "DOCS.EXE" ||
+        reqInfo->screen.name == "PREPREG.EXE")
+    {
+      NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
+      NewTextChild( node, "pr_block_trzt", (int)(Qryh.FieldAsInteger("pr_block_trzt")!=0) );
+      NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
+      NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
+      NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
+      NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
+      NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
+      NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
+      NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
+      NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
+    };
+    if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "BRDBUS.EXE" ||
+        reqInfo->screen.name == "EXAM.EXE")
+    {
+      NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
+      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+    };
+  };
   return true;
 }
 

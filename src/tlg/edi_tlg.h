@@ -160,20 +160,22 @@ enum TickDispType_t {
 class TickDisp : public edi_common_data
 {
     TickDispType_t DispType;
+    std::string ediSessCtxt;
 public:
-    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt)
-    :edi_common_data(org), DispType(dt)
+    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt, const std::string &ctxt)
+    :edi_common_data(org), DispType(dt), ediSessCtxt(ctxt)
     {
     }
     TickDispType_t dispType() { return DispType; }
+    const std::string & context() const { return ediSessCtxt; }
 };
 
 class TickDispByNum : public TickDisp
 {
     std::string TickNum;
 public:
-    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum)
-    :   TickDisp(org, TickDispByTickNo),
+    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum, const std::string &ctxt)
+    :   TickDisp(org, TickDispByTickNo, ctxt),
         TickNum(ticknum)
     {
     }
@@ -184,18 +186,21 @@ public:
 class ChngStatData : public edi_common_data
 {
     std::list<Ticketing::Ticket> lTick;
+    std::string ediSessCtxt;
     Ticketing::Itin::SharedPtr Itin_;
 public:
     ChngStatData(const Ticketing::OrigOfRequest &org,
                  const std::list<Ticketing::Ticket> &lt,
+                 const std::string &ctxt,
                  const Ticketing::Itin *itin_ = NULL)
-    :edi_common_data(org), lTick(lt)
+    :edi_common_data(org), lTick(lt), ediSessCtxt(ctxt)
     {
         if(itin_){
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
         }
     }
     const std::list<Ticketing::Ticket> & ltick() const { return lTick; }
+    const std::string & context() const { return ediSessCtxt; }
     bool isGlobItin() const
     {
         return Itin_;

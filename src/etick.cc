@@ -14,6 +14,7 @@
 #include "jxt_cont.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_consts.h"
 #include "base_tables.h"
 #include "tripinfo.h"
 
@@ -27,6 +28,7 @@ using namespace Ticketing::ChangeStatus;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace JxtContext;
+using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
@@ -63,14 +65,18 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
                    oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
   OrigOfRequest org(oper_carrier,*TReqInfo::Instance());
-  TickDispByNum tickDisp(org, tick_no);
+
+  XMLDoc xmlCtxt;
+  xmlCtxt.docPtr=CreateXMLDoc("UTF-8","context");
+  if (xmlCtxt.docPtr==NULL)
+    throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
+  NewTextChild(NodeAsNode("/context",xmlCtxt.docPtr),"point_id",point_id);
+
+  string ediCtxt=XMLTreeToText(xmlCtxt.docPtr);
+
+  TickDispByNum tickDisp(org, tick_no, ediCtxt);
   SendEdiTlgTKCREQ_Disp( tickDisp );
   //в лог отсутствие связи
-/*  TLogMsg msg;
-  msg.ev_type=ASTRA::evtFlt;
-  msg.id1=point_id;
-  msg.msg="Ошибка связи с СЭБ при попытке получить образ эл. билета "+tick_no;
-  TReqInfo::Instance()->MsgToLog(msg);*/
   if( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0)
     NewTextChild(resNode,"connect_error");
   else
@@ -131,16 +137,39 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
     }
 }
 
+void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id=NodeAsInteger("point_id",reqNode);
+  int new_pr_etstatus=sign(NodeAsInteger("pr_etstatus",reqNode));
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id FOR UPDATE";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+
+  int old_pr_etstatus=sign(Qry.FieldAsInteger("pr_etstatus"));
+  if (old_pr_etstatus==0 && new_pr_etstatus<0)
+  {
+    Qry.SQLText="UPDATE trip_sets SET pr_etstatus=-1 WHERE point_id=:point_id";
+    Qry.Execute();
+    TReqInfo::Instance()->MsgToLog( "Установлен режим временной отмены интерактива с СЭБ", evtFlt, point_id );
+  }
+  else
+    if (old_pr_etstatus==new_pr_etstatus)
+      throw UserException("Рейс уже переведен в данный режим");
+    else
+      throw UserException("Рейс не может быть переведен в данный режим");
+};
+
 void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
-  TLogMsg msg;
-  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,check_point_id,msg))
+  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,check_point_id))
   {
     //если сюда попали, то записать ошибку связи в лог
-    //TReqInfo::Instance()->MsgToLog(msg);
     showProgError("Нет связи с сервером эл. билетов");
   };
 };
@@ -150,11 +179,9 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
-  TLogMsg msg;
-  if (ETCheckStatus(NodeAsInteger("grp_id",reqNode),csaGrp,check_point_id,msg))
+  if (ETCheckStatus(NodeAsInteger("grp_id",reqNode),csaGrp,check_point_id))
   {
     //если сюда попали, то записать ошибку связи в лог
-    //TReqInfo::Instance()->MsgToLog(msg);
     showProgError("Нет связи с сервером эл. билетов");
   };
 };
@@ -164,11 +191,9 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
-  TLogMsg msg;
-  if (ETCheckStatus(NodeAsInteger("point_id",reqNode),csaFlt,check_point_id,msg))
+  if (ETCheckStatus(NodeAsInteger("point_id",reqNode),csaFlt,check_point_id))
   {
     //если сюда попали, то записать ошибку связи в лог
-    //TReqInfo::Instance()->MsgToLog(msg);
     showProgError("Нет связи с сервером эл. билетов");
   };
 };
@@ -181,43 +206,44 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string glob_err = sysCont->read("ChangeOfStatusError");
     sysCont->remove("ChangeOfStatusError");
     if (!glob_err.empty())
-      showErrorMessage(string("Ошибка сервера эл. билетов: ")+glob_err);
+      showErrorMessage(string("Ошибка СЭБ: ")+glob_err);
 
 };
 
-bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg &errMsg)
+bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool check_connect)
 {
-  errMsg.Clear();
-  errMsg.ev_type=ASTRA::evtPax;
+  typedef list<Ticket> TTicketList;
+  typedef pair<TTicketList,XMLDoc> TTicketListCtxt;
 
-  list<Ticket> ltick;
+  map<int,TTicketListCtxt> mtick;
+
   string oper_carrier;
   bool init_edi_addrs=false;
 
-  TQuery UpdQry(&OraSession);
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
   sql <<  "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
-          "       points.act_out AS real_out,points.point_id ";
+          "       points.act_out AS real_out,points.point_id, trip_sets.pr_etstatus ";
   switch (area)
   {
     case csaFlt:
-      sql << "FROM points "
-             "WHERE points.point_id=:point_id ";
+      sql << "FROM points,trip_sets "
+             "WHERE trip_sets.point_id=points.point_id AND "
+             "      points.point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,id);
       break;
     case csaGrp:
-      sql << ",pax_grp.grp_id "
-             "FROM points,pax_grp "
-             "WHERE points.point_id=pax_grp.point_dep AND "
+      sql << "FROM points,trip_sets,pax_grp "
+             "WHERE trip_sets.point_id=points.point_id AND "
+             "      points.point_id=pax_grp.point_dep AND "
              "      pax_grp.grp_id=:grp_id ";
       Qry.CreateVariable("grp_id",otInteger,id);
       break;
     case csaPax:
-      sql << ",pax_grp.grp_id,pax.reg_no "
-             "FROM points,pax_grp,pax "
-             "WHERE points.point_id=pax_grp.point_dep AND "
+      sql << "FROM points,trip_sets,pax_grp,pax "
+             "WHERE trip_sets.point_id=points.point_id AND "
+             "      points.point_id=pax_grp.point_dep AND "
              "      pax_grp.grp_id=pax.grp_id AND "
              "      pax.pax_id=:pax_id ";
       Qry.CreateVariable("pax_id",otInteger,id);
@@ -230,14 +256,10 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
   if (!Qry.Eof)
   {
     int point_id=Qry.FieldAsInteger("point_id");
-    errMsg.id1=point_id;
-    if (area==csaPax)
-      errMsg.id2=Qry.FieldAsInteger("reg_no");
-    if (area==csaGrp || area==csaPax)
-      errMsg.id3=Qry.FieldAsInteger("grp_id");
 
     TTripInfo info(Qry);
-    if (!GetTripSets(tsETLOnly,info))
+    if ((Qry.FieldAsInteger("pr_etstatus")>=0 || check_connect) &&
+        !GetTripSets(tsETLOnly,info))
     {
       TDateTime act_out=ASTRA::NoExists;
       if (!Qry.FieldIsNULL("real_out")) act_out=Qry.FieldAsDateTime("real_out");
@@ -246,12 +268,14 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
       sql.str("");
       sql <<
         "SELECT pax_grp.airp_dep, pax_grp.airp_arv, pax_grp.class, "
-        "       pax.ticket_no, pax.coupon_no, pax.ticket_confirm, "
+        "       pax.ticket_no, pax.coupon_no, "
         "       pax.refuse, pax.pr_brd, "
         "       etickets.point_id AS tick_point_id, "
         "       etickets.airp_dep AS tick_airp_dep, "
         "       etickets.airp_arv AS tick_airp_arv, "
-        "       etickets.coupon_status AS coupon_status "
+        "       etickets.coupon_status AS coupon_status, "
+        "       pax.grp_id, pax.pax_id, pax.reg_no, "
+        "       pax.surname, pax.name, pax.pers_type "
         "FROM pax_grp,pax,etickets "
         "WHERE pax_grp.grp_id=pax.grp_id AND pax.ticket_rem='TKNE' AND "
         "      pax.ticket_no IS NOT NULL AND pax.coupon_no IS NOT NULL AND "
@@ -274,118 +298,103 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
         default: ;
       }
 
-      UpdQry.Clear();
-      UpdQry.SQLText=
-        "BEGIN "
-        "  IF :ticket_confirm<>0 THEN "
-        "    UPDATE etickets "
-        "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "    IF SQL%NOTFOUND THEN "
-        "      INSERT INTO etickets(ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status) "
-        "      VALUES(:ticket_no,:coupon_no,:point_id,:airp_dep,:airp_arv,NULL); "
-        "    END IF; "
-        "  ELSE "
-        "    DELETE FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  END IF; "
-        "END;";
-      UpdQry.DeclareVariable("ticket_no",otString);
-      UpdQry.DeclareVariable("coupon_no",otInteger);
-      UpdQry.DeclareVariable("point_id",otInteger);
-      UpdQry.DeclareVariable("airp_dep",otString);
-      UpdQry.DeclareVariable("airp_arv",otString);
-      UpdQry.DeclareVariable("ticket_confirm",otInteger);
-
-
       Qry.SQLText=sql.str().c_str();
       Qry.Execute();
       if (!Qry.Eof)
       {
         for(;!Qry.Eof;Qry.Next())
         {
+          string ticket_no=Qry.FieldAsString("ticket_no");
+          int coupon_no=Qry.FieldAsInteger("coupon_no");
+
           string airp_dep=Qry.FieldAsString("airp_dep");
           string airp_arv=Qry.FieldAsString("airp_arv");
-          bool pr_confirm=Qry.FieldAsInteger("ticket_confirm")!=0;
 
-          if (pr_confirm)
+          CouponStatus status;
+          if (Qry.FieldIsNULL("coupon_status"))
+            status=CouponStatus(CouponStatus::Notification); //???
+          else
+            status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
+
+          CouponStatus real_status;
+          if (!Qry.FieldIsNULL("refuse"))
+            //разрегистрирован
+            real_status=CouponStatus(CouponStatus::OriginalIssue);
+          else
           {
-            CouponStatus status;
-            if (Qry.FieldIsNULL("coupon_status"))
-              status=CouponStatus(CouponStatus::OriginalIssue);
-            else
-              status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
-
-            CouponStatus real_status;
-            if (!Qry.FieldIsNULL("refuse"))
-              //разрегистрирован
-              real_status=CouponStatus(CouponStatus::OriginalIssue);
+            if (Qry.FieldAsInteger("pr_brd")==0)
+            	//не посажен
+              real_status=CouponStatus(CouponStatus::Checked);
             else
             {
-              if (Qry.FieldAsInteger("pr_brd")==0)
-              	//не посажен
-                real_status=CouponStatus(CouponStatus::Checked);
+              if (act_out==ASTRA::NoExists)
+                 //самолет не улетел
+                real_status=CouponStatus(CouponStatus::Boarded);
               else
-              {
-                if (act_out==ASTRA::NoExists)
-                   //самолет не улетел
-                  real_status=CouponStatus(CouponStatus::Boarded);
-                else
-                  real_status=CouponStatus(CouponStatus::Flown);
-              };
-            };
-            if (status!=real_status)
-            {
-              ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
-              Coupon_info ci (Qry.FieldAsInteger("coupon_no"),real_status);
-              //if (area==csaFlt)
-              //{
-                TDateTime scd_local=UTCToLocal(info.scd_out,
-                                               AirpTZRegion(info.airp));
-                ptime scd(DateTimeToBoost(scd_local));
-                Itin itin(info.airline,                      //marketing carrier
-                        "",                                  //operating carrier
-                        info.flt_no,0,
-                        SubClass(),
-                        scd.date(),
-                        time_duration(not_a_date_time), // not a date time
-                        airp_dep,
-                        airp_arv);
-                Coupon cpn(ci,itin);
-              //}
-              //else
-              //  Coupon cpn(ci);
-
-              list<Coupon> lcpn;
-              lcpn.push_back(cpn);
-
-              Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
-              ltick.push_back(tick);
-              if (oper_carrier.empty())
-                oper_carrier=info.airline;
-              if (!init_edi_addrs)
-                init_edi_addrs=set_edi_addrs(info.airline,info.flt_no);
-
-              ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
-                               Qry.FieldAsString("ticket_no"),
-                               Qry.FieldAsInteger("coupon_no"),
-                               real_status->dispCode());
-
+                real_status=CouponStatus(CouponStatus::Flown);
             };
           };
-          if (Qry.FieldIsNULL("tick_point_id") && pr_confirm ||
-              !Qry.FieldIsNULL("tick_point_id") &&
-              (point_id!=Qry.FieldAsInteger("tick_point_id") ||
-               airp_dep!=Qry.FieldAsString("tick_airp_dep") ||
-               airp_arv!=Qry.FieldAsString("tick_airp_arv") ||
-               !pr_confirm))
+
+       /*   if (real_status->codeInt()==CouponStatus::Boarded &&
+              (ticket_no=="2981260007672" || ticket_no=="2981260007673"))
+            real_status=CouponStatus(CouponStatus::Checked);*/
+
+
+          if (status!=real_status)
           {
-            UpdQry.SetVariable("ticket_no",Qry.FieldAsString("ticket_no"));
-            UpdQry.SetVariable("coupon_no",Qry.FieldAsInteger("coupon_no"));
-            UpdQry.SetVariable("point_id",point_id);
-            UpdQry.SetVariable("airp_dep",airp_dep.c_str());
-            UpdQry.SetVariable("airp_arv",airp_arv.c_str());
-            UpdQry.SetVariable("ticket_confirm",(int)pr_confirm);
-            UpdQry.Execute();
+            TTicketListCtxt &ltick=mtick[real_status->codeInt()];
+            if (ltick.second.docPtr==NULL)
+            {
+              ltick.second.docPtr=CreateXMLDoc("UTF-8","context");
+              if (ltick.second.docPtr==NULL)
+                throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
+              NewTextChild(NodeAsNode("/context",ltick.second.docPtr),"tickets");
+            };
+
+            ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
+            Coupon_info ci (coupon_no,real_status);
+
+            TDateTime scd_local=UTCToLocal(info.scd_out,
+                                           AirpTZRegion(info.airp));
+            ptime scd(DateTimeToBoost(scd_local));
+            Itin itin(info.airline,                      //marketing carrier
+                    "",                                  //operating carrier
+                    info.flt_no,0,
+                    SubClass(),
+                    scd.date(),
+                    time_duration(not_a_date_time), // not a date time
+                    airp_dep,
+                    airp_arv);
+            Coupon cpn(ci,itin);
+
+            list<Coupon> lcpn;
+            lcpn.push_back(cpn);
+
+            Ticket tick(ticket_no, lcpn);
+            ltick.first.push_back(tick);
+            if (oper_carrier.empty())
+              oper_carrier=info.airline;
+            if (!init_edi_addrs)
+              init_edi_addrs=set_edi_addrs(info.airline,info.flt_no);
+
+            xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
+            NewTextChild(node,"ticket_no",ticket_no);
+            NewTextChild(node,"coupon_no",coupon_no);
+            NewTextChild(node,"point_id",point_id);
+            NewTextChild(node,"airp_dep",airp_dep);
+            NewTextChild(node,"airp_arv",airp_arv);
+            NewTextChild(node,"grp_id",Qry.FieldAsInteger("grp_id"));
+            NewTextChild(node,"pax_id",Qry.FieldAsInteger("pax_id"));
+            NewTextChild(node,"reg_no",Qry.FieldAsInteger("reg_no"));
+            NewTextChild(node,"surname",Qry.FieldAsString("surname"));
+            NewTextChild(node,"name",Qry.FieldAsString("name"));
+            NewTextChild(node,"pers_type",Qry.FieldAsString("pers_type"));
+
+            ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
+                             ticket_no.c_str(),
+                             coupon_no,
+                             real_status->dispCode());
+
           };
         };
       };
@@ -394,25 +403,22 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
 
   if (check_point_id>=0)
   {
-    if (errMsg.id1==0)
-    {
-      errMsg.id1=check_point_id;
-      if (area==csaGrp)
-        errMsg.id3=id;
-    };
     //проверка билетов, пассажиры которых разрегистрированы (по всему рейсу)
     Qry.Clear();
     Qry.SQLText=
       "SELECT points.airline,points.flt_no,points.suffix,points.airp,points.scd_out, "
-      "       points.act_out AS real_out,points.point_id "
-      "FROM points "
-      "WHERE point_id=:point_id AND pr_del>=0 ";
+      "       points.act_out AS real_out,points.point_id,trip_sets.pr_etstatus "
+      "FROM points,trip_sets "
+      "WHERE trip_sets.point_id=points.point_id AND "
+      "      points.point_id=:point_id AND pr_del>=0 ";
     Qry.CreateVariable("point_id",otInteger,check_point_id);
     Qry.Execute();
     if (!Qry.Eof)
     {
+      CouponStatus real_status=CouponStatus(CouponStatus::OriginalIssue);
       TTripInfo info(Qry);
-      if (!GetTripSets(tsETLOnly,info))
+      if ((Qry.FieldAsInteger("pr_etstatus")>=0 || check_connect) &&
+          !GetTripSets(tsETLOnly,info))
       {
         Qry.Clear();
         Qry.SQLText=
@@ -428,7 +434,19 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
         Qry.Execute();
         for(;!Qry.Eof;Qry.Next())
         {
-          Coupon_info ci (Qry.FieldAsInteger("coupon_no"),CouponStatus(CouponStatus::OriginalIssue));
+          string ticket_no=Qry.FieldAsString("ticket_no");
+          int coupon_no=Qry.FieldAsInteger("coupon_no");
+
+          TTicketListCtxt &ltick=mtick[real_status->codeInt()];
+          if (ltick.second.docPtr==NULL)
+          {
+            ltick.second.docPtr=CreateXMLDoc("UTF-8","context");
+            if (ltick.second.docPtr==NULL)
+              throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
+            NewTextChild(NodeAsNode("/context",ltick.second.docPtr),"tickets");
+          };
+
+          Coupon_info ci (coupon_no,real_status);
           TDateTime scd_local=UTCToLocal(info.scd_out,
                                          AirpTZRegion(info.airp));
           ptime scd(DateTimeToBoost(scd_local));
@@ -443,28 +461,34 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
           Coupon cpn(ci,itin);
           list<Coupon> lcpn;
           lcpn.push_back(cpn);
-          Ticket tick(Qry.FieldAsString("ticket_no"), lcpn);
-          ltick.push_back(tick);
+          Ticket tick(ticket_no, lcpn);
+          ltick.first.push_back(tick);
           if (oper_carrier.empty())
             oper_carrier=info.airline;
           if (!init_edi_addrs)
             init_edi_addrs=set_edi_addrs(info.airline,info.flt_no);
 
+          xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
+          NewTextChild(node,"ticket_no",ticket_no);
+          NewTextChild(node,"coupon_no",coupon_no);
+          NewTextChild(node,"point_id",check_point_id);
+          NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
+          NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
+
           ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
-                           Qry.FieldAsString("ticket_no"),
-                           Qry.FieldAsInteger("coupon_no"),
-                           "O");
+                           ticket_no.c_str(),
+                           coupon_no,
+                           real_status->dispCode());
         };
       };
     };
   };
 
-  if (!ltick.empty())
+  bool result=false;
+  for(map<int,TTicketListCtxt>::iterator i=mtick.begin();i!=mtick.end();i++)
   {
-    if (ltick.size()>1)
-      errMsg.msg=="Ошибка связи с СЭБ при попытке изменения статуса эл. билетов";
-    else
-      errMsg.msg=="Ошибка связи с СЭБ при попытке изменения статуса эл. билетa";
+    TTicketList &ltick=i->second.first;
+    if (ltick.empty()) continue;
 
     if (oper_carrier.empty())
       throw EXCEPTIONS::Exception("ETCheckStatus: unkown operation carrier");
@@ -481,20 +505,24 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, TLogMsg 
     ProgTrace(TRACE5,"ETCheckStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                      oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
+    string ediCtxt=XMLTreeToText(i->second.second.docPtr);
+
     TReqInfo& reqInfo = *(TReqInfo::Instance());
     if (reqInfo.desk.code.empty())
     {
       //не запрос
       OrigOfRequest org(oper_carrier);
-      ChangeStatus::ETChangeStatus(org, ltick);
+      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt);
     }
     else
     {
       OrigOfRequest org(oper_carrier,reqInfo);
-      ChangeStatus::ETChangeStatus(org, ltick);
+      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt);
     };
+
+    result=true;
   };
-  return (!ltick.empty());
+  return result;
 }
 
 

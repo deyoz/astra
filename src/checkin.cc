@@ -1328,7 +1328,8 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
       case psTransit:
                  free=Qry.FieldAsInteger("nooccupy");
                  break;
-      case psOk: if (ckin_stage==sOpenCheckIn)
+      case psOk:
+      	        if (ckin_stage==sOpenCheckIn)
                    free=Qry.FieldAsInteger("free_ok");
                  else
                    free=Qry.FieldAsInteger("nooccupy");
@@ -1741,21 +1742,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "END;";
   CrsQry.DeclareVariable("pax_id",otInteger);
 
-
-  bool pr_tranz_reg,
-       pr_reg_with_tkn,
-       pr_reg_with_doc;
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc "
+    "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
     "FROM trip_sets WHERE point_id=:point_id ";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
 
-  pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
-  pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
-  pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
+  bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
+  bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
+  bool pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
+  int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
 
   xmlNodePtr node,node2,remNode;
   //проверим номера документов и билетов
@@ -2152,7 +2150,23 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             };
             ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
             //запись в базу
+           /* TCompLayerType layer_type;
+            switch( grp_status ) {
+            	case psCheckin:
+            		layer_type = cltCheckin;
+            		break;
+            	case psTCheckin:
+            		layer_type = cltTCheckin;
+            		break;
+            	case psGoshow:
+            		layer_type = cltCheckin;
+            		break;
+            	case psTransit:
+            		layer_type = cltTranzit;
+            		break;
+            }*/
             SEATS::SaveTripSeatRanges( point_dep, cltCheckin, ranges, pax_id, point_dep, point_arv );
+            //SEATS::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
             //seat_no=pas.seat_no.begin()->
             i++;
           };
@@ -2623,7 +2637,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   info.airline=airline;
   info.flt_no=flt_no;
   info.airp=airp_dep;
-  NewTextChild(NewTextChild(resNode,"trip_sets"),"pr_etl_only",(int)GetTripSets(tsETLOnly,info));
+
+  node=NewTextChild(resNode,"trip_sets");
+  NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+  NewTextChild( node, "pr_etstatus", pr_etstatus );
 };
 
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

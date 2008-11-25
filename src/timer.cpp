@@ -16,6 +16,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
 #include "cfgproc.h"
@@ -212,31 +213,36 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
+    TDateTime now=NowUTC();
+
+    AstraContext::ClearContext("EDI_SESSION",now-1.0/24);
+
     Qry.Clear();
     Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/24";
     Qry.Execute();
     OraSession.Commit();
 
-    TDateTime now=NowUTC();
-
     TQuery UpdQry(&OraSession);
-    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
+    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
+    UpdQry.DeclareVariable("pr_etstatus",otInteger);
 
     Qry.Clear();
     Qry.SQLText=
-     "SELECT p.point_id, p.airline, p.flt_no, p.airp, "
-     "       NVL(act_in,NVL(est_in,scd_in)) AS real_in "
+     "SELECT p.point_id, p.airline, p.flt_no, p.airp, p.act_out, "
+     "       NVL(act_in,NVL(est_in,scd_in)) AS real_in, "
+     "       p.pr_etstatus "
      "FROM points, "
-     "  (SELECT points.point_id,point_num,airline,flt_no,airp, "
-     "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
+     "  (SELECT points.point_id,point_num,airline,flt_no,airp,act_out, "
+     "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
+     "          pr_etstatus "
      "   FROM points,trip_sets "
      "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
-     "         act_out IS NOT NULL AND pr_etstatus=0) p "
+     "         (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)) p "
      "WHERE points.first_point=p.first_point AND "
      "      points.point_num>p.point_num AND points.pr_del=0 AND "
      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
-     "      NVL(act_in,NVL(est_in,scd_in))<:now ";
+     "      (NVL(act_in,NVL(est_in,scd_in))<:now AND pr_etstatus=0 OR pr_etstatus<0)";
     Qry.CreateVariable("now",otDate,now);
     Qry.Execute();
 
@@ -249,8 +255,9 @@ void ETCheckStatusFlt(void)
         info.airline=Qry.FieldAsString("airline");
         info.flt_no=Qry.FieldAsInteger("flt_no");
         info.airp=Qry.FieldAsString("airp");
-        if (Qry.FieldAsDateTime("real_in")+30.0/1440<now || //прошло более 30 минут с момента прилета в конечный пункт
-            GetTripSets(tsETLOnly,info))
+        if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
+            (Qry.FieldAsDateTime("real_in")+30.0/1440<now || //прошло более 30 минут с момента прилета в конечный пункт
+             Qry.FieldAsDateTime("real_in")<now && GetTripSets(tsETLOnly,info)))
         {
           //Работа с сервером эл. билетов в интерактивном режиме запрещена
           //либо же никак не хотят подтверждаться конечные статусы
@@ -262,6 +269,7 @@ void ETCheckStatusFlt(void)
             tlg_types.push_back("ETL");
             TelegramInterface::SendTlg(point_id,tlg_types);
             UpdQry.SetVariable("point_id",point_id);
+            UpdQry.SetVariable("pr_etstatus",1);
             UpdQry.Execute();
             OraSession.Commit();
           }
@@ -276,21 +284,13 @@ void ETCheckStatusFlt(void)
           try
           {
           	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
-          	TLogMsg msg;
-            if (!ETCheckStatus(point_id,csaFlt,point_id,msg))
+            if (!ETCheckStatus(point_id,csaFlt,point_id,true))
             {
-              //надо бы проверить а есть ли неподтвержденные билеты - ведь они в интерактив не входят
-              TQuery PaxQry(&OraSession);
-              PaxQry.Clear();
-              PaxQry.SQLText=
-                "SELECT COUNT(*) AS count FROM pax_grp,pax "
-                "WHERE pax_grp.grp_id=pax.grp_id AND pax_grp.point_dep=:point_id AND "
-                "      pax.pr_brd=1 AND pax.ticket_rem='TKNE' AND pax.ticket_confirm=0";
-              PaxQry.CreateVariable("point_id",otInteger,point_id);
-              PaxQry.Execute();
-              if (PaxQry.Eof || PaxQry.FieldAsInteger("count")==0)
+              if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
+                  Qry.FieldAsDateTime("real_in")<now)
               {
                 UpdQry.SetVariable("point_id",point_id);
+                UpdQry.SetVariable("pr_etstatus",1);
                 UpdQry.Execute();
               };
             };

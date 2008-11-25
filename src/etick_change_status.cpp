@@ -21,7 +21,9 @@ namespace ChangeStatus
     using namespace std;
     using namespace edilib;
 
-    void ETChangeStatus(const OrigOfRequest &org, const std::list<Ticket> &lTick,
+    void ETChangeStatus(const OrigOfRequest &org,
+                        const std::list<Ticket> &lTick,
+                        const std::string &ediSessCtxt,
                         Ticketing::Itin* itin)
     {
         ProgTrace(TRACE2,"request for change of status from:");
@@ -32,7 +34,7 @@ namespace ChangeStatus
             itin->Trace(TRACE2);
         }
 
-        ChngStatData chngData(org,lTick,itin);
+        ChngStatData chngData(org,lTick,ediSessCtxt,itin);
         SendEdiTlgTKCREQ_ChangeStat(chngData);
     }
 
@@ -84,13 +86,12 @@ namespace ChangeStatus
             }
             PopEdiPointG(pMes);
             lTick.push_back(Ticket(ticketnum, lCpn));
-            PopEdiPoint_wdG(pMes);
-
             errMap[make_pair(ticketnum, 0)] = GetDBFName(pMes,
                                          DataElement(9321),
                                          CompElement("C901"),
                                          SegmElement("ERC"));
 
+            PopEdiPoint_wdG(pMes);
         }
         PopEdiPointG(pMes);
         return ChngStatAnswer(lTick, errMap);
