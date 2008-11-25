@@ -31,11 +31,11 @@ public:
     }
 
     virtual edilib::EdiSess::EdiSession *ediSession() { return &EdiSess; }
-    virtual hth::HthInfo *hth() { return 0; }
 
-    virtual std::string sndrHthAddr() const { return "";}
-    virtual std::string rcvrHthAddr() const { return "";}
-    virtual std::string hthTpr() const { return ""; }
+    virtual edilib::EdiSess::H2host *h2h() { return 0; };
+    virtual std::string sndrH2hAddr() const { return ""; };
+    virtual std::string rcvrH2hAddr() const { return ""; };
+    virtual std::string H2hTpr() const { return ""; };
 
     // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
     // Идентификатор сессии
@@ -74,13 +74,11 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
         isH2H(false)
         {
         }
-        virtual hth::HthInfo *hth()
-        {
-            return 0;
-        }
-        virtual std::string sndrHthAddr() const { return ""; }
-        virtual std::string rcvrHthAddr() const { return ""; }
-        virtual std::string hthTpr() const { return ""; }
+
+        virtual edilib::EdiSess::H2host *h2h() { return 0; };
+        virtual std::string sndrH2hAddr() const { return ""; };
+        virtual std::string rcvrH2hAddr() const { return ""; };
+        virtual std::string H2hTpr() const { return ""; };
 
         virtual std::string baseOurrefName() const
         {
