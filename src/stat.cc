@@ -1693,6 +1693,13 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.SQLText=
                 "SELECT "
                 "  arx_pax_grp.part_key, "
+                "  arx_pax_grp.point_dep point_id, "
+                "  arx_points.airline, "
+                "  arx_points.flt_no, "
+                "  arx_points.suffix, "
+                "  arx_points.airp, "
+                "  arx_points.scd_out, "
+                "  NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
                 "  arx_pax_grp.airp_arv, "
                 "  report.get_last_trfer(arx_pax_grp.grp_id) AS last_trfer, "
                 "  ckin.get_bagAmount(arx_pax_grp.grp_id,NULL) AS bag_amount, "
