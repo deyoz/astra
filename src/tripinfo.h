@@ -48,7 +48,6 @@ public:
 
 std::string convertLastTrfer(std::string s);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
-/*void viewPNL( int point_id, xmlNodePtr dataNode );*/
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 
 class TTripInfo
@@ -81,7 +80,7 @@ class TTripInfo
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
 
 //настройки рейса
-enum TTripSetType { tsETLOnly=11 };
+enum TTripSetType { tsETLOnly=11, tsIgnoreTrferSet };
 bool GetTripSets( TTripSetType setType, TTripInfo &info );
 
 

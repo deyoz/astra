@@ -652,9 +652,10 @@ bool CheckTrferPermit(string airline_in, int flt_no_in,
   return (!Qry.Eof && Qry.FieldAsInteger("pr_permit")!=0);
 };
 
-int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
+int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 {
   TQuery TrferQry(&OraSession);
+  TrferQry.Clear();
   TrferQry.SQLText =
     "SELECT transfer_num,airline,flt_no,suffix, "
     "       local_date,airp_arv,subclass "
@@ -705,6 +706,7 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
       TrferQry.Execute();
       if (!TrferQry.Eof)
       {
+        //есть трансфер
         string airp_dep=PaxQry.FieldAsString("airp_dep");
         string airline_in=PaxQry.FieldAsString("airline");
         int flt_no_in=PaxQry.FieldAsInteger("flt_no");
@@ -712,11 +714,17 @@ int CreateSearchResponse(TQuery &PaxQry,  xmlNodePtr resNode)
         string airline_out;
         int flt_no_out;
 
+        TTripInfo fltInfo;
+        fltInfo.airline=airline_in;
+        fltInfo.flt_no=flt_no_in;
+        fltInfo.airp=airp_dep;
+        bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
+
         bool pr_permit=true;
         xmlNodePtr trferNode=NewTextChild(node,"transfer");
         for(;!TrferQry.Eof;TrferQry.Next())
         {
-          if (pr_permit)
+          if (pr_permit && !without_trfer_set)
           {
             //проверим оформление трансфера
             try
@@ -912,7 +920,7 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     PaxQry.Execute();
-    CreateSearchResponse(PaxQry,resNode);
+    CreateSearchResponse(point_dep,PaxQry,resNode);
     CreateNoRecResponse(sum,resNode);
     NewTextChild(resNode,"ckin_state","Choice");
     return;
@@ -1201,7 +1209,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     return;
   };
 
-  CreateSearchResponse(PaxQry,resNode);
+  CreateSearchResponse(point_dep,PaxQry,resNode);
 
 
 //  if (fmt.persCountFmt==0)
@@ -3313,6 +3321,12 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
   addrInfo.airp_trfer=sendInfo.airp_arv;
   addrInfo.pr_lat=true;
 
+  TTripInfo fltInfo;
+  fltInfo.airline=sendInfo.airline;
+  fltInfo.flt_no=sendInfo.flt_no;
+  fltInfo.airp=sendInfo.airp_dep;
+  bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
+
   //проверка формирования трансфера в латинских телеграммах
   enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
 
@@ -3503,14 +3517,16 @@ string CheckInInterface::SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp)
 
     TrferQry.SetVariable("pr_final",(int)(trferNode->next==NULL));
 
-    //проверим разрешено ли оформление трансфера
-
-    if (!CheckTrferPermit(airline_in,
-                          flt_no_in,
-                          TrferQry.GetVariableAsString("airp_dep"),
-                          TrferQry.GetVariableAsString("airline"),
-                          TrferQry.GetVariableAsInteger("flt_no")))
-      throw UserException("Запрещено оформление трансфера на стыковочный рейс %s",flt.str().c_str());
+    if (!without_trfer_set)
+    {
+      //проверим разрешено ли оформление трансфера
+      if (!CheckTrferPermit(airline_in,
+                            flt_no_in,
+                            TrferQry.GetVariableAsString("airp_dep"),
+                            TrferQry.GetVariableAsString("airline"),
+                            TrferQry.GetVariableAsInteger("flt_no")))
+        throw UserException("Запрещено оформление трансфера на стыковочный рейс %s",flt.str().c_str());
+    };
 
     TrferQry.Execute();
 
