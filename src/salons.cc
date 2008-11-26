@@ -1007,8 +1007,10 @@ int GetCompId( const std::string craft, const std::string bort, const std::strin
 	Qry.Execute();
 	ProgTrace( TRACE5, "bort=%s, airline=%s, airp=%s", bort.c_str(), airline.c_str(), airp.c_str() );
   while ( !Qry.Eof ) {
-  	bool airline_OR_airp = !airline.empty() && airline == Qry.FieldAsString( "airline" ) ||
-    	                     airline.empty() && !airp.empty() && airp == Qry.FieldAsString( "airp" );
+  	string comp_airline = Qry.FieldAsString( "airline" );
+  	string comp_airp = Qry.FieldAsString( "airp" );
+  	bool airline_OR_airp = !comp_airline.empty() && airline == comp_airline ||
+    	                     comp_airline.empty() && !comp_airp.empty() && airp == comp_airp;
     if ( !bort.empty() && bort == Qry.FieldAsString( "bort" ) && airline_OR_airp )
     	idx = 0; // когда совпадает борт+авиакомпания OR аэропорт
     else
