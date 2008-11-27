@@ -2979,7 +2979,7 @@ string get_validator(TBagReceipt &rcpt)
     TReqInfo *reqInfo = TReqInfo::Instance();
     Qry.Clear();
     Qry.SQLText="SELECT sale_point FROM sale_desks "
-                "WHERE code=:code AND validator=:validator AND pr_denial=0";
+        "WHERE code=:code AND validator=:validator AND pr_denial=0";
     Qry.CreateVariable("code", otString, reqInfo->desk.code);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
@@ -3038,19 +3038,14 @@ string get_validator(TBagReceipt &rcpt)
             << sale_point << "  "
             << setw(4) << setfill('0') << private_num << endl;
         validator << endl; // empty string for this type
-    } else if(
-            validator_type == "ЮТ" ||
-            validator_type == "ЮХ" ||
-            validator_type == "ОП" ||
-            validator_type == "ЛА" ||
-            validator_type == "ИАТА") {
+    } else {
+        // все валидаторы кроме ТКП у нас пока обрабатываются одинаково
         validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
         validator << agency_name.substr(0, 19) << endl;
         validator << sale_point_descr.substr(0, 19) << endl;
         validator << city.AsString("Name").substr(0, 16) << "/" << country.AsString("code") << endl;
         validator << setw(4) << setfill('0') << private_num << endl;
-    } else
-        throw Exception("get_validator: unknown validator type %s", validator_type.c_str());
+    }
     return validator.str();
 }
 
