@@ -27,8 +27,6 @@
 
 #include "perfom.h"
 
-//#include "flight_cent_dbf.h" //!!!
-
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;

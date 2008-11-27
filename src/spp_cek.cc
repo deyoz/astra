@@ -527,13 +527,16 @@ void createParam( xmlNodePtr paramsNode, const string &name, const string &value
   	NewTextChild( Nparam, "type", type );
 }
 
-string getPNR( const string airline, int flt_no, const string suffix )
+string getPNR( const string airline, int airline_fmt, int flt_no, const string suffix, int suffix_fmt )
 {
 	string pnr;
 	if ( airline == "ЬЬ" )
-		pnr = IntToString( flt_no ) + suffix;
+		pnr = IntToString( flt_no ) +
+		      ElemIdToElemCtxt( ecDisp, etSuffix, suffix, suffix_fmt );
 	else
-		pnr = airline + IntToString( flt_no ) + suffix;
+		pnr = ElemIdToElemCtxt( ecDisp, etAirline, airline, airline_fmt ) +
+		      IntToString( flt_no ) +
+		      ElemIdToElemCtxt( ecDisp, etSuffix, suffix, suffix_fmt );
 	return pnr;
 }
 
@@ -549,7 +552,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
 	NewTextChild( tripNode, "point_id", tr->point_id );
 	if ( !tr->places_in.empty() ) {
 		xmlNodePtr NodeA = NewTextChild( tripNode, "A" );
-  	NewTextChild( NodeA, "PNR", getPNR( tr->airline_in, tr->flt_no_in, tr->suffix_in ) );
+  	NewTextChild( NodeA, "PNR", getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ) );
   	NewTextChild( NodeA, "DN", GetStrDate( tr->scd_in ) );
   	NewTextChild( NodeA, "KUG", tr->airline_in );
   	NewTextChild( NodeA, "TVC", tr->craft_in );
@@ -574,7 +577,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
   	  if ( d->pr_del == 0 )
   			prior_point_id = d->point_id;
       xmlNodePtr NodeAK = NewTextChild( NodeA, "AK" );
-    	NewTextChild( NodeAK, "PNR", getPNR( tr->airline_in, tr->flt_no_in, tr->suffix_in ) );
+    	NewTextChild( NodeAK, "PNR", getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ) );
     	NewTextChild( NodeAK, "AV", d->airp );
      /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
         расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
@@ -631,9 +634,9 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       }
       NewTextChild( NodeAK, "PUR", IntToString( k + 1 ) );
       NewTextChild( NodeAK, "PR", IntToString( 0 ) );
-      NewTextChild( NodeAK, "PC", IntToString( 0 ) );
+      //NewTextChild( NodeAK, "PC", IntToString( 0 ) );
       NewTextChild( NodeAK, "TPC", IntToString( 0 ) );
-      NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
+      //NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
       NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
     };
 		if ( prior_point_id > ASTRA::NoExists ) {
@@ -647,13 +650,13 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
        }
      }
     NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
-    NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
-    NewTextChild( NodeA, "F11", IntToString( mail_in ) );
+    //NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
+    //NewTextChild( NodeA, "F11", IntToString( mail_in ) );
 	} // end if !place_in.empty()
 	if ( !tr->places_out.empty() ) {
   	GetLuggage( tr->point_id, lug_out );
 		xmlNodePtr NodeD = NewTextChild( tripNode, "D" );
-		NewTextChild( NodeD, "PNR", getPNR( tr->airline_out, tr->flt_no_out, tr->suffix_out ) );
+		NewTextChild( NodeD, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
 		NewTextChild( NodeD, "DN", GetStrDate( tr->scd_out ) );
   	NewTextChild( NodeD, "KUG", tr->airline_out );
   	NewTextChild( NodeD, "TVC", tr->craft_out );
@@ -677,7 +680,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     	ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
       vector<Cargo>::iterator c=lug_out.vcargo.end();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
-      NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->flt_no_out, tr->suffix_out ) );
+      NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
       NewTextChild( NodeDK, "AP", d->airp );
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
@@ -744,12 +747,12 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       NewTextChild( NodeDK, "PUR", IntToString( k + 1 ) );
       NewTextChild( NodeDK, "PR", IntToString( 0 ) );
       if ( c!=lug_out.vcargo.end() && c!=lug_in.vcargo.end() ) {
-      	NewTextChild( NodeDK, "PC", IntToString( c->mail ) );
-      	NewTextChild( NodeDK, "GRU", IntToString( c->cargo ) );
+      	//NewTextChild( NodeDK, "PC", IntToString( c->mail ) );
+      	//NewTextChild( NodeDK, "GRU", IntToString( c->cargo ) );
       }
       else {
-      	NewTextChild( NodeDK, "PC", IntToString( 0 ) );
-      	NewTextChild( NodeDK, "GRU", IntToString( 0 ) );
+      	//NewTextChild( NodeDK, "PC", IntToString( 0 ) );
+      	//NewTextChild( NodeDK, "GRU", IntToString( 0 ) );
       }
       NewTextChild( NodeDK, "TPC", IntToString( 0 ) );
       NewTextChild( NodeDK, "TGRU", IntToString( 0 ) );
@@ -759,8 +762,8 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     	mail_out += wc->mail;
     }
  	  NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
- 	  NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
- 	  NewTextChild( NodeD, "F11", IntToString( mail_out ) );
+ 	  //NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
+ 	  //NewTextChild( NodeD, "F11", IntToString( mail_out ) );
  	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );
 	}
 	return doc;
@@ -820,12 +823,13 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 
   if ( pr_delete ) {
   	// delete прилет
-   	sql_str = string("DELETE FROM ") + tablename + " WHERE PNR=:PNR AND DN=:DN";
+  	string deltablename = string("SPP") + string(NodeAsString( "DN", nodeP )).substr(8,2) + dbf_type;
+   	sql_str = string("DELETE FROM ") + deltablename + " WHERE PNR=:PNR AND DN=:DN";
  	  queryNode = NewTextChild( sqldoc->children, "query" );
  	  sqlNode = NewTextChild( queryNode, "sql", sql_str );
     rollbackNode = NewTextChild( queryNode, "table_rollback" );
-    NewTextChild( rollbackNode, "table", tablename + ".DBF" );
-    NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+    NewTextChild( rollbackNode, "table", deltablename + ".DBF" );
+    NewTextChild( rollbackNode, "tmp_table", string("T") + deltablename.substr(1,6) + ".DBF" );
  	  paramsNode = NewTextChild( queryNode, "params" );
  	  createParam( paramsNode, "PNR", NodeAsString( "PNR", nodeP ), DBF_TYPE_CHAR );
  	  createParam( paramsNode, "DN", NodeAsString( "DN", nodeP ), DBF_TYPE_DATE );
@@ -834,15 +838,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,F9,F11,KUR,VDV) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:F9,:F11,:KUR,:VDV)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,F9=:F9,F11=:F11,KUR=:KUR,VDV=:VDV "
+      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -867,8 +871,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     createParam( paramsNode, "RPVSN", NodeAsString( "RPVSN", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "PRIZ", NodeAsString( "PRIZ", nodeN ), DBF_TYPE_NUMBER );
     createParam( paramsNode, "PKZ", NodeAsString( "PKZ", nodeN ), DBF_TYPE_NUMBER );
-    createParam( paramsNode, "F9", NodeAsString( "F9", nodeN ),  DBF_TYPE_NUMBER );
-    createParam( paramsNode, "F11", NodeAsString( "F11", nodeN ), DBF_TYPE_NUMBER );
+    //createParam( paramsNode, "F9", NodeAsString( "F9", nodeN ),  DBF_TYPE_NUMBER );
+    //createParam( paramsNode, "F11", NodeAsString( "F11", nodeN ), DBF_TYPE_NUMBER );
     createParam( paramsNode, "KUR", NodeAsString( "KUR", nodeN ), DBF_TYPE_NUMBER );
    	createParam( paramsNode, "VDV", NodeAsString( "VDV", nodeN ), DBF_TYPE_CHAR );
   }
@@ -907,14 +911,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     }
     if ( pr_delete ) {
     	// delete прилет
+    	string deltablename = string("SPP") + string(NodeAsString( "DPP", *nodePK )).substr(8,2) + dbf_type;
      	sql_str =
-        string("DELETE FROM ") + tablename +
+        string("DELETE FROM ") + deltablename +
         " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";
  	    queryNode = NewTextChild( sqldoc->children, "query" );
  	    sqlNode = NewTextChild( queryNode, "sql", sql_str );
       rollbackNode = NewTextChild( queryNode, "table_rollback" );
-      NewTextChild( rollbackNode, "table", tablename + ".DBF" );
-      NewTextChild( rollbackNode, "tmp_table", string("T") + tablename.substr(1,6) + ".DBF" );
+      NewTextChild( rollbackNode, "table", deltablename + ".DBF" );
+      NewTextChild( rollbackNode, "tmp_table", string("T") + deltablename.substr(1,6) + ".DBF" );
  	    paramsNode = NewTextChild( queryNode, "params" );
  	    createParam( paramsNode, "PNR", NodeAsString( "PNR", *nodePK ), DBF_TYPE_CHAR );
  	    createParam( paramsNode, "DPP", NodeAsString( "DPP", *nodePK ), DBF_TYPE_DATE );
@@ -923,15 +928,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     if ( pr_insert ) {
       sql_str =
         string("INSERT INTO ") + tablename +
-        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR,PC,TPC,GRU,TGRU) "
-        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:PC,:TPC,:GRU,:TGRU)";
+        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR,TPC,TGRU) "
+        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:TPC,:TGRU)";
     }
     if ( pr_update ) {
       sql_str =
         string("UPDATE ") + tablename +
         " SET "
         "AV=:AV,AP=:AP,DPP=:DPP,VPP=:VPP,DPR=:DPR,VPR=:VPR,DPF=:DPF,VPF=:VPF,PDV=:PDV,PVV=:PVV,RDV=:RDV,"
-        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR,PC=:PC,TPC=:TPC,GRU=:GRU,TGRU=:TGRU "
+        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR,TPC=:TPC,TGRU=:TGRU "
         " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";
     }
     if ( pr_insert || pr_update ) {
@@ -969,9 +974,9 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
      	createParam( paramsNode, "FDV", NodeAsString( "DPP", *nodeNK ), DBF_TYPE_DATE );
      	createParam( paramsNode, "FVV", NodeAsString( "FVV", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "PR", NodeAsString( "PR", *nodeNK ), DBF_TYPE_CHAR );
-      createParam( paramsNode, "PC", NodeAsString( "PC", *nodeNK ), DBF_TYPE_NUMBER );
+      //createParam( paramsNode, "PC", NodeAsString( "PC", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "TPC", NodeAsString( "TPC", *nodeNK ), DBF_TYPE_NUMBER );
-      createParam( paramsNode, "GRU", NodeAsString( "GRU", *nodeNK ), DBF_TYPE_NUMBER );
+      //createParam( paramsNode, "GRU", NodeAsString( "GRU", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "TGRU", NodeAsString( "TGRU", *nodeNK ), DBF_TYPE_NUMBER );
     }
 
@@ -1079,6 +1084,8 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   if ( doc )
   	strdoc = XMLTreeToText( doc );
   if ( strdoc == record ) {
+    if ( doc )
+    	xmlFreeDoc( doc );
   	return fds.size();
   }
   // есть изменения
