@@ -367,7 +367,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     SetsQry.Clear();
     SetsQry.SQLText =
       "SELECT pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam, "
-      "       pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
+      "       pr_check_pay,pr_exam_check_pay,pr_bp_market_flt, "
       "       pr_reg_with_tkn,pr_reg_with_doc "
       "FROM trip_sets WHERE point_id=:point_id";
     SetsQry.CreateVariable("point_id",otInteger,point_id);
@@ -381,7 +381,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_pr_exam,           old_pr_exam,
          new_pr_check_pay,      old_pr_check_pay,
          new_pr_exam_check_pay, old_pr_exam_check_pay,
-         new_pr_trfer_reg,      old_pr_trfer_reg,
+         new_pr_bp_market_flt,  old_pr_bp_market_flt,
          new_pr_reg_with_tkn,   old_pr_reg_with_tkn,
          new_pr_reg_with_doc,   old_pr_reg_with_doc;
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
@@ -391,7 +391,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     old_pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
     old_pr_check_pay=SetsQry.FieldAsInteger("pr_check_pay")!=0;
     old_pr_exam_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
-    old_pr_trfer_reg=SetsQry.FieldAsInteger("pr_trfer_reg")!=0;
+    old_pr_bp_market_flt=SetsQry.FieldAsInteger("pr_bp_market_flt")!=0;
     old_pr_reg_with_tkn=SetsQry.FieldAsInteger("pr_reg_with_tkn")!=0;
     old_pr_reg_with_doc=SetsQry.FieldAsInteger("pr_reg_with_doc")!=0;
 
@@ -415,7 +415,12 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     else
       new_pr_reg_with_doc=old_pr_reg_with_doc;
     //!!!потом убрать GetNode 01.04.08
-    new_pr_trfer_reg=NodeAsInteger("pr_trfer_reg",node)!=0;
+    //!!!потом убрать GetNode 01.12.08
+    if (GetNode("pr_bp_market_flt",node)!=NULL)
+      new_pr_bp_market_flt=NodeAsInteger("pr_bp_market_flt",node)!=0;
+    else
+      new_pr_bp_market_flt=old_pr_bp_market_flt;
+    //!!!потом убрать GetNode 01.12.08
 
     if (old_pr_tranzit!=new_pr_tranzit ||
         old_pr_tranz_reg!=new_pr_tranz_reg)
@@ -477,7 +482,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         old_pr_exam!=new_pr_exam ||
         old_pr_check_pay!=new_pr_check_pay ||
         old_pr_exam_check_pay!=new_pr_exam_check_pay ||
-        old_pr_trfer_reg!=new_pr_trfer_reg ||
+        old_pr_bp_market_flt!=new_pr_bp_market_flt ||
         old_pr_reg_with_tkn!=new_pr_reg_with_tkn ||
         old_pr_reg_with_doc!=new_pr_reg_with_doc)
     {
@@ -489,7 +494,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         "    pr_exam=:pr_exam, "
         "    pr_check_pay=:pr_check_pay, "
         "    pr_exam_check_pay=:pr_exam_check_pay, "
-        "    pr_trfer_reg=:pr_trfer_reg, "
+        "    pr_bp_market_flt=:pr_bp_market_flt, "
         "    pr_reg_with_tkn=:pr_reg_with_tkn, "
         "    pr_reg_with_doc=:pr_reg_with_doc "
         "WHERE point_id=:point_id";
@@ -498,7 +503,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       Qry.CreateVariable("pr_exam",otInteger,(int)new_pr_exam);
       Qry.CreateVariable("pr_check_pay",otInteger,(int)new_pr_check_pay);
       Qry.CreateVariable("pr_exam_check_pay",otInteger,(int)new_pr_exam_check_pay);
-      Qry.CreateVariable("pr_trfer_reg",otInteger,(int)new_pr_trfer_reg);
+      Qry.CreateVariable("pr_bp_market_flt",otInteger,(int)new_pr_bp_market_flt);
       Qry.CreateVariable("pr_reg_with_tkn",otInteger,(int)new_pr_reg_with_tkn);
       Qry.CreateVariable("pr_reg_with_doc",otInteger,(int)new_pr_reg_with_doc);
       Qry.CreateVariable("point_id",otInteger,point_id);
@@ -542,13 +547,6 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.msg += " контроля оплаты багажа при досмотре";
         TReqInfo::Instance()->MsgToLog(msg);
       };
-      if (old_pr_trfer_reg!=new_pr_trfer_reg)
-      {
-        msg.msg = "Установлен режим";
-        if ( !new_pr_trfer_reg ) msg.msg += " запрета"; else msg.msg += " разрешения";
-        msg.msg += " обработки трансфера при регистрации";
-        TReqInfo::Instance()->MsgToLog(msg);
-      };
       if (old_pr_reg_with_tkn!=new_pr_reg_with_tkn)
       {
         msg.msg = "Установлен режим";
@@ -561,6 +559,13 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
         msg.msg = "Установлен режим";
         if ( new_pr_reg_with_doc ) msg.msg += " запрета"; else msg.msg += " разрешения";
         msg.msg += " регистрации без номеров документов";
+        TReqInfo::Instance()->MsgToLog(msg);
+      };
+      if (old_pr_bp_market_flt!=new_pr_bp_market_flt)
+      {
+        msg.msg = "Установлен режим печати рейса";
+        if ( !new_pr_bp_market_flt ) msg.msg += " фактического"; else msg.msg += " коммерческого";
+        msg.msg += " перевозчика в пос. талоне";
         TReqInfo::Instance()->MsgToLog(msg);
       };
     };
