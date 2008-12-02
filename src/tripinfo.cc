@@ -672,8 +672,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
-      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
+      "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_bp_market_flt,pr_etstatus "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -698,9 +698,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
       NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
       NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
-      NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
+      NewTextChild( node, "pr_trfer_reg", (int)false );  //!!!потом убрать GetNode 01.12.08
       NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
+      NewTextChild( node, "pr_bp_market_flt", (int)(Qryh.FieldAsInteger("pr_bp_market_flt")!=0) );
     };
     if (reqInfo->screen.name == "AIR.EXE" ||
         reqInfo->screen.name == "BRDBUS.EXE" ||
