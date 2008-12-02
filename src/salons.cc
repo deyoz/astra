@@ -83,7 +83,7 @@ void TFilterLayers::getFilterLayers( int point_id )
 	setFlag( cltTranzit );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	"SELECT pr_tranz_reg,pr_block_trzt,pr_tranzit "
+	"SELECT pr_tranz_reg,pr_block_trzt,ckin.get_pr_tranzit(:point_id) as pr_tranzit "
 	" FROM trip_sets, points "
 	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -692,7 +692,7 @@ void TSalons::Read( bool wo_invalid_seat_no )
     }
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
       if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
-        ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
+      	ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
         SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
         SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
