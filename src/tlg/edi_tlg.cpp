@@ -37,7 +37,7 @@ bool set_edi_addrs(string airline,int flt_no)
     "SELECT edi_addr,edi_own_addr, "
     "       DECODE(airline,NULL,0,2)+ "
     "       DECODE(flt_no,NULL,0,1) AS priority "
-    "FROM edi_addr_set "
+    "FROM et_addr_set "
     "WHERE airline=:airline AND "
     "      (flt_no IS NULL OR flt_no=:flt_no) "
     "ORDER BY priority DESC";
