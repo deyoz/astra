@@ -18,7 +18,7 @@
 #include "base_tables.h"
 #include "jxt_cont.h"
 
-#include "tcl_utils.h"
+#include "tclmon/tcl_utils.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -119,8 +119,9 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
-  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
-  	return; //???
+  screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
+/*  if ( Qry.FieldAsInteger( "pr_logon" ) == 0 )
+  	return; //???*/
   Qry.Clear();
   Qry.SQLText =
     "SELECT city,trace_level,lang,NVL(under_constr,0) AS under_constr "
@@ -155,7 +156,8 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw UserException("Для города %s не задан регион",desk.city.c_str());
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
-
+  if ( !screen.pr_logon )
+  	return;
   Qry.Clear();
   Qry.SQLText =
     "SELECT user_id, login, descr, type, pr_denial "
@@ -166,7 +168,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
   {
-    if (!checkUserLogon)
+    if (!checkUserLogon )
      	return;
     else
       throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
@@ -457,7 +459,7 @@ long TReqInfo::getExecuteMSec()
 	return pt.total_milliseconds();
 }
 
-void MsgToLog(TLogMsg &msg, string &screen, string &user, string &desk)
+void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const string &desk)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -490,6 +492,17 @@ void MsgToLog(TLogMsg &msg, string &screen, string &user, string &desk)
     else
         Qry.SetVariable("id3", FNull);
     Qry.Execute();
+};
+
+void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3)
+{
+    TLogMsg msgh;
+    msgh.msg = msg;
+    msgh.ev_type = ev_type;
+    msgh.id1 = id1;
+    msgh.id2 = id2;
+    msgh.id3 = id3;
+    MsgToLog(msgh,"","","");
 };
 
 void TReqInfo::MsgToLog(string msg, TEventType ev_type, int id1, int id2, int id3)

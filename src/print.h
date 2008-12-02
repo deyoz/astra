@@ -6,6 +6,15 @@
 #include "basic.h"
 #include "oralib.h"
 
+void check_CUTE_certified(int &prn_type, std::string &dev_model, std::string &fmt_type);
+
+struct TBagPayType
+{
+  std::string pay_type;
+  double pay_rate_sum;
+  std::string extra;
+};
+
 struct TBagReceipt
 {
   bool pr_lat;
@@ -20,11 +29,36 @@ struct TBagReceipt
   int ex_amount,ex_weight;
   double value_tax,rate,exch_pay_rate;
   int exch_rate;
-  std::string rate_cur,pay_rate_cur,pay_form;
+  std::string rate_cur,pay_rate_cur;
+  std::vector<TBagPayType> pay_types;
   std::string remarks;
   BASIC::TDateTime issue_date,annul_date;
   std::string issue_desk,annul_desk,issue_place;
 };
+
+#define CASH_PAY_TYPE "çÄã"
+#define NONE_PAY_TYPE "çÖí"
+
+typedef enum {
+    ptIER506A = 1,
+    ptIER508A,
+    ptIER506B,
+    ptIER508B,
+    ptIER557A,
+    ptIER567A,
+    ptGenicom,
+    ptDRV,
+    ptIER508BR,
+    ptOKIML390,
+    ptOKIML3310,
+    ptOLIVETTI,
+    ptZEBRA,
+    ptOLIVETTICOM
+} TPrnType;
+
+namespace to_esc {
+    void convert(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
+}
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
@@ -108,12 +142,17 @@ class PrintDataParser {
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
 };
 
+// !!! Next generation
+void GetTripBPPectabs(int point_id, std::string dev_model, std::string fmt_type, xmlNodePtr node);
+void GetTripBTPectabs(int point_id, std::string dev_model, std::string fmt_type, xmlNodePtr node);
+
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node);
 void GetPrintDataBT(xmlNodePtr dataNode, int grp_id, int pr_lat);
-void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode);
-void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode);
 std::string get_validator(TBagReceipt &rcpt);
+double CalcPayRate(const TBagReceipt &rcpt);
+double CalcRateSum(const TBagReceipt &rcpt);
+double CalcPayRateSum(const TBagReceipt &rcpt);
 
 class PrintInterface: public JxtInterface
 {
@@ -121,9 +160,8 @@ class PrintInterface: public JxtInterface
         PrintInterface(): JxtInterface("123", "print")
         {
             Handler *evHandle;
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBPXML);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrintDataBP);
             AddEvent("GetPrintDataBP",evHandle);
-            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetGRPPrintDataBPXML);
             AddEvent("GetGRPPrintDataBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::ReprintDataBTXML);
             AddEvent("ReprintDataBT",evHandle);
@@ -138,8 +176,7 @@ class PrintInterface: public JxtInterface
         }
 
         void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        void GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+        void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

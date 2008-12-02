@@ -23,22 +23,6 @@ using namespace ASTRA;
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
-typedef enum {
-    ptIER506A = 1,
-    ptIER508A,
-    ptIER506B,
-    ptIER508B,
-    ptIER557A,
-    ptIER567A,
-    ptGenicom,
-    ptDRV,
-    ptIER508BR,
-    ptOKIML390,
-    ptOKIML3310,
-    ptOLIVETTI,
-    ptZEBRA,
-    ptOLIVETTICOM
-} TPrnType;
 
 namespace to_esc {
     struct TPrnParams {
@@ -114,7 +98,7 @@ namespace to_esc {
         out << data;
     }
 
-    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL)
+    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
     {
         double y_modif, x_modif;
         switch(prn_type) {
@@ -1034,7 +1018,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.REG_NO, "
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
-            "   nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) eticket_no, "
+            "   DECODE(pax.ticket_rem,'TKNE',ticket_no||'/'||coupon_no,NULL) eticket_no, "
             "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
             "   system.transliter(pax.DOCUMENT, 1) document_lat, "
@@ -1146,9 +1130,34 @@ string pieces(int ex_amount, bool pr_lat)
     };
 }
 
+int separate_double(double d, int precision, int *iptr)
+{
+  double pd;
+  int pi;
+  switch (precision)
+  {
+    case 0: pd=1.0;     pi=1;     break;
+    case 1: pd=10.0;    pi=10;    break;
+    case 2: pd=100.0;   pi=100;   break;
+    case 3: pd=1000.0;  pi=1000;  break;
+    case 4: pd=10000.0; pi=10000; break;
+   default: throw Exception("separate_double: wrong precision %d",precision);
+  };
+  int i=int(round(d*pd));
+  if (iptr!=NULL) *iptr=i/pi;
+  return i%pi;
+};
+
 int get_exch_precision(double rate)
 {
-    double iptr;
+  int i;
+  i=separate_double(rate,4,NULL);
+
+  if (i==0) return 0;
+  if (i%100==0) return 2;
+  return 4;
+
+    /*double iptr;
     ostringstream ssbuf;
     ssbuf << noshowpoint << modf(rate, &iptr);
     int precision = ssbuf.str().size();
@@ -1161,7 +1170,7 @@ int get_exch_precision(double rate)
         precision = 4;
     else if(precision >= 1)
         precision = 2;
-    return precision;
+    return precision; */
 }
 
 int get_rate_precision(double rate, string rate_cur)
@@ -1174,13 +1183,13 @@ int get_rate_precision(double rate, string rate_cur)
             rate_cur == "ГБП"
       )
         precision = 2;
-    else {
-        double iptr;
-        if(modf(rate, &iptr) < 0.01)
-            precision = 0;
-        else
-            precision = 2;
-    }
+    else
+    {
+      if (separate_double(rate,2,NULL)!=0)
+        precision = 2;
+      else
+        precision = 0;
+    };
     return precision;
 }
 
@@ -1201,7 +1210,7 @@ string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2,
         << rate2
         << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat);
     return buf.str();
-}
+};
 
 string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
 {
@@ -1216,33 +1225,60 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
     if (fmt_type!=2 && pr_lat)
       buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     return buf.str();
-}
+};
+
+double CalcPayRate(const TBagReceipt &rcpt)
+{
+  double pay_rate;
+  if (rcpt.pay_rate_cur != rcpt.rate_cur)
+    pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+  else
+    pay_rate = rcpt.rate;
+  return pay_rate;
+};
+
+double CalcRateSum(const TBagReceipt &rcpt)
+{
+  double rate_sum;
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      rate_sum = rcpt.rate * rcpt.ex_weight;
+  } else {
+      rate_sum = rcpt.rate * rcpt.value_tax/100;
+  }
+  return rate_sum;
+};
+
+double CalcPayRateSum(const TBagReceipt &rcpt)
+{
+  double pay_rate_sum;
+  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+      pay_rate_sum = CalcPayRate(rcpt) * rcpt.ex_weight;
+  } else {
+      pay_rate_sum = CalcPayRate(rcpt) * rcpt.value_tax/100;
+  }
+  return pay_rate_sum;
+};
 
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
-    if(
-            rcpt.form_type != "K95" &&
-            rcpt.form_type != "M61" &&
-            rcpt.form_type != "Z61" &&
-            rcpt.form_type != "664 451" &&
-            rcpt.form_type != "298 451" &&
-            rcpt.form_type != "ЮХ 451" &&
-            rcpt.form_type != "ОП 401" &&
-            rcpt.form_type != "35"
-            )
-        throw UserException("Тип бланка '" + rcpt.form_type + "' временно не поддерживается системой");
+  TQuery Qry(&OraSession);
+
   add_tag("pax_name",rcpt.pax_name);
   add_tag("pax_doc",rcpt.pax_doc);
 
-  TQuery Qry(&OraSession);
+  Qry.Clear();
   Qry.SQLText =  "select name, name_lat from rcpt_service_types where code = :code";
   Qry.CreateVariable("code", otInteger, rcpt.service_type);
   Qry.Execute();
   if(Qry.Eof) throw Exception("fillMSOMap: service_type not found (code = %d)", rcpt.service_type);
   add_tag("service_type", (string)"10 " + Qry.FieldAsString("name"));
   add_tag("service_type_lat", (string)"10 " + Qry.FieldAsString("name_lat"));
-  string bag_name, bag_name_lat;
-  if(rcpt.service_type == 2 && rcpt.bag_type != -1) {
+
+  if(rcpt.service_type == 2 && rcpt.bag_type != -1)
+  {
+    string bag_name, bag_name_lat;
+    if (rcpt.bag_name.empty())
+    {
       Qry.Clear();
       Qry.SQLText =
           "select "
@@ -1257,127 +1293,107 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       Qry.CreateVariable("code", otInteger, rcpt.bag_type);
       Qry.Execute();
       if(Qry.Eof) throw Exception("fillMSOMap: bag_type not found (code = %d)", rcpt.bag_type);
+
       bag_name = Qry.FieldAsString("name");
       bag_name_lat = Qry.FieldAsString("name_lat");
-      if(rcpt.bag_type == 1 || rcpt.bag_type == 2) {
+      if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+      {
+        //негабарит
           bag_name += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 0);
           bag_name_lat += " " + IntToString(rcpt.ex_amount) + " " + pieces(rcpt.ex_amount, 1);
       }
       bag_name = upperc(bag_name);
       bag_name_lat = upperc(bag_name_lat);
-      add_tag("bag_name", bag_name);
-      add_tag("bag_name_lat", bag_name_lat);
-  } else {
-      add_tag("bag_name", "");
-      add_tag("bag_name_lat", "");
-  }
+    }
+    else
+    {
+      //bag_name введен вручную
+      bag_name = rcpt.bag_name;
+      bag_name_lat = rcpt.bag_name;
+    };
 
-  string
-      SkiBT,
-      GolfBT,
-      PetBT,
-      BulkyBT, BulkyBTLetter,
-      OtherBT, OtherBTLetter,  OtherBTLetter_lat,
-      ValueBT, ValueBTLetter, ValueBTLetter_lat;
-  if(rcpt.service_type == 3) {
-      ValueBT = "x";
+    add_tag("bag_name", bag_name);
+    add_tag("bag_name_lat", bag_name_lat);
 
-      {
-          double iptr, fract;
-          fract = modf(rcpt.rate, &iptr);
-          string buf_ru = vs_number(int(iptr), 0);
-          string buf_lat = vs_number(int(iptr), 1);
-          if(fract >= 0.01) {
-              string str_fract = " " + IntToString(int(fract * 100)) + "/100";
-              buf_ru += str_fract;
-              buf_lat += str_fract;
-          }
-          ValueBTLetter = upperc(buf_ru) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
-          ValueBTLetter_lat = upperc(buf_lat) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
-      }
-  }
-  add_tag("ValueBT", ValueBT);
-  add_tag("ValueBTLetter", ValueBTLetter);
-  add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
-  if(rcpt.bag_type != -1) {
-      if(
-              rcpt.form_type == "664 451" ||
-              rcpt.form_type == "298 451" ||
-              rcpt.form_type == "ЮХ 451" ||
-              rcpt.form_type == "35"
-              ) {
-          switch(rcpt.bag_type) {
-              case 20:
-                  SkiBT = "x";
-                  break;
-              case 21:
-                  GolfBT = "x";
-                  break;
-              case 4:
-                  PetBT = "x";
-                  break;
-              case 1:
-              case 2:
-                  BulkyBT = "x";
-                  BulkyBTLetter = IntToString(rcpt.ex_amount);
-                  break;
-              default:
-                  OtherBT = "x";
-                  OtherBTLetter = bag_name;
-                  OtherBTLetter_lat = bag_name_lat;
-                  break;
-          }
-      } else if(rcpt.form_type == "Z61") {
-          switch(rcpt.bag_type) {
-              case 20:
-                  SkiBT = "x";
-                  break;
-              case 4:
-                  PetBT = "x";
-                  break;
-              case 1:
-              case 2:
-                  BulkyBT = "x";
-                  BulkyBTLetter = IntToString(rcpt.ex_amount);
-                  break;
-              default:
-                  OtherBT = "x";
-                  OtherBTLetter = bag_name;
-                  OtherBTLetter_lat = bag_name_lat;
-                  break;
-          }
-      }
-  }
-  add_tag("SkiBT", SkiBT);
-  add_tag("GolfBT", GolfBT);
-  add_tag("PetBT", PetBT);
-  add_tag("BulkyBT", BulkyBT);
-  add_tag("BulkyBTLetter", BulkyBTLetter);
-  add_tag("OtherBT", OtherBT);
-  add_tag("OtherBTLetter", OtherBTLetter);
-  add_tag("OtherBTLetter_lat", OtherBTLetter_lat);
+    bool pr_other=true;
 
-  double pay_rate;
-  if (rcpt.pay_rate_cur != rcpt.rate_cur)
-    pay_rate = (rcpt.rate * rcpt.exch_pay_rate)/rcpt.exch_rate;
+    if(rcpt.bag_type == 20) //лыжи
+    {
+      add_tag("SkiBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("SkiBT", "");
+
+    if(rcpt.bag_type == 21 && rcpt.form_type != "Z61") //гольф
+    {
+      add_tag("GolfBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("GolfBT", "");
+
+    if(rcpt.bag_type == 4)  //животные
+    {
+      add_tag("PetBT", "x");
+      pr_other=false;
+    }
+    else
+      add_tag("PetBT", "");
+
+    if(rcpt.bag_type == 1 || rcpt.bag_type == 2)
+    {
+      //негабарит
+      add_tag("BulkyBT", "x");
+      add_tag("BulkyBTLetter", IntToString(rcpt.ex_amount));
+      pr_other=false;
+    }
+    else
+    {
+      add_tag("BulkyBT", "");
+      add_tag("BulkyBTLetter", "");
+    };
+
+    if (pr_other)
+    {
+      add_tag("OtherBT", "x");
+      add_tag("OtherBTLetter", bag_name);
+      add_tag("OtherBTLetter_lat", bag_name_lat);
+    }
+    else
+    {
+      add_tag("OtherBT", "");
+      add_tag("OtherBTLetter", "");
+      add_tag("OtherBTLetter_lat", "");
+    };
+  }
   else
-    pay_rate = rcpt.rate;
-  double rate_sum;
-  double pay_rate_sum;
-  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
-      rate_sum = rcpt.rate * rcpt.ex_weight;
-      pay_rate_sum = pay_rate * rcpt.ex_weight;
-  } else {
-      rate_sum = rcpt.rate * rcpt.value_tax/100;
-      pay_rate_sum = pay_rate * rcpt.value_tax/100;
-  }
+  {
+    //это не платный багаж
+    add_tag("bag_name", "");
+    add_tag("bag_name_lat", "");
 
+    add_tag("SkiBT", "");
+    add_tag("GolfBT", "");
+    add_tag("PetBT", "");
+    add_tag("BulkyBT", "");
+    add_tag("BulkyBTLetter", "");
+    add_tag("OtherBT", "");
+    add_tag("OtherBTLetter", "");
+    add_tag("OtherBTLetter_lat", "");
+  };
 
-  ostringstream remarks, remarks_lat, rate, rate_lat, ex_weight, ex_weight_lat;
+  double pay_rate=CalcPayRate(rcpt);
+  double rate_sum=CalcRateSum(rcpt);
+  double pay_rate_sum=CalcPayRateSum(rcpt);
 
-  if(rcpt.service_type == 1 || rcpt.service_type == 2) {
+  ostringstream remarks, remarks_lat, rate, rate_lat, ex_weight, ex_weight_lat,
+                pay_types, pay_types_lat;
+
+  bool pr_exchange=false;
+
+  if(rcpt.service_type == 1 || rcpt.service_type == 2)
+  {
       remarks << "ТАРИФ ЗА КГ=";
       remarks_lat << "RATE PER KG=";
       if(
@@ -1386,31 +1402,62 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
               rcpt.pay_rate_cur == "ЕВР") &&
               rcpt.pay_rate_cur != rcpt.rate_cur
         ) {
-          remarks
+          rate
               << RateToString(pay_rate, rcpt.pay_rate_cur, false, 0)
-              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, false, 0) << ")"
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, false, 0) << ")";
+          rate_lat
+              << RateToString(pay_rate, rcpt.pay_rate_cur, true, 0)
+              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, true, 0) << ")";
+
+          remarks
+              << rate.str()
               << "(" << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false)
               << ")";
           remarks_lat
-              << RateToString(pay_rate, rcpt.pay_rate_cur, true, 0)
-              << "(" << RateToString(rcpt.rate, rcpt.rate_cur, true, 0) << ")"
+              << rate_lat.str()
               << "(RATE " << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true)
               << ")";
+          pr_exchange=true;
       } else {
           rate << RateToString(rcpt.rate, rcpt.rate_cur, false, 0);
           rate_lat << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+
           remarks << rate.str();
           remarks_lat << rate_lat.str();
       }
       ex_weight << IntToString(rcpt.ex_weight) << "КГ";
       ex_weight_lat << IntToString(rcpt.ex_weight) << "KG";
-  } else {
+
+      add_tag("rate", rate.str());
+      add_tag("rate_lat", rate_lat.str());
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
+      add_tag("remarks2", ex_weight.str());
+      add_tag("remarks2_lat", ex_weight_lat.str());
+      if (rcpt.form_type == "M61")
+      {
+        add_tag("ex_weight", ex_weight.str());
+        add_tag("ex_weight_lat", ex_weight_lat.str());
+      }
+      else
+      {
+        add_tag("ex_weight", IntToString(rcpt.ex_weight));
+        add_tag("ex_weight_lat", IntToString(rcpt.ex_weight));
+      };
+
+      add_tag("ValueBT", "");
+      add_tag("ValueBTLetter", "");
+      add_tag("ValueBTLetter_lat", "");
+  }
+  else
+  {
       //багаж с объявленной ценностью
       rate
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax <<"%";
       rate_lat
-          << rate.str();
+            << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
+            << rcpt.value_tax <<"%";
       remarks
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OT "
@@ -1419,19 +1466,39 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
             << fixed << setprecision(get_value_tax_precision(rcpt.value_tax))
             << rcpt.value_tax << "% OF "
             << RateToString(rcpt.rate, rcpt.rate_cur, true, 0);
+      add_tag("rate", rate.str());
+      add_tag("rate_lat", rate_lat.str());
+      add_tag("remarks1", remarks.str());
+      add_tag("remarks1_lat", remarks_lat.str());
       add_tag("remarks2", "");
       add_tag("remarks2_lat", "");
-  }
-  add_tag("rate", rate.str());
-  add_tag("rate_lat", rate_lat.str());
-  add_tag("remarks1", remarks.str());
-  add_tag("remarks1_lat", remarks_lat.str());
-  add_tag("remarks2", ex_weight.str());
-  add_tag("remarks2_lat", ex_weight_lat.str());
-  add_tag("ex_weight", ex_weight.str());
-  add_tag("ex_weight_lat", ex_weight_lat.str());
+      add_tag("ex_weight", "");
+      add_tag("ex_weight_lat", "");
 
-  for(int fmt=1;fmt<=2;fmt++)
+      string ValueBTLetter, ValueBTLetter_lat;
+      {
+          int iptr, fract;
+          fract=separate_double(rcpt.rate, 2, &iptr);
+
+          string buf_ru = vs_number(iptr, 0);
+          string buf_lat = vs_number(iptr, 1);
+
+          if(fract!=0) {
+              string str_fract = IntToString(fract) + "/100 ";
+              buf_ru += str_fract;
+              buf_lat += str_fract;
+          }
+          ValueBTLetter = upperc(buf_ru) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
+          ValueBTLetter_lat = upperc(buf_lat) +
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
+      }
+      add_tag("ValueBT", "x");
+      add_tag("ValueBTLetter", ValueBTLetter);
+      add_tag("ValueBTLetter_lat", ValueBTLetter_lat);
+  };
+
+  for(int fmt=0;fmt<=2;fmt++)
   {
     remarks.str("");
     remarks_lat.str("");
@@ -1451,12 +1518,17 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
         remarks << RateToString(rate_sum, rcpt.rate_cur, false, fmt);
         remarks_lat << RateToString(rate_sum, rcpt.rate_cur, true, fmt);
     };
+    if (fmt==0)
+    {
+      add_tag("charge", remarks.str());
+      add_tag("charge_lat", remarks_lat.str());
+    };
     if (fmt==1)
     {
       add_tag("amount_figures", remarks.str());
       add_tag("amount_figures_lat", remarks_lat.str());
-    }
-    else
+    };
+    if (fmt==2)
     {
       add_tag("currency", remarks.str());
       add_tag("currency_lat", remarks_lat.str());
@@ -1476,12 +1548,14 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   //amount in figures
   {
-      double iptr, fract;
-      fract = modf(fare_sum, &iptr);
-      string buf_ru = vs_number(int(iptr), 0);
-      string buf_lat = vs_number(int(iptr), 1);
-      if(fract >= 0.01) {
-          string str_fract = " " + IntToString(int(fract * 100)) + "/100";
+      int iptr, fract;
+      fract=separate_double(fare_sum, 2, &iptr);
+
+      string buf_ru = vs_number(iptr, 0);
+      string buf_lat = vs_number(iptr, 1);
+
+      if(fract!=0) {
+          string str_fract = IntToString(fract) + "/100 ";
           buf_ru += str_fract;
           buf_lat += str_fract;
       }
@@ -1492,21 +1566,18 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   //exchange_rate
   remarks.str("");
   remarks_lat.str("");
-  if (!(
-         (rcpt.pay_rate_cur == "РУБ" ||
-          rcpt.pay_rate_cur == "ДОЛ" ||
-          rcpt.pay_rate_cur == "ЕВР") &&
-          rcpt.pay_rate_cur != rcpt.rate_cur)
-     )
+
+  if (rcpt.pay_rate_cur != rcpt.rate_cur &&
+      (!pr_exchange || rcpt.form_type != "M61"))
   {
-      if (rcpt.pay_rate_cur != rcpt.rate_cur)
-      {
-          remarks
-              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false);
-          remarks_lat
-              << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true);
-      };
+      remarks
+          << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, false);
+
+      if (rcpt.form_type != "M61") remarks_lat << "RATE ";
+      remarks_lat
+          << ExchToString(rcpt.exch_rate, rcpt.rate_cur, rcpt.exch_pay_rate, rcpt.pay_rate_cur, true);
   };
+
   add_tag("exchange_rate", remarks.str());
   add_tag("exchange_rate_lat", remarks_lat.str());
 
@@ -1516,7 +1587,53 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   add_tag("tickets", rcpt.tickets);
   add_tag("prev_no", rcpt.prev_no);
-  add_tag("pay_form", rcpt.pay_form);
+
+  vector<TBagPayType>::iterator i;
+  TBaseTable& payTypeCodes=base_tables.get("pay_types");
+  if (rcpt.pay_types.size()==1)
+  {
+    //одна форма оплаты
+    i=rcpt.pay_types.begin();
+    pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false);
+    pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true);
+    if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+    {
+      pay_types     << ' ' << i->extra;
+      pay_types_lat << ' ' << i->extra;
+    };
+  }
+  else
+  {
+    //несколько форм оплаты
+    //первой всегда идет НАЛ
+    for(int k=0;k<=1;k++)
+    {
+      for(i=rcpt.pay_types.begin();i!=rcpt.pay_types.end();i++)
+      {
+        if (k==0 && i->pay_type!=CASH_PAY_TYPE ||
+            k!=0 && i->pay_type==CASH_PAY_TYPE) continue;
+
+        if (!pay_types.str().empty())
+        {
+          pay_types     << '+';
+          pay_types_lat << '+';
+        };
+        pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false)
+                      << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, false, 0);
+
+        pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true)
+                      << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, true, 0);
+        if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
+        {
+          pay_types     << ' ' << i->extra;
+          pay_types_lat << ' ' << i->extra;
+        };
+      };
+    };
+  };
+
+  add_tag("pay_form", pay_types.str());
+  add_tag("pay_form_lat", pay_types_lat.str());
 
   TAirlinesRow &airline = (TAirlinesRow&)base_tables.get("airlines").get_row("code", rcpt.airline);
   if(!airline.short_name.empty())
@@ -1621,182 +1738,6 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
   dump_data();
 };
-
-/*
-void PrintDataParser::t_field_map::fillMSOMap()
-{
-    TQuery *Qry;
-
-    Qry = OraSession.CreateQuery();
-    Qry->SQLText =
-        "select "
-        " receipt_id, "
-        " no, "
-        " form_type, "
-        " grp_id, "
-        " status, "
-        " pr_lat, "
-        " tickets, "
-        " prev_no, "
-        " airline, "
-        " aircode, "
-        " flt_no, "
-        " suffix, "
-        " airp_dep, "
-        " airp_arv, "
-        " ex_amount, "
-        " ex_weight, "
-        " bag_type, "
-        " bag_name, "
-        " value_tax, "
-        " rate, "
-        " rate_cur, "
-        " pay_rate, "
-        " pay_rate_cur, "
-        " pay_type, "
-        " pay_doc, "
-        " remarks, "
-        " issue_date, "
-        " issue_place, "
-        расчетный код а/к " issue_user_id, "
-        " annul_date, "
-        " annul_user_id, "
-        " pax " //, "
-//        " document "
-        "from "
-        " bag_receipts "
-        "where "
-        " receipt_id = :id ";
-    Qry->CreateVariable("id", otInteger, pax_id);
-    Qrys.push_back(Qry);
-    Qry->Execute();
-    add_tag("pax", Qry->FieldAsString("pax"));
-    add_tag("pax_lat", transliter(Qry->FieldAsString("pax"),true));
-//    add_tag("document", Qry->FieldAsString("document"));
-//    add_tag("document_lat", transliter(Qry->FieldAsString("document"),true));
-    add_tag("issue_date", UTCToLocal(Qry->FieldAsDateTime("issue_date"), TReqInfo::Instance()->desk.tz_region));
-    int ex_weight = Qry->FieldAsInteger("ex_weight");
-    float rate = Qry->FieldAsFloat("rate");
-    float pay_rate = Qry->FieldAsFloat("pay_rate");
-    float fare_sum = ex_weight * rate;
-    float pay_fare_sum = ex_weight * pay_rate;
-    string pay_curr = Qry->FieldAsString("pay_rate_cur");
-    string curr = Qry->FieldAsString("rate_cur");
-
-    {
-        double iptr, fract;
-        fract = modf(fare_sum, &iptr);
-        string buf_ru = vs_number(int(iptr), 0);
-        string buf_lat = vs_number(int(iptr), 1);
-        if(fract != 0) {
-            string str_fract = " " + IntToString(int(fract * 100)) + "/100";
-            buf_ru += str_fract;
-            buf_lat += str_fract;
-        }
-        buf_ru.append(33, '-');
-        buf_lat.append(33, '-');
-        add_tag("amount_letter", buf_ru);
-        add_tag("amount_letter_lat", buf_lat);
-    }
-
-    {
-        ostringstream buf;
-        buf
-            << setprecision(0)
-            << fixed
-            << fare_sum;
-        if(pay_curr != curr)
-            buf
-                << "("
-                << setprecision(2)
-                << pay_fare_sum << ")";
-        add_tag("amount_figure", buf.str());
-    }
-
-    TBaseTable &currency = base_tables.get("currency");
-    {
-        string buf, buf_lat;
-        TBaseTableRow &curr_row = currency.get_row("code", curr);
-        buf = curr_row.AsString("code", 0);
-        buf_lat = curr_row.AsString("code", 1);
-        if(curr != pay_curr) {
-            TBaseTableRow &pay_curr_row = currency.get_row("code", pay_curr);
-            buf += "(" + pay_curr_row.AsString("code", 0) + ")";
-            buf_lat += "(" + pay_curr_row.AsString("code", 1) + ")";
-        }
-        add_tag("currency", buf);
-        add_tag("currency_lat", buf_lat);
-    }
-
-    {
-        ostringstream buf;
-        buf
-            << setprecision(2)
-            << fixed
-            << fare_sum;
-        add_tag("total", buf.str() + currency.get_row("code", curr).AsString("code", 0));
-        add_tag("total_lat", currency.get_row("code", curr).AsString("code", 1) + buf.str());
-    }
-
-    {
-        string airp_dep = Qry->FieldAsString("airp_dep");
-        string airp_arv = Qry->FieldAsString("airp_arv");
-
-        string point_dep, point_dep_lat;
-        string point_arv, point_arv_lat;
-
-        get_mso_point(airp_dep, point_dep, point_dep_lat);
-        get_mso_point(airp_arv, point_arv, point_arv_lat);
-
-        add_tag("to", point_dep + "-" + point_arv);
-        add_tag("to_lat", point_dep_lat + "-" + point_arv_lat);
-    }
-    add_tag("tickets", Qry->FieldAsString("tickets"));
-    {
-        ostringstream buf, buf_lat;
-        buf
-            << setprecision(2)
-            << fixed
-            << rate
-            << curr;
-        buf_lat
-            << currency.get_row("code", curr).AsString("code", 1)
-            << setprecision(2)
-            << fixed
-            << rate;
-        if(pay_curr != curr) {
-            buf
-                << "("
-                << pay_rate
-                << pay_curr
-                << ")";
-            buf_lat
-                << "("
-                << currency.get_row("code", pay_curr).AsString("code", 1)
-                << pay_rate
-                << ")";
-        }
-        add_tag("rate", buf.str());
-        add_tag("rate_lat", buf_lat.str());
-    }
-    add_tag("ex_weight", Qry->FieldAsString("ex_weight"));
-    TBaseTableRow &pt_row = base_tables.get("pay_types").get_row("code", Qry->FieldAsString("pay_type"));
-    add_tag("pay_type", pt_row.AsString("code"));
-    add_tag("pay_type_lat", pt_row.AsString("code", 1));
-
-    TBaseTableRow &airline = base_tables.get("airlines").get_row("code", Qry->FieldAsString("airline"));
-    add_tag("airline", airline.AsString("short_name"));
-    add_tag("airline_lat", airline.AsString("short_name", 1));
-    add_tag("aircode", Qry->FieldAsString("aircode"));
-
-    vector<string> validator;
-    get_validator(validator);
-
-    add_tag("agency", validator[0]);
-    add_tag("agency_descr",validator[1]);
-    add_tag("agency_city",validator[2]);
-    add_tag("agency_code",validator[3]);
-}*/
 
 PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
 {
@@ -2228,41 +2169,94 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 //////////////////////////////// END CLASS PrintDataParser ///////////////////////////////////
 
+void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   prn_form_vers.form "
+        "from "
+        "   bp_models, "
+        "   prn_form_vers "
+        "where "
+        "   bp_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bp_models.dev_model = :dev_model and "
+        "   bp_models.fmt_type = :fmt_type and "
+        "   bp_models.id = prn_form_vers.id and "
+        "   bp_models.version = prn_form_vers.version and "
+        "   prn_form_vers.form is not null";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("dev_model", otString, dev_model);
+    Qry.CreateVariable("fmt_type", otString, fmt_type);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bp_forms");
+    for(;!Qry.Eof;Qry.Next())
+      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+}
+
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
 {
     if (node==NULL) return;
     TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText =
-            "select  "
-            "   bp_forms.form "
-            "from  "
-            "   bp_forms, "
-            "   ( "
-            "    select "
-            "        bp_type, "
-            "        prn_type, "
-            "        max(version) version "
-            "    from "
-            "        bp_forms "
-            "    group by "
-            "        bp_type, "
-            "        prn_type "
-            "   ) a "
-            "where  "
-            "   a.bp_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
-            "   a.prn_type = :prn_type and "
-            "   a.bp_type = bp_forms.bp_type and "
-            "   a.prn_type = bp_forms.prn_type and "
-            "   a.version = bp_forms.version and "
-            "   bp_forms.form IS NOT NULL ";
+        "select  "
+        "   bp_forms.form "
+        "from  "
+        "   bp_forms, "
+        "   ( "
+        "    select "
+        "        bp_type, "
+        "        prn_type, "
+        "        max(version) version "
+        "    from "
+        "        bp_forms "
+        "    group by "
+        "        bp_type, "
+        "        prn_type "
+        "   ) a "
+        "where  "
+        "   a.bp_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   a.prn_type = :prn_type and "
+        "   a.bp_type = bp_forms.bp_type and "
+        "   a.prn_type = bp_forms.prn_type and "
+        "   a.version = bp_forms.version and "
+        "   bp_forms.form IS NOT NULL ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("prn_type", otInteger, prn_type);
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
 };
+
+void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
+{
+    if (node==NULL) return;
+    TQuery Qry(&OraSession);
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   prn_form_vers.form "
+        "from "
+        "   bt_models, "
+        "   prn_form_vers "
+        "where "
+        "   bt_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bt_models.dev_model = :dev_model and "
+        "   bt_models.fmt_type = :fmt_type and "
+        "   bt_models.id = prn_form_vers.id and "
+        "   bt_models.version = prn_form_vers.version ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("dev_model", otString, dev_model);
+    Qry.CreateVariable("fmt_type", otString, fmt_type);
+    Qry.Execute();
+    xmlNodePtr formNode=NewTextChild(node,"bt_forms");
+    for(;!Qry.Eof;Qry.Next())
+        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+}
 
 void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
 {
@@ -2368,144 +2362,38 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     Print = Qry.FieldAsString("data");
 }
 
-void GetPrintDataBP(xmlNodePtr dataNode, int pax_id, int prn_type, int pr_lat, xmlNodePtr clientDataNode)
+void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
-    tst();
-    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select format from prn_types where code = :prn_type";
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
-    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
-    Qry.Clear();
-    Qry.SQLText = "select grp_id, reg_no from pax where pax_id = :pax_id";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    string Pectab, Print;
-    int reg_no = Qry.FieldAsInteger("reg_no");
-    int grp_id = Qry.FieldAsInteger("grp_id");
-    GetPrintData(grp_id, prn_type, Pectab, Print);
-    NewTextChild(BPNode, "pectab", Pectab);
-    tst();
-    PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
-    tst();
-    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
-    xmlNodePtr paxNode = NewTextChild(passengersNode,"pax");
-        string prn_form = parser.parse(Print);
-    if(prn_format == pfEPSON) {
-        to_esc::convert(prn_form, TPrnType(prn_type), NULL);
-        prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-    }
-    NewTextChild(paxNode, "prn_form", prn_form);
+    prn_forms.clear();
+    TQuery FormsQry(&OraSession);
+    FormsQry.SQLText =
+        "select "
+        "   bt_models.num, "
+        "   prn_form_vers.form, "
+        "   prn_form_vers.data "
+        "from "
+        "   bt_models, "
+        "   prn_form_vers "
+        "where "
+        "   bt_models.form_type = :form_type and "
+        "   bt_models.dev_model = :dev_model and "
+        "   bt_models.fmt_type = :fmt_type and "
+        "   bt_models.id = prn_form_vers.id and "
+        "   bt_models.version = prn_form_vers.version ";
+    FormsQry.CreateVariable("form_type", otString, tag_type);
+    FormsQry.CreateVariable("dev_model", otString, dev_model);
+    FormsQry.CreateVariable("fmt_type", otString, fmt_type);
+    FormsQry.Execute();
+    if(FormsQry.Eof)
+      throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+    while(!FormsQry.Eof)
     {
-        TQuery *Qry = parser.get_prn_qry();
-        TDateTime time_print = NowUTC();
-        Qry->CreateVariable("now_utc", otDate, time_print);
-        ProgTrace(TRACE5, "PRN QUERY: %s", Qry->SQLText.SQLText());
-        Qry->Execute();
-        SetProp(paxNode, "pax_id", pax_id);
-        SetProp(paxNode, "reg_no", reg_no);
-        SetProp(paxNode, "time_print", DateTimeToStr(time_print));
-    }
-}
-
-void GetPrintDataBP(xmlNodePtr dataNode, int grp_id, int prn_type, int pr_lat, bool pr_all, xmlNodePtr clientDataNode)
-{
-    string Pectab, Print;
-    GetPrintData(grp_id, prn_type, Pectab, Print);
-    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
-    NewTextChild(BPNode, "pectab", Pectab);
-    TQuery Qry(&OraSession);
-    Qry.Clear();
-    Qry.SQLText="SELECT class FROM pax_grp WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    if(Qry.FieldIsNULL("class"))
-        throw UserException("Для багажа без сопровождения посадочный талон не печатается.");
-    Qry.Clear();
-    Qry.SQLText = "select format from prn_types where code = :prn_type";
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
-    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
-    Qry.Clear();
-    if(pr_all)
-        Qry.SQLText =
-            "select pax_id, reg_no from pax where grp_id = :grp_id and refuse is null order by reg_no";
-    else
-        Qry.SQLText =
-            "select pax.pax_id, pax.reg_no  from "
-            "   pax, bp_print "
-            "where "
-            "   pax.grp_id = :grp_id and "
-            "   pax.refuse is null and "
-            "   pax.pax_id = bp_print.pax_id(+) and "
-            "   bp_print.pr_print(+) <> 0 and "
-            "   bp_print.pax_id IS NULL "
-            "order by "
-            "   pax.reg_no";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
-    while(!Qry.Eof) {
-        int pax_id = Qry.FieldAsInteger("pax_id");
-        int reg_no = Qry.FieldAsInteger("reg_no");
-        tst();
-        PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
-        tst();
-        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        string prn_form = parser.parse(Print);
-        tst();
-        if(prn_format == pfEPSON) {
-            to_esc::convert(prn_form, TPrnType(prn_type), NULL);
-            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-        }
-        NewTextChild(paxNode, "prn_form", prn_form);
-        {
-            TQuery *Qry = parser.get_prn_qry();
-            TDateTime time_print = NowUTC();
-            Qry->CreateVariable("now_utc", otDate, time_print);
-            Qry->Execute();
-            SetProp(paxNode, "pax_id", pax_id);
-            SetProp(paxNode, "reg_no", reg_no);
-            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
-        }
-        Qry.Next();
-    }
-}
-
-void PrintInterface::GetGRPPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    GetPrintDataBP(
-            dataNode,
-            NodeAsInteger("grp_id", reqNode),
-            NodeAsInteger("prn_type", reqNode),
-            NodeAsInteger("pr_lat", reqNode),
-            NodeAsInteger("pr_all", reqNode),
-            NodeAsNode("clientData", reqNode)
-            );
-    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
-}
-
-void PrintInterface::GetPrintDataBPXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-    xmlNodePtr dataNode = NewTextChild(resNode, "data");
-    GetPrintDataBP(
-            dataNode,
-            NodeAsInteger("pax_id", reqNode),
-            NodeAsInteger("prn_type", reqNode),
-            NodeAsInteger("pr_lat", reqNode),
-            NodeAsNode("clientData", reqNode)
-            );
-    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
+        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        if (FormsQry.FieldIsNULL("data"))
+          throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        FormsQry.Next();
+    };
 }
 
 void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
@@ -2609,6 +2497,8 @@ void set_via_fields(PrintDataParser &parser, vector<TBTRouteItem> &route, int st
 }
 
 struct TTagKey {
+    string dev_model; // instead of prn_type in new terminal
+    string fmt_type; // entirely new property from new terminal
     int grp_id, prn_type, pr_lat;
     double no; //no = Float!
     string type, color;
@@ -2693,8 +2583,24 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
     DumpRoute(route);
 }
 
+void check_CUTE_certified(int &prn_type, string &dev_model, string &fmt_type)
+{
+    if(prn_type != NoExists) {
+        if(prn_type == 90) {
+            dev_model = "ATB CUTE";
+            fmt_type = "ATB";
+        } else if(prn_type == 91) {
+            dev_model = "BTP CUTE";
+            fmt_type = "BTP";
+        } else
+            throw UserException("Версия терминала устарела. Обновите терминал.");
+        prn_type = NoExists;
+    }
+}
+
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
+//    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
     vector<TBTRouteItem> route;
     get_route(tag_key, route);
     TQuery Qry(&OraSession);
@@ -2783,7 +2689,10 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
+            if(tag_key.dev_model.empty())
+                get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
+            else
+                get_bt_forms(tag_type, tag_key.dev_model, tag_key.fmt_type, pectabsNode, prn_forms);
         }
 
         u_int64_t tag_no = (u_int64_t)Qry.FieldAsFloat("no");
@@ -2847,6 +2756,8 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     TTagKey tag_key;
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
+    tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
+    tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     tag_key.type = NodeAsString("type", reqNode);
@@ -2860,7 +2771,9 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     TTagKey tag_key;
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
-    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
+    tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     GetPrintDataBT(dataNode, tag_key);
 }
@@ -3066,7 +2979,7 @@ string get_validator(TBagReceipt &rcpt)
     TReqInfo *reqInfo = TReqInfo::Instance();
     Qry.Clear();
     Qry.SQLText="SELECT sale_point FROM sale_desks "
-                "WHERE code=:code AND validator=:validator AND pr_denial=0";
+        "WHERE code=:code AND validator=:validator AND pr_denial=0";
     Qry.CreateVariable("code", otString, reqInfo->desk.code);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
@@ -3125,22 +3038,177 @@ string get_validator(TBagReceipt &rcpt)
             << sale_point << "  "
             << setw(4) << setfill('0') << private_num << endl;
         validator << endl; // empty string for this type
-    } else if(
-            validator_type == "ЮТ" ||
-            validator_type == "ЮХ" ||
-            validator_type == "ОП" ||
-            validator_type == "ЛА" ||
-            validator_type == "ИАТА") {
+    } else {
+        // все валидаторы кроме ТКП у нас пока обрабатываются одинаково
         validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
         validator << agency_name.substr(0, 19) << endl;
         validator << sale_point_descr.substr(0, 19) << endl;
         validator << city.AsString("Name").substr(0, 16) << "/" << country.AsString("code") << endl;
         validator << setw(4) << setfill('0') << private_num << endl;
-    } else
-        throw Exception("get_validator: unknown validator type %s", validator_type.c_str());
+    }
     return validator.str();
 }
 
+void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr currNode = reqNode->children;
+    int grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists);
+    int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
+    int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
+    int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
+    string dev_model = NodeAsStringFast("dev_model", currNode, "");
+    string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
+    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
+    xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
+
+//    check_CUTE_certified(prn_type, dev_model, fmt_type);
+
+    TQuery Qry(&OraSession);
+
+    if(grp_id == NoExists) {
+        Qry.Clear();
+        Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+        grp_id = Qry.FieldAsInteger("grp_id");
+    }
+    Qry.Clear();
+    Qry.SQLText="SELECT point_dep, class FROM pax_grp WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    if(Qry.FieldIsNULL("class"))
+        throw UserException("Для багажа без сопровождения посадочный талон не печатается.");
+    int point_id = Qry.FieldAsInteger("point_dep");
+    string cl = Qry.FieldAsString("class");
+    Qry.Clear();
+    Qry.SQLText =
+        "SELECT bp_type FROM trip_bp "
+        "WHERE point_id=:point_id AND (class IS NULL OR class=:class) "
+        "ORDER BY class ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("class", otString, cl);
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
+    string form_type = Qry.FieldAsString("bp_type");
+    Qry.Clear();
+
+    if(dev_model.empty()) {
+        Qry.SQLText =
+            "select  "
+            "   bp_forms.form,  "
+            "   bp_forms.data  "
+            "from  "
+            "   bp_forms, "
+            "   ( "
+            "    select "
+            "        bp_type, "
+            "        prn_type, "
+            "        max(version) version "
+            "    from "
+            "        bp_forms "
+            "    group by "
+            "        bp_type, "
+            "        prn_type "
+            "   ) a "
+            "where  "
+            "   a.bp_type = :bp_type and "
+            "   a.prn_type = :prn_type and "
+            "   a.bp_type = bp_forms.bp_type and "
+            "   a.prn_type = bp_forms.prn_type and "
+            "   a.version = bp_forms.version ";
+        Qry.CreateVariable("bp_type", otString, form_type);
+        Qry.CreateVariable("prn_type", otInteger, prn_type);
+    } else {
+        Qry.SQLText =
+            "select "
+            "   prn_form_vers.form, "
+            "   prn_form_vers.data "
+            "from "
+            "   bp_models, "
+            "   prn_form_vers "
+            "where "
+            "   bp_models.form_type = :form_type and "
+            "   bp_models.dev_model = :dev_model and "
+            "   bp_models.fmt_type = :fmt_type and "
+            "   bp_models.id = prn_form_vers.id and "
+            "   bp_models.version = prn_form_vers.version ";
+        Qry.CreateVariable("form_type", otString, form_type);
+        Qry.CreateVariable("dev_model", otString, dev_model);
+        Qry.CreateVariable("fmt_type", otString, fmt_type);
+    }
+    Qry.Execute();
+    if(Qry.Eof||Qry.FieldIsNULL("data")||
+    	 Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB" || fmt_type == "EPL2")
+    	)
+      throw UserException("Печать пос. талона на выбранный принтер не производится");
+    string form = Qry.FieldAsString("form");
+    string data = Qry.FieldAsString("data");
+    xmlNodePtr dataNode = NewTextChild(resNode, "data");
+    xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
+    NewTextChild(BPNode, "pectab", form);
+    Qry.Clear();
+    if(pax_id == NoExists) {
+        if(pr_all)
+            Qry.SQLText =
+                "select pax_id, grp_id, reg_no from pax where grp_id = :grp_id and refuse is null order by reg_no";
+        else
+            Qry.SQLText =
+                "select pax.pax_id, pax.grp_id, pax.reg_no  from "
+                "   pax, bp_print "
+                "where "
+                "   pax.grp_id = :grp_id and "
+                "   pax.refuse is null and "
+                "   pax.pax_id = bp_print.pax_id(+) and "
+                "   bp_print.pr_print(+) <> 0 and "
+                "   bp_print.pax_id IS NULL "
+                "order by "
+                "   pax.reg_no";
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
+    } else {
+        Qry.SQLText = "select grp_id, pax_id, reg_no from pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+    }
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+    while(!Qry.Eof) {
+        int pax_id = Qry.FieldAsInteger("pax_id");
+        int reg_no = Qry.FieldAsInteger("reg_no");
+        int grp_id = Qry.FieldAsInteger("grp_id");
+        PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        string prn_form = parser.parse(data);
+        if(fmt_type == "EPSON") {
+            TPrnType convert_prn_type;
+            if(dev_model == "OLIVETTI")
+                convert_prn_type = ptOLIVETTI;
+            else if(dev_model == "ML390")
+                convert_prn_type = ptOKIML390;
+            else if(dev_model == "ML3310")
+                convert_prn_type = ptOKIML3310;
+            else
+                throw Exception(dev_model + " not supported by to_esc::convert");
+            to_esc::convert(prn_form, convert_prn_type, NULL);
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+        }
+        NewTextChild(paxNode, "prn_form", prn_form);
+        {
+            TQuery *Qry = parser.get_prn_qry();
+            TDateTime time_print = NowUTC();
+            Qry->CreateVariable("now_utc", otDate, time_print);
+            Qry->Execute();
+            SetProp(paxNode, "pax_id", pax_id);
+            SetProp(paxNode, "reg_no", reg_no);
+            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
+        }
+        Qry.Next();
+    }
+}
 
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

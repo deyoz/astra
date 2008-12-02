@@ -3,6 +3,7 @@
 
 #include "JxtInterface.h"
 #include "xmllibcpp.h"
+#include "astra_utils.h"
 
 class ETSearchInterface : public JxtInterface
 {
@@ -11,6 +12,7 @@ public:
   {
      Handler *evHandle;
      evHandle=JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::SearchETByTickNo);
+     AddEvent("SearchETByTickNo",evHandle);
      AddEvent("TickPanel",evHandle);
      AddEvent("kick", JxtHandler<ETSearchInterface>::CreateHandler(&ETSearchInterface::KickHandler));
   };
@@ -26,12 +28,17 @@ class ETStatusInterface : public JxtInterface
 public:
   ETStatusInterface() : JxtInterface("ETStatus","ETStatus")
   {
+     Handler *evHandle;
+     evHandle=JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::SetTripETStatus);
+     AddEvent("SetTripETStatus",evHandle);
+
      AddEvent("ChangePaxStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangePaxStatus));
      AddEvent("ChangeGrpStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeGrpStatus));
      AddEvent("ChangeFltStatus",JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::ChangeFltStatus));
      AddEvent("kick", JxtHandler<ETStatusInterface>::CreateHandler(&ETStatusInterface::KickHandler));
   };
 
+  void SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -40,7 +47,7 @@ public:
 };
 
 enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
-bool ETCheckStatus(int id, TETCheckStatusArea area, int point_id=-1);
+bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool check_connect=false);
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {

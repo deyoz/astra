@@ -19,10 +19,12 @@
 #include "docs.h"
 #include "stat.h"
 #include "print.h"
+#include "astra_consts.h"
 
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace ASTRA;
 
 struct TTrferItem {
   std::string last_trfer;
@@ -79,6 +81,12 @@ TSQL *TSQL::Instance() {
 void TSQL::createSQLTrips( ) {
   TSQLParams p;
 
+  /* ------все рейсы без учета статусов------ */
+  p.sqlfrom = "points";
+  p.sqlwhere = "points.pr_del>=0 ";
+  sqltrips[ "ALL POINTS" ] = p;
+  p.clearVariables();
+
   /* ------------ПОСАДКА-------------- */
   /* ------------ДОСМОТР-------------- */
   /* задаем текст */
@@ -125,28 +133,6 @@ void TSQL::createSQLTrips( ) {
   sqltrips[ "DOCS.EXE" ] = p;
   p.clearVariables();
 
-  /* ------------ДОКУМЕНТАЦИЯ------------ */
-/*  p.sqlfrom =
-    "points,trip_final_stages";
-  p.sqlwhere =
-    "points.point_id= trip_final_stages.point_id AND "
-    "points.pr_del=0 AND "
-    "trip_final_stages.stage_type=:ckin_stage_type AND "
-    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-
-//    "(points.act_out IS NOT NULL OR "
-//    " points.act_out IS NULL AND "
-//    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "
-//    " gtimer.is_final_stage( points.point_id, :ckin_stage_type, :ckin_prep_stage_id)=0) ";
-  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
-  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
-  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
-  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-//  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
-//  p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
-  sqltrips[ "DOCS.EXE" ] = p;
-  p.clearVariables();*/
-
   /* ------------КАССА------------ */
   p.sqlfrom =
     "points,trip_final_stages";
@@ -170,17 +156,11 @@ void TSQL::createSQLTrips( ) {
     "points.pr_del=0 AND "
     "trip_final_stages.stage_type=:ckin_stage_type AND "
     "trip_final_stages.stage_id IN (:ckin_prep_stage_id,:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
-/*
-    "points.pr_del=0 AND "
-    "(points.act_out IS NOT NULL OR "
-    " points.act_out IS NULL AND "
-    " gtimer.is_final_stage(points.point_id, :ckin_stage_type, :no_active_stage_id)=0) ";*/
   p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
   p.addVariable( "ckin_prep_stage_id", otInteger, IntToString( sPrepCheckIn ) );
   p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
   p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
-//  p.addVariable( "no_active_stage_id", otInteger, IntToString( sNoActive ) );
   sqltrips[ "PREPREG.EXE" ] = p;
   p.clearVariables();
 
@@ -240,7 +220,6 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
       sql+="AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
   };
 
-    //sql+="AND aro_airlines.airline=points.airline AND aro_airlines.aro_id=:user_id ";
   if (!info.user.access.airps.empty())
   {
     if ( info.screen.name != "TLG.EXE" )
@@ -282,7 +261,12 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
 
 void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
   Qry.Clear();
-  TSQLParams p = Instance()->sqltrips[ info.screen.name ];
+  TSQLParams p;
+  if (info.screen.name == "KASSA.EXE")
+    p = Instance()->sqltrips[ "ALL POINTS" ];
+  else
+    p = Instance()->sqltrips[ info.screen.name ];
+
   string sql=
     "SELECT points.point_id, "
     "       points.airline, "
@@ -303,43 +287,6 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       ckin.tranzitable(points.point_id) AS tranzitable, "
     "       ckin.get_pr_tranzit(points.point_id) AS pr_tranzit, "
     "       points.first_point ";
-
-/*
-  if ( info.screen.name == "BRDBUS.EXE" )
-    sql+="gtimer.get_stage_time(points.point_id,:brd_close_stage_id) AS brd_to, "
-         "gtimer.get_stage( points.point_id, :brd_stage_type ) as brd_stage ";
-
-  if ( info.screen.name == "CENT.EXE" )
-    sql+="gtimer.get_stage_time(points.point_id,:brd_close_stage_id) AS brd_to, "
-         "gtimer.get_stage( points.point_id, :ckin_stage_type ) AS ckin_stage, "
-         "gtimer.get_stage( points.point_id, :craft_stage_type ) AS craft_stage "
-//       comp.pr_saloninit
-  if ( info.screen.name == "AIR.EXE" )
-    sql+="points.act_out, "
-         "gtimer.get_stage_time(points.point_id,:ckin_close_stage_id) AS ckin_to, "
-         "gtimer.get_stage_time(points.point_id,:brd_open_stage_id) AS brd_from, "
-         "gtimer.get_stage_time(points.point_id,:brd_close_stage_id) AS brd_to, "
-         "gtimer.get_stage( points.point_id, :ckin_stage_type ) as ckin_stage "
-      //pr_tranzit_reg
-
-  if ( info.screen.name == "DOCS.EXE" )
-    sql+="gtimer.get_stage_time(points.point_id,:gangway_stage_id) AS ladder_to, "
-         "DECODE(points.act_out,NULL,gtimer.get_stage( points.point_id, :ckin_stage_type ),
-                                     :takeoff_stage_id) AS ckin_stage "
-      //pr_tranzit_reg
-
-  if ( info.screen.name == "KASSA.EXE" )
-    sql+="gtimer.get_stage_time(points.point_id,:ckin_close_stage_id) AS ckin_to, "
-         "gtimer.get_stage( points.point_id, :ckin_stage_type ) as ckin_stage "
-  if ( info.screen.name == "PREPREG.EXE" );
-    sql+="gtimer.get_stage_time(points.point_id,:ckin_close_stage_id) AS ckin_to, "
-         "gtimer.get_stage( points.point_id, :ckin_stage_type ) as ckin_stage "
-       //tranzitable
-       //pr_tranzit
-       //pr_saloninit
-  if ( info.screen.name == "TLG.EXE" )
-    sql+="DECODE(points.act_out,NULL,gtimer.get_stage( points.point_id, :craft_stage_type ),
-                                     :takeoff_stage_id) AS craft_stage "*/
 
   vector<int> &rights=info.user.access.rights;
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
@@ -515,14 +462,26 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
     {
-      int prn_type=NodeAsInteger("prn_type",node);
-      GetTripBPPectabs( point_id, prn_type, dataNode );
+        int prn_type = NodeAsInteger("prn_type", node, NoExists);
+        string dev_model = NodeAsString("dev_model", node, "");
+        string fmt_type = NodeAsString("fmt_type", node, "");
+        check_CUTE_certified(prn_type, dev_model, fmt_type);
+        if(dev_model.empty())
+            GetTripBPPectabs( point_id, prn_type, dataNode );
+        else
+            GetTripBPPectabs( point_id, dev_model, fmt_type, dataNode );
     };
     node=GetNode( "tripBTpectabs", reqNode );
     if (node!=NULL)
     {
-      int prn_type=NodeAsInteger("prn_type",node);
-      GetTripBTPectabs( point_id, prn_type, dataNode );
+        int prn_type = NodeAsInteger("prn_type", node, NoExists);
+        string dev_model = NodeAsString("dev_model", node, "");
+        string fmt_type = NodeAsString("fmt_type", node, "");
+        check_CUTE_certified(prn_type, dev_model, fmt_type);
+        if(dev_model.empty())
+            GetTripBTPectabs( point_id, prn_type, dataNode );
+        else
+            GetTripBTPectabs( point_id, dev_model, fmt_type, dataNode );
     };
   };
   if (reqInfo->screen.name == "CENT.EXE")
@@ -545,6 +504,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   };
   ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
+
 bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "TripsInterface::readTripHeader" );
@@ -623,12 +583,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     status = stagesRules->status( stBoarding, tripStages.getStage( stBoarding ) );
   };
   if ( reqInfo->screen.name == "AIR.EXE" ||
-       reqInfo->screen.name == "KASSA.EXE" ||
        reqInfo->screen.name == "PREPREG.EXE" )
   {
     status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ) );
   };
-  if ( reqInfo->screen.name == "CENT.EXE" )
+  if ( reqInfo->screen.name == "KASSA.EXE" ||
+       reqInfo->screen.name == "CENT.EXE" )
   {
     TStage ckin_stage =  tripStages.getStage( stCheckIn );
     TStage craft_stage = tripStages.getStage( stCraft );
@@ -681,7 +641,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pr_saloninit", (int)(!Qryh.Eof) );
   };
 
-  if (reqInfo->screen.name == "CENT.EXE" )
+  if (reqInfo->screen.name == "CENT.EXE" ||
+      reqInfo->screen.name == "KASSA.EXE" )
   {
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
@@ -694,6 +655,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
 
 
   if (reqInfo->screen.name == "AIR.EXE" ||
+      reqInfo->screen.name == "BRDBUS.EXE" ||
+      reqInfo->screen.name == "EXAM.EXE" ||
       reqInfo->screen.name == "DOCS.EXE" ||
       reqInfo->screen.name == "PREPREG.EXE")
   {
@@ -708,228 +671,47 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.Clear();
     Qryh.SQLText=
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
+      "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay,pr_trfer_reg, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etl_only "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
     if (Qryh.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-    NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
-    NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
-    NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
-    NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
-    NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
-    NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
-    NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
-    NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
-    NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
-    NewTextChild( node, "pr_etl_only", (int)(Qryh.FieldAsInteger("pr_etl_only")!=0) );
+    if (Qryh.FieldAsInteger("pr_etstatus")<0)
+    {
+      //вывод "Нет связи с СЭБ" в информации по рейсу
+      string remark=Qry.FieldAsString( "remark" );
+      if (!remark.empty()) remark.append(" ");
+      remark.append("Нет связи с СЭБ.");
+      ReplaceTextChild(node, "remark",  remark);
+    };
+
+    if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "DOCS.EXE" ||
+        reqInfo->screen.name == "PREPREG.EXE")
+    {
+      NewTextChild( node, "pr_tranz_reg", (int)(Qryh.FieldAsInteger("pr_tranz_reg")!=0) );
+      NewTextChild( node, "pr_block_trzt", (int)(Qryh.FieldAsInteger("pr_block_trzt")!=0) );
+      NewTextChild( node, "pr_check_load", (int)(Qryh.FieldAsInteger("pr_check_load")!=0) );
+      NewTextChild( node, "pr_overload_reg", (int)(Qryh.FieldAsInteger("pr_overload_reg")!=0) );
+      NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
+      NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
+      NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
+      NewTextChild( node, "pr_trfer_reg", (int)(Qryh.FieldAsInteger("pr_trfer_reg")!=0) );
+      NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
+      NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
+    };
+    if (reqInfo->screen.name == "AIR.EXE" ||
+        reqInfo->screen.name == "BRDBUS.EXE" ||
+        reqInfo->screen.name == "EXAM.EXE")
+    {
+      NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
+      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+    };
   };
   return true;
 }
-
-
-/*
-----------------посадка----------------:
-SELECT  trips.trip_id,
-         trips.bc,
-         SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-         SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-         TO_CHAR(gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id),'HH24:MI') AS brd_to,
-         TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-         trips.triptype,
-         trips.litera,
-         stages.brd_stage,
-         trips.remark
-  FROM  trips,trip_stations,
-   ( SELECT gtimer.get_stage( :trip_id, :brd_stage_type ) as brd_stage FROM dual ) stages
-  WHERE trip_stations.trip_id= :trip_id AND trips.act IS NULL AND
-        trip_stations.name= :station AND trip_stations.work_mode='╧' AND
-        trips.trip_id= :trip_id AND
-        trips.status=0 AND
-        stages.brd_stage = :brd_open_stage_id
-
-SELECT COUNT(*) AS reg,
-       NVL(SUM(DECODE(pr_brd,0,0,1)),0) AS brd
-FROM pax_grp,pax
-WHERE pax_grp.grp_id=pax.grp_id AND point_id=:trip_id AND pr_brd IS NOT NULL
-
-----------------центровка----------------:
-
-SELECT  trips.trip_id,
-         trips.bc,
-         SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-         SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-         TO_CHAR(gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id),'HH24:MI') AS brd_to,
-         TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-         trips.triptype,
-         trips.litera,
-         gtimer.get_stage( trips.trip_id, :ckin_stage_type ) AS ckin_stage,
-         gtimer.get_stage( trips.trip_id, :craft_stage_type ) AS craft_stage,
-         trips.remark,
-         comp.pr_saloninit
-  FROM  trips,
-        (SELECT COUNT(*) AS pr_saloninit FROM trip_comp_elems
-         WHERE trip_id=:trip_id AND rownum<2) comp
-  WHERE trips.trip_id= :trip_id AND
-        NVL(est,scd) BETWEEN SYSDATE-1 AND SYSDATE+1 AND act IS NULL AND
-        trips.status=0
-
-
-----------------регистрация----------------:
- SELECT  trips.trip_id,
-         trips.trip,trips.flt_no,trips.scd,trips.act,trips.company,trips.bc,
-         SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-         SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-         TO_CHAR(gtimer.get_stage_time(trips.trip_id,:ckin_close_stage_id),'HH24:MI') AS ckin_to,
-         TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-         gtimer.get_stage_time(trips.trip_id,:brd_open_stage_id) AS brd_from,
-         gtimer.get_stage_time(trips.trip_id,:brd_close_stage_id) AS brd_to,
-         trips.triptype,
-         trips.litera,
-         stages.ckin_stage,
-         trips.remark,
-         ckin.get_tranzit_reg(trips.trip_id) AS pr_tranzit_reg
-  FROM  trips,
-        ( SELECT gtimer.get_stage( :trip_id, :ckin_stage_type ) as ckin_stage FROM dual ) stages
-  WHERE trips.trip_id= :trip_id AND
-        trips.status=0 AND (act IS NULL OR :act_ignore<>0) AND
-        stages.ckin_stage IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id)
-
-SELECT  place.num,
-        place.cod AS airp_cod,
-        place.city AS city_cod,
-        airps.name AS airp_name,
-        cities.name AS city_name,
-        remark
-FROM place,airps,cities
-WHERE place.cod=airps.cod AND place.city=cities.cod AND
-      trip_id=:trip_id AND num>0
-ORDER BY num
-
-SELECT class AS cl_cod,name AS cl_name,cfg
-FROM trip_classes,classes
-WHERE classes.id=trip_classes.class AND trip_id= :trip_id
-ORDER BY lvl
-
-SELECT name AS brd_name FROM trip_stations
-WHERE trip_id=:trip_id AND work_mode='╧'
-
-SELECT point_num AS num, airps.city AS city_cod, class AS cl_cod,
-       crs_ok-ok AS noshow,
-       crs_tranzit-tranzit AS trnoshow,
-       tranzit+ok+goshow AS show,
-       free_ok,
-       free_goshow,
-       nooccupy
-FROM counters2,airps
-WHERE counters2.airp=airps.cod AND point_id=:trip_id
-
-
-
-----------------документация----------------:
-SELECT trips.trip_id,
-       trips.trip,trips.scd,trips.bc,
-       SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-       SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-       TO_CHAR(gtimer.get_stage_time(trips.trip_id,:gangway_stage_id),'HH24:MI') AS ladder_to,
-       TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-       trips.triptype,
-       trips.litera,
-       DECODE(act,NULL,stages.ckin_stage,:takeoff_stage_id) AS ckin_stage,
-       trips.remark,
-       ckin.get_tranzit_reg(trips.trip_id) AS pr_tranzit_reg
-FROM  trips,
-      ( SELECT gtimer.get_stage( :trip_id, :ckin_stage_type ) as ckin_stage FROM dual ) stages
-WHERE trips.trip_id= :trip_id AND
-      trips.status=0 AND
-      (act IS NOT NULL OR
-       act IS NULL AND
-       stages.ckin_stage NOT IN (:no_active_stage_id,:ckin_prep_stage_id))
-
-----------------касса----------------:
-SELECT trips.trip_id,trips.company,trips.flt_no,trips.suffix,trips.triptype,
-       trips.bc,
-       SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-       SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-       TO_CHAR(gtimer.get_stage_time(trips.trip_id,:ckin_close_stage_id),'HH24:MI') AS ckin_to,
-       TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-       trips.triptype,
-       trips.litera,
-       stages.ckin_stage,
-       trips.remark
-FROM  trips,
-      ( SELECT gtimer.get_stage( :trip_id, :ckin_stage_type ) as ckin_stage FROM dual ) stages
-WHERE trips.trip_id= :trip_id AND trips.act IS NULL AND
-      trips.status=0 AND
-      stages.ckin_stage IN (:ckin_open_stage_id,:ckin_close_stage_id)
-
-
-----------------подготовка----------------:
-SELECT  trips.trip_id,
-         trips.trip,trips.company,trips.flt_no,trips.bc,
-         SUBSTR( ckin.get_classes( trips.trip_id ), 1, 255 ) AS classes,
-         SUBSTR( ckin.get_places( trips.trip_id ), 1, 255 ) AS places,
-         TO_CHAR(gtimer.get_stage_time(trips.trip_id,:ckin_close_stage_id),'HH24:MI') AS ckin_to,
-         TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-         trips.triptype,
-         trips.litera,
-         stages.ckin_stage,
-         trips.remark,
-         DECODE(trips_in.trip_id,NULL,0,1) AS tranzitable,
-         DECODE(trips.trip,trips_in.trip,1,0) AS pr_tranzit,
-         comp.pr_saloninit
-  FROM  trips,trips_in,
-        ( SELECT gtimer.get_stage( :trip_id, :ckin_stage_type ) as ckin_stage FROM dual ) stages,
-        (SELECT COUNT(*) AS pr_saloninit FROM trip_comp_elems
-         WHERE trip_id=:trip_id AND rownum<2) comp
-  WHERE trips.trip_id= :trip_id AND trips.act IS NULL AND
-        trips.trip_id= trips_in.trip_id(+) AND
-        trips_in.status(+)=0  AND
-        trips.status=0 AND
-        stages.ckin_stage NOT IN (:no_active_stage_id)
-
-
-----------------телеграммы----------------:
-
-SELECT trips.trip_id,
-       trips.company,trips.flt_no,trips.suffix,trips.scd,trips.bc,
-       SUBSTR(ckin.get_classes(trips.trip_id),1,255) AS classes,
-       SUBSTR(ckin.get_places(trips.trip_id),1,255) AS places,
-       TO_CHAR(NVL(NVL(trips.act,trips.est),trips.scd),'HH24:MI') AS takeoff,
-       trips.triptype,
-       trips.litera,
-       DECODE(act,NULL,gtimer.get_stage( trips.trip_id, :craft_stage_type ),:takeoff_stage_id) AS craft_stage,
-       trips.remark,
-       1 AS pr_dep
-FROM  trips
-WHERE :pr_dep<>0 AND trips.trip_id= :trip_id AND
-      TRUNC(NVL(trips.act,NVL(trips.est,trips.scd)))-TRUNC(SYSDATE) BETWEEN -15 AND 1 AND
-      trips.status<>-1
-UNION
-SELECT trips_in.trip_id,
-       trips_in.company,trips_in.flt_no,trips_in.suffix,trips_in.scd,trips_in.bc,
-       TO_CHAR(NULL) AS classes,
-       SUBSTR(ckin.get_places(trips_in.trip_id,0),1,255) AS places,
-       TO_CHAR(NVL(NVL(trips_in.act,trips_in.est),trips_in.scd),'HH24:MI') AS takeoff,
-       trips_in.triptype,
-       trips_in.litera,
-       TO_NUMBER(NULL),
-       trips_in.remark,
-       0 AS pr_dep
-FROM  trips_in
-WHERE :pr_dep=0 AND trips_in.trip_id= :trip_id AND
-      TRUNC(NVL(trips_in.act,NVL(trips_in.est,trips_in.scd)))-TRUNC(SYSDATE) BETWEEN -15 AND 1 AND
-      trips_in.status<>-1
-
-SELECT num,cod FROM place
-WHERE :pr_dep<>0 AND trip_id=:trip_id AND num>0
-UNION
-SELECT num,cod FROM place_in
-WHERE :pr_dep=0 AND trip_id=:trip_id AND num<0
-ORDER BY num
-
-*/
 
 string convertLastTrfer(string s)
 {
@@ -1326,7 +1108,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
      "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-     "      salons.get_crs_seat_no(crs_pax.pax_id,:preseat_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
+     "      salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
      "      crs_pax.seats seats, "
      "      crs_pnr.target, "
      "      crs_pnr.last_target, "
@@ -1416,7 +1198,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psOk) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.CreateVariable( "preseat_layer", otString, EncodeCompLayerType(ASTRA::cltPreseat) );
+  Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
   Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   Qry.Execute();
 
@@ -1548,84 +1330,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-/*void viewPNL( int point_id, xmlNodePtr dataNode )
-{
-  TQuery Qry( &OraSession );
-  Qry.SQLText =
-    "SELECT pax.reg_no, "
-    "       ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
-    "       RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
-    "       crs_pax.pers_type, "
-    "       crs_pnr.class,crs_pnr.subclass, "
-    "       crs_pax.seat_no AS crs_seat_no, "
-    "       crs_pax.preseat_no, "
-    "       pax.seat_no, "
-    "       pax.refuse, "
-    "       crs_pax.seats seats, "
-    "       crs_pnr.target, "
-    "       report.get_trfer_airp(last_target) AS last_target, "
-    "       report.get_PSPT(crs_pax.pax_id) AS document, "
-    "       report.get_TKNO(crs_pax.pax_id) AS ticket, "
-    "       crs_pax.pax_id, "
-    "       crs_pax.tid tid, "
-    "       crs_pnr.pnr_id "
-    " FROM crs_pnr,tlg_binding,crs_pax,pax "
-    "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND point_id_spp=:point_id AND "
-    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
-    "      crs_pax.pax_id=pax.pax_id(+) AND "
-    "      crs_pax.pr_del=0 "
-    "ORDER BY DECODE(pnr_ref,NULL,0,1),pnr_ref,pnr_id ";
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.Execute();
-
-  TQuery RQry( &OraSession );
-  RQry.SQLText =
-    "SELECT crs_pax_rem.rem, crs_pax_rem.rem_code, NVL(rem_types.priority,-1) AS priority "\
-    " FROM crs_pax_rem,rem_types "\
-    "WHERE crs_pax_rem.rem_code=rem_types.code(+) AND crs_pax_rem.pax_id=:pax_id "\
-    "ORDER BY priority DESC,rem_code,rem ";
-  RQry.DeclareVariable( "pax_id", otInteger );
-
-  dataNode = NewTextChild( dataNode, "trippnl" );
-  while ( !Qry.Eof ) {
-    xmlNodePtr itemNode = NewTextChild( dataNode, "item" );
-    if (!Qry.FieldIsNULL("reg_no"))
-      NewTextChild( itemNode, "reg_no", Qry.FieldAsInteger( "reg_no" ) );
-    NewTextChild( itemNode, "pnr_ref", Qry.FieldAsString( "pnr_ref" ), "" );
-    NewTextChild( itemNode, "full_name", Qry.FieldAsString( "full_name" ) );
-    NewTextChild( itemNode, "pers_type", Qry.FieldAsString( "pers_type" ), EncodePerson(ASTRA::adult) );
-    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
-    NewTextChild( itemNode, "subclass", Qry.FieldAsString( "subclass" ) );
-    NewTextChild( itemNode, "crs_seat_no", Qry.FieldAsString( "crs_seat_no" ), "" );
-    NewTextChild( itemNode, "preseat_no", Qry.FieldAsString( "preseat_no" ), "" );
-    NewTextChild( itemNode, "seat_no", Qry.FieldAsString( "seat_no" ), "" );
-    NewTextChild( itemNode, "refuse", Qry.FieldIsNULL( "refuse" ) );
-    NewTextChild( itemNode, "seats", Qry.FieldAsInteger( "seats" ), 1 );
-    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
-    NewTextChild( itemNode, "last_target", Qry.FieldAsString( "last_target" ), "" );
-    RQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
-    RQry.Execute();
-    string rem, rem_code;
-    xmlNodePtr stcrNode = NULL;
-    for(;!RQry.Eof;RQry.Next())
-    {
-      rem += string( ".R/" ) + RQry.FieldAsString( "rem" ) + "   ";
-      rem_code = RQry.FieldAsString( "rem_code" );
-      if ( rem_code == "STCR" && !stcrNode )
-      {
-      	stcrNode = NewTextChild( itemNode, "step", "down" );
-      };
-    };
-    NewTextChild( itemNode, "ticket", Qry.FieldAsString( "ticket" ), "" );
-    NewTextChild( itemNode, "document", Qry.FieldAsString( "document" ), "" );
-    NewTextChild( itemNode, "rem", rem, "" );
-    NewTextChild( itemNode, "pax_id", Qry.FieldAsInteger( "pax_id" ) );
-    NewTextChild( itemNode, "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
-    NewTextChild( itemNode, "tid", Qry.FieldAsInteger( "tid" ) );
-    Qry.Next();
-  }
-}*/
-
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1662,5 +1366,37 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
       trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
 
   return trip.str();
+};
+
+bool GetTripSets( TTripSetType setType, TTripInfo &info )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_misc, "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(flt_no,NULL,0,2)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM misc_set "
+    "WHERE type=:type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("type",otInteger,(int)setType);
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    switch(setType)
+    {
+      //запрет интерактива с СЭБом
+      case tsETLOnly: return false;
+              default: return false;
+    };
+  };
+  return Qry.FieldAsInteger("pr_misc")!=0;
 };
 

@@ -4,7 +4,19 @@
 #include <vector>
 #include <string>
 #include "basic.h"
-#include "tlg/tlg_parser.h"
+#include "astra_consts.h"
+
+class TPnrAddrItem
+{
+  public:
+    char airline[4];
+    char addr[21];
+    TPnrAddrItem()
+    {
+      *airline=0;
+      *addr=0;
+    };
+};
 
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
 std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");

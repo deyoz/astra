@@ -131,12 +131,12 @@ void FreeTextInfoXmlView::operator () (ViewerData &Data, const list<FreeTextInfo
     for(list<FreeTextInfo>::const_iterator i=lift.begin(); i!=lift.end(); i++)
     {
 	const FreeTextInfo &Ift = (*i);
-	if(Ift.fTType().codeInt() == FreeTextType::FareCalc){
+	if(Ift.fTType()->type() == FreeTextType::FareCalc){
 	    // Строка расчёта тарифа
 	    ProgTrace(TRACE3, "Ift fare calc xml view");
 	    xmlNodePtr paymentNode=getNode(mainNode,"payment");
 	    xmlNewTextChild(paymentNode,NULL,"fare_calc", Ift.fullText());
-	} else if(Ift.fTType().codeInt() == FreeTextType::AgnAirName){
+	} else if(Ift.fTType()->type() == FreeTextType::AgnAirName){
 	    //Полное имя города/агенства
 	    xmlNodePtr origNode=getNode(mainNode,"origin");
 	    xmlNewTextChild(origNode,NULL,"city_name", Ift.text(0));

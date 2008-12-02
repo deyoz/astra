@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <libxml/tree.h>
+#include "astra_utils.h"
 
 enum TReadStyle { rTripSalons, rComponSalons };
 
@@ -98,8 +99,19 @@ struct TLayerPriority {
 	int priority;
 };
 
+class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
+	private:
+	  int point_dep;
+	public:
+		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_dep );
+		void getFilterLayers( int point_id );
+
+};
+
 class TSalons {
   private:
+  	TReadStyle readStyle;
+    TFilterLayers FilterLayers;
   	std::map<std::string,int> status_priority;
   	std::vector<TLayerPriority> layer_priority;
     TPlaceList* FCurrPlaceList;
@@ -117,7 +129,7 @@ class TSalons {
     std::string ClName;
     std::vector<TPlaceList*> placelists;
     ~TSalons( );
-    TSalons();
+    TSalons( int id, TReadStyle vreadStyle );
     TPlaceList *CurrPlaceList();
     void SetCurrPlaceList( TPlaceList *newPlaceList );
 
@@ -125,8 +137,8 @@ class TSalons {
 
     bool getLatSeat() { return pr_lat_seat; };
     void Build( xmlNodePtr salonsNode );
-    void Read( TReadStyle readStyle, bool wo_invalid_seat_no = false );
-    void Write( TReadStyle readStyle );
+    void Read( bool wo_invalid_seat_no = false );
+    void Write( );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );
 };

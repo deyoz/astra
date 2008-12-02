@@ -292,7 +292,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw Exception("PaxListVars: variables fetch failed for point_id " + IntToString(point_id));
+    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
@@ -725,7 +725,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "etm"
       ) { //ЭБ
         SQLText +=
-            "    nvl(decode(coupon_no, null, null, ticket_no||'/'||coupon_no), report.get_tkno(pax_id, '/', 1)) remarks, ";
+            "    ticket_no||'/'||coupon_no AS remarks, ";
     } else {
         SQLText +=
             " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, ";
@@ -765,9 +765,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "etm"
       ) { //ЭБ
         SQLText +=
-            "   ((ticket_no is not null and "
-            "   coupon_no is not null) or "
-            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
+            "   pax.ticket_rem='TKNE' and ";
     } else if(
             target == "tot" ||
             target == "tpm"
@@ -941,9 +939,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   ((ticket_no is not null and "
-            "   coupon_no is not null) or "
-            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
+            "   pax.ticket_rem='TKNE' and ";
     if(pr_brd_pax != -1) {
         SQLText +=
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
@@ -995,9 +991,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   ((ticket_no is not null and "
-            "   coupon_no is not null) or "
-            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
+            "   pax.ticket_rem='TKNE' and ";
     if(pr_brd_pax != -1)
         SQLText +=
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
@@ -1046,9 +1040,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   ((ticket_no is not null and "
-            "   coupon_no is not null) or "
-            "   report.get_tkno(pax_id, '/', 1) is not null) and ";
+            "   pax.ticket_rem='TKNE' and ";
     if(pr_brd_pax != -1)
         SQLText +=
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";

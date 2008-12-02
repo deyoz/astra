@@ -1,14 +1,14 @@
 <?xml version='1.0' encoding='cp866'?>
 <iface>
-  <title>Шаблоны бланков</title>
+  <title>Шаблоны бирок</title>
   <CanRefresh>0</CanRefresh>
   <CanInsert>1</CanInsert>
   <CanUpdate>1</CanUpdate>
   <CanDelete>1</CanDelete>
-  <fields tid='374247'>
+  <fields tid='374248'>
     <field index='0'>
       <Name>CODE</Name>
-      <Title>Тип бланка</Title>
+      <Title>Тип бирки</Title>
       <Width>0</Width>
       <CharCase>U</CharCase>
       <Align>0</Align>
@@ -55,6 +55,22 @@
       <ReferLevel>0</ReferLevel>
     </field>
     <field index='3'>
+      <Name>NUM</Name>
+      <Title>Сег.</Title>
+      <Width>3</Width>
+      <CharCase/>
+      <Align>0</Align>
+      <DataType>1</DataType>
+      <DataSize>1</DataSize>
+      <Scale>0</Scale>
+      <Nullable>0</Nullable>
+      <Ident>0</Ident>
+      <ReadOnly>0</ReadOnly>
+      <ReferCode/>
+      <ReferName/>
+      <ReferLevel>-1</ReferLevel>
+    </field>
+    <field index='4'>
       <Name>FORM_NAME</Name>
       <Title>Форма</Title>
       <Width>25</Width>
@@ -66,11 +82,11 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferCode>TUNE::PRINT_BT</ReferCode>
       <ReferName>NAME</ReferName>
       <ReferLevel>2</ReferLevel>
     </field>
-    <field index='4'>
+    <field index='5'>
       <Name>ID</Name>
       <Title/>
       <Width>0</Width>
@@ -82,11 +98,11 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferCode>TUNE::PRINT_BT</ReferCode>
       <ReferName>ID</ReferName>
       <ReferLevel>2</ReferLevel>
     </field>
-    <field index='5'>
+    <field index='6'>
       <Name>VERSION</Name>
       <Title>Вер. </Title>
       <Width>5</Width>
@@ -98,11 +114,11 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferCode>TUNE::PRINT_BT</ReferCode>
       <ReferName>VERSION</ReferName>
       <ReferLevel>2</ReferLevel>
     </field>
-    <field index='6'>
+    <field index='7'>
       <Name>DESCR</Name>
       <Title>Описание</Title>
       <Width>55</Width>
@@ -114,7 +130,7 @@
       <Nullable>0</Nullable>
       <Ident>0</Ident>
       <ReadOnly>0</ReadOnly>
-      <ReferCode>TUNE::PRINT_BP</ReferCode>
+      <ReferCode>TUNE::PRINT_BT</ReferCode>
       <ReferName>DESCR</ReferName>
       <ReferLevel>2</ReferLevel>
     </field>

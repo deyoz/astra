@@ -1,4 +1,5 @@
 #include "maindcs.h"
+#include "basic.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "base_tables.h"
@@ -14,6 +15,8 @@ using namespace ASTRA;
 using namespace EXCEPTIONS;
 using namespace std;
 using namespace JxtContext;
+
+enum TDevParamCategory{dpcSession,dpcFormat,dpcModel};
 
 void GetModuleList(xmlNodePtr resNode)
 {
@@ -43,7 +46,212 @@ void GetModuleList(xmlNodePtr resNode)
       };
     }
     else showErrorMessage("Пользователю закрыт доступ ко всем модулям");
-}
+};
+
+void GetDeviceAirlines(xmlNodePtr node)
+{
+  if (node==NULL) return;
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  if (reqInfo->desk.mode!=omCUTE) return;
+  xmlNodePtr accessNode=NewTextChild(node,"airlines");
+  TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
+  if (reqInfo->user.access.airlines_permit)
+    for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
+                                       i!=reqInfo->user.access.airlines.end();i++)
+    {
+      try
+      {
+        TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
+        xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
+        NewTextChild(airlineNode,"code",row.code);
+        NewTextChild(airlineNode,"code_lat",row.code_lat,"");
+        int aircode;
+        if (BASIC::StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
+          NewTextChild(airlineNode,"aircode",row.aircode,"");
+      }
+      catch(EBaseTableError) {}
+    };
+};
+
+void GetDeviceParams(TDevParamCategory category, TQuery &ParamsQry, xmlNodePtr devNode)
+{
+  if (ParamsQry.Eof || devNode==NULL) return;
+
+  string paramType;
+  xmlNodePtr paramTypeNode=NULL,paramNameNode=NULL,subparamNameNode;
+  for(;!ParamsQry.Eof;ParamsQry.Next())
+  {
+    if (paramTypeNode==NULL ||
+        paramType!=ParamsQry.FieldAsString("param_type"))
+    {
+      paramType=ParamsQry.FieldAsString("param_type");
+      switch (category)
+      {
+        case dpcSession: paramTypeNode=NewTextChild(devNode,"sess_params");
+                         break;
+        case dpcFormat:  paramTypeNode=NewTextChild(devNode,"fmt_params");
+                         break;
+        case dpcModel:   paramTypeNode=NewTextChild(devNode,"model_params");
+                         break;
+
+      };
+      SetProp(paramTypeNode,"type",paramType);
+      paramNameNode=NULL;
+    };
+    if (paramNameNode==NULL ||
+        strcmp((const char*)paramNameNode->name,ParamsQry.FieldAsString("param_name"))!=0)
+    {
+      if (ParamsQry.FieldIsNULL("subparam_name"))
+      {
+        paramNameNode=NewTextChild(paramTypeNode,ParamsQry.FieldAsString("param_name"),ParamsQry.FieldAsString("param_value"));
+        SetProp(paramNameNode,"editable",(int)(ParamsQry.FieldAsInteger("editable")!=0));
+      }
+      else
+        paramNameNode=NewTextChild(paramTypeNode,ParamsQry.FieldAsString("param_name"));
+    };
+    if (!ParamsQry.FieldIsNULL("subparam_name"))
+    {
+      subparamNameNode=NewTextChild(paramNameNode,ParamsQry.FieldAsString("subparam_name"),ParamsQry.FieldAsString("param_value"));
+      SetProp(subparamNameNode,"editable",(int)(ParamsQry.FieldAsInteger("editable")!=0));
+    };
+  };
+};
+
+void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  if (reqNode==NULL || resNode==NULL) return;
+  resNode=NewTextChild(resNode,"devices");
+  GetDeviceAirlines(resNode);
+
+  reqNode=GetNode("devices",reqNode);
+  if (reqNode==NULL) return;
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  TQuery ModelQry(&OraSession);
+  ModelQry.Clear();
+  ModelQry.SQLText="SELECT name FROM dev_models WHERE code=:dev_model";
+  ModelQry.DeclareVariable("dev_model",otString);
+
+  TQuery SessParamsQry(&OraSession);
+  SessParamsQry.Clear();
+  SessParamsQry.SQLText=
+    "SELECT dev_model_params.sess_type AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params,dev_sess_modes "
+    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
+    "      dev_sess_modes.term_mode=:term_mode AND dev_sess_modes.sess_type=:sess_type AND "
+    "      (dev_model_params.fmt_type IS NULL OR dev_model_params.fmt_type=:fmt_type) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  SessParamsQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  SessParamsQry.DeclareVariable("dev_model",otString);
+  SessParamsQry.DeclareVariable("sess_type",otString);
+  SessParamsQry.DeclareVariable("fmt_type",otString);
+
+  TQuery FmtParamsQry(&OraSession);
+  FmtParamsQry.Clear();
+  FmtParamsQry.SQLText=
+    "SELECT dev_model_params.fmt_type AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params,dev_fmt_opers "
+    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
+    "      dev_fmt_opers.op_type=:op_type AND dev_fmt_opers.fmt_type=:fmt_type AND "
+    "      (dev_model_params.sess_type IS NULL OR dev_model_params.sess_type=:sess_type) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  FmtParamsQry.DeclareVariable("op_type",otString);
+  FmtParamsQry.DeclareVariable("dev_model",otString);
+  FmtParamsQry.DeclareVariable("sess_type",otString);
+  FmtParamsQry.DeclareVariable("fmt_type",otString);
+
+  TQuery ModelParamsQry(&OraSession);
+  ModelParamsQry.Clear();
+  ModelParamsQry.SQLText=
+    "SELECT NULL AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params "
+    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  ModelParamsQry.DeclareVariable("dev_model",otString);
+  //считаем все операции + устройства по умолчанию
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT dev_oper_types.code AS op_type, "
+    "       dev_model_defaults.dev_model, "
+    "       dev_model_defaults.sess_type, "
+    "       dev_model_defaults.fmt_type "
+    "FROM dev_oper_types,dev_model_defaults "
+    "WHERE dev_oper_types.code=dev_model_defaults.op_type(+) AND "
+    "      dev_model_defaults.term_mode(+)=:term_mode ";
+  Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  Qry.Execute();
+  string op_type;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (op_type==Qry.FieldAsString("op_type")) continue;
+    op_type=Qry.FieldAsString("op_type");
+
+    FmtParamsQry.SetVariable("op_type",op_type);
+
+    xmlNodePtr node;
+    for(node=reqNode->children;node!=NULL;node=node->next)
+      if (op_type==NodeAsString("@type",node)) break;
+
+    string fmt_type,sess_type,dev_model;
+    if (node!=NULL)
+    {
+      dev_model=NodeAsString("dev_model",node);
+      sess_type=NodeAsString("sess_type",node);
+      fmt_type=NodeAsString("fmt_type",node);
+      ProgTrace( TRACE5, "dev_model=%s,sess_type=%s,fmt_type=%s",dev_model.c_str(),sess_type.c_str(),fmt_type.c_str() );
+    };
+
+    for(int k=0;k<=1;k++)
+    {
+      if (k==1)
+      {
+        dev_model=Qry.FieldAsString("dev_model");
+        sess_type=Qry.FieldAsString("sess_type");
+        fmt_type=Qry.FieldAsString("fmt_type");
+      };
+
+      if (dev_model.empty() || sess_type.empty() || fmt_type.empty()) continue;
+
+      ModelQry.SetVariable("dev_model",dev_model);
+      ModelQry.Execute();
+      if (ModelQry.Eof) continue;
+      ProgTrace( TRACE5, "dev_model=%s",dev_model.c_str() );
+
+      SessParamsQry.SetVariable("dev_model",dev_model);
+      SessParamsQry.SetVariable("sess_type",sess_type);
+      SessParamsQry.SetVariable("fmt_type",fmt_type);
+      SessParamsQry.Execute();
+      if (SessParamsQry.Eof) continue;
+      	ProgTrace( TRACE5, "dev_model=%s,sess_type=%s,fmt_type=%s",dev_model.c_str(),sess_type.c_str(),fmt_type.c_str() );
+
+      FmtParamsQry.SetVariable("dev_model",dev_model);
+      FmtParamsQry.SetVariable("sess_type",sess_type);
+      FmtParamsQry.SetVariable("fmt_type",fmt_type);
+      FmtParamsQry.Execute();
+      if (FmtParamsQry.Eof) continue;
+      ProgTrace( TRACE5, "dev_model=%s",dev_model.c_str() );
+
+      ModelParamsQry.SetVariable("dev_model",dev_model);
+      ModelParamsQry.Execute();
+      xmlNodePtr operTypeNode=NewTextChild(resNode,"operation");
+      SetProp(operTypeNode,"type",op_type);
+      NewTextChild(operTypeNode,"dev_model_code",dev_model);
+      NewTextChild(operTypeNode,"dev_model_name",ModelQry.FieldAsString("name"));
+      GetDeviceParams(dpcSession,SessParamsQry,operTypeNode);
+      GetDeviceParams(dpcFormat,FmtParamsQry,operTypeNode);
+      GetDeviceParams(dpcModel,ModelParamsQry,operTypeNode);
+      break;
+
+    };
+  };
+};
 
 bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
 {
@@ -147,8 +355,6 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       throw UserException("Не найден код авиакомпании %s",airlines.c_str());
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
 
-    GetModuleList(resNode);
-
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     std::string screen = NodeAsString("@screen", node);
     std::string opr = NodeAsString("@opr", node);
@@ -157,6 +363,10 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (modeNode!=NULL)
       mode = NodeAsString(modeNode);
     reqInfo->Initialize( screen, ctxt->pult, opr, mode, false );
+
+    //здесь reqInfo нормально инициализирован
+    GetModuleList(resNode);
+    GetDevices(reqNode,resNode);
     showBasicInfo();
 }
 
@@ -200,4 +410,140 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
     showMessage("Пароль изменен");
 }
+
+void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  string op_type;
+  if (GetNode("operation",reqNode)!=NULL) op_type=NodeAsString("operation",reqNode);
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  ostringstream sql;
+  sql << "SELECT dev_oper_types.code AS op_type, dev_oper_types.name AS op_name, "
+         "       dev_models.code AS dev_model_code, dev_models.name AS dev_model_name "
+         "FROM dev_oper_types,dev_models, "
+         "     (SELECT DISTINCT dev_model_params.dev_model,dev_fmt_opers.op_type "
+         "      FROM dev_fmt_opers,dev_model_params, "
+         "           (SELECT DISTINCT dev_model "
+         "            FROM dev_sess_modes,dev_model_params "
+         "            WHERE dev_model_params.sess_type=dev_sess_modes.sess_type AND "
+         "                  dev_sess_modes.term_mode=:term_mode) dev_sess_models "
+         "      WHERE dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND ";
+  if (!op_type.empty())
+    sql << "          dev_fmt_opers.op_type=:op_type AND ";
+
+  sql << "            dev_model_params.dev_model=dev_sess_models.dev_model) dev_fmt_models "
+         "WHERE dev_oper_types.code=dev_fmt_models.op_type(+) AND ";
+  if (!op_type.empty())
+    sql << "    dev_oper_types.code=:op_type AND ";
+
+  sql << "      dev_fmt_models.dev_model=dev_models.code(+) "
+         "ORDER BY op_type,dev_model_name ";
+
+  if (!op_type.empty())
+    Qry.CreateVariable("op_type",otString,op_type);
+
+
+  Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  Qry.Execute();
+  op_type.clear();
+  xmlNodePtr opersNode=NewTextChild(resNode,"operations");
+  xmlNodePtr operNode=NULL,devsNode=NULL,devNode=NULL;
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (op_type!=Qry.FieldAsString("op_type")) operNode=NULL;
+    if (operNode==NULL)
+    {
+      op_type=Qry.FieldAsString("op_type");
+      operNode=NewTextChild(opersNode,"operation");
+      NewTextChild(operNode,"type",op_type);
+      NewTextChild(operNode,"name",Qry.FieldAsString("op_name"));
+      devsNode=NewTextChild(operNode,"devices");
+    };
+    if (!Qry.FieldIsNULL("dev_model_code"))
+    {
+      devNode=NewTextChild(devsNode,"device");
+      NewTextChild(devNode,"code",Qry.FieldAsString("dev_model_code"));
+      NewTextChild(devNode,"name",Qry.FieldAsString("dev_model_name"));
+    };
+  };
+  opersNode=NewTextChild(resNode,"encodings");
+  NewTextChild(opersNode,"encoding","CP855");
+  NewTextChild(opersNode,"encoding","CP866");
+  NewTextChild(opersNode,"encoding","CP1251");
+
+};
+
+void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  string dev_model=NodeAsString("dev_model_code",reqNode);
+  string op_type=NodeAsString("operation",reqNode);
+
+  xmlNodePtr devNode=NewTextChild(resNode,"device");
+
+  TQuery ModelQry(&OraSession);
+  ModelQry.Clear();
+  ModelQry.SQLText="SELECT name FROM dev_models WHERE code=:dev_model";
+  ModelQry.CreateVariable("dev_model",otString,dev_model);
+  ModelQry.Execute();
+  if (ModelQry.Eof) return;
+
+  TQuery SessParamsQry(&OraSession);
+  SessParamsQry.Clear();
+  SessParamsQry.SQLText=
+    "SELECT dev_model_params.sess_type AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params,dev_sess_modes "
+    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
+    "      dev_sess_modes.term_mode=:term_mode "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  SessParamsQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  SessParamsQry.CreateVariable("dev_model",otString,dev_model);
+  SessParamsQry.Execute();
+  if (SessParamsQry.Eof) return;
+
+  TQuery FmtParamsQry(&OraSession);
+  FmtParamsQry.Clear();
+  FmtParamsQry.SQLText=
+    "SELECT dev_model_params.fmt_type AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params,dev_fmt_opers "
+    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
+    "      dev_fmt_opers.op_type=:op_type "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  FmtParamsQry.CreateVariable("op_type",otString,op_type);
+  FmtParamsQry.CreateVariable("dev_model",otString,dev_model);
+  FmtParamsQry.Execute();
+  if (FmtParamsQry.Eof) return;
+
+  TQuery ModelParamsQry(&OraSession);
+  ModelParamsQry.Clear();
+  ModelParamsQry.SQLText=
+    "SELECT NULL AS param_type, "
+    "       param_name,subparam_name,param_value,editable "
+    "FROM dev_model_params "
+    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+  ModelParamsQry.CreateVariable("dev_model",otString,dev_model);
+  ModelParamsQry.Execute();
+
+  NewTextChild(devNode,"dev_model_code",dev_model);
+  NewTextChild(devNode,"dev_model_name",ModelQry.FieldAsString("name"));
+  xmlNodePtr paramsNode;
+  paramsNode=NewTextChild(devNode,"sessions");
+  GetDeviceParams(dpcSession,SessParamsQry,paramsNode);
+  paramsNode=NewTextChild(devNode,"formats");
+  GetDeviceParams(dpcFormat,FmtParamsQry,paramsNode);
+  GetDeviceParams(dpcModel,ModelParamsQry,devNode);
+};
+
+
+
 

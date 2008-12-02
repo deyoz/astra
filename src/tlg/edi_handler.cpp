@@ -172,7 +172,7 @@ void handle_tlg(void)
 #include "ocilocal.h"
 using namespace OciCpp;
 class EdiHelpSignal:public Posthooks::BaseHook {
-    virtual int less2( const BaseHook *p) const;
+    virtual bool less2( const BaseHook *p) const;
     int msg1[4];
     char sigtext[1000];
     char ADDR[60];
@@ -192,7 +192,7 @@ EdiHelpSignal * EdiHelpSignal::clone() const
 {
     return new EdiHelpSignal(*this);
 }
-int EdiHelpSignal::less2( const BaseHook *p) const
+bool EdiHelpSignal::less2( const BaseHook *p) const
 {
     const EdiHelpSignal &e=dynamic_cast<const EdiHelpSignal &> (*p);
     int compare=strcmp(ADDR,e.ADDR);
@@ -233,24 +233,29 @@ int confirm_notify_levb(const char *pult)
     char txt[1000];
     unsigned short binlen;
     ProgTrace(TRACE2,"confirm_notify_levb called %s",pult);
+    //удалим устаревшие подвисшие сессиия
+    try {
+      make_curs("delete from edi_help where date1<sysdate-5/1440").exec();
+    } catch (Exception &e){
+        ProgTrace(TRACE1,"confirm_notify_levb: %s",e.what());
+    } catch (...){
+        ProgTrace(TRACE1,"confirm_notify_levb: unknown error");
+    };
+
     try {
         CursCtl c=make_curs(
                 "select intmsgid,address,text from edi_help where pult=:p"
                 "  and date1>sysdate-1/1440 order by date1 desc");
-        tst();
         c.autoNullStr().
                 bind(":p",pult).defFull(&id,sizeof(id),0,&binlen,SQLT_BIN).
                 def(address).def(txt).exfet();
-        tst();
         if(c.err()==NO_DATA_FOUND){
             ProgTrace(TRACE1,"nothing in edi_help for %s",pult);
             return -1;
         }
-        tst();
         if(binlen!=12){
             throw Exception("wrong len");
         }
-        tst();
     } catch (Exception &e){
         ProgError(STDLOG,"%s",e.what());
         return -2;
@@ -276,6 +281,5 @@ int confirm_notify_levb(const char *pult)
     }else{
         ProgTrace(TRACE1,"more records for  %s",pult);
     }
-    make_curs("delete from edi_help where date1<sysdate-5/1440").exec();
     return 0;
 }

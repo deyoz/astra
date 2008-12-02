@@ -4,6 +4,7 @@
 #include "edilib/edi_session_cb.h"
 #include "astra_ticket.h"
 #include "monitor_ctl.h"
+#include "libtlg/hth.h"
 
 bool set_edi_addrs(std::string airline,int flt_no=-1);
 std::string get_edi_addr();
@@ -30,11 +31,11 @@ public:
     }
 
     virtual edilib::EdiSess::EdiSession *ediSession() { return &EdiSess; }
-    virtual edilib::EdiSess::H2host *h2h() { return 0; }
 
-    virtual std::string sndrH2hAddr() const { return "";}
-    virtual std::string rcvrH2hAddr() const { return "";}
-    virtual std::string H2hTpr() const { return ""; }
+    virtual edilib::EdiSess::H2host *h2h() { return 0; };
+    virtual std::string sndrH2hAddr() const { return ""; };
+    virtual std::string rcvrH2hAddr() const { return ""; };
+    virtual std::string H2hTpr() const { return ""; };
 
     // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
     // Идентификатор сессии
@@ -74,13 +75,10 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
         {
         }
 
-        virtual edilib::EdiSess::H2host *h2h()
-        {
-            return 0;
-        }
-        virtual std::string sndrH2hAddr() const { return ""; }
-        virtual std::string rcvrH2hAddr() const { return ""; }
-        virtual std::string H2hTpr() const { return ""; }
+        virtual edilib::EdiSess::H2host *h2h() { return 0; };
+        virtual std::string sndrH2hAddr() const { return ""; };
+        virtual std::string rcvrH2hAddr() const { return ""; };
+        virtual std::string H2hTpr() const { return ""; };
 
         virtual std::string baseOurrefName() const
         {
@@ -160,20 +158,22 @@ enum TickDispType_t {
 class TickDisp : public edi_common_data
 {
     TickDispType_t DispType;
+    std::string ediSessCtxt;
 public:
-    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt)
-    :edi_common_data(org), DispType(dt)
+    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt, const std::string &ctxt)
+    :edi_common_data(org), DispType(dt), ediSessCtxt(ctxt)
     {
     }
     TickDispType_t dispType() { return DispType; }
+    const std::string & context() const { return ediSessCtxt; }
 };
 
 class TickDispByNum : public TickDisp
 {
     std::string TickNum;
 public:
-    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum)
-    :   TickDisp(org, TickDispByTickNo),
+    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum, const std::string &ctxt)
+    :   TickDisp(org, TickDispByTickNo, ctxt),
         TickNum(ticknum)
     {
     }
@@ -184,18 +184,21 @@ public:
 class ChngStatData : public edi_common_data
 {
     std::list<Ticketing::Ticket> lTick;
+    std::string ediSessCtxt;
     Ticketing::Itin::SharedPtr Itin_;
 public:
     ChngStatData(const Ticketing::OrigOfRequest &org,
                  const std::list<Ticketing::Ticket> &lt,
+                 const std::string &ctxt,
                  const Ticketing::Itin *itin_ = NULL)
-    :edi_common_data(org), lTick(lt)
+    :edi_common_data(org), lTick(lt), ediSessCtxt(ctxt)
     {
         if(itin_){
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
         }
     }
     const std::list<Ticketing::Ticket> & ltick() const { return lTick; }
+    const std::string & context() const { return ediSessCtxt; }
     bool isGlobItin() const
     {
         return Itin_;

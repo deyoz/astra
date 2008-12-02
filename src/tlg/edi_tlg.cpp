@@ -11,8 +11,11 @@
 #include "cont_tools.h"
 #include "ocilocal.h"
 #include "xml_unit.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
+#include "astra_context.h"
+#include "xml_stuff.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -479,7 +482,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
     ChngStatData &TickD = dynamic_cast<ChngStatData &>(*data);
 
     // EQN = кол-во билетов в запросе
-    ProgTrace(TRACE2,"Tick.sizer()=%d", TickD.ltick().size());
+    ProgTrace(TRACE2,"Tick.size()=%d", TickD.ltick().size());
     SetEdiFullSegment(pMes, "EQN",0,
                       HelpCpp::string_cast(TickD.ltick().size())+":TD");
     int sg1=0;
@@ -517,6 +520,12 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
         PopEdiPointW(pMes);
         ResetEdiPointW(pMes);
     }
+
+    //запишем контексты
+    AstraContext::SetContext("EDI_SESSION",
+                             udata.sessData()->ediSession()->ida(),
+                             TickD.context());
+
     TReqInfo& reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.desk.code.empty())
     {
@@ -528,6 +537,44 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                               edi_common_data *data)
 {
+    string ctxt;
+    AstraContext::GetContext("EDI_SESSION",
+                             udata.sessData()->ediSession()->ida(),
+                             ctxt);
+    ctxt=ConvertCodePage("UTF-8","CP866",ctxt);
+
+
+    XMLDoc ediSessCtxt(ctxt);
+    xmlNodePtr ticketNode=NULL;
+    if (ediSessCtxt.docPtr!=NULL)
+    {
+      //для нормальной работы надо все дерево перевести в CP866:
+      xml_decode_nodelist(ediSessCtxt.docPtr->children);
+      ticketNode=NodeAsNode("/context/tickets",ediSessCtxt.docPtr)->children;
+    };
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+      "UPDATE trip_sets SET pr_etstatus=0 "
+      "WHERE point_id=:point_id AND pr_etstatus<0 ";
+    Qry.DeclareVariable("point_id",otInteger);
+
+    int point_id=-1;
+    for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+    {
+      if (point_id!=NodeAsInteger("point_id",node))
+      {
+        point_id=NodeAsInteger("point_id",node);
+        Qry.SetVariable("point_id",point_id);
+        Qry.Execute();
+        if (Qry.RowsProcessed()>0)
+        {
+          //запишем в лог
+          MsgToLog( "Возвращен режим интерактива с СЭБ", ASTRA::evtFlt, point_id );
+        };
+      };
+    };
+
     ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
     chngStatAns.Trace(TRACE2);
     if (chngStatAns.isGlobErr())
@@ -536,9 +583,9 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                         "ChangeOfStatusError", chngStatAns.globErr().second);
         return;
     }
+
     std::list<Ticket>::const_iterator currTick;
-    TQuery Qry(&OraSession);
-    TQuery PaxQry(&OraSession);
+
     string screen,user,desk;
     desk=udata.sessData()->ediSession()->pult();
     xmlDocPtr kickDoc=getKickXMLDoc(desk);
@@ -563,107 +610,235 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 
     ProgTrace(TRACE5,"Kick info: screen=%s user=%s desk=%s",screen.c_str(),user.c_str(),desk.c_str());
 
-    PaxQry.Clear();
-    PaxQry.SQLText=
-      "SELECT pax_grp.grp_id,pax.reg_no,pax.surname,pax.name,pax.pers_type "
-      "FROM pax_grp,pax "
-      "WHERE pax_grp.grp_id=pax.grp_id AND "
-      "      pax_grp.point_dep=:point_id AND "
-      "      pax.ticket_no=:ticket_no AND pax.coupon_no=:coupon_no ";
-    PaxQry.DeclareVariable("ticket_no",otString);
-    PaxQry.DeclareVariable("coupon_no",otInteger);
-    PaxQry.DeclareVariable("point_id",otInteger);
+    TQuery UpdQry(&OraSession);
+    UpdQry.SQLText=
+      "BEGIN "
+      "  BEGIN "
+      "    SELECT error,coupon_status "
+      "    INTO :prior_error,:prior_status FROM etickets "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "  EXCEPTION "
+      "    WHEN NO_DATA_FOUND THEN NULL; "
+      "  END; "
+      "  IF :error IS NULL AND :coupon_status IS NULL THEN "
+      "    DELETE FROM etickets "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "  ELSE "
+      "    UPDATE etickets "
+      "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
+      "        coupon_status=:coupon_status, error=:error "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO etickets(ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status,error) "
+      "      VALUES(:ticket_no,:coupon_no,:point_id,:airp_dep,:airp_arv,:coupon_status,:error); "
+      "    END IF; "
+      "  END IF; "
+      "END;";
+    UpdQry.DeclareVariable("ticket_no",otString);
+    UpdQry.DeclareVariable("coupon_no",otInteger);
+    UpdQry.DeclareVariable("point_id",otInteger);
+    UpdQry.DeclareVariable("airp_dep",otString);
+    UpdQry.DeclareVariable("airp_arv",otString);
+    UpdQry.DeclareVariable("coupon_status",otString);
+    UpdQry.DeclareVariable("error",otString);
+    UpdQry.DeclareVariable("prior_status",otString);
+    UpdQry.DeclareVariable("prior_error",otString);
 
     for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
     {
-      string err=chngStatAns.err2Tick(currTick->ticknum());
+      TLogMsg msg;
+      ostringstream msgh;
+      msg.ev_type=ASTRA::evtPax;
+
+      //попробуем проанализировать ошибку уровня билета
+      string err=chngStatAns.err2Tick(currTick->ticknum(), 0);
       if (!err.empty())
       {
         ProgTrace(TRACE5,"ticket=%s error=%s",
                          currTick->ticknum().c_str(), err.c_str());
-      };
-      if (currTick->getCoupon().empty()) continue;
+        msgh << "Ошибка при изменении статуса эл. билета "
+             << currTick->ticknum()
+             << ": " << err << ". ";
+        msg.msg=msgh.str();
+        throw2UserLevel(udata.sessData()->ediSession()->pult(),
+                        "ChangeOfStatusError", msg.msg);
 
-      //получим ид. рейса
-      Qry.Clear();
-      Qry.SQLText="SELECT point_id FROM etickets WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no FOR UPDATE";
-      Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
-      Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
-      Qry.Execute();
-      if (Qry.Eof) continue;
-      int point_id=Qry.FieldAsInteger("point_id");
-
-      TLogMsg msg;
-      ostringstream msgh;
-      msg.ev_type=ASTRA::evtPax;
-      msg.id1=point_id;
-
-
-      //получим данные по пассажиру
-      PaxQry.SetVariable("ticket_no",currTick->ticknum());
-      PaxQry.SetVariable("coupon_no",(int)currTick->getCoupon().front().couponInfo().num());
-      PaxQry.SetVariable("point_id",point_id);
-      PaxQry.Execute();
-      if (!PaxQry.Eof)
-      {
-        msg.id2=PaxQry.FieldAsInteger("reg_no");
-        msg.id3=PaxQry.FieldAsInteger("grp_id");
-        msgh << "Пассажир " << PaxQry.FieldAsString("surname")
-             << (PaxQry.FieldIsNULL("name")?"":" ") << PaxQry.FieldAsString("name")
-             << " (" << PaxQry.FieldAsString("pers_type") << "). ";
-      };
-
-      if (err.empty())
-      {
-        CouponStatus status(currTick->getCoupon().front().couponInfo().status());
-
-        ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
-                         currTick->ticknum().c_str(),
-                         currTick->getCoupon().front().couponInfo().num(),
-                         status->dispCode());
-
-        //изменим статус в таблице etickets
-        Qry.Clear();
-        if (status->codeInt()==CouponStatus::Checked ||
-            status->codeInt()==CouponStatus::Boarded ||
-            status->codeInt()==CouponStatus::Flown)
+        if (ticketNode!=NULL)
         {
-          //сделать update
-          Qry.SQLText=
-            "UPDATE etickets SET coupon_status=:status "
-            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
-          Qry.CreateVariable("status",otString,status->dispCode());
+          //поищем все билеты
+          for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+          {
+            xmlNodePtr node2=node->children;
+            if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum())
+            {
+              if (err.size()>100) err.erase(100);
+              //нашли билет
+              UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+              UpdQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+              UpdQry.SetVariable("point_id",NodeAsIntegerFast("point_id",node2));
+              UpdQry.SetVariable("airp_dep",NodeAsStringFast("airp_dep",node2));
+              UpdQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
+              UpdQry.SetVariable("coupon_status",FNull);
+              UpdQry.SetVariable("error",err);
+              UpdQry.SetVariable("prior_status",FNull);
+              UpdQry.SetVariable("prior_error",FNull);
+              UpdQry.Execute();
+              if (UpdQry.VariableIsNULL("prior_error") ||
+                  UpdQry.GetVariableAsString("prior_error")!=err)
+              {
+                //если ошибка не совпадает с предыдущей
+                msg.id1=NodeAsIntegerFast("point_id",node2,0);
+                msg.id2=NodeAsIntegerFast("reg_no",node2,0);
+                msg.id3=NodeAsIntegerFast("grp_id",node2,0);
+                if (GetNodeFast("surname",node2)!=NULL)
+                {
+                  ostringstream pax;
+                  pax << "Пассажир " << NodeAsStringFast("surname",node2)
+                      << (NodeIsNULLFast("surname",node2)?"":" ") << NodeAsStringFast("name",node2)
+                      << " (" << NodeAsStringFast("pers_type",node2) << "). ";
+                  msg.msg=pax.str()+msg.msg;
+                };
+                MsgToLog(msg,screen,user,desk);
+              };
+            };
+          };
         }
         else
-        {
-          //удалить из таблицы
-          Qry.SQLText=
-            "DELETE FROM etickets "
-            "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no ";
-        };
-        Qry.CreateVariable("ticket_no",otString,currTick->ticknum());
-        Qry.CreateVariable("coupon_no",otInteger,(int)currTick->getCoupon().front().couponInfo().num());
-        Qry.Execute();
-        msgh << "Изменен статус эл. билета "
-             << currTick->ticknum() << "/"
-             << currTick->getCoupon().front().couponInfo().num()
-             << ": " << status->dispCode() << ". ";
-      }
-      else
+          MsgToLog(msg,screen,user,desk);
+        continue;
+      };
+
+      if (currTick->getCoupon().empty()) continue;
+
+      //попробуем проанализировать ошибку уровня купона
+      err = chngStatAns.err2Tick(currTick->ticknum(), currTick->getCoupon().front().couponInfo().num());
+      if (!err.empty())
       {
+        ProgTrace(TRACE5,"ticket=%s coupon=%d error=%s",
+                  currTick->ticknum().c_str(),
+                  currTick->getCoupon().front().couponInfo().num(),
+                  err.c_str());
         msgh << "Ошибка при изменении статуса эл. билета "
              << currTick->ticknum() << "/"
              << currTick->getCoupon().front().couponInfo().num()
              << ": " << err << ". ";
+        msg.msg=msgh.str();
+        throw2UserLevel(udata.sessData()->ediSession()->pult(),
+                        "ChangeOfStatusError", msg.msg);
+
+        if (ticketNode!=NULL)
+        {
+          //поищем все билеты
+          for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+          {
+            xmlNodePtr node2=node->children;
+            if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+                NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+            {
+              if (err.size()>100) err.erase(100);
+              //нашли билет
+              UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+              UpdQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+              UpdQry.SetVariable("point_id",NodeAsIntegerFast("point_id",node2));
+              UpdQry.SetVariable("airp_dep",NodeAsStringFast("airp_dep",node2));
+              UpdQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
+              UpdQry.SetVariable("coupon_status",FNull);
+              UpdQry.SetVariable("error",err);
+              UpdQry.SetVariable("prior_status",FNull);
+              UpdQry.SetVariable("prior_error",FNull);
+              UpdQry.Execute();
+              if (UpdQry.VariableIsNULL("prior_error") ||
+                  UpdQry.GetVariableAsString("prior_error")!=err)
+              {
+                //если ошибка не совпадает с предыдущей
+                msg.id1=NodeAsIntegerFast("point_id",node2,0);
+                msg.id2=NodeAsIntegerFast("reg_no",node2,0);
+                msg.id3=NodeAsIntegerFast("grp_id",node2,0);
+                if (GetNodeFast("surname",node2)!=NULL)
+                {
+                  ostringstream pax;
+                  pax << "Пассажир " << NodeAsStringFast("surname",node2)
+                      << (NodeIsNULLFast("surname",node2)?"":" ") << NodeAsStringFast("name",node2)
+                      << " (" << NodeAsStringFast("pers_type",node2) << "). ";
+                  msg.msg=pax.str()+msg.msg;
+                };
+                MsgToLog(msg,screen,user,desk);
+              };
+            };
+          };
+        }
+        else
+          MsgToLog(msg,screen,user,desk);
+        continue;
       };
+
+
+      CouponStatus status(currTick->getCoupon().front().couponInfo().status());
+
+      ProgTrace(TRACE5,"ticket=%s coupon=%d status=%s",
+                       currTick->ticknum().c_str(),
+                       currTick->getCoupon().front().couponInfo().num(),
+                       status->dispCode());
+
+      msgh << "Изменен статус эл. билета "
+           << currTick->ticknum() << "/"
+           << currTick->getCoupon().front().couponInfo().num()
+           << ": " << status->dispCode() << ". ";
       msg.msg=msgh.str();
-      MsgToLog(msg,screen,user,desk);
+      if (ticketNode!=NULL)
+      {
+        //поищем все билеты
+        for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
+        {
+          xmlNodePtr node2=node->children;
+          if (NodeAsStringFast("ticket_no",node2)==currTick->ticknum() &&
+              NodeAsIntegerFast("coupon_no",node2)==(int)currTick->getCoupon().front().couponInfo().num())
+          {
+            //изменим статус в таблице etickets
+            //нашли билет
+            UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+            UpdQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+            UpdQry.SetVariable("point_id",NodeAsIntegerFast("point_id",node2));
+            UpdQry.SetVariable("airp_dep",NodeAsStringFast("airp_dep",node2));
+            UpdQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
+            if (status->codeInt()!=CouponStatus::OriginalIssue)
+              UpdQry.SetVariable("coupon_status",status->dispCode());
+            else
+              UpdQry.SetVariable("coupon_status",FNull);
+            UpdQry.SetVariable("error",FNull);
+            UpdQry.SetVariable("prior_status",FNull);
+            UpdQry.SetVariable("prior_error",FNull);
+            UpdQry.Execute();
+            if (UpdQry.VariableIsNULL("prior_status") ||
+                UpdQry.GetVariableAsString("prior_status")!=status->dispCode())
+            {
+              //если статус не совпадает с предыдущим
+              msg.id1=NodeAsIntegerFast("point_id",node2,0);
+              msg.id2=NodeAsIntegerFast("reg_no",node2,0);
+              msg.id3=NodeAsIntegerFast("grp_id",node2,0);
+              if (GetNodeFast("surname",node2)!=NULL)
+              {
+                ostringstream pax;
+                pax << "Пассажир " << NodeAsStringFast("surname",node2)
+                    << (NodeIsNULLFast("surname",node2)?"":" ") << NodeAsStringFast("name",node2)
+                    << " (" << NodeAsStringFast("pers_type",node2) << "). ";
+                msg.msg=pax.str()+msg.msg;
+              };
+              MsgToLog(msg,screen,user,desk);
+            };
+          };
+        };
+      }
+      else
+        MsgToLog(msg,screen,user,desk);
     };
 }
 
 void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
+    AstraContext::ClearContext("EDI_SESSION",
+                               (int)udata.sessData()->ediSession()->ida());
     confirm_notify_levb(udata.sessData()->ediSession()->pult().c_str());
 }
 
@@ -686,6 +861,12 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
         default:
             throw EdiExcept("Unsupported dispType");
     }
+
+    //запишем контексты
+    AstraContext::SetContext("EDI_SESSION",
+                             udata.sessData()->ediSession()->ida(),
+                             TickD.context());
+
     TReqInfo& reqInfo = *(TReqInfo::Instance());
     if (!reqInfo.desk.code.empty())
     {
@@ -696,10 +877,38 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
 
 void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
+    string ctxt;
+    AstraContext::GetContext("EDI_SESSION",
+                             udata.sessData()->ediSession()->ida(),
+                             ctxt);
+    ctxt=ConvertCodePage("UTF-8","CP866",ctxt);
+
+
+    XMLDoc ediSessCtxt(ctxt);
+    if (ediSessCtxt.docPtr!=NULL)
+    {
+      //для нормальной работы надо все дерево перевести в CP866:
+      xml_decode_nodelist(ediSessCtxt.docPtr->children);
+      int point_id=NodeAsInteger("/context/point_id",ediSessCtxt.docPtr);
+      TQuery Qry(&OraSession);
+      Qry.SQLText=
+        "UPDATE trip_sets SET pr_etstatus=0 "
+        "WHERE point_id=:point_id AND pr_etstatus<0 ";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+      if (Qry.RowsProcessed()>0)
+      {
+        //запишем в лог
+        MsgToLog( "Возвращен режим интерактива с СЭБ", ASTRA::evtFlt, point_id );
+      };
+    };
 }
 
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
+    AstraContext::ClearContext("EDI_SESSION",
+                               (int)udata.sessData()->ediSession()->ida());
+
     // Запись телеграммы в контекст, для связи с obrzap'ом
     // вызов переспроса
     confirm_notify_levb(udata.sessData()->ediSession()->pult().c_str());
@@ -756,17 +965,14 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         // Заполняет стр-ры: edi_mes_head && EdiSession
         // Из первой создастся стр-ра edifact сообщения
         // Из второй запись в БД
-
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
-
-        ed->sessDataWr()->SetEdiSessMesAttrOnly();
+        ed->sessDataWr()->SetEdiSessMesAttr();
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {
             throw EdiExcept("Error in CreateMesByHead");
         }
-        tst();
 
         SetEdiFullSegment(pMes, "MSG",0, ":"+ed->msgId());
         edi_common_data *td = static_cast<edi_common_data *>(data);

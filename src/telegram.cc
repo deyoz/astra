@@ -125,10 +125,12 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if (!info.user.access.airps.empty())
       {
         if (info.user.access.airps_permit)
-          sql+="AND (tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR "
+               "     tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
                "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
         else
-          sql+="AND (tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
+          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR "
+               "     tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
                "     tlg_trips.airp_arv NOT IN "+GetSQLEnum(info.user.access.airps)+")" ;
       };
     };

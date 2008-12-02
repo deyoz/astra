@@ -24,16 +24,111 @@ const int REM_VIP_F = 1;
 const int REM_VIP_C = 1;
 const int REM_VIP_Y = 3;
 
+bool point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( int point_id, int &point_dep, TCompLayerType &layer_type )
+{
+	TQuery Qry( &OraSession );
+  Qry.SQLText=
+  "SELECT point_num, "
+  "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+  " FROM points "
+  " WHERE points.point_id=:point_id AND points.pr_del=0 AND points.pr_reg<>0 ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  if ( Qry.Eof )
+  	return false;
+  int point_num = Qry.FieldAsInteger( "point_num" );
+  int first_point = Qry.FieldAsInteger( "first_point" );
+  Qry.Clear();
+  Qry.SQLText =
+  "SELECT DISTINCT point_dep,point_num,layer_type "
+  "FROM trip_comp_layers, "
+  "(SELECT point_id,point_num from points "
+  "  WHERE NVL(first_point,point_id)=:first_point AND point_num<:point_num AND pr_del=0 "
+  ") a "
+  "WHERE trip_comp_layers.point_id=:point_id AND "
+  "      trip_comp_layers.point_dep=a.point_id AND "
+  "      layer_type IN (:som_layer,:prl_layer) "
+  "ORDER BY point_num DESC,layer_type";
+  Qry.CreateVariable( "first_point", otInteger, first_point );
+  Qry.CreateVariable( "point_num", otInteger, point_num );
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "som_layer", otString, EncodeCompLayerType( cltSOMTrzt ) );
+  Qry.CreateVariable( "prl_layer", otString, EncodeCompLayerType( cltPRLTrzt ) );
+  Qry.Execute();
+  if ( Qry.Eof )
+  	return false;
+  point_num = Qry.FieldAsInteger( "point_num" );
+  point_dep = Qry.FieldAsInteger( "point_dep" );
+  layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
+  if ( layer_type == cltPRLTrzt ) {
+  	Qry.Next();
+  	if ( !Qry.Eof &&
+  		   point_num == Qry.FieldAsInteger( "point_num" ) &&
+  		   DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ) == cltSOMTrzt ) {
+  		layer_type = cltSOMTrzt;
+  	}
+  }
+  return true;
+}
+
+
+void TFilterLayers::getFilterLayers( int point_id )
+{
+	clearFlags();
+	setFlag( cltBlockCent );
+	setFlag( cltProtect );
+	setFlag( cltCheckin );
+	setFlag( cltProtCkin );
+	setFlag( cltPNLCkin );
+	setFlag( cltTranzit );
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	"SELECT pr_tranz_reg,pr_block_trzt,pr_tranzit "
+	" FROM trip_sets, points "
+	"WHERE points.point_id=:point_id AND points.point_id=trip_sets.point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	tst();
+	if ( !Qry.Eof && Qry.FieldAsInteger( "pr_tranzit" ) ) { // это транзитный рейс
+		if ( Qry.FieldAsInteger( "pr_tranz_reg" ) )
+			setFlag( cltProtTrzt );
+		else {
+			if ( Qry.FieldAsInteger( "pr_block_trzt" ) )
+				setFlag( cltBlockTrzt );
+			else {
+				 TCompLayerType layer_tlg;
+				if ( point_dep_AND_layer_type_FOR_TRZT_SOM_PRL( point_id, point_dep, layer_tlg ) ) {
+					setFlag( layer_tlg );
+				}
+			}
+		}
+	}
+}
+
+bool TFilterLayers::CanUseLayer( TCompLayerType layer_type, int point_dep )
+{
+	ProgTrace( TRACE5, "layer_type=%s, isFlag=%d", EncodeCompLayerType( layer_type ), isFlag( layer_type ) );
+	switch( layer_type ) {
+		case cltSOMTrzt:
+			return ( isFlag( layer_type ) && point_dep == point_dep );
+		case cltPRLTrzt:
+			return ( isFlag( layer_type ) && point_dep == point_dep );
+		default:
+			return isFlag( layer_type );
+	}
+}
+
 string DecodeLayer( const std::string &layer )
 {
 	switch( DecodeCompLayerType( (char*)layer.c_str() ) ) {
-		case cltPreseat:
+		case cltProtCkin:
 			return "PS";
     case cltPNLCkin:
     	return "BR";
     case cltPRLTrzt:
     case cltSOMTrzt:
-    case cltTranzit:
+    case cltProtTrzt:
+    case cltBlockTrzt:
     	return "TR";
     case cltBlockCent:
     	return "BL";
@@ -43,7 +138,7 @@ string DecodeLayer( const std::string &layer )
   }
 }
 
-string EncodeLayer( const std::string &int_layer )
+string EncodeLayer( const std::string &int_layer, TFilterLayers &FilterLayers )
 {
 	if ( int_layer == "BL" )
 		return EncodeCompLayerType( cltBlockCent );
@@ -51,9 +146,16 @@ string EncodeLayer( const std::string &int_layer )
 		if ( int_layer == "RZ" )
 			return  EncodeCompLayerType( cltProtect );
 		else
-			if ( int_layer == "TR" )
-				return EncodeCompLayerType( cltTranzit );
-		else return "";
+			if ( int_layer == "TR" ) {
+				if ( FilterLayers.isFlag( cltBlockTrzt ) )
+					return EncodeCompLayerType( cltBlockTrzt );
+				else
+					if ( FilterLayers.isFlag( cltProtTrzt ) )
+  		      return EncodeCompLayerType( cltProtTrzt );
+  		    else
+  		    	return "";
+  		}
+		  else return "";
 }
 
 void TSalons::Clear( )
@@ -66,8 +168,13 @@ void TSalons::Clear( )
 }
 
 
-TSalons::TSalons()
+TSalons::TSalons( int id, TReadStyle vreadStyle )
 {
+	readStyle = vreadStyle;
+	if ( readStyle == rComponSalons )
+		comp_id = id;
+	else
+	  trip_id = id;
 	pr_lat_seat = false;
   FCurrPlaceList = NULL;
   modify = mNone;
@@ -75,9 +182,12 @@ TSalons::TSalons()
   Qry.SQLText =
     "SELECT code, priority FROM comp_layer_types ORDER BY priority";
   Qry.Execute();
+  tst();
   string status;
   while ( !Qry.Eof ) {
+  	ProgTrace( TRACE5, "code=%s", Qry.FieldAsString( "code" ) );
   	status = DecodeLayer( Qry.FieldAsString( "code" ) );
+  	ProgTrace( TRACE5, "status=%s", status.c_str() );
   	if ( !status.empty() && status_priority.find( status ) == status_priority.end() )
   	  status_priority[ status ] = Qry.FieldAsInteger( "priority" );
   	TLayerPriority lp;
@@ -86,6 +196,9 @@ TSalons::TSalons()
   	lp.priority = Qry.FieldAsInteger( "priority" );
   	layer_priority.push_back( lp );
   	Qry.Next();
+  }
+  if ( readStyle == rTripSalons ) {
+    FilterLayers.getFilterLayers( trip_id ); // определение режима учета транзитных слоев
   }
 }
 
@@ -170,7 +283,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
   }
 }
 
-void TSalons::Write( TReadStyle readStyle )
+void TSalons::Write()
 {
   if ( readStyle == rTripSalons )
     ProgTrace( TRACE5, "TSalons::Write TripSalons with params trip_id=%d",
@@ -216,7 +329,11 @@ void TSalons::Write( TReadStyle readStyle )
                   "END;";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.CreateVariable( "pr_lat_seat", otInteger, pr_lat_seat );
-    Qry.CreateVariable( "tranzit_layer", otString, EncodeCompLayerType( cltTranzit ) );
+    // тут возможно 2 варианта слоя PROT_TRZT OR BLOCK_TRZT, надо определить какой слой надо удалить
+    if ( FilterLayers.isFlag( cltBlockTrzt ) )
+      Qry.CreateVariable( "tranzit_layer", otString, EncodeCompLayerType( cltBlockTrzt ) );
+    else
+    	Qry.CreateVariable( "tranzit_layer", otString, EncodeCompLayerType( cltProtTrzt ) );
     Qry.CreateVariable( "blockcent_layer", otString, EncodeCompLayerType( cltBlockCent ) );
     Qry.CreateVariable( "prot_layer", otString, EncodeCompLayerType( cltProtect ) );
   }
@@ -392,8 +509,7 @@ void TSalons::Write( TReadStyle readStyle )
   	}
   };
 
-
-void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
+void TSalons::Read( bool wo_invalid_seat_no )
 {
   if ( readStyle == rTripSalons )
   	;
@@ -433,7 +549,7 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
   	string sql_text =
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
       "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
-      "                NVL(l.pax_id, l.crs_pax_id) pax_id "
+      "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep "
       " FROM trip_comp_elems t, trip_comp_ranges r, trip_comp_layers l "
       "WHERE t.point_id=:point_id AND "
       "      t.point_id=r.point_id(+) AND "
@@ -446,7 +562,7 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     	  " MINUS "
         "SELECT DISTINCT t1.num,t1.x,t1.y,t1.elem_type,t1.xprior,t1.yprior,t1.agle, "
         "                t1.pr_smoke,t1.not_good,t1.xname,t1.yname,t1.class,r.layer_type, "
-        "                NVL(l.pax_id, l.crs_pax_id) pax_id "
+        "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep "
         " FROM trip_comp_layers l, pax, pax_grp, "
         "      trip_comp_ranges r, trip_comp_elems t1 "
         "WHERE l.point_id=:point_id AND "
@@ -480,6 +596,19 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
       throw UserException( "На рейс не назначен салон" );
     else
       throw UserException( "Не найдена компоновка" );
+  tst();
+  int col_num = Qry.FieldIndex( "num" );
+  int col_x = Qry.FieldIndex( "x" );
+  int col_y = Qry.FieldIndex( "y" );
+  int col_elem_type = Qry.FieldIndex( "elem_type" );
+  int col_xprior = Qry.FieldIndex( "xprior" );
+  int col_yprior = Qry.FieldIndex( "yprior" );
+  int col_agle = Qry.FieldIndex( "agle" );
+  int col_pr_smoke = Qry.FieldIndex( "pr_smoke" );
+  int col_not_good = Qry.FieldIndex( "not_good" );
+  int col_xname = Qry.FieldIndex( "xname" );
+  int col_yname = Qry.FieldIndex( "yname" );
+  int col_class = Qry.FieldIndex( "class" );
   if ( readStyle == rTripSalons ) {
     RQry.SQLText = "SELECT num,x,y,rem,pr_denial FROM trip_comp_rem "
                    " WHERE point_id=:point_id "
@@ -502,8 +631,8 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
   int pax_id;
   map<int,TPlaceLayer> mp;
   map<int,TPlaceLayer>::iterator imp;
-  while ( !Qry.Eof ) {
-    if ( num != Qry.FieldAsInteger( "num" ) ) {
+  for ( ;!Qry.Eof; Qry.Next() ) {
+    if ( num != Qry.FieldAsInteger( col_num ) ) {
       if ( placeList && !ClName.empty() && ClName.find( ClName ) == string::npos ) {
         placeList->places.clear();
       }
@@ -512,13 +641,13 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
         placelists.push_back( placeList );
       }
       ClName.clear();
-      num = Qry.FieldAsInteger( "num" );
+      num = Qry.FieldAsInteger( col_num );
       placeList->num = num;
     }
     // повторение мест!!! - разные слои
     TPlace place;
-    point_p.x = Qry.FieldAsInteger( "x" );
-    point_p.y = Qry.FieldAsInteger( "y" );
+    point_p.x = Qry.FieldAsInteger( col_x );
+    point_p.y = Qry.FieldAsInteger( col_y );
     if ( readStyle != rTripSalons || Qry.FieldIsNULL( "pax_id" ) )
     	pax_id = -1;
     else
@@ -527,81 +656,81 @@ void TSalons::Read( TReadStyle readStyle, bool wo_invalid_seat_no )
     if ( !placeList->ValidPlace( point_p ) || placeList->place( point_p )->x == -1 ) {
     	place.x = point_p.x;
     	place.y = point_p.y;
-      place.elem_type = Qry.FieldAsString( "elem_type" );
+      place.elem_type = Qry.FieldAsString( col_elem_type );
       place.isplace = ispl[ place.elem_type ];
-      if ( Qry.FieldIsNULL( "xprior" ) )
+      if ( Qry.FieldIsNULL( col_xprior ) )
         place.xprior = -1;
       else
-        place.xprior = Qry.FieldAsInteger( "xprior" );
-      if ( Qry.FieldIsNULL( "yprior" ) )
+        place.xprior = Qry.FieldAsInteger( col_xprior );
+      if ( Qry.FieldIsNULL( col_yprior ) )
         place.yprior = -1;
       else
-        place.yprior = Qry.FieldAsInteger( "yprior" );
-      place.agle = Qry.FieldAsInteger( "agle" );
-      place.clname = Qry.FieldAsString( "class" );
-      place.pr_smoke = Qry.FieldAsInteger( "pr_smoke" );
-      if ( Qry.FieldIsNULL( "not_good" ) )
+        place.yprior = Qry.FieldAsInteger( col_yprior );
+      place.agle = Qry.FieldAsInteger( col_agle );
+      place.clname = Qry.FieldAsString( col_class );
+      place.pr_smoke = Qry.FieldAsInteger( col_pr_smoke );
+      if ( Qry.FieldIsNULL( col_not_good ) )
         place.not_good = 0;
       else
-        place.not_good = Qry.FieldAsInteger( "not_good" );
-      place.xname = Qry.FieldAsString( "xname" );
-      place.yname = Qry.FieldAsString( "yname" );
-      while ( !RQry.Eof && RQry.FieldAsInteger( "num" ) == num &&
-              RQry.FieldAsInteger( "x" ) == place.x &&
-              RQry.FieldAsInteger( "y" ) == place.y ) {
+        place.not_good = Qry.FieldAsInteger( col_not_good );
+      place.xname = Qry.FieldAsString( col_xname );
+      place.yname = Qry.FieldAsString( col_yname );
+      while ( !RQry.Eof && RQry.FieldAsInteger( col_num ) == num &&
+              RQry.FieldAsInteger( col_x ) == place.x &&
+              RQry.FieldAsInteger( col_y ) == place.y ) {
         TRem rem;
         rem.rem = RQry.FieldAsString( "rem" );
         rem.pr_denial = RQry.FieldAsInteger( "pr_denial" );
         place.rems.push_back( rem );
         RQry.Next();
       }
-      if ( ClName.find( Qry.FieldAsString( "class" ) ) == string::npos )
-        ClName += Qry.FieldAsString( "class" );
+      if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
+        ClName += Qry.FieldAsString( col_class );
     }
     else { // это место проинициализировано - это новый слой
     	place = *placeList->place( point_p );
     }
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для выявления разных признаков
-      SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
-      SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
+      if ( FilterLayers.CanUseLayer( DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) ), Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
+        ProgTrace( TRACE5, "seat_no=%s", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str() );
+        SALONS::SetLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
+        SALONS::SetFree( Qry.FieldAsString( "layer_type" ), place );
+        SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
+        if ( pax_id > 0 ) {
+        	int priority = -1;
+          for (vector<TLayerPriority>::iterator ipr=layer_priority.begin(); ipr!=layer_priority.end(); ipr++ ) {
+          	if ( ipr->layer == Qry.FieldAsString( "layer_type" ) ) {
+          		priority = ipr->priority;
+          		break;
+          	}
+          }
+          if ( priority >= 0 ) {
+          	//    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d",
+          	//    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
+          	if ( mp[ pax_id ].priority > priority ) {
+          		if ( mp[ pax_id ].placelist ) {
+          			TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
+          			SALONS::ClearLayer( this->status_priority, mp[ pax_id ].layer, *mp[ pax_id ].placelist->place( p ) );
+          			}
+          			mp[ pax_id ].placelist = placeList;
+          			mp[ pax_id ].x = place.x;
+          			mp[ pax_id ].y = place.y;
+          			mp[ pax_id ].layer = Qry.FieldAsString( "layer_type" );
+          			mp[ pax_id ].priority = priority;
+          	}
+          	else
+          		if ( mp[ pax_id ].priority < priority ) {
+          			SALONS::ClearLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
+          		}
+          }
+      	}
+      }
     }
-    if ( readStyle == rTripSalons )
-      SALONS::SetBlock( Qry.FieldAsString( "layer_type" ), place );
     else
       place.block = 0;
     place.visible = true;
-    if ( pax_id > 0 ) {
-    	int priority = -1;
-    	for (vector<TLayerPriority>::iterator ipr=layer_priority.begin(); ipr!=layer_priority.end(); ipr++ ) {
-    		if ( ipr->layer == Qry.FieldAsString( "layer_type" ) ) {
-    			priority = ipr->priority;
-    			break;
-    		}
-    	}
-//    	ProgTrace( TRACE5, "pax_id=%d, layer=%s, priority=%d", pax_id, Qry.FieldAsString( "layer_type" ), priority );
-    	if ( priority >= 0 ) {
-//    		ProgTrace( TRACE5, "pax_id=%d, layer=%s, mp[ pax_id ].priority=%d, priority=%d, place.x=%d, place.y=%d",
-//    		           pax_id, Qry.FieldAsString( "layer_type" ), mp[ pax_id ].priority, priority, place.x, place.y );
-    		if ( mp[ pax_id ].priority > priority ) {
-    			if ( mp[ pax_id ].placelist ) {
-    			  TPoint p(mp[ pax_id ].x,mp[ pax_id ].y);
-    			  SALONS::ClearLayer( this->status_priority, mp[ pax_id ].layer, *mp[ pax_id ].placelist->place( p ) );
-    			}
-          mp[ pax_id ].placelist = placeList;
-          mp[ pax_id ].x = place.x;
-          mp[ pax_id ].y = place.y;
-          mp[ pax_id ].layer = Qry.FieldAsString( "layer_type" );
-          mp[ pax_id ].priority = priority;
-    		}
-    		else
-    		  if ( mp[ pax_id ].priority < priority ) {
-    			  SALONS::ClearLayer( this->status_priority, Qry.FieldAsString( "layer_type" ), place );
-    		  }
-    	}
-    }
     placeList->Add( place );
-    Qry.Next();
-  }	/* end while */
+  }	/* end for */
   if ( placeList && !ClName.empty() && ClName.find( ClName ) == string::npos ) {
     placelists.pop_back( );
     delete placeList; // нам этот класс/салон не нужен
@@ -690,19 +819,19 @@ void TSalons::Parse( xmlNodePtr salonsNode )
       	remsNode = remsNode->children; //layer
       	while( remsNode ) {
       		remNode = remsNode->children;
-      		string l = EncodeLayer( NodeAsStringFast( "layer_type", remNode ) );
+      		//???string l = EncodeLayer( NodeAsStringFast( "layer_type", remNode ) );
 /*new version      		if ( !l.empty() )
       		  place.layers.push_back( l ); */
       		remsNode = remsNode->next;
       	}
       }
       else { //old version
-      		string l = EncodeLayer( place.status );
+      		string l = EncodeLayer( place.status, FilterLayers );
       		if ( !l.empty()  )
       		  place.layers.push_back( l );
       		if ( place.block ) {
       			place.layers.clear();
-      			place.layers.push_back( EncodeLayer( "BL" ) );
+      			place.layers.push_back( EncodeLayer( "BL", FilterLayers ) );
       		}
       }
       place.visible = true;
@@ -1392,16 +1521,19 @@ void ClearLayer( const std::map<std::string,int> &status_priority, const std::st
   	vector<string> layers = pl.layers;
   	pl.layers.clear();
   	for ( vector<string>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
-  		tst();
   		SetLayer( status_priority, *i, pl );
-  		tst();
   	}
   }
 }
 
 void SetFree( const std::string &layer, TPlace &pl )
 {
-	if ( DecodeCompLayerType( (char*)layer.c_str() ) == cltCheckin )
+	TCompLayerType layer_type = DecodeCompLayerType( (char*)layer.c_str() );
+	if ( layer_type == cltCheckin ||
+		   layer_type == cltTranzit ||
+		   layer_type == cltBlockTrzt ||
+		   layer_type == cltSOMTrzt ||
+		   layer_type == cltPRLTrzt ) /* !!! будет неправильно отображаться на клиенте */
 		pl.pr_free = false;
 }
 
@@ -1447,9 +1579,8 @@ bool CompareLayers( const vector<string> &layer1, const vector<string> &layer2 )
 void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
 {
 	seats.clear();
-	TSalons Salons;
-	Salons.trip_id = OldSalons.trip_id;
-	Salons.Read( rTripSalons );
+	TSalons Salons( OldSalons.trip_id, rTripSalons );
+	Salons.Read();
 	if ( Salons.getLatSeat() != OldSalons.getLatSeat() ||
 		   Salons.placelists.size() != OldSalons.placelists.size() )
 		throw UserException( "Изменена компоновка рейса. Обновите данные" );

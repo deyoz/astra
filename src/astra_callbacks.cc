@@ -22,6 +22,7 @@
 #include "design_blank.h"
 #include "astra_service.h"
 #include "payment.h"
+#include "payment2.h"
 #include "dev_tuning.h"
 
 #include "astra_utils.h"
@@ -67,6 +68,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new DesignBlankInterface();
     new AstraServiceInterface();
     new PaymentInterface();
+    new PaymentOldInterface();
     new DevTuningInterface();
 };
 
@@ -107,7 +109,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( opr.empty() && (GetNode( "UserLogon", node ) == NULL))
+    if ( reqInfo->screen.pr_logon && opr.empty() && (GetNode( "UserLogon", node ) == NULL))
     { // оператор пришел пустой - отправляем инфу по оператору
         showBasicInfo();
     }

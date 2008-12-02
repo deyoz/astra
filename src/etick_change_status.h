@@ -19,17 +19,21 @@ namespace ChangeStatus
 {
     class ChngStatAnswer
     {
+    public:
+        typedef std::pair<std::string, unsigned> TicketCoupon_t;
+        typedef std::map<TicketCoupon_t, std::string> ErrMap_t;
+    private:
         std::list<Ticket> lTick;
-        std::map <std::string, std::string> ErrMap;
+        ErrMap_t ErrMap;
         std::pair<std::string, std::string> GlobalError; //err_code, err_str
     public:
+
         ChngStatAnswer(std::pair<std::string, std::string> GErr)
             :GlobalError(GErr)
         {
         }
 
-        ChngStatAnswer(std::list<Ticket> ltick,
-                       std::map <std::string, std::string> errm)
+        ChngStatAnswer(std::list<Ticket> ltick, const ErrMap_t &errm)
             :lTick(ltick), ErrMap(errm)
         {
         }
@@ -39,16 +43,7 @@ namespace ChangeStatus
         bool isGlobErr() const { return !GlobalError.first.empty(); }
         std::pair<std::string, std::string> globErr() const { return GlobalError; }
         const std::list<Ticket> &ltick() const { return lTick; }
-        std::string err2Tick(const std::string &tnum) const
-        {
-            std::map <std::string, std::string>::const_iterator i;
-            i=ErrMap.find(tnum);
-            if(i!=ErrMap.end()){
-                return (*i).second;
-            } else {
-                return "";
-            }
-        }
+        std::string err2Tick(const std::string &tnum, unsigned cpn) const;
 
         void Trace(int level, const char *nick, const char *file, int line) const
         {
@@ -56,7 +51,7 @@ namespace ChangeStatus
                       globErr().first.c_str(),globErr().second.c_str());
             Ticket::Trace(level, nick, file, line, ltick());
             ProgTrace(level, nick, file, line, "Errors:");
-            for(std::map <std::string, std::string>::const_iterator i=ErrMap.begin();
+            for(ErrMap_t::const_iterator i=ErrMap.begin();
                 i!= ErrMap.end();i++)
             {
                 ProgTrace(level, nick, file, line, "%s", (*i).second.c_str());
@@ -64,7 +59,9 @@ namespace ChangeStatus
         }
     };
 
-    void ETChangeStatus(const OrigOfRequest &org, const std::list<Ticket> &lTick,
+    void ETChangeStatus(const OrigOfRequest &org,
+                        const std::list<Ticket> &lTick,
+                        const std::string &ediSessCtxt,
                         Ticketing::Itin* itin=NULL);
 }
 }

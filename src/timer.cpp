@@ -15,13 +15,16 @@
 #include <daemon.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
+#include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
 #include "cfgproc.h"
 #include "posthooks.h"
+#include "perfom.h"
 #include "czech_police_edi_file.h"
-#include "tlg/tlg_parser.h"
-#include "astra_misc.h"
+#include "tripinfo.h"
+#include "telegram.h"
 const int sleepsec = 25;
 
 using namespace ASTRA;
@@ -42,6 +45,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     {
       try
       {
+      	PerfomInit();
         base_tables.Invalidate();
         exec_tasks();
       }
@@ -118,7 +122,7 @@ void exec_tasks( void )
       while ( next_exec <= utcdate ) {
        next_exec += (double)Qry.FieldAsInteger( "interval" )/1440.0;
       }
-      if ( NowUTC() - execTask > 5.0/(1440.0*60) )
+      if ( NowUTC() - execTask > 5.0/(1440.0*60.0) )
       	ProgTrace( TRACE5, "Attention execute task time!!!, name=%s, time=%s", name.c_str(), DateTimeToStr( NowUTC() - execTask, "nn:ss" ).c_str() );
       UQry.SetVariable( "next_exec", next_exec );
 	    UQry.SetVariable( "name", name );
@@ -209,41 +213,99 @@ void ETCheckStatusFlt(void)
   TQuery Qry(&OraSession);
   try
   {
+    TDateTime now=NowUTC();
+
+    AstraContext::ClearContext("EDI_SESSION",now-1.0/24);
+
     Qry.Clear();
     Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/24";
     Qry.Execute();
     OraSession.Commit();
 
     TQuery UpdQry(&OraSession);
-    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=1 WHERE point_id=:point_id";
+    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id";
     UpdQry.DeclareVariable("point_id",otInteger);
+    UpdQry.DeclareVariable("pr_etstatus",otInteger);
+
     Qry.Clear();
     Qry.SQLText=
-     "SELECT p.point_id "
+     "SELECT p.point_id, p.airline, p.flt_no, p.airp, p.act_out, "
+     "       NVL(act_in,NVL(est_in,scd_in)) AS real_in, "
+     "       p.pr_etstatus "
      "FROM points, "
-     "  (SELECT points.point_id,point_num, "
-     "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point "
+     "  (SELECT points.point_id,point_num,airline,flt_no,airp,act_out, "
+     "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
+     "          pr_etstatus "
      "   FROM points,trip_sets "
      "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
-     "         act_out IS NOT NULL AND pr_etstatus=0) p "
+     "         (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)) p "
      "WHERE points.first_point=p.first_point AND "
      "      points.point_num>p.point_num AND points.pr_del=0 AND "
      "      ckin.get_pr_tranzit(points.point_id)=0 AND "
-     "      NVL(act_in,NVL(est_in,scd_in))<system.UTCSYSDATE ";
+     "      (NVL(act_in,NVL(est_in,scd_in))<:now AND pr_etstatus=0 OR pr_etstatus<0)";
+    Qry.CreateVariable("now",otDate,now);
     Qry.Execute();
+
     for(;!Qry.Eof;Qry.Next(),OraSession.Rollback())
     {
+      int point_id=Qry.FieldAsInteger("point_id");
       try
       {
-      	ProgTrace(TRACE5,"ETCheckStatusFlt: point_id=%d",Qry.FieldAsInteger("point_id"));
-        if (!ETCheckStatus(Qry.FieldAsInteger("point_id"),csaFlt,Qry.FieldAsInteger("point_id")))
+        TTripInfo info;
+        info.airline=Qry.FieldAsString("airline");
+        info.flt_no=Qry.FieldAsInteger("flt_no");
+        info.airp=Qry.FieldAsString("airp");
+        if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
+            (Qry.FieldAsDateTime("real_in")+30.0/1440<now || //прошло более 30 минут с момента прилета в конечный пункт
+             Qry.FieldAsDateTime("real_in")<now && GetTripSets(tsETLOnly,info)))
         {
-          UpdQry.SetVariable("point_id",Qry.FieldAsInteger("point_id"));
-          UpdQry.Execute();
+          //Работа с сервером эл. билетов в интерактивном режиме запрещена
+          //либо же никак не хотят подтверждаться конечные статусы
+          //Отправляем ETL если настроена автоотправка
+          try
+          {
+            ProgTrace(TRACE5,"ETCheckStatusFlt.SendTlg: point_id=%d",point_id);
+            vector<string>  tlg_types;
+            tlg_types.push_back("ETL");
+            TelegramInterface::SendTlg(point_id,tlg_types);
+            UpdQry.SetVariable("point_id",point_id);
+            UpdQry.SetVariable("pr_etstatus",1);
+            UpdQry.Execute();
+            OraSession.Commit();
+          }
+          catch(std::exception &E)
+          {
+            ProgError(STDLOG,"ETCheckStatusFlt.SendTlg (point_id=%d): %s",point_id,E.what());
+          };
+        }
+        else
+        {
+          //отправим интерактивно конечные статусы
+          try
+          {
+          	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
+            if (!ETCheckStatus(point_id,csaFlt,point_id,true))
+            {
+              if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
+                  Qry.FieldAsDateTime("real_in")<now)
+              {
+                UpdQry.SetVariable("point_id",point_id);
+                UpdQry.SetVariable("pr_etstatus",1);
+                UpdQry.Execute();
+              };
+            };
+            OraSession.Commit();
+          }
+          catch(std::exception &E)
+          {
+            ProgError(STDLOG,"ETCheckStatusFlt.ETCheckStatus (point_id=%d): %s",point_id,E.what());
+          };
         };
-        OraSession.Commit();
       }
-      catch(...) {};
+      catch(...)
+      {
+        ProgError(STDLOG,"ETCheckStatusFlt (point_id=%d): unknown error",point_id);
+      };
     };
     Qry.Close();
     UpdQry.Close();

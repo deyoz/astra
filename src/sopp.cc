@@ -27,8 +27,6 @@
 
 #include "perfom.h"
 
-//#include "flight_cent_dbf.h" //!!!
-
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -3938,25 +3936,44 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips )
 
 void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
 {
-  try
+  if ( act != NoExists )
   {
-    if ( act > NoExists ) {
+    //изменение фактического времени вылета
+    try
+    {
       vector<string> tlg_types;
       tlg_types.push_back("MVTA");
       TelegramInterface::SendTlg(point_id,tlg_types);
     }
-  }
-  catch(std::exception &E)
+    catch(std::exception &E)
+    {
+      ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
+    };
+  };
+  if ( old_act != NoExists && act == NoExists )
   {
-    ProgError(STDLOG,"ChangeACT_OUT.SendTlg (point_id=%d): %s",point_id,E.what());
+    //отмена вылета
+    try
+    {
+      TQuery Qry(&OraSession);
+  	  Qry.SQLText = "UPDATE trip_sets SET pr_etstatus=0 WHERE point_id=:point_id";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+    }
+    catch(std::exception &E)
+    {
+      ProgError(STDLOG,"ChangeACT_OUT.ETStatus (point_id=%d): %s",point_id,E.what());
+    };
   };
 }
 
 void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
 {
-  try
+  if ( act != NoExists )
   {
-    if ( act > NoExists ) {
+    //изменение фактического времени прилета
+    try
+    {
       //телеграммы на прилет
       TQuery Qry(&OraSession);
   	  Qry.SQLText =
@@ -3975,11 +3992,11 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
         tlg_types.push_back("MVTB");
         TelegramInterface::SendTlg(point_dep,tlg_types);
       };
+    }
+    catch(std::exception &E)
+    {
+      ProgError(STDLOG,"ChangeACT_IN.SendTlg (point_id=%d): %s",point_id,E.what());
     };
-  }
-  catch(std::exception &E)
-  {
-    ProgError(STDLOG,"ChangeACT_IN.SendTlg (point_id=%d): %s",point_id,E.what());
   };
 }
 

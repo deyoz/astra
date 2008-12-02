@@ -173,23 +173,14 @@ int AstraApplication::nosir_proc(int argc, char ** argv)
 
 //     InitLogTime(NULL);
 
-    int res;
+    Oci7Init(get_connect_string(),1);
 
-    OciInit(get_connect_string(),0);
-
-    res=main_nosir_user(argc,argv);
+    int res = main_nosir_user(argc,argv);
     if(res != 0) {
-        if(Oparse(CU, "rollback")||
-           Oexec(CU)){
-            oci_error(CU);
-           }
-    } else{
-        if(Oparse(CU, "commit")||
-           Oexec(CU)){
-            oci_error(CU);
-           }
+        make_curs("rollback").exec();
+    } else {
+        make_curs("commit").exec();
     }
-    OciClose(1);
 
     return res;
 }
