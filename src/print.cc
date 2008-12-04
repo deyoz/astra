@@ -3098,6 +3098,21 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     if(dev_model.empty()) {
         Qry.SQLText =
+            "select "
+            "   prn_formats.code "
+            "from "
+            "   prn_types, "
+            "   prn_formats "
+            "where "
+            "   prn_types.code = :prn_type and "
+            "   prn_types.format = prn_formats.id ";
+        Qry.CreateVariable("prn_type", otInteger, prn_type);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw Exception("fmt_type not found for prn_type %d", prn_type);
+        fmt_type = Qry.FieldAsString("code");
+        Qry.Clear();
+        Qry.SQLText =
             "select  "
             "   bp_forms.form,  "
             "   bp_forms.data  "
@@ -3185,14 +3200,18 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         string prn_form = parser.parse(data);
         if(fmt_type == "EPSON") {
             TPrnType convert_prn_type;
-            if(dev_model == "OLIVETTI")
-                convert_prn_type = ptOLIVETTI;
-            else if(dev_model == "ML390")
-                convert_prn_type = ptOKIML390;
-            else if(dev_model == "ML3310")
-                convert_prn_type = ptOKIML3310;
-            else
-                throw Exception(dev_model + " not supported by to_esc::convert");
+            if(dev_model.empty())
+                convert_prn_type = TPrnType(prn_type);
+            else {
+                if(dev_model == "OLIVETTI")
+                    convert_prn_type = ptOLIVETTI;
+                else if(dev_model == "ML390")
+                    convert_prn_type = ptOKIML390;
+                else if(dev_model == "ML3310")
+                    convert_prn_type = ptOKIML3310;
+                else
+                    throw Exception(dev_model + " not supported by to_esc::convert");
+            }
             to_esc::convert(prn_form, convert_prn_type, NULL);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
