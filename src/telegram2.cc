@@ -1714,134 +1714,246 @@ void TWItem::get(int grp_id)
     rkWeight = Qry.FieldAsInteger("rkWeight");
 }
 
-struct TPItem {
+struct TPPax {
     public:
-        string get_line()
-        {
-            ostringstream buf;
-            buf << ".P/";
-            if(seats > 1)
-                buf << seats;
-            buf << surname;
-            if(name.size())
-                buf << "/" << name;
-            return buf.str();
-        }
-        size_t get_line_size() { return get_line().size() + br.size(); }
         int seats;
         string surname, name;
-        TPItem():seats(0) {};
+        TPPax():seats(0) {};
 };
 
+
+// Представление списка полей .P/ как он будет в телеграмме.
 struct TPLine {
     int seats;
     string surname;
     vector<string> names;
-    string get_line()
-    {
+    TPLine(): seats(0) {};
+    size_t get_line_size() {
+        return get_line().size() + br.size();
+    }
+    string get_line() {
         ostringstream buf;
-        buf << ".P/";
+        buf << "./P";
         if(seats > 1)
             buf << seats;
         buf << surname;
-        for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++)
-            buf << "/" << *iv;
+        for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++) {
+            if(!iv->empty())
+                buf << "/" << *iv;
+        }
         return buf.str();
     }
-    size_t get_line_size() { return get_line().size() + br.size(); }
-    TPLine():seats(0) {};
+    TPLine & operator += (const TPPax & pax) 
+    {
+        seats += pax.seats;
+        if(not pax.name.empty())
+            names.push_back(pax.name);
+        return *this;
+    }
+    TPLine operator + (const TPPax & pax) 
+    {
+        TPLine result(*this);
+        result += pax;
+        return result;
+    }
+    TPLine & operator += (const int &aseats)
+    {
+        seats += aseats;
+        return *this;
+    }
+    TPLine operator + (const int &aseats)
+    {
+        TPLine result(*this);
+        result += aseats;
+        return result;
+    }
 };
 
 struct TPList {
     private:
-        vector<TPLine> lines;
-        void add_line(TPItem &item) {
-            TPLine line;
-            line.seats = item.seats;
-            line.surname = item.surname;
-            if(!item.name.empty())
-                line.names.push_back(item.name);
-            lines.push_back(line);
-        }
+        typedef vector<TPPax> TPSurname;
+        map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
     public:
-        vector<TPItem> items;
+        // этот оператор нужен для sort вектора TPSurname
+        bool operator () (const TPPax &i, const TPPax &j) { return i.name.size() < j.name.size(); };
         void get(int grp_id);
         void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
 void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    int BTM_LINE_SIZE = LINE_SIZE - 2;
-    for(vector<TPItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        if(iv->get_line_size() > BTM_LINE_SIZE) {
-            iv->name.erase();
-            size_t len = iv->get_line_size();
-            if(len > BTM_LINE_SIZE)
-                iv->surname.erase(iv->surname.size() - (len - BTM_LINE_SIZE));
-        }
-        ProgTrace(TRACE5, "get_line: %s", iv->get_line().c_str());
-        ProgTrace(TRACE5, "get_line_size: %d", iv->get_line_size());
-        // найдем все строки телеграммы с текущим surname
-        vector<vector<TPLine>::iterator> found_lines;
-        for(vector<TPLine>::iterator i_lines = lines.begin(); i_lines != lines.end(); i_lines++) {
-            if(iv->surname == i_lines->surname)
-                found_lines.push_back(i_lines);
-        }
-        if(found_lines.empty())
-            // Ни одной строки не найдено, добавляем новую.
-            add_line(*iv);
-        else {
-            vector<vector<TPLine>::iterator>::iterator i_found = found_lines.begin();
-            for(; i_found != found_lines.end(); i_found++) {
-                TPLine &line = *(*i_found);
-                if(iv->name.empty()) {
-                    line.seats += iv->seats;
-                    if(line.get_line_size() > BTM_LINE_SIZE) // if not fitted then 'rollback'
-                        line.seats -= iv->seats;
-                    else
-                        break;
+    vector<TPLine> lines;
+    for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
+        TPSurname &pax_list = im->second;
+        sort(pax_list.begin(), pax_list.end(), *this);
+        TPLine line;
+        line.surname = im->first;
+        lines.push_back(line);
+        vector<TPPax>::iterator iv = pax_list.begin();
+        while(iv != pax_list.end()) {
+            TPLine &curLine = lines.back();
+            if((curLine + *iv).get_line_size() > LINE_SIZE) {// все, строка переполнена
+                if(curLine.names.empty()) {
+                    curLine += iv->seats;
+                    iv++;
                 } else {
-                    // Есть ли в текущей строке текущее имя
-                    if(find(line.names.begin(), line.names.end(), iv->name) != line.names.end()) {
-                        line.seats += iv->seats;
-                        if(line.get_line_size() > BTM_LINE_SIZE) // if not fitted then 'rollback'
-                            line.seats -= iv->seats;
-                        else
-                            break;
-                    } else {
-                        line.seats += iv->seats;
-                        line.names.push_back(iv->name);
-                        if(line.get_line_size() > BTM_LINE_SIZE) { // if not fitted then 'rollback'
-                            line.seats -= iv->seats;
-                            line.names.pop_back();
-                        } else
-                            break;
-                    }
+                    lines.push_back(line);
                 }
+            } else {
+                curLine += *iv;
+                iv++;
             }
-            if(i_found == found_lines.end())
-                // Не удалось ни к одному из найденных surname прицепить текущий, создаем новую строку
-                add_line(*iv);
         }
     }
-    // Запихиваем в боди то, что получилось.
+    TPLine &curLine = lines.back();
+    if(curLine.names.empty()) {
+        size_t line_size = curLine.get_line_size();
+        if(line_size > LINE_SIZE)
+            curLine.surname = curLine.surname.substr(curLine.surname.size() - (line_size - LINE_SIZE));
+    }
     for(vector<TPLine>::iterator iv = lines.begin(); iv != lines.end(); iv++)
         body.push_back(iv->get_line());
 }
 
 void TPList::get(int grp_id)
 {
+
     /*
     //!!! test
-    TPItem item;
-    item.seats = 2;
-    item.surname = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCD";
+    TPPax item;
+    item.seats = 1;
+    item.surname = "D";
     item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCD";
-    items.push_back(item);
-    item.seats = 30;
-    items.push_back(item);
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJABC";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJAB";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJA";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHIJ";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGHI";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFGH";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEFG";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDEF";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCDE";
+    surnames[item.surname].push_back(item);
+    item.name = "ABCD";
+    surnames[item.surname].push_back(item);
+    item.name = "ABC";
+    surnames[item.surname].push_back(item);
+    item.name = "AB";
+    surnames[item.surname].push_back(item);
+    item.name = "A";
+    surnames[item.surname].push_back(item);
     return;
     */
+
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select \n"
@@ -1863,11 +1975,11 @@ void TPList::get(int grp_id)
         int col_surname = Qry.FieldIndex("surname");
         int col_name = Qry.FieldIndex("name");
         for(; !Qry.Eof; Qry.Next()) {
-            TPItem item;
+            TPPax item;
             item.seats = Qry.FieldAsInteger(col_seats);
             item.surname = Qry.FieldAsString(col_surname);
             item.name = Qry.FieldAsString(col_name);
-            items.push_back(item);
+            surnames[item.surname].push_back(item);
         }
     }
 }
