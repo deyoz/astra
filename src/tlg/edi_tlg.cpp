@@ -396,7 +396,7 @@ string prepareKickText(string iface)
   xmlDocPtr kickDoc=prepareKickXMLDoc(iface);
   try
   {
-    res=ConvertCodePage("UTF-8","CP866",XMLTreeToText(kickDoc));
+    res=ConvertCodepage(XMLTreeToText(kickDoc),"CP866","UTF-8");
     xmlFreeDoc(kickDoc);
   }
   catch(...)
@@ -541,7 +541,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
     AstraContext::GetContext("EDI_SESSION",
                              udata.sessData()->ediSession()->ida(),
                              ctxt);
-    ctxt=ConvertCodePage("UTF-8","CP866",ctxt);
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
 
     XMLDoc ediSessCtxt(ctxt);
@@ -881,7 +881,7 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
     AstraContext::GetContext("EDI_SESSION",
                              udata.sessData()->ediSession()->ida(),
                              ctxt);
-    ctxt=ConvertCodePage("UTF-8","CP866",ctxt);
+    ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
 
     XMLDoc ediSessCtxt(ctxt);
