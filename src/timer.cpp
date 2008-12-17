@@ -223,7 +223,14 @@ void ETCheckStatusFlt(void)
     OraSession.Commit();
 
     TQuery UpdQry(&OraSession);
-    UpdQry.SQLText="UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id";
+    UpdQry.SQLText=
+      "BEGIN "
+      "  IF :pr_etstatus IS NOT NULL THEN "
+      "    UPDATE trip_sets SET pr_etstatus=:pr_etstatus WHERE point_id=:point_id; "
+      "  ELSE "
+      "    UPDATE trip_sets SET et_final_attempt=et_final_attempt+1 WHERE point_id=:point_id; "
+      "  END IF; "
+      "END;";
     UpdQry.DeclareVariable("point_id",otInteger);
     UpdQry.DeclareVariable("pr_etstatus",otInteger);
 
@@ -231,11 +238,11 @@ void ETCheckStatusFlt(void)
     Qry.SQLText=
      "SELECT p.point_id, p.airline, p.flt_no, p.airp, p.act_out, "
      "       NVL(act_in,NVL(est_in,scd_in)) AS real_in, "
-     "       p.pr_etstatus "
+     "       p.pr_etstatus,p.et_final_attempt "
      "FROM points, "
      "  (SELECT points.point_id,point_num,airline,flt_no,airp,act_out, "
      "          DECODE(pr_tranzit,0,points.point_id,first_point) AS first_point, "
-     "          pr_etstatus "
+     "          pr_etstatus,et_final_attempt "
      "   FROM points,trip_sets "
      "   WHERE points.point_id=trip_sets.point_id AND points.pr_del>=0 AND "
      "         (act_out IS NOT NULL AND pr_etstatus=0 OR pr_etstatus<0)) p "
@@ -255,10 +262,15 @@ void ETCheckStatusFlt(void)
         info.airline=Qry.FieldAsString("airline");
         info.flt_no=Qry.FieldAsInteger("flt_no");
         info.airp=Qry.FieldAsString("airp");
-        if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
-            (Qry.FieldAsDateTime("real_in")+30.0/1440<now || //прошло более 30 минут с момента прилета в конечный пункт
-             Qry.FieldAsDateTime("real_in")<now && GetTripSets(tsETLOnly,info)))
-        {
+        bool pr_final=!Qry.FieldIsNULL("act_out") &&
+                      !Qry.FieldIsNULL("real_in") &&
+                      Qry.FieldAsDateTime("real_in")<now;
+
+
+        if (pr_final &&
+            (Qry.FieldAsInteger("et_final_attempt")>=5 || //не менее 5 попыток подтвердить статусы интерактивом
+             GetTripSets(tsETLOnly,info)))                //либо выставлен признак запрета интерактива
+          {
           //Работа с сервером эл. билетов в интерактивном режиме запрещена
           //либо же никак не хотят подтверждаться конечные статусы
           //Отправляем ETL если настроена автоотправка
@@ -280,17 +292,25 @@ void ETCheckStatusFlt(void)
         }
         else
         {
-          //отправим интерактивно конечные статусы
+          //отправим интерактивно статусы
           try
           {
           	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
             if (!ETCheckStatus(point_id,csaFlt,point_id,true))
             {
-              if (!Qry.FieldIsNULL("act_out") && !Qry.FieldIsNULL("real_in") &&
-                  Qry.FieldAsDateTime("real_in")<now)
+              if (pr_final)
               {
                 UpdQry.SetVariable("point_id",point_id);
                 UpdQry.SetVariable("pr_etstatus",1);
+                UpdQry.Execute();
+              };
+            }
+            else
+            {
+              if (pr_final)
+              {
+                UpdQry.SetVariable("point_id",point_id);
+                UpdQry.SetVariable("pr_etstatus",FNull); //увеличим et_final_attempt
                 UpdQry.Execute();
               };
             };
