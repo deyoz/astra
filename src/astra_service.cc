@@ -815,7 +815,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                     	string str_file = i->file_data;
                       if ( !encoding.empty() )
                           try {
-                              str_file = ConvertCodePage( encoding, "CP866", str_file );
+                              str_file = ConvertCodepage( str_file, "CP866", encoding );
                           } catch(EConvertError &E) {
                               ProgError(STDLOG, E.what());
                               throw UserException("Ошибка конвертации в %s", encoding.c_str() );
@@ -995,7 +995,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   if ( !EncodeQry.Eof )
       try {
       	  convert_aodb = EncodeQry.FieldAsString( "encoding" );
-          file_data = ConvertCodePage( "CP866", convert_aodb, file_data );
+          file_data = ConvertCodepage( file_data, convert_aodb, "CP866" );
           convert_aodb.clear();
       }
       catch( EConvertError &E ) {
@@ -1077,8 +1077,8 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   string str_file( (char*)p, len );
   ProgTrace( TRACE5, "encoding=%s, file_str=%s", encoding.c_str(), str_file.c_str() );
   if ( !encoding.empty() )
-  	str_file = ConvertCodePage( "CP866", encoding, str_file );
-  str_file = ConvertCodePage( "WINDOWS-1251", "CP866", str_file );
+  	str_file = ConvertCodepage( str_file, encoding, "CP866" );
+  str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
   NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
   free( p );

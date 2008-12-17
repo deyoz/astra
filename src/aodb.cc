@@ -1846,12 +1846,12 @@ void ParseAndSaveSPP( const std::string &filename, const std::string &canon_name
     	fl.rec_no = NoExists;
     	if ( !convert_aodb.empty() ) {
     		try {
-    		  linestr = ConvertCodePage( "CP866", convert_aodb, linestr );
+    		  linestr = ConvertCodepage( linestr, convert_aodb, "CP866" );
     		}
 	      catch( EConvertError &E ) {
 	      	string l;
 	      	try {
-	      		l = ConvertCodePage( "CP866", convert_aodb, linestr.substr( REC_NO_IDX, REC_NO_LEN ) );
+	      		l = ConvertCodepage( linestr.substr( REC_NO_IDX, REC_NO_LEN ), convert_aodb, "CP866" );
 	      	}
 	        catch( EConvertError &E ) {
 	        	throw Exception( string("Ошибка перекодировки рейса") );

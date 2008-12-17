@@ -2444,7 +2444,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     Qry.Clear();
     Qry.SQLText=
       "SELECT ticket_no,coupon_no FROM pax "
-      "WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no "
+      "WHERE refuse IS NULL AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
       "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
     Qry.DeclareVariable("ticket_no",otString);
     Qry.DeclareVariable("coupon_no",otInteger);

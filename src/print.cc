@@ -127,7 +127,7 @@ namespace to_esc {
         prnParams.get_prn_params(reqNode);
 
         try {
-            mso_form = ConvertCodePage(prnParams.encoding, "CP866", mso_form);
+            mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
         } catch(EConvertError &E) {
             ProgError(STDLOG, E.what());
             throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
