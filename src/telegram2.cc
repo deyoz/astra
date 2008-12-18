@@ -1829,11 +1829,11 @@ int calculate_btm_grp_len(const vector<string>::iterator &iv, const vector<strin
     int result = 0;
     bool P_found = false;
     for(vector<string>::iterator j = iv; j != body.end(); j++) {
-        if(not P_found and iv->find(".P/") == 0)
+        if(not P_found and j->find(".P/") == 0)
             P_found = true;
         if(
                 P_found and
-                (iv->find(".N") == 0 or iv->find(".F") == 0)
+                (j->find(".N") == 0 or j->find(".F") == 0)
           ) // Нашли новую группу
             break;
         result += j->size() + br.size();
