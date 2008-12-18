@@ -1576,7 +1576,7 @@ struct TPList {
     public:
         // этот оператор нужен для sort вектора TPSurname
         bool operator () (const TPPax &i, const TPPax &j) { return i.name.size() < j.name.size(); };
-        void get(int grp_id);
+        void get(TTlgInfo &info, int grp_id);
         void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
@@ -1632,7 +1632,7 @@ void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TPList::get(int grp_id)
+void TPList::get(TTlgInfo &info, int grp_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1657,8 +1657,8 @@ void TPList::get(int grp_id)
         for(; !Qry.Eof; Qry.Next()) {
             TPPax item;
             item.seats = Qry.FieldAsInteger(col_seats);
-            item.surname = Qry.FieldAsString(col_surname);
-            item.name = Qry.FieldAsString(col_name);
+            item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
+            item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
             surnames[item.surname].push_back(item);
         }
     }
@@ -1673,7 +1673,7 @@ struct TBTMGrpListItem {
 
 struct TBTMGrpList {
     vector<TBTMGrpListItem> items;
-    void get(int point_id, string subclass);
+    void get(TTlgInfo &info, int point_id_trfer, string subclass);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
@@ -1687,20 +1687,27 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TBTMGrpList::get(int point_id, string subclass)
+void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  \n"
-        "   grp_id  \n"
+        "   transfer.grp_id  \n"
         "from  \n"
-        "   transfer  \n"
+        "   transfer, \n"
+        "   pax_grp \n"
         "where  \n"
-        "   point_id_trfer = :point_id and \n"
-        "   nvl(subclass, ' ') = nvl(:subclass, ' ') \n"
+        "   transfer.point_id_trfer = :point_id_trfer and \n"
+        "   nvl(transfer.subclass, ' ') = nvl(:subclass, ' ') and \n"
+        "   transfer.grp_id = pax_grp.grp_id and \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.airp_arv = :airp_arv \n"
         "order by \n"
         "   grp_id \n";
-    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    int fmt;
+    Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
+    Qry.CreateVariable("point_id_trfer", otInteger, point_id_trfer);
     Qry.CreateVariable("subclass", otString, subclass);
     Qry.Execute();
     if(!Qry.Eof) {
@@ -1708,14 +1715,16 @@ void TBTMGrpList::get(int point_id, string subclass)
         for(; !Qry.Eof; Qry.Next()) {
             TBTMGrpListItem item;
             int grp_id = Qry.FieldAsInteger(col_grp_id);
-            ProgTrace(TRACE5, "grp_id: %d", grp_id);
             item.NList.get(grp_id);
+            if(item.NList.items.empty())
+                continue;
             item.W.get(grp_id);
             item.OList.get(grp_id);
-            item.PList.get(grp_id);
+            item.PList.get(info, grp_id);
             items.push_back(item);
         }
     }
+    ProgTrace(TRACE5, "items.size(): %d", items.size());
 }
 
 // .F
@@ -1788,7 +1797,7 @@ void TFList::get(TTlgInfo &info)
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.subclass = Qry.FieldAsString(col_subclass);
             ProgTrace(TRACE5, "point_id_trfer: %d", item.point_id_trfer);
-            item.grp_list.get(item.point_id_trfer, item.subclass);
+            item.grp_list.get(info, item.point_id_trfer, item.subclass);
             items.push_back(item);
         }
     }
@@ -1797,6 +1806,7 @@ void TFList::get(TTlgInfo &info)
 void TFList::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     for(vector<TFItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        if(iv->grp_list.items.empty()) continue;
         ostringstream line;
         line
             << ".F/"
