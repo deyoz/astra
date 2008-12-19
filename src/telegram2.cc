@@ -1572,8 +1572,8 @@ struct TPLine {
 struct TPList {
     private:
         typedef vector<TPPax> TPSurname;
-        map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
     public:
+        map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
         // этот оператор нужен для sort вектора TPSurname
         bool operator () (const TPPax &i, const TPPax &j) { return i.name.size() < j.name.size(); };
         void get(TTlgInfo &info, int grp_id);
@@ -1637,13 +1637,14 @@ void TPList::get(TTlgInfo &info, int grp_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select \n"
-        "   nvl(seats, 1) seats, \n"
-        "   nvl(surname, 'UNACCOMPANIED') surname, \n"
+        "   seats, \n"
+        "   surname, \n"
         "   name \n"
         "from \n"
         "   pax \n"
         "where \n"
         "  grp_id = :grp_id and \n"
+        "  pr_brd = 1 and \n"
         "  seats > 0 \n"
         "order by \n"
         "   surname, \n"
@@ -1700,6 +1701,7 @@ void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
         "   transfer.point_id_trfer = :point_id_trfer and \n"
         "   nvl(transfer.subclass, ' ') = nvl(:subclass, ' ') and \n"
         "   transfer.grp_id = pax_grp.grp_id and \n"
+        "   pax_grp.status <> 'T' and \n"
         "   pax_grp.point_dep = :point_id and \n"
         "   pax_grp.airp_arv = :airp_arv \n"
         "order by \n"
@@ -1718,9 +1720,11 @@ void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
             item.NList.get(grp_id);
             if(item.NList.items.empty())
                 continue;
+            item.PList.get(info, grp_id);
+            if(item.PList.surnames.empty())
+                continue;
             item.W.get(grp_id);
             item.OList.get(grp_id);
-            item.PList.get(info, grp_id);
             items.push_back(item);
         }
     }
@@ -1930,126 +1934,138 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TPTMPaxList pax_list;
-    pax_list.get(info);
-    ostringstream body;
-    if(pax_list.items.empty()) {
-        tlg_row.body = "NIL" + br;
-    } else {
-        TPTMPaxListItem old1Row;
-        vector<TPTMPaxListItem>::iterator cur1Row = pax_list.items.begin();
-        int seats = 0;
-        int chd = 0;
-        int inf = 0;
-        int bagAmount = 0;
-        string names;
-        ostringstream grp, grph;
-        while(true) {
-            if(
-                    cur1Row == pax_list.items.end() or
-                    old1Row.grp_id != NoExists and
-                    (
-                     old1Row.airline != cur1Row->airline or
-                     old1Row.flt_no != cur1Row->flt_no or
-                     old1Row.suffix != cur1Row->suffix or
-                     old1Row.scd != cur1Row->scd or
-                     old1Row.airp_arv != cur1Row->airp_arv or
-                     old1Row.subclass != cur1Row->subclass or
-                     info.tlg_type != "PTMN" and
-                     (
-                      old1Row.grp_id != cur1Row->grp_id or
-                      not old1Row.surname.empty() and //NULL только тогда, когда предыдущий ребенок, и он первый в группе
-                      old1Row.surname != cur1Row->surname and
-                      cur1Row->seats > 0
-                     )
-                    )
-              ) {
-                old1Row.airline = ElemIdToElem(etAirline, old1Row.airline, info.pr_lat);
-                if(info.pr_lat and !is_lat(old1Row.suffix))
-                    old1Row.suffix = "";
-                old1Row.airp_arv = ElemIdToElem(etAirp, old1Row.airp_arv, info.pr_lat);
-                old1Row.subclass = ElemIdToElem(etSubcls, old1Row.subclass, info.pr_lat);
-                grp.str("");
-                grp
-                    << old1Row.airline
-                    << setw(3) << setfill('0') << old1Row.flt_no << old1Row.suffix << '/'
-                    << DateTimeToStr(old1Row.scd, "dd") << ' ' << old1Row.airp_arv << ' '
-                    << seats << ' ' << old1Row.subclass << ' ' << bagAmount << 'B';
-                grph.str("");
-                if(chd > 0) grph << ".CHD" << chd;
-                if(inf > 0) grph << ".INF" << inf;
-                size_t pos = 64 - (grp.str().size() + grph.str().size() + 1);
-                if(pos > 0 and not names.empty()) {
-                    if(names.size() > pos) {
-                        names = names.substr(0, pos - 1);
-                        pos = names.rfind("/");
-                        if(pos != string::npos)
-                            names = names.substr(0, pos);
-                    }
-                    grp << ' ' << names << grph.str();
-                } else
-                    grp << grph.str();
-                part_len += grp.str().size() + br.size();
-                if(part_len > PART_SIZE) {
-                    SaveTlgOutPartTST(tlg_row);
-                    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
-                    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
-                    tlg_row.body = grp.str() + br;
-                    part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                        tlg_row.body.size() + tlg_row.ending.size();
-                } else
-                    tlg_row.body += grp.str() + br;
-                seats = 0;
-                chd = 0;
-                inf = 0;
-                bagAmount = 0;
-                names.clear();
-            }
-            if(cur1Row == pax_list.items.end()) break;
-            if(cur1Row->pers_type == "РБ") chd++;
-            if(cur1Row->pers_type == "РМ") inf++;
-            bagAmount += cur1Row->bagAmount;
+    if(true) {
+        TPTMPaxList pax_list;
+        pax_list.get(info);
+        ostringstream body;
+        if(pax_list.items.empty()) {
+            tlg_row.body = "NIL" + br;
+        } else {
+            TPTMPaxListItem old1Row;
+            vector<TPTMPaxListItem>::iterator cur1Row = pax_list.items.begin();
+            int seats = 0;
+            int chd = 0;
+            int inf = 0;
+            int bagAmount = 0;
+            string names;
+            ostringstream grp, grph;
+            while(true) {
+                if(
+                        cur1Row == pax_list.items.end() or
+                        old1Row.grp_id != NoExists and
+                        (
+                         old1Row.airline != cur1Row->airline or
+                         old1Row.flt_no != cur1Row->flt_no or
+                         old1Row.suffix != cur1Row->suffix or
+                         old1Row.scd != cur1Row->scd or
+                         old1Row.airp_arv != cur1Row->airp_arv or
+                         old1Row.subclass != cur1Row->subclass or
+                         info.tlg_type != "PTMN" and
+                         (
+                          old1Row.grp_id != cur1Row->grp_id or
+                          not old1Row.surname.empty() and //NULL только тогда, когда предыдущий ребенок, и он первый в группе
+                          old1Row.surname != cur1Row->surname and
+                          cur1Row->seats > 0
+                         )
+                        )
+                  ) {
+                    old1Row.airline = ElemIdToElem(etAirline, old1Row.airline, info.pr_lat);
+                    if(info.pr_lat and !is_lat(old1Row.suffix))
+                        old1Row.suffix = "";
+                    old1Row.airp_arv = ElemIdToElem(etAirp, old1Row.airp_arv, info.pr_lat);
+                    old1Row.subclass = ElemIdToElem(etSubcls, old1Row.subclass, info.pr_lat);
+                    grp.str("");
+                    grp
+                        << old1Row.airline
+                        << setw(3) << setfill('0') << old1Row.flt_no << old1Row.suffix << '/'
+                        << DateTimeToStr(old1Row.scd, "dd") << ' ' << old1Row.airp_arv << ' '
+                        << seats << ' ' << old1Row.subclass << ' ' << bagAmount << 'B';
+                    grph.str("");
+                    if(chd > 0) grph << ".CHD" << chd;
+                    if(inf > 0) grph << ".INF" << inf;
+                    size_t pos = 64 - (grp.str().size() + grph.str().size() + 1);
+                    if(pos > 0 and not names.empty()) {
+                        if(names.size() > pos) {
+                            names = names.substr(0, pos - 1);
+                            pos = names.rfind("/");
+                            if(pos != string::npos)
+                                names = names.substr(0, pos);
+                        }
+                        grp << ' ' << names << grph.str();
+                    } else
+                        grp << grph.str();
+                    part_len += grp.str().size() + br.size();
+                    if(part_len > PART_SIZE) {
+                        SaveTlgOutPartTST(tlg_row);
+                        tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+                        tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+                        tlg_row.body = grp.str() + br;
+                        part_len = tlg_row.addr.size() + tlg_row.heading.size() +
+                            tlg_row.body.size() + tlg_row.ending.size();
+                    } else
+                        tlg_row.body += grp.str() + br;
+                    seats = 0;
+                    chd = 0;
+                    inf = 0;
+                    bagAmount = 0;
+                    names.clear();
+                }
+                if(cur1Row == pax_list.items.end()) break;
+                if(cur1Row->pers_type == "РБ") chd++;
+                if(cur1Row->pers_type == "РМ") inf++;
+                bagAmount += cur1Row->bagAmount;
 
-            //формирование pnr
-            if(cur1Row->seats > 0) {
-                seats++;
-                if(info.tlg_type != "PTMN") {
-                    try {
-                        string buf;
-                        buf = transliter(cur1Row->surname, info.pr_lat);
-                        if(buf.size() > LINE_SIZE) throw LineOverflow();
-                        if(names.empty()) names = buf;
-                        if(!cur1Row->name.empty()) {
-                            if(cur1Row->surname == "ZZ" and !old1Row.name.empty() and old1Row.name == cur1Row->name) {
-                                ;
-                            } else {
-                                buf = '/' + transliter(cur1Row->name, info.pr_lat);
-                                if(names.size() + buf.size() > LINE_SIZE)
-                                    throw LineOverflow();
-                                names += buf;
-                                for(int i = 2; i <= cur1Row->seats; i++) {
-                                    buf = "/EXST";
+                //формирование pnr
+                if(cur1Row->seats > 0) {
+                    seats++;
+                    if(info.tlg_type != "PTMN") {
+                        try {
+                            string buf;
+                            buf = transliter(cur1Row->surname, info.pr_lat);
+                            if(buf.size() > LINE_SIZE) throw LineOverflow();
+                            if(names.empty()) names = buf;
+                            if(!cur1Row->name.empty()) {
+                                if(cur1Row->surname == "ZZ" and !old1Row.name.empty() and old1Row.name == cur1Row->name) {
+                                    ;
+                                } else {
+                                    buf = '/' + transliter(cur1Row->name, info.pr_lat);
                                     if(names.size() + buf.size() > LINE_SIZE)
                                         throw LineOverflow();
-                                    names += buf; //впоследствии надо учитывать STCR
+                                    names += buf;
+                                    for(int i = 2; i <= cur1Row->seats; i++) {
+                                        buf = "/EXST";
+                                        if(names.size() + buf.size() > LINE_SIZE)
+                                            throw LineOverflow();
+                                        names += buf; //впоследствии надо учитывать STCR
+                                    }
                                 }
                             }
+                        } catch(LineOverflow E) {
                         }
-                    } catch(LineOverflow E) {
                     }
+                } else {
+                    if(old1Row.grp_id == NoExists or old1Row.grp_id != cur1Row->grp_id)
+                        cur1Row->surname.clear();
+                    else
+                        cur1Row->surname = old1Row.surname;
                 }
-            } else {
-                if(old1Row.grp_id == NoExists or old1Row.grp_id != cur1Row->grp_id)
-                    cur1Row->surname.clear();
-                else
-                    cur1Row->surname = old1Row.surname;
+                old1Row = *cur1Row;
+                cur1Row++;
             }
-            old1Row = *cur1Row;
-            cur1Row++;
         }
+        tlg_row.ending = "ENDPTM" + br;
+        SaveTlgOutPartTST(tlg_row);
+    } else {
+        TFList FList;
+        FList.get(info);
+        vector<string> body;
+        FList.ToTlg(info, body);
+        for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+            tlg_row.body += *iv + br;
+        }
+        tlg_row.ending = "ENDPTM" + br;
+        SaveTlgOutPartTST(tlg_row);
     }
-    tlg_row.ending = "ENDPTM" + br;
-    SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
 
