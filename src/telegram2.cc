@@ -1637,6 +1637,7 @@ void TPList::get(TTlgInfo &info, int grp_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select \n"
+        "   pr_brd, \n"
         "   seats, \n"
         "   surname, \n"
         "   name \n"
@@ -1644,18 +1645,25 @@ void TPList::get(TTlgInfo &info, int grp_id)
         "   pax \n"
         "where \n"
         "  grp_id = :grp_id and \n"
-        "  pr_brd = 1 and \n"
         "  seats > 0 \n"
         "order by \n"
         "   surname, \n"
         "   name \n";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    if(!Qry.Eof) {
+    if(Qry.Eof) {
+        TPPax item;
+        item.seats = 1;
+        item.surname = "UNACCOMPANIED";
+        surnames[item.surname].push_back(item);
+    } else {
+        int col_pr_brd = Qry.FieldIndex("pr_brd");
         int col_seats = Qry.FieldIndex("seats");
         int col_surname = Qry.FieldIndex("surname");
         int col_name = Qry.FieldIndex("name");
         for(; !Qry.Eof; Qry.Next()) {
+            if(Qry.FieldAsInteger(col_pr_brd) == 0)
+                continue;
             TPPax item;
             item.seats = Qry.FieldAsInteger(col_seats);
             item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
