@@ -1680,11 +1680,54 @@ struct TBTMGrpListItem {
     TPList PList;
 };
 
+// .F - блок информации для данного трансфера. Используется в BTM и PTM
+// абстрактный класс
+struct TFItem {
+    int point_id_trfer;
+    string airline;
+    int flt_no;
+    string suffix;
+    TDateTime scd;
+    string airp_arv;
+    string subclass;
+    virtual void ToTlg(TTlgInfo &info, vector<string> &body) = 0;
+    TFItem() {
+        point_id_trfer = NoExists;
+        flt_no = NoExists;
+        scd = NoExists;
+    }
+    virtual ~TFItem() { };
+};
+
 struct TBTMGrpList {
+    TFItem *FItem; // указатель на контейнер, в котором содержится данный екземпляр
     vector<TBTMGrpListItem> items;
-    void get(TTlgInfo &info, int point_id_trfer, string subclass);
+    void get(TTlgInfo &info, TFItem *AFItem);
+    virtual void ToTlg(TTlgInfo &info, vector<string> &body);
+    TBTMGrpList(): FItem(NULL) {};
+    virtual ~TBTMGrpList() {};
+};
+
+struct TPTMGrpList:TBTMGrpList {
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
+
+void TPTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        ostringstream line;
+        line
+            << ElemIdToElem(etAirline, FItem->airline, info.pr_lat)
+            << setw(3) << setfill('0') << FItem->flt_no
+            << ElemIdToElem(etSuffix, FItem->suffix, info.pr_lat)
+            << "/"
+            << DateTimeToStr(FItem->scd, "dd", info.pr_lat)
+            << " "
+            << ElemIdToElem(etAirp, FItem->airp_arv, info.pr_lat);
+        body.push_back(line.str());
+//        iv->PList.ToTlg(info, body);
+    }
+}
 
 void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
 {
@@ -1696,8 +1739,9 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
+void TBTMGrpList::get(TTlgInfo &info, TFItem *AFItem)
 {
+    FItem = AFItem;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  \n"
@@ -1717,8 +1761,8 @@ void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     int fmt;
     Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
-    Qry.CreateVariable("point_id_trfer", otInteger, point_id_trfer);
-    Qry.CreateVariable("subclass", otString, subclass);
+    Qry.CreateVariable("point_id_trfer", otInteger, FItem->point_id_trfer);
+    Qry.CreateVariable("subclass", otString, FItem->subclass);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
@@ -1739,30 +1783,42 @@ void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
     ProgTrace(TRACE5, "items.size(): %d", items.size());
 }
 
-// .F
-struct TFItem {
-    int point_id_trfer;
-    string airline;
-    int flt_no;
-    string suffix;
-    TDateTime scd;
-    string airp_arv;
-    string subclass;
+struct TBTMFItem:TFItem {
     TBTMGrpList grp_list;
-    TFItem() {
-        point_id_trfer = NoExists;
-        flt_no = NoExists;
-        scd = NoExists;
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        ostringstream line;
+        line
+            << ".F/"
+            << ElemIdToElem(etAirline, airline, info.pr_lat)
+            << setw(3) << setfill('0') << flt_no
+            << ElemIdToElem(etSuffix, suffix, info.pr_lat)
+            << "/"
+            << DateTimeToStr(scd, "ddmmm", info.pr_lat)
+            << "/"
+            << ElemIdToElem(etAirp, airp_arv, info.pr_lat)
+            << "/"
+            << ElemIdToElem(etSubcls, subclass, info.pr_lat);
+        body.push_back(line.str());
     }
 };
 
-struct TFList {
-    vector<TFItem> items;
+struct TPTMFItem:TFItem {
+    TPTMGrpList grp_list;
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+    }
+};
+
+template <class T>
+struct TFList { // Список направлений трансфера
+    vector<T> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TFList::get(TTlgInfo &info)
+template <class T>
+void TFList<T>::get(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1801,7 +1857,7 @@ void TFList::get(TTlgInfo &info)
         int col_airp_arv = Qry.FieldIndex("airp_arv");
         int col_subclass = Qry.FieldIndex("subclass");
         for(; !Qry.Eof; Qry.Next()) {
-            TFItem item;
+            T item;
             item.point_id_trfer = Qry.FieldAsInteger(col_point_id_trfer);
             item.airline = Qry.FieldAsString(col_airline);
             item.flt_no = Qry.FieldAsInteger(col_flt_no);
@@ -1809,30 +1865,20 @@ void TFList::get(TTlgInfo &info)
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.subclass = Qry.FieldAsString(col_subclass);
             ProgTrace(TRACE5, "point_id_trfer: %d", item.point_id_trfer);
-            item.grp_list.get(info, item.point_id_trfer, item.subclass);
             items.push_back(item);
+//!!!            items.back().grp_list.get(info, items.back());
         }
     }
 }
 
-void TFList::ToTlg(TTlgInfo &info, vector<string> &body)
+template <class T>
+void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    for(vector<TFItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        if(iv->grp_list.items.empty()) continue;
-        ostringstream line;
-        line
-            << ".F/"
-            << ElemIdToElem(etAirline, iv->airline, info.pr_lat)
-            << setw(3) << setfill('0') << iv->flt_no
-            << ElemIdToElem(etSuffix, iv->suffix, info.pr_lat)
-            << "/"
-            << DateTimeToStr(iv->scd, "ddmmm", info.pr_lat)
-            << "/"
-            << ElemIdToElem(etAirp, iv->airp_arv, info.pr_lat)
-            << "/"
-            << ElemIdToElem(etSubcls, iv->subclass, info.pr_lat);
-        body.push_back(line.str());
-        iv->grp_list.ToTlg(info, body);
+//    for(vector<T>::iterator iv = items.begin(); iv != items.end(); iv++) { // почему ошибка компиляции ???
+    for(size_t i = 0; i < items.size(); i++) {
+        if(items[i].grp_list.items.empty()) continue;
+        items[i].ToTlg(info, body);
+        items[i].grp_list.ToTlg(info, body);
     }
 }
 
@@ -1877,7 +1923,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    TFList FList;
+    TFList<TBTMFItem> FList;
     FList.get(info);
     vector<string> body;
     FList.ToTlg(info, body);
@@ -1942,7 +1988,14 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    if(true) {
+
+    char pr_old[10];
+    fstream ifs("cfg");
+    if(!ifs.good())
+        throw Exception("cfg open failed");
+    ifs.getline(pr_old, 10);
+
+    if(pr_old[0] == '1') {
         TPTMPaxList pax_list;
         pax_list.get(info);
         ostringstream body;
@@ -2064,7 +2117,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
         tlg_row.ending = "ENDPTM" + br;
         SaveTlgOutPartTST(tlg_row);
     } else {
-        TFList FList;
+        TFList<TPTMFItem> FList;
         FList.get(info);
         vector<string> body;
         FList.ToTlg(info, body);
