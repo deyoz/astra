@@ -2470,7 +2470,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
             line.str("");
             line
                 << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << "00" << TlgElemIdToElem(etClass, iv->cls, true); //всегда на латинице - так надо
+                << "00" << TlgElemIdToElem(etSubcls, iv->cls, true); //всегда на латинице - так надо
             body.push_back(line.str());
         } else {
             pr_empty = false;
