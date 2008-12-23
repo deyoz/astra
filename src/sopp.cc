@@ -3956,7 +3956,8 @@ void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
     try
     {
       TQuery Qry(&OraSession);
-  	  Qry.SQLText = "UPDATE trip_sets SET pr_etstatus=0 WHERE point_id=:point_id";
+  	  Qry.SQLText =
+  	    "UPDATE trip_sets SET pr_etstatus=0,et_final_attempt=0 WHERE point_id=:point_id";
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.Execute();
     }
