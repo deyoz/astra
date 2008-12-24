@@ -10,6 +10,7 @@
 #include "stl_utils.h"
 #include "convert.h"
 #include <map>
+#include <set>
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -226,6 +227,14 @@ string format_addr_line(string vaddrs)
         result += addr_line + br;
     return result;
 }
+
+struct TWItem {
+    int bagAmount;
+    int bagWeight;
+    int rkWeight;
+    void get(int grp_id);
+    void ToTlg(vector<string> &body);
+};
 
 namespace PRL_SPACE {
     struct TPNRItem {
@@ -458,9 +467,34 @@ namespace PRL_SPACE {
     };
 
     struct TTagList {
-        vector<TTagItem> items;
-        void get(int grp_id);
-        void ToTlg(TTlgInfo &info, vector<string> &body);
+        private:
+            virtual void format_tag_no(ostringstream &line, const TTagItem &prev_item, const int num, TTlgInfo &info)=0;
+        public:
+            vector<TTagItem> items;
+            void get(int grp_id);
+            void ToTlg(TTlgInfo &info, vector<string> &body);
+            virtual ~TTagList(){};
+    };
+
+    struct TPRLTagList:TTagList {
+        private:
+            void format_tag_no(ostringstream &line, const TTagItem &prev_item, const int num, TTlgInfo &info)
+            {
+                line
+                    << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << (prev_item.no - num + 1)
+                    << setw(3) << setfill('0') << num
+                    << '/' << ElemIdToElem(etAirp, prev_item.airp_arv, info.pr_lat);
+            }
+    };
+
+    struct TBTMTagList:TTagList {
+        private:
+            void format_tag_no(ostringstream &line, const TTagItem &prev_item, const int num, TTlgInfo &info)
+            {
+                line
+                    << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << (prev_item.no - num + 1)
+                    << setw(3) << setfill('0') << num;
+            }
     };
 
     void TTagList::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -480,10 +514,7 @@ namespace PRL_SPACE {
                         num < 999)
               ) {
                 ostringstream line;
-                line
-                    << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << (prev_item->no - num + 1)
-                    << setw(3) << setfill('0') << num
-                    << '/' << ElemIdToElem(etAirp, prev_item->airp_arv, info.pr_lat);
+                format_tag_no(line, *prev_item, num, info);
                 body.push_back(line.str());
                 if(iv == items.end())
                         break;
@@ -552,9 +583,57 @@ namespace PRL_SPACE {
     };
 
     struct TOnwardList {
-        vector<TOnwardItem> items;
-        void get(int grp_id);
-        void ToTlg(TTlgInfo &info, vector<string> &body);
+        private:
+            virtual string format(const TOnwardItem &item, const int i, TTlgInfo &info)=0;
+        public:
+            vector<TOnwardItem> items;
+            void get(int grp_id);
+            void ToTlg(TTlgInfo &info, vector<string> &body);
+            virtual ~TOnwardList(){};
+    };
+
+    struct TBTMOnwardList:TOnwardList {
+        private:
+            string format(const TOnwardItem &item, const int i, TTlgInfo &info)
+            {
+                if(i == 1)
+                    return "";
+                ostringstream line;
+                line
+                    << ".O/"
+                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << setw(3) << setfill('0') << item.flt_no
+                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
+                    << '/'
+                    << DateTimeToStr(item.scd, "ddmmm", info.pr_lat)
+                    << '/'
+                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                if(not item.subclass.empty())
+                    line
+                        << '/'
+                        << ElemIdToElem(etSubcls, item.subclass, info.pr_lat);
+                return line.str();
+            }
+    };
+
+    struct TPRLOnwardList:TOnwardList {
+        private:
+            string format(const TOnwardItem &item, const int i, TTlgInfo &info)
+            {
+                ostringstream line;
+                line << ".O";
+                if(i > 1)
+                    line << i;
+                line
+                    << '/'
+                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << setw(3) << setfill('0') << item.flt_no
+                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
+                    << ElemIdToElem(etSubcls, item.subclass, info.pr_lat)
+                    << DateTimeToStr(item.scd, "dd", info.pr_lat)
+                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                return line.str();
+            }
     };
 
     void TOnwardList::get(int grp_id)
@@ -597,38 +676,22 @@ namespace PRL_SPACE {
     void TOnwardList::ToTlg(TTlgInfo &info, vector<string> &body)
     {
         int i = 1;
-        for(vector<TOnwardItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            ostringstream line;
-            line << ".O";
-            if(i > 1)
-                line << i;
-            i++;
-            line
-                << '/'
-                << ElemIdToElem(etAirline, iv->airline, info.pr_lat)
-                << setw(3) << setfill('0') << iv->flt_no
-                << ElemIdToElem(etSuffix, iv->suffix, info.pr_lat)
-                << ElemIdToElem(etSubcls, iv->subclass, info.pr_lat)
-                << DateTimeToStr(iv->scd, "dd", info.pr_lat)
-                << ElemIdToElem(etAirp, iv->airp_arv, info.pr_lat);
-            body.push_back(line.str());
+        for(vector<TOnwardItem>::iterator iv = items.begin(); iv != items.end(); iv++, i++) {
+            string line = format(*iv, i, info);
+            if(not line.empty())
+                body.push_back(line);
         }
     }
 
     struct TGRPItem {
         int pax_count;
-        int bagAmount;
-        int bagWeight;
-        int rkWeight;
         bool written;
         int bg;
-        TTagList tags;
-        TOnwardList onwards;
+        TWItem W;
+        TPRLTagList tags;
+        TPRLOnwardList onwards;
         TGRPItem() {
             pax_count = NoExists;
-            bagAmount = NoExists;
-            bagWeight = NoExists;
-            rkWeight = NoExists;
             written = false;
             bg = NoExists;
         }
@@ -662,7 +725,7 @@ namespace PRL_SPACE {
     void TGRPMap::ToTlg(TTlgInfo &info, TPRLPax &pax, vector<string> &body)
     {
         TGRPItem &grp_map = items[pax.grp_id];
-        if(not(grp_map.bagAmount == 0 and grp_map.bagWeight == 0 and grp_map.rkWeight == 0)) {
+        if(not(grp_map.W.bagAmount == 0 and grp_map.W.bagWeight == 0 and grp_map.W.rkWeight == 0)) {
             ostringstream line;
             if(grp_map.pax_count > 1) {
                 line.str("");
@@ -670,12 +733,8 @@ namespace PRL_SPACE {
                 body.push_back(line.str());
             }
             if(!grp_map.written) {
-                line.str("");
                 grp_map.written = true;
-                line << ".W/K/" << grp_map.bagAmount << '/' << grp_map.bagWeight;
-                if(grp_map.rkWeight != 0)
-                    line << '/' << grp_map.rkWeight;
-                body.push_back(line.str());
+                grp_map.W.ToTlg(body);
                 grp_map.tags.ToTlg(info, body);
             }
         }
@@ -685,21 +744,12 @@ namespace PRL_SPACE {
     void TGRPMap::get(int grp_id)
     {
         if(items.find(grp_id) != items.end()) return; // olready got
+        TGRPItem item;
+        item.W.get(grp_id);
         TQuery Qry(&OraSession);
         Qry.SQLText =
-          "SELECT "
-          "  NVL(ckin.get_bagAmount(:grp_id,NULL),0), "
-          "  NVL(ckin.get_bagWeight(:grp_id,NULL),0), "
-          "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) "
-          "FROM dual ";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.Execute();
-        TGRPItem item;
-        item.bagAmount = Qry.FieldAsInteger(0);
-        item.bagWeight = Qry.FieldAsInteger(1);
-        item.rkWeight = Qry.FieldAsInteger(2);
-        Qry.SQLText =
             "select count(*) from pax where grp_id = :grp_id and refuse is null";
+        Qry.CreateVariable("grp_id", otInteger, grp_id);
         Qry.Execute();
         item.pax_count = Qry.FieldAsInteger(0);
         item.tags.get(grp_id);
@@ -1434,214 +1484,377 @@ class LineOverflow: public Exception {
         LineOverflow( ):Exception( "ПЕРЕПОЛНЕНИЕ СТРОКИ ТЕЛЕГРАММЫ" ) { };
 };
 
-struct TBTMListItem {
-    string airline;
-    int flt_no;
-    string suffix;
-    TDateTime scd;
-    string airp_arv;
-    string subclass;
-    int seats;
-    string surname;
-    string name;
-    int grp_id;
-    TBTMListItem() {
-        flt_no = NoExists;
-        scd = NoExists;
-        seats = 0;
-        grp_id = NoExists;
-    }
-};
+void TWItem::ToTlg(vector<string> &body)
+{
+    ostringstream buf;
+    buf << ".W/K/" << bagAmount << '/' << bagWeight;
+    if(rkWeight != 0)
+        buf << '/' << rkWeight;
+    body.push_back(buf.str());
+}
 
-struct TBTMList {
-    vector<TBTMListItem> items;
-    void get(TTlgInfo &info);
-};
-
-void TBTMList::get(TTlgInfo &info)
+void TWItem::get(int grp_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT "
-        "       trfer_trips.airline, "
-        "       trfer_trips.flt_no, "
-        "       trfer_trips.suffix, "
-        "       trfer_trips.scd, "
-        "       transfer.airp_arv, "
-        "       transfer.subclass, "
-        "       NVL(seats,1) AS seats, "
-        "       NVL(pax.surname,'UNACCOMPANIED') AS surname, "
-        "       pax.name, "
-        "       pax_grp.grp_id "
-        "FROM pax_grp,pax,transfer,trfer_trips "
-        "WHERE pax_grp.grp_id=pax.grp_id(+) AND "
-        "      (pax.grp_id IS NULL AND pax_grp.class IS NULL OR  "
-        "       pax.grp_id IS NOT NULL) AND  "
-        "      pax_grp.bag_refuse=0 AND "
-        "      pax_grp.grp_id=transfer.grp_id AND "
-        "      transfer.point_id_trfer=trfer_trips.point_id AND "
-        "      pax_grp.point_dep=:point_id AND "
-        "      pax_grp.airp_arv=:airp AND "
-        "      pax.pr_brd(+)=1 AND "
-        "      pax_grp.status<>'T' AND pax.seats(+)>0 AND "
-        "      transfer_num=1 "
-        "ORDER BY trfer_trips.airline, "
-        "         trfer_trips.flt_no, "
-        "         trfer_trips.suffix, "
-        "         trfer_trips.scd, "
-        "         transfer.airp_arv, "
-        "         transfer.subclass, "
-        "         DECODE(pax.grp_id,NULL,1,0), "
-        "         pax_grp.grp_id, "
-        "         pax.surname, "
-        "         pax.name ";
-    Qry.CreateVariable("airp", otString, info.airp);
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
+        "  NVL(ckin.get_bagAmount(:grp_id,NULL),0) bagAmount, "
+        "  NVL(ckin.get_bagWeight(:grp_id,NULL),0) bagWeight, "
+        "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) rkWeight "
+        "FROM dual ";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
     Qry.Execute();
-    if(!Qry.Eof) {
-        int col_airline = Qry.FieldIndex("airline");
-        int col_flt_no = Qry.FieldIndex("flt_no");
-        int col_suffix = Qry.FieldIndex("suffix");
-        int col_scd = Qry.FieldIndex("scd");
-        int col_airp_arv = Qry.FieldIndex("airp_arv");
-        int col_subclass = Qry.FieldIndex("subclass");
+    bagAmount = Qry.FieldAsInteger("bagAmount");
+    bagWeight = Qry.FieldAsInteger("bagWeight");
+    rkWeight = Qry.FieldAsInteger("rkWeight");
+}
+
+struct TPPax {
+    public:
+        int seats;
+        string surname, name;
+        TPPax():seats(0) {};
+};
+
+
+// Представление списка полей .P/ как он будет в телеграмме.
+struct TPLine {
+    bool skip;
+    int seats;
+    string surname;
+    vector<string> names;
+    TPLine(): skip(false), seats(0) {};
+    size_t get_line_size() {
+        return get_line().size() + br.size();
+    }
+    string get_line() {
+        ostringstream buf;
+        buf << ".P/";
+        if(seats > 1)
+            buf << seats;
+        buf << surname;
+        for(vector<string>::iterator iv = names.begin(); iv != names.end(); iv++) {
+            if(!iv->empty())
+                buf << "/" << *iv;
+        }
+        return buf.str();
+    }
+    TPLine & operator += (const TPPax & pax) 
+    {
+        seats += pax.seats;
+        if(not pax.name.empty())
+            names.push_back(pax.name);
+        return *this;
+    }
+    TPLine operator + (const TPPax & pax) 
+    {
+        TPLine result(*this);
+        result += pax;
+        return result;
+    }
+    TPLine & operator += (const int &aseats)
+    {
+        seats += aseats;
+        return *this;
+    }
+    TPLine operator + (const int &aseats)
+    {
+        TPLine result(*this);
+        result += aseats;
+        return result;
+    }
+    bool operator == (const string &s)
+    {
+        return not skip and surname == s;
+    }
+};
+
+struct TPList {
+    private:
+        typedef vector<TPPax> TPSurname;
+    public:
+        map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
+        // этот оператор нужен для sort вектора TPSurname
+        bool operator () (const TPPax &i, const TPPax &j) { return i.name.size() < j.name.size(); };
+        void get(TTlgInfo &info, int grp_id);
+        void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    vector<TPLine> lines;
+    for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
+        TPSurname &pax_list = im->second;
+        sort(pax_list.begin(), pax_list.end(), *this);
+        TPLine line;
+        line.surname = im->first;
+        lines.push_back(line);
+        vector<TPPax>::iterator iv = pax_list.begin();
+        while(iv != pax_list.end()) {
+            TPLine &curLine = lines.back();
+            if((curLine + *iv).get_line_size() > LINE_SIZE) {// все, строка переполнена
+                if(curLine.names.empty()) {
+                    curLine += iv->seats;
+                    iv++;
+                } else {
+                    lines.push_back(line);
+                }
+            } else {
+                curLine += *iv;
+                iv++;
+            }
+        }
+    }
+
+    // В полученном векторе строк, обрезаем слишком длинные
+    // фамилии, объединяем между собой, если найдутся
+    // совпадения обрезанных фамилий.
+    for(vector<TPLine>::iterator iv = lines.begin(); iv != lines.end(); iv++) {
+        TPLine &curLine = *iv;
+        ProgTrace(TRACE5, "%s", curLine.surname.c_str());
+        if(curLine.names.empty()) {
+            size_t line_size = curLine.get_line_size();
+            if(line_size > LINE_SIZE) {
+                string surname = curLine.surname.substr(0, curLine.surname.size() - (line_size - LINE_SIZE));
+                ProgTrace(TRACE5, "AFTER CUT: %s", surname.c_str());
+                vector<TPLine>::iterator found_l = find(lines.begin(), lines.end(), surname);
+                if(found_l != lines.end()) {
+                    curLine.skip = true;
+                    *found_l += curLine.seats;
+                } else
+                    curLine.surname = surname;
+            }
+        }
+    }
+    for(vector<TPLine>::iterator iv = lines.begin(); iv != lines.end(); iv++) {
+        if(iv->skip) continue;
+        body.push_back(iv->get_line());
+    }
+}
+
+void TPList::get(TTlgInfo &info, int grp_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select \n"
+        "   pr_brd, \n"
+        "   seats, \n"
+        "   surname, \n"
+        "   name \n"
+        "from \n"
+        "   pax \n"
+        "where \n"
+        "  grp_id = :grp_id and \n"
+        "  seats > 0 \n"
+        "order by \n"
+        "   surname, \n"
+        "   name \n";
+    Qry.CreateVariable("grp_id", otInteger, grp_id);
+    Qry.Execute();
+    if(Qry.Eof) {
+        TPPax item;
+        item.seats = 1;
+        item.surname = "UNACCOMPANIED";
+        surnames[item.surname].push_back(item);
+    } else {
+        int col_pr_brd = Qry.FieldIndex("pr_brd");
         int col_seats = Qry.FieldIndex("seats");
         int col_surname = Qry.FieldIndex("surname");
         int col_name = Qry.FieldIndex("name");
-        int col_grp_id = Qry.FieldIndex("grp_id");
         for(; !Qry.Eof; Qry.Next()) {
-            TBTMListItem item;
-            item.airline = Qry.FieldAsString(col_airline);
-            item.flt_no = Qry.FieldAsInteger(col_flt_no);
-            item.suffix = Qry.FieldAsString(col_suffix);
-            item.scd = Qry.FieldAsDateTime(col_scd);
-            item.airp_arv = Qry.FieldAsString(col_airp_arv);
-            item.subclass = Qry.FieldAsString(col_subclass);
+            if(Qry.FieldAsInteger(col_pr_brd) == 0)
+                continue;
+            TPPax item;
             item.seats = Qry.FieldAsInteger(col_seats);
-            item.surname = Qry.FieldAsString(col_surname);
-            item.name = Qry.FieldAsString(col_name);
-            item.grp_id = Qry.FieldAsInteger(col_grp_id);
-            items.push_back(item);
+            item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
+            item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
+            surnames[item.surname].push_back(item);
         }
     }
 }
 
-struct TBTMTagsItem {
-    string tag_type;
-    int no_len;
-    double no;
-    string color;
-    TBTMTagsItem() {
-        no_len = NoExists;
-        no = NoExists;
+struct TBTMGrpListItem {
+    TBTMTagList NList;
+    TWItem W;
+    TBTMOnwardList OList;
+    TPList PList;
+};
+
+struct TBTMGrpList {
+    vector<TBTMGrpListItem> items;
+    void get(TTlgInfo &info, int point_id_trfer, string subclass);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        iv->NList.ToTlg(info, body);
+        iv->W.ToTlg(body);
+        iv->OList.ToTlg(info, body);
+        iv->PList.ToTlg(info, body);
     }
-};
+}
 
-struct TBTMTags {
-    vector<TBTMTagsItem> items;
-    void get(int grp_id);
-};
-
-void TBTMTags::get(int grp_id)
+void TBTMGrpList::get(TTlgInfo &info, int point_id_trfer, string subclass)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT "
-        "    tag_type, "
-        "    no_len, "
-        "    no, "
-        "    color "
-        "FROM "
-        "    bag_tags, "
-        "    tag_types "
-        "WHERE "
-        "    bag_tags.tag_type=tag_types.code AND "
-        "    grp_id=:grp_id "
-        "ORDER BY "
-        "    tag_type, "
-        "    color, "
-        "    no ";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
+        "select  \n"
+        "   transfer.grp_id  \n"
+        "from  \n"
+        "   transfer, \n"
+        "   pax_grp \n"
+        "where  \n"
+        "   transfer.point_id_trfer = :point_id_trfer and \n"
+        "   nvl(transfer.subclass, ' ') = nvl(:subclass, ' ') and \n"
+        "   transfer.grp_id = pax_grp.grp_id and \n"
+        "   pax_grp.status <> 'T' and \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.airp_arv = :airp_arv \n"
+        "order by \n"
+        "   grp_id \n";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    int fmt;
+    Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
+    Qry.CreateVariable("point_id_trfer", otInteger, point_id_trfer);
+    Qry.CreateVariable("subclass", otString, subclass);
     Qry.Execute();
     if(!Qry.Eof) {
-        int col_tag_type = Qry.FieldIndex("tag_type");
-        int col_no_len = Qry.FieldIndex("no_len");
-        int col_no = Qry.FieldIndex("no");
-        int col_color = Qry.FieldIndex("color");
+        int col_grp_id = Qry.FieldIndex("grp_id");
         for(; !Qry.Eof; Qry.Next()) {
-            TBTMTagsItem item;
-            item.tag_type = Qry.FieldAsString(col_tag_type);
-            item.no_len = Qry.FieldAsInteger(col_no_len);
-            item.no = Qry.FieldAsFloat(col_no);
-            item.color = Qry.FieldAsString(col_color);
+            TBTMGrpListItem item;
+            int grp_id = Qry.FieldAsInteger(col_grp_id);
+            item.NList.get(grp_id);
+            if(item.NList.items.empty())
+                continue;
+            item.PList.get(info, grp_id);
+            if(item.PList.surnames.empty())
+                continue;
+            item.W.get(grp_id);
+            item.OList.get(grp_id);
             items.push_back(item);
         }
     }
+    ProgTrace(TRACE5, "items.size(): %d", items.size());
 }
 
-struct TBTMTrferItem {
+// .F
+struct TFItem {
+    int point_id_trfer;
     string airline;
     int flt_no;
     string suffix;
     TDateTime scd;
     string airp_arv;
     string subclass;
-    TBTMTrferItem() {
+    TBTMGrpList grp_list;
+    TFItem() {
+        point_id_trfer = NoExists;
         flt_no = NoExists;
         scd = NoExists;
     }
 };
 
-struct TBTMTrfer {
-    vector<TBTMTrferItem> items;
-    void get(int grp_id);
+struct TFList {
+    vector<TFItem> items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TBTMTrfer::get(int grp_id)
+void TFList::get(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "SELECT "
-        "    airline, "
-        "    flt_no, "
-        "    suffix, "
-        "    scd, "
-        "    airp_arv, "
-        "    subclass "
-        "FROM "
-        "    transfer, "
-        "    trfer_trips  "
-        "WHERE "
-        "    transfer.point_id_trfer=trfer_trips.point_id AND "
-        "    grp_id=:grp_id AND "
-        "    transfer_num>=2 "
-        "ORDER BY "
-        "    transfer_num ";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
+        "select distinct \n"
+        "    transfer.point_id_trfer, \n"
+        "    trfer_trips.airline, \n"
+        "    trfer_trips.flt_no, \n"
+        "    trfer_trips.scd, \n"
+        "    transfer.airp_arv, \n"
+        "    transfer.subclass \n"
+        "from \n"
+        "    transfer, \n"
+        "    trfer_trips \n"
+        "where \n"
+        "    transfer.grp_id in \n"
+        "    (select grp_id from pax_grp where \n"
+        "       point_dep = :point_id and \n"
+        "       airp_arv = :airp \n"
+        "    ) and \n"
+        "    transfer.transfer_num = 1 and \n"
+        "    transfer.point_id_trfer = trfer_trips.point_id \n"
+        "order by "
+        "    trfer_trips.airline, \n"
+        "    trfer_trips.flt_no, \n"
+        "    trfer_trips.scd, \n"
+        "    transfer.airp_arv, \n"
+        "    transfer.subclass \n";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("airp", otString, info.airp);
     Qry.Execute();
     if(!Qry.Eof) {
+        int col_point_id_trfer = Qry.FieldIndex("point_id_trfer");
         int col_airline = Qry.FieldIndex("airline");
         int col_flt_no = Qry.FieldIndex("flt_no");
-        int col_suffix = Qry.FieldIndex("suffix");
         int col_scd = Qry.FieldIndex("scd");
         int col_airp_arv = Qry.FieldIndex("airp_arv");
         int col_subclass = Qry.FieldIndex("subclass");
         for(; !Qry.Eof; Qry.Next()) {
-            TBTMTrferItem item;
+            TFItem item;
+            item.point_id_trfer = Qry.FieldAsInteger(col_point_id_trfer);
             item.airline = Qry.FieldAsString(col_airline);
             item.flt_no = Qry.FieldAsInteger(col_flt_no);
-            item.suffix = Qry.FieldAsString(col_suffix);
             item.scd = Qry.FieldAsDateTime(col_scd);
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.subclass = Qry.FieldAsString(col_subclass);
+            ProgTrace(TRACE5, "point_id_trfer: %d", item.point_id_trfer);
+            item.grp_list.get(info, item.point_id_trfer, item.subclass);
             items.push_back(item);
         }
     }
+}
+
+void TFList::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(vector<TFItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        if(iv->grp_list.items.empty()) continue;
+        ostringstream line;
+        line
+            << ".F/"
+            << ElemIdToElem(etAirline, iv->airline, info.pr_lat)
+            << setw(3) << setfill('0') << iv->flt_no
+            << ElemIdToElem(etSuffix, iv->suffix, info.pr_lat)
+            << "/"
+            << DateTimeToStr(iv->scd, "ddmmm", info.pr_lat)
+            << "/"
+            << ElemIdToElem(etAirp, iv->airp_arv, info.pr_lat)
+            << "/"
+            << ElemIdToElem(etSubcls, iv->subclass, info.pr_lat);
+        body.push_back(line.str());
+        iv->grp_list.ToTlg(info, body);
+    }
+}
+
+int calculate_btm_grp_len(const vector<string>::iterator &iv, const vector<string> &body)
+{
+    int result = 0;
+    bool P_found = false;
+    for(vector<string>::iterator j = iv; j != body.end(); j++) {
+        if(not P_found and j->find(".P/") == 0)
+            P_found = true;
+        if(
+                P_found and
+                (j->find(".N") == 0 or j->find(".F") == 0)
+          ) // Нашли новую группу
+            break;
+        result += j->size() + br.size();
+    }
+    return result;
 }
 
 int BTM(TTlgInfo &info, int tst_tlg_id)
 {
-    const size_t NAMES_SIZE = 58; // 64-LENGTH('.P/000')
     TTlgOutPartInfo tlg_row;
     tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
@@ -1664,259 +1877,44 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    int j = 1;
-    int seats = 0;
-    TBTMList BTMList;
-    BTMList.get(info);
-    vector<string> grp;
-    if(!BTMList.items.empty()) {
-        TBTMListItem old1Row;
-        vector<TBTMListItem>::iterator cur1Row = BTMList.items.begin();
-        string names;
-        while(true) {
-            if(
-                    cur1Row == BTMList.items.end() or
-                    old1Row.grp_id == NoExists or
-                    not (
-                        old1Row.airline == cur1Row->airline and
-                        old1Row.flt_no == cur1Row->flt_no and
-                        (
-                         !old1Row.suffix.empty() and !cur1Row->suffix.empty() and
-                         old1Row.suffix == cur1Row->suffix or
-                         old1Row.suffix.empty() and cur1Row->suffix.empty()
-                        ) and
-                        old1Row.scd == cur1Row->scd and
-                        old1Row.airp_arv == cur1Row->airp_arv and
-                        (
-                         !old1Row.subclass.empty() and !cur1Row->subclass.empty() and
-                         old1Row.subclass == cur1Row->subclass or
-                         old1Row.subclass.empty() and cur1Row->subclass.empty()
-                        ) and
-                        old1Row.grp_id == cur1Row->grp_id
-                        )
-              ) {
-                if(grp.size() > 1) { // есть багажные бирки
-                    // записать grp
-                    if(!names.empty()) {
-                        if(seats > 1)
-                            grp.push_back(".P/" + IntToString(seats) + names);
-                        else
-                            grp.push_back(".P/" + names);
-                        seats = 0;
-                        names.erase();
-                    }
-                    // оценим, сможем ли мы группу уместить в текущую часть телеграммы
-                    size_t part_len2 = part_len;
-                    for(size_t i = j - 1; i < grp.size(); i++)
-                        part_len2 += grp[i].size() + br.size();
-                    if(part_len2 > PART_SIZE) {
-                        SaveTlgOutPartTST(tlg_row);
-                        tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + br + heading2.str();
-                        tlg_row.body.erase();
-                        tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
-                        part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-                        for(size_t i = 0; i < grp.size(); i++) {
-                            part_len += grp[i].size() + br.size();
-                            tlg_row.body = tlg_row.body + grp[i] + br;
-                        }
-                    } else {
-                        for(size_t i = j - 1; i < grp.size(); i++) {
-                            part_len += grp[i].size() + br.size();
-                            tlg_row.body = tlg_row.body + grp[i] + br;
-                        }
-                    }
-                }
-
-                grp.clear();
-
-                if(cur1Row == BTMList.items.end()) break;
-
-                if(
-                        old1Row.grp_id == NoExists or
-                        not(
-                            old1Row.airline == cur1Row->airline and
-                            old1Row.flt_no == cur1Row->flt_no and
-                            (
-                             !old1Row.suffix.empty() and !cur1Row->suffix.empty() and
-                             old1Row.suffix == cur1Row->suffix or
-                             old1Row.suffix.empty() and cur1Row->suffix.empty()
-                            ) and
-                            old1Row.scd == cur1Row->scd and
-                            old1Row.airp_arv == cur1Row->airp_arv and
-                            (
-                             !old1Row.subclass.empty() and !cur1Row->subclass.empty() and
-                             old1Row.subclass == cur1Row->subclass or
-                             old1Row.subclass.empty() and cur1Row->subclass.empty()
-                            )
-                           )
-                  )
-                    // составить .F
-                    j = 1;
-                else
-                    j = 2;
-
-                // выведем новую групп
-                // здесь cur3Row только в качестве вспомогательной переменной
-                TBTMListItem cur3Row;
-                cur3Row.airline = cur1Row->airline;
-                cur3Row.flt_no = cur1Row->flt_no;
-                cur3Row.suffix = cur1Row->suffix;
-                cur3Row.scd = cur1Row->scd;
-                cur3Row.airp_arv = cur1Row->airp_arv;
-                cur3Row.subclass = cur1Row->subclass;
-
-                cur3Row.airline = ElemIdToElem(etAirline, cur3Row.airline, info.pr_lat);
-                // составляем первую строку .F
-                if(info.pr_lat and not is_lat(cur3Row.suffix)) cur3Row.suffix.erase();
-                cur3Row.airp_arv = ElemIdToElem(etAirp, cur3Row.airp_arv, info.pr_lat);
-                ostringstream buf;
-                buf
-                    << ".F/" << cur3Row.airline
-                    << setw(3) << setfill('0') << cur3Row.flt_no << cur3Row.suffix
-                    << "/"
-                    << DateTimeToStr(cur3Row.scd, "ddmmm", 1)
-                    << "/"
-                    <<  cur3Row.airp_arv;
-                if(!cur3Row.subclass.empty()) {
-                    cur3Row.subclass = ElemIdToElem(etSubcls, cur3Row.subclass, info.pr_lat);
-                    buf << "/" << cur3Row.subclass;
-                }
-                grp.push_back(buf.str());
-                // получим данные по номерам бирок
-                int num = 0;
-                TBTMTagsItem old2Row;
-                TBTMTags cur2;
-                cur2.get(cur1Row->grp_id);
-                vector<TBTMTagsItem>::iterator cur2Row = cur2.items.begin();
-                if(cur2Row != cur2.items.end()) {
-                    while(true) {
-                        if (
-                                cur2Row == cur2.items.end() or
-                                old2Row.no != NoExists and
-                                not (
-                                    old2Row.tag_type == cur2Row->tag_type and
-                                    (
-                                     !old2Row.color.empty() and !cur2Row->color.empty() and
-                                     old2Row.color == cur2Row->color or
-                                     old2Row.color.empty() and cur2Row->color.empty()
-                                    ) and
-                                    old2Row.no + 1 == cur2Row->no and num < 999
-                                    )
-                           ) {
-                            ostringstream buf;
-                            old2Row.no = old2Row.no - num + 1;
-                            buf
-                                << ".N/" << fixed << setprecision(0) << setw(10) << setfill('0') << old2Row.no
-                                << setw(3) << setfill('0') << num;
-                            grp.push_back(buf.str());
-                            if(cur2Row == cur2.items.end()) break;
-                            num = 1;
-                        } else {
-                            num++;
-                        }
-                        old2Row = *cur2Row;
-                        cur2Row++;
-                    }
-                    TQuery Qry(&OraSession);
-                    Qry.SQLText =
-                        "SELECT "
-                        "  NVL(ckin.get_bagAmount(:grp_id,NULL),0) bagAmount, "
-                        "  NVL(ckin.get_bagWeight(:grp_id,NULL),0) bagWeight, "
-                        "  NVL(ckin.get_rkWeight(:grp_id,NULL),0) rkWeight "
-                        "FROM dual ";
-                    Qry.CreateVariable("grp_id", otInteger, cur1Row->grp_id);
-                    Qry.Execute();
-                    int bagAmount = Qry.FieldAsInteger("bagAmount");
-                    int bagWeight = Qry.FieldAsInteger("bagWeight");
-                    int rkWeight = Qry.FieldAsInteger("rkWeight");
-                    ostringstream buf;
-                    buf << ".W/K/" << bagAmount << '/' << bagWeight;
-                    if(rkWeight != 0)
-                        buf << '/' << rkWeight;
-                    grp.push_back(buf.str());
-                    TBTMTrfer cur3;
-                    cur3.get(cur1Row->grp_id);
-                    for(vector<TBTMTrferItem>::iterator cur3Row = cur3.items.begin(); cur3Row != cur3.items.end(); cur3Row++) {
-                        cur3Row->airline = ElemIdToElem(etAirline, cur3Row->airline, info.pr_lat);
-                        if(info.pr_lat and not is_lat(cur3Row->suffix))
-                            cur3Row->suffix.erase();
-                        cur3Row->airp_arv = ElemIdToElem(etAirp, cur3Row->airp_arv, info.pr_lat);
-                        ostringstream buf;
-                        buf
-                            << ".O/"
-                            << cur3Row->airline
-                            << setw(3) << setfill('0') << cur3Row->flt_no
-                            << cur3Row->suffix
-                            << '/'
-                            << DateTimeToStr(cur3Row->scd, "ddmmm", info.pr_lat)
-                            << '/'
-                            << cur3Row->airp_arv;
-                        if(not cur3Row->subclass.empty())
-                            buf
-                                << '/' << ElemIdToElem(etSubcls, cur3Row->subclass, info.pr_lat);
-                        grp.push_back(buf.str());
-                    }
-                }
-            }
-            if(grp.size() > 1) { // есть багажные бирки
-                if(
-                        not old1Row.surname.empty() and
-                        old1Row.surname != cur1Row->surname and
-                        seats > 0
-                  ) {
-                    ostringstream buf;
-                    if(seats > 1)
-                        buf << ".P/" << seats << names;
-                    else
-                        buf << ".P/" << names;
-                    grp.push_back(buf.str());
-                    seats = 0;
-                    names.erase();
-                }
-                for(int k = 1; k <= 2; k++) {
-                    if(names.empty())
-                        names = transliter(cur1Row->surname, info.pr_lat).substr(0, 58);
-                    try {
-                        if(not cur1Row->name.empty()) {
-                            if(
-                                    cur1Row->surname == "ZZ" and
-                                    not old1Row.name.empty() and old1Row.name == cur1Row->name
-                              ) {
-                                ;
-                            } else {
-                                ostringstream buf;
-                                buf << '/' << transliter(cur1Row->name, info.pr_lat);
-                                for(int i = 2; i <= cur1Row->seats; i++) {
-                                    buf << "/EXST";
-                                }
-                                if(names.size() + buf.str().size() > NAMES_SIZE)
-                                    throw LineOverflow();
-                                names += buf.str();
-                            }
-                        }
-                        seats += cur1Row->seats;
-                        break;
-                    } catch(LineOverflow E) {
-                        ostringstream buf;
-                        if(seats > 0) {
-                            if(seats > 1)
-                                buf << ".P/" << seats << names;
-                            else
-                                buf << ".P/" << names;
-                            grp.push_back(buf.str());
-                            seats = 0;
-                            names.erase();
-                        } else {
-                            seats += cur1Row->seats;
-                            break;
-                        }
-                    }
-                }
-                old1Row = *cur1Row;
-            }
-            cur1Row++;
-        }
+    TFList FList;
+    FList.get(info);
+    vector<string> body;
+    FList.ToTlg(info, body);
+    string part_begin;
+    bool P_found = false;
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+        if(iv->find(".F/") == 0)
+            part_begin = *iv;
+        if(not P_found and iv->find(".P/") == 0)
+            P_found = true;
+        int grp_len = 0;
+        if(
+                P_found and
+                (iv->find(".N") == 0 or iv->find(".F") == 0)
+          ) { // Нашли новую группу
+            P_found = false;
+            grp_len = calculate_btm_grp_len(iv, body);
+        } else
+              grp_len = iv->size() + br.size();
+        if(part_len + grp_len <= PART_SIZE)
+            grp_len = iv->size() + br.size();
+        part_len += grp_len;
+        if(part_len > PART_SIZE) {
+            SaveTlgOutPartTST(tlg_row);
+            tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + br + heading2.str();
+            tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+            if(iv->find(".F") == 0)
+                tlg_row.body = *iv + br;
+            else
+                tlg_row.body = part_begin + br + *iv + br;
+            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
+                tlg_row.body.size() + tlg_row.ending.size();
+        } else
+            tlg_row.body += *iv + br;
     }
+
+    ProgTrace(TRACE5, "body size: %d", tlg_row.body.size());
     if(tlg_row.num == 1)
         tlg_row.heading = heading1.str() + br + heading2.str();
     tlg_row.ending = "ENDBTM" + br;
@@ -1944,126 +1942,138 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TPTMPaxList pax_list;
-    pax_list.get(info);
-    ostringstream body;
-    if(pax_list.items.empty()) {
-        tlg_row.body = "NIL" + br;
-    } else {
-        TPTMPaxListItem old1Row;
-        vector<TPTMPaxListItem>::iterator cur1Row = pax_list.items.begin();
-        int seats = 0;
-        int chd = 0;
-        int inf = 0;
-        int bagAmount = 0;
-        string names;
-        ostringstream grp, grph;
-        while(true) {
-            if(
-                    cur1Row == pax_list.items.end() or
-                    old1Row.grp_id != NoExists and
-                    (
-                     old1Row.airline != cur1Row->airline or
-                     old1Row.flt_no != cur1Row->flt_no or
-                     old1Row.suffix != cur1Row->suffix or
-                     old1Row.scd != cur1Row->scd or
-                     old1Row.airp_arv != cur1Row->airp_arv or
-                     old1Row.subclass != cur1Row->subclass or
-                     info.tlg_type != "PTMN" and
-                     (
-                      old1Row.grp_id != cur1Row->grp_id or
-                      not old1Row.surname.empty() and //NULL только тогда, когда предыдущий ребенок, и он первый в группе
-                      old1Row.surname != cur1Row->surname and
-                      cur1Row->seats > 0
-                     )
-                    )
-              ) {
-                old1Row.airline = ElemIdToElem(etAirline, old1Row.airline, info.pr_lat);
-                if(info.pr_lat and !is_lat(old1Row.suffix))
-                    old1Row.suffix = "";
-                old1Row.airp_arv = ElemIdToElem(etAirp, old1Row.airp_arv, info.pr_lat);
-                old1Row.subclass = ElemIdToElem(etSubcls, old1Row.subclass, info.pr_lat);
-                grp.str("");
-                grp
-                    << old1Row.airline
-                    << setw(3) << setfill('0') << old1Row.flt_no << old1Row.suffix << '/'
-                    << DateTimeToStr(old1Row.scd, "dd") << ' ' << old1Row.airp_arv << ' '
-                    << seats << ' ' << old1Row.subclass << ' ' << bagAmount << 'B';
-                grph.str("");
-                if(chd > 0) grph << ".CHD" << chd;
-                if(inf > 0) grph << ".INF" << inf;
-                size_t pos = 64 - (grp.str().size() + grph.str().size() + 1);
-                if(pos > 0 and not names.empty()) {
-                    if(names.size() > pos) {
-                        names = names.substr(0, pos - 1);
-                        pos = names.rfind("/");
-                        if(pos != string::npos)
-                            names = names.substr(0, pos);
-                    }
-                    grp << ' ' << names << grph.str();
-                } else
-                    grp << grph.str();
-                part_len += grp.str().size() + br.size();
-                if(part_len > PART_SIZE) {
-                    SaveTlgOutPartTST(tlg_row);
-                    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
-                    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
-                    tlg_row.body = grp.str() + br;
-                    part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                        tlg_row.body.size() + tlg_row.ending.size();
-                } else
-                    tlg_row.body += grp.str() + br;
-                seats = 0;
-                chd = 0;
-                inf = 0;
-                bagAmount = 0;
-                names.clear();
-            }
-            if(cur1Row == pax_list.items.end()) break;
-            if(cur1Row->pers_type == "РБ") chd++;
-            if(cur1Row->pers_type == "РМ") inf++;
-            bagAmount += cur1Row->bagAmount;
+    if(true) {
+        TPTMPaxList pax_list;
+        pax_list.get(info);
+        ostringstream body;
+        if(pax_list.items.empty()) {
+            tlg_row.body = "NIL" + br;
+        } else {
+            TPTMPaxListItem old1Row;
+            vector<TPTMPaxListItem>::iterator cur1Row = pax_list.items.begin();
+            int seats = 0;
+            int chd = 0;
+            int inf = 0;
+            int bagAmount = 0;
+            string names;
+            ostringstream grp, grph;
+            while(true) {
+                if(
+                        cur1Row == pax_list.items.end() or
+                        old1Row.grp_id != NoExists and
+                        (
+                         old1Row.airline != cur1Row->airline or
+                         old1Row.flt_no != cur1Row->flt_no or
+                         old1Row.suffix != cur1Row->suffix or
+                         old1Row.scd != cur1Row->scd or
+                         old1Row.airp_arv != cur1Row->airp_arv or
+                         old1Row.subclass != cur1Row->subclass or
+                         info.tlg_type != "PTMN" and
+                         (
+                          old1Row.grp_id != cur1Row->grp_id or
+                          not old1Row.surname.empty() and //NULL только тогда, когда предыдущий ребенок, и он первый в группе
+                          old1Row.surname != cur1Row->surname and
+                          cur1Row->seats > 0
+                         )
+                        )
+                  ) {
+                    old1Row.airline = ElemIdToElem(etAirline, old1Row.airline, info.pr_lat);
+                    if(info.pr_lat and !is_lat(old1Row.suffix))
+                        old1Row.suffix = "";
+                    old1Row.airp_arv = ElemIdToElem(etAirp, old1Row.airp_arv, info.pr_lat);
+                    old1Row.subclass = ElemIdToElem(etSubcls, old1Row.subclass, info.pr_lat);
+                    grp.str("");
+                    grp
+                        << old1Row.airline
+                        << setw(3) << setfill('0') << old1Row.flt_no << old1Row.suffix << '/'
+                        << DateTimeToStr(old1Row.scd, "dd") << ' ' << old1Row.airp_arv << ' '
+                        << seats << ' ' << old1Row.subclass << ' ' << bagAmount << 'B';
+                    grph.str("");
+                    if(chd > 0) grph << ".CHD" << chd;
+                    if(inf > 0) grph << ".INF" << inf;
+                    size_t pos = 64 - (grp.str().size() + grph.str().size() + 1);
+                    if(pos > 0 and not names.empty()) {
+                        if(names.size() > pos) {
+                            names = names.substr(0, pos - 1);
+                            pos = names.rfind("/");
+                            if(pos != string::npos)
+                                names = names.substr(0, pos);
+                        }
+                        grp << ' ' << names << grph.str();
+                    } else
+                        grp << grph.str();
+                    part_len += grp.str().size() + br.size();
+                    if(part_len > PART_SIZE) {
+                        SaveTlgOutPartTST(tlg_row);
+                        tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+                        tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+                        tlg_row.body = grp.str() + br;
+                        part_len = tlg_row.addr.size() + tlg_row.heading.size() +
+                            tlg_row.body.size() + tlg_row.ending.size();
+                    } else
+                        tlg_row.body += grp.str() + br;
+                    seats = 0;
+                    chd = 0;
+                    inf = 0;
+                    bagAmount = 0;
+                    names.clear();
+                }
+                if(cur1Row == pax_list.items.end()) break;
+                if(cur1Row->pers_type == "РБ") chd++;
+                if(cur1Row->pers_type == "РМ") inf++;
+                bagAmount += cur1Row->bagAmount;
 
-            //формирование pnr
-            if(cur1Row->seats > 0) {
-                seats++;
-                if(info.tlg_type != "PTMN") {
-                    try {
-                        string buf;
-                        buf = transliter(cur1Row->surname, info.pr_lat);
-                        if(buf.size() > LINE_SIZE) throw LineOverflow();
-                        if(names.empty()) names = buf;
-                        if(!cur1Row->name.empty()) {
-                            if(cur1Row->surname == "ZZ" and !old1Row.name.empty() and old1Row.name == cur1Row->name) {
-                                ;
-                            } else {
-                                buf = '/' + transliter(cur1Row->name, info.pr_lat);
-                                if(names.size() + buf.size() > LINE_SIZE)
-                                    throw LineOverflow();
-                                names += buf;
-                                for(int i = 2; i <= cur1Row->seats; i++) {
-                                    buf = "/EXST";
+                //формирование pnr
+                if(cur1Row->seats > 0) {
+                    seats++;
+                    if(info.tlg_type != "PTMN") {
+                        try {
+                            string buf;
+                            buf = transliter(cur1Row->surname, info.pr_lat);
+                            if(buf.size() > LINE_SIZE) throw LineOverflow();
+                            if(names.empty()) names = buf;
+                            if(!cur1Row->name.empty()) {
+                                if(cur1Row->surname == "ZZ" and !old1Row.name.empty() and old1Row.name == cur1Row->name) {
+                                    ;
+                                } else {
+                                    buf = '/' + transliter(cur1Row->name, info.pr_lat);
                                     if(names.size() + buf.size() > LINE_SIZE)
                                         throw LineOverflow();
-                                    names += buf; //впоследствии надо учитывать STCR
+                                    names += buf;
+                                    for(int i = 2; i <= cur1Row->seats; i++) {
+                                        buf = "/EXST";
+                                        if(names.size() + buf.size() > LINE_SIZE)
+                                            throw LineOverflow();
+                                        names += buf; //впоследствии надо учитывать STCR
+                                    }
                                 }
                             }
+                        } catch(LineOverflow E) {
                         }
-                    } catch(LineOverflow E) {
                     }
+                } else {
+                    if(old1Row.grp_id == NoExists or old1Row.grp_id != cur1Row->grp_id)
+                        cur1Row->surname.clear();
+                    else
+                        cur1Row->surname = old1Row.surname;
                 }
-            } else {
-                if(old1Row.grp_id == NoExists or old1Row.grp_id != cur1Row->grp_id)
-                    cur1Row->surname.clear();
-                else
-                    cur1Row->surname = old1Row.surname;
+                old1Row = *cur1Row;
+                cur1Row++;
             }
-            old1Row = *cur1Row;
-            cur1Row++;
         }
+        tlg_row.ending = "ENDPTM" + br;
+        SaveTlgOutPartTST(tlg_row);
+    } else {
+        TFList FList;
+        FList.get(info);
+        vector<string> body;
+        FList.ToTlg(info, body);
+        for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+            tlg_row.body += *iv + br;
+        }
+        tlg_row.ending = "ENDPTM" + br;
+        SaveTlgOutPartTST(tlg_row);
     }
-    tlg_row.ending = "ENDPTM" + br;
-    SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
 
