@@ -1700,36 +1700,34 @@ struct TFItem {
 };
 
 struct TBTMGrpList {
-    TFItem *FItem; // указатель на контейнер, в котором содержится данный екземпляр
     vector<TBTMGrpListItem> items;
-    void get(TTlgInfo &info, TFItem *AFItem);
-    virtual void ToTlg(TTlgInfo &info, vector<string> &body);
-    TBTMGrpList(): FItem(NULL) {};
+    void get(TTlgInfo &info, TFItem &AFItem);
+    virtual void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem);
     virtual ~TBTMGrpList() {};
 };
 
 struct TPTMGrpList:TBTMGrpList {
-    void ToTlg(TTlgInfo &info, vector<string> &body);
+    void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
+    {
+        for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            ostringstream line;
+            line
+                << ElemIdToElem(etAirline, FItem.airline, info.pr_lat)
+                << setw(3) << setfill('0') << FItem.flt_no
+                << ElemIdToElem(etSuffix, FItem.suffix, info.pr_lat)
+                << "/"
+                << DateTimeToStr(FItem.scd, "dd", info.pr_lat)
+                << " "
+                << ElemIdToElem(etAirp, FItem.airp_arv, info.pr_lat);
+            body.push_back(line.str());
+            //        iv->PList.ToTlg(info, body);
+        }
+    }
 };
 
-void TPTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
-{
-    for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        ostringstream line;
-        line
-            << ElemIdToElem(etAirline, FItem->airline, info.pr_lat)
-            << setw(3) << setfill('0') << FItem->flt_no
-            << ElemIdToElem(etSuffix, FItem->suffix, info.pr_lat)
-            << "/"
-            << DateTimeToStr(FItem->scd, "dd", info.pr_lat)
-            << " "
-            << ElemIdToElem(etAirp, FItem->airp_arv, info.pr_lat);
-        body.push_back(line.str());
-//        iv->PList.ToTlg(info, body);
-    }
-}
-
-void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
+// в BTM структура FItem не используется
+// пришлось передавать, чтобы ошибки компиляции не было
+void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 {
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         iv->NList.ToTlg(info, body);
@@ -1739,9 +1737,8 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TBTMGrpList::get(TTlgInfo &info, TFItem *AFItem)
+void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
 {
-    FItem = AFItem;
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  \n"
@@ -1761,8 +1758,8 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem *AFItem)
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     int fmt;
     Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
-    Qry.CreateVariable("point_id_trfer", otInteger, FItem->point_id_trfer);
-    Qry.CreateVariable("subclass", otString, FItem->subclass);
+    Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
+    Qry.CreateVariable("subclass", otString, FItem.subclass);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
@@ -1864,9 +1861,8 @@ void TFList<T>::get(TTlgInfo &info)
             item.scd = Qry.FieldAsDateTime(col_scd);
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
             item.subclass = Qry.FieldAsString(col_subclass);
-            ProgTrace(TRACE5, "point_id_trfer: %d", item.point_id_trfer);
+            item.grp_list.get(info, item);
             items.push_back(item);
-//!!!            items.back().grp_list.get(info, items.back());
         }
     }
 }
@@ -1878,7 +1874,7 @@ void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
     for(size_t i = 0; i < items.size(); i++) {
         if(items[i].grp_list.items.empty()) continue;
         items[i].ToTlg(info, body);
-        items[i].grp_list.ToTlg(info, body);
+        items[i].grp_list.ToTlg(info, body, items[i]);
     }
 }
 
