@@ -246,12 +246,12 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       }
       else
       {
-        if (first_part==ticket.substr(1,ticket.size()-2))
+        if (first_part==ticket.substr(0,ticket.size()-2))
           tickets+=ticket.substr(ticket.size()-2);
         else
         {
           tickets+=ticket;
-          first_part=ticket.substr(1,ticket.size()-2);
+          first_part=ticket.substr(0,ticket.size()-2);
         };
       };
     };
