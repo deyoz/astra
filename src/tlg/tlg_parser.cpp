@@ -280,6 +280,12 @@ char* GetSubcl(char* subcl)
   return GetNsiCode(subcl,ntSubcls,subcl);
 };
 
+char GetSuffix(char &c)
+{
+  ByteReplace(&c,1,lat_suffix,rus_suffix);
+  return c;
+};
+
 TTlgCategory GetTlgCategory(char *tlg_type)
 {
   TTlgCategory cat;
@@ -437,6 +443,7 @@ char ParseBSMElement(char *p, TTlgParser &tlg, TBSMInfo* &data)
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight number");
             GetAirline(flt.airline);
+            GetSuffix(flt.suffix[0]);
 
             if ((p=tlg.GetSlashedLexeme(p))==NULL) throw ETlgError("Flight date not found");
             long int day;
@@ -801,6 +808,7 @@ TTlgPartInfo ParseDCSHeading(TTlgPartInfo heading, TDCSHeadingInfo &info)
             if (c!=0||res<2||info.flt.flt_no<0) throw ETlgError("Wrong flight");
             if (res==3&&
                 !IsUpperLetter(info.flt.suffix[0])) throw ETlgError("Wrong flight");
+            GetSuffix(info.flt.suffix[0]);
 
             TDateTime today=NowLocal();
             int year,mon,currday;
@@ -943,6 +951,7 @@ void ParseAHMFltInfo(TTlgPartInfo body, TFltInfo& flt)
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong flight");
             GetAirline(flt.airline,true);
+            GetSuffix(flt.suffix[0]);
             //переведем day в TDateTime
             int year,mon,currday;
             DecodeDate(NowUTC()+1,year,mon,currday); //м.б. разность системных времен у формирователя и приемщика, поэтому +1!
@@ -1439,6 +1448,7 @@ void ParsePTMContent(TTlgPartInfo body, TDCSHeadingInfo& info, TPtmContent& con)
             if (res==3&&
                 !IsUpperLetter(flt.suffix[0])) throw ETlgError("Wrong connecting flight");
             GetAirline(flt.airline);
+            GetSuffix(flt.suffix[0]);
             if ((ph=tlg.GetSlashedLexeme(ph))!=NULL)
             {
               //либо дата, либо признак курящего
@@ -2218,6 +2228,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");
+        GetSuffix(Transfer.suffix[0]);
       };
     }
     else
@@ -2231,6 +2242,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
         if (res!=6) throw ETlgError("Wrong connection element");
+        GetSuffix(Transfer.suffix[0]);
       };
     };
 
