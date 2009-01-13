@@ -885,17 +885,26 @@ void CouponEdiR::operator () (ReaderData &RData, list<Coupon> &lCpn) const
     }
 
     PushEdiPoint();
-    for(int i=0; i<numCoup; i++){
+    for(int i=0; i<numCoup; i++)
+    {
         SetEdiPointToSegGrG(pMes, 5,i, "PROG_ERR");
         //Считываем купоны для текущего буклета
         //Coupon
         Coupon_info Ci = MakeCouponInfo(pMes);
-        Data.setCurrCoupon(Ci.num());
 
-        list<FrequentPass> lFti;
-        frequentPassRead()(RData, lFti);
-        lCpn.push_back(Coupon(Ci, MakeItinFull(pMes, Data.currTicket().first).first,
-                       lFti, Data.currTicket().first));
+        if(Data.currTicket().second == TickStatAction::oldtick)
+        {
+            lCpn.push_back(Coupon(Ci));
+        }
+        else
+        {
+            Data.setCurrCoupon(Ci.num());
+
+            list<FrequentPass> lFti;
+            frequentPassRead()(RData, lFti);
+            lCpn.push_back(Coupon(Ci, MakeItinFull(pMes, Data.currTicket().first).first,
+                           lFti, Data.currTicket().first));
+        }
         PopEdiPoint_wd();
     }
     PopEdiPoint();
