@@ -305,6 +305,10 @@ void TicketXmlView::operator ()
   for(list<Ticket>::const_iterator i=lTick.begin(); i!=lTick.end();++i,++t)
   {
     const Ticket &Tick = (*i);
+    if(i->actCode() == TickStatAction::oldtick)
+    {
+        continue;
+    }
     string tmp=string("ticket")+HelpCpp::string_cast(++count);
     xmlNodePtr tickNode=newChild(mainNode,tmp.c_str());
     setElemProp(mainNode->parent,(string("gr_")+tmp+"_data").c_str(),"visible","true");
