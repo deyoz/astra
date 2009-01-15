@@ -77,6 +77,7 @@ struct TTlgSeatList {
         void dump_comp();
         void dump_list(std::map<int, std::string> &list);
         void get_seat_list(std::map<int, std::string> &list, bool pr_lat);
+        int get_list_size(std::map<int, std::string> &list);
     public:
         std::vector<std::string> items;
         void get(TTlgInfo &info);
