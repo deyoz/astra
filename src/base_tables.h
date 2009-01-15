@@ -435,6 +435,7 @@ class TAirlinesRow: public TICAOBaseTableRow {
 
 class TAirlines: public TICAOBaseTable {
   private:
+    std::map<std::string, TBaseTableRow*> aircode;
     const char *get_select_sql_text()
     {
       return
@@ -450,6 +451,10 @@ class TAirlines: public TICAOBaseTable {
   protected:
     const char *get_table_name() { return "TAirlines"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    virtual void delete_row(TBaseTableRow *row);
+    virtual void add_row(TBaseTableRow *row);
+  public:
+    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 
 class TClassesRow: public TCodeBaseTableRow {

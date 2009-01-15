@@ -2758,7 +2758,7 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
-    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);

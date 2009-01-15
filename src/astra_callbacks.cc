@@ -91,7 +91,8 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     bool checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
-        GetNode( "ClientError", node ) == NULL;
+        GetNode( "ClientError", node ) == NULL &&
+        GetNode( "SaveDeskTraces", node ) == NULL;
 
     try
     {

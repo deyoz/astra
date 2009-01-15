@@ -449,6 +449,40 @@ void TAirlines::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TAirlines::delete_row(TBaseTableRow *row)
+{
+  if (row!=NULL)
+  {
+    map<string, TBaseTableRow*>::iterator i;
+    i=aircode.find(((TAirlinesRow*)row)->aircode);
+    if (i->second==row) aircode.erase(i);
+  };
+  TICAOBaseTable::delete_row(row);
+};
+
+void TAirlines::add_row(TBaseTableRow *row)
+{
+  TICAOBaseTable::add_row(row);
+  if (row!=NULL && !((TAirlinesRow*)row)->aircode.empty())
+    aircode[((TAirlinesRow*)row)->aircode]=row;
+};
+
+TBaseTableRow& TAirlines::get_row(std::string field, std::string value, bool with_deleted)
+{
+  load_table();
+  if (lowerc(field)=="aircode")
+  {
+    std::map<string, TBaseTableRow*>::iterator i;
+    i=aircode.find(value);
+    if (i==aircode.end()||
+        !with_deleted && i->second->deleted())
+      throw EBaseTableError("%s::get_row: %s=%s not found",
+                            get_table_name(),field.c_str(),value.c_str());
+    return *(i->second);
+  };
+  return TICAOBaseTable::get_row(field,value,with_deleted);
+};
+
 void TClasses::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
 {
   *row = new TClassesRow;

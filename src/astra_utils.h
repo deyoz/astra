@@ -138,7 +138,6 @@ class TDesk {
     std::string city;
     std::string tz_region;
     std::string lang;
-    int trace_level;
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
     TDesk()
@@ -151,7 +150,6 @@ class TDesk {
       city.clear();
       tz_region.clear();
       lang.clear();
-      trace_level = -1;
       time = 0;
       mode = ASTRA::omSTAND;
     };
