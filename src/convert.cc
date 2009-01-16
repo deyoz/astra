@@ -29,7 +29,7 @@ bool is_iata_row(std::string row)
     bool result = false;
     try {
         int row_num = ToInt(row);
-        if(row_num >= 1 and row_num <=99 or row_num >= 101 and row_num <= 199)
+        if(row_num >= FIRST_IATA_ROW and row_num <=99 or row_num >= 101 and row_num <= LAST_IATA_ROW)
             result = true;
     } catch(...) {
     }
@@ -82,6 +82,7 @@ string denorm_iata_row(string row)
 
 string prev_iata_row(string row)
 {
+    string result;
     int tmp = NoExists;
     try {
         tmp = ToInt(row);
@@ -89,9 +90,18 @@ string prev_iata_row(string row)
         throw Exception("prev_iata_row: couldn't convert row '%s'", row.c_str());
     }
     tmp--;
-    string result = IntToString(tmp);
-    if(not is_iata_row(result))
+    if(tmp < FIRST_IATA_ROW or tmp > LAST_IATA_ROW)
         throw Exception("prev_iata_row: preceeding row is not in IATA format");
+    else {
+        // пропускаем разрывы в диапазоне номеров
+        // (на момент написания это только цифра 100)
+        while(true) {
+            result = IntToString(tmp);
+            if(is_iata_row(result))
+                break;
+            tmp--;
+        }
+    }
     return norm_iata_row(result);
 }
 

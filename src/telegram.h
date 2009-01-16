@@ -70,12 +70,26 @@ struct TTlgPlace {
 typedef std::map<std::string, TTlgPlace> t_tlg_row;
 typedef std::map<std::string, t_tlg_row> t_tlg_comp;
 
+struct TSeatRect {
+    bool del;
+    std::string row1, row2, line1, line2;
+    std::string str();
+    TSeatRect(): del(false) {};
+};
+
+struct TSeatRectList: std::vector<TSeatRect> {
+    void dump();
+    void pack();
+    void vert_pack();
+};
+
 struct TTlgSeatList {
     private:
         t_tlg_comp comp;
         void apply_comp(TTlgInfo &info);
         void dump_comp();
         void dump_list(std::map<int, std::string> &list);
+        void dump_list(std::map<int, TSeatRectList> &list);
         void get_seat_list(std::map<int, std::string> &list, bool pr_lat);
         int get_list_size(std::map<int, std::string> &list);
     public:

@@ -3,6 +3,9 @@
 
 #include <string>
 
+#define FIRST_IATA_ROW  1
+#define LAST_IATA_ROW   199
+
 bool is_iata_line(std::string line);
 bool is_iata_row(std::string row);
 // convert iata line to lat
