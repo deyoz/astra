@@ -2342,11 +2342,6 @@ void TSeatRectList::vert_pack()
         }
     }
 
-    ProgTrace(TRACE5, "dump split");
-    for(vector<TSeatRectList>::iterator i_split = split.begin(); i_split != split.end(); i_split++)
-        i_split->dump();
-    ProgTrace(TRACE5, "--------------------");
-
     clear();
     for(vector<TSeatRectList>::iterator i_split = split.begin(); i_split != split.end(); i_split++)
         for(TSeatRectList::iterator j = i_split->begin(); j != i_split->end(); j++) {
@@ -2407,6 +2402,7 @@ void TSeatRectList::pack()
         }
     }
     clear();
+    // Записываем полученные области мест в результат.
     for(vector<TSeatRectList>::iterator i_split = split.begin(); i_split != split.end(); i_split++)
         for(TSeatRectList::iterator j = i_split->begin(); j != i_split->end(); j++) {
             if(j->del)
@@ -2415,12 +2411,58 @@ void TSeatRectList::pack()
         }
 }
 
-void TSeatRectList::dump()
+string TSeatRectList::ToTlg()
 {
     std::string result;
-    for(std::vector<TSeatRect>::iterator iv = begin(); iv != end(); iv++)
-        result += iv->str() + " ";
-    ProgTrace(TRACE5, "TSeatRectList: %s", result.c_str());
+    // Записываем в result,
+    // попутно ищем одиночные места, чтобы
+    // попробовать записать их в краткой форме напр. 3ABД
+    // Аккумулируем такие места в векторе alone
+    vector<TSeatRectList> alone;
+    for(TSeatRectList::iterator iv = begin(); iv != end(); iv++) {
+        if(iv->del)
+            continue;
+        ProgTrace(TRACE5, "ToTlg seat: %s", iv->str().c_str());
+        if(
+                iv->row1 == iv->row2 and
+                iv->line1 == iv->line2
+          ) {
+            vector<TSeatRectList>::iterator i_alone = alone.begin();
+            for(; i_alone != alone.end(); i_alone++) {
+                TSeatRect &curr_alone_seat = (*i_alone)[0];
+                if(curr_alone_seat.row1 == iv->row1) {
+                    i_alone->push_back(*iv);
+                    break;
+                }
+            }
+            if(i_alone == alone.end()) {
+                TSeatRectList sub_list;
+                sub_list.push_back(*iv);
+                alone.push_back(sub_list);
+            }
+            iv->del = true;
+        }
+        else
+        {
+            if(!result.empty())
+                result += " ";
+            result += iv->str();
+        }
+    }
+    for(vector<TSeatRectList>::iterator i_alone = alone.begin(); i_alone != alone.end(); i_alone++) {
+        if(!result.empty())
+            result += " ";
+        if(i_alone->size() == 1) {
+            result += (*i_alone)[0].str();
+        } else {
+            for(TSeatRectList::iterator sr = i_alone->begin(); sr != i_alone->end(); sr++) {
+                if(sr == i_alone->begin())
+                    result += sr->row1;
+                result += sr->line1;
+            }
+        }
+    }
+    return result;
 }
 
 string TSeatRect::str()
@@ -2516,6 +2558,7 @@ int TTlgSeatList::get_list_size(std::map<int, std::string> &list)
 
 void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
 {
+    list.clear();
     map<int, string> hrz_list, vert_list;
     map<int, TSeatRectList> new_hrz_list, new_vert_list;
     // Пробег карты мест по горизонтали
@@ -2611,6 +2654,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
             break;
         i_col = next_iata_line(i_col);
     }
+    /*
     ProgTrace(TRACE5, "hirizontal list");
     ProgTrace(TRACE5, "---------------");
     dump_list(hrz_list);
@@ -2633,12 +2677,29 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
     ProgTrace(TRACE5, "NEW vertical list");
     ProgTrace(TRACE5, "---------------");
     dump_list(new_vert_list);
-
-
-    if(get_list_size(hrz_list) > get_list_size(vert_list))
-        list = vert_list;
-    else
-        list = hrz_list;
+    for(map<int, TSeatRectList>::iterator im = new_hrz_list.begin(); im != new_hrz_list.end(); im++)
+        im->second.pack();
+    for(map<int, TSeatRectList>::iterator im = new_vert_list.begin(); im != new_vert_list.end(); im++)
+        im->second.vert_pack();
+    */
+    map<int, TSeatRectList>::iterator i_hrz = new_hrz_list.begin();
+    map<int, TSeatRectList>::iterator i_vert = new_vert_list.begin();
+    while(true) {
+        if(i_hrz == new_hrz_list.end())
+            break;
+        i_hrz->second.pack();
+        i_vert->second.vert_pack();
+        string hrz_result = i_hrz->second.ToTlg();
+        string vert_result = i_vert->second.ToTlg();
+        ProgTrace(TRACE5, "hrz_result: %s", hrz_result.c_str());
+        ProgTrace(TRACE5, "vert_result: %s", vert_result.c_str());
+        if(hrz_result.size() > vert_result.size())
+            list[i_vert->first] = vert_result;
+        else
+            list[i_hrz->first] = hrz_result;
+        i_hrz++;
+        i_vert++;
+    }
 }
 
 void TSeatListContext::vert_seat_to_str(string &list, TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)

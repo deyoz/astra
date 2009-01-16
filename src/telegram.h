@@ -78,7 +78,7 @@ struct TSeatRect {
 };
 
 struct TSeatRectList: std::vector<TSeatRect> {
-    void dump();
+    std::string ToTlg();
     void pack();
     void vert_pack();
 };
