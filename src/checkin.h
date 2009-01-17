@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 #include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "astra_ticket.h"
 #include "astra_consts.h"
 

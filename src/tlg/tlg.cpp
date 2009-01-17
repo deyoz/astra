@@ -2,12 +2,12 @@
 #include <string>
 #include "exceptions.h"
 #include "oralib.h"
-#include "cfgproc.h"
-#include "logger.h"
+#include "serverlib/cfgproc.h"
+#include "serverlib/logger.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace EXCEPTIONS;
 using namespace std;

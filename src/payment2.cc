@@ -2,8 +2,6 @@
 #include "xml_unit.h"
 #include "basic.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "base_tables.h"
@@ -12,6 +10,9 @@
 #include "tripinfo.h"
 #include "oralib.h"
 #include "astra_service.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace ASTRA;
 using namespace BASIC;

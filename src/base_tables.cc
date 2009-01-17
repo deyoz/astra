@@ -1,15 +1,13 @@
-#include "base_tables.h"
-
 #include <string>
+#include "base_tables.h"
 #include "oralib.h"
 #include "exceptions.h"
 #include "stl_utils.h"
+#include "serverlib/logger.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include "setup.h"
-#include "logger.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

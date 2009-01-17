@@ -1,8 +1,6 @@
+#include <fstream>
 #include "dev_tuning.h"
 #include "basic.h"
-#define NICKNAME "DEN"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -10,10 +8,12 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "print.h"
-#include "xml_stuff.h"
 #include "cache.h"
-//!!!
-#include <fstream>
+#include "jxtlib/xml_stuff.h"
+
+#define NICKNAME "DEN"
+#include "setup.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -122,7 +122,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
                 if(!Qry.Eof) {
                     throw UserException(
                             "На бланк " + FieldAsString(cache, row, "form_type") + " " +
-                            dev_model + " " + fmt_type + " уже назначена форма " + 
+                            dev_model + " " + fmt_type + " уже назначена форма " +
                             Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
                             );
                 }

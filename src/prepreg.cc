@@ -1,15 +1,12 @@
 #include <stdlib.h>
+#include <map>
 #include "prepreg.h"
 #include "basic.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
-#include <map>
 #include "stages.h"
 #include "oralib.h"
 #include "stl_utils.h"
@@ -17,6 +14,9 @@
 #include "docs.h"
 #include "stat.h"
 #include "salons.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;

@@ -5,9 +5,9 @@
 #include "xml_unit.h"
 #include "basic.h"
 #include "stl_utils.h"
-#define NICKNAME "DJEK" //!!!
-#include "setup.h" //!!!
-#include "test.h" //!!!
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 
 using namespace std;

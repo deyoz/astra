@@ -2,13 +2,9 @@
 #include <string>
 #include <map>
 #include "astra_service.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "oralib.h"
-#include "str_utils.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "basic.h"
@@ -20,10 +16,13 @@
 #include "spp_cek.h"
 #include "timer.h"
 #include "stages.h"
-#include "cont_tools.h"
 #include "maindcs.h"
-#include "cfgproc.h"
+#include "jxtlib/cont_tools.h"
+#include "serverlib/str_utils.h"
+#include "serverlib/cfgproc.h"
 
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

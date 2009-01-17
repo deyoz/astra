@@ -7,7 +7,7 @@
 #include "oralib.h"
 #include "astra_utils.h"
 
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 using namespace ASTRA;
 class CacheInterface : public JxtInterface
@@ -112,7 +112,7 @@ class TCacheTable {
         std::string DeleteSQL;
         TEventType EventType;
         bool Logging;
-        bool Keep_Locally;        	        
+        bool Keep_Locally;
         int SelectRight;
         int InsertRight;
         int UpdateRight;

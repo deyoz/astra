@@ -10,9 +10,10 @@
 #include "exceptions.h"
 #include "basic.h"
 #include "stl_utils.h"
+
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
-#include "slogger.h"
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

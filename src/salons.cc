@@ -1,7 +1,5 @@
 #include <stdlib.h>
 #include "setup.h"
-#define NICKNAME "DJEK"
-#include "test.h"
 #include "salons.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -10,10 +8,13 @@
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
-#include "str_utils.h"
 #include "images.h"
 #include "tripinfo.h"
 #include "convert.h"
+//#include "serverlib/str_utils.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

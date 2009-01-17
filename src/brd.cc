@@ -3,8 +3,6 @@
 #include "brd.h"
 #include "xml_unit.h"
 #include "exceptions.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "cache.h"
 #include "astra_utils.h"
@@ -12,6 +10,9 @@
 #include "tripinfo.h"
 #include "etick.h"
 #include "astra_ticket.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace EXCEPTIONS;
 using namespace std;

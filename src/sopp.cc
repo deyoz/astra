@@ -1,8 +1,5 @@
 #include <stdlib.h>
 #include "sopp.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "stages.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
@@ -21,11 +18,11 @@
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
-
 #include "aodb.h"
+#include "serverlib/perfom.h"
 
-
-#include "perfom.h"
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;

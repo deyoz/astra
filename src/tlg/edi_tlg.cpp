@@ -8,18 +8,18 @@
 #include "tlg.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include "cont_tools.h"
-#include "ocilocal.h"
 #include "xml_unit.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "astra_context.h"
-#include "xml_stuff.h"
+#include "jxtlib/cont_tools.h"
+#include "jxtlib/xml_stuff.h"
+#include "serverlib/ocilocal.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
-#include "slogger.h"
+#include "serverlib/slogger.h"
 
 using namespace edilib;
 using namespace edilib::EdiSess;

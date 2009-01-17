@@ -17,7 +17,7 @@
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace ASTRA;
 using namespace BASIC;

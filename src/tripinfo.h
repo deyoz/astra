@@ -9,7 +9,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 struct TVar {
   std::string name;

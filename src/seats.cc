@@ -1,19 +1,19 @@
 #include <stdlib.h>
 #include "seats.h"
 #include "basic.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
-#include "str_utils.h"
 #include "salons.h"
 #include "tlg/tlg_parser.h"
 #include "convert.h"
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

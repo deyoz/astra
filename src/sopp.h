@@ -4,7 +4,7 @@
 #include <libxml/tree.h>
 #include <string>
 #include <vector>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "basic.h"
 #include "astra_utils.h"
 #include "astra_consts.h"

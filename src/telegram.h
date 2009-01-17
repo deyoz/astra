@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
 

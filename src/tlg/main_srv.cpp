@@ -11,11 +11,11 @@
 #include "tlg.h"
 #include "stl_utils.h"
 #include "tlg_parser.h"
-#include "daemon.h"
 #include "edilib/edi_user_func.h"
+#include "serverlib/daemon.h"
 
 #define NICKNAME "VLAD"
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;

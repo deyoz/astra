@@ -18,18 +18,18 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "exceptions.h"
 #include "basic.h"
 #include "stl_utils.h"
-#define NICKNAME "DJEK"
-#define NICKTRACE DJEK_TRACE
-#include "slogger.h"
 #include "base_tables.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_service.h"
-#include "helpcpp.h"
 #include "misc.h"
 #include "stages.h"
 #include "salons.h"
+#include "serverlib/helpcpp.h"
 
+#define NICKNAME "DJEK"
+#define NICKTRACE DJEK_TRACE
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

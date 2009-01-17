@@ -13,7 +13,7 @@
 #include <edilib/edi_func_cpp.h>
 #include "edilib/edi_astra_msg_types.h"
 #include "edilib/edi_sess.h"
-#include "query_runner.h"
+#include "serverlib/query_runner.h"
 
 #include "xp_testing.h"
 #include "tlg/tlg.h"

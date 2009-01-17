@@ -2,7 +2,7 @@
 #define _PRINT_H
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "basic.h"
 #include "oralib.h"
 

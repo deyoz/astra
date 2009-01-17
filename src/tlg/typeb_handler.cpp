@@ -8,11 +8,11 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "daemon.h"
+#include "serverlib/daemon.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;

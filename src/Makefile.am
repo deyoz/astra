@@ -49,7 +49,7 @@ noinst_HEADERS = \
 	astra_ticket.h         cent.h                 salons.h            timer.h \
 	astra_tick_read_edi.h  checkin.h              season.h            tripinfo.h \
 	astra_tick_reader.h    etick_change_status.h  seats.h             xml_unit.h \
-	astra_tick_view.h      etick.h                setup.h	          docs.h \
+	astra_tick_view.h      etick.h                docs.h \
 	events.h	       base_tables.h	      astra_misc.h        design_blank.h \
 	astra_service.h	       develop_dbf.h	      flight_cent_dbf.h   payment.h payment2.h \
 	sofi.h		       aodb.h		      spp_cek.h		  convert.h \

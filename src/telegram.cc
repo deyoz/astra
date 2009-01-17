@@ -1,11 +1,6 @@
 #include <vector>
 #include <utility>
 #include <boost/date_time/local_time/local_time.hpp>
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include "setup.h"
-#include "logger.h"
 #include "telegram.h"
 #include "xml_unit.h"
 #include "oralib.h"
@@ -17,6 +12,11 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
+#include "serverlib/logger.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 
 #define ENDL "\015\012"
 

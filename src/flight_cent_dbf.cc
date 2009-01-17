@@ -1,10 +1,8 @@
 #include <string>
 #include <map>
-#define NICKNAME "DJEK"
 #include "flight_cent_dbf.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include "slogger.h"
 #include "stl_utils.h"
 #include "basic.h"
 #include "develop_dbf.h"
@@ -12,6 +10,9 @@
 #include "sopp.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/slogger.h"
 
 
 using namespace std;
@@ -220,10 +221,10 @@ void createFileParams( int point_id, map<string,string> &params )
     params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
 	                              FlightQry.FieldAsString( "suffix" ) + ".dbf";
-  else			
+  else
 	  params[ PARAM_FILE_NAME ] = string( FlightQry.FieldAsString( "airline" ) ) +
 	                              FlightQry.FieldAsString( "flt_no" ) +
-	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";	
+	                              FlightQry.FieldAsString( "suffix" ) + "_0.dbf";
 	  params[ NS_PARAM_EVENT_TYPE ] = EncodeEventType( ASTRA::evtFlt );
 	  params[ NS_PARAM_EVENT_ID1 ] = IntToString( point_id );
     params[ PARAM_TYPE ] = VALUE_TYPE_FILE; // FILE
@@ -458,7 +459,7 @@ bool createCentringFile( int point_id, const string &point_addr, TFileDatas &fds
 	dbf.AddField( "HOLD5", 'N', 5 ); //137
 	dbf.AddField( "HOLD6", 'N', 5 ); //138
 	dbf.AddField( "HOLD7", 'N', 5 ); //139
-	dbf.AddField( "HOLD8", 'N', 5 ); //140	 
+	dbf.AddField( "HOLD8", 'N', 5 ); //140
 	dbf.AddField( "HOLD9", 'N', 5 ); //141
 	dbf.AddField( "HOLD10", 'N', 5 ); //142
   dbf.AddField( "HOLD11", 'N', 5 ); //143
@@ -678,7 +679,7 @@ bool createCentringFile( int point_id, const string &point_addr, TFileDatas &fds
 	TFileData fd;
 	fd.file_data = dbf.Result();
 	if ( !fd.file_data.empty() ) {
-	  createFileParams( point_id, fd.params );		
+	  createFileParams( point_id, fd.params );
 		fds.push_back( fd );
 	}
 	return !fds.empty();

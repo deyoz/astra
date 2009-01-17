@@ -1,5 +1,3 @@
-#include "query_runner.h"
-#include "setup.h"
 #include "astra_callbacks.h"
 #include "maindcs.h"
 #include "adm.h"
@@ -24,20 +22,20 @@
 #include "payment.h"
 #include "payment2.h"
 #include "dev_tuning.h"
-
 #include "astra_utils.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "oralib.h"
+#include "xml_unit.h"
+#include "base_tables.h"
+#include "jxtlib/jxtlib.h"
+#include "serverlib/query_runner.h"
+#include "serverlib/ocilocal.h"
+#include "serverlib/perfom.h"
+
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-
-#include "jxtlib.h"
-#include "oralib.h"
-#include "ocilocal.h"
-#include "xml_unit.h"
-#include "perfom.h"
-#include "base_tables.h"
+#include "serverlib/test.h"
 
 using namespace jxtlib;
 using namespace BASIC;

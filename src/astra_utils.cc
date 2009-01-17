@@ -1,24 +1,22 @@
-#include "setup.h"
+#include <stdarg.h>
+#include <string>
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "JxtInterface.h"
-
-#include <stdarg.h>
 #include "basic.h"
 #include "oralib.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
-#include <string.h>
 #include "stl_utils.h"
 #include "xml_unit.h"
-#include "monitor_ctl.h"
-#include "cfgproc.h"
 #include "misc.h"
 #include "base_tables.h"
-#include "jxt_cont.h"
-
 #include "tclmon/tcl_utils.h"
+#include "serverlib/monitor_ctl.h"
+#include "serverlib/cfgproc.h"
+#include "jxtlib/JxtInterface.h"
+#include "jxtlib/jxt_cont.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace ASTRA;

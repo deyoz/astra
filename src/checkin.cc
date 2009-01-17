@@ -18,7 +18,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace ASTRA;

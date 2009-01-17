@@ -1,8 +1,6 @@
 #include "season.h"
 #include "xml_unit.h"
 #include "exceptions.h"
-#define NICKNAME "DJEK"
-#include "test.h"
 #include "oralib.h"
 #include "cache.h"
 #include "misc.h"
@@ -10,13 +8,15 @@
 #include <vector>
 #include <string>
 #include "stages.h"
-#include "boost/date_time/local_time/local_time.hpp"
+//#include "boost/date_time/local_time/local_time.hpp"
 #include "basic.h"
 #include "stl_utils.h"
 #include "stat.h"
 #include "docs.h"
 #include "base_tables.h"
 
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 const int SEASON_PERIOD_COUNT = 4;
 const int SEASON_PRIOR_PERIOD = 1;

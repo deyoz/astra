@@ -1,6 +1,5 @@
+#include <fstream>
 #include "stat.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "cache.h"
 #include "xml_unit.h"
@@ -10,9 +9,11 @@
 #include "base_tables.h"
 #include "tripinfo.h"
 #include "misc.h"
-#include <fstream>
 #include "timer.h"
 #include "astra_utils.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 #define MAX_STAT_ROWS 2000
 

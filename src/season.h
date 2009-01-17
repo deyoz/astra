@@ -6,10 +6,10 @@
 #include <map>
 #include "basic.h"
 #include "astra_consts.h"
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 namespace SEASON {
-	
+
 struct TViewTrip {
 	int trip_id;
 	int move_id;
@@ -18,13 +18,13 @@ struct TViewTrip {
 	std::string ports;
 	BASIC::TDateTime scd_in;
 	BASIC::TDateTime scd_out;
-	BASIC::TDateTime first; 
+	BASIC::TDateTime first;
 	BASIC::TDateTime last;
-	std::string days;		
+	std::string days;
 	bool pr_del;
 	TViewTrip() {
 		first = ASTRA::NoExists;
-	}		
+	}
 };
 
 struct TViewPeriod {
@@ -39,7 +39,7 @@ void ReadTripInfo( int trip_id, std::vector<TViewPeriod> &viewp, xmlNodePtr reqN
 }
 
 void CreateSPP( BASIC::TDateTime localdate );
-	
+
 class SeasonInterface : public JxtInterface
 {
 public:
@@ -51,7 +51,7 @@ public:
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Read);
      AddEvent("season_read",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Slots);
-     AddEvent("season_slots",evHandle);     
+     AddEvent("season_slots",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::Write);
      AddEvent("write",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::GetSPP);
@@ -63,7 +63,7 @@ public:
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::ViewSPP);
      AddEvent("spp",evHandle);
      evHandle=JxtHandler<SeasonInterface>::CreateHandler(&SeasonInterface::convert);
-     AddEvent("convert",evHandle);     
+     AddEvent("convert",evHandle);
   };
 
   void Filter(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);

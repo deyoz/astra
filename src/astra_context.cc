@@ -5,7 +5,7 @@
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
+#include "serverlib/test.h"
 
 namespace AstraContext
 {

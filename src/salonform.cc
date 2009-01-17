@@ -1,16 +1,12 @@
 #include <stdlib.h>
 #include "salonform.h"
 #include "basic.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "oralib.h"
-#include "str_utils.h"
 #include "stl_utils.h"
 #include "images.h"
 #include "salons.h"
@@ -18,6 +14,10 @@
 #include "convert.h"
 #include "tlg/tlg_parser.h" // only for convert_salons
 #include "seats.h" // only for convert_salons
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 const char CurrName[] = " (’…Š.)";
 

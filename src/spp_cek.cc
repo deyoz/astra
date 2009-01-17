@@ -11,19 +11,20 @@
 #include "exceptions.h"
 #include "basic.h"
 #include "stl_utils.h"
-#define NICKNAME "DJEK"
-#define NICKTRACE DJEK_TRACE
-#include "slogger.h"
 #include "base_tables.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "develop_dbf.h"
-#include "helpcpp.h"
 #include "misc.h"
 #include "sopp.h"
 #include "timer.h"
 #include "xml_unit.h"
-#include "xml_stuff.h"
+#include "jxtlib/xml_stuff.h"
+#include "serverlib/helpcpp.h"
+
+#define NICKNAME "DJEK"
+#define NICKTRACE DJEK_TRACE
+#include "serverlib/slogger.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

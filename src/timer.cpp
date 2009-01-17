@@ -9,22 +9,24 @@
 #include "season.h"
 #include "stages.h"
 #include "tlg/tlg.h"
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include <daemon.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
-#include "cfgproc.h"
-#include "posthooks.h"
-#include "perfom.h"
 #include "czech_police_edi_file.h"
 #include "tripinfo.h"
 #include "telegram.h"
+#include "serverlib/daemon.h"
+#include "serverlib/cfgproc.h"
+#include "serverlib/posthooks.h"
+#include "serverlib/perfom.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
+
 const int sleepsec = 25;
 
 using namespace ASTRA;

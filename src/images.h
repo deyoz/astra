@@ -3,7 +3,7 @@
 
 #include <libxml/tree.h>
 #include <string>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 
 class ImagesInterface : public JxtInterface
@@ -16,7 +16,7 @@ public:
      evHandle=JxtHandler<ImagesInterface>::CreateHandler(&ImagesInterface::GetImages);
      AddEvent("getimages",evHandle);
      evHandle=JxtHandler<ImagesInterface>::CreateHandler(&ImagesInterface::SetImages);
-     AddEvent("setimages",evHandle);     
+     AddEvent("setimages",evHandle);
   };
 
   static void GetisPlaceMap( std::map<std::string,bool> &ispl );
@@ -26,6 +26,6 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
- 
+
 #endif /*_IMAGES_H_*/
 

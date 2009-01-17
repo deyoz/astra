@@ -2,7 +2,7 @@
 #define _BRD_H_
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 class BrdInterface : public JxtInterface
 {

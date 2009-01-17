@@ -1,16 +1,16 @@
-#define NICKNAME "DEN"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include "setup.h"
-#include "logger.h"
+#include <map>
+#include <set>
 #include "telegram.h"
 #include "xml_unit.h"
 #include "tlg/tlg.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
-#include <map>
-#include <set>
+#include "serverlib/logger.h"
+
+#define NICKNAME "DEN"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -1657,7 +1657,7 @@ struct TPLine {
         }
         return result.str();
     }
-    TPLine & operator += (const TPPax & pax) 
+    TPLine & operator += (const TPPax & pax)
     {
         if(grp_id == NoExists) {
             grp_id = pax.grp_id;
@@ -1681,7 +1681,7 @@ struct TPLine {
             names.push_back(pax.name);
         return *this;
     }
-    TPLine operator + (const TPPax & pax) 
+    TPLine operator + (const TPPax & pax)
     {
         TPLine result(*this);
         result += pax;

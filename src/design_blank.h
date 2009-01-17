@@ -2,7 +2,7 @@
 #define _DESIGN_BLANK_H
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"		
+#include "jxtlib/JxtInterface.h"
 
 class DesignBlankInterface: public JxtInterface
 {
@@ -21,7 +21,7 @@ class DesignBlankInterface: public JxtInterface
         void PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void Save(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-        virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);  
+        virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef _TLG_H_
 #define _TLG_H_
 
-#include "query_runner.h"
+#include "serverlib/query_runner.h"
 
 /* константы задающие максимальные значения для телеграмм */
 #define MAX_TLG_LEN       65536

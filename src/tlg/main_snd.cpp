@@ -8,10 +8,10 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg.h"
-#include "query_runner.h"
+#include "serverlib/query_runner.h"
 
 #define NICKNAME "VLAD"
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;

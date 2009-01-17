@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include "images.h"
-#define NICKNAME "DJEK"
 #include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "oralib.h"
-#include "str_utils.h"
 #include "astra_utils.h"
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

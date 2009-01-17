@@ -10,7 +10,7 @@
 #include "docs.h"
 
 #define NICKNAME "DJEK"
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;

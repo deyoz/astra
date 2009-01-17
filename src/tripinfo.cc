@@ -1,9 +1,7 @@
 #include <stdlib.h>
 #include <string>
 #include "tripinfo.h"
-#define NICKNAME "DJEK"
 #include "setup.h"
-#include "test.h"
 #include "stages.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -20,6 +18,9 @@
 #include "stat.h"
 #include "print.h"
 #include "astra_consts.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;

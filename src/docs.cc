@@ -4,15 +4,16 @@
 #include "xml_unit.h"
 #include "exceptions.h"
 #include "stl_utils.h"
-#define NICKNAME "DENIS"
-#include "test.h"
-#include "str_utils.h"
 #include "astra_utils.h"
 #include "base_tables.h"
 #include "season.h"
 #include "brd.h"
-#include "xml_stuff.h"
 #include "astra_misc.h"
+#include "jxtlib/xml_stuff.h"
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

@@ -1,19 +1,20 @@
+#include <fstream>
 #include "print.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "misc.h"
 #include "stages.h"
-#include "str_utils.h"
 #include "docs.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "payment.h"
 #include "exceptions.h"
-#include <fstream>
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;

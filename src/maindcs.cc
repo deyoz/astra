@@ -1,3 +1,5 @@
+#include <string>
+#include <fstream>
 #include "maindcs.h"
 #include "basic.h"
 #include "astra_utils.h"
@@ -5,12 +7,11 @@
 #include "base_tables.h"
 #include "oralib.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
-#include <string>
-#include <fstream>
 #include "xml_unit.h"
-#include "jxt_cont.h"
+#include "jxtlib/jxt_cont.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace ASTRA;
 using namespace EXCEPTIONS;
