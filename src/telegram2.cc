@@ -2314,7 +2314,6 @@ void TSeatRectList::vert_pack()
         }
     }
 
-    ProgTrace(TRACE5, "start splitting");
     for(vector<TSeatRectList>::iterator i_split = split.begin(); i_split != split.end(); i_split++) {
         if(i_split->size() > 1) {
             TSeatRectList::iterator first = i_split->begin();
@@ -2374,7 +2373,6 @@ void TSeatRectList::pack()
         }
     }
 
-    ProgTrace(TRACE5, "start splitting");
     for(vector<TSeatRectList>::iterator i_split = split.begin(); i_split != split.end(); i_split++) {
         if(i_split->size() > 1) {
             TSeatRectList::iterator first = i_split->begin();
@@ -2422,7 +2420,6 @@ string TSeatRectList::ToTlg()
     for(TSeatRectList::iterator iv = begin(); iv != end(); iv++) {
         if(iv->del)
             continue;
-        ProgTrace(TRACE5, "ToTlg seat: %s", iv->str().c_str());
         if(
                 iv->row1 == iv->row2 and
                 iv->line1 == iv->line2
@@ -2489,12 +2486,8 @@ string TSeatRect::str()
 
 struct TSeatListContext {
     string first_xname, last_xname;
-    char cur_seat_type;
-    TSeatListContext() {
-        cur_seat_type = 'i'; // i - interval (6A-E); a - alone (6A or 6ACE or similar)
-    }
-    void seat_to_str(string &list, TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
-    void vert_seat_to_str(string &list, TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
+    void seat_to_str(TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
+    void vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
 };
 
 void TTlgSeatList::add_seat(int point_id, string xname, string yname)
@@ -2559,17 +2552,16 @@ int TTlgSeatList::get_list_size(std::map<int, std::string> &list)
 void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
 {
     list.clear();
-    map<int, string> hrz_list, vert_list;
-    map<int, TSeatRectList> new_hrz_list, new_vert_list;
+    map<int, TSeatRectList> hrz_list, vert_list;
     // Пробег карты мест по горизонтали
     // определение минимальной и максимальной координаты линии в которых есть
     // занятые места (используются для последующего вертикального пробега)
     string min_col, max_col;
+    dump_comp();
     for(t_tlg_comp::iterator ay = comp.begin(); ay != comp.end(); ay++) {
         map<int, TSeatListContext> ctxt;
         string *first_xname = NULL;
         string *last_xname = NULL;
-        string *str_seat = NULL;
         TSeatRectList *SeatRectList = NULL;
         TSeatListContext *cur_ctxt = NULL;
         t_tlg_row &row = ay->second;
@@ -2578,11 +2570,13 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         if(max_col.empty() or not less_iata_line(row.rbegin()->first, max_col))
                 max_col = row.rbegin()->first;
         for(t_tlg_row::iterator ax = row.begin(); ax != row.end(); ax++) {
+            ProgTrace(TRACE5, "ax->second.point_arv: %d", ax->second.point_arv);
             cur_ctxt = &ctxt[ax->second.point_arv];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
-            str_seat = &hrz_list[ax->second.point_arv];
-            SeatRectList = &new_hrz_list[ax->second.point_arv];
+            ProgTrace(TRACE5, "first_xname: %s", first_xname->c_str());
+            ProgTrace(TRACE5, "last_xname: %s", last_xname->c_str());
+            SeatRectList = &hrz_list[ax->second.point_arv];
             if(first_xname->empty()) {
                 *first_xname = ax->first;
                 *last_xname = *first_xname;
@@ -2590,7 +2584,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
                 if(prev_iata_line(ax->first) == *last_xname)
                     *last_xname = ax->first;
                 else {
-                    cur_ctxt->seat_to_str(*str_seat, *SeatRectList, ax->second.yname, *first_xname, *last_xname, pr_lat);
+                    cur_ctxt->seat_to_str(*SeatRectList, ax->second.yname, *first_xname, *last_xname, pr_lat);
                     *first_xname = ax->first;
                     *last_xname = *first_xname;
                 }
@@ -2598,13 +2592,12 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         }
         // Дописываем последние оставшиеся места в ряду для каждого направления
         // Put last row seats for each dest hrz_list
-        for(map<int, string>::iterator im = hrz_list.begin(); im != hrz_list.end(); im++) {
+        for(map<int, TSeatRectList>::iterator im = hrz_list.begin(); im != hrz_list.end(); im++) {
             cur_ctxt = &ctxt[im->first];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
-            str_seat = &im->second;
             if(first_xname != NULL and !first_xname->empty())
-                cur_ctxt->seat_to_str(*str_seat, *SeatRectList, ay->first, *first_xname, *last_xname, pr_lat);
+                cur_ctxt->seat_to_str(*SeatRectList, ay->first, *first_xname, *last_xname, pr_lat);
         }
     }
 
@@ -2614,7 +2607,6 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         map<int, TSeatListContext> ctxt;
         string *first_xname = NULL;
         string *last_xname = NULL;
-        string *str_seat = NULL;
         TSeatRectList *SeatRectList = NULL;
         TSeatListContext *cur_ctxt = NULL;
         for(t_tlg_comp::iterator i_comp = comp.begin(); i_comp != comp.end(); i_comp++) {
@@ -2624,8 +2616,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
                 cur_ctxt = &ctxt[col_pos->second.point_arv];
                 first_xname = &cur_ctxt->first_xname;
                 last_xname = &cur_ctxt->last_xname;
-                str_seat = &vert_list[col_pos->second.point_arv];
-                SeatRectList = &new_vert_list[col_pos->second.point_arv];
+                SeatRectList = &vert_list[col_pos->second.point_arv];
                 if(first_xname->empty()) {
                     *first_xname = col_pos->second.yname;
                     *last_xname = *first_xname;
@@ -2633,7 +2624,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
                     if(prev_iata_row(col_pos->second.yname) == *last_xname)
                         *last_xname = col_pos->second.yname;
                     else {
-                        cur_ctxt->vert_seat_to_str(*str_seat, *SeatRectList, col_pos->first, *first_xname, *last_xname, pr_lat);
+                        cur_ctxt->vert_seat_to_str(*SeatRectList, col_pos->first, *first_xname, *last_xname, pr_lat);
                         *first_xname = col_pos->second.yname;
                         *last_xname = *first_xname;
                     }
@@ -2642,57 +2633,26 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         }
         // Дописываем последние оставшиеся места в ряду для каждого направления
         // Put last row seats for each dest vert_list
-        for(map<int, string>::iterator im = vert_list.begin(); im != vert_list.end(); im++) {
+        for(map<int, TSeatRectList>::iterator im = vert_list.begin(); im != vert_list.end(); im++) {
             cur_ctxt = &ctxt[im->first];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
-            str_seat = &im->second;
             if(first_xname != NULL and !first_xname->empty())
-                cur_ctxt->vert_seat_to_str(*str_seat, *SeatRectList, i_col, *first_xname, *last_xname, pr_lat);
+                cur_ctxt->vert_seat_to_str(*SeatRectList, i_col, *first_xname, *last_xname, pr_lat);
         }
         if(i_col == max_col)
             break;
         i_col = next_iata_line(i_col);
     }
-    /*
-    ProgTrace(TRACE5, "hirizontal list");
-    ProgTrace(TRACE5, "---------------");
-    dump_list(hrz_list);
-    ProgTrace(TRACE5, "vertical list");
-    ProgTrace(TRACE5, "---------------");
-    dump_list(vert_list);
-
-    ProgTrace(TRACE5, "NEW hirizontal list: BEFRE PACK");
-    ProgTrace(TRACE5, "---------------");
-    dump_list(new_hrz_list);
-    for(map<int, TSeatRectList>::iterator im = new_hrz_list.begin(); im != new_hrz_list.end(); im++) {
-        im->second.pack();
-    }
-    ProgTrace(TRACE5, "NEW hirizontal list: AFTER PACK");
-    ProgTrace(TRACE5, "---------------");
-    dump_list(new_hrz_list);
-
-    for(map<int, TSeatRectList>::iterator im = new_vert_list.begin(); im != new_vert_list.end(); im++)
-        im->second.vert_pack();
-    ProgTrace(TRACE5, "NEW vertical list");
-    ProgTrace(TRACE5, "---------------");
-    dump_list(new_vert_list);
-    for(map<int, TSeatRectList>::iterator im = new_hrz_list.begin(); im != new_hrz_list.end(); im++)
-        im->second.pack();
-    for(map<int, TSeatRectList>::iterator im = new_vert_list.begin(); im != new_vert_list.end(); im++)
-        im->second.vert_pack();
-    */
-    map<int, TSeatRectList>::iterator i_hrz = new_hrz_list.begin();
-    map<int, TSeatRectList>::iterator i_vert = new_vert_list.begin();
+    map<int, TSeatRectList>::iterator i_hrz = hrz_list.begin();
+    map<int, TSeatRectList>::iterator i_vert = vert_list.begin();
     while(true) {
-        if(i_hrz == new_hrz_list.end())
+        if(i_hrz == hrz_list.end())
             break;
         i_hrz->second.pack();
         i_vert->second.vert_pack();
         string hrz_result = i_hrz->second.ToTlg();
         string vert_result = i_vert->second.ToTlg();
-        ProgTrace(TRACE5, "hrz_result: %s", hrz_result.c_str());
-        ProgTrace(TRACE5, "vert_result: %s", vert_result.c_str());
         if(hrz_result.size() > vert_result.size())
             list[i_vert->first] = vert_result;
         else
@@ -2702,68 +2662,35 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
     }
 }
 
-void TSeatListContext::vert_seat_to_str(string &list, TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
+void TSeatListContext::vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
     yname = denorm_iata_line(yname, pr_lat);
     first_xname = denorm_iata_row(first_xname);
     last_xname = denorm_iata_row(last_xname);
     TSeatRect rect;
-    if(first_xname == last_xname) {
-        if(!list.empty())
-            list += " ";
-        list += first_xname + yname ;
-
-        rect.row1 = first_xname;
+    rect.row1 = first_xname;
+    rect.line1 = yname;
+    rect.line2 = yname;
+    if(first_xname == last_xname)
         rect.row2 = first_xname;
-        rect.line1 = yname;
-        rect.line2 = yname;
-    } else {
-        if(!list.empty())
-            list += " ";
-        list += first_xname + "-" + last_xname + yname;
-
-        rect.row1 = first_xname;
+    else
         rect.row2 = last_xname;
-        rect.line1 = yname;
-        rect.line2 = yname;
-    }
     SeatRectList.push_back(rect);
 }
 
-void TSeatListContext::seat_to_str(string &list, TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
+void TSeatListContext::seat_to_str(TSeatRectList &SeatRectList, string yname, string first_xname, string last_xname, bool pr_lat)
 {
     yname = denorm_iata_row(yname);
     first_xname = denorm_iata_line(first_xname, pr_lat);
     last_xname = denorm_iata_line(last_xname, pr_lat);
     TSeatRect rect;
-    if(first_xname == last_xname) {
-        if(cur_seat_type == 'a')
-            list += first_xname;
-        else {
-            if(!list.empty())
-                list += " ";
-            list += yname + first_xname;
-            cur_seat_type = 'a';
-        }
-
-        rect.row1 = yname;
-        rect.row2 = yname;
-        rect.line1 = first_xname;
+    rect.row1 = yname;
+    rect.row2 = yname;
+    rect.line1 = first_xname;
+    if(first_xname == last_xname)
         rect.line2 = first_xname;
-    } else {
-        if(!list.empty())
-            list += " ";
-        list += yname + first_xname;
-        if(prev_iata_line(last_xname) != first_xname)
-            list += "-";
-        list += last_xname;
-        cur_seat_type = 'i';
-
-        rect.row1 = yname;
-        rect.row2 = yname;
-        rect.line1 = first_xname;
+    else
         rect.line2 = last_xname;
-    }
     SeatRectList.push_back(rect);
 }
 
