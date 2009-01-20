@@ -2596,6 +2596,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
             cur_ctxt = &ctxt[im->first];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
+            SeatRectList = &im->second;
             if(first_xname != NULL and !first_xname->empty())
                 cur_ctxt->seat_to_str(*SeatRectList, ay->first, *first_xname, *last_xname, pr_lat);
         }
@@ -2637,6 +2638,7 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
             cur_ctxt = &ctxt[im->first];
             first_xname = &cur_ctxt->first_xname;
             last_xname = &cur_ctxt->last_xname;
+            SeatRectList = &im->second;
             if(first_xname != NULL and !first_xname->empty())
                 cur_ctxt->vert_seat_to_str(*SeatRectList, i_col, *first_xname, *last_xname, pr_lat);
         }
