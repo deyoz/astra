@@ -1535,15 +1535,55 @@ struct TFItem {
     virtual ~TFItem() { };
 };
 
+struct TExtraSeatName {
+    string value;
+    int ord(string rem) {
+        static const char *rems[] = {"STCR", "CBBG", "EXST"};
+        static const int rems_size = sizeof(rems)/sizeof(rems[0]);
+        int result = 0;
+        for(; result < rems_size; result++)
+            if(rem == rems[result])
+                break;
+        if(result == rems_size)
+            throw Exception("TExtraSeatName:ord: rem %s not found in rems", rem.c_str());
+        return result;
+    }
+    void get(int pax_id)
+    {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select distinct "
+            "   rem_code "
+            "from "
+            "   pax_rem "
+            "where "
+            "   pax_id = :pax_id and "
+            "   rem_code in('STCR', 'CBBG', 'EXST')";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            value = "STCR";
+        else
+            for(; !Qry.Eof; Qry.Next()) {
+                string tmp_value = Qry.FieldAsString("rem_code");
+                if(value.empty() or ord(value) > ord(tmp_value))
+                    value = tmp_value;
+            }
+    }
+};
+
 struct TPPax {
     public:
         int seats, grp_id;
+        int pax_id;
         TPerson pers_type;
         bool unaccomp;
         string surname, name;
+        TExtraSeatName exst;
         TPPax():
             seats(0),
             grp_id(NoExists),
+            pax_id(NoExists),
             pers_type(NoPerson),
             unaccomp(false)
         {};
@@ -1679,6 +1719,8 @@ struct TPLine {
         }
         if(not pax.name.empty())
             names.push_back(pax.name);
+        for(int i = 0; i < pax.seats - 1; i++)
+            names.push_back(pax.exst.value);
         return *this;
     }
     TPLine operator + (const TPPax & pax)
@@ -1788,6 +1830,7 @@ void TPList::get(TTlgInfo &info, int grp_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select \n"
+        "   pax_id, \n"
         "   pr_brd, \n"
         "   seats, \n"
         "   surname, \n"
@@ -1811,6 +1854,7 @@ void TPList::get(TTlgInfo &info, int grp_id)
         item.unaccomp = true;
         surnames[item.surname].push_back(item);
     } else {
+        int col_pax_id = Qry.FieldIndex("pax_id");
         int col_pr_brd = Qry.FieldIndex("pr_brd");
         int col_seats = Qry.FieldIndex("seats");
         int col_surname = Qry.FieldIndex("surname");
@@ -1820,8 +1864,11 @@ void TPList::get(TTlgInfo &info, int grp_id)
             if(Qry.FieldAsInteger(col_pr_brd) == 0)
                 continue;
             TPPax item;
+            item.pax_id = Qry.FieldAsInteger(col_pax_id);
             item.grp_id = grp_id;
             item.seats = Qry.FieldAsInteger(col_seats);
+            if(item.seats > 1)
+                item.exst.get(Qry.FieldAsInteger(col_pax_id));
             item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
             item.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
             item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
