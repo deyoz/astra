@@ -1580,6 +1580,13 @@ struct TPPax {
         bool unaccomp;
         string surname, name;
         TExtraSeatName exst;
+        size_t name_length() const
+        {
+            size_t result = surname.size() + name.size();
+            if(seats > 1)
+                result += exst.value.size() * (seats - (name.empty() ? 0 :1));
+            return result;
+        }
         TPPax():
             seats(0),
             grp_id(NoExists),
@@ -1595,7 +1602,10 @@ struct TPList {
     public:
         map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
         // этот оператор нужен для sort вектора TPSurname
-        bool operator () (const TPPax &i, const TPPax &j) { return i.name.size() < j.name.size(); };
+        bool operator () (const TPPax &i, const TPPax &j)
+        {
+            return i.name_length() < j.name_length();
+        };
         void get(TTlgInfo &info, int grp_id);
         void ToTlg(TTlgInfo &info, vector<string> &body); // used in BTM
         void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem); // used in PTM
@@ -1632,6 +1642,7 @@ struct TBTMGrpList {
 // причем список этот будет представлять отдельную группу пассажиров
 // объединенную по grp_id
 struct TPLine {
+    bool include_exst;
     bool print_bag;
     bool skip;
     int seats;
@@ -1640,7 +1651,9 @@ struct TPLine {
     int grp_id;
     string surname;
     vector<string> names;
-    TPLine():
+
+    TPLine(bool ainclude_exst):
+        include_exst(ainclude_exst),
         print_bag(false),
         skip(false),
         seats(0),
@@ -1717,10 +1730,14 @@ struct TPLine {
                 inf++;
                 break;
         }
-        if(not pax.name.empty())
+        int name_count = 0;
+        if(not pax.name.empty()) {
             names.push_back(pax.name);
-        for(int i = 0; i < pax.seats - 1; i++)
-            names.push_back(pax.exst.value);
+            name_count = 1;
+        }
+        if(include_exst)
+            for(int i = 0; i < pax.seats - name_count; i++)
+                names.push_back(pax.exst.value);
         return *this;
     }
     TPLine operator + (const TPPax & pax)
@@ -1749,27 +1766,120 @@ struct TPLine {
 void TPList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
     for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
-        TPSurname &pax_list = im->second;
-        sort(pax_list.begin(), pax_list.end(), *this);
-        TPLine pax_line;
-        pax_line.surname = im->first;
-        for(vector<TPPax>::iterator iv = pax_list.begin(); iv != pax_list.end(); iv++) {
-            if(iv->unaccomp) continue;
-            pax_line += *iv;
+        ProgTrace(TRACE5, "SURNAME: %s", im->first.c_str());
+        vector<TPPax> one; // одно место
+        vector<TPPax> many_noname; // без имени, больше одного места
+        vector<TPPax> many_name; // с именем, больше одного места
+        {
+            TPSurname &pax_list = im->second;
+            // Разложим список пассажиров на 3 подсписка
+            for(vector<TPPax>::iterator iv = pax_list.begin(); iv != pax_list.end(); iv++) {
+                if(iv->unaccomp) continue;
+                if(iv->seats == 1) {
+                    one.push_back(*iv);
+                } else if(iv->name.empty()) {
+                    many_noname.push_back(*iv);
+                } else {
+                    many_name.push_back(*iv);
+                }
+            }
         }
-        if(pax_line.grp_id == NoExists) continue;
-        pax_line.print_bag = im == surnames.begin();
-        string line = pax_line.get_line(info, FItem);
-        if(line.size() + br.size() > LINE_SIZE) {
-            size_t start_pos = line.rfind(" "); // starting position of name element;
-            size_t oblique_pos = line.rfind("/", LINE_SIZE - 1);
-            if(oblique_pos < start_pos)
-                line = line.substr(0, LINE_SIZE - 1);
-            else
-                line = line.substr(0, oblique_pos);
+        bool print_bag = im == surnames.begin();
+        if(not one.empty()) {
+            // обработка one
+            // Записываем в строку столько имен, сколько влезет, остальные обрубаем.
+            sort(one.begin(), one.end(), *this);
+            TPLine pax_line(true);
+            pax_line.surname = im->first;
+            for(vector<TPPax>::iterator iv = one.begin(); iv != one.end(); iv++) {
+                pax_line += *iv;
+            }
+            if(pax_line.grp_id != NoExists) {
+                pax_line.print_bag = print_bag;
+                print_bag = false;
+                string line = pax_line.get_line(info, FItem);
+                if(line.size() + br.size() > LINE_SIZE) {
+                    size_t start_pos = line.rfind(" "); // starting position of name element;
+                    size_t oblique_pos = line.rfind("/", LINE_SIZE - 1);
+                    if(oblique_pos < start_pos)
+                        line = line.substr(0, LINE_SIZE - 1);
+                    else
+                        line = line.substr(0, oblique_pos);
+                }
+                body.push_back(line);
+            }
         }
-        ProgTrace(TRACE5, "TPList::ToTlg: line %s", line.c_str());
-        body.push_back(line);
+        if(not many_name.empty()) {
+            // Обработка many_name. Записываем в строку сколько влезет.
+            // Потом на след строку. Если и один не влезает, обрезаем имя до одного символа, затем фамилию.
+            sort(many_name.begin(), many_name.end(), *this);
+            TPLine pax_line(true);
+            pax_line.print_bag = print_bag;
+            print_bag = false;
+            pax_line.surname = im->first;
+            for(vector<TPPax>::iterator iv = many_name.begin(); iv != many_name.end(); iv++) {
+                bool finished = false;
+                while(not finished) {
+                    finished = true;
+                    TPLine tmp_pax_line = pax_line + *iv;
+                    string line = tmp_pax_line.get_line(info, FItem);
+                    if(line.size() + br.size() > LINE_SIZE) {
+                        if(pax_line.grp_id == NoExists) {
+                            // Один пассажир на всю строку не поместился
+                            size_t diff = line.size() + br.size() - LINE_SIZE;
+                            TPPax fix_pax = *iv;
+                            if(fix_pax.name.size() > diff) {
+                                fix_pax.name = fix_pax.name.substr(0, fix_pax.name.size() - diff);
+                                body.push_back((pax_line + fix_pax).get_line(info, FItem));
+                            } else if(fix_pax.surname.size() > diff) {
+                                diff -= fix_pax.name.size() - 1;
+                                fix_pax.name = fix_pax.name.substr(0, 1);
+                                pax_line.surname = fix_pax.surname.substr(0, fix_pax.surname.size() - diff);
+                                body.push_back((pax_line + fix_pax).get_line(info, FItem));
+                                pax_line.surname = im->first;
+                            } else
+                                throw Exception("many_name item insertion failed");
+                            pax_line.grp_id = NoExists;
+                            pax_line.names.clear();
+                            pax_line.seats = 0;
+                            pax_line.print_bag = false;
+                        } else {
+                            // Пассажир не влез в строку к другим пассажирам
+                            body.push_back((pax_line).get_line(info, FItem));
+                            pax_line.grp_id = NoExists;
+                            pax_line.names.clear();
+                            pax_line.seats = 0;
+                            pax_line.print_bag = false;
+                            finished = false;
+                        }
+                    } else
+                        pax_line += *iv;
+                }
+            }
+            if(pax_line.grp_id != NoExists)
+                body.push_back((pax_line).get_line(info, FItem));
+        }
+        if(not many_noname.empty()) {
+            // Записываем каждого пассажира по отдельности
+            // Если не влезает, обрезаем фамилию
+            for(vector<TPPax>::iterator iv = many_noname.begin(); iv != many_noname.end(); iv++) {
+                TPLine pax_line(true);
+                pax_line.print_bag = print_bag;
+                print_bag = false;
+                pax_line.surname = im->first;
+                string line = (pax_line + *iv).get_line(info, FItem);
+                if(line.size() + br.size() > LINE_SIZE) {
+                    size_t diff = line.size() + br.size() - LINE_SIZE;
+                    TPPax fix_pax = *iv;
+                    if(fix_pax.surname.size() > diff) {
+                        fix_pax.surname = fix_pax.surname.substr(0, fix_pax.surname.size() - diff);
+                    } else
+                        throw Exception("many_noname item insertion failed");
+                    body.push_back((pax_line + fix_pax).get_line(info, FItem));
+                } else
+                    body.push_back(line);
+            }
+        }
     }
 }
 
@@ -1779,7 +1889,7 @@ void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
     for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
         TPSurname &pax_list = im->second;
         sort(pax_list.begin(), pax_list.end(), *this);
-        TPLine line;
+        TPLine line(false);
         line.surname = im->first;
         lines.push_back(line);
         vector<TPPax>::iterator iv = pax_list.begin();
