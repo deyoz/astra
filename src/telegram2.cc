@@ -2003,6 +2003,8 @@ struct TPTMGrpList:TBTMGrpList {
 void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 {
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        if(iv->NList.items.empty())
+            continue;
         iv->NList.ToTlg(info, body);
         iv->W.ToTlg(body);
         iv->OList.ToTlg(info, body);
@@ -2040,8 +2042,6 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
             item.NList.get(item.grp_id);
-            if(item.NList.items.empty())
-                continue;
             item.PList.get(info, item.grp_id);
             if(item.PList.surnames.empty())
                 continue;
