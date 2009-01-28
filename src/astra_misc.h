@@ -34,6 +34,8 @@ struct TTripRoute {
         void get(int point_id);
 };
 
+std::string mkt_airline(int pax_id);
+
 #endif /*_ASTRA_MISC_H_*/
 
 

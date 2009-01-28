@@ -145,3 +145,25 @@ void TTripRoute::get(int point_id)
         items.push_back(item);
     }
 }
+
+string mkt_airline(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   tlg_trips.airline "
+        "from "
+        "   tlg_trips, "
+        "   crs_pnr, "
+        "   crs_pax "
+        "where "
+        "   tlg_trips.point_id = crs_pnr.point_id and "
+        "   crs_pnr.point_id = crs_pax.point_id and "
+        "   crs_pax.pax_id = :pax_id ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("mkt_airline: pax_id %d not found", pax_id);
+    return Qry.FieldAsString(0);
+}
+
