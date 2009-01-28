@@ -672,13 +672,14 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
     }
 
+    if(field_lat < 0) field_lat = pr_lat;
+
     if(name == "BCBP_M_2") // 2мерный баркод. Формируется что называется on the fly
-        add_tag(name, BCBP_M_2());
+        add_tag(name, BCBP_M_2(field_lat));
 
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
-    if(field_lat < 0) field_lat = pr_lat;
 
     if(field_lat && di != data.end()) {
         TData::iterator di_lat = data.find(name + "_LAT");
@@ -759,15 +760,36 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     return result;
 }
 
-string PrintDataParser::t_field_map::BCBP_M_2()
+string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
 {
+    string TAG_SURNAME = "SURNAME";
+    string TAG_NAME = "NAME";
+    string TAG_AIRLINE = "AIRLINE";
+    string TAG_AIRP_DEP = "AIRP_DEP";
+    string TAG_AIRP_ARV = "AIRP_ARV";
+    string TAG_SUFFIX = "SUFFIX";
+    string TAG_CLASS = "CLASS";
+    string TAG_SEAT_NO = "SEAT_NO";
+
+    if(pr_lat) {
+        char *lat_suffix = "_LAT";
+        TAG_SURNAME += lat_suffix;
+        TAG_NAME += lat_suffix;
+        TAG_AIRLINE += lat_suffix;
+        TAG_AIRP_DEP += lat_suffix;
+        TAG_AIRP_ARV += lat_suffix;
+        TAG_SUFFIX += lat_suffix;
+        TAG_CLASS += lat_suffix;
+        TAG_SEAT_NO += lat_suffix;
+    }
+
     ostringstream result;
     result
         << "M"
         << 1;
     // Passenger Name
-    string surname = data["SURNAME"].StringVal;
-    string name = data["NAME"].StringVal;
+    string surname = data[TAG_SURNAME].StringVal;
+    string name = data[TAG_NAME].StringVal;
     string pax_name = surname;
     if(!name.empty())
         pax_name += "/" + name;
@@ -792,12 +814,11 @@ string PrintDataParser::t_field_map::BCBP_M_2()
     result << (data["ETKT"].StringVal.empty() ? " " : "E");
     // Operating carrier PNR code
     int pax_id = data["PAX_ID"].IntegerVal;
-    string airline = data["AIRLINE"].StringVal;
     vector<TPnrAddrItem> pnrs;
     GetPaxPnrAddr(pax_id, pnrs);
     vector<TPnrAddrItem>::iterator iv = pnrs.begin();
     for(; iv != pnrs.end(); iv++)
-        if(airline == iv->airline) {
+        if(data["AIRLINE"].StringVal == iv->airline) {
             ProgTrace(TRACE5, "PNR found: %s", iv->addr);
             break;
         }
@@ -806,15 +827,15 @@ string PrintDataParser::t_field_map::BCBP_M_2()
     else if(strlen(iv->addr) <= 7)
         result << setw(7) << left << iv->addr;
     // From City Airport Code
-    result << setw(3) << data["AIRP_DEP"].StringVal;
+    result << setw(3) << data[TAG_AIRP_DEP].StringVal;
     // To City Airport Code
-    result << setw(3) << data["AIRP_ARV"].StringVal;
+    result << setw(3) << data[TAG_AIRP_ARV].StringVal;
     // Operating Carrier Designator
-    result << setw(3) << airline;
+    result << setw(3) << data[TAG_AIRLINE].StringVal;
     // Flight Number
     result
         << setw(4) << right << setfill('0') << data["FLT_NO"].StringVal
-        << setw(1) << setfill(' ') << data["SUFFIX"].StringVal;
+        << setw(1) << setfill(' ') << data[TAG_SUFFIX].StringVal;
     // Date of Flight
     TDateTime scd = data["SCD"].DateTimeVal;
     int Year, Month, Day;
@@ -827,9 +848,9 @@ string PrintDataParser::t_field_map::BCBP_M_2()
         << DateTimeToStr(scd, "y")
         << fixed << setprecision(0) << setw(3) << setfill('0') << period;
     // Compartment Code
-    result << data["CLASS"].StringVal;
+    result << data[TAG_CLASS].StringVal;
     // Seat Number
-    result << setw(4) << right << data["SEAT_NO"].StringVal;
+    result << setw(4) << right << data[TAG_SEAT_NO].StringVal;
     // Check-In Sequence Number
     result
         << setw(4) <<  setfill('0') << data["REG_NO"].IntegerVal
@@ -845,9 +866,9 @@ string PrintDataParser::t_field_map::BCBP_M_2()
             << ">"
             << 2;
         // field size of following structured message
-        // постоянное значение равное сумме зарезервированных длин последующих 6-и полей
-        // в данной версии эта длина равна 11 (одиннадцати)
-        cond1 << "0B";
+        // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
+        // в данной версии эта длина равна 24 (двадцать четыре)
+        cond1 << "18";
         // Passenger Description
         TPerson pers_type = DecodePerson((char *)data["PERS_TYPE"].StringVal.c_str());
         int result_pers_type;
@@ -875,13 +896,12 @@ string PrintDataParser::t_field_map::BCBP_M_2()
         cond1 << "B";
         // Airline Designator of Boarding Pass Issuer (not used)
         cond1 << setw(3) << " ";
-        // end of 11-length structured message
-        
         // Baggage Tag License Plate Number(s) (not used  because dont know how)
         cond1 << setw(13) << " ";
+        // end of 11-length structured message
+
         // field size of following structured message (41, hex 29)
         cond1 << "00";
-        
 
         /*  We'll discuss it later
 
@@ -897,7 +917,12 @@ string PrintDataParser::t_field_map::BCBP_M_2()
         cond1 << 0;
         // Marketing carrier designator
         cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
+
+        //......
         */
+
+        // For individual airline use
+        cond1 << setw(10) << right << setfill('0') << pax_id;
 
     }
 
