@@ -11,6 +11,7 @@
 #include "stl_utils.h"
 #include "payment.h"
 #include "exceptions.h"
+#include "astra_misc.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DENIS"
@@ -671,6 +672,9 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
     }
 
+    if(name == "BCBP_M_2") // 2мерный баркод. Формируется что называется on the fly
+        add_tag(name, BCBP_M_2());
+
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
@@ -753,6 +757,156 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     }
     tst();
     return result;
+}
+
+string PrintDataParser::t_field_map::BCBP_M_2()
+{
+    ostringstream result;
+    result
+        << "M"
+        << 1;
+    // Passenger Name
+    string surname = data["SURNAME"].StringVal;
+    string name = data["NAME"].StringVal;
+    string pax_name = surname;
+    if(!name.empty())
+        pax_name += "/" + name;
+    if(pax_name.size() > 20){
+        size_t diff = pax_name.size() - 20;
+        if(name.empty()) {
+            result << surname.substr(0, surname.size() - diff);
+        } else {
+            if(name.size() > diff) {
+                name = name.substr(0, name.size() - diff);
+            } else {
+                diff -= name.size() - 1;
+                name = name[0];
+                surname = surname.substr(0, surname.size() - diff);
+            }
+            result << surname + "/" + name;
+        }
+    } else
+        result << setw(20) << left << pax_name;
+
+    // Electronic Ticket Indicator
+    result << (data["ETKT"].StringVal.empty() ? " " : "E");
+    // Operating carrier PNR code
+    int pax_id = data["PAX_ID"].IntegerVal;
+    string airline = data["AIRLINE"].StringVal;
+    vector<TPnrAddrItem> pnrs;
+    GetPaxPnrAddr(pax_id, pnrs);
+    vector<TPnrAddrItem>::iterator iv = pnrs.begin();
+    for(; iv != pnrs.end(); iv++)
+        if(airline == iv->airline) {
+            ProgTrace(TRACE5, "PNR found: %s", iv->addr);
+            break;
+        }
+    if(iv == pnrs.end())
+        result << setw(7) << " ";
+    else if(strlen(iv->addr) <= 7)
+        result << setw(7) << left << iv->addr;
+    // From City Airport Code
+    result << setw(3) << data["AIRP_DEP"].StringVal;
+    // To City Airport Code
+    result << setw(3) << data["AIRP_ARV"].StringVal;
+    // Operating Carrier Designator
+    result << setw(3) << airline;
+    // Flight Number
+    result
+        << setw(4) << right << setfill('0') << data["FLT_NO"].StringVal
+        << setw(1) << setfill(' ') << data["SUFFIX"].StringVal;
+    // Date of Flight
+    TDateTime scd = data["SCD"].DateTimeVal;
+    int Year, Month, Day;
+    DecodeDate(scd, Year, Month, Day);
+    TDateTime first, last;
+    EncodeDate(Year, 1, 1, first);
+    EncodeDate(Year, Month, Day + 1, last);
+    TDateTime period = last - first;
+    result
+        << DateTimeToStr(scd, "y")
+        << fixed << setprecision(0) << setw(3) << setfill('0') << period;
+    // Compartment Code
+    result << data["CLASS"].StringVal;
+    // Seat Number
+    result << setw(4) << right << data["SEAT_NO"].StringVal;
+    // Check-In Sequence Number
+    result
+        << setw(4) <<  setfill('0') << data["REG_NO"].IntegerVal
+        << " ";
+    // Passenger Status
+    // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
+    // статус пассажира "1": passenger checked in
+    result << 1;
+
+    ostringstream cond1; // first conditional field
+    { // filling up cond1
+        cond1
+            << ">"
+            << 2;
+        // field size of following structured message
+        // постоянное значение равное сумме зарезервированных длин последующих 6-и полей
+        // в данной версии эта длина равна 11 (одиннадцати)
+        cond1 << "0B";
+        // Passenger Description
+        TPerson pers_type = DecodePerson((char *)data["PERS_TYPE"].StringVal.c_str());
+        int result_pers_type;
+        switch(pers_type) {
+            case adult: 
+                result_pers_type = 0;
+                break;
+            case child: 
+                result_pers_type = 3;
+                break;
+            case baby: 
+                result_pers_type = 4;
+                break;
+            case NoPerson:
+                throw Exception("BCBP_M_2: something wrong with pers_type");
+        }
+        cond1 << result_pers_type;
+        // Source of Check-In
+        cond1 << "O";
+        // Source of Boarding Pass Issuance
+        cond1 << "O";
+        // Date of Issue of Boarding Pass (not used)
+        cond1 << setw(4) << " ";
+        // Document type (B - Boarding Pass, I - Itinerary Receipt)
+        cond1 << "B";
+        // Airline Designator of Boarding Pass Issuer (not used)
+        cond1 << setw(3) << " ";
+        // end of 11-length structured message
+        
+        // Baggage Tag License Plate Number(s) (not used  because dont know how)
+        cond1 << setw(13) << " ";
+        // field size of following structured message (41, hex 29)
+        cond1 << "00";
+        
+
+        /*  We'll discuss it later
+
+        // field size of following structured message (41, hex 29)
+        cond1 << "29";
+        // Airline Numeric Code (not used)
+        cond1 << setw(3) << " ";
+        // Document Form/Serial Number (not used)
+        cond1 << setw(10) << " ";
+        // Selectee Indicator (not used)
+        cond1 << " ";
+        // International Documentation Verification (0 - not required)
+        cond1 << 0;
+        // Marketing carrier designator
+        cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
+        */
+
+    }
+
+    // Field size of following varible size field
+    result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
+    result << cond1.str();
+
+
+    return result.str();
 }
 
 PrintDataParser::t_field_map::~t_field_map()

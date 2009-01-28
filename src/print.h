@@ -88,6 +88,8 @@ class PrintDataParser {
                 typedef std::map<std::string, TTagValue> TData;
                 TData data;
                 void dump_data();
+                std::string BCBP_M_2();
+
 
                 std::string class_checked;
                 int grp_id;
