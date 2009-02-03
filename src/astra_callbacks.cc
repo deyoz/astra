@@ -173,9 +173,9 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     }
     std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
     if (exp)
-        ProgError(STDLOG,"logic_error: %s",exp->what());
+        ProgError(STDLOG,"std::logic_error: %s",exp->what());
     else
-        ProgError(STDLOG,"Unknown error");
+        ProgError(STDLOG,"std::exception: %s",e->what());
 
     showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
     return;
