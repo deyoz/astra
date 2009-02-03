@@ -2363,8 +2363,8 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одной операции.");
-    get_report_form("FullStat", resNode);
+        throw UserException("Нет данных");
+    get_report_form("TrferFullStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
     string ap = Trim(NodeAsString("ap", reqNode));
@@ -2681,7 +2681,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
     } else
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     STAT::set_variables(resNode);
 }
 
@@ -2690,7 +2690,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     get_report_form("FullStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -3022,7 +3022,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
     } else
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     STAT::set_variables(resNode);
 }
 
@@ -3040,7 +3040,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     get_report_form("ShortStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -3227,7 +3227,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     STAT::set_variables(resNode);
 }
 
@@ -3250,7 +3250,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     get_report_form("DetailStat", resNode);
 
     string ak = Trim(NodeAsString("ak", reqNode));
@@ -3440,7 +3440,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
-        throw UserException("Не найдено ни одной операции.");
+        throw UserException("Нет данных");
     STAT::set_variables(resNode);
 }
 
