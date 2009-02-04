@@ -2025,6 +2025,8 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
         "   transfer.point_id_trfer = :point_id_trfer and \n"
         "   nvl(transfer.subclass, ' ') = nvl(:subclass, ' ') and \n"
         "   transfer.grp_id = pax_grp.grp_id and \n"
+        "   transfer.transfer_num = 1 and \n"
+        "   transfer.airp_arv = :trfer_airp and \n"
         "   pax_grp.status <> 'T' and \n"
         "   pax_grp.point_dep = :point_id and \n"
         "   pax_grp.airp_arv = :airp_arv \n"
@@ -2033,6 +2035,7 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     int fmt;
     Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
+    Qry.CreateVariable("trfer_airp", otString, ElemToElemId(etAirp, FItem.airp_arv, fmt));
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
     Qry.CreateVariable("subclass", otString, FItem.subclass);
     Qry.Execute();
