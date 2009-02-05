@@ -509,6 +509,8 @@ string PrintDataParser::t_field_map::GetTagAsString(string name)
 {
     TData::iterator di = data.find(upperc(name));
     if(di == data.end()) throw Exception("Tag not found " + name);
+    if(!di->second.err_msg.empty())
+        throw UserException(di->second.err_msg);
     return di->second.StringVal;
 }
 
@@ -519,6 +521,14 @@ void PrintDataParser::t_field_map::add_tag(string name, TDateTime val)
     TagValue.null = false;
     TagValue.type = otDate;
     TagValue.DateTimeVal = val;
+    data[name] = TagValue;
+}
+
+void PrintDataParser::t_field_map::add_err_tag(string name, string val)
+{
+    name = upperc(name);
+    TTagValue TagValue;
+    TagValue.err_msg = val;
     data[name] = TagValue;
 }
 
@@ -546,23 +556,27 @@ void PrintDataParser::t_field_map::dump_data()
 {
         ProgTrace(TRACE5, "------MAP DUMP------");
         for(TData::iterator di = data.begin(); di != data.end(); ++di) {
-            switch(di->second.type) {
-                case otInteger:
-                    ProgTrace(TRACE5, "data[%s] = %d", di->first.c_str(), di->second.IntegerVal);
-                    break;
-                case otFloat:
-                    ProgTrace(TRACE5, "data[%s] = %f", di->first.c_str(), di->second.FloatVal);
-                    break;
-                case otString:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
-                    break;
-                case otDate:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(),
-                            DateTimeToStr(di->second.DateTimeVal, "dd.mm.yyyy hh:nn:ss").c_str());
-                    break;
-                default:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
-                    break;
+            if(di->second.err_msg.empty()) {
+                switch(di->second.type) {
+                    case otInteger:
+                        ProgTrace(TRACE5, "data[%s] = %d", di->first.c_str(), di->second.IntegerVal);
+                        break;
+                    case otFloat:
+                        ProgTrace(TRACE5, "data[%s] = %f", di->first.c_str(), di->second.FloatVal);
+                        break;
+                    case otString:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                        break;
+                    case otDate:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(),
+                                DateTimeToStr(di->second.DateTimeVal, "dd.mm.yyyy hh:nn:ss").c_str());
+                        break;
+                    default:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                        break;
+                }
+            } else {
+                ProgTrace(TRACE5, "data[%s] = ERROR!!! %s", di->first.c_str(), di->second.err_msg.c_str());
             }
         }
         ProgTrace(TRACE5, "------MAP DUMP------");
@@ -686,6 +700,10 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(di_lat != data.end()) di = di_lat;
     }
     if(di == data.end()) throw Exception("Tag not found " + name);
+    ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
+    ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
+    if(!di->second.err_msg.empty())
+        throw UserException(di->second.err_msg);
 
 
     if(di != data.end()) {
@@ -1276,27 +1294,23 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qrys.push_back(Qry);
 }
 
-void get_mso_point(const string &airp, string &point, string &point_lat)
+string get_mso_point(const string &aairp, bool pr_lat)
 {
     TBaseTable &airps = base_tables.get("airps");
     TBaseTable &cities = base_tables.get("cities");
-
-
-
-    string city = airps.get_row("code", airp).AsString("city");
-    point = cities.get_row("code", city).AsString("name", 0);
-    if(point.empty()) throw UserException("Не определено название города '" + city + "'");
-    point_lat = cities.get_row("code", city).AsString("name", 1);
-    if(point_lat.empty()) throw UserException("Не определено лат. название города '" + city + "'");
-
+    string city = airps.get_row("code", aairp).AsString("city");
+    string point = cities.get_row("code", city).AsString("name", pr_lat);
+    if(point.empty()) throw UserException((string)"Не определено" + (pr_lat ? "лат." : " ") + "название города '" + city + "'");
     TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select count(*) from airps where city = :city";
-    airpsQry.CreateVariable("city", otString, base_tables.get("airps").get_row("code", airp).AsString("city"));
+    airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();
     if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
-        point += "(" + airps.get_row("code", airp).AsString("code", 0) + ")";
-        point_lat += "(" + airps.get_row("code", airp).AsString("code", 1) + ")";
+        string airp = airps.get_row("code", aairp).AsString("code", pr_lat);
+        if(airp.empty()) throw UserException((string)"Не определен" + (pr_lat ? "лат." : " ") + "код а/п '" + aairp + "'");
+        point += "(" + airp + ")";
     }
+    return point;
 }
 
 string pieces(int ex_amount, bool pr_lat)
@@ -1438,6 +1452,16 @@ double CalcPayRateSum(const TBagReceipt &rcpt)
   }
   return pay_rate_sum;
 };
+
+void PrintDataParser::t_field_map::add_mso_point(std::string name, std::string airp, bool pr_lat)
+{
+    try {
+        add_tag(name, get_mso_point(airp, pr_lat));
+    } catch(Exception E) {
+        add_err_tag(name, E.what());
+    }
+
+}
 
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
@@ -1821,33 +1845,18 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   else if(!airline.name.empty())
       add_tag("airline", airline.name);
   else
-      throw UserException("Не определено название а/к '%s'", rcpt.airline.c_str());
+      add_err_tag("airline", "Не определено название а/к '" + rcpt.airline + "'");
 
   if(!airline.short_name_lat.empty())
       add_tag("airline_lat", airline.short_name_lat);
   else if(!airline.name_lat.empty())
       add_tag("airline_lat", airline.name_lat);
   else
-      throw UserException("Не определено лат. название а/к '%s'", rcpt.airline.c_str());
+      add_err_tag("airline_lat", "Не определено лат. название а/к '" + rcpt.airline + "'");
 
   add_tag("aircode", rcpt.aircode);
 
   {
-      string point_dep, point_dep_lat;
-      string point_arv, point_arv_lat;
-      ostringstream airline_code, airline_code_lat;
-
-      get_mso_point(rcpt.airp_dep, point_dep, point_dep_lat);
-      get_mso_point(rcpt.airp_arv, point_arv, point_arv_lat);
-
-      if(airline.code_lat.empty())
-          throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
-      ostringstream buf;
-      buf
-          << point_dep << "-" << point_arv << " ";
-
-      airline_code << airline.code;
-
       ostringstream flt_no, flt_no_lat;
 
       if(rcpt.flt_no != -1) {
@@ -1858,29 +1867,63 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       add_tag("flt_no", flt_no.str());
       add_tag("flt_no_lat", flt_no_lat.str());
 
-      if(rcpt.flt_no != -1)
-          airline_code
-              << " "
-              << flt_no.str();
-      buf << airline_code.str();
-      add_tag("airline_code", airline_code.str());
-      add_tag("to", buf.str());
-      buf.str("");
-      buf
-          << point_dep_lat << "-" << point_arv_lat << " ";
-      airline_code_lat << airline.code_lat;
-      if(rcpt.flt_no != -1)
-          airline_code_lat
-              << " "
-              << flt_no_lat.str();
-      buf << airline_code_lat.str();
-      add_tag("airline_code_lat", airline_code_lat.str());
-      add_tag("to_lat", buf.str());
 
-      add_tag("point_dep", point_dep);
-      add_tag("point_dep_lat", point_dep_lat);
-      add_tag("point_arv", point_arv);
-      add_tag("point_arv_lat", point_arv_lat);
+      add_mso_point("point_dep", rcpt.airp_dep, 0);
+      add_mso_point("point_dep_lat", rcpt.airp_dep, 1);
+      add_mso_point("point_arv", rcpt.airp_arv, 0);
+      add_mso_point("point_arv_lat", rcpt.airp_arv, 1);
+
+      try {
+          if(not data["POINT_DEP"].err_msg.empty())
+              throw Exception(data["POINT_DEP"].err_msg);
+          if(not data["POINT_ARV"].err_msg.empty())
+              throw Exception(data["POINT_ARV"].err_msg);
+
+          ostringstream buf;
+          buf
+              << data["POINT_DEP"].StringVal << "-" << data["POINT_ARV"].StringVal << " ";
+
+          ostringstream airline_code;
+          airline_code << airline.code;
+
+          if(rcpt.flt_no != -1)
+              airline_code
+                  << " "
+                  << flt_no.str();
+          buf << airline_code.str();
+          add_tag("airline_code", airline_code.str());
+          add_tag("to", buf.str());
+      } catch(Exception E) {
+          add_err_tag("airline_code", E.what());
+          add_err_tag("to", E.what());
+      }
+
+      try {
+          if(not data["POINT_DEP_LAT"].err_msg.empty())
+              throw Exception(data["POINT_DEP_LAT"].err_msg);
+          if(not data["POINT_ARV_LAT"].err_msg.empty())
+              throw Exception(data["POINT_ARV_LAT"].err_msg);
+
+          ostringstream buf;
+          buf
+              << data["POINT_DEP_LAT"].StringVal << "-" << data["POINT_ARV_LAT"].StringVal << " ";
+
+          ostringstream airline_code, airline_code_lat;
+          if(airline.code_lat.empty())
+              throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
+          airline_code << airline.code;
+
+          if(rcpt.flt_no != -1)
+              airline_code
+                  << " "
+                  << flt_no.str();
+          buf << airline_code.str();
+          add_tag("airline_code_lat", airline_code.str());
+          add_tag("to_lat", buf.str());
+      } catch(Exception E) {
+          add_err_tag("airline_code_lat", E.what());
+          add_err_tag("to_lat", E.what());
+      }
   }
 
   Qry.Clear();

@@ -72,6 +72,7 @@ class PrintDataParser {
                     bool null, pr_print;
                     otFieldType type;
                     std::string StringVal;
+                    std::string err_msg;
                     double FloatVal;
                     int IntegerVal;
                     BASIC::TDateTime DateTimeVal;
@@ -101,6 +102,7 @@ class PrintDataParser {
 
                 void fillBTBPMap();
                 void fillMSOMap(TBagReceipt &rcpt);
+                void add_mso_point(std::string name, std::string airp, bool pr_lat);
                 bool printed(TData::iterator di);
 
             public:
@@ -110,6 +112,7 @@ class PrintDataParser {
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
                 void add_tag(std::string name, int val);
                 void add_tag(std::string name, std::string val);
+                void add_err_tag(std::string name, std::string val);
                 void add_tag(std::string name, BASIC::TDateTime val);
                 std::string GetTagAsString(std::string name);
                 TQuery *get_prn_qry();
