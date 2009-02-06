@@ -132,14 +132,21 @@ void exec_tasks( void )
 	    OraSession.Commit();
 	    callPostHooksAfter();
 	  }
-    catch( Exception &E )
+	  catch( EOracleError &E )
     {
-    try { OraSession.Rollback(); } catch(...) {};
-      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
+      try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
+      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      ProgError( STDLOG, "task name=%s", name.c_str() );
+    }
+    catch( std::exception &E )
+    {
+      try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "std::exception: %s, task name=%s", E.what(), name.c_str() );
     }
     catch( ... )
     {
-    try { OraSession.Rollback(); } catch(...) {};
+      try { OraSession.Rollback(); } catch(...) {};
       ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
     };
     callPostHooksAlways();
@@ -799,18 +806,29 @@ void sync_mvd(void)
 
 void arx_move(int move_id, TDateTime part_key)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "BEGIN "
-    "  arch.move(:move_id,:part_key); "
-    "END;";
-  Qry.CreateVariable("move_id",otInteger,move_id);
-  if (part_key!=NoExists)
-  	Qry.CreateVariable("part_key",otDate,part_key);
-  else
-  	Qry.CreateVariable("part_key",otDate,FNull);
-  Qry.Execute();
-  OraSession.Commit();
+  try
+  {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "BEGIN "
+      "  arch.move(:move_id,:part_key); "
+      "END;";
+    Qry.CreateVariable("move_id",otInteger,move_id);
+    if (part_key!=NoExists)
+    	Qry.CreateVariable("part_key",otDate,part_key);
+    else
+    	Qry.CreateVariable("part_key",otDate,FNull);
+    Qry.Execute();
+    OraSession.Commit();
+  }
+  catch(...)
+  {
+    if (part_key!=NoExists)
+      ProgError( STDLOG, "move_id=%d, part_key=%s", move_id, DateTimeToStr( part_key, "dd.mm.yy" ).c_str() );
+    else
+      ProgError( STDLOG, "move_id=%d, part_key=NoExists", move_id );
+    throw;
+  };
 };
 
 void get_full_stat(TDateTime utcdate)
@@ -964,7 +982,15 @@ void arx_daily(TDateTime utcdate)
     bool pr_utc=PointsQry.FieldAsInteger("pr_utc")!=0;
     TDateTime scd=PointsQry.FieldAsDateTime("scd"); //NOT NULL всегда
     if (!pr_utc)
-      scd=LocalToUTC(scd+1,AirpTZRegion(PointsQry.FieldAsString("airp_dep")));
+      try
+      {
+        //если дата попадает в перевод времени - проблемы
+        scd=LocalToUTC(scd+1,AirpTZRegion(PointsQry.FieldAsString("airp_dep")));
+      }
+      catch(...)
+      {
+        scd=scd+1;
+      };
 
     if (scd<utcdate-ARX_MAX_DAYS())
     {
