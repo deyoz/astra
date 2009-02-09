@@ -1115,13 +1115,69 @@ void arx_daily(TDateTime utcdate)
 
   //и наконец чистим tlgs, files и т.п.
   ProgTrace(TRACE5,"arx_daily: clear tlgs");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM tlg_error WHERE id=:id; "
+    "  DELETE FROM tlg_queue WHERE id=:id; "
+    "  DELETE FROM tlgs WHERE id=:id; "
+    "END;";
+  DelQry.DeclareVariable("id",otInteger);
+
   Qry.Clear();
   Qry.SQLText=
-    "BEGIN "
-    "  arch.tlgs_files_etc(:arx_date); "
-    "END;";
+    "SELECT id FROM tlgs WHERE time<:arx_date AND rownum<=1000 FOR UPDATE";
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
   Qry.Execute();
+  while(!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      DelQry.SetVariable("id",Qry.FieldAsInteger("id"));
+      DelQry.Execute();
+    };
+    OraSession.Commit();
+    Qry.Execute();
+  };
+
+  ProgTrace(TRACE5,"arx_daily: clear files");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM file_queue WHERE id=:id; "
+    "  DELETE FROM file_params WHERE id=:id; "
+    "  DELETE FROM file_error WHERE id=:id; "
+    "  DELETE FROM files WHERE id=:id; "
+    "END;";
+  DelQry.DeclareVariable("id",otInteger);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT id FROM files WHERE time<:arx_date AND rownum<=1000 FOR UPDATE";
+  Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
+  Qry.Execute();
+  while(!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      DelQry.SetVariable("id",Qry.FieldAsInteger("id"));
+      DelQry.Execute();
+    };
+    OraSession.Commit();
+    Qry.Execute();
+  };
+
+  ProgTrace(TRACE5,"arx_daily: clear rozysk");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "DELETE FROM rozysk WHERE time<:arx_date AND rownum<=10000";
+  DelQry.CreateVariable("arx_date",otDate,utcdate-30);
+  DelQry.Execute();
+  while(DelQry.RowsProcessed()>0)
+  {
+    OraSession.Commit();
+    DelQry.Execute();
+  };
   OraSession.Commit();
 
   ProgTrace(TRACE5,"arx_daily stopped");
