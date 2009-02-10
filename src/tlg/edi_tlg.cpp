@@ -967,7 +967,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         // Из второй запись в БД
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
-        ed->sessDataWr()->SetEdiSessMesAttrOnly();
+        ed->sessDataWr()->SetEdiSessMesAttr();
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {
