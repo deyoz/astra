@@ -843,7 +843,7 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
     if(iv == pnrs.end())
         result << setw(7) << " ";
     else if(strlen(iv->addr) <= 7)
-        result << setw(7) << left << iv->addr;
+        result << setw(7) << left << convert_pnr_addr(iv->addr, pr_lat);
     // From City Airport Code
     result << setw(3) << data[TAG_AIRP_DEP].StringVal;
     // To City Airport Code
