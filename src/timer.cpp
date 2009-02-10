@@ -116,8 +116,6 @@ void exec_tasks( void )
 	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
 	    	  			  	else
 	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );
-	    	  			  		else
-	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;
