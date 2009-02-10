@@ -24,7 +24,8 @@ astra_SOURCES = \
 	events.cc		 base_tables.cc  astra_misc.cc            design_blank.cc \
 	astra_service.cc	 develop_dbf.cc	 flight_cent_dbf.cc       payment.cc payment2.cc \
 	sofi.cc			 aodb.cc	 spp_cek.cc telegram2.cc  czech_police_edi_file.cpp \
-	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc 		 
+	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc \
+	salons2.cc		 salonform2.cc	 seats2.cc		  seats_utils.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -53,7 +54,8 @@ noinst_HEADERS = \
 	events.h	       base_tables.h	      astra_misc.h        design_blank.h \
 	astra_service.h	       develop_dbf.h	      flight_cent_dbf.h   payment.h payment2.h \
 	sofi.h		       aodb.h		      spp_cek.h		  convert.h \
-	dev_tuning.h           czech_police_edi_file.h                    astra_context.h  
+	dev_tuning.h           czech_police_edi_file.h                    astra_context.h \
+	salons2.h	       salonform2.h	      seats2.h		  seats_utils.h
 	
 
 

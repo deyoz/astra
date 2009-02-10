@@ -10,7 +10,7 @@
 #include "telegram.h"
 #include "astra_service.h"
 #include "timer.h"
-#include "salons.h"
+#include "salons2.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

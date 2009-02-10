@@ -21,7 +21,7 @@ string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
     Qry.SQLText=
       "SELECT airline "
       "FROM crs_pnr,tlg_trips "
-      "WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=:pnr_id";
+      "WHERE crs_pnr.point_id=tlg_trips.point_id AND pnr_id=:pnr_id"; //pnr_market_flt
     Qry.CreateVariable("pnr_id",otInteger,pnr_id);
     Qry.Execute();
     if (!Qry.Eof) airline=Qry.FieldAsString("airline");
@@ -87,9 +87,168 @@ TDateTime DayToDate(int day, TDateTime base_date)
   return result;
 };
 
+void TTripRoute::GetRoute(int point_id,
+                          int point_num,
+                          int first_point,
+                          bool pr_tranzit,
+                          bool after_current,
+                          TTripRouteType1 route_type1,
+                          TTripRouteType2 route_type2,
+                          TQuery& Qry)
+{
+  ostringstream sql;
+  sql << "SELECT point_id,point_num,airp,pr_del "
+         "FROM points ";
+  if (after_current)
+  {
+    if (route_type1==trtWithCurrent)
+      sql << "WHERE :first_point IN (first_point,point_id)"
+          << "  AND point_num>=:point_num ";
+    else
+      sql << "WHERE first_point=:first_point"
+             "  AND point_num>:point_num ";
+  }
+  else
+  {
+    sql << "WHERE :first_point IN (first_point,point_id) ";
+    if (route_type1==trtWithCurrent)
+      sql << "AND point_num<=:point_num ";
+    else
+      sql << "AND point_num<:point_num ";
+  };
+
+  if (route_type2==trtWithCancelled)
+    sql << "AND pr_del>=0 ";
+  else
+    sql << "AND pr_del=0 ";
+
+  sql << "ORDER BY point_num";
+
+  Qry.Clear();
+  Qry.SQLText= sql.str().c_str();
+  if (!pr_tranzit)
+    Qry.CreateVariable("first_point",otInteger,point_id);
+  else
+    Qry.CreateVariable("first_point",otInteger,first_point);
+  Qry.CreateVariable("point_num",otInteger,point_num);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TTripRouteItem item;
+    item.point_id=Qry.FieldAsInteger("point_id");
+    item.point_num=Qry.FieldAsInteger("point_num");
+    item.airp=Qry.FieldAsString("airp");
+    item.pr_cancel=Qry.FieldAsInteger("pr_del")!=0;
+    push_back(item);
+  };
+};
+
+bool TTripRoute::GetRoute(int point_id,
+                          bool after_current,
+                          TTripRouteType1 route_type1,
+                          TTripRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT point_num,first_point,pr_tranzit "
+    "FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+  GetRoute(point_id,
+           Qry.FieldAsInteger("point_num"),
+           Qry.FieldAsInteger("first_point"),
+           Qry.FieldAsInteger("pr_tranzit")!=0,
+           after_current,route_type1,route_type2,Qry);
+  return true;
+};
+
+bool TTripRoute::GetRouteAfter(int point_id,
+                               TTripRouteType1 route_type1,
+                               TTripRouteType2 route_type2)
+{
+  return GetRoute(point_id,true,route_type1,route_type2);
+};
+
+bool TTripRoute::GetRouteBefore(int point_id,
+                                TTripRouteType1 route_type1,
+                                TTripRouteType2 route_type2)
+{
+  return GetRoute(point_id,false,route_type1,route_type2);
+};
+
+void TTripRoute::GetRouteAfter(int point_id,
+                               int point_num,
+                               int first_point,
+                               bool pr_tranzit,
+                               TTripRouteType1 route_type1,
+                               TTripRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(point_id,point_num,first_point,pr_tranzit,
+           true,route_type1,route_type2,Qry);
+};
+
+void TTripRoute::GetRouteBefore(int point_id,
+                                int point_num,
+                                int first_point,
+                                bool pr_tranzit,
+                                TTripRouteType1 route_type1,
+                                TTripRouteType2 route_type2)
+{
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(point_id,point_num,first_point,pr_tranzit,
+           false,route_type1,route_type2,Qry);
+};
+
+void TTripRoute::GetNextAirp(int point_id,
+                             int point_num,
+                             int first_point,
+                             bool pr_tranzit,
+                             TTripRouteType2 route_type2,
+                             TTripRouteItem& item)
+{
+  item.Clear();
+  clear();
+  TQuery Qry(&OraSession);
+  GetRoute(point_id,point_num,first_point,pr_tranzit,
+           true,trtNotCurrent,route_type2,Qry);
+  if (begin()!=end())
+  {
+    //а лучше бы перегрузить оператор присваивания
+    item.point_id=begin()->point_id;
+    item.point_num=begin()->point_num;
+    item.airp=begin()->airp;
+    item.pr_cancel=begin()->pr_cancel;
+  };
+};
+
+bool TTripRoute::GetNextAirp(int point_id,
+                             TTripRouteType2 route_type2,
+                             TTripRouteItem& item)
+{
+  item.Clear();
+  if (!GetRoute(point_id,true,trtNotCurrent,route_type2)) return false;
+  if (begin()!=end())
+  {
+    //а лучше бы перегрузить оператор присваивания
+    item.point_id=begin()->point_id;
+    item.point_num=begin()->point_num;
+    item.airp=begin()->airp;
+    item.pr_cancel=begin()->pr_cancel;
+  };
+  return true;
+};
+
+/*
 void TTripRoute::get(int point_id)
 {
-    items.clear();
+    clear();
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT point_num, DECODE(pr_tranzit,0,point_id,first_point) first_point "
@@ -140,11 +299,11 @@ void TTripRoute::get(int point_id)
     for(; !Qry.Eof; Qry.Next()) {
         TTripRouteItem item;
         item.airp = Qry.FieldAsString("airp");
-        item.city = Qry.FieldAsString("city");
+        //item.city = Qry.FieldAsString("city");
         item.point_num = Qry.FieldAsInteger("point_num");
-        items.push_back(item);
+        push_back(item);
     }
-}
+}*/
 
 string mkt_airline(int pax_id)
 {

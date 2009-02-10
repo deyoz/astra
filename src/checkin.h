@@ -7,6 +7,7 @@
 #include "jxtlib/JxtInterface.h"
 #include "astra_ticket.h"
 #include "astra_consts.h"
+#include "tripinfo.h"
 
 class CheckInInterface : public JxtInterface
 {
@@ -32,12 +33,11 @@ public:
      AddEvent("GetTripCounters",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::OpenCheckInInfo);
      AddEvent("OpenCheckInInfo",evHandle);
+     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::CheckTCkinRoute);
+     AddEvent("CheckTCkinRoute",evHandle);
+
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::TestDateTime);
      AddEvent("TestDateTime",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ConvertTransfer);
-     AddEvent("ConvertTransfer",evHandle);
-     evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::ConvertArxTransfer);
-     AddEvent("ConvertArxTransfer",evHandle);
   };
 
   void LoadTagPacks(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -48,23 +48,31 @@ public:
   void PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void OpenCheckInInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   void TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ConvertTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void ConvertArxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  void SavePaxRem(xmlNodePtr paxNode);
-  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
-  std::string SaveTransfer(xmlNodePtr grpNode, bool pr_unaccomp);
-  static void SaveBag(xmlNodePtr grpNode);
-  static void SavePaidBag(xmlNodePtr grpNode);
+  bool CheckCkinFlight(const int point_dep,
+                       const std::string& airp_dep,
+                       int& point_arv,
+                       const std::string& airp_arv,
+                       bool lock,
+                       TTripInfo& fltInfo);
 
-  void SaveBagToLog(xmlNodePtr grpNode);
+  void SavePaxRem(xmlNodePtr paxNode);
+  void SavePaxTransfer(xmlNodePtr paxNode, xmlNodePtr transferNode);
+  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
+  std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp);
+  static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
+  static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
+
+  void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
   void SaveTagPacks(xmlNodePtr node);
 
   void LoadPaxRem(xmlNodePtr paxNode);
+  void LoadPaxTransfer(xmlNodePtr paxNode, xmlNodePtr transferNode);
   void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
   void LoadTransfer(xmlNodePtr grpNode);
   static void LoadBag(xmlNodePtr grpNode);

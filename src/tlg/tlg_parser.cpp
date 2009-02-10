@@ -13,7 +13,8 @@
 #include "misc.h"
 #include "tlg.h"
 #include "convert.h"
-#include "seats.h"
+#include "seats_utils.h"
+#include "salons2.h"
 
 #define STDLOG NICKNAME,__FILE__,__LINE__
 #define NICKNAME "VLAD"
@@ -2133,7 +2134,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     *(tlg.lex+len)=0;
 
   pr_prev_rem=false;
-  if (strcmp(lexh,"C")==0)
+  if (strcmp(lexh,"C")==0 && strcmp(tlg.lex,".C/")!=0)
   {
     c=0;
     res=sscanf(tlg.lex,".C/%[A-ZА-ЯЁ0-9/ ]%c",lexh,&c);
@@ -2194,28 +2195,41 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     else strcpy(pnr.wl_priority,lexh);
     return;
   };
-  if (lexh[0]=='I'||lexh[0]=='O')
+
+  if (lexh[0]=='I'||lexh[0]=='O'||strcmp(lexh,"M")==0)
   {
     TTransferItem Transfer;
-    if (lexh[1]==0)
+    const char *errMsg;
+    bool pr_connection=strcmp(lexh,"M")!=0;
+    if (!pr_connection)
     {
-      Transfer.num=1;
-      if (lexh[0]=='I') Transfer.num=-Transfer.num;
+      errMsg="Wrong marketing flight element";
       c=0;
-      res=sscanf(tlg.lex,".%*c/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+      res=sscanf(tlg.lex,".M/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
     }
     else
     {
-      c=0;
-      res=sscanf(lexh+1,"%1lu%c",&Transfer.num,&c);
-      if (res==0) return; //другой элемент
-      if (c!=0||res!=1||Transfer.num<=0)
-        throw ETlgError("Wrong connection element");
-      if (lexh[0]=='I') Transfer.num=-Transfer.num;
-      c=0;
-      res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+      errMsg="Wrong connection element";
+      if (lexh[1]==0)
+      {
+        Transfer.num=1;
+        if (lexh[0]=='I') Transfer.num=-Transfer.num;
+        c=0;
+        res=sscanf(tlg.lex,".%*c/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+      }
+      else
+      {
+        c=0;
+        res=sscanf(lexh+1,"%1lu%c",&Transfer.num,&c);
+        if (res==0) return; //другой элемент
+        if (c!=0||res!=1||Transfer.num<=0)
+          throw ETlgError(errMsg);
+        if (lexh[0]=='I') Transfer.num=-Transfer.num;
+        c=0;
+        res=sscanf(tlg.lex,".%*c%*1[0-9]/%[A-ZА-ЯЁ0-9]%c",lexh,&c);
+      };
     };
-    if (c!=0||res!=1) throw ETlgError("Wrong connection element");
+    if (c!=0||res!=1) throw ETlgError(errMsg);
     c=0;
     if (isdigit(lexh[2]))
     {
@@ -2227,7 +2241,7 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         res=sscanf(lexh,"%2[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
-        if (res!=6) throw ETlgError("Wrong connection element");
+        if (res!=6) throw ETlgError(errMsg);
         GetSuffix(Transfer.suffix[0]);
       };
     }
@@ -2241,13 +2255,13 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
         res=sscanf(lexh,"%3[A-ZА-ЯЁ0-9]%5lu%1[A-ZА-ЯЁ]%1[A-ZА-ЯЁ]%2lu%[A-ZА-ЯЁ0-9]",
                         Transfer.airline,&Transfer.flt_no,
                         Transfer.suffix,Transfer.subcl,&Transfer.local_date,tlg.lex);
-        if (res!=6) throw ETlgError("Wrong connection element");
+        if (res!=6) throw ETlgError(errMsg);
         GetSuffix(Transfer.suffix[0]);
       };
     };
 
     if (Transfer.flt_no<0||Transfer.local_date<=0||Transfer.local_date>31)
-      throw ETlgError("Wrong connection element");
+      throw ETlgError(errMsg);
 
     Transfer.airp_dep[0]=0;
     Transfer.airp_arv[0]=0;
@@ -2256,11 +2270,12 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
                        Transfer.airp_dep,Transfer.airp_arv,lexh);
     if (res<2||Transfer.airp_dep[0]==0||Transfer.airp_arv[0]==0)
     {
+      if (!pr_connection) throw ETlgError(errMsg);
       Transfer.airp_dep[0]=0;
       lexh[0]=0;
       res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%[A-ZА-ЯЁ0-9]",
                          Transfer.airp_dep,lexh);
-      if (res<1||Transfer.airp_dep[0]==0) throw ETlgError("Wrong connection element");
+      if (res<1||Transfer.airp_dep[0]==0) throw ETlgError(errMsg);
     };
     if (lexh[0]!=0)
     {
@@ -2270,32 +2285,61 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
       {
         c=0;
         res=sscanf(lexh,"%4lu%c",&Transfer.local_time,&c);
-        if (c!=0||res!=1) throw ETlgError("Wrong connection element");
+        if (c!=0||res!=1) throw ETlgError(errMsg);
       };
     };
-    if (Transfer.num>0&&Transfer.airp_arv[0]==0)
+    if (!pr_connection)
     {
-      strcpy(Transfer.airp_arv,Transfer.airp_dep);
-      Transfer.airp_dep[0]=0;
-    };
-    //анализ на повторение
-    vector<TTransferItem>::iterator i;
-    for(i=pnr.transfer.begin();i!=pnr.transfer.end();i++)
-      if (Transfer.num==i->num) break;
-    if (i!=pnr.transfer.end())
-    {
-      if (strcmp(i->airline,Transfer.airline)!=0||
-          i->flt_no!=Transfer.flt_no||
-          strcmp(i->suffix,Transfer.suffix)!=0||
-          i->airp_dep[0]!=0&&Transfer.airp_dep[0]!=0&&
-          strcmp(i->airp_dep,Transfer.airp_dep)!=0||
-          i->local_date!=Transfer.local_date||
-          i->airp_arv[0]!=0&&Transfer.airp_arv[0]!=0&&
-          strcmp(i->airp_arv,Transfer.airp_arv)!=0||
-          strcmp(i->subcl,Transfer.subcl)!=0)
-        throw ETlgError("Different inbound/onward connection in group found");
+      GetAirline(Transfer.airline);
+      GetAirp(Transfer.airp_dep);
+      GetAirp(Transfer.airp_arv);
+      GetSubcl(Transfer.subcl);
+      //анализ на повторение
+      if (!pnr.market_flt.Empty())
+      {
+        if (strcmp(pnr.market_flt.airline,Transfer.airline)!=0||
+            pnr.market_flt.flt_no!=Transfer.flt_no||
+            strcmp(pnr.market_flt.suffix,Transfer.suffix)!=0||
+            pnr.market_flt.local_date!=Transfer.local_date||
+            strcmp(pnr.market_flt.airp_dep,Transfer.airp_dep)!=0||
+            strcmp(pnr.market_flt.airp_arv,Transfer.airp_arv)!=0||
+            strcmp(pnr.market_flt.subcl,Transfer.subcl)!=0)
+          throw ETlgError("Different marketing flight in group found");
+      };
+      strcpy(pnr.market_flt.airline,Transfer.airline);
+      pnr.market_flt.flt_no=Transfer.flt_no;
+      strcpy(pnr.market_flt.suffix,Transfer.suffix);
+      pnr.market_flt.local_date=Transfer.local_date;
+      strcpy(pnr.market_flt.airp_dep,Transfer.airp_dep);
+      strcpy(pnr.market_flt.airp_arv,Transfer.airp_arv);
+      strcpy(pnr.market_flt.subcl,Transfer.subcl);
     }
-    else pnr.transfer.push_back(Transfer);
+    else
+    {
+      if (Transfer.num>0&&Transfer.airp_arv[0]==0)
+      {
+        strcpy(Transfer.airp_arv,Transfer.airp_dep);
+        Transfer.airp_dep[0]=0;
+      };
+      //анализ на повторение
+      vector<TTransferItem>::iterator i;
+      for(i=pnr.transfer.begin();i!=pnr.transfer.end();i++)
+        if (Transfer.num==i->num) break;
+      if (i!=pnr.transfer.end())
+      {
+        if (strcmp(i->airline,Transfer.airline)!=0||
+            i->flt_no!=Transfer.flt_no||
+            strcmp(i->suffix,Transfer.suffix)!=0||
+            i->airp_dep[0]!=0&&Transfer.airp_dep[0]!=0&&
+            strcmp(i->airp_dep,Transfer.airp_dep)!=0||
+            i->local_date!=Transfer.local_date||
+            i->airp_arv[0]!=0&&Transfer.airp_arv[0]!=0&&
+            strcmp(i->airp_arv,Transfer.airp_arv)!=0||
+            strcmp(i->subcl,Transfer.subcl)!=0)
+          throw ETlgError("Different inbound/onward connection in group found");
+      }
+      else pnr.transfer.push_back(Transfer);
+    };
     return;
   };
 };
@@ -4144,16 +4188,16 @@ bool DeleteSOMContent(int point_id, THeadingInfo& info)
   Qry.Clear();
   Qry.SQLText=
     "SELECT MAX(time_create) AS max_time_create "
-    "FROM tlgs_in,tlg_comp_layers "
-    "WHERE tlg_comp_layers.tlg_id=tlgs_in.id AND "
-    "      tlg_comp_layers.point_id=:point_id AND "
-    "      tlg_comp_layers.layer_type=:layer_type";
+    "FROM tlgs_in,tlg_source "
+    "WHERE tlg_source.tlg_id=tlgs_in.id AND "
+    "      tlg_source.point_id_tlg=:point_id AND tlgs_in.type=:tlg_type";
   Qry.CreateVariable("point_id",otInteger,point_id);
-  Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltSOMTrzt));
+  Qry.CreateVariable("tlg_type",otString,info.tlg_type);
   Qry.Execute();
   if (!Qry.Eof && !Qry.FieldIsNULL("max_time_create"))
   {
     if (Qry.FieldAsDateTime("max_time_create") > info.time_create) return false;
+    Qry.Clear();
     Qry.SQLText=
       "BEGIN "
       "  DELETE FROM "
@@ -4164,6 +4208,8 @@ bool DeleteSOMContent(int point_id, THeadingInfo& info)
       "  DELETE FROM tlg_comp_layers "
       "  WHERE point_id=:point_id AND layer_type=:layer_type; "
       "END;";
+    Qry.CreateVariable("point_id",otInteger,point_id);
+    Qry.CreateVariable("layer_type",otString,EncodeCompLayerType(cltSOMTrzt));
     Qry.Execute();
   };
   return true;
@@ -4541,9 +4587,9 @@ void SyncTlgCompLayers(int range_id,
   InsQry.Clear();
   InsQry.SQLText=
     "INSERT INTO trip_comp_layers(range_id,point_id,point_dep,point_arv,layer_type, "
-    "  first_xname,last_xname,first_yname,last_yname,crs_pax_id,pax_id) "
+    "  first_xname,last_xname,first_yname,last_yname,crs_pax_id,pax_id,time_create) "
     "VALUES(:range_id,:point_id,:point_dep,:point_arv,:layer_type, "
-    "  :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,NULL)";
+    "  :first_xname,:last_xname,:first_yname,:last_yname,:crs_pax_id,NULL,system.UTCSYSDATE)";
   InsQry.CreateVariable("range_id",otInteger,range_id);
   InsQry.DeclareVariable("point_id",otInteger);
   InsQry.DeclareVariable("point_dep",otInteger);
@@ -4790,6 +4836,8 @@ void SaveSOMContent(int tlg_id, TDCSHeadingInfo& info, TSOMContent& con)
   bool usePriorContext=false;
   for(vector<TSeatsByDest>::iterator i=con.seats.begin();i!=con.seats.end();i++)
   {
+    //здесь надо удалить все слои телеграмм SOM из более ранних пунктов из trip_comp_layers
+
     SaveTlgSeatRanges(point_id,i->airp_arv,cltSOMTrzt,i->ranges,-1,tlg_id,usePriorContext);
     usePriorContext=true;
   };
@@ -4931,14 +4979,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     pr_recount=true;
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN \
-         UPDATE crs_data SET resa=NULL,pad=NULL WHERE point_id=:point_id AND crs=:crs; \
-         UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:crs; \
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data_stat(point_id,crs,last_resa) \
-           VALUES(:point_id,:crs,:time_create); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET resa=NULL,pad=NULL WHERE point_id=:point_id AND crs=:crs; "
+      "  UPDATE crs_data_stat SET last_resa=:time_create WHERE point_id=:point_id AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data_stat(point_id,crs,last_resa) "
+      "    VALUES(:point_id,:crs,:time_create); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("crs",otString,crs);
     Qry.CreateVariable("time_create",otDate,info.time_create);
@@ -4946,14 +4994,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN\
-         UPDATE crs_data SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad)\
-         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data(point_id,target,class,crs,resa,pad) \
-           VALUES(:point_id,:target,:class,:crs,:resa,:pad); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET resa=NVL(resa+:resa,:resa), pad=NVL(pad+:pad,:pad) "
+      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data(point_id,target,class,crs,resa,pad) "
+      "    VALUES(:point_id,:target,:class,:crs,:resa,:pad); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.DeclareVariable("target",otString);
     Qry.DeclareVariable("class",otString);
@@ -4975,14 +5023,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     pr_recount=true;
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN \
-         UPDATE crs_data SET tranzit=NULL WHERE point_id=:point_id AND crs=:crs; \
-         UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:crs; \
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data_stat(point_id,crs,last_tranzit) \
-           VALUES(:point_id,:crs,:time_create); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET tranzit=NULL WHERE point_id=:point_id AND crs=:crs; "
+      "  UPDATE crs_data_stat SET last_tranzit=:time_create WHERE point_id=:point_id AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data_stat(point_id,crs,last_tranzit) "
+      "    VALUES(:point_id,:crs,:time_create); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("crs",otString,crs);
     Qry.CreateVariable("time_create",otDate,info.time_create);
@@ -4990,14 +5038,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN\
-         UPDATE crs_data SET tranzit=NVL(tranzit+:tranzit,:tranzit)\
-         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data(point_id,target,class,crs,tranzit) \
-           VALUES(:point_id,:target,:class,:crs,:tranzit); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET tranzit=NVL(tranzit+:tranzit,:tranzit) "
+      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data(point_id,target,class,crs,tranzit) "
+      "    VALUES(:point_id,:target,:class,:crs,:tranzit); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.DeclareVariable("target",otString);
     Qry.DeclareVariable("class",otString);
@@ -5020,14 +5068,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     pr_recount=true;
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN \
-         UPDATE crs_data SET avail=NULL WHERE point_id=:point_id AND crs=:crs; \
-         UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:crs; \
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data_stat(point_id,crs,last_avail) \
-           VALUES(:point_id,:crs,:time_create); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET avail=NULL WHERE point_id=:point_id AND crs=:crs; "
+      "  UPDATE crs_data_stat SET last_avail=:time_create WHERE point_id=:point_id AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data_stat(point_id,crs,last_avail) "
+      "    VALUES(:point_id,:crs,:time_create); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("crs",otString,crs);
     Qry.CreateVariable("time_create",otDate,info.time_create);
@@ -5035,14 +5083,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN\
-         UPDATE crs_data SET avail=NVL(avail+:avail,:avail)\
-         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data(point_id,target,class,crs,avail) \
-           VALUES(:point_id,:target,:class,:crs,:avail); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET avail=NVL(avail+:avail,:avail) "
+      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data(point_id,target,class,crs,avail) "
+      "    VALUES(:point_id,:target,:class,:crs,:avail); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.DeclareVariable("target",otString);
     Qry.DeclareVariable("class",otString);
@@ -5065,14 +5113,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
     pr_recount=true;
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN \
-         UPDATE crs_data SET cfg=NULL WHERE point_id=:point_id AND crs=:crs; \
-         UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:crs; \
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data_stat(point_id,crs,last_cfg) \
-           VALUES(:point_id,:crs,:time_create); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET cfg=NULL WHERE point_id=:point_id AND crs=:crs; "
+      "  UPDATE crs_data_stat SET last_cfg=:time_create WHERE point_id=:point_id AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data_stat(point_id,crs,last_cfg) "
+      "    VALUES(:point_id,:crs,:time_create); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.CreateVariable("crs",otString,crs);
     Qry.CreateVariable("time_create",otDate,info.time_create);
@@ -5080,14 +5128,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
     Qry.Clear();
     Qry.SQLText=
-      "BEGIN\
-         UPDATE crs_data SET cfg=NVL(cfg+:cfg,:cfg)\
-         WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs;\
-         IF SQL%NOTFOUND THEN \
-           INSERT INTO crs_data(point_id,target,class,crs,cfg) \
-           VALUES(:point_id,:target,:class,:crs,:cfg); \
-         END IF; \
-       END;";
+      "BEGIN "
+      "  UPDATE crs_data SET cfg=NVL(cfg+:cfg,:cfg) "
+      "  WHERE point_id=:point_id AND target=:target AND class=:class AND crs=:crs; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO crs_data(point_id,target,class,crs,cfg) "
+      "    VALUES(:point_id,:target,:class,:crs,:cfg); "
+      "  END IF; "
+      "END;";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.DeclareVariable("target",otString);
     Qry.DeclareVariable("class",otString);
@@ -5154,18 +5202,18 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         TQuery CrsPnrInsQry(&OraSession);
         CrsPnrInsQry.Clear();
         CrsPnrInsQry.SQLText=
-          "BEGIN \
-             IF :pnr_id IS NULL THEN \
-               SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; \
-               INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,wl_priority,crs,tid) \
-               VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:wl_priority,:crs,tid__seq.currval); \
-             ELSE \
-               UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), \
-                                  wl_priority=NVL(:wl_priority,wl_priority), \
-                                  tid=tid__seq.currval \
-               WHERE pnr_id= :pnr_id; \
-             END IF; \
-           END;";
+          "BEGIN "
+          "  IF :pnr_id IS NULL THEN "
+          "    SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; "
+          "    INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,wl_priority,crs,tid) "
+          "    VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:wl_priority,:crs,tid__seq.currval); "
+          "  ELSE "
+          "    UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), "
+          "                       wl_priority=NVL(:wl_priority,wl_priority), "
+          "                       tid=tid__seq.currval "
+          "    WHERE pnr_id= :pnr_id; "
+          "  END IF; "
+          "END;";
         CrsPnrInsQry.CreateVariable("point_id",otInteger,point_id);
         CrsPnrInsQry.DeclareVariable("target",otString);
         CrsPnrInsQry.DeclareVariable("subclass",otString);
@@ -5178,11 +5226,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         TQuery CrsPaxQry(&OraSession);
         CrsPaxQry.Clear();
         CrsPaxQry.SQLText=
-          "SELECT pax_id,pr_del,last_op FROM crs_pax \
-           WHERE pnr_id= :pnr_id AND \
-                 surname= :surname AND (name= :name OR :name IS NULL AND name IS NULL) AND \
-                 DECODE(seats,0,0,1)=:seats AND tid<>:tid \
-           ORDER BY last_op DESC,pax_id DESC";
+          "SELECT pax_id,pr_del,last_op FROM crs_pax "
+          "WHERE pnr_id= :pnr_id AND "
+          "      surname= :surname AND (name= :name OR :name IS NULL AND name IS NULL) AND "
+          "      DECODE(seats,0,0,1)=:seats AND tid<>:tid "
+          "ORDER BY last_op DESC,pax_id DESC";
         CrsPaxQry.DeclareVariable("pnr_id",otInteger);
         CrsPaxQry.DeclareVariable("surname",otString);
         CrsPaxQry.DeclareVariable("name",otString);
@@ -5192,18 +5240,18 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         TQuery CrsPaxInsQry(&OraSession);
         CrsPaxInsQry.Clear();
         CrsPaxInsQry.SQLText=
-          "BEGIN\
-             IF :pax_id IS NULL THEN\
-               SELECT pax_id.nextval INTO :pax_id FROM dual;\
-               INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_type,seats,pr_del,last_op,tid)\
-               VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval);\
-             ELSE\
-               UPDATE crs_pax\
-               SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_type= :seat_type,\
-                   pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval\
-               WHERE pax_id=:pax_id;\
-             END IF;\
-           END;";
+          "BEGIN "
+          "  IF :pax_id IS NULL THEN "
+          "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
+          "    INSERT INTO crs_pax(pax_id,pnr_id,surname,name,pers_type,seat_xname,seat_yname,seat_type,seats,pr_del,last_op,tid) "
+          "    VALUES(:pax_id,:pnr_id,:surname,:name,:pers_type,:seat_xname,:seat_yname,:seat_type,:seats,:pr_del,:last_op,tid__seq.currval); "
+          "  ELSE "
+          "    UPDATE crs_pax "
+          "    SET pers_type= :pers_type, seat_xname= :seat_xname, seat_yname= :seat_yname, seat_type= :seat_type, "
+          "        pr_del= :pr_del, last_op= :last_op, tid=tid__seq.currval "
+          "    WHERE pax_id=:pax_id; "
+          "  END IF; "
+          "END;";
         CrsPaxInsQry.DeclareVariable("pax_id",otInteger);
         CrsPaxInsQry.DeclareVariable("pnr_id",otInteger);
         CrsPaxInsQry.DeclareVariable("surname",otString);
@@ -5226,8 +5274,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         TQuery CrsTransferQry(&OraSession);
         CrsTransferQry.Clear();
         CrsTransferQry.SQLText=
-          "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass)\
-           VALUES(:pnr_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";
+          "INSERT INTO crs_transfer(pnr_id,transfer_num,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
+          "VALUES(:pnr_id,:transfer_num,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";
         CrsTransferQry.DeclareVariable("pnr_id",otInteger);
         CrsTransferQry.DeclareVariable("transfer_num",otInteger);
         CrsTransferQry.DeclareVariable("airline",otString);
@@ -5238,15 +5286,29 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsTransferQry.DeclareVariable("airp_arv",otString);
         CrsTransferQry.DeclareVariable("subclass",otString);
 
+        TQuery PnrMarketFltQry(&OraSession);
+        PnrMarketFltQry.Clear();
+        PnrMarketFltQry.SQLText=
+          "INSERT INTO pnr_market_flt(pnr_id,airline,flt_no,suffix,local_date,airp_dep,airp_arv,subclass) "
+          "VALUES(:pnr_id,:airline,:flt_no,:suffix,:local_date,:airp_dep,:airp_arv,:subclass)";
+        PnrMarketFltQry.DeclareVariable("pnr_id",otInteger);
+        PnrMarketFltQry.DeclareVariable("airline",otString);
+        PnrMarketFltQry.DeclareVariable("flt_no",otInteger);
+        PnrMarketFltQry.DeclareVariable("suffix",otString);
+        PnrMarketFltQry.DeclareVariable("local_date",otInteger);
+        PnrMarketFltQry.DeclareVariable("airp_dep",otString);
+        PnrMarketFltQry.DeclareVariable("airp_arv",otString);
+        PnrMarketFltQry.DeclareVariable("subclass",otString);
+
         TQuery PnrAddrsQry(&OraSession);
         PnrAddrsQry.Clear();
         PnrAddrsQry.SQLText=
-          "BEGIN\
-             UPDATE pnr_addrs SET addr=:addr WHERE pnr_id=:pnr_id AND airline=:airline;\
-             IF SQL%NOTFOUND THEN\
-               INSERT INTO pnr_addrs(pnr_id,airline,addr) VALUES(:pnr_id,:airline,:addr);\
-             END IF;\
-           END;";
+          "BEGIN "
+          "  UPDATE pnr_addrs SET addr=:addr WHERE pnr_id=:pnr_id AND airline=:airline; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO pnr_addrs(pnr_id,airline,addr) VALUES(:pnr_id,:airline,:addr); "
+          "  END IF; "
+          "END;";
         PnrAddrsQry.DeclareVariable("pnr_id",otInteger);
         PnrAddrsQry.DeclareVariable("airline",otString);
         PnrAddrsQry.DeclareVariable("addr",otString);
@@ -5292,14 +5354,14 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
               bool pr_chg_del=false;
               Qry.Clear();
               Qry.SQLText=
-                "SELECT DISTINCT crs_pnr.pnr_id\
-                 FROM crs_pnr,crs_pax\
-                 WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND\
-                       point_id=:point_id AND target= :target AND subclass= :subclass AND\
-                       crs=:crs AND\
-                       surname=:surname AND (name= :name OR :name IS NULL AND name IS NULL) AND\
-                       seats>0\
-                 ORDER BY crs_pnr.pnr_id";
+                "SELECT DISTINCT crs_pnr.pnr_id "
+                "FROM crs_pnr,crs_pax "
+                "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+                "      point_id=:point_id AND target= :target AND subclass= :subclass AND "
+                "      crs=:crs AND "
+                "      surname=:surname AND (name= :name OR :name IS NULL AND name IS NULL) AND "
+                "      seats>0 "
+                "ORDER BY crs_pnr.pnr_id";
               Qry.CreateVariable("point_id",otInteger,point_id);
               Qry.CreateVariable("target",otString,iTotals->dest);
               Qry.CreateVariable("subclass",otString,iTotals->subcl);
@@ -5399,6 +5461,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
             CrsPaxInsQry.SetVariable("pnr_id",pnr_id);
             PnrAddrsQry.SetVariable("pnr_id",pnr_id);
 
+
             for(iPnrAddr=pnr.addrs.begin();iPnrAddr!=pnr.addrs.end();iPnrAddr++)
             {
               PnrAddrsQry.SetVariable("airline",iPnrAddr->airline);
@@ -5480,7 +5543,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                     "  DELETE FROM crs_pax_rem WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_doc WHERE pax_id=:pax_id; "
                     "  DELETE FROM crs_pax_tkn WHERE pax_id=:pax_id; "
-                    "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
+                     "  DELETE FROM crs_pax_fqt WHERE pax_id=:pax_id; "
                     "  DELETE FROM "
                     "   (SELECT * FROM tlg_comp_layers,trip_comp_layers "
                     "    WHERE tlg_comp_layers.range_id=trip_comp_layers.range_id AND "
@@ -5544,9 +5607,9 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                   //делаем синхронизацию пассажира с розыском
                   Qry.Clear();
                   Qry.SQLText=
-                    "BEGIN\
-                       mvd.sync_crs_pax(:pax_id);\
-                     END;";
+                    "BEGIN "
+                    "  mvd.sync_crs_pax(:pax_id); "
+                    "END;";
                   Qry.CreateVariable("pax_id",otInteger,pax_id);
                   Qry.Execute();
                 };
@@ -5554,15 +5617,16 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
             }; //for(iNameElement=pnr.ne.begin()
 
             //запишем стыковки
-            if (!pnr.transfer.empty())
+            if (/*ne.indicator==ADD && */!pnr.transfer.empty() /*||
+                ne.indicator==CHG*/)
             {
               //удаляем нафиг все стыковки
               Qry.Clear();
               Qry.SQLText=
-                "BEGIN\
-                   DELETE FROM crs_transfer WHERE pnr_id= :pnr_id;\
-                   UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id;\
-                 END;";
+                "BEGIN "
+                "  DELETE FROM crs_transfer WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
               CrsTransferQry.SetVariable("pnr_id",pnr_id);
@@ -5577,41 +5641,6 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
                 CrsTransferQry.SetVariable("airp_arv",iTransfer->airp_arv);
                 CrsTransferQry.SetVariable("subclass",iTransfer->subcl);
                 CrsTransferQry.Execute();
-                //проверка на существование в базе кодов авиакомпаний,аэропортов,подклассов
-              /*  try
-                {
-                  GetAirline(iTransfer->flt.airline);
-                }
-                catch(ETlgError E)
-                {
-                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
-                };
-                try
-                {
-                  if (iTransfer->flt.airp_dep[0]!=0)
-                    GetAirp(iTransfer->flt.airp_dep);
-                }
-                catch(ETlgError E)
-                {
-                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
-                };
-                try
-                {
-                  if (iTransfer->flt.airp_arv[0]!=0)
-                    GetAirp(iTransfer->flt.airp_arv);
-                }
-                catch(ETlgError E)
-                {
-                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
-                };
-                try
-                {
-                  GetClass(iTransfer->subcl);
-                }
-                catch(ETlgError E)
-                {
-                  sendErrorTlg(ERR_CANON_NAME(),OWN_CANON_NAME(),"Transfer: %s",E.Message);
-                };*/
               };
               Qry.Clear();
               Qry.SQLText=
@@ -5622,31 +5651,42 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
             };
+            //запишем коммерческий рейс
+            if (/*ne.indicator==ADD && */!pnr.market_flt.Empty() /*||
+                ne.indicator==CHG*/)
+            {
+              //удаляем нафиг предыдущий
+              Qry.Clear();
+              Qry.SQLText=
+                "BEGIN "
+                "  DELETE FROM pnr_market_flt WHERE pnr_id= :pnr_id; "
+                "  UPDATE crs_pnr SET tid=tid__seq.currval WHERE pnr_id= :pnr_id; "
+                "END;";
+              Qry.CreateVariable("pnr_id",otInteger,pnr_id);
+              Qry.Execute();
+
+              PnrMarketFltQry.SetVariable("pnr_id",pnr_id);
+              PnrMarketFltQry.SetVariable("airline",pnr.market_flt.airline);
+              PnrMarketFltQry.SetVariable("flt_no",(int)pnr.market_flt.flt_no);
+              PnrMarketFltQry.SetVariable("suffix",pnr.market_flt.suffix);
+              PnrMarketFltQry.SetVariable("local_date",(int)pnr.market_flt.local_date);
+              PnrMarketFltQry.SetVariable("airp_dep",pnr.market_flt.airp_dep);
+              PnrMarketFltQry.SetVariable("airp_arv",pnr.market_flt.airp_arv);
+              PnrMarketFltQry.SetVariable("subclass",pnr.market_flt.subcl);
+              PnrMarketFltQry.Execute();
+            };
+
             if (pr_sync_pnr)
             {
               //делаем синхронизацию всей группы с розыском
               Qry.Clear();
               Qry.SQLText=
-                "BEGIN\
-                   mvd.sync_crs_pnr(:pnr_id);\
-                 END;";
+                "BEGIN "
+                "  mvd.sync_crs_pnr(:pnr_id); "
+                "END;";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
             };
-
-    /*        //проверим, не пуста ли группа
-            Qry.Clear();
-            Qry.SQLText=
-              "DECLARE\
-                 c BINARY_INTEGER;\
-               BEGIN\
-                 SELECT COUNT(*) INTO c FROM crs_pax WHERE pnr_id=:pnr_id AND seats>0;\
-                 IF c=0 THEN\
-                   UPDATE crs_pax SET pr_del=1,tid=tid__seq.currval WHERE pnr_id=:pnr_id AND seats>0;\
-                 END IF;\
-               END;";*/
-
-
           };//for(iPnrItem=iTotals->pnr.begin()
         };
       };
@@ -5667,13 +5707,13 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
       {
         Qry.Clear();
         Qry.SQLText=
-          "BEGIN\
-             UPDATE crs_data_stat SET pr_pnl=:pr_pnl WHERE point_id=:point_id AND crs=:crs;\
-             IF SQL%NOTFOUND THEN\
-               INSERT INTO crs_data_stat(point_id,crs,pr_pnl)\
-               VALUES(:point_id,:crs,:pr_pnl);\
-             END IF;\
-           END;";
+          "BEGIN "
+          "  UPDATE crs_data_stat SET pr_pnl=:pr_pnl WHERE point_id=:point_id AND crs=:crs; "
+          "  IF SQL%NOTFOUND THEN "
+          "    INSERT INTO crs_data_stat(point_id,crs,pr_pnl) "
+          "    VALUES(:point_id,:crs,:pr_pnl); "
+          "  END IF; "
+          "END;";
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.CreateVariable("crs",otString,crs);
         Qry.CreateVariable("pr_pnl",otInteger,pr_pnl_new);

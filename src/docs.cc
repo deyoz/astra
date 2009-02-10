@@ -353,9 +353,10 @@ int GetRPEncoding(int point_id, string target)
             target == "tpm"
       ) {
         TTripRoute route;
-        route.get(point_id);
-        for(vector<TTripRouteItem>::iterator iv = route.items.begin(); iv != route.items.end(); iv++) {
-            ProgTrace(TRACE5, "%s %s", iv->airp.c_str(), iv->city.c_str());
+        if (!route.GetRouteAfter(point_id,trtWithCurrent,trtNotCancelled))
+          throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", point_id);
+        for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++) {
+            //ProgTrace(TRACE5, "%s %s", iv->airp.c_str(), iv->city.c_str());
             ProgTrace(TRACE5, "%s", cities.get_row("code",
                     airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
             result = result or cities.get_row("code",
@@ -490,7 +491,7 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no, "
         "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
-        "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       report.get_reminfo(pax_id,',') AS info "
         "FROM   pax_grp,pax,pers_types "
         "WHERE  pax_grp.grp_id=pax.grp_id AND "
@@ -502,7 +503,6 @@ void RunRem(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
-    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
@@ -577,7 +577,7 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no, "
         "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
-        "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bagAmount, "
         "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bagWeight, "
         "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
@@ -590,7 +590,6 @@ void RunNotpres(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "       reg_no ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
-    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
     xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
@@ -718,8 +717,8 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, "
         "   surname||' '||pax.name AS full_name, "
         "   pax.pers_type, "
-        "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum,0) AS seat_no, "
-        "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, "
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, "
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, "
         "   pax.seats, ";
     if(
             target.empty() ||
@@ -825,7 +824,6 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
-    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");

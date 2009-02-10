@@ -30,8 +30,8 @@ extern const char* TPersonS[4];
 typedef enum {DoubleTr,DoubleOk,ChangeCl,WL,GoShow,NoQueue} TQueue;
 extern const int TQueueS[6];
 
-typedef enum { psOk, psGoshow, psTransit } TPaxStatus;
-extern const char* TPaxStatusS[3];
+typedef enum { psCheckin, psTCheckin, psTransit, psGoshow } TPaxStatus;
+extern const char* TPaxStatusS[4];
 
 const int NoExists = INT_MIN;
 const std::string NoDays = ".......";
@@ -48,8 +48,8 @@ const char lat_suffix[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const char rus_seat[]="ÄÅÇÉÑÖÜáàäãåçéèêëíìîïñóòô";
 const char lat_seat[]="ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
-enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
-	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUnknown, cltTypeNum };
+enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoShow, cltBlockTrzt, cltSOMTrzt, cltPRLTrzt,
+	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
 };

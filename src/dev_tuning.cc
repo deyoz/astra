@@ -12,7 +12,6 @@
 #include "jxtlib/xml_stuff.h"
 
 #define NICKNAME "DEN"
-#include "setup.h"
 #include "serverlib/test.h"
 
 using namespace std;

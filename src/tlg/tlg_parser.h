@@ -96,6 +96,10 @@ class TFltInfo
       *airp_dep=0;
       *airp_arv=0;
     };
+    bool Empty()
+    {
+      return *airline==0;
+    };
 };
 
 class THeadingInfo
@@ -340,24 +344,37 @@ class TPaxItem
     };
 };
 
-class TTransferItem : public TFltInfo
+class TSegmentItem : public TFltInfo
 {
   public:
-    long num;
     long local_date;
     long local_time;
     char subcl[2];
-    TTransferItem() : TFltInfo()
+    TSegmentItem() : TFltInfo()
     {
       Clear();
     };
     void Clear()
     {
       TFltInfo::Clear();
-      num=0;
       local_date=0;
       local_time=0;
       *subcl=0;
+    };
+};
+
+class TTransferItem : public TSegmentItem
+{
+  public:
+    long num;
+    TTransferItem() : TSegmentItem()
+    {
+      Clear();
+    };
+    void Clear()
+    {
+      TSegmentItem::Clear();
+      num=0;
     };
 };
 
@@ -395,6 +412,7 @@ class TPnrItem
     char wl_priority[7];
     std::vector<TNameElement> ne;
     std::vector<TTransferItem> transfer;
+    TSegmentItem market_flt;
     TPnrItem()
     {
       *grp_ref=0;
@@ -410,6 +428,7 @@ class TPnrItem
       *wl_priority=0;
       ne.clear();
       transfer.clear();
+      market_flt.Clear();
     };
 };
 

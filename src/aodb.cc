@@ -24,7 +24,7 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_service.h"
 #include "misc.h"
 #include "stages.h"
-#include "salons.h"
+#include "salons2.h"
 #include "serverlib/helpcpp.h"
 
 #define NICKNAME "DJEK"
@@ -358,7 +358,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "SELECT pax.pax_id,pax.reg_no,pax.surname||' '||pax.name name,pax_grp.grp_id,"
 	   "       pax_grp.airp_arv,pax_grp.class,pax.refuse,"
 	   "       pax.pers_type, "
-	   "       salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'one',rownum) AS seat_no, "
+	   "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no, "
 	   "       pax.seats seats, "
 	   "       ckin.get_excess(pax_grp.grp_id,pax.pax_id) excess,"
 	   "       ckin.get_rkAmount(pax_grp.grp_id,pax.pax_id,rownum) rkamount,"
@@ -370,7 +370,6 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id"
 	   " ORDER BY pax_grp.grp_id,seats ";
-	  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
 	};
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();

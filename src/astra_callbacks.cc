@@ -10,6 +10,7 @@
 #include "cent.h"
 #include "prepreg.h"
 #include "salonform.h"
+#include "salonform2.h"
 #include "sopp.h"
 #include "stat.h"
 #include "print.h"
@@ -56,6 +57,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new EventsInterface();
     new TripsInterface();
     new SalonsInterface();
+    new SalonFormInterface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();
@@ -159,7 +161,8 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
         		showError("Версия системы была обновлена. Повторите действие");
         		break;
         	default:
-        	  ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",orae->Code,orae->what(),orae->SQLText());
+        	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
+        	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
             showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
         }
         return;

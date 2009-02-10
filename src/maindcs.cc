@@ -7,6 +7,7 @@
 #include "base_tables.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include <fstream>
 #include "xml_unit.h"
 #include "jxtlib/jxt_cont.h"
 

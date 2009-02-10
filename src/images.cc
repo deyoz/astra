@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include "images.h"
-#include "setup.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "oralib.h"
@@ -141,6 +140,31 @@ void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
   GetImages( reqNode, resNode );
 };
+
+void ImagesInterface::GetDrawSalonData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	GetDrawSalonProp( reqNode, resNode );
+}
+
+void GetDrawSalonProp( xmlNodePtr reqNode, xmlNodePtr resNode )
+{
+	ImagesInterface::GetImages( reqNode, resNode );
+	TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT code,color,figure FROM comp_layer_types";
+  Qry.Execute();
+  xmlNodePtr imagesNode = GetNode( "data/images", resNode );
+  xmlNodePtr layersNode = GetNode( "layers_color", imagesNode );
+  if ( !layersNode )
+  	layersNode = NewTextChild( imagesNode, "layers_color" );
+  while ( !Qry.Eof ) {
+			xmlNodePtr n = NewTextChild( layersNode, "layer", Qry.FieldAsString( "code" ) );
+      if ( !Qry.FieldIsNULL( "color" ) )
+			  SetProp( n, "color", Qry.FieldAsString( "color" ) );
+			if ( !Qry.FieldIsNULL( "figure" ) )
+			  SetProp( n, "figure", Qry.FieldAsString( "figure" ) );
+  	Qry.Next();
+  }
+}
 
 
 void ImagesInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

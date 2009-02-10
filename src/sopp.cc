@@ -18,6 +18,8 @@
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
+#include "salons2.h"
+
 #include "aodb.h"
 #include "serverlib/perfom.h"
 
@@ -1539,7 +1541,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   {
     Qry.SQLText=
       "SELECT trfer_trips.airline,trfer_trips.flt_no,trfer_trips.suffix,trfer_trips.scd, "
-      "       pax_grp.airp_arv AS airp_dep,transfer.airp_arv,transfer.subclass, "
+      "       pax_grp.airp_arv AS airp_dep,transfer.airp_arv, "
       "       pax_grp.grp_id,pax_grp.class AS subcl, "
       "       NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
       "       NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
@@ -1710,12 +1712,9 @@ void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   GetTransfer(ctxt,reqNode,resNode,true);
 };
 
-
-void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void DeletePassengers( int point_id, const string status )
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );
-
-	TQuery Qry(&OraSession);
+  TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
 	  "SELECT airline,flt_no,airp,point_num, "
@@ -1725,7 +1724,6 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
   sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
@@ -1738,13 +1736,18 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   map<bool,string> BSMaddrs;
   map<int,TBSMContent> BSMContentBefore;
   bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
+  string sql;
 
   if (BSMsend)
   {
+  	sql = "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
+  	if ( !status.empty() )
+  		sql += " AND status=:status ";
     Qry.Clear();
-    Qry.SQLText=
-      "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
+    Qry.SQLText= sql;
     Qry.CreateVariable( "point_id", otInteger, point_id );
+    if ( !status.empty() )
+    	Qry.CreateVariable( "status", otString, status );
     Qry.Execute();
     for(;!Qry.Eof;Qry.Next())
     {
@@ -1753,16 +1756,41 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       BSMContentBefore[Qry.FieldAsInteger("grp_id")]=BSMContent;
     };
   };
-
-  Qry.Clear();
-	Qry.SQLText =
+  sql =
 	 "BEGIN "
    " DECLARE "
    " CURSOR cur IS "
-   "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id; "
+   "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id ";
+  if ( !status.empty() )
+  	sql +=  " AND status=:status ";
+  sql += "; ";
+  sql +=
    " curRow      cur%ROWTYPE; "
    " BEGIN "
-   "  DELETE FROM trip_comp_layers WHERE point_id=:point_id AND layer_type=:layer_type; "
+   "  DELETE FROM trip_comp_layers WHERE point_id=:point_id AND layer_type IN (";
+  if ( status.empty() ) {
+  	sql += "'" + string(EncodeCompLayerType(cltGoShow)) + "',";
+  	sql += "'" + string(EncodeCompLayerType(cltTranzit)) + "',";
+  	sql += "'" + string(EncodeCompLayerType(cltCheckin)) + "',";
+  	sql += "'" + string(EncodeCompLayerType(cltTCheckin)) + "'); ";
+  }
+  else {
+  	switch ( DecodePaxStatus( (char*)status.c_str() ) ) {
+  		case psCheckin:
+  			sql += "'" + string(EncodeCompLayerType(cltCheckin)) + "'); ";
+  			break;
+  		case psTCheckin:
+  			sql +=  "'" + string(EncodeCompLayerType(cltTCheckin)) + "'); ";
+  			break;
+  		case psTransit:
+  			sql += "'" + string(EncodeCompLayerType(cltTranzit)) + "'); ";
+  			break;
+  		case psGoshow:
+  			sql += "'" + string(EncodeCompLayerType(cltGoShow)) + "'); ";
+  			break;
+  	}
+  };
+  sql +=
    "  FOR curRow IN cur LOOP "
    "    UPDATE pax SET refuse='А',pr_brd=NULL WHERE grp_id=curRow.grp_id; "
    "    mvd.sync_pax_grp(curRow.grp_id,:term); "
@@ -1771,13 +1799,18 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
    "  ckin.recount(:point_id); "
    " END; "
    "END;";
-
+  Qry.Clear();
+	Qry.SQLText = sql;
+	ProgTrace( TRACE5, "point_id=%d, status=%s", point_id, status.c_str() );
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(cltCheckin));
   Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+  if ( !status.empty() )
+  	Qry.CreateVariable( "status", otString, status );
   Qry.Execute();
-  TReqInfo::Instance()->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
-  showMessage( "Все пассажиры разрегистрированы" );
+  if ( status.empty() )
+    TReqInfo::Instance()->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
+  else
+  	TReqInfo::Instance()->MsgToLog( string("Все пассажиры со статусом ") + status + " разрегистрированы", evtPax, point_id );
 
   //BSM
   if (BSMsend)
@@ -1788,6 +1821,14 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       TelegramInterface::SendBSM(point_id,i->first,i->second,BSMaddrs);
     };
   };
+}
+
+
+void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+	DeletePassengers( point_id, string("") );
+  showMessage( "Все пассажиры разрегистрированы" );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2610,10 +2651,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else
       id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
                        id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
-    id->pr_reg = ( id->scd_out > NoExists /*&& id->act_out == NoExists*/ &&
+    id->pr_reg = ( id->scd_out > NoExists &&
                    find( triptypes.begin(), triptypes.end(), id->triptype ) != triptypes.end() &&
-                   !id->pr_del && id != dests.end() - 1 );
-    if ( id->pr_reg ) {
+                   /*!id->pr_del &&*/ id != dests.end() - 1 );
+/*    if ( id->pr_reg ) {
       TSOPPDests::iterator r=id;
       r++;
       for ( ;r!=dests.end(); r++ ) {
@@ -2623,7 +2664,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( r == dests.end() ) {
         id->pr_reg = 0;
       }
-    }
+    }*/
   	pid = id;
   }
 //  } //end move_id==NoExists
@@ -2802,7 +2843,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   	  change_est_out = id->est_out != old_dest.est_out;
 
-  	  if ( !old_dest.pr_reg && id->pr_reg && !id->pr_del ) {
+  	  if ( !old_dest.pr_reg && id->pr_reg && id->pr_del != -1 ) {
   	    Qry.Clear();
   	    Qry.SQLText = "SELECT COUNT(*) c FROM trip_stages WHERE point_id=:point_id AND rownum<2";
   	    Qry.CreateVariable( "point_id", otInteger, id->point_id );
@@ -3047,7 +3088,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.Execute();
   	}
-  	if ( !id->pr_del && id->pr_reg && id->est_out > NoExists && id->est_out != id->scd_out ) {
+  	if ( id->pr_del != -1 && id->pr_reg && id->est_out > NoExists && id->est_out != id->scd_out ) {
   		Qry.Clear();
   		Qry.SQLText =
   		 "UPDATE trip_stages SET est=scd+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0 ";
@@ -3467,7 +3508,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
 		NewTextChild( snode, "airp_arv_tlg", Qry.FieldAsString( "airp_arv_tlg" ) );
 		NewTextChild( snode, "class_tlg", Qry.FieldAsString( "class_tlg" ) );
-    NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psOk) ); //!!!убрат
+    NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psCheckin) ); //!!!убрат
 	  NewTextChild( snode, "status", Qry.FieldAsString( "status" ) );
   	Qry.Next();
   }

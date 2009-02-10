@@ -13,7 +13,8 @@
 #include "tripinfo.h"
 #include "docs.h"
 #include "stat.h"
-#include "salons.h"
+#include "salons2.h"
+#include "sopp.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -303,6 +304,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
 void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
+  bool question = NodeAsInteger( "question", reqNode, 0 );
   ProgTrace(TRACE5, "TripInfoInterface::CrsDataApplyUpdates, point_id=%d", point_id );
   //TReqInfo::Instance()->user.check_access( amWrite );
   TQuery Qry( &OraSession );
@@ -366,7 +368,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     TQuery SetsQry( &OraSession );
     SetsQry.Clear();
     SetsQry.SQLText =
-      "SELECT pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam, "
+      "SELECT pr_tranz_reg,pr_block_trzt,pr_check_load,pr_overload_reg,pr_exam, "
       "       pr_check_pay,pr_exam_check_pay,pr_bp_market_flt, "
       "       pr_reg_with_tkn,pr_reg_with_doc "
       "FROM trip_sets WHERE point_id=:point_id";
@@ -376,6 +378,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
     bool new_pr_tranzit,old_pr_tranzit,
          new_pr_tranz_reg,      old_pr_tranz_reg,
+         new_pr_block_trzt,			old_pr_block_trzt,
          new_pr_check_load,     old_pr_check_load,
          new_pr_overload_reg,   old_pr_overload_reg,
          new_pr_exam,           old_pr_exam,
@@ -386,6 +389,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
          new_pr_reg_with_doc,   old_pr_reg_with_doc;
     old_pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
     old_pr_tranz_reg=SetsQry.FieldAsInteger("pr_tranz_reg")!=0;
+    old_pr_block_trzt=SetsQry.FieldAsInteger("pr_block_trzt")!=0;
     old_pr_check_load=SetsQry.FieldAsInteger("pr_check_load")!=0;
     old_pr_overload_reg=SetsQry.FieldAsInteger("pr_overload_reg")!=0;
     old_pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
@@ -397,6 +401,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 
     new_pr_tranzit=NodeAsInteger("pr_tranzit",node)!=0;
     new_pr_tranz_reg=NodeAsInteger("pr_tranz_reg",node)!=0;
+    new_pr_block_trzt=NodeAsInteger("pr_block_trzt",node,1)!=0;
     new_pr_check_load=NodeAsInteger("pr_check_load",node)!=0;
     new_pr_overload_reg=NodeAsInteger("pr_overload_reg",node)!=0;
     new_pr_exam=NodeAsInteger("pr_exam",node)!=0;
@@ -423,16 +428,44 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
     //!!!потом убрать GetNode 01.12.08
 
     if (old_pr_tranzit!=new_pr_tranzit ||
-        old_pr_tranz_reg!=new_pr_tranz_reg)
+        old_pr_tranz_reg!=new_pr_tranz_reg ||
+        old_pr_block_trzt!=new_pr_block_trzt)
     {
-      if (Qry.FieldAsInteger("tranzitable")!=0)
+      if (Qry.FieldAsInteger("tranzitable")!=0) //является ли пункт промежуточным в маршруте
       {
         //рейс tranzitable
-        bool pr_tranz_reg;
+        bool pr_tranz_reg,pr_block_trzt;
         if (new_pr_tranzit)
           pr_tranz_reg=new_pr_tranz_reg;
         else
           pr_tranz_reg=false;
+        if (new_pr_tranzit)
+          pr_block_trzt=new_pr_block_trzt && !pr_tranz_reg;
+        else
+          pr_block_trzt=false;
+        if ( pr_tranz_reg!=old_pr_tranz_reg && !pr_tranz_reg ) { // отмена перерегистрации транзита
+        	TQuery DelQry( &OraSession );
+        	DelQry.SQLText =
+  		      "SELECT grp_id  FROM pax_grp,points "
+  		      " WHERE points.point_id=:point_id AND "
+  		      "       point_dep=:point_id AND /*bag_refuse=0 AND ???*/ status=:status AND rownum<2 ";
+  		    DelQry.CreateVariable( "point_id", otInteger, point_id );
+  		    DelQry.CreateVariable( "status", otString, EncodePaxStatus( psTransit ) );
+  		    DelQry.Execute();
+  		    if ( !DelQry.Eof ) {
+  		    	ProgTrace( TRACE5, "question=%d", question );
+  		    	if ( question ) {
+  		    		xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  		    		NewTextChild( dataNode, "question", "Отмена режима перерегистрации транзита приведет к отмене регистрации всех транзитных пассажиров. Отменить режим перерегистрации?" );
+  		    		return;
+  		      }
+  		      tst();
+  		      DeletePassengers( point_id, EncodePaxStatus( psTransit ) );
+  		      tst();
+  		    }
+        }
+        //есть ли транзитные пассажиры pax_grp.status='T'
+
         int first_point=Qry.FieldAsInteger("first_point");
         int point_num=Qry.FieldAsInteger("point_num");
         if (old_pr_tranzit != new_pr_tranzit)
@@ -459,15 +492,19 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
           Qry.Execute();
         };
         Qry.Clear();
-        Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg WHERE point_id=:point_id";
+        Qry.SQLText="UPDATE trip_sets SET pr_tranz_reg=:pr_tranz_reg,pr_block_trzt=:pr_block_trzt WHERE point_id=:point_id";
         Qry.CreateVariable("pr_tranz_reg",otInteger,(int)pr_tranz_reg);
+        Qry.CreateVariable("pr_block_trzt",otInteger,(int)pr_block_trzt);
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
 
         TLogMsg msg;
         msg.msg = "Установлен режим";
         if ( !pr_tranz_reg ) msg.msg += " без";
-        msg.msg += " перерегистрации транзита для";
+        msg.msg += " перерегистрации транзита,";
+        if ( !pr_block_trzt ) msg.msg += " без";
+        msg.msg += " ручной разметки транзита";
+        msg.msg += " для";
         if ( !new_pr_tranzit )
           msg.msg += " нетранзитного рейса";
         else

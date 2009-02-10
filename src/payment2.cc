@@ -299,8 +299,8 @@ void PaymentOldInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckInInterface::SaveBag(reqNode);
-    CheckInInterface::SavePaidBag(reqNode);
+    CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
+    CheckInInterface::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(
             "Данные по багажным тарифам и ценному багажу сохранены.",

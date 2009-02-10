@@ -1052,7 +1052,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
 
         if(pax_id != NoExists && pr_bp_market_flt) {
             Qry.Clear();
-            Qry.SQLText =
+            Qry.SQLText = //pnr_market_flt
                 "select "
                 "   tlg_trips.airline, "
                 "   tlg_trips.flt_no, "
@@ -1187,11 +1187,11 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list',NULL,0) AS list_seat_no, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,0) AS str_seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,0) AS seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,1)) AS seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,0) AS seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,1)) AS seat_no_lat, "
             "   pax.SEAT_TYPE, "
             "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
             "   to_char(DECODE( "
@@ -1233,7 +1233,6 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax_id = :pax_id and "
             "   pax.pers_type = pers_types.code";
         Qry->CreateVariable("pax_id", otInteger, pax_id);
-        Qry->CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     }
     Qrys.push_back(Qry);
 

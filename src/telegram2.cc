@@ -17,6 +17,7 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace boost::local_time;
 using namespace ASTRA;
+using namespace SALONS2;
 
 const string br = "\xa";
 const size_t PART_SIZE = 2000;
@@ -580,7 +581,8 @@ namespace PRL_SPACE {
         string suffix;
         TDateTime scd;
         string airp_arv;
-        string subclass;
+        string trfer_subcls;
+        string trfer_cls;
         TOnwardItem() {
             flt_no = NoExists;
             scd = NoExists;
@@ -592,7 +594,7 @@ namespace PRL_SPACE {
             virtual string format(const TOnwardItem &item, const int i, TTlgInfo &info)=0;
         public:
             vector<TOnwardItem> items;
-            void get(int grp_id);
+            void get(int pax_id, bool tmp);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TOnwardList(){};
     };
@@ -613,10 +615,10 @@ namespace PRL_SPACE {
                     << DateTimeToStr(item.scd, "ddmmm", info.pr_lat)
                     << '/'
                     << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
-                if(not item.subclass.empty())
+                if(not item.trfer_cls.empty())
                     line
                         << '/'
-                        << ElemIdToElem(etSubcls, item.subclass, info.pr_lat);
+                        << ElemIdToElem(etClass, item.trfer_cls, info.pr_lat);
                 return line.str();
             }
     };
@@ -634,29 +636,42 @@ namespace PRL_SPACE {
                     << ElemIdToElem(etAirline, item.airline, info.pr_lat)
                     << setw(3) << setfill('0') << item.flt_no
                     << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
-                    << ElemIdToElem(etSubcls, item.subclass, info.pr_lat)
+                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.pr_lat)
                     << DateTimeToStr(item.scd, "dd", info.pr_lat)
                     << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
                 return line.str();
             }
     };
 
-    void TOnwardList::get(int grp_id)
+    void TOnwardList::get(int pax_id, bool tmp)
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "SELECT "
-            "   airline, "
-            "   flt_no, "
-            "   suffix, "
-            "   scd, "
-            "   airp_arv, "
-            "   subclass "
-            "FROM transfer,trfer_trips  "
-            "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
-            "      grp_id=:grp_id AND transfer_num>=1 "
-            "ORDER BY transfer_num ";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
+            "SELECT \n"
+            "    trfer_trips.airline, \n"
+            "    trfer_trips.flt_no, \n"
+            "    trfer_trips.suffix, \n"
+            "    trfer_trips.scd, \n"
+            "    transfer.airp_arv, \n"
+            "    transfer_subcls.subclass trfer_subclass, \n"
+            "    subcls.class trfer_class \n"
+            "FROM \n"
+            "    pax, \n"
+            "    transfer, \n"
+            "    trfer_trips, \n"
+            "    transfer_subcls, \n"
+            "    subcls \n"
+            "WHERE  \n"
+            "    pax.pax_id = :pax_id and \n"
+            "    pax.grp_id = transfer.grp_id and \n"
+            "    transfer.transfer_num>=1 and \n"
+            "    transfer.point_id_trfer=trfer_trips.point_id and \n"
+            "    transfer_subcls.pax_id = pax.pax_id and \n"
+            "    transfer_subcls.transfer_num = transfer.transfer_num and \n"
+            "    transfer_subcls.subclass = subcls.code \n"
+            "ORDER BY \n"
+            "    transfer.transfer_num \n";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_airline = Qry.FieldIndex("airline");
@@ -664,7 +679,8 @@ namespace PRL_SPACE {
             int col_suffix = Qry.FieldIndex("suffix");
             int col_scd = Qry.FieldIndex("scd");
             int col_airp_arv = Qry.FieldIndex("airp_arv");
-            int col_subclass = Qry.FieldIndex("subclass");
+            int col_trfer_subcls = Qry.FieldIndex("trfer_subclass");
+            int col_trfer_cls = Qry.FieldIndex("trfer_class");
             for(; !Qry.Eof; Qry.Next()) {
                 TOnwardItem item;
                 item.airline = Qry.FieldAsString(col_airline);
@@ -672,7 +688,8 @@ namespace PRL_SPACE {
                 item.suffix = Qry.FieldAsString(col_suffix);
                 item.scd = Qry.FieldAsDateTime(col_scd);
                 item.airp_arv = Qry.FieldAsString(col_airp_arv);
-                item.subclass = Qry.FieldAsString(col_subclass);
+                item.trfer_subcls = Qry.FieldAsString(col_trfer_subcls);
+                item.trfer_cls = Qry.FieldAsString(col_trfer_cls);
                 items.push_back(item);
             }
         }
@@ -694,7 +711,6 @@ namespace PRL_SPACE {
         int bg;
         TWItem W;
         TPRLTagList tags;
-        TPRLOnwardList onwards;
         TGRPItem() {
             pax_count = NoExists;
             written = false;
@@ -719,6 +735,7 @@ namespace PRL_SPACE {
         int grp_id;
         TPNRList pnrs;
         TRemList rems;
+        TPRLOnwardList OList;
         TPRLPax() {
             cls_grp_id = NoExists;
             pnr_id = NoExists;
@@ -743,7 +760,6 @@ namespace PRL_SPACE {
                 grp_map.tags.ToTlg(info, body);
             }
         }
-        grp_map.onwards.ToTlg(info, body);
     }
 
     void TGRPMap::get(int grp_id)
@@ -758,7 +774,6 @@ namespace PRL_SPACE {
         Qry.Execute();
         item.pax_count = Qry.FieldAsInteger(0);
         item.tags.get(grp_id);
-        item.onwards.get(grp_id);
         item.bg = items.size() + 1;
         ProgTrace(TRACE5, "item.bg: %d", items.size());
         ProgTrace(TRACE5, "TGRPMap::get: grp_id %d", grp_id);
@@ -870,6 +885,7 @@ namespace PRL_SPACE {
     void TPRLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
     {
         for(vector<TPRLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+            iv->OList.ToTlg(info, body);
             string line = "1" + transliter(iv->surname, info.pr_lat).substr(0, 63);
             if(!iv->name.empty()) {
                 string name = transliter(iv->name, info.pr_lat);
@@ -943,6 +959,7 @@ namespace PRL_SPACE {
                 pax.pnrs.get(pax.pnr_id);
                 pax.rems.get(info, pax);
                 grp_map.get(pax.grp_id);
+                pax.OList.get(pax.pax_id, true);
                 PaxList.push_back(pax);
             }
         }
@@ -1524,7 +1541,7 @@ struct TFItem {
     string suffix;
     TDateTime scd;
     string airp_arv;
-    string subclass;
+    string trfer_cls;
     virtual void ToTlg(TTlgInfo &info, vector<string> &body) = 0;
     virtual TBTMGrpList *get_grp_list() = 0;
     TFItem() {
@@ -1580,6 +1597,18 @@ struct TPPax {
         bool unaccomp;
         string surname, name;
         TExtraSeatName exst;
+        string trfer_cls;
+        TBTMOnwardList OList;
+        void dump() {
+            ProgTrace(TRACE5, "TPPax");
+            ProgTrace(TRACE5, "----------");
+            ProgTrace(TRACE5, "name: %s", name.c_str());
+            ProgTrace(TRACE5, "surname: %s", surname.c_str());
+            ProgTrace(TRACE5, "grp_id: %d", grp_id);
+            ProgTrace(TRACE5, "pax_id: %d", pax_id);
+            ProgTrace(TRACE5, "trfer_cls: %s", trfer_cls.c_str());
+            ProgTrace(TRACE5, "----------");
+        }
         size_t name_length() const
         {
             size_t result = surname.size() + name.size();
@@ -1596,28 +1625,53 @@ struct TPPax {
         {};
 };
 
+struct TBTMGrpListItem;
 struct TPList {
     private:
         typedef vector<TPPax> TPSurname;
     public:
+        TBTMGrpListItem *grp;
         map<string, TPSurname> surnames; // пассажиры сгруппированы по фамилии
         // этот оператор нужен для sort вектора TPSurname
         bool operator () (const TPPax &i, const TPPax &j)
         {
             return i.name_length() < j.name_length();
         };
-        void get(TTlgInfo &info, int grp_id);
-        void ToTlg(TTlgInfo &info, vector<string> &body); // used in BTM
-        void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem); // used in PTM
+        void get(TTlgInfo &info, string trfer_cls = "");
+        void ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem); // used in BTM
+        void ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem); // used in PTM
+        void dump_surnames();
+        TPList(TBTMGrpListItem *val): grp(val) {};
 };
+
+void TPList::dump_surnames()
+{
+    ProgTrace(TRACE5, "dump_surnames");
+    for(map<string, TPSurname>::iterator i_surnames = surnames.begin(); i_surnames != surnames.end(); i_surnames++) {
+        ProgTrace(TRACE5, "KEY SURNAME: %s", i_surnames->first.c_str());
+        for(TPSurname::iterator i_surname = i_surnames->second.begin(); i_surname != i_surnames->second.end(); i_surname++)
+            i_surname->dump();
+    }
+}
+
 
 struct TBTMGrpListItem {
     int grp_id;
+    int main_pax_id;
     TBTMTagList NList;
     TWItem W;
-    TBTMOnwardList OList;
     TPList PList;
-    TBTMGrpListItem(): grp_id(NoExists) {};
+    TBTMGrpListItem(): grp_id(NoExists), main_pax_id(NoExists), PList(this) {};
+    TBTMGrpListItem(const TBTMGrpListItem &val): grp_id(NoExists), main_pax_id(NoExists), PList(this)
+    {
+        // Конструктор копирования нужен, чтобы PList.grp содержал правильный указатель
+        grp_id = val.grp_id;
+        main_pax_id = val.main_pax_id;
+        NList = val.NList;
+        W = val.W;
+        PList = val.PList;
+        PList.grp = this;
+    }
 };
 
 struct TBTMGrpList {
@@ -1636,6 +1690,15 @@ struct TBTMGrpList {
     void get(TTlgInfo &info, TFItem &AFItem);
     virtual void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem);
     virtual ~TBTMGrpList() {};
+    void dump() {
+        ProgTrace(TRACE5, "TBTMGrpList::dump");
+        for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+            ProgTrace(TRACE5, "SURNAMES FOR GRP_ID %d", iv->grp_id);
+            iv->PList.dump_surnames();
+            ProgTrace(TRACE5, "END OF SURNAMES FOR GRP_ID %d", iv->grp_id);
+        }
+        ProgTrace(TRACE5, "END OF TBTMGrpList::dump");
+    }
 };
 
 // Представление списка полей .P/ как он будет в телеграмме.
@@ -1692,7 +1755,7 @@ struct TPLine {
             << " "
             << seats
             << " "
-            << ElemIdToElem(etSubcls, FItem.subclass, info.pr_lat)
+            << ElemIdToElem(etSubcls, FItem.trfer_cls, info.pr_lat)
             << " ";
         if(print_bag)
             result
@@ -1763,7 +1826,7 @@ struct TPLine {
     }
 };
 
-void TPList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
+void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
     for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
         ProgTrace(TRACE5, "SURNAME: %s", im->first.c_str());
@@ -1884,31 +1947,52 @@ void TPList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
     }
 }
 
-void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
+void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
+    ProgTrace(TRACE5, "TPList::ToBTMTlg: grp_id: %d; main_pax_id: %d", grp->grp_id, grp->main_pax_id);
     vector<TPLine> lines;
+    // Это был сложный алгоритм объединения имен под одну фамилию и все такое
+    // теперь он выродился в список из всего одного пассажира с main_pax_id
+    vector<TPPax>::iterator main_pax;
     for(map<string, TPSurname>::iterator im = surnames.begin(); im != surnames.end(); im++) {
         TPSurname &pax_list = im->second;
         sort(pax_list.begin(), pax_list.end(), *this);
+        vector<TPPax>::iterator iv = pax_list.begin();
+        while(
+                iv != pax_list.end() and
+                (iv->trfer_cls != FItem.trfer_cls or iv->pax_id != grp->main_pax_id)
+                )
+            iv++;
+        if(iv == pax_list.end())
+            continue;
         TPLine line(false);
         line.surname = im->first;
         lines.push_back(line);
-        vector<TPPax>::iterator iv = pax_list.begin();
         while(iv != pax_list.end()) {
+            if(iv->trfer_cls != FItem.trfer_cls or iv->pax_id != grp->main_pax_id) {
+                iv++;
+                continue;
+            }
             TPLine &curLine = lines.back();
             if((curLine + *iv).get_line_size() > LINE_SIZE) {// все, строка переполнена
                 if(curLine.names.empty()) {
                     curLine += iv->seats;
+                    main_pax = iv;
                     iv++;
                 } else {
                     lines.push_back(line);
                 }
             } else {
                 curLine += *iv;
+                main_pax = iv;
                 iv++;
             }
         }
     }
+
+    if(lines.size() != 1)
+        throw Exception("TPList::ToBTMTlg: unexpected lines size for main_pax_id: %d", lines.size());
+    main_pax->OList.ToTlg(info, body);
 
     // В полученном векторе строк, обрезаем слишком длинные
     // фамилии, объединяем между собой, если найдутся
@@ -1936,30 +2020,36 @@ void TPList::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-void TPList::get(TTlgInfo &info, int grp_id)
+void TPList::get(TTlgInfo &info, string trfer_cls)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select \n"
-        "   pax_id, \n"
-        "   pr_brd, \n"
-        "   seats, \n"
-        "   surname, \n"
-        "   pers_type, \n"
-        "   name \n"
+        "   pax.pax_id, \n"
+        "   pax.pr_brd, \n"
+        "   pax.seats, \n"
+        "   pax.surname, \n"
+        "   pax.pers_type, \n"
+        "   pax.name, \n"
+        "   subcls.class \n"
         "from \n"
-        "   pax \n"
+        "   pax, \n"
+        "   transfer_subcls, \n"
+        "   subcls \n"
         "where \n"
-        "  grp_id = :grp_id and \n"
-        "  seats > 0 \n"
+        "  pax.grp_id = :grp_id and \n"
+        "  pax.seats > 0 and \n"
+        "  pax.pax_id = transfer_subcls.pax_id(+) and \n"
+        "  transfer_subcls.transfer_num(+) = 1 and \n"
+        "  transfer_subcls.subclass = subcls.code(+) \n"
         "order by \n"
-        "   surname, \n"
-        "   name \n";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
+        "   pax.surname, \n"
+        "   pax.name \n";
+    Qry.CreateVariable("grp_id", otInteger, grp->grp_id);
     Qry.Execute();
     if(Qry.Eof) {
         TPPax item;
-        item.grp_id = grp_id;
+        item.grp_id = grp->grp_id;
         item.seats = 1;
         item.surname = "UNACCOMPANIED";
         item.unaccomp = true;
@@ -1971,21 +2061,33 @@ void TPList::get(TTlgInfo &info, int grp_id)
         int col_surname = Qry.FieldIndex("surname");
         int col_pers_type = Qry.FieldIndex("pers_type");
         int col_name = Qry.FieldIndex("name");
+        int col_cls = Qry.FieldIndex("class");
         for(; !Qry.Eof; Qry.Next()) {
             if(Qry.FieldAsInteger(col_pr_brd) == 0)
                 continue;
             TPPax item;
             item.pax_id = Qry.FieldAsInteger(col_pax_id);
-            item.grp_id = grp_id;
+            item.grp_id = grp->grp_id;
             item.seats = Qry.FieldAsInteger(col_seats);
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
             item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
             item.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
             item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
+            int fmt;
+            item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt);
+            ProgTrace(TRACE5, "ATTENTION!!! SOMETHING WRONG");
+            ProgTrace(TRACE5, "item.name: %s", item.name.c_str());
+            ProgTrace(TRACE5, "item.surname: %s", item.surname.c_str());
+            ProgTrace(TRACE5, "trfer_cls: %s, item.trfer_cls: %s", trfer_cls.c_str(), item.trfer_cls.c_str());
+            if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
+                continue;
+            item.OList.get(item.pax_id, true);
             surnames[item.surname].push_back(item);
         }
     }
+    tst();
+    dump_surnames();
 }
 
 struct TPTMGrpList:TBTMGrpList {
@@ -1993,13 +2095,11 @@ struct TPTMGrpList:TBTMGrpList {
     {
         if(info.tlg_type == "PTM")
             for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-                iv->PList.ToTlg(info, body, FItem);
+                iv->PList.ToPTMTlg(info, body, FItem);
             }
     }
 };
 
-// в BTM структура FItem не используется
-// пришлось передавать, чтобы ошибки компиляции не было
 void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 {
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
@@ -2007,23 +2107,24 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
             continue;
         iv->NList.ToTlg(info, body);
         iv->W.ToTlg(body);
-        iv->OList.ToTlg(info, body);
-        iv->PList.ToTlg(info, body);
+        ProgTrace(TRACE5, "grp_id within TBTMGrpList::ToTlg: %d; main_pax_id: %d", iv->grp_id, iv->main_pax_id);
+        iv->PList.ToBTMTlg(info, body, AFItem);
     }
 }
 
 void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
 {
+    ProgTrace(TRACE5, "TBTMGrpList::get start");
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  \n"
-        "   transfer.grp_id  \n"
+        "   transfer.grp_id, \n"
+        "   ckin.get_main_pax_id(transfer.grp_id) main_pax_id \n"
         "from  \n"
         "   transfer, \n"
         "   pax_grp \n"
         "where  \n"
         "   transfer.point_id_trfer = :point_id_trfer and \n"
-        "   nvl(transfer.subclass, ' ') = nvl(:subclass, ' ') and \n"
         "   transfer.grp_id = pax_grp.grp_id and \n"
         "   transfer.transfer_num = 1 and \n"
         "   transfer.airp_arv = :trfer_airp and \n"
@@ -2037,23 +2138,22 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
     Qry.CreateVariable("airp_arv", otString, ElemToElemId(etAirp, info.airp_arv, fmt));
     Qry.CreateVariable("trfer_airp", otString, ElemToElemId(etAirp, FItem.airp_arv, fmt));
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
-    Qry.CreateVariable("subclass", otString, FItem.subclass);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
+        int col_main_pax_id = Qry.FieldIndex("main_pax_id");
         for(; !Qry.Eof; Qry.Next()) {
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
+            item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
             item.NList.get(item.grp_id);
-            item.PList.get(info, item.grp_id);
+            item.PList.get(info, FItem.trfer_cls);
             if(item.PList.surnames.empty())
                 continue;
             item.W.get(item.grp_id);
-            item.OList.get(item.grp_id);
             items.push_back(item);
         }
     }
-    ProgTrace(TRACE5, "items.size(): %d", items.size());
 }
 
 struct TBTMFItem:TFItem {
@@ -2072,7 +2172,7 @@ struct TBTMFItem:TFItem {
             << "/"
             << ElemIdToElem(etAirp, airp_arv, info.pr_lat)
             << "/"
-            << ElemIdToElem(etSubcls, subclass, info.pr_lat);
+            << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
         body.push_back(line.str());
     }
 };
@@ -2107,7 +2207,7 @@ struct TPTMFItem:TFItem {
             result
                 << seats
                 << " "
-                << ElemIdToElem(etSubcls, subclass, info.pr_lat)
+                << ElemIdToElem(etClass, trfer_cls, info.pr_lat)
                 << " "
                 << baggage
                 << "B";
@@ -2134,24 +2234,35 @@ void TFList<T>::get(TTlgInfo &info)
         "    trfer_trips.flt_no, \n"
         "    trfer_trips.scd, \n"
         "    transfer.airp_arv, \n"
-        "    transfer.subclass \n"
+        "    a.class \n"
         "from \n"
         "    transfer, \n"
-        "    trfer_trips \n"
+        "    trfer_trips, \n"
+        "    (select \n"
+        "        pax_grp.grp_id, \n"
+        "        subcls.class \n"
+        "     from \n"
+        "        pax_grp, \n"
+        "        pax, \n"
+        "        transfer_subcls, \n"
+        "        subcls \n"
+        "     where \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax_grp.airp_arv = :airp and \n"
+        "       pax_grp.grp_id = pax.grp_id and \n"
+        "       pax.pax_id = transfer_subcls.pax_id and \n"
+        "       transfer_subcls.transfer_num = 1 and \n"
+        "       transfer_subcls.subclass = subcls.code \n"
+        "    ) a \n"
         "where \n"
-        "    transfer.grp_id in \n"
-        "    (select grp_id from pax_grp where \n"
-        "       point_dep = :point_id and \n"
-        "       airp_arv = :airp \n"
-        "    ) and \n"
+        "    transfer.grp_id = a.grp_id and \n"
         "    transfer.transfer_num = 1 and \n"
         "    transfer.point_id_trfer = trfer_trips.point_id \n"
-        "order by "
+        "order by \n"
         "    trfer_trips.airline, \n"
         "    trfer_trips.flt_no, \n"
         "    trfer_trips.scd, \n"
-        "    transfer.airp_arv, \n"
-        "    transfer.subclass \n";
+        "    transfer.airp_arv \n";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("airp", otString, info.airp);
     Qry.Execute();
@@ -2161,7 +2272,7 @@ void TFList<T>::get(TTlgInfo &info)
         int col_flt_no = Qry.FieldIndex("flt_no");
         int col_scd = Qry.FieldIndex("scd");
         int col_airp_arv = Qry.FieldIndex("airp_arv");
-        int col_subclass = Qry.FieldIndex("subclass");
+        int col_class = Qry.FieldIndex("class");
         for(; !Qry.Eof; Qry.Next()) {
             T item;
             item.point_id_trfer = Qry.FieldAsInteger(col_point_id_trfer);
@@ -2169,11 +2280,16 @@ void TFList<T>::get(TTlgInfo &info)
             item.flt_no = Qry.FieldAsInteger(col_flt_no);
             item.scd = Qry.FieldAsDateTime(col_scd);
             item.airp_arv = Qry.FieldAsString(col_airp_arv);
-            item.subclass = Qry.FieldAsString(col_subclass);
+            item.trfer_cls = Qry.FieldAsString(col_class);
             item.grp_list.get(info, item);
+            if(item.grp_list.items.empty())
+                continue;
+            ProgTrace(TRACE5, "item.grp_list.items.size(): %d", item.grp_list.items.size());
+            item.grp_list.dump();
             items.push_back(item);
         }
     }
+    ProgTrace(TRACE5, "TFList<T>::get: items.size(): %d", items.size());
 }
 
 template <class T>
@@ -2181,9 +2297,12 @@ void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 {
 //    for(vector<T>::iterator iv = items.begin(); iv != items.end(); iv++) { // почему ошибка компиляции ???
     for(size_t i = 0; i < items.size(); i++) {
-        if(items[i].grp_list.items.empty()) continue;
+        vector<string> grp_list_body;
+        items[i].grp_list.ToTlg(info, grp_list_body, items[i]);
+        if(grp_list_body.empty())
+            continue;
         items[i].ToTlg(info, body);
-        items[i].grp_list.ToTlg(info, body, items[i]);
+        body.insert(body.end(), grp_list_body.begin(), grp_list_body.end());
     }
 }
 
@@ -2754,14 +2873,18 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select distinct "
-        "   trip_comp_layers.point_arv, "
+        "select "
+        "   trip_comp_elems.yname, "
         "   trip_comp_elems.xname, "
-        "   trip_comp_elems.yname "
+        "   comp_layer_types.priority, "
+        "   trip_comp_layers.point_arv, "
+        "   trip_comp_layers.point_dep, "
+        "   trip_comp_layers.layer_type "
         "from "
         "   trip_comp_layers, "
         "   trip_comp_ranges, "
-        "   trip_comp_elems "
+        "   trip_comp_elems, "
+        "   comp_layer_types "
         "where "
         "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
         "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
@@ -2769,21 +2892,65 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
         "   trip_comp_elems.num = trip_comp_ranges.num and "
         "   trip_comp_elems.x = trip_comp_ranges.x and "
         "   trip_comp_elems.y = trip_comp_ranges.y and "
-        "   trip_comp_layers.layer_type = :ckin_layer and "
-        "   trip_comp_layers.point_id = :point_id ";
-    Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(cltCheckin));
+        "   trip_comp_layers.layer_type = comp_layer_types.code and "
+        "   comp_layer_types.pr_occupy <> 0 and "
+        "   trip_comp_layers.point_id = :point_id "
+        "order by trip_comp_elems.yname, "
+        "         trip_comp_elems.xname, "
+        "         comp_layer_types.priority ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
+        TFilterLayers filter_layers;
+        filter_layers.getFilterLayers(info.point_id);
         int col_point_arv = Qry.FieldIndex("point_arv");
+        int col_point_dep = Qry.FieldIndex("point_dep");
+        int col_layer_type = Qry.FieldIndex("layer_type");
         int col_xname = Qry.FieldIndex("xname");
         int col_yname = Qry.FieldIndex("yname");
+        int next_point_arv = -1;
+        string prior_xname,prior_yname;
         for(; !Qry.Eof; Qry.Next()) {
-            add_seat(
-                    Qry.FieldAsInteger(col_point_arv),
-                    Qry.FieldAsString(col_xname),
-                    Qry.FieldAsString(col_yname)
-                    );
+            int point_dep;
+            int point_arv;
+            if(Qry.FieldIsNULL(col_point_dep))
+                point_dep = info.point_id;
+            else
+                point_dep = Qry.FieldAsInteger(col_point_dep);
+            if(Qry.FieldIsNULL(col_point_arv)) {
+                if(next_point_arv == -1)
+                {
+                    TTripRoute route;
+                    TTripRouteItem next_airp;
+                    route.GetNextAirp(info.point_id,
+                                      info.point_num,
+                                      info.first_point,
+                                      true,
+                                      trtNotCancelled,
+                                      next_airp);
+
+
+                    if(next_airp.point_id==ASTRA::NoExists)
+                        throw Exception("next_id not found");
+                    else {
+                        next_point_arv = next_airp.point_id;
+                    }
+                }
+                point_arv = next_point_arv;
+            } else
+                point_arv = Qry.FieldAsInteger(col_point_arv);
+            if (prior_xname==Qry.FieldAsString(col_xname) &&
+                prior_yname==Qry.FieldAsString(col_yname))
+              //нашли менее приоритетный слой на уже обработанное место - выходим
+              continue;
+
+            if (!filter_layers.CanUseLayer(DecodeCompLayerType(Qry.FieldAsString(col_layer_type)), point_dep))
+              //при определенных настройках рейса слой не учитывается - выходим
+              continue;
+
+            prior_xname=Qry.FieldAsString(col_xname);
+            prior_yname=Qry.FieldAsString(col_yname);
+            add_seat( point_arv, prior_xname, prior_yname );
         }
     }
 }

@@ -623,7 +623,7 @@ TPaxStatus DecodePaxStatus(char* s)
   if (i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]))
     return (TPaxStatus)i;
   else
-    return psOk;
+    return psCheckin;
 };
 
 char* EncodePaxStatus(TPaxStatus s)
