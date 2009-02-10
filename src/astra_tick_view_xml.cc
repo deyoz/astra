@@ -171,7 +171,7 @@ void MonetaryInfoXmlView::operator () (ViewerData &Data, const list<MonetaryInfo
   for(list<MonetaryInfo>::const_iterator i=lmon.begin(); i!= lmon.end(); ++i)
   {
     const MonetaryInfo &Mon = (*i);
-    if(Mon.code().codeInt() == AmountCode::Total) // всего
+    if(Mon.code()->codeInt() == AmountCode::Total) // всего
     {
       if(!total.empty())
         total+=" ";
@@ -200,7 +200,7 @@ void MonetaryInfoXmlListView::operator () (ViewerData &Data, const list<Monetary
   for(list<MonetaryInfo>::const_iterator i=lmon.begin(); i!= lmon.end(); ++i)
   {
     const MonetaryInfo &Mon = (*i);
-    if(Mon.code().code()=="T" || Mon.code().code()=="Т") // всего
+    if(Mon.code()->codeInt() == AmountCode::Total) // всего
     {
       if(!total.empty())
         total+=" ";

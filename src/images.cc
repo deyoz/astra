@@ -73,7 +73,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        if ( data == NULL )
          throw Exception( "Ошибка программы" );
        Qry->FieldAsLong( "image", data );
-       string res = b64_encode( (const char*)data, len );
+       string res = StrUtils::b64_encode( (const char*)data, len );
        NewTextChild( imageNode, "image", res.c_str() );
      }
      Qry->Next();
@@ -121,7 +121,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
        Qry->SetVariable( "name", NodeAsString( "name", node ) );
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
-       StrDec = b64_decode( StrDec.c_str(), StrDec.length() );
+       StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
        Qry->Execute();
        node = node->next;

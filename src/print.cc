@@ -891,13 +891,13 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
         TPerson pers_type = DecodePerson((char *)data["PERS_TYPE"].StringVal.c_str());
         int result_pers_type;
         switch(pers_type) {
-            case adult: 
+            case adult:
                 result_pers_type = 0;
                 break;
-            case child: 
+            case child:
                 result_pers_type = 3;
                 break;
-            case baby: 
+            case baby:
                 result_pers_type = 4;
                 break;
             case NoPerson:
@@ -3178,7 +3178,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
 
     to_esc::convert(mso_form, TPrnType(prn_type), reqNode);
 
-    Print = b64_encode(mso_form.c_str(), mso_form.size());
+    Print = StrUtils::b64_encode(mso_form.c_str(), mso_form.size());
 }
 
 
@@ -3435,7 +3435,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::convert(prn_form, convert_prn_type, NULL);
-            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
         }
         NewTextChild(paxNode, "prn_form", prn_form);
         {

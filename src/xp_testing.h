@@ -3,8 +3,8 @@
 #include "config.h"
 
 #ifdef XP_TESTING
-#include "xp_test_utils.h"
-#include "checkunit.h"
+#include "serverlib/xp_test_utils.h"
+#include "serverlib/checkunit.h"
 
 void testClearShutDB();
 #endif /*XP_TESTING*/

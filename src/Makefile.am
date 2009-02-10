@@ -31,8 +31,8 @@ astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	@ETICKLIB_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
-	@JXTLIB_LIBS@ @SERVERLIB_LIBS@ @SHARED_LIBS@ \
-	@LIBTLG_LIBS@ \
+	@JXTLIB_LIBS@ @SHARED_LIBS@ \
+	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\
 	@TCLMON_LDFLAGS@ @BOOST_SYSTEM_LIB@
 
@@ -56,7 +56,7 @@ noinst_HEADERS = \
 	sofi.h		       aodb.h		      spp_cek.h		  convert.h \
 	dev_tuning.h           czech_police_edi_file.h                    astra_context.h \
 	salons2.h	       salonform2.h	      seats2.h		  seats_utils.h
-	
+
 
 
 

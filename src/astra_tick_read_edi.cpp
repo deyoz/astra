@@ -330,7 +330,7 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
     for(unsigned i=0;i<MonNum;i++)
     {
         SetEdiPointToCompositeG(pMes, "C663",i, "PROG_ERR");
-        AmountCode::AmCode Ac = GetDBNumCast<AmountCode::AmCode>
+        AmountCode Ac = GetDBNumCast<AmountCode>
                 (EdiCast::AmountCodeCast("MISS_MONETARY_INF"), pMes, 5025,0,
                  "MISS_MONETARY_INF");
 
@@ -342,14 +342,14 @@ void MonetaryInfoEdiR::operator () (ReaderData &RData, list<MonetaryInfo> &lmon)
         }
         else
         {
-            TaxAmount::Amount::AmountType_e type = Ac.codeInt() == AmountCode::CommissionRate?
+            TaxAmount::Amount::AmountType_e type = Ac->codeInt() == AmountCode::CommissionRate?
                     TaxAmount::Amount::Percents : TaxAmount::Amount::Ordinary;
             TaxAmount::Amount Am = GetDBNumCast<TaxAmount::Amount>
                     (EdiCast::AmountCast("INV_AMOUNT", type),
                      pMes, DataElement(1230), "INV_AMOUNT"); //Amount
 
             std::string curr;
-            if (!Am.isPercents() && Ac.codeInt() != AmountCode::ExchRate)
+            if (!Am.isPercents() && Ac->codeInt() != AmountCode::ExchRate)
             {
                 curr = GetDBNum(pMes, DataElement(6345), "INV_CURRENCY"); //Currency
             }
