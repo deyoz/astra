@@ -863,7 +863,6 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
     EncodeDate(Year, Month, Day + 1, last);
     TDateTime period = last - first;
     result
-        << DateTimeToStr(scd, "y")
         << fixed << setprecision(0) << setw(3) << setfill('0') << period;
     // Compartment Code
     result << data[TAG_CLASS].StringVal;
@@ -3178,7 +3177,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
 
     to_esc::convert(mso_form, TPrnType(prn_type), reqNode);
 
-    Print = StrUtils::b64_encode(mso_form.c_str(), mso_form.size());
+    Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
 
 
@@ -3435,7 +3434,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::convert(prn_form, convert_prn_type, NULL);
-            prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         NewTextChild(paxNode, "prn_form", prn_form);
         {
