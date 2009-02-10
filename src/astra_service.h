@@ -53,6 +53,7 @@ void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
 void sync_sppcek( void );
+void sync_1ccek( void );
 
 
 class AstraServiceInterface : public JxtInterface
