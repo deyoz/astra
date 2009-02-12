@@ -21,6 +21,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace StrUtils;
 
 const string delim = "\xb";
 
