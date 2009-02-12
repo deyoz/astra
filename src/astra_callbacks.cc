@@ -128,7 +128,7 @@ void AstraJxtCallbacks::UserAfter()
 }
 
 
-void AstraJxtCallbacks::HandleException(std::exception *e)
+void AstraJxtCallbacks::HandleException(comtech::Exception *e)
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
 
