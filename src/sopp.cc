@@ -4039,4 +4039,36 @@ void ChangeACT_IN( int point_id, TDateTime old_act, TDateTime act )
   };
 }
 
+void SoppInterface::ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	int point_id = NodeAsInteger( "point_id", reqNode );
+	TQuery Qry(&OraSession);
+	Qry.SQLText = "SELECT commander FROM trip_crew WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+	dataNode = NewTextChild( dataNode, "crew" );
+	if ( Qry.Eof )
+		NewTextChild( dataNode, "commander" );
+	else
+		NewTextChild( dataNode, "commander", Qry.FieldAsString( "commander" ) );
+}
+
+void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "BEGIN "
+	  " UPDATE trip_crew SET commander=:commander WHERE point_id=:point_id; "
+	  " IF SQL%NOTFOUND THEN "
+	  "  INSERT INTO trip_crew(point_id, commander) VALUES(:point_id,:commander); "
+	  " END IF;"
+	  "END;";
+	xmlNodePtr dataNode = NodeAsNode( "data", reqNode );
+	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "crew/point_id", dataNode ) );
+	Qry.CreateVariable( "commander", otString, NodeAsString( "crew/commander", dataNode )  );
+	Qry.Execute();
+}
+
+
 
