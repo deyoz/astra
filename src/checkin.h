@@ -62,21 +62,22 @@ public:
                        TTripInfo& fltInfo);
 
   void SavePaxRem(xmlNodePtr paxNode);
-  void SavePaxTransfer(xmlNodePtr paxNode, xmlNodePtr transferNode);
+  void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);
   std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
-  std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp);
+  std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
   static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
   void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
   void SaveTagPacks(xmlNodePtr node);
 
+  void LoadPax(int grp_id, xmlNodePtr resNode);
   void LoadPaxRem(xmlNodePtr paxNode);
-  void LoadPaxTransfer(xmlNodePtr paxNode, xmlNodePtr transferNode);
+  void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
   void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
-  void LoadTransfer(xmlNodePtr grpNode);
-  static void LoadBag(xmlNodePtr grpNode);
-  static void LoadPaidBag(xmlNodePtr grpNode);
+  void LoadTransfer(int grp_id, xmlNodePtr transferNode);
+  static void LoadBag(int grp_id, xmlNodePtr bagtagNode);
+  static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
   int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
   bool CheckFltOverload(int point_id);

@@ -543,10 +543,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "suffix", Qry.FieldAsString( "suffix" ) );
   NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
-  TDateTime scd_out,act_out,real_out;
+  TDateTime scd_out,scd_out_local,act_out,real_out;
   string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp" ));
+  scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
+  if ( reqInfo->screen.name == "AIR.EXE")
+  {
+    //внимание! локальная дата порта
+    NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
+  }
   NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
   NewTextChild( node, "real_out", DateTimeToStr(real_out,"hh:nn") );
   if (!Qry.FieldIsNULL("act_out"))
