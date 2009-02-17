@@ -3013,8 +3013,12 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText =
-      "SELECT pax_id FROM pax "
-      "WHERE pax_id=:pax_id AND tid=:tid ";
+      "SELECT pax.pax_id, pax.grp_id, surname||' '||name fullname, reg_no,  "
+      " salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) seat_no,  "
+      " point_dep point_id  "
+      "FROM pax, pax_grp  "
+      "WHERE pax_id=:pax_id AND pax.tid=:tid and  "
+      " pax.grp_id = pax_grp.grp_id ";
     PaxQry.DeclareVariable("pax_id",otInteger);
     PaxQry.DeclareVariable("tid",otInteger);
     TQuery Qry(&OraSession);
@@ -3023,7 +3027,7 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.DeclareVariable("pax_id", otInteger);
     Qry.DeclareVariable("time_print", otDate);
     xmlNodePtr curNode = NodeAsNode("passengers/pax", reqNode);
-    while(curNode) {
+    for(; curNode != NULL; curNode = curNode->next) {
         PaxQry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
         PaxQry.SetVariable("tid", NodeAsInteger("@tid", curNode));
         PaxQry.Execute();
@@ -3034,7 +3038,18 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
             throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
-        curNode = curNode->next;
+        string msg =
+                (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
+                ". Рег. номер: " + IntToString(PaxQry.FieldAsInteger("reg_no")) +
+                ". Место: " + PaxQry.FieldAsString("seat_no") + ".";
+        ProgTrace(TRACE5, "CONFIRM PRINT_BP LOG MSG: %s", msg.c_str());
+        TReqInfo::Instance()->MsgToLog(
+                msg,
+                ASTRA::evtPax,
+                PaxQry.FieldAsInteger("point_id"),
+                PaxQry.FieldAsInteger("reg_no"),
+                PaxQry.FieldAsInteger("grp_id")
+                );
     }
 }
 
