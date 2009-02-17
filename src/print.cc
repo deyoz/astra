@@ -506,6 +506,15 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
     return prnQry;
 }
 
+int PrintDataParser::t_field_map::GetTagAsInteger(string name)
+{
+    TData::iterator di = data.find(upperc(name));
+    if(di == data.end()) throw Exception("Tag not found " + name);
+    if(!di->second.err_msg.empty())
+        throw UserException(di->second.err_msg);
+    return di->second.IntegerVal;
+}
+
 string PrintDataParser::t_field_map::GetTagAsString(string name)
 {
     TData::iterator di = data.find(upperc(name));
@@ -3271,6 +3280,61 @@ string get_validator(TBagReceipt &rcpt)
     return validator.str();
 }
 
+struct TSegPax {
+    int seg_no;
+    int grp_id;
+    int pax_id;
+    TSegPax(): seg_no(NoExists), grp_id(NoExists), pax_id(NoExists) {};
+};
+
+struct TSegPaxList {
+    vector<TSegPax> items;
+    void get(int pax_id)
+    {
+        TQuery Qry(&OraSession);        
+        Qry.SQLText =
+            "select tckin_id, seg_no from tckin_pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            int tckin_id = Qry.FieldAsInteger("tckin_id");
+            int seg_no = Qry.FieldAsInteger("seg_no");
+            Qry.Clear();
+            Qry.SQLText =
+                "select "
+                "   tckin_pax.seg_no, "
+                "   tckin_pax.pax_id, "
+                "   tckin_pax_grp.grp_id "
+                "from "
+                "   tckin_pax, "
+                "   tckin_pax_grp "
+                "where "
+                "   tckin_pax.tckin_id = :tckin_id and "
+                "   tckin_pax.seg_no >= :seg_no and "
+                "   tckin_pax.tckin_id = tckin_pax_grp.tckin_id and "
+                "   tckin_pax.seg_no = tckin_pax_grp.seg_no and "
+                "   (tckin_pax.seg_no = :seg_no or tckin_pax_grp.pr_depend <> 0) "
+                "order by "
+                "   tckin_pax.seg_no ";
+            Qry.CreateVariable("tckin_id", otInteger, tckin_id);
+            Qry.CreateVariable("seg_no", otInteger, seg_no);
+            Qry.Execute();
+            if(!Qry.Eof) {
+                int col_seg_no = Qry.FieldIndex("seg_no");
+                int col_pax_id = Qry.FieldIndex("pax_id");
+                int col_grp_id = Qry.FieldIndex("grp_id");
+                for(; !Qry.Eof; Qry.Next()) {
+                    TSegPax item;
+                    item.seg_no = Qry.FieldAsInteger(col_seg_no);
+                    item.grp_id = Qry.FieldAsInteger(col_grp_id);
+                    item.pax_id = Qry.FieldAsInteger(col_pax_id);
+                    items.push_back(item);
+                }
+            }
+        }
+    }
+};
+
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -3415,40 +3479,55 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
-        int reg_no = Qry.FieldAsInteger("reg_no");
         int grp_id = Qry.FieldAsInteger("grp_id");
-        PrintDataParser parser(grp_id, pax_id, pr_lat, clientDataNode);
-        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        string prn_form = parser.parse(data);
-        if(fmt_type == "EPSON") {
-            TPrnType convert_prn_type;
-            if(dev_model.empty())
-                convert_prn_type = TPrnType(prn_type);
-            else {
-                if(dev_model == "OLIVETTI")
-                    convert_prn_type = ptOLIVETTI;
-                else if(dev_model == "ML390")
-                    convert_prn_type = ptOKIML390;
-                else if(dev_model == "ML3310")
-                    convert_prn_type = ptOKIML3310;
-                else
-                    throw Exception(dev_model + " not supported by to_esc::convert");
-            }
-            to_esc::convert(prn_form, convert_prn_type, NULL);
-            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+
+        TSegPaxList seg_pax_list;
+        seg_pax_list.get(pax_id);
+        if(seg_pax_list.items.empty()) {
+            TSegPax item;
+            item.seg_no = 0;
+            item.grp_id = grp_id;
+            item.pax_id = pax_id;
+            seg_pax_list.items.push_back(item);
         }
-        NewTextChild(paxNode, "prn_form", prn_form);
-        {
-            TQuery *Qry = parser.get_prn_qry();
-            TDateTime time_print = NowUTC();
-            Qry->CreateVariable("now_utc", otDate, time_print);
-            Qry->Execute();
-            SetProp(paxNode, "pax_id", pax_id);
-            SetProp(paxNode, "reg_no", reg_no);
-            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
+
+        for(vector<TSegPax>::iterator iv = seg_pax_list.items.begin(); iv != seg_pax_list.items.end(); iv++)  {
+
+            PrintDataParser parser(iv->grp_id, iv->pax_id, pr_lat, clientDataNode);
+            string prn_form = parser.parse(data);
+            if(fmt_type == "EPSON") {
+                TPrnType convert_prn_type;
+                if(dev_model.empty())
+                    convert_prn_type = TPrnType(prn_type);
+                else {
+                    if(dev_model == "OLIVETTI")
+                        convert_prn_type = ptOLIVETTI;
+                    else if(dev_model == "ML390")
+                        convert_prn_type = ptOKIML390;
+                    else if(dev_model == "ML3310")
+                        convert_prn_type = ptOKIML3310;
+                    else
+                        throw Exception(dev_model + " not supported by to_esc::convert");
+                }
+                to_esc::convert(prn_form, convert_prn_type, NULL);
+                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            }
+            xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+            NewTextChild(paxNode, "prn_form", prn_form);
+            {
+                TQuery *Qry = parser.get_prn_qry();
+                TDateTime time_print = NowUTC();
+                Qry->CreateVariable("now_utc", otDate, time_print);
+                Qry->Execute();
+                SetProp(paxNode, "pax_id", iv->pax_id);
+                SetProp(paxNode, "seg_no", iv->seg_no);
+                SetProp(paxNode, "reg_no", parser.GetTagAsInteger("reg_no"));
+                SetProp(paxNode, "time_print", DateTimeToStr(time_print));
+            }
         }
         Qry.Next();
     }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
 
