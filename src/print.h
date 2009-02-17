@@ -115,6 +115,7 @@ class PrintDataParser {
                 void add_err_tag(std::string name, std::string val);
                 void add_tag(std::string name, BASIC::TDateTime val);
                 std::string GetTagAsString(std::string name);
+                int GetTagAsInteger(std::string name);
                 TQuery *get_prn_qry();
                 ~t_field_map();
         };
@@ -145,6 +146,7 @@ class PrintDataParser {
         void add_tag(std::string name, std::string val) { return field_map.add_tag(name, val); };
         void add_tag(std::string name, BASIC::TDateTime val) { return field_map.add_tag(name, val); };
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
+        int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };
 };
 
 // !!! Next generation
