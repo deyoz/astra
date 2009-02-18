@@ -1817,9 +1817,20 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   map<int,TSegInfo> segs;
 
-  xmlNodePtr segNode=reqNode;
-  if (GetNode("segments",reqNode)!=NULL)
+  bool tckin_version=GetNode("segments",reqNode)!=NULL;
+
+  bool only_one;
+  xmlNodePtr segNode;
+  if (tckin_version)
+  {
     segNode=NodeAsNode("segments/segment",reqNode);
+    only_one=segNode->next==NULL;
+  }
+  else
+  {
+    segNode=reqNode;
+    only_one=true;
+  };
   for(;segNode!=NULL;segNode=segNode->next)
   {
     TSegInfo segInfo;
@@ -1830,7 +1841,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (segs.find(segInfo.point_dep)!=segs.end())
       throw UserException("Рейс дублируется в сквозном маршруте");
     segs[segInfo.point_dep]=segInfo;
-    if (segNode==reqNode) break; //старый терминал
+    if (!tckin_version) break; //старый терминал
   };
 
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
@@ -1841,11 +1852,21 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                          s->second.airp_dep,
                          s->second.point_arv,
                          s->second.airp_arv, true, fltInfo))
-      throw UserException("Рейс %s изменен. Обновите данные",
-                          GetTripName(fltInfo,true,false).c_str());
+    {
+      if (!only_one && !fltInfo.Empty())
+        throw UserException("Рейс %s изменен. Обновите данные",
+                            GetTripName(fltInfo,true,false).c_str());
+      else
+        throw UserException("Рейс изменен. Обновите данные");
+    };
     if (fltInfo.pr_del!=0)
-      throw UserException("Рейс %s отменен. Обновите данные",
-                          GetTripName(fltInfo,true,false).c_str());
+    {
+      if (!only_one && !fltInfo.Empty())
+        throw UserException("Рейс %s отменен. Обновите данные",
+                            GetTripName(fltInfo,true,false).c_str());
+      else
+        throw UserException("Рейс отменен. Обновите данные");
+    };
   };
 
   //savepoint для отката при превышении загрузки (важно что после лочки)
@@ -1863,9 +1884,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int tckin_id=-1,first_grp_id=-1;
   xmlNodePtr firstPaxNode=NULL;
 
-  segNode=reqNode;
-  if (GetNode("segments",reqNode)!=NULL)
+  if (tckin_version)
     segNode=NodeAsNode("segments/segment",reqNode);
+  else
+    segNode=reqNode;
   bool first_segment=true;
   int seg_no=1,tckin_seg_no=1;
   for(;segNode!=NULL;segNode=segNode->next,seg_no++,tckin_seg_no++,first_segment=false)
@@ -1884,853 +1906,522 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
     TTripInfo &fltInfo=s->second.fltInfo;
 
-    TTypeBSendInfo sendInfo;
-    sendInfo.airline=fltInfo.airline;
-    sendInfo.flt_no=fltInfo.flt_no;
-    sendInfo.airp_dep=fltInfo.airp;
-    sendInfo.point_num=fltInfo.point_num;
-    sendInfo.first_point=fltInfo.first_point;
-    sendInfo.tlg_type="BSM";
-
-
-
-    //BSM
-    map<bool,string> BSMaddrs;
-    TBSMContent BSMContentBefore;
-    bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
-
-    //map для норм
-    map<int,string> norms;
-
-    bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
-
-    TQuery CrsQry(&OraSession);
-    CrsQry.Clear();
-    CrsQry.SQLText=
-      "DECLARE "
-      "  CURSOR cur1 IS "
-      "    SELECT type,issue_country,no,nationality, "
-      "           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi "
-      "    FROM crs_pax_doc "
-      "    WHERE pax_id=:pax_id "
-      "    ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no; "
-      "  row1 cur1%ROWTYPE; "
-      "  CURSOR cur2 IS "
-      "    SELECT airline,no,extra "
-      "    FROM crs_pax_fqt "
-      "    WHERE pax_id=:pax_id "
-      "    ORDER BY airline,no,extra; "
-      "  row2 cur2%ROWTYPE; "
-      "  prior_airline crs_pax_fqt.airline%TYPE; "
-      "BEGIN "
-      "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
-      "  DELETE FROM pax_fqt WHERE pax_id=:pax_id; "
-      "  OPEN cur1; "
-      "  FETCH cur1 INTO row1; "
-      "  IF cur1%FOUND THEN "
-      "    INSERT INTO pax_doc "
-      "      (pax_id,type,issue_country,no,nationality, "
-      "       birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi) "
-      "    VALUES "
-      "      (:pax_id,row1.type,row1.issue_country,row1.no,row1.nationality, "
-      "       row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi); "
-      "  END IF; "
-      "  CLOSE cur1; "
-      "  prior_airline:=NULL; "
-      "  FOR row2 IN cur2 LOOP "
-      "    IF prior_airline=row2.airline THEN "
-      "      NULL; "
-      "    ELSE "
-      "      INSERT INTO pax_fqt "
-      "        (pax_id,airline,no,extra) "
-      "      VALUES "
-      "        (:pax_id,row2.airline,row2.no,row2.extra); "
-      "      prior_airline:=row2.airline; "
-      "    END IF; "
-      "  END LOOP; "
-      "END;";
-    CrsQry.DeclareVariable("pax_id",otInteger);
-
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
-      "FROM trip_sets WHERE point_id=:point_id ";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-
-    bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
-    bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
-    bool pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
-    int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
-
-    xmlNodePtr node,node2,remNode;
-    //проверим номера документов и билетов
-    if (!pr_unaccomp&&
-        (pr_reg_with_tkn||pr_reg_with_doc))
+    try
     {
-      node=NodeAsNode("passengers",segNode);
-      for(node=node->children;node!=NULL;node=node->next)
-      {
-        node2=node->children;
-        if (NodeIsNULLFast("pers_type",node2,true)) continue;
-        if (NodeAsStringFast("pers_type",node2)=="РМ") continue;
 
-        if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
-          throw UserException("При регистрации необходимо указывать номера билетов пассажиров");
-        if (pr_reg_with_doc&&NodeIsNULLFast("document",node2,true))
-          throw UserException("При регистрации необходимо указывать документы пассажиров");
-      };
-    };
+      TTypeBSendInfo sendInfo;
+      sendInfo.airline=fltInfo.airline;
+      sendInfo.flt_no=fltInfo.flt_no;
+      sendInfo.airp_dep=fltInfo.airp;
+      sendInfo.point_num=fltInfo.point_num;
+      sendInfo.first_point=fltInfo.first_point;
+      sendInfo.tlg_type="BSM";
 
-    //определим - новая регистрация или запись изменений
-    node = GetNode("grp_id",segNode);
-    if (node==NULL||NodeIsNULL(node))
-    {
-      cl=NodeAsString("class",segNode);
 
-      hall=NodeAsInteger("hall",reqNode);
+
+      //BSM
+      map<bool,string> BSMaddrs;
+      TBSMContent BSMContentBefore;
+      bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
+
+      //map для норм
+      map<int,string> norms;
+
+      bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
+
+      TQuery CrsQry(&OraSession);
+      CrsQry.Clear();
+      CrsQry.SQLText=
+        "DECLARE "
+        "  CURSOR cur1 IS "
+        "    SELECT type,issue_country,no,nationality, "
+        "           birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi "
+        "    FROM crs_pax_doc "
+        "    WHERE pax_id=:pax_id "
+        "    ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no; "
+        "  row1 cur1%ROWTYPE; "
+        "  CURSOR cur2 IS "
+        "    SELECT airline,no,extra "
+        "    FROM crs_pax_fqt "
+        "    WHERE pax_id=:pax_id "
+        "    ORDER BY airline,no,extra; "
+        "  row2 cur2%ROWTYPE; "
+        "  prior_airline crs_pax_fqt.airline%TYPE; "
+        "BEGIN "
+        "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
+        "  DELETE FROM pax_fqt WHERE pax_id=:pax_id; "
+        "  OPEN cur1; "
+        "  FETCH cur1 INTO row1; "
+        "  IF cur1%FOUND THEN "
+        "    INSERT INTO pax_doc "
+        "      (pax_id,type,issue_country,no,nationality, "
+        "       birth_date,gender,expiry_date,surname,first_name,second_name,pr_multi) "
+        "    VALUES "
+        "      (:pax_id,row1.type,row1.issue_country,row1.no,row1.nationality, "
+        "       row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi); "
+        "  END IF; "
+        "  CLOSE cur1; "
+        "  prior_airline:=NULL; "
+        "  FOR row2 IN cur2 LOOP "
+        "    IF prior_airline=row2.airline THEN "
+        "      NULL; "
+        "    ELSE "
+        "      INSERT INTO pax_fqt "
+        "        (pax_id,airline,no,extra) "
+        "      VALUES "
+        "        (:pax_id,row2.airline,row2.no,row2.extra); "
+        "      prior_airline:=row2.airline; "
+        "    END IF; "
+        "  END LOOP; "
+        "END;";
+      CrsQry.DeclareVariable("pax_id",otInteger);
+
       Qry.Clear();
-      Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
-      Qry.CreateVariable("hall",otInteger,hall);
+      Qry.SQLText=
+        "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
+        "FROM trip_sets WHERE point_id=:point_id ";
+      Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
-      if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
-      bool addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+      if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
 
-      //новая регистрация
-      //проверка наличия свободных мест
-      TPaxStatus grp_status;
-      if (first_segment)
+      bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
+      bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
+      bool pr_reg_with_doc=Qry.FieldAsInteger("pr_reg_with_doc")!=0;
+      int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+
+      xmlNodePtr node,node2,remNode;
+      //проверим номера документов и билетов
+      if (!pr_unaccomp&&
+          (pr_reg_with_tkn||pr_reg_with_doc))
       {
-        grp_status=DecodePaxStatus(NodeAsString("status",segNode));
-        if (grp_status==psTransit && !pr_tranz_reg)
-          throw UserException("Перерегистрация транзита на данный рейс не производится");
-      }
-      else
-        grp_status=psTCheckin;
-
-      bool pr_waitlist=NodeAsInteger("pr_waitlist",segNode)!=0;
-
-      #ifdef NEWSEATS
-        SEATS2::TSalons Salons( point_dep, SEATS2::rTripSalons );
-      #else
-        TSalons Salons( point_dep, rTripSalons );
-      #endif
-
-      if (!pr_unaccomp)
-      {
-        //простановка ремарок VIP,EXST, если нужно
-        //подсчет seats
-        bool adultwithbaby = false;
-        int seats,seats_sum=0;
-        string rem_code;
         node=NodeAsNode("passengers",segNode);
         for(node=node->children;node!=NULL;node=node->next)
         {
           node2=node->children;
-          seats=NodeAsIntegerFast("seats",node2);
-          if ( !seats )
-          	adultwithbaby = true;
-          seats_sum+=seats;
-          bool flagVIP=false, flagSTCR=false, flagEXST=false;
-          remNode=GetNodeFast("rems",node2);
-          if (remNode!=NULL)
-            for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
-            {
-              node2=remNode->children;
-              rem_code=NodeAsStringFast("rem_code",node2);
-              if (rem_code=="VIP") flagVIP=true;
-              if (rem_code=="STCR") flagSTCR=true;
-              if (rem_code=="EXST") flagEXST=true;
-            };
-          if (addVIP && !flagVIP)
-          {
-            node2=node->children;
-            if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");
-            remNode=NewTextChild(remNode,"rem");
-            NewTextChild(remNode,"rem_code","VIP");
-            NewTextChild(remNode,"rem_text","VIP");
-          };
-          if (seats>1 && !flagEXST && !flagSTCR)
-          {
-            node2=node->children;
-            if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");
-            remNode=NewTextChild(remNode,"rem");
-            NewTextChild(remNode,"rem_code","EXST");
-            NewTextChild(remNode,"rem_text","EXST");
-          };
-          if (flagEXST && (seats<=1 || flagSTCR))
-          {
-            node2=node->children;
-            remNode=GetNodeFast("rems",node2);
-            if (remNode!=NULL)
-            {
-              remNode=remNode->children;
-              while (remNode!=NULL)
-              {
-                node2=remNode->children;
-                rem_code=NodeAsStringFast("rem_code",node2);
-                if (rem_code=="EXST")
-                {
-                  node2=remNode;
-                  remNode=remNode->next;
-                  xmlUnlinkNode(node2);
-                  xmlFreeNode(node2);
-                }
-                else
-                  remNode=remNode->next;
-              };
-            };
-          };
-        };
-        if (!pr_waitlist)
-        {
+          if (NodeIsNULLFast("pers_type",node2,true)) continue;
+          if (NodeAsStringFast("pers_type",node2)=="РМ") continue;
 
-          int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
-          string place_status;
-          if (grp_status==psTransit)
-            place_status="TR";
-          else
-            place_status="FP";
-
-          if (free<seats_sum)
-            throw UserException("Доступных мест осталось %d",free);
-
-          node=NodeAsNode("passengers",segNode);
-          #ifdef NEWSEATS
-          SEATS2::Passengers.Clear();
-          #else
-          SEATS::Passengers.Clear();
-          #endif
-          //заполним массив для рассадки
-          for(node=node->children;node!=NULL;node=node->next)
-          {
-              node2=node->children;
-              if (NodeAsIntegerFast("seats",node2)==0)
-              	continue;
-              const char *subclass=NodeAsStringFast("subclass",node2);
-              #ifdef NEWSEATS
-              SEATS2::TPassenger pas;
-              #else
-              SEATS::TPassenger pas;
-              #endif
-
-              pas.clname=cl;
-              if (place_status=="FP"&&
-                  !NodeIsNULLFast("pax_id",node2)&&
-                  !NodeIsNULLFast("seat_no",node2)) {
-                #ifdef NEWSEATS
-                pas.layer = cltPNLCkin;
-                #else
-                pas.placeStatus = "BR";
-                #endif
-                pas.pax_id = NodeAsIntegerFast( "pax_id", node2 );
-              }
-              else {
-              	if ( grp_status==psTransit ) {
-              	  #ifdef NEWSEATS
-              	  tst();
-                  pas.layer = cltProtTrzt;
-              	  #else
-              	  pas.placeStatus="TR";
-              	  #endif
-              	}
-              	else {
-               	  #ifdef NEWSEATS
-               	  tst();
-            		  pas.layer = cltUnknown;
-            		  #else
-                  pas.placeStatus=place_status;
-                  #endif
-                pas.pax_id = 0;
-               }
-              }
-              #ifdef NEWSEATS
-              switch ( grp_status )  {
-              	case psCheckin:
-              		pas.grp_status = cltCheckin;
-              		break;
-              	case psTCheckin:
-              		pas.grp_status = cltTCheckin;
-              		break;
-              	case psTransit:
-              		pas.grp_status = cltTranzit;
-              		tst();
-              		break;
-              	case psGoshow:
-              		pas.grp_status = cltGoShow;
-              		break;
-              }
-              #endif
-              pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
-              pas.preseat=NodeAsStringFast("preseat_no",node2);
-              pas.countPlace=NodeAsIntegerFast("seats",node2);
-              pas.placeRem=NodeAsStringFast("seat_type",node2);
-              remNode=GetNodeFast("rems",node2);
-              bool flagMCLS=false;
-              pas.pers_type = NodeAsStringFast("pers_type",node2);
-              bool flagCHIN=pas.pers_type != "ВЗ";
-              if (remNode!=NULL)
-              {
-                for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
-                {
-                  node2=remNode->children;
-                  const char *rem_code=NodeAsStringFast("rem_code",node2);
-                  if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
-                      fltInfo.airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
-                  if ( strcmp(rem_code,"BLND")==0 ||
-                  	   strcmp(rem_code,"STCR")==0 ||
-                  	   strcmp(rem_code,"UMNR")==0 ||
-                  	   strcmp(rem_code,"WCHS")==0 ||
-                  	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
-                  if (strcmp(rem_code,"MCLS")==0) continue; //добавим ремарку MCLS позже
-                  #ifdef NEWSEATS
-                  pas.add_rem(rem_code);
-                  #else
-                  pas.rems.push_back(rem_code);
-                  #endif
-                };
-              };
-              //ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
-              if (!flagMCLS &&
-                  (fltInfo.airline=="ЮТ" && strcmp(subclass,"М")==0 ||
-                   fltInfo.airline=="ПО" && strcmp(subclass,"Ю")==0 ))
-                #ifdef NEWSEATS
-                pas.add_rem("MCLS");
-                #else
-                pas.rems.push_back("MCLS");
-                #endif
-              if ( flagCHIN || adultwithbaby ) {
-              	tst();
-              	adultwithbaby = false;
-              	#ifdef NEWSEATS
-              	pas.add_rem("CHIN");
-              	#else
-              	pas.rems.push_back( "CHIN" );
-              	#endif
-              }
-              #ifdef NEWSEATS
-              SEATS2::Passengers.Add(pas);
-              #else
-              SEATS::Passengers.Add(pas);
-              #endif
-              tst();
-          };
-          // начитка салона
-          Salons.ClName = cl;
-          Salons.Read();
-          #ifdef NEWSEATS
-          //определим алгоритм рассадки
-          int algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
-          //рассадка
-          SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );
-          /*!!! иногда True - возможна рассажка на забронированные места, когда */
-          /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
-          #else
-          //определим алгоритм рассадки
-          int algo=SEATS::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
-          //рассадка
-          SEATS::SeatsPassengers( &Salons, GetUsePS(), algo );
-          /*!!! иногда True - возможна рассажка на забронированные места, когда */
-          /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
-          #endif
+          if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
+            throw UserException("При регистрации необходимо указывать номера билетов пассажиров");
+          if (pr_reg_with_doc&&NodeIsNULLFast("document",node2,true))
+            throw UserException("При регистрации необходимо указывать документы пассажиров");
         };
       };
 
-      Qry.Clear();
-      Qry.SQLText=
-        "BEGIN "
-        "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
-        "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-        "                      status,excess,hall,bag_refuse,user_id,tid) "
-        "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-        "         :status,:excess,:hall,0,:user_id,tid__seq.nextval); "
-        "  IF :seg_no IS NOT NULL THEN "
-        "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
-        "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,pr_depend) "
-        "    VALUES(:tckin_id,:seg_no,:grp_id,DECODE(:seg_no,1,0,1)); "
-        "  END IF; "
-        "END;";
-      Qry.CreateVariable("grp_id",otInteger,FNull);
-      Qry.CreateVariable("point_dep",otInteger,point_dep);
-      Qry.CreateVariable("point_arv",otInteger,point_arv);
-      Qry.CreateVariable("airp_dep",otString,airp_dep);
-      Qry.CreateVariable("airp_arv",otString,airp_arv);
-      Qry.CreateVariable("class",otString,cl);
-      Qry.CreateVariable("status",otString,EncodePaxStatus(grp_status));
-      if (first_segment)
-        Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
-      else
-        Qry.CreateVariable("excess",otInteger,(int)0);
-      Qry.CreateVariable("hall",otInteger,hall);
-      Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
-      if (first_segment)
-        Qry.CreateVariable("tckin_id",otInteger,FNull);
-      else
-        Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-      if (first_segment && segNode->next==NULL) //не сквозная регистрация
-        Qry.CreateVariable("seg_no",otInteger,FNull);
-      else
-        Qry.CreateVariable("seg_no",otInteger,seg_no);
-      Qry.Execute();
-      grp_id=Qry.GetVariableAsInteger("grp_id");
-      if (first_segment)
-        tckin_id=Qry.GetVariableAsInteger("tckin_id");
-
-      ReplaceTextChild(segNode,"grp_id",grp_id);
-
-      if (!pr_unaccomp)
+      //определим - новая регистрация или запись изменений
+      node = GetNode("grp_id",segNode);
+      if (node==NULL||NodeIsNULL(node))
       {
-        //получим рег. номера и признак совместной регистрации и посадки
+        cl=NodeAsString("class",segNode);
+
+        hall=NodeAsInteger("hall",reqNode);
         Qry.Clear();
-        Qry.SQLText=
-          "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
-          "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_dep";
-        Qry.CreateVariable("point_dep",otInteger,point_dep);
+        Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
+        Qry.CreateVariable("hall",otInteger,hall);
         Qry.Execute();
-        int reg_no = Qry.FieldAsInteger("reg_no");
-        bool pr_brd_with_reg=false,pr_exam_with_brd=false;
+        if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
+        bool addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+
+        //новая регистрация
+        //проверка наличия свободных мест
+        TPaxStatus grp_status;
         if (first_segment)
         {
-          //при сквозной регистрации совместная регистрация с посадкой м.б. только на первом рейса
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT pr_misc FROM trip_hall "
-            "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
-            "ORDER BY DECODE(hall,NULL,1,0)";
-          Qry.CreateVariable("point_id",otInteger,point_dep);
-          Qry.CreateVariable("hall",otInteger,hall);
-          Qry.DeclareVariable("type",otInteger);
+          grp_status=DecodePaxStatus(NodeAsString("status",segNode));
+          if (grp_status==psTransit && !pr_tranz_reg)
+            throw UserException("Перерегистрация транзита на данный рейс не производится");
+        }
+        else
+          grp_status=psTCheckin;
 
-          Qry.SetVariable("type",1);
-          Qry.Execute();
-          if (!Qry.Eof) pr_brd_with_reg=Qry.FieldAsInteger("pr_misc")!=0;
-          Qry.SetVariable("type",2);
-          Qry.Execute();
-          if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
+        bool pr_waitlist=false;
+        if (GetNode("pr_waitlist",segNode)!=NULL) //!!! старый терминал 17.02.09
+          pr_waitlist=NodeAsInteger("pr_waitlist",segNode)!=0;
+
+        #ifdef NEWSEATS
+          SEATS2::TSalons Salons( point_dep, SEATS2::rTripSalons );
+        #else
+          TSalons Salons( point_dep, rTripSalons );
+        #endif
+
+        if (!pr_unaccomp)
+        {
+          //простановка ремарок VIP,EXST, если нужно
+          //подсчет seats
+          bool adultwithbaby = false;
+          int seats,seats_sum=0;
+          string rem_code;
+          node=NodeAsNode("passengers",segNode);
+          for(node=node->children;node!=NULL;node=node->next)
+          {
+            node2=node->children;
+            seats=NodeAsIntegerFast("seats",node2);
+            if ( !seats )
+            	adultwithbaby = true;
+            seats_sum+=seats;
+            bool flagVIP=false, flagSTCR=false, flagEXST=false;
+            remNode=GetNodeFast("rems",node2);
+            if (remNode!=NULL)
+              for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
+              {
+                node2=remNode->children;
+                rem_code=NodeAsStringFast("rem_code",node2);
+                if (rem_code=="VIP") flagVIP=true;
+                if (rem_code=="STCR") flagSTCR=true;
+                if (rem_code=="EXST") flagEXST=true;
+              };
+            if (addVIP && !flagVIP)
+            {
+              node2=node->children;
+              if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");
+              remNode=NewTextChild(remNode,"rem");
+              NewTextChild(remNode,"rem_code","VIP");
+              NewTextChild(remNode,"rem_text","VIP");
+            };
+            if (seats>1 && !flagEXST && !flagSTCR)
+            {
+              node2=node->children;
+              if ((remNode=GetNodeFast("rems",node2))==NULL) remNode=NewTextChild(node,"rems");
+              remNode=NewTextChild(remNode,"rem");
+              NewTextChild(remNode,"rem_code","EXST");
+              NewTextChild(remNode,"rem_text","EXST");
+            };
+            if (flagEXST && (seats<=1 || flagSTCR))
+            {
+              node2=node->children;
+              remNode=GetNodeFast("rems",node2);
+              if (remNode!=NULL)
+              {
+                remNode=remNode->children;
+                while (remNode!=NULL)
+                {
+                  node2=remNode->children;
+                  rem_code=NodeAsStringFast("rem_code",node2);
+                  if (rem_code=="EXST")
+                  {
+                    node2=remNode;
+                    remNode=remNode->next;
+                    xmlUnlinkNode(node2);
+                    xmlFreeNode(node2);
+                  }
+                  else
+                    remNode=remNode->next;
+                };
+              };
+            };
+          };
+          if (!pr_waitlist)
+          {
+
+            int free=CheckCounters(point_dep,point_arv,(char*)cl.c_str(),grp_status);
+            string place_status;
+            if (grp_status==psTransit)
+              place_status="TR";
+            else
+              place_status="FP";
+
+            if (free<seats_sum)
+              throw UserException("Доступных мест осталось %d",free);
+
+            node=NodeAsNode("passengers",segNode);
+            #ifdef NEWSEATS
+            SEATS2::Passengers.Clear();
+            #else
+            SEATS::Passengers.Clear();
+            #endif
+            //заполним массив для рассадки
+            for(node=node->children;node!=NULL;node=node->next)
+            {
+                node2=node->children;
+                if (NodeAsIntegerFast("seats",node2)==0)
+                	continue;
+                const char *subclass=NodeAsStringFast("subclass",node2);
+                #ifdef NEWSEATS
+                SEATS2::TPassenger pas;
+                #else
+                SEATS::TPassenger pas;
+                #endif
+
+                pas.clname=cl;
+                if (place_status=="FP"&&
+                    !NodeIsNULLFast("pax_id",node2)&&
+                    !NodeIsNULLFast("seat_no",node2)) {
+                  #ifdef NEWSEATS
+                  pas.layer = cltPNLCkin;
+                  #else
+                  pas.placeStatus = "BR";
+                  #endif
+                  pas.pax_id = NodeAsIntegerFast( "pax_id", node2 );
+                }
+                else {
+                	if ( grp_status==psTransit ) {
+                	  #ifdef NEWSEATS
+                	  tst();
+                    pas.layer = cltProtTrzt;
+                	  #else
+                	  pas.placeStatus="TR";
+                	  #endif
+                	}
+                	else {
+                 	  #ifdef NEWSEATS
+                 	  tst();
+              		  pas.layer = cltUnknown;
+              		  #else
+                    pas.placeStatus=place_status;
+                    #endif
+                  pas.pax_id = 0;
+                 }
+                }
+                #ifdef NEWSEATS
+                switch ( grp_status )  {
+                	case psCheckin:
+                		pas.grp_status = cltCheckin;
+                		break;
+                	case psTCheckin:
+                		pas.grp_status = cltTCheckin;
+                		break;
+                	case psTransit:
+                		pas.grp_status = cltTranzit;
+                		tst();
+                		break;
+                	case psGoshow:
+                		pas.grp_status = cltGoShow;
+                		break;
+                }
+                #endif
+                pas.agent_seat=NodeAsStringFast("seat_no",node2); // crs or hand made
+                pas.preseat=NodeAsStringFast("preseat_no",node2);
+                pas.countPlace=NodeAsIntegerFast("seats",node2);
+                pas.placeRem=NodeAsStringFast("seat_type",node2);
+                remNode=GetNodeFast("rems",node2);
+                bool flagMCLS=false;
+                pas.pers_type = NodeAsStringFast("pers_type",node2);
+                bool flagCHIN=pas.pers_type != "ВЗ";
+                if (remNode!=NULL)
+                {
+                  for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
+                  {
+                    node2=remNode->children;
+                    const char *rem_code=NodeAsStringFast("rem_code",node2);
+                    if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
+                        fltInfo.airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
+                    if ( strcmp(rem_code,"BLND")==0 ||
+                    	   strcmp(rem_code,"STCR")==0 ||
+                    	   strcmp(rem_code,"UMNR")==0 ||
+                    	   strcmp(rem_code,"WCHS")==0 ||
+                    	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
+                    if (strcmp(rem_code,"MCLS")==0) continue; //добавим ремарку MCLS позже
+                    #ifdef NEWSEATS
+                    pas.add_rem(rem_code);
+                    #else
+                    pas.rems.push_back(rem_code);
+                    #endif
+                  };
+                };
+                //ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
+                if (!flagMCLS &&
+                    (fltInfo.airline=="ЮТ" && strcmp(subclass,"М")==0 ||
+                     fltInfo.airline=="ПО" && strcmp(subclass,"Ю")==0 ))
+                  #ifdef NEWSEATS
+                  pas.add_rem("MCLS");
+                  #else
+                  pas.rems.push_back("MCLS");
+                  #endif
+                if ( flagCHIN || adultwithbaby ) {
+                	tst();
+                	adultwithbaby = false;
+                	#ifdef NEWSEATS
+                	pas.add_rem("CHIN");
+                	#else
+                	pas.rems.push_back( "CHIN" );
+                	#endif
+                }
+                #ifdef NEWSEATS
+                SEATS2::Passengers.Add(pas);
+                #else
+                SEATS::Passengers.Add(pas);
+                #endif
+                tst();
+            };
+            // начитка салона
+            Salons.ClName = cl;
+            Salons.Read();
+            #ifdef NEWSEATS
+            //определим алгоритм рассадки
+            int algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
+            //рассадка
+            SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );
+            /*!!! иногда True - возможна рассажка на забронированные места, когда */
+            /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
+            #else
+            //определим алгоритм рассадки
+            int algo=SEATS::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
+            //рассадка
+            SEATS::SeatsPassengers( &Salons, GetUsePS(), algo );
+            /*!!! иногда True - возможна рассажка на забронированные места, когда */
+            /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
+            #endif
+          };
         };
 
         Qry.Clear();
         Qry.SQLText=
           "BEGIN "
-          "  IF :pax_id IS NULL THEN "
-          "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
-          "  END IF; "
-          "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
-          "                  refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
-          "                  document,pr_exam,doc_check,subclass,tid) "
-          "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
-          "         NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
-          "         :document,:pr_exam,0,:subclass,tid__seq.currval); "
+          "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
+          "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
+          "                      status,excess,hall,bag_refuse,user_id,tid) "
+          "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
+          "         :status,:excess,:hall,0,:user_id,tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
-          "    INSERT INTO tckin_pax(tckin_id,seg_no,pax_no,pax_id,pr_depend) "
-          "    VALUES(:tckin_id,:seg_no,:pax_no,:pax_id,DECODE(:seg_no,1,0,1)); "
+          "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
+          "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,pr_depend) "
+          "    VALUES(:tckin_id,:seg_no,:grp_id,DECODE(:seg_no,1,0,1)); "
           "  END IF; "
           "END;";
-        Qry.DeclareVariable("pax_id",otInteger);
-        Qry.DeclareVariable("surname",otString);
-        Qry.DeclareVariable("name",otString);
-        Qry.DeclareVariable("pers_type",otString);
-        Qry.DeclareVariable("seat_type",otString);
-        Qry.DeclareVariable("seats",otInteger);
-        Qry.DeclareVariable("pr_brd",otInteger);
-        Qry.DeclareVariable("pr_exam",otInteger);
-        Qry.DeclareVariable("reg_no",otInteger);
-        Qry.DeclareVariable("ticket_no",otString);
-        Qry.DeclareVariable("coupon_no",otInteger);
-        Qry.DeclareVariable("ticket_rem",otString);
-        Qry.DeclareVariable("ticket_confirm",otInteger);
-        Qry.DeclareVariable("document",otString);
-        Qry.DeclareVariable("subclass",otString);
-        Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-        if (first_segment && segNode->next==NULL) //не сквозная регистрация
+        Qry.CreateVariable("grp_id",otInteger,FNull);
+        Qry.CreateVariable("point_dep",otInteger,point_dep);
+        Qry.CreateVariable("point_arv",otInteger,point_arv);
+        Qry.CreateVariable("airp_dep",otString,airp_dep);
+        Qry.CreateVariable("airp_arv",otString,airp_arv);
+        Qry.CreateVariable("class",otString,cl);
+        Qry.CreateVariable("status",otString,EncodePaxStatus(grp_status));
+        if (first_segment)
+          Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
+        else
+          Qry.CreateVariable("excess",otInteger,(int)0);
+        Qry.CreateVariable("hall",otInteger,hall);
+        Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+        if (first_segment)
+          Qry.CreateVariable("tckin_id",otInteger,FNull);
+        else
+          Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+        if (only_one) //не сквозная регистрация
           Qry.CreateVariable("seg_no",otInteger,FNull);
         else
           Qry.CreateVariable("seg_no",otInteger,seg_no);
-        Qry.DeclareVariable("pax_no",otInteger);
-        int i=0;
-        bool change_agent_seat_no = false;
-        bool change_preseat_no = false;
-        bool exists_preseats = false;
-        bool invalid_seat_no = false;
-        int pax_no=1;
-        for(int k=0;k<=1;k++)
-        {
-          node=NodeAsNode("passengers",segNode);
-          if (first_segment) firstPaxNode=node;
-          xmlNodePtr paxNode=firstPaxNode->children;
-          for(node=node->children;
-              node!=NULL&&paxNode!=NULL;
-              node=node->next,paxNode=paxNode->next)
-          {
-            node2=node->children;
-            int seats=NodeAsIntegerFast("seats",node2);
-            if (seats<=0&&k==0||seats>0&&k==1) continue;
-            const char* surname=NodeAsStringFast("surname",node2);
-            const char* name=NodeAsStringFast("name",node2);
-            const char* pers_type=NodeAsStringFast("pers_type",node2);
-            if (!NodeIsNULLFast("pax_id",node2))
-              Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
-            else
-              Qry.SetVariable("pax_id",FNull);
-            Qry.SetVariable("surname",surname);
-            Qry.SetVariable("name",name);
-            Qry.SetVariable("pers_type",pers_type);
-            if (seats>0)
-              Qry.SetVariable("seat_type",NodeAsStringFast("seat_type",node2));
-            else
-              Qry.SetVariable("seat_type",FNull);
-            Qry.SetVariable("seats",seats);
-            Qry.SetVariable("pr_brd",(int)pr_brd_with_reg);
-            Qry.SetVariable("pr_exam",(int)(pr_brd_with_reg && pr_exam_with_brd));
-            Qry.SetVariable("reg_no",reg_no);
-            Qry.SetVariable("pax_no",pax_no);
-            Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-            if (!NodeIsNULLFast("coupon_no",node2))
-              Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
-            else
-              Qry.SetVariable("coupon_no",FNull);
-            if (GetNodeFast("ticket_rem",node2)!=NULL)
-            {
-              Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-              Qry.SetVariable("ticket_confirm",
-                              (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
-            }
-            else
-            { //потом убрать 31.10.08
-              if (!NodeIsNULLFast("ticket_no",node2))
-              {
-                if (!NodeIsNULLFast("coupon_no",node2))
-                {
-                  Qry.SetVariable("ticket_rem","TKNE");
-                  Qry.SetVariable("ticket_confirm",(int)true);
-                }
-                else
-                {
-                  Qry.SetVariable("ticket_rem","TKNA");
-                  Qry.SetVariable("ticket_confirm",(int)false);
-                };
-              }
-              else
-              {
-                Qry.SetVariable("ticket_rem",FNull);
-                Qry.SetVariable("ticket_confirm",(int)false);
-              };
-            };
-            Qry.SetVariable("document",NodeAsStringFast("document",node2));
-            Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
-            try
-            {
-              Qry.Execute();
-            }
-            catch(EOracleError E)
-            {
-              if (E.Code==1)
-                throw UserException((string)"Пассажир "+surname+(*name!=0?" ":"")+name+
-                                            " уже зарегистрирован с другой стойки");
-              else
-                throw;
-            };
-            int pax_id=Qry.GetVariableAsInteger("pax_id");
-            ReplaceTextChild(node,"pax_id",pax_id);
-
-            ostringstream seat_no_str;
-
-            if (!pr_waitlist)
-            {
-              //запись номеров мест
-              #ifdef NEWSEATS
-              if (seats>0 && i<SEATS2::Passengers.getCount())
-              #else
-              if (seats>0 && i<SEATS::Passengers.getCount())
-              #endif
-              {
-              	#ifdef NEWSEATS
-                SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
-                #else
-                SEATS::TPassenger pas = SEATS::Passengers.Get(i);
-                #endif
-
-                if (pas.seat_no.empty()) throw Exception("SeatsPassengers: empty seat_no");
-                	string pas_seat_no;
-                	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
-                	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
-                		if ( !pas.agent_seat.empty() ) { //было из crs или введено агентом
-                		  pas_seat_no = denorm_iata_row( iseat->row ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
-                		  if ( pas_seat_no == pas.agent_seat )
-                	  		pr_found_agent_seat_no = true;
-                		  if ( !pas.preseat.empty() )
-                		    exists_preseats = true;
-                		  if ( pas.preseat.empty() || pas_seat_no == pas.preseat )
-                		  	pr_found_preseat_no = true;
-                		}
-                		if ( !pas.isValidPlace )
-                			invalid_seat_no = true;
-                  } // end for
-                  if ( !pas.agent_seat.empty() && !pr_found_agent_seat_no ) // есть место и оно изменилось
-                  	change_agent_seat_no = true;
-                  if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
-                  	change_preseat_no = true;
-
-              /*  if (!pas.agent_seat.empty() && pas.agent_seat != pas.placeName) //было из crs или введено агентом, но оно не рассадилось
-                {
-                	if (!pas.preseat.empty() && pas.preseat == pas.placeName) //если была предв рассадка и она сработала при рассадке
-                		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
-                	else
-                    showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
-                }
-                else
-                	if ( !pas.isValidPlace )
-                		showErrorMessage("Пассажиры посажены на запрещенные места");  !!!*/
-
-                vector<TSeatRange> ranges;
-                for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
-                {
-                  seat_no_str << " "
-                              << denorm_iata_row(iSeat->row)
-                              << denorm_iata_line(iSeat->line,Salons.getLatSeat());
-
-                  TSeatRange range(*iSeat,*iSeat);
-                  ranges.push_back(range);
-                };
-                ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
-                //запись в базу
-                TCompLayerType layer_type;
-                switch( grp_status ) {
-                	case psCheckin:
-                		layer_type = cltCheckin;
-                		break;
-                	case psTCheckin:
-                		layer_type = cltTCheckin;
-                		break;
-                	case psGoshow:
-                		layer_type = cltGoShow;
-                		break;
-                	case psTransit:
-                		layer_type = cltTranzit;
-                		break;
-                }
-                #ifdef NEWSEATS
-                SEATS2::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
-                #else
-                SEATS::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
-                #endif
-                //seat_no=pas.seat_no.begin()->
-                i++;
-              };
-              if ( invalid_seat_no )
-                showErrorMessage("Пассажиры посажены на запрещенные места");
-              else
-            		if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
-           	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
-              	else
-              	  if ( change_agent_seat_no || change_preseat_no )
-                		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
-            };
-            if (seat_no_str.str().empty()) seat_no_str << " нет";
-
-
-            //запись pax_doc и pax_fqt
-            CrsQry.SetVariable("pax_id",pax_id);
-            CrsQry.Execute();
-            //запись подклассов трансфера
-            SavePaxTransfer(pax_id,paxNode,reqNode,seg_no);
-            //запись ремарок
-            SavePaxRem(node);
-            //запись норм
-            string normStr;
-            if (first_segment)
-              normStr=SavePaxNorms(node,norms,pr_unaccomp);
-            else
-              normStr="нет";
-            //запись информации по пассажиру в лог
-            TLogMsg msg;
-            msg.ev_type=ASTRA::evtPax;
-            msg.id1=point_dep;
-            msg.id2=reg_no;
-            msg.id3=grp_id;
-            msg.msg=(string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") зарегистрирован"+
-                    ((pr_brd_with_reg && pr_exam_with_brd)?", прошел досмотр":"")+
-                    (pr_brd_with_reg?" , прошел посадку":"")+
-                    ". "+
-                    "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+
-                    ", место:"+seat_no_str.str()+". Баг.нормы: "+normStr;
-            reqInfo->MsgToLog(msg);
-            reg_no++;
-            pax_no++;
-          };
-          if (node!=NULL || paxNode!=NULL)
-            throw Exception("SavePax: Wrong number of passengers in different segments");
-        };
-      }
-      else
-      {
-        //несопровождаемый багаж
-        //запись норм
-        string normStr;
-        if (first_segment)
-          normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
-        else
-          normStr="нет";
-        //запись информации по пассажиру в лог
-        TLogMsg msg;
-        msg.ev_type=ASTRA::evtPax;
-        msg.id1=point_dep;
-        msg.id2=0;
-        msg.id3=grp_id;
-        msg.msg=(string)"Багаж без сопровождения зарегистрирован. "+
-                "П/н: "+airp_arv+", статус: "+EncodePaxStatus(grp_status)+
-                ". Баг.нормы: "+normStr;
-        reqInfo->MsgToLog(msg);
-      };
-      TLogMsg msg;
-      msg.ev_type=ASTRA::evtPax;
-      msg.id1=point_dep;
-      msg.id2=0;
-      msg.id3=grp_id;
-      msg.msg=SaveTransfer(grp_id,reqNode,pr_unaccomp,seg_no);
-      if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
-    }
-    else
-    {
-      grp_id=NodeAsInteger(node);
-      bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
-                       !NodeIsNULL("bag_refuse",reqNode));
-
-      if (first_segment)
-      {
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
-        Qry.CreateVariable("grp_id",otInteger,grp_id);
         Qry.Execute();
-        if (!Qry.Eof)
+        grp_id=Qry.GetVariableAsInteger("grp_id");
+        if (first_segment)
+          tckin_id=Qry.GetVariableAsInteger("tckin_id");
+
+        ReplaceTextChild(segNode,"grp_id",grp_id);
+
+        if (!pr_unaccomp)
         {
-          tckin_id=Qry.FieldAsInteger("tckin_id");
-          tckin_seg_no=Qry.FieldAsInteger("seg_no");
+          //получим рег. номера и признак совместной регистрации и посадки
           Qry.Clear();
           Qry.SQLText=
-            "UPDATE tckin_pax_grp SET pr_depend=0 WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
-          Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-          if (segNode==reqNode)
-            //старый терминал
-            //придется отвязать сквозной маршрут, так как не можем поддерживать
-            //синхронизацию данных по следующим сегментам маршрута
-            Qry.CreateVariable("seg_no",otInteger,tckin_seg_no+1);
-          else
-            Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
+            "SELECT NVL(MAX(reg_no)+1,1) AS reg_no FROM pax_grp,pax "
+            "WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_dep";
+          Qry.CreateVariable("point_dep",otInteger,point_dep);
           Qry.Execute();
-        };
-      };
-
-      Qry.Clear();
-      Qry.SQLText=
-        "UPDATE pax_grp "
-        "SET excess=:excess, "
-        "    bag_refuse=NVL(:bag_refuse,bag_refuse), "
-        "    tid=tid__seq.nextval "
-        "WHERE grp_id=:grp_id AND tid=:tid";
-      Qry.CreateVariable("grp_id",otInteger,grp_id);
-      Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",segNode));
-      if (first_segment)
-        Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
-      else
-        Qry.CreateVariable("excess",otInteger,(int)0);
-      if (GetNode("bag_refuse",reqNode)!=NULL) //потом убрать!!!
-        Qry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
-      else
-        Qry.CreateVariable("bag_refuse",otInteger,FNull);
-
-      Qry.Execute();
-      if (Qry.RowsProcessed()<=0)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-
-      //BSM
-      if (BSMsend)
-        TelegramInterface::LoadBSMContent(grp_id,BSMContentBefore);
-
-      if (!pr_unaccomp)
-      {
-        TQuery PaxQry(&OraSession);
-        PaxQry.Clear();
-        PaxQry.SQLText="UPDATE pax "
-                       "SET surname=:surname, "
-                       "    name=:name, "
-                       "    pers_type=:pers_type, "
-                       "    refuse=:refuse, "
-                       "    ticket_no=:ticket_no, "
-                       "    coupon_no=:coupon_no, "
-                       "    ticket_rem=:ticket_rem, "
-                       "    ticket_confirm=:ticket_confirm, "
-                       "    document=:document, "
-                       "    subclass=:subclass, "
-                       "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
-                       "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
-                       "    tid=tid__seq.currval "
-                       "WHERE pax_id=:pax_id AND tid=:tid";
-        PaxQry.DeclareVariable("pax_id",otInteger);
-        PaxQry.DeclareVariable("tid",otInteger);
-        PaxQry.DeclareVariable("surname",otString);
-        PaxQry.DeclareVariable("name",otString);
-        PaxQry.DeclareVariable("pers_type",otString);
-        PaxQry.DeclareVariable("refuse",otString);
-        PaxQry.DeclareVariable("ticket_no",otString);
-        PaxQry.DeclareVariable("coupon_no",otInteger);
-        PaxQry.DeclareVariable("ticket_rem",otString);
-        PaxQry.DeclareVariable("ticket_confirm",otInteger);
-        PaxQry.DeclareVariable("document",otString);
-        PaxQry.DeclareVariable("subclass",otString);
-
-        TQuery LayerQry(&OraSession);
-        LayerQry.Clear();
-        LayerQry.SQLText=
-          "DELETE FROM trip_comp_layers WHERE pax_id=:pax_id AND layer_type="
-          "(SELECT layer_type FROM pax,pax_grp,grp_status_types "
-          "  WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
-          "        pax_grp.status=grp_status_types.code)";
-        LayerQry.DeclareVariable("pax_id",otInteger);
-
-        node=GetNode("passengers",segNode);
-        if (node!=NULL)
-        {
-          for(node=node->children;node!=NULL;node=node->next)
+          int reg_no = Qry.FieldAsInteger("reg_no");
+          bool pr_brd_with_reg=false,pr_exam_with_brd=false;
+          if (first_segment)
           {
-            node2=node->children;
-            int pax_id=NodeAsIntegerFast("pax_id",node2);
-            const char* surname=NodeAsStringFast("surname",node2);
-            const char* name=NodeAsStringFast("name",node2);
+            //при сквозной регистрации совместная регистрация с посадкой м.б. только на первом рейса
             Qry.Clear();
-            Qry.SQLText="SELECT refuse,reg_no FROM pax WHERE pax_id=:pax_id";
-            Qry.CreateVariable("pax_id",otInteger,pax_id);
+            Qry.SQLText=
+              "SELECT pr_misc FROM trip_hall "
+              "WHERE point_id=:point_id AND type=:type AND (hall=:hall OR hall IS NULL) "
+              "ORDER BY DECODE(hall,NULL,1,0)";
+            Qry.CreateVariable("point_id",otInteger,point_dep);
+            Qry.CreateVariable("hall",otInteger,hall);
+            Qry.DeclareVariable("type",otInteger);
+
+            Qry.SetVariable("type",1);
             Qry.Execute();
-            string old_refuse=Qry.FieldAsString("refuse");
-            int reg_no=Qry.FieldAsInteger("reg_no");
-            if (GetNodeFast("refuse",node2)!=NULL)
+            if (!Qry.Eof) pr_brd_with_reg=Qry.FieldAsInteger("pr_misc")!=0;
+            Qry.SetVariable("type",2);
+            Qry.Execute();
+            if (!Qry.Eof) pr_exam_with_brd=Qry.FieldAsInteger("pr_misc")!=0;
+          };
+
+          Qry.Clear();
+          Qry.SQLText=
+            "BEGIN "
+            "  IF :pax_id IS NULL THEN "
+            "    SELECT pax_id.nextval INTO :pax_id FROM dual; "
+            "  END IF; "
+            "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
+            "                  refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
+            "                  document,pr_exam,doc_check,subclass,tid) "
+            "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
+            "         NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
+            "         :document,:pr_exam,0,:subclass,tid__seq.currval); "
+            "  IF :seg_no IS NOT NULL THEN "
+            "    INSERT INTO tckin_pax(tckin_id,seg_no,pax_no,pax_id,pr_depend) "
+            "    VALUES(:tckin_id,:seg_no,:pax_no,:pax_id,DECODE(:seg_no,1,0,1)); "
+            "  END IF; "
+            "END;";
+          Qry.DeclareVariable("pax_id",otInteger);
+          Qry.DeclareVariable("surname",otString);
+          Qry.DeclareVariable("name",otString);
+          Qry.DeclareVariable("pers_type",otString);
+          Qry.DeclareVariable("seat_type",otString);
+          Qry.DeclareVariable("seats",otInteger);
+          Qry.DeclareVariable("pr_brd",otInteger);
+          Qry.DeclareVariable("pr_exam",otInteger);
+          Qry.DeclareVariable("reg_no",otInteger);
+          Qry.DeclareVariable("ticket_no",otString);
+          Qry.DeclareVariable("coupon_no",otInteger);
+          Qry.DeclareVariable("ticket_rem",otString);
+          Qry.DeclareVariable("ticket_confirm",otInteger);
+          Qry.DeclareVariable("document",otString);
+          Qry.DeclareVariable("subclass",otString);
+          Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+          if (only_one) //не сквозная регистрация
+            Qry.CreateVariable("seg_no",otInteger,FNull);
+          else
+            Qry.CreateVariable("seg_no",otInteger,seg_no);
+          Qry.DeclareVariable("pax_no",otInteger);
+          int i=0;
+          bool change_agent_seat_no = false;
+          bool change_preseat_no = false;
+          bool exists_preseats = false;
+          bool invalid_seat_no = false;
+          int pax_no=1;
+          for(int k=0;k<=1;k++)
+          {
+            node=NodeAsNode("passengers",segNode);
+            if (first_segment) firstPaxNode=node;
+            xmlNodePtr paxNode=firstPaxNode->children;
+            for(node=node->children;
+                node!=NULL&&paxNode!=NULL;
+                node=node->next,paxNode=paxNode->next)
             {
-              //были изменения в информации по пассажиру
-              if (!NodeIsNULLFast("refuse",node2))
-              {
-                LayerQry.SetVariable("pax_id",pax_id);
-                LayerQry.Execute();
-              };
+              node2=node->children;
+              int seats=NodeAsIntegerFast("seats",node2);
+              if (seats<=0&&k==0||seats>0&&k==1) continue;
+              const char* surname=NodeAsStringFast("surname",node2);
+              const char* name=NodeAsStringFast("name",node2);
               const char* pers_type=NodeAsStringFast("pers_type",node2);
-              const char* refuse=NodeAsStringFast("refuse",node2);
-              PaxQry.SetVariable("pax_id",pax_id);
-              PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
-              PaxQry.SetVariable("surname",surname);
-              PaxQry.SetVariable("name",name);
-              PaxQry.SetVariable("pers_type",pers_type);
-              PaxQry.SetVariable("refuse",refuse);
-              PaxQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-              if (!NodeIsNULLFast("coupon_no",node2))
-                PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+              if (!NodeIsNULLFast("pax_id",node2))
+                Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
               else
-                PaxQry.SetVariable("coupon_no",FNull);
+                Qry.SetVariable("pax_id",FNull);
+              Qry.SetVariable("surname",surname);
+              Qry.SetVariable("name",name);
+              Qry.SetVariable("pers_type",pers_type);
+              if (seats>0)
+                Qry.SetVariable("seat_type",NodeAsStringFast("seat_type",node2));
+              else
+                Qry.SetVariable("seat_type",FNull);
+              Qry.SetVariable("seats",seats);
+              Qry.SetVariable("pr_brd",(int)pr_brd_with_reg);
+              Qry.SetVariable("pr_exam",(int)(pr_brd_with_reg && pr_exam_with_brd));
+              Qry.SetVariable("reg_no",reg_no);
+              Qry.SetVariable("pax_no",pax_no);
+              Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+              if (!NodeIsNULLFast("coupon_no",node2))
+                Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+              else
+                Qry.SetVariable("coupon_no",FNull);
               if (GetNodeFast("ticket_rem",node2)!=NULL)
               {
-                PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
-                PaxQry.SetVariable("ticket_confirm",
-                              (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
+                Qry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+                Qry.SetVariable("ticket_confirm",
+                                (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
               }
               else
               { //потом убрать 31.10.08
@@ -2738,351 +2429,697 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 {
                   if (!NodeIsNULLFast("coupon_no",node2))
                   {
-                    PaxQry.SetVariable("ticket_rem","TKNE");
-                    PaxQry.SetVariable("ticket_confirm",(int)true);
+                    Qry.SetVariable("ticket_rem","TKNE");
+                    Qry.SetVariable("ticket_confirm",(int)true);
                   }
                   else
                   {
-                    PaxQry.SetVariable("ticket_rem","TKNA");
-                    PaxQry.SetVariable("ticket_confirm",(int)false);
+                    Qry.SetVariable("ticket_rem","TKNA");
+                    Qry.SetVariable("ticket_confirm",(int)false);
                   };
                 }
                 else
                 {
-                  PaxQry.SetVariable("ticket_rem",FNull);
-                  PaxQry.SetVariable("ticket_confirm",(int)false);
+                  Qry.SetVariable("ticket_rem",FNull);
+                  Qry.SetVariable("ticket_confirm",(int)false);
                 };
               };
-              PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
-              PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
-              PaxQry.Execute();
-              if (PaxQry.RowsProcessed()<=0)
-                throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
-                                            " производились с другой стойки. Обновите данные");
-
-              //запись информации по пассажиру в лог
-              if (old_refuse!=refuse)
+              Qry.SetVariable("document",NodeAsStringFast("document",node2));
+              Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+              try
               {
-                if (old_refuse=="")
-                  reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
-                                    "Причина отказа в регистрации: "+refuse+". ",
-                                    ASTRA::evtPax,point_dep,reg_no,grp_id);
-                else
-                  reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
-                                    "Изменена причина отказа в регистрации: "+refuse+". ",
-                                    ASTRA::evtPax,point_dep,reg_no,grp_id);
+                Qry.Execute();
               }
-              else
+              catch(EOracleError E)
               {
-                //проверить на PaxUpdatespending!!!
-                reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
-                                  "Изменены данные пассажира.",
-                                  ASTRA::evtPax,point_dep,reg_no,grp_id);
+                if (E.Code==1)
+                  throw UserException((string)"Пассажир "+surname+(*name!=0?" ":"")+name+
+                                              " уже зарегистрирован с другой стойки");
+                else
+                  throw;
               };
-            }
-            else
-            {
-              Qry.Clear();
-              Qry.SQLText="UPDATE pax SET tid=tid__seq.currval WHERE pax_id=:pax_id AND tid=:tid";
-              Qry.CreateVariable("pax_id",otInteger,pax_id);
-              Qry.CreateVariable("tid",otInteger,NodeAsIntegerFast("tid",node2));
-              Qry.Execute();
-              if (Qry.RowsProcessed()<=0)
-                throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
-                                            " производились с другой стойки. Обновите данные");
+              int pax_id=Qry.GetVariableAsInteger("pax_id");
+              ReplaceTextChild(node,"pax_id",pax_id);
+
+              ostringstream seat_no_str;
+
+              if (!pr_waitlist)
+              {
+                //запись номеров мест
+                #ifdef NEWSEATS
+                if (seats>0 && i<SEATS2::Passengers.getCount())
+                #else
+                if (seats>0 && i<SEATS::Passengers.getCount())
+                #endif
+                {
+                	#ifdef NEWSEATS
+                  SEATS2::TPassenger pas = SEATS2::Passengers.Get(i);
+                  #else
+                  SEATS::TPassenger pas = SEATS::Passengers.Get(i);
+                  #endif
+
+                  if (pas.seat_no.empty()) throw Exception("SeatsPassengers: empty seat_no");
+                  	string pas_seat_no;
+                  	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
+                  	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
+                  		if ( !pas.agent_seat.empty() ) { //было из crs или введено агентом
+                  		  pas_seat_no = denorm_iata_row( iseat->row ) + denorm_iata_line( iseat->line, Salons.getLatSeat() );
+                  		  if ( pas_seat_no == pas.agent_seat )
+                  	  		pr_found_agent_seat_no = true;
+                  		  if ( !pas.preseat.empty() )
+                  		    exists_preseats = true;
+                  		  if ( pas.preseat.empty() || pas_seat_no == pas.preseat )
+                  		  	pr_found_preseat_no = true;
+                  		}
+                  		if ( !pas.isValidPlace )
+                  			invalid_seat_no = true;
+                    } // end for
+                    if ( !pas.agent_seat.empty() && !pr_found_agent_seat_no ) // есть место и оно изменилось
+                    	change_agent_seat_no = true;
+                    if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
+                    	change_preseat_no = true;
+
+                /*  if (!pas.agent_seat.empty() && pas.agent_seat != pas.placeName) //было из crs или введено агентом, но оно не рассадилось
+                  {
+                  	if (!pas.preseat.empty() && pas.preseat == pas.placeName) //если была предв рассадка и она сработала при рассадке
+                  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+                  	else
+                      showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+                  }
+                  else
+                  	if ( !pas.isValidPlace )
+                  		showErrorMessage("Пассажиры посажены на запрещенные места");  !!!*/
+
+                  vector<TSeatRange> ranges;
+                  for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
+                  {
+                    seat_no_str << " "
+                                << denorm_iata_row(iSeat->row)
+                                << denorm_iata_line(iSeat->line,Salons.getLatSeat());
+
+                    TSeatRange range(*iSeat,*iSeat);
+                    ranges.push_back(range);
+                  };
+                  ProgTrace( TRACE5, "ranges.size=%d", ranges.size() );
+                  //запись в базу
+                  TCompLayerType layer_type;
+                  switch( grp_status ) {
+                  	case psCheckin:
+                  		layer_type = cltCheckin;
+                  		break;
+                  	case psTCheckin:
+                  		layer_type = cltTCheckin;
+                  		break;
+                  	case psGoshow:
+                  		layer_type = cltGoShow;
+                  		break;
+                  	case psTransit:
+                  		layer_type = cltTranzit;
+                  		break;
+                  }
+                  #ifdef NEWSEATS
+                  SEATS2::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
+                  #else
+                  SEATS::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
+                  #endif
+                  //seat_no=pas.seat_no.begin()->
+                  i++;
+                };
+                if ( invalid_seat_no )
+                  showErrorMessage("Пассажиры посажены на запрещенные места");
+                else
+              		if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
+             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+                	else
+                	  if ( change_agent_seat_no || change_preseat_no )
+                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+              };
+              if (seat_no_str.str().empty()) seat_no_str << " нет";
+
+
+              //запись pax_doc и pax_fqt
+              CrsQry.SetVariable("pax_id",pax_id);
+              CrsQry.Execute();
+              //запись подклассов трансфера
+              SavePaxTransfer(pax_id,paxNode,reqNode,seg_no);
+              //запись ремарок
+              SavePaxRem(node);
+              //запись норм
+              string normStr;
+              if (first_segment)
+                normStr=SavePaxNorms(node,norms,pr_unaccomp);
+              else
+                normStr="нет";
+              //запись информации по пассажиру в лог
+              TLogMsg msg;
+              msg.ev_type=ASTRA::evtPax;
+              msg.id1=point_dep;
+              msg.id2=reg_no;
+              msg.id3=grp_id;
+              msg.msg=(string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") зарегистрирован"+
+                      ((pr_brd_with_reg && pr_exam_with_brd)?", прошел досмотр":"")+
+                      (pr_brd_with_reg?" , прошел посадку":"")+
+                      ". "+
+                      "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+
+                      ", место:"+seat_no_str.str()+". Баг.нормы: "+normStr;
+              reqInfo->MsgToLog(msg);
+              reg_no++;
+              pax_no++;
             };
-            CrsQry.SetVariable("pax_id",pax_id);
-            CrsQry.Execute();
-            //запись ремарок
-            SavePaxRem(node);
-            //запись норм
-            string normStr;
-            if (first_segment)
-              normStr=SavePaxNorms(node,norms,pr_unaccomp);
-            else
-              normStr="нет";
-            if (normStr!="")
-              reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
-                                "Баг.нормы: "+normStr,ASTRA::evtPax,point_dep,reg_no,grp_id);
+            if (node!=NULL || paxNode!=NULL)
+              throw Exception("SavePax: Wrong number of passengers in different segments");
           };
+        }
+        else
+        {
+          //несопровождаемый багаж
+          //запись норм
+          string normStr;
+          if (first_segment)
+            normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
+          else
+            normStr="нет";
+          //запись информации по пассажиру в лог
+          TLogMsg msg;
+          msg.ev_type=ASTRA::evtPax;
+          msg.id1=point_dep;
+          msg.id2=0;
+          msg.id3=grp_id;
+          msg.msg=(string)"Багаж без сопровождения зарегистрирован. "+
+                  "П/н: "+airp_arv+", статус: "+EncodePaxStatus(grp_status)+
+                  ". Баг.нормы: "+normStr;
+          reqInfo->MsgToLog(msg);
         };
+        TLogMsg msg;
+        msg.ev_type=ASTRA::evtPax;
+        msg.id1=point_dep;
+        msg.id2=0;
+        msg.id3=grp_id;
+        msg.msg=SaveTransfer(grp_id,reqNode,pr_unaccomp,seg_no);
+        if (!msg.msg.empty()) reqInfo->MsgToLog(msg);
       }
       else
       {
-        //запись норм
-        string normStr;
-        if (first_segment)
-          normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
-        else
-          normStr="нет";
-        if (normStr!="")
-          reqInfo->MsgToLog((string)"Багаж без сопровождения. "+
-                            "Баг.нормы: "+normStr,
-                            ASTRA::evtPax,point_dep,0,grp_id);
-        if (bag_refuse)
-          reqInfo->MsgToLog("Багаж без сопровождения удален",
-                            ASTRA::evtPax,point_dep,0,grp_id);
-      };
-    };
+        grp_id=NodeAsInteger(node);
+        bool bag_refuse=(GetNode("bag_refuse",reqNode)!=NULL &&
+                         !NodeIsNULL("bag_refuse",reqNode));
 
-    if (first_segment)
-    {
-      CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
-      CheckInInterface::SavePaidBag(grp_id,reqNode);
-      SaveTagPacks(reqNode);
-      first_grp_id=grp_id;
-    }
-    else
-    {
-      //запросом записываем в остальные группы багаж, бирки, ценный багаж
+        if (first_segment)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.Execute();
+          if (!Qry.Eof)
+          {
+            tckin_id=Qry.FieldAsInteger("tckin_id");
+            tckin_seg_no=Qry.FieldAsInteger("seg_no");
+            Qry.Clear();
+            Qry.SQLText=
+              "UPDATE tckin_pax_grp SET pr_depend=0 WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
+            Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+            if (!tckin_version)
+              //старый терминал
+              //придется отвязать сквозной маршрут, так как не можем поддерживать
+              //синхронизацию данных по следующим сегментам маршрута
+              Qry.CreateVariable("seg_no",otInteger,tckin_seg_no+1);
+            else
+              Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
+            Qry.Execute();
+          };
+        };
+
+        Qry.Clear();
+        Qry.SQLText=
+          "UPDATE pax_grp "
+          "SET excess=:excess, "
+          "    bag_refuse=NVL(:bag_refuse,bag_refuse), "
+          "    tid=tid__seq.nextval "
+          "WHERE grp_id=:grp_id AND tid=:tid";
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        Qry.CreateVariable("tid",otInteger,NodeAsInteger("tid",segNode));
+        if (first_segment)
+          Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
+        else
+          Qry.CreateVariable("excess",otInteger,(int)0);
+        if (GetNode("bag_refuse",reqNode)!=NULL) //потом убрать!!!
+          Qry.CreateVariable("bag_refuse",otInteger,(int)bag_refuse);
+        else
+          Qry.CreateVariable("bag_refuse",otInteger,FNull);
+
+        Qry.Execute();
+        if (Qry.RowsProcessed()<=0)
+          throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+
+        //BSM
+        if (BSMsend)
+          TelegramInterface::LoadBSMContent(grp_id,BSMContentBefore);
+
+        if (!pr_unaccomp)
+        {
+          TQuery PaxQry(&OraSession);
+          PaxQry.Clear();
+          PaxQry.SQLText="UPDATE pax "
+                         "SET surname=:surname, "
+                         "    name=:name, "
+                         "    pers_type=:pers_type, "
+                         "    refuse=:refuse, "
+                         "    ticket_no=:ticket_no, "
+                         "    coupon_no=:coupon_no, "
+                         "    ticket_rem=:ticket_rem, "
+                         "    ticket_confirm=:ticket_confirm, "
+                         "    document=:document, "
+                         "    subclass=:subclass, "
+                         "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
+                         "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
+                         "    tid=tid__seq.currval "
+                         "WHERE pax_id=:pax_id AND tid=:tid";
+          PaxQry.DeclareVariable("pax_id",otInteger);
+          PaxQry.DeclareVariable("tid",otInteger);
+          PaxQry.DeclareVariable("surname",otString);
+          PaxQry.DeclareVariable("name",otString);
+          PaxQry.DeclareVariable("pers_type",otString);
+          PaxQry.DeclareVariable("refuse",otString);
+          PaxQry.DeclareVariable("ticket_no",otString);
+          PaxQry.DeclareVariable("coupon_no",otInteger);
+          PaxQry.DeclareVariable("ticket_rem",otString);
+          PaxQry.DeclareVariable("ticket_confirm",otInteger);
+          PaxQry.DeclareVariable("document",otString);
+          PaxQry.DeclareVariable("subclass",otString);
+
+          TQuery LayerQry(&OraSession);
+          LayerQry.Clear();
+          LayerQry.SQLText=
+            "DELETE FROM trip_comp_layers WHERE pax_id=:pax_id AND layer_type="
+            "(SELECT layer_type FROM pax,pax_grp,grp_status_types "
+            "  WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
+            "        pax_grp.status=grp_status_types.code)";
+          LayerQry.DeclareVariable("pax_id",otInteger);
+
+          node=GetNode("passengers",segNode);
+          if (node!=NULL)
+          {
+            for(node=node->children;node!=NULL;node=node->next)
+            {
+              node2=node->children;
+              int pax_id=NodeAsIntegerFast("pax_id",node2);
+              const char* surname=NodeAsStringFast("surname",node2);
+              const char* name=NodeAsStringFast("name",node2);
+              Qry.Clear();
+              Qry.SQLText="SELECT refuse,reg_no FROM pax WHERE pax_id=:pax_id";
+              Qry.CreateVariable("pax_id",otInteger,pax_id);
+              Qry.Execute();
+              string old_refuse=Qry.FieldAsString("refuse");
+              int reg_no=Qry.FieldAsInteger("reg_no");
+              if (GetNodeFast("refuse",node2)!=NULL)
+              {
+                //были изменения в информации по пассажиру
+                if (!NodeIsNULLFast("refuse",node2))
+                {
+                  LayerQry.SetVariable("pax_id",pax_id);
+                  LayerQry.Execute();
+                };
+                const char* pers_type=NodeAsStringFast("pers_type",node2);
+                const char* refuse=NodeAsStringFast("refuse",node2);
+                PaxQry.SetVariable("pax_id",pax_id);
+                PaxQry.SetVariable("tid",NodeAsIntegerFast("tid",node2));
+                PaxQry.SetVariable("surname",surname);
+                PaxQry.SetVariable("name",name);
+                PaxQry.SetVariable("pers_type",pers_type);
+                PaxQry.SetVariable("refuse",refuse);
+                PaxQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+                if (!NodeIsNULLFast("coupon_no",node2))
+                  PaxQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+                else
+                  PaxQry.SetVariable("coupon_no",FNull);
+                if (GetNodeFast("ticket_rem",node2)!=NULL)
+                {
+                  PaxQry.SetVariable("ticket_rem",NodeAsStringFast("ticket_rem",node2));
+                  PaxQry.SetVariable("ticket_confirm",
+                                (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
+                }
+                else
+                { //потом убрать 31.10.08
+                  if (!NodeIsNULLFast("ticket_no",node2))
+                  {
+                    if (!NodeIsNULLFast("coupon_no",node2))
+                    {
+                      PaxQry.SetVariable("ticket_rem","TKNE");
+                      PaxQry.SetVariable("ticket_confirm",(int)true);
+                    }
+                    else
+                    {
+                      PaxQry.SetVariable("ticket_rem","TKNA");
+                      PaxQry.SetVariable("ticket_confirm",(int)false);
+                    };
+                  }
+                  else
+                  {
+                    PaxQry.SetVariable("ticket_rem",FNull);
+                    PaxQry.SetVariable("ticket_confirm",(int)false);
+                  };
+                };
+                PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
+                PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+                PaxQry.Execute();
+                if (PaxQry.RowsProcessed()<=0)
+                  throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
+                                              " производились с другой стойки. Обновите данные");
+
+                //запись информации по пассажиру в лог
+                if (old_refuse!=refuse)
+                {
+                  if (old_refuse=="")
+                    reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
+                                      "Причина отказа в регистрации: "+refuse+". ",
+                                      ASTRA::evtPax,point_dep,reg_no,grp_id);
+                  else
+                    reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
+                                      "Изменена причина отказа в регистрации: "+refuse+". ",
+                                      ASTRA::evtPax,point_dep,reg_no,grp_id);
+                }
+                else
+                {
+                  //проверить на PaxUpdatespending!!!
+                  reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+"). "+
+                                    "Изменены данные пассажира.",
+                                    ASTRA::evtPax,point_dep,reg_no,grp_id);
+                };
+              }
+              else
+              {
+                Qry.Clear();
+                Qry.SQLText="UPDATE pax SET tid=tid__seq.currval WHERE pax_id=:pax_id AND tid=:tid";
+                Qry.CreateVariable("pax_id",otInteger,pax_id);
+                Qry.CreateVariable("tid",otInteger,NodeAsIntegerFast("tid",node2));
+                Qry.Execute();
+                if (Qry.RowsProcessed()<=0)
+                  throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
+                                              " производились с другой стойки. Обновите данные");
+              };
+              CrsQry.SetVariable("pax_id",pax_id);
+              CrsQry.Execute();
+              //запись ремарок
+              SavePaxRem(node);
+              //запись норм
+              string normStr;
+              if (first_segment)
+                normStr=SavePaxNorms(node,norms,pr_unaccomp);
+              else
+                normStr="нет";
+              if (normStr!="")
+                reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
+                                  "Баг.нормы: "+normStr,ASTRA::evtPax,point_dep,reg_no,grp_id);
+            };
+          };
+        }
+        else
+        {
+          //запись норм
+          string normStr;
+          if (first_segment)
+            normStr=SavePaxNorms(segNode,norms,pr_unaccomp);
+          else
+            normStr="нет";
+          if (normStr!="")
+            reqInfo->MsgToLog((string)"Багаж без сопровождения. "+
+                              "Баг.нормы: "+normStr,
+                              ASTRA::evtPax,point_dep,0,grp_id);
+          if (bag_refuse)
+            reqInfo->MsgToLog("Багаж без сопровождения удален",
+                              ASTRA::evtPax,point_dep,0,grp_id);
+        };
+      };
+
+      if (first_segment)
+      {
+        CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
+        CheckInInterface::SavePaidBag(grp_id,reqNode);
+        SaveTagPacks(reqNode);
+        first_grp_id=grp_id;
+      }
+      else
+      {
+        //запросом записываем в остальные группы багаж, бирки, ценный багаж
+
+        Qry.Clear();
+        Qry.SQLText=
+          "BEGIN "
+          "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
+          "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
+          "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
+          "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
+          "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
+          "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
+          "  FROM value_bag WHERE grp_id=:first_grp_id; "
+          "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
+          "  SELECT :grp_id,num,0,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
+          "  FROM bag2 WHERE grp_id=:first_grp_id; "
+          "  IF SQL%FOUND THEN "
+          "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
+          "    VALUES(:grp_id,0,0,NULL,NULL); "
+          "  END IF; "
+          "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
+          "  SELECT :grp_id,num,tag_type,no,color,:seg_no,bag_num,pr_print "
+          "  FROM bag_tags WHERE grp_id=:first_grp_id; "
+          "END; ";
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
+        Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
+        Qry.Execute();
+      };
+      SaveBagToLog(point_dep,grp_id,reqNode);
+
+
+      //проверим дублирование билетов
+      if (!pr_unaccomp)
+      {
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT ticket_no,coupon_no FROM pax "
+          "WHERE refuse IS NULL AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
+          "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
+        Qry.DeclareVariable("ticket_no",otString);
+        Qry.DeclareVariable("coupon_no",otInteger);
+        node=NodeAsNode("passengers",segNode);
+        for(node=node->children;node!=NULL;node=node->next)
+        {
+          node2=node->children;
+          if (NodeIsNULLFast("ticket_no",node2,true)||
+              NodeIsNULLFast("coupon_no",node2,true)) continue;
+
+          Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+          Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+          Qry.Execute();
+          if (!Qry.Eof)
+            throw UserException("Эл. билет №%s/%s дублируется",
+                                NodeAsStringFast("ticket_no",node2),
+                                NodeAsStringFast("coupon_no",node2));
+        };
+      };
+
+      //обновление counters
+      Qry.Clear();
+      Qry.SQLText=
+        "BEGIN "
+        "  mvd.sync_pax_grp(:grp_id,:desk); "
+        "  ckin.check_grp(:grp_id); "
+        "  ckin.recount(:point_id); "
+        "END;";
+      Qry.CreateVariable("point_id",otInteger,point_dep);
+      Qry.CreateVariable("grp_id",otInteger,grp_id);
+      Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+      Qry.Execute();
+      Qry.Close();
 
       Qry.Clear();
       Qry.SQLText=
         "BEGIN "
-        "  DELETE FROM value_bag WHERE grp_id=:grp_id; "
-        "  DELETE FROM bag2 WHERE grp_id=:grp_id; "
-        "  DELETE FROM paid_bag WHERE grp_id=:grp_id; "
-        "  DELETE FROM bag_tags WHERE grp_id=:grp_id; "
-        "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
-        "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
-        "  FROM value_bag WHERE grp_id=:first_grp_id; "
-        "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
-        "  SELECT :grp_id,num,0,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
-        "  FROM bag2 WHERE grp_id=:first_grp_id; "
-        "  IF SQL%FOUND THEN "
-        "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
-        "    VALUES(:grp_id,0,0,NULL,NULL); "
-        "  END IF; "
-        "  INSERT INTO bag_tags(grp_id,num,tag_type,no,color,seg_no,bag_num,pr_print) "
-        "  SELECT :grp_id,num,tag_type,no,color,:seg_no,bag_num,pr_print "
-        "  FROM bag_tags WHERE grp_id=:first_grp_id; "
-        "END; ";
-      Qry.CreateVariable("grp_id",otInteger,grp_id);
-      Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
-      Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
-      Qry.Execute();
-    };
-    SaveBagToLog(point_dep,grp_id,reqNode);
+        "  IF :rollback<>0 THEN ROLLBACK TO CHECKIN; END IF; "
+        "  UPDATE trip_sets SET overload_alarm=1 WHERE point_id=:point_id; "
+        "END;";
+      Qry.CreateVariable("point_id",otInteger,point_dep);
+      Qry.DeclareVariable("rollback",otInteger);
 
-
-    //проверим дублирование билетов
-    if (!pr_unaccomp)
-    {
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT ticket_no,coupon_no FROM pax "
-        "WHERE refuse IS NULL AND ticket_no=:ticket_no AND coupon_no=:coupon_no "
-        "GROUP BY ticket_no,coupon_no HAVING COUNT(*)>1";
-      Qry.DeclareVariable("ticket_no",otString);
-      Qry.DeclareVariable("coupon_no",otInteger);
-      node=NodeAsNode("passengers",segNode);
-      for(node=node->children;node!=NULL;node=node->next)
+      if (!pr_unaccomp)
       {
-        node2=node->children;
-        if (NodeIsNULLFast("ticket_no",node2,true)||
-            NodeIsNULLFast("coupon_no",node2,true)) continue;
+        //посчитаем индекс группы подклассов
+        TQuery PaxQry(&OraSession);
+        PaxQry.Clear();
+        PaxQry.SQLText=
+          "SELECT subclass,class FROM pax_grp,pax "
+          "WHERE pax_grp.grp_id=pax.grp_id AND pax.grp_id=:grp_id "
+          "ORDER BY reg_no";
+        PaxQry.CreateVariable("grp_id",otInteger,grp_id);
+        PaxQry.Execute();
+        if (!PaxQry.Eof)
+        {
+          //проверим максимальную загрузку
+          try
+          {
+            if (CheckFltOverload(point_dep))
+            {
+              //работает если разрешена регистрация при превышении загрузки
+              //продолжаем регистрацию и зажигаем тревогу
+              Qry.SetVariable("rollback",0);
+              Qry.Execute();
+            };
+          }
+          catch(OverloadException &E)
+          {
+            //работает если запрещена регистрация при превышении загрузки
+            //откат регистрации и зажигаем тревогу
+            //при сквозной регистрации будет зажжена тревога на первом перегруженном рейсе
+            Qry.SetVariable("rollback",1);
+            Qry.Execute();
+            showErrorMessage(E.what());
+            return;
+          };
 
-        Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
-        Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
-        Qry.Execute();
-        if (!Qry.Eof)
-          throw UserException("Эл. билет №%s/%s дублируется",
-                              NodeAsStringFast("ticket_no",node2),
-                              NodeAsStringFast("coupon_no",node2));
-      };
-    };
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT MAX(DECODE(airline,NULL,0,4)+ "
+            "           DECODE(airp,NULL,0,2)) AS priority "
+            "FROM cls_grp "
+            "WHERE (airline IS NULL OR airline=:airline) AND "
+            "      (airp IS NULL OR airp=:airp) AND "
+            "      pr_del=0";
+          Qry.CreateVariable("airline",otString,fltInfo.airline);
+          Qry.CreateVariable("airp",otString,fltInfo.airp);
+          Qry.Execute();
+          if (Qry.Eof||Qry.FieldIsNULL("priority"))
+          {
+            ProgError(STDLOG,"Class group not found (airline=%s, airp=%s)",fltInfo.airline.c_str(),fltInfo.airp.c_str());
+            throw UserException("На данный рейс регистрация ни в одном из классов не производится");
 
-    //обновление counters
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  mvd.sync_pax_grp(:grp_id,:desk); "
-      "  ckin.check_grp(:grp_id); "
-      "  ckin.recount(:point_id); "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.CreateVariable("grp_id",otInteger,grp_id);
-    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-    Qry.Execute();
-    Qry.Close();
+          };
+          int priority=Qry.FieldAsInteger("priority");
 
-    Qry.Clear();
-    Qry.SQLText=
-      "BEGIN "
-      "  IF :rollback<>0 THEN ROLLBACK TO CHECKIN; END IF; "
-      "  UPDATE trip_sets SET overload_alarm=1 WHERE point_id=:point_id; "
-      "END;";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.DeclareVariable("rollback",otInteger);
 
-    if (!pr_unaccomp)
-    {
-      //посчитаем индекс группы подклассов
-      TQuery PaxQry(&OraSession);
-      PaxQry.Clear();
-      PaxQry.SQLText=
-        "SELECT subclass,class FROM pax_grp,pax "
-        "WHERE pax_grp.grp_id=pax.grp_id AND pax.grp_id=:grp_id "
-        "ORDER BY reg_no";
-      PaxQry.CreateVariable("grp_id",otInteger,grp_id);
-      PaxQry.Execute();
-      if (!PaxQry.Eof)
+          int class_grp=-1;
+          for(;!PaxQry.Eof;PaxQry.Next())
+          {
+            if (!PaxQry.FieldIsNULL("subclass"))
+            {
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT cls_grp.id "
+                "FROM cls_grp,subcls_grp "
+                "WHERE cls_grp.id=subcls_grp.id AND "
+                "      (airline IS NULL OR airline=:airline) AND "
+                "      (airp IS NULL OR airp=:airp) AND "
+                "      DECODE(airline,NULL,0,4)+ "
+                "      DECODE(airp,NULL,0,2) = :priority AND "
+                "      subcls_grp.subclass=:subclass AND "
+                "      cls_grp.pr_del=0";
+              Qry.CreateVariable("airline",otString,fltInfo.airline);
+              Qry.CreateVariable("airp",otString,fltInfo.airp);
+              Qry.CreateVariable("priority",otInteger,priority);
+              Qry.CreateVariable("subclass",otString,PaxQry.FieldAsString("subclass"));
+              Qry.Execute();
+              if (!Qry.Eof)
+              {
+                if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
+                else
+                  if (class_grp!=Qry.FieldAsInteger("id"))
+                    throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+                Qry.Next();
+                if (!Qry.Eof)
+                  throw Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
+                                  fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("subclass"));
+                continue;
+              };
+            };
+
+            Qry.Clear();
+            Qry.SQLText=
+              "SELECT cls_grp.id "
+              "FROM cls_grp "
+              "WHERE (airline IS NULL OR airline=:airline) AND "
+              "      (airp IS NULL OR airp=:airp) AND "
+              "      DECODE(airline,NULL,0,4)+ "
+              "      DECODE(airp,NULL,0,2) = :priority AND "
+              "      class=:class AND pr_del=0";
+            Qry.CreateVariable("airline",otString,fltInfo.airline);
+            Qry.CreateVariable("airp",otString,fltInfo.airp);
+            Qry.CreateVariable("priority",otInteger,priority);
+            Qry.CreateVariable("class",otString,PaxQry.FieldAsString("class"));
+            Qry.Execute();
+            if (Qry.Eof)
+            {
+              if (!PaxQry.FieldIsNULL("subclass"))
+                throw UserException("На данный рейс регистрация в подклассе %s не производится",
+                                    PaxQry.FieldAsString("subclass"));
+              else
+                throw UserException("На данный рейс регистрация в классе %s не производится",
+                                    PaxQry.FieldAsString("class"));
+            };
+            if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
+            else
+              if (class_grp!=Qry.FieldAsInteger("id"))
+                throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+            Qry.Next();
+            if (!Qry.Eof)
+              throw Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
+                              fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("class"));
+          };
+          Qry.Clear();
+          Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.CreateVariable("class_grp",otInteger,class_grp);
+          Qry.Execute();
+        };
+      }
+      else
       {
+        //несопровождаемый багаж
         //проверим максимальную загрузку
         try
         {
           if (CheckFltOverload(point_dep))
           {
-            //работает если разрешена регистрация при превышении загрузки
-            //продолжаем регистрацию и зажигаем тревогу
             Qry.SetVariable("rollback",0);
             Qry.Execute();
           };
         }
         catch(OverloadException &E)
         {
-          //работает если запрещена регистрация при превышении загрузки
-          //откат регистрации и зажигаем тревогу
-          //при сквозной регистрации будет зажжена тревога на первом перегруженном рейсе
           Qry.SetVariable("rollback",1);
           Qry.Execute();
           showErrorMessage(E.what());
           return;
         };
+      };
 
-        Qry.Clear();
-        Qry.SQLText=
-          "SELECT MAX(DECODE(airline,NULL,0,4)+ "
-          "           DECODE(airp,NULL,0,2)) AS priority "
-          "FROM cls_grp "
-          "WHERE (airline IS NULL OR airline=:airline) AND "
-          "      (airp IS NULL OR airp=:airp) AND "
-          "      pr_del=0";
-        Qry.CreateVariable("airline",otString,fltInfo.airline);
-        Qry.CreateVariable("airp",otString,fltInfo.airp);
-        Qry.Execute();
-        if (Qry.Eof||Qry.FieldIsNULL("priority"))
-        {
-          ProgError(STDLOG,"Class group not found (airline=%s, airp=%s)",fltInfo.airline.c_str(),fltInfo.airp.c_str());
-          throw UserException("На данный рейс регистрация ни в одном из классов не производится");
+      //BSM
+      if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
-        };
-        int priority=Qry.FieldAsInteger("priority");
-
-
-        int class_grp=-1;
-        for(;!PaxQry.Eof;PaxQry.Next())
-        {
-          if (!PaxQry.FieldIsNULL("subclass"))
-          {
-            Qry.Clear();
-            Qry.SQLText=
-              "SELECT cls_grp.id "
-              "FROM cls_grp,subcls_grp "
-              "WHERE cls_grp.id=subcls_grp.id AND "
-              "      (airline IS NULL OR airline=:airline) AND "
-              "      (airp IS NULL OR airp=:airp) AND "
-              "      DECODE(airline,NULL,0,4)+ "
-              "      DECODE(airp,NULL,0,2) = :priority AND "
-              "      subcls_grp.subclass=:subclass AND "
-              "      cls_grp.pr_del=0";
-            Qry.CreateVariable("airline",otString,fltInfo.airline);
-            Qry.CreateVariable("airp",otString,fltInfo.airp);
-            Qry.CreateVariable("priority",otInteger,priority);
-            Qry.CreateVariable("subclass",otString,PaxQry.FieldAsString("subclass"));
-            Qry.Execute();
-            if (!Qry.Eof)
-            {
-              if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
-              else
-                if (class_grp!=Qry.FieldAsInteger("id"))
-                  throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
-              Qry.Next();
-              if (!Qry.Eof)
-                throw Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
-                                fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("subclass"));
-              continue;
-            };
-          };
-
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT cls_grp.id "
-            "FROM cls_grp "
-            "WHERE (airline IS NULL OR airline=:airline) AND "
-            "      (airp IS NULL OR airp=:airp) AND "
-            "      DECODE(airline,NULL,0,4)+ "
-            "      DECODE(airp,NULL,0,2) = :priority AND "
-            "      class=:class AND pr_del=0";
-          Qry.CreateVariable("airline",otString,fltInfo.airline);
-          Qry.CreateVariable("airp",otString,fltInfo.airp);
-          Qry.CreateVariable("priority",otInteger,priority);
-          Qry.CreateVariable("class",otString,PaxQry.FieldAsString("class"));
-          Qry.Execute();
-          if (Qry.Eof)
-          {
-            if (!PaxQry.FieldIsNULL("subclass"))
-              throw UserException("На данный рейс регистрация в подклассе %s не производится",
-                                  PaxQry.FieldAsString("subclass"));
-            else
-              throw UserException("На данный рейс регистрация в классе %s не производится",
-                                  PaxQry.FieldAsString("class"));
-          };
-          if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
-          else
-            if (class_grp!=Qry.FieldAsInteger("id"))
-              throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
-          Qry.Next();
-          if (!Qry.Eof)
-            throw Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
-                            fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("class"));
-        };
-        Qry.Clear();
-        Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
-        Qry.CreateVariable("grp_id",otInteger,grp_id);
-        Qry.CreateVariable("class_grp",otInteger,class_grp);
-        Qry.Execute();
+      if (first_segment)
+      {
+        //отправить на клиент счетчики
+        readTripCounters(point_dep,resNode);
+        //pr_etl_only
+        xmlNodePtr node=NewTextChild(resNode,"trip_sets");
+        NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+        NewTextChild( node, "pr_etstatus", pr_etstatus );
       };
     }
-    else
+    catch(UserException &e)
     {
-      //несопровождаемый багаж
-      //проверим максимальную загрузку
-      try
-      {
-        if (CheckFltOverload(point_dep))
-        {
-          Qry.SetVariable("rollback",0);
-          Qry.Execute();
-        };
-      }
-      catch(OverloadException &E)
-      {
-        Qry.SetVariable("rollback",1);
-        Qry.Execute();
-        showErrorMessage(E.what());
-        return;
-      };
+      if (!only_one)
+        throw UserException("Рейс %s: %s",
+                            GetTripName(fltInfo,true,false).c_str(),
+                            e.what());
+      else
+        throw;
     };
 
-    //BSM
-    if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
-
-    if (first_segment)
-    {
-      //отправить на клиент счетчики
-      readTripCounters(point_dep,resNode);
-      //pr_etl_only
-      xmlNodePtr node=NewTextChild(resNode,"trip_sets");
-      NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
-      NewTextChild( node, "pr_etstatus", pr_etstatus );
-    };
-
-    if (segNode==reqNode) break; //старый терминал
+    if (!tckin_version) break; //старый терминал
   }; //цикл по сегментам
 
   //пересчитать данные по группе и отправить на клиент
-  LoadPax(first_grp_id,resNode);
+  LoadPax(first_grp_id,resNode,tckin_version);
 
 };
 
@@ -3130,31 +3167,34 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }
   else grp_id=NodeAsInteger(node);
 
-  LoadPax(grp_id,resNode);
+  LoadPax(grp_id,resNode,strcmp((char *)reqNode->name, "LoadPax") != 0);
 };
 
-void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
+void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version)
 {
   xmlNodePtr node,paxNode;
   TQuery PaxQry(&OraSession);
   TQuery Qry(&OraSession);
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT grp_id,pr_depend "
-    "FROM tckin_pax_grp, "
-    "     (SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id) a "
-    "WHERE tckin_pax_grp.tckin_id=a.tckin_id AND tckin_pax_grp.seg_no>a.seg_no "
-    "ORDER BY tckin_pax_grp.seg_no";
-  Qry.CreateVariable("grp_id",otInteger,grp_id);
-  Qry.Execute();
   vector<int> segs;
   segs.push_back(grp_id);
-  for(;!Qry.Eof;Qry.Next())
+  if (tckin_version)
   {
-    if (Qry.FieldAsInteger("pr_depend")==0) break;
-    segs.push_back(Qry.FieldAsInteger("grp_id"));
-  };
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT grp_id,pr_depend "
+      "FROM tckin_pax_grp, "
+      "     (SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id) a "
+      "WHERE tckin_pax_grp.tckin_id=a.tckin_id AND tckin_pax_grp.seg_no>a.seg_no "
+      "ORDER BY tckin_pax_grp.seg_no";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
 
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (Qry.FieldAsInteger("pr_depend")==0) break;
+      segs.push_back(Qry.FieldAsInteger("grp_id"));
+    };
+  };
   xmlNodePtr segsNode=NewTextChild(resNode,"segments");
   for(vector<int>::iterator s=segs.begin();s!=segs.end();s++)
   {
@@ -3170,7 +3210,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode)
     Qry.Execute();
     if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
 
-    xmlNodePtr segNode=NewTextChild(segsNode,"segment");
+    xmlNodePtr segNode;
+    if (tckin_version)
+      segNode=NewTextChild(segsNode,"segment");
+    else
+      segNode=resNode;
+
     TTripInfo fltInfo(Qry);
     NewTextChild(segNode,"flight",GetTripName(fltInfo,true,false));
     NewTextChild(segNode,"grp_id",grp_id);
@@ -5124,7 +5169,40 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                   if (cl.find(pax_cl)==string::npos) cl.append(pax_cl);
                 };
               };
+            }
+            else
+            {
+              //узнаем какому классу принадлежит подкласс из телеграмм
+              Qry.Clear();
+              Qry.SQLText=
+                "SELECT DISTINCT class "
+                "FROM tlg_binding,crs_pnr "
+                "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+                "      tlg_binding.point_id_spp=:point_id AND "
+                "      crs_pnr.subclass=:subclass ";
+              Qry.CreateVariable("point_id",otInteger,point_dep);
+              Qry.CreateVariable("subclass",otString,iPax->subclass);
+              Qry.Execute();
+              if (!Qry.Eof)
+              {
+                for(;!Qry.Eof;Qry.Next())
+                {
+                  string pax_cl=Qry.FieldAsString("class");
+                  if (cl.find(pax_cl)==string::npos) cl.append(pax_cl);
+                };
+              }
+              else
+              {
+                try
+                {
+                  TSubclsRow& row=(TSubclsRow&)base_tables.get("subcls").get_row("code/code_lat",iPax->subclass);
+                  if (cl.find(row.cl)==string::npos) cl.append(row.cl);
+                }
+                catch(EBaseTableError) {};
+              };
             };
+
+
 
             //resCount содержит кол-во реально найденных пассажиров
             if (iPax->resCount<=iPax->reqCount)

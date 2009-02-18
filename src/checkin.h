@@ -26,6 +26,7 @@ public:
      AddEvent("SaveUnaccompBag",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
      AddEvent("LoadPax",evHandle);
+     AddEvent("LoadPaxGrp",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
      AddEvent("PaxList",evHandle);
      AddEvent("BagPaxList",evHandle);
@@ -71,7 +72,7 @@ public:
   void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
   void SaveTagPacks(xmlNodePtr node);
 
-  void LoadPax(int grp_id, xmlNodePtr resNode);
+  void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
   void LoadPaxRem(xmlNodePtr paxNode);
   void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
   void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);

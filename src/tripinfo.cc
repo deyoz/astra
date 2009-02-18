@@ -1434,6 +1434,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
+  if (info.Empty()) return "";
+
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out_local_date,desk_time;
   string &tz_region=AirpTZRegion(info.airp);
