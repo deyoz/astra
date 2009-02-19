@@ -503,26 +503,26 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             string SQLText;
             if(i == 0) {
                 SQLText =
-                    "SELECT \n"
-                    "    null part_key, \n"
-                    "    points.point_id, \n"
-                    "    points.airp, \n"
-                    "    points.airline, \n"
-                    "    points.flt_no, \n"
-                    "    nvl(points.suffix, ' ') suffix, \n"
-                    "    points.scd_out, \n"
-                    "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, \n"
-                    "    points.pr_del, \n"
-                    "    move_id, \n"
-                    "    point_num \n"
-                    "FROM \n"
-                    "    points \n"
-                    "WHERE \n"
-                    "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
+                    "SELECT "
+                    "    null part_key, "
+                    "    points.point_id, "
+                    "    points.airp, "
+                    "    points.airline, "
+                    "    points.flt_no, "
+                    "    nvl(points.suffix, ' ') suffix, "
+                    "    points.scd_out, "
+                    "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
+                    "    points.pr_del, "
+                    "    move_id, "
+                    "    point_num "
+                    "FROM "
+                    "    points "
+                    "WHERE "
+                    "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
                 if(scr == PaxList)
-                    SQLText += " and points.pr_del = 0 \n";
+                    SQLText += " and points.pr_del = 0 ";
                 if(scr == FltLog and !pr_show_del)
-                    SQLText += " and points.pr_del >= 0 \n";
+                    SQLText += " and points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -541,27 +541,27 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 }
             } else {
                 SQLText =
-                    "SELECT \n"
-                    "    arx_points.part_key, \n"
-                    "    arx_points.point_id, \n"
-                    "    arx_points.airp, \n"
-                    "    arx_points.airline, \n"
-                    "    arx_points.flt_no, \n"
-                    "    nvl(arx_points.suffix, ' ') suffix, \n"
-                    "    arx_points.scd_out, \n"
-                    "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, \n"
-                    "    arx_points.pr_del, \n"
-                    "    move_id, \n"
-                    "    point_num \n"
-                    "FROM \n"
-                    "    arx_points \n"
-                    "WHERE \n"
-                    "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and \n"
-                    "    arx_points.part_key >= :FirstDate \n";
+                    "SELECT "
+                    "    arx_points.part_key, "
+                    "    arx_points.point_id, "
+                    "    arx_points.airp, "
+                    "    arx_points.airline, "
+                    "    arx_points.flt_no, "
+                    "    nvl(arx_points.suffix, ' ') suffix, "
+                    "    arx_points.scd_out, "
+                    "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
+                    "    arx_points.pr_del, "
+                    "    move_id, "
+                    "    point_num "
+                    "FROM "
+                    "    arx_points "
+                    "WHERE "
+                    "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
+                    "    arx_points.part_key >= :FirstDate ";
                 if(scr == PaxList)
-                    SQLText += " and arx_points.pr_del = 0 \n";
+                    SQLText += " and arx_points.pr_del = 0 ";
                 if(scr == FltLog and !pr_show_del)
-                    SQLText += " and arx_points.pr_del >= 0 \n";
+                    SQLText += " and arx_points.pr_del >= 0 ";
                 if (!reqInfo.user.access.airlines.empty()) {
                     if (reqInfo.user.access.airlines_permit)
                         SQLText += " AND arx_points.airline IN "+GetSQLEnum(reqInfo.user.access.airlines);
@@ -579,7 +579,6 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             GetSQLEnum(reqInfo.user.access.airps)+")";
                 }
             }
-            ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
             Qry.SQLText = SQLText;
             try {
                 Qry.Execute();
@@ -613,7 +612,6 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     try
                     {
                         trip_name = GetTripName(tripInfo,false,true);
-                        ProgTrace(TRACE5, "trip_name: %s", trip_name.c_str());
                     }
                     catch(UserException &E)
                     {
