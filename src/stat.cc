@@ -613,6 +613,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     try
                     {
                         trip_name = GetTripName(tripInfo,false,true);
+                        ProgTrace(TRACE5, "trip_name: %s", trip_name.c_str());
                     }
                     catch(UserException &E)
                     {
