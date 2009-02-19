@@ -3308,12 +3308,13 @@ struct TSegPaxList {
     {
         TQuery Qry(&OraSession);        
         Qry.SQLText =
-            "select tckin_id, seg_no from tckin_pax where pax_id = :pax_id";
+            "select tckin_id, seg_no, pax_no from tckin_pax where pax_id = :pax_id";
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int tckin_id = Qry.FieldAsInteger("tckin_id");
             int seg_no = Qry.FieldAsInteger("seg_no");
+            int pax_no = Qry.FieldAsInteger("pax_no");
             Qry.Clear();
             Qry.SQLText =
                 "select "
@@ -3325,6 +3326,7 @@ struct TSegPaxList {
                 "   tckin_pax_grp "
                 "where "
                 "   tckin_pax.tckin_id = :tckin_id and "
+                "   tckin_pax.pax_no = :pax_no and "
                 "   tckin_pax.seg_no >= :seg_no and "
                 "   tckin_pax.tckin_id = tckin_pax_grp.tckin_id and "
                 "   tckin_pax.seg_no = tckin_pax_grp.seg_no and "
@@ -3332,6 +3334,7 @@ struct TSegPaxList {
                 "order by "
                 "   tckin_pax.seg_no ";
             Qry.CreateVariable("tckin_id", otInteger, tckin_id);
+            Qry.CreateVariable("pax_no", otInteger, pax_no);
             Qry.CreateVariable("seg_no", otInteger, seg_no);
             Qry.Execute();
             if(!Qry.Eof) {
@@ -3495,7 +3498,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     while(!Qry.Eof) {
         int pax_id = Qry.FieldAsInteger("pax_id");
         int grp_id = Qry.FieldAsInteger("grp_id");
-
         TSegPaxList seg_pax_list;
         seg_pax_list.get(pax_id);
         if(seg_pax_list.items.empty()) {
@@ -3505,7 +3507,6 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             item.pax_id = pax_id;
             seg_pax_list.items.push_back(item);
         }
-
         for(vector<TSegPax>::iterator iv = seg_pax_list.items.begin(); iv != seg_pax_list.items.end(); iv++)  {
 
             PrintDataParser parser(iv->grp_id, iv->pax_id, pr_lat, clientDataNode);
