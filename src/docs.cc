@@ -659,6 +659,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(prBrdPaxNode)
         pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     string target = NodeAsString("target", reqNode);
+    
+    // зал регистрации
+    // если NULL, то отчет общий по всем залам
+    xmlNodePtr zoneNode = GetNode("zone", reqNode);
+    string zone;
+    if(zoneNode != NULL)
+        zone = NodeAsString(zoneNode);
+    
     int pr_lat = GetRPEncoding(point_id, target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);
@@ -701,63 +709,63 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     TQuery Qry(&OraSession);
     string SQLText =
-        "SELECT "
-        "   pax_grp.point_dep AS trip_id, "
-        "   pax_grp.airp_arv AS target, ";
+        "SELECT \n"
+        "   pax_grp.point_dep AS trip_id, \n"
+        "   pax_grp.airp_arv AS target, \n";
     if(name == "PMTrfer")
         SQLText +=
-            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, "
-            "    v_last_trfer.airline trfer_airline, "
-            "    v_last_trfer.flt_no trfer_flt_no, "
-            "    v_last_trfer.suffix trfer_suffix, "
-            "    v_last_trfer.airp_arv trfer_airp_arv, "
-            "    v_last_trfer.scd trfer_scd, ";
+            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, \n"
+            "    v_last_trfer.airline trfer_airline, \n"
+            "    v_last_trfer.flt_no trfer_flt_no, \n"
+            "    v_last_trfer.suffix trfer_suffix, \n"
+            "    v_last_trfer.airp_arv trfer_airp_arv, \n"
+            "    v_last_trfer.scd trfer_scd, \n";
     SQLText +=
-        "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, "
-        "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, "
-        "   surname||' '||pax.name AS full_name, "
-        "   pax.pers_type, "
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, "
-        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, "
-        "   pax.seats, ";
+        "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, \n"
+        "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, \n"
+        "   surname||' '||pax.name AS full_name, \n"
+        "   pax.pers_type, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, \n"
+        "   pax.seats, \n";
     if(
             target.empty() ||
             target == "etm"
       ) { //ЭБ
         SQLText +=
-            "    ticket_no||'/'||coupon_no AS remarks, ";
+            "    ticket_no||'/'||coupon_no AS remarks, \n";
     } else {
         SQLText +=
-            " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, ";
+            " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, \n";
     }
     SQLText +=
-        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, "
-        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id),0) AS bag_amount, "
-        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id),0) AS bag_weight, "
-        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, "
-        "   ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags, "
-        "   reg_no, "
-        "   pax_grp.grp_id "
-        "FROM  "
-        "   pax_grp, "
-        "   points, "
-        "   pax, "
-        "   cls_grp classes, "
-        "   halls2 ";
+        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, \n"
+        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id),0) AS bag_amount, \n"
+        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id),0) AS bag_weight, \n"
+        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
+        "   ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags, \n"
+        "   reg_no, \n"
+        "   pax_grp.grp_id \n"
+        "FROM  \n"
+        "   pax_grp, \n"
+        "   points, \n"
+        "   pax, \n"
+        "   cls_grp classes, \n"
+        "   halls2 \n";
     if(name == "PMTrfer")
-        SQLText += ", v_last_trfer ";
+        SQLText += ", v_last_trfer \n";
     SQLText +=
-        "WHERE "
-        "   points.pr_del>=0 AND "
-        "   pax_grp.point_dep = :point_id and "
-        "   pax_grp.point_arv = points.point_id and "
-        "   pax_grp.grp_id=pax.grp_id AND "
-        "   pax_grp.class_grp = classes.id AND "
-        "   pax_grp.hall = halls2.id and "
-        "   pr_brd IS NOT NULL and ";
+        "WHERE \n"
+        "   points.pr_del>=0 AND \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.point_arv = points.point_id and \n"
+        "   pax_grp.grp_id=pax.grp_id AND \n"
+        "   pax_grp.class_grp = classes.id AND \n"
+        "   pax_grp.hall = halls2.id and \n"
+        "   pr_brd IS NOT NULL and \n";
     if(pr_brd_pax != -1) {
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
         Qry.CreateVariable("pr_brd_pax", otInteger, pr_brd_pax);
     }
     if(
@@ -765,31 +773,36 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "etm"
       ) { //ЭБ
         SQLText +=
-            "   pax.ticket_rem='TKNE' and ";
+            "   pax.ticket_rem='TKNE' and \n";
     } else if(
             target == "tot" ||
             target == "tpm"
             ) { //ОБЩАЯ
+        if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
+            SQLText +=
+                "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+            Qry.CreateVariable("zone", otString, zone);
+        }
     } else { // сегмент
         SQLText +=
-            "    pax_grp.airp_arv = :target AND ";
+            "    pax_grp.airp_arv = :target AND \n";
         if(pr_vip != 2)
             SQLText +=
-                "    halls2.pr_vip = :pr_vip AND ";
+                "    halls2.pr_vip = :pr_vip AND \n";
     }
     SQLText +=
         "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ";
     if(status.size())
         SQLText +=
-            "    (:status) ";
+            "    (:status) \n";
     else
         SQLText +=
-            "    ('T', 'N') ";
+            "    ('T', 'N') \n";
     if(name == "PMTrfer")
         SQLText +=
-            " and pax_grp.grp_id=v_last_trfer.grp_id(+) ";
+            " and pax_grp.grp_id=v_last_trfer.grp_id(+) \n";
     SQLText +=
-        "ORDER BY ";
+        "ORDER BY \n";
     if(
             target.empty() ||
             target == "tot" ||
@@ -797,15 +810,15 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "tpm"
       )
         SQLText +=
-            "   points.point_num, ";
+            "   points.point_num, \n";
     if(name == "PMTrfer")
         SQLText +=
-            "    PR_TRFER ASC, "
-            "    TRFER_AIRP_ARV ASC, ";
+            "    PR_TRFER ASC, \n"
+            "    TRFER_AIRP_ARV ASC, \n";
     SQLText +=
-        "    CLASS ASC, "
-        "    grp_id, "
-        "    REG_NO ASC ";
+        "    CLASS ASC, \n"
+        "    grp_id, \n"
+        "    REG_NO ASC \n";
 
 
     ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
@@ -887,213 +900,228 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     bool pr_trfer = name == "PMTrfer";
     Qry.Clear();
     SQLText =
-        "SELECT "
-        "       a.point_id, ";
+        "SELECT \n"
+        "       a.point_id, \n";
     if(pr_trfer)
         SQLText +=
-            "   a.pr_trfer, "
-            "   a.airp_arv target, ";
+            "   a.pr_trfer, \n"
+            "   a.airp_arv target, \n";
     SQLText +=
-        "       a.status, "
-        "       classes.code class, "
-        "       DECODE(:pr_lat,0,classes.name,classes.name_lat) AS class_name, "
-        "       classes.priority AS lvl, "
-        "       NVL(a.seats,0) AS seats, "
-        "       NVL(a.adl,0) AS adl, "
-        "       NVL(a.chd,0) AS chd, "
-        "       NVL(a.inf,0) AS inf, "
-        "       NVL(b.rk_weight,0) AS rk_weight, "
-        "       NVL(b.bag_amount,0) AS bag_amount, "
-        "       NVL(b.bag_weight,0) AS bag_weight, "
-        "       NVL(c.excess,0) AS excess "
-        "FROM "
-        "( "
-        "  SELECT point_dep AS point_id, "
-        "         pax_grp.class_grp, "
-        "         DECODE(status,'T','T','N') AS status, ";
+        "       a.status, \n"
+        "       classes.code class, \n"
+        "       DECODE(:pr_lat,0,classes.name,classes.name_lat) AS class_name, \n"
+        "       classes.priority AS lvl, \n"
+        "       NVL(a.seats,0) AS seats, \n"
+        "       NVL(a.adl,0) AS adl, \n"
+        "       NVL(a.chd,0) AS chd, \n"
+        "       NVL(a.inf,0) AS inf, \n"
+        "       NVL(b.rk_weight,0) AS rk_weight, \n"
+        "       NVL(b.bag_amount,0) AS bag_amount, \n"
+        "       NVL(b.bag_weight,0) AS bag_weight, \n"
+        "       NVL(c.excess,0) AS excess \n"
+        "FROM \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
     if(pr_vip != 2)
-        SQLText += " halls2.pr_vip, ";
+        SQLText += " halls2.pr_vip, \n";
     if(pr_trfer)
         SQLText +=
-            "   pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
     SQLText +=
-        "         SUM(seats) AS seats, "
-        "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, "
-        "         SUM(DECODE(pers_type,'РБ',1,0)) AS chd, "
-        "         SUM(DECODE(pers_type,'РМ',1,0)) AS inf "
-        "  FROM pax_grp,pax,v_last_trfer,halls2 "
-        "  WHERE "
-        "       pax_grp.point_dep = :point_id and "
-        "       pax.grp_id = pax_grp.grp_id and ";
+        "         SUM(seats) AS seats, \n"
+        "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, \n"
+        "         SUM(DECODE(pers_type,'РБ',1,0)) AS chd, \n"
+        "         SUM(DECODE(pers_type,'РМ',1,0)) AS inf \n"
+        "  FROM pax_grp,pax,v_last_trfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.grp_id = pax_grp.grp_id and \n";
     if(pr_target) {
         SQLText +=
-            "   pax_grp.airp_arv = :target and ";
+            "   pax_grp.airp_arv = :target and \n";
         Qry.CreateVariable("target", otString, target);
     }
     if(pr_vip != 2) {
         SQLText +=
-            " pr_vip = :pr_vip and ";
+            " pr_vip = :pr_vip and \n";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   pax.ticket_rem='TKNE' and ";
+            "   pax.ticket_rem='TKNE' and \n";
     if(pr_brd_pax != -1) {
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
         Qry.CreateVariable("pr_brd_pax", otInteger, pr_brd_pax);
     }
-    SQLText +=
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
-        "       pax_grp.hall = halls2.id and "
-        "       pr_brd IS NOT NULL and "
-        "       bag_refuse=0 AND class IS NOT NULL "
-        "  GROUP BY point_dep, "
-        "           pax_grp.class_grp, "
-        "           DECODE(status,'T','T','N') ";
-    if(pr_trfer)
+    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
         SQLText +=
-            "   ,pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
-    if(pr_vip != 2) {
-        SQLText +=
-            ", halls2.pr_vip ";
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, zone);
     }
     SQLText +=
-        ") a, "
-        "( "
-        "  SELECT point_dep AS point_id, "
-        "         pax_grp.class_grp, "
-        "         DECODE(status,'T','T','N') AS status, ";
-    if(pr_vip != 2)
-        SQLText += " halls2.pr_vip, ";
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "           pax_grp.class_grp, \n"
+        "           DECODE(status,'T','T','N') \n";
     if(pr_trfer)
         SQLText +=
-            "   pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip \n";
+    }
     SQLText +=
-        "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, "
-        "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, "
-        "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight "
-        "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 "
-        "  WHERE "
-        "       pax_grp.point_dep = :point_id and "
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and ";
+        ") a, \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
+    if(pr_vip != 2)
+        SQLText += " halls2.pr_vip, \n";
+    if(pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+    SQLText +=
+        "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, \n"
+        "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, \n"
+        "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight \n"
+        "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
     if(pr_target) {
         SQLText +=
-            "   pax_grp.airp_arv = :target and ";
+            "   pax_grp.airp_arv = :target and \n";
     }
     if(pr_vip != 2) {
         SQLText +=
-            " pr_vip = :pr_vip and ";
+            " pr_vip = :pr_vip and \n";
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   pax.ticket_rem='TKNE' and ";
+            "   pax.ticket_rem='TKNE' and \n";
     if(pr_brd_pax != -1)
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
-    SQLText +=
-        "       pax_grp.grp_id=bag2.grp_id AND "
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
-        "       pax_grp.hall = halls2.id and "
-        "       pr_brd IS NOT NULL and "
-        "       bag_refuse=0 AND class IS NOT NULL "
-        "  GROUP BY point_dep, "
-        "         pax_grp.class_grp, "
-        "        DECODE(status,'T','T','N') ";
-    if(pr_trfer)
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
         SQLText +=
-            "   ,pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
-    if(pr_vip != 2) {
-        SQLText +=
-            ", halls2.pr_vip ";
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, zone);
     }
     SQLText +=
-        ") b, "
-        "( "
-        "  SELECT point_dep AS point_id, "
-        "         pax_grp.class_grp, "
-        "         DECODE(status,'T','T','N') AS status, ";
-    if(pr_vip != 2)
-        SQLText += " halls2.pr_vip, ";
+        "       pax_grp.grp_id=bag2.grp_id AND \n"
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "         pax_grp.class_grp, \n"
+        "        DECODE(status,'T','T','N') \n";
     if(pr_trfer)
         SQLText +=
-            "   pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, ";
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip \n";
+    }
     SQLText +=
-        "         SUM(excess) AS excess "
-        "  FROM pax_grp,pax,v_last_trfer,halls2 "
-        "  WHERE "
-        "       pax_grp.point_dep = :point_id and "
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and ";
+        ") b, \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
+    if(pr_vip != 2)
+        SQLText += " halls2.pr_vip, \n";
+    if(pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+    SQLText +=
+        "         SUM(excess) AS excess \n"
+        "  FROM pax_grp,pax,v_last_trfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
     if(pr_target) {
         SQLText +=
-            "   pax_grp.airp_arv = :target and ";
+            "   pax_grp.airp_arv = :target and \n";
     }
     if(pr_vip != 2) {
         SQLText +=
-            " pr_vip = :pr_vip and ";
+            " pr_vip = :pr_vip and \n";
     }
     if(target.empty() || target == "etm")
         SQLText +=
-            "   pax.ticket_rem='TKNE' and ";
+            "   pax.ticket_rem='TKNE' and \n";
     if(pr_brd_pax != -1)
         SQLText +=
-            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and ";
-    SQLText +=
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND "
-        "       pax_grp.hall = halls2.id and "
-        "       pr_brd IS NOT NULL and "
-        "       bag_refuse=0 AND class IS NOT NULL "
-        "  GROUP BY point_dep, "
-        "           pax_grp.class_grp, "
-        "           DECODE(status,'T','T','N') ";
-    if(pr_trfer)
+            " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
         SQLText +=
-            "   ,pax_grp.airp_arv, "
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) ";
-    if(pr_vip != 2) {
-        SQLText +=
-            ", halls2.pr_vip ";
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, zone);
     }
     SQLText +=
-        ") c, "
-        "cls_grp classes "
-        "WHERE a.class_grp=classes.id AND "
-        "      a.point_id=b.point_id(+) AND "
-        "      a.class_grp=b.class_grp(+) AND "
-        "      a.status=b.status(+) AND "
-        "      a.point_id=c.point_id(+) AND "
-        "      a.class_grp=c.class_grp(+) AND "
-        "      a.status=c.status(+) ";
+        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "           pax_grp.class_grp, \n"
+        "           DECODE(status,'T','T','N') \n";
     if(pr_trfer)
         SQLText +=
-            "   and a.airp_arv=b.airp_arv(+) AND "
-            "   a.pr_trfer=b.pr_trfer(+) AND "
-            "   a.airp_arv=c.airp_arv(+) AND "
-            "   a.pr_trfer=c.pr_trfer(+) ";
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+    if(pr_vip != 2) {
+        SQLText +=
+            ", halls2.pr_vip \n";
+    }
+    SQLText +=
+        ") c, \n"
+        "cls_grp classes \n"
+        "WHERE a.class_grp=classes.id AND \n"
+        "      a.point_id=b.point_id(+) AND \n"
+        "      a.class_grp=b.class_grp(+) AND \n"
+        "      a.status=b.status(+) AND \n"
+        "      a.point_id=c.point_id(+) AND \n"
+        "      a.class_grp=c.class_grp(+) AND \n"
+        "      a.status=c.status(+) \n";
+    if(pr_trfer)
+        SQLText +=
+            "   and a.airp_arv=b.airp_arv(+) AND \n"
+            "   a.pr_trfer=b.pr_trfer(+) AND \n"
+            "   a.airp_arv=c.airp_arv(+) AND \n"
+            "   a.pr_trfer=c.pr_trfer(+) \n";
     if(pr_vip != 2)
         SQLText +=
-            "      and a.pr_vip = b.pr_vip(+) and "
-            "      a.pr_vip = c.pr_vip(+) ";
+            "      and a.pr_vip = b.pr_vip(+) and \n"
+            "      a.pr_vip = c.pr_vip(+) \n";
     if(status.size()) {
         SQLText +=
-            "    and a.STATUS = :status ";
+            "    and a.STATUS = :status \n";
         Qry.CreateVariable("status", otString, status);
     } else
         SQLText +=
-            "    and a.STATUS in ('T', 'N') ";
+            "    and a.STATUS in ('T', 'N') \n";
     SQLText +=
-        "order by ";
+        "order by \n";
     if(pr_trfer)
         SQLText +=
-            "   target, "
-            "   pr_trfer, ";
+            "   target, \n"
+            "   pr_trfer, \n";
     SQLText +=
-        "      lvl ";
+        "      lvl \n";
     ProgTrace(TRACE5, "RunPMNew totals: SQLText: %s", SQLText.c_str());
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -2247,6 +2275,51 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   NewTextChild( resNode, "scd_out", DateTimeToStr(scd_out) );
 };
+
+void DocsInterface::GetSegList2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    // В новой версии терминала к старому списку сегментов добавим новые элементы
+    GetSegList(ctxt, reqNode, resNode);
+
+    int point_id = NodeAsInteger("point_id", reqNode);
+//    int get_tranzit = NodeAsInteger("get_tranzit", reqNode);
+    string rpType = NodeAsString("rpType", reqNode);
+    if(rpType == "PM") {
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select distinct "
+            "   rpt_grp "
+            "from "
+            "   pax_grp, "
+            "   halls2 "
+            "where "
+            "   pax_grp.point_dep = :point_id and "
+            "   pax_grp.hall = halls2.id "
+            "order by "
+            "   rpt_grp ";
+        Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            xmlNodePtr SegListNode = NodeAsNode("SegList", resNode);
+            int col_rpt_grp = Qry.FieldIndex("rpt_grp");
+            for(; !Qry.Eof; Qry.Next()) {
+                xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+                NewTextChild(SegNode, "status");
+                NewTextChild(SegNode, "airp_dep_code");
+                NewTextChild(SegNode, "airp_arv_code", "tot");
+                NewTextChild(SegNode, "pr_vip", 2);
+                if(Qry.FieldIsNULL(col_rpt_grp)) {
+                    NewTextChild(SegNode, "item", "Залы общего доступа");
+                    NewTextChild(SegNode, "zone");
+                } else {
+                    NewTextChild(SegNode, "item", (string)"Общая (" + Qry.FieldAsString("rpt_grp") + ")");
+                    NewTextChild(SegNode, "zone", Qry.FieldAsString("rpt_grp"));
+                }
+            }
+        }
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
 
 void DocsInterface::GetSegList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
