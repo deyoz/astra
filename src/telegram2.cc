@@ -1950,6 +1950,7 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
     ProgTrace(TRACE5, "TPList::ToBTMTlg: grp_id: %d; main_pax_id: %d", grp->grp_id, grp->main_pax_id);
+    dump_surnames();
     vector<TPLine> lines;
     // Это был сложный алгоритм объединения имен под одну фамилию и все такое
     // теперь он выродился в список из всего одного пассажира с main_pax_id
@@ -1990,8 +1991,10 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
         }
     }
 
-    if(lines.size() != 1)
+    if(lines.size() > 1)
         throw Exception("TPList::ToBTMTlg: unexpected lines size for main_pax_id: %d", lines.size());
+    if(lines.empty())
+        return;
     main_pax->OList.ToTlg(info, body);
 
     // В полученном векторе строк, обрезаем слишком длинные
@@ -2076,10 +2079,6 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
             int fmt;
             item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt);
-            ProgTrace(TRACE5, "ATTENTION!!! SOMETHING WRONG");
-            ProgTrace(TRACE5, "item.name: %s", item.name.c_str());
-            ProgTrace(TRACE5, "item.surname: %s", item.surname.c_str());
-            ProgTrace(TRACE5, "trfer_cls: %s, item.trfer_cls: %s", trfer_cls.c_str(), item.trfer_cls.c_str());
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
             item.OList.get(item.pax_id, true);
@@ -2103,12 +2102,15 @@ struct TPTMGrpList:TBTMGrpList {
 void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 {
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        vector<string> plist;
+        iv->PList.ToBTMTlg(info, plist, AFItem);
+        if(plist.empty())
+            continue;
         if(iv->NList.items.empty())
             continue;
         iv->NList.ToTlg(info, body);
         iv->W.ToTlg(body);
-        ProgTrace(TRACE5, "grp_id within TBTMGrpList::ToTlg: %d; main_pax_id: %d", iv->grp_id, iv->main_pax_id);
-        iv->PList.ToBTMTlg(info, body, AFItem);
+        body.insert(body.end(), plist.begin(), plist.end());
     }
 }
 
