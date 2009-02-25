@@ -76,6 +76,7 @@ class PrintDataParser {
                     double FloatVal;
                     int IntegerVal;
                     BASIC::TDateTime DateTimeVal;
+                    bool nullable;
                     TTagValue() {
                         null = true;
                         pr_print = false;
@@ -83,6 +84,7 @@ class PrintDataParser {
                         FloatVal = 0;
                         IntegerVal = 0;
                         DateTimeVal = 0;
+                        nullable = false;
                     }
                 };
 
@@ -110,10 +112,10 @@ class PrintDataParser {
                 t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 t_field_map(TBagReceipt &rcpt);
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
-                void add_tag(std::string name, int val);
-                void add_tag(std::string name, std::string val);
+                void add_tag(std::string name, int val, bool nullable = false);
+                void add_tag(std::string name, std::string val, bool nullable = false);
                 void add_err_tag(std::string name, std::string val);
-                void add_tag(std::string name, BASIC::TDateTime val);
+                void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false);
                 std::string GetTagAsString(std::string name);
                 int GetTagAsInteger(std::string name);
                 TQuery *get_prn_qry();
@@ -142,9 +144,9 @@ class PrintDataParser {
         };
         std::string parse(std::string &form);
         TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
-        void add_tag(std::string name, int val) { return field_map.add_tag(name, val); };
-        void add_tag(std::string name, std::string val) { return field_map.add_tag(name, val); };
-        void add_tag(std::string name, BASIC::TDateTime val) { return field_map.add_tag(name, val); };
+        void add_tag(std::string name, int val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
+        void add_tag(std::string name, std::string val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
+        void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
         int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };
 };
