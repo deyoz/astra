@@ -2144,6 +2144,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
 	TQuery Qry( &OraSession );
   TQuery RemsQry( &OraSession );
 	TQuery QrySeat( &OraSession );
+	TQuery QryTCkinTrip( &OraSession );
 	if ( !pr_exists ) {
 	  p.Clear();
   	QrySeat.SQLText =
@@ -2187,6 +2188,15 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     	Qry.Next();
     }
   }
+  QryTCkinTrip.SQLText =
+    "SELECT airline,flt_no,suffix,scd_out,airline_fmt,suffix_fmt "
+    " FROM points, pax_grp, "
+    " (SELECT MAX(tckin2.seg_no), tckin2.grp_id FROM tckin_pax_grp tckin1, tckin_pax_grp tckin2 "
+    "   WHERE tckin1.grp_id=:grp_id AND tckin2.tckin_id=tckin1.tckin_id AND tckin2.seg_no<tckin1.seg_no "
+    "  GROUP BY tckin2.grp_id) tckin "
+    " WHERE pax_grp.grp_id=tckin.grp_id AND points.point_id=pax_grp.point_dep";
+  QryTCkinTrip.DeclareVariable( "grp_id", otInteger );
+
   Qry.Clear();
   string sql =
     "SELECT pax_grp.grp_id,"
@@ -2271,6 +2281,19 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   	     airline == string( "ПО" ) && string( "Ю" ) == Qry.FieldAsString( "subclass" )
   	   ) {
   	  pass.add_rem( "MCLS" );
+    }
+    if ( pass.grp_status == cltTCheckin ) {
+    	ProgTrace( TRACE5, "grp_id=%d", pass.grpId );
+    	QryTCkinTrip.SetVariable( "grp_id", pass.grpId );
+    	QryTCkinTrip.Execute();
+    	if ( !QryTCkinTrip.Eof ) {
+    		pass.trip_from =
+    		ElemIdToElemCtxt( ecDisp, etAirline, QryTCkinTrip.FieldAsString( "airline" ), QryTCkinTrip.FieldAsInteger( "airline_fmt" ) ) +
+    		QryTCkinTrip.FieldAsString( "flt_no" ) +
+    		ElemIdToElemCtxt( ecDisp, etSuffix, QryTCkinTrip.FieldAsString( "suffix" ), QryTCkinTrip.FieldAsInteger( "suffix_fmt" ) ) + "/" +
+    		DateTimeToStr( QryTCkinTrip.FieldAsDateTime( "scd_out" ), "dd" );
+
+    	}
     }
     p.Add( pass );
   	Qry.Next();
@@ -2726,7 +2749,6 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
           ProgTrace( TRACE5, "AutoReSeatsPassengers: Passengers.getCount()=%d, layer_type=%s", Passengers.getCount(),Qry.FieldAsString( "layer_type" ) );
           SeatPlaces.grp_status = Passengers.Get( 0 ).grp_status;
           SeatPlaces.SeatsPassengers( true );
-          tst();
           SeatPlaces.RollBack( );
           int s = Passengers.getCount();
           for ( int i=0; i<s; i++ ) {
@@ -2736,6 +2758,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
               TPassenger &opass = APass.Get( j );
               if ( opass.pax_id == pass.pax_id ) {
               	opass = pass;
+              	ProgTrace( TRACE5, "pass.pax_id=%d, pass placeName=%s, pass.isSeat=%d, pass.InUse=%d", pass.pax_id,pass.placeName.c_str(), pass.isSeat, pass.InUse );
               	break;
               }
             }
@@ -2756,9 +2779,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
     QryPax.DeclareVariable( "pax_id", otInteger );
     QryLayer.SQLText =
       "DELETE FROM trip_comp_layers "
-      " WHERE point_id=:point_id AND "
-      "       pax_id=:pax_id ";
-    QryLayer.CreateVariable( "point_id", otInteger, CurrSalon->trip_id );
+      " WHERE pax_id=:pax_id ";
     QryLayer.DeclareVariable( "pax_id", otInteger );
     QryUpd.SQLText =
       "BEGIN "
@@ -2768,12 +2789,12 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
     QryUpd.DeclareVariable( "pax_id", otInteger );
     QryUpd.DeclareVariable( "term", otString );
 
-    ProgTrace( TRACE5, "passengers.count=%d", Passengers.getCount() );
     Passengers.Clear();
 
     s = APass.getCount();
     for ( int i=0; i<s; i++ ) {
     	TPassenger &pass = APass.Get( i );
+    	ProgTrace( TRACE5, "pass.pax_id=%d, pass.isSeat=%d", pass.pax_id, pass.isSeat );
     	Passengers.Add( pass );
     	if ( pass.isSeat )
     		continue;
@@ -2784,6 +2805,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
       int point_dep = QryPax.FieldAsInteger( "point_dep" );
       int point_arv = QryPax.FieldAsInteger( "point_arv" );
       string prev_seat_no = QryPax.FieldAsString( "seat_no" );
+      ProgTrace( TRACE5, "pax_id=%d, prev_seat_no=%s,pass.InUse=%d", pass.pax_id, prev_seat_no.c_str(), pass.InUse );
 
     	if ( !pass.InUse ) { /* не смогли посадить */
     		if ( !pass.placeName.empty() )
