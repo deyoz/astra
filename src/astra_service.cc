@@ -20,6 +20,7 @@
 #include "jxtlib/cont_tools.h"
 #include "serverlib/str_utils.h"
 #include "serverlib/cfgproc.h"
+#include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -336,7 +337,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
       		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
-        NewTextChild( fileNode, "data", StrUtils::b64_encode( (const char*)p, len ) );
+        NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
         wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
         NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
@@ -803,7 +804,8 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                         type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
-                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) {
+                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
+                        type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -959,6 +961,10 @@ void sync_sppcek( void )
 
 }
 
+void sync_1ccek( void )
+{
+	CreateCommonFileData( -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+}
 
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
@@ -977,7 +983,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 		return;
 	}
 	string file_data = NodeAsString( dataNode );
-	file_data = StrUtils::b64_decode( file_data.c_str(), file_data.size() );
+	file_data = b64_decode( file_data.c_str(), file_data.size() );
 	TQuery Qry( &OraSession );
   TQuery EncodeQry( &OraSession );
   EncodeQry.SQLText =
@@ -1079,7 +1085,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   	str_file = ConvertCodepage( str_file, encoding, "CP866" );
   str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
-  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), len ) );
+  NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
   free( p );
   Qry.SQLText = "SELECT * FROM file_params WHERE id=:file_id";
 	Qry.CreateVariable( "file_id", otInteger, file_id );
