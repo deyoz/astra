@@ -650,6 +650,33 @@ string get_last_target(TQuery &Qry, const int pr_lat)
     return result;
 }
 
+string get_hall_list(string airp, string zone, bool pr_lat)
+{
+    TQuery Qry(&OraSession);
+    string SQLText = (string)
+        "select " + (pr_lat ? "name_lat" : "name") + " name "
+        "from "
+        "   halls2 "
+        "where "
+        "   airp = :airp and "
+        "   rpt_grp = :rpt_grp "
+        "order by "
+        "   name ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("rpt_grp", otString, zone);
+    Qry.Execute();
+    string result;
+    for(; !Qry.Eof; Qry.Next()) {
+        if(Qry.FieldIsNULL("name"))
+            continue;
+        if(!result.empty())
+            result += ", ";
+        result += Qry.FieldAsString("name");
+    }
+    return result;
+}
+
 void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 {
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
@@ -1194,9 +1221,9 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
     if(zoneNode) {
         if(zone.empty())
-            NewTextChild(variablesNode, "zone", "Залы общего доступа");
+            NewTextChild(variablesNode, "zone", (pr_lat ? "Ordinary zones" : "Залы общего доступа"));
         else
-            NewTextChild(variablesNode, "zone", zone);
+            NewTextChild(variablesNode, "zone", get_hall_list(airp, zone, pr_lat));
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
