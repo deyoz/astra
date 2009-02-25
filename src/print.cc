@@ -23,6 +23,7 @@ using namespace BASIC;
 using namespace ASTRA;
 using namespace StrUtils;
 
+
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
@@ -524,10 +525,11 @@ string PrintDataParser::t_field_map::GetTagAsString(string name)
     return di->second.StringVal;
 }
 
-void PrintDataParser::t_field_map::add_tag(string name, TDateTime val)
+void PrintDataParser::t_field_map::add_tag(string name, TDateTime val, bool nullable)
 {
     name = upperc(name);
     TTagValue TagValue;
+    TagValue.nullable = nullable;
     TagValue.null = false;
     TagValue.type = otDate;
     TagValue.DateTimeVal = val;
@@ -542,20 +544,22 @@ void PrintDataParser::t_field_map::add_err_tag(string name, string val)
     data[name] = TagValue;
 }
 
-void PrintDataParser::t_field_map::add_tag(string name, string val)
+void PrintDataParser::t_field_map::add_tag(string name, string val, bool nullable)
 {
     name = upperc(name);
     TTagValue TagValue;
+    TagValue.nullable = nullable;
     TagValue.null = false;
     TagValue.type = otString;
     TagValue.StringVal = val;
     data[name] = TagValue;
 }
 
-void PrintDataParser::t_field_map::add_tag(string name, int val)
+void PrintDataParser::t_field_map::add_tag(string name, int val, bool nullable)
 {
     name = upperc(name);
     TTagValue TagValue;
+    TagValue.nullable = nullable;
     TagValue.null = false;
     TagValue.type = otInteger;
     TagValue.IntegerVal = val;
@@ -716,72 +720,73 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         throw UserException(di->second.err_msg);
 
 
-    if(di != data.end()) {
-        if(field_lat && !di_ru->second.null && di->second.null)
-            throw Exception("value is empty for " + di->first);
-        di_ru->second.pr_print = 1;
-        TTagValue TagValue = di->second;
-        ostringstream buf;
-        buf.width(len);
-        switch(TagValue.type) {
-            case otString:
-            case otChar:
-            case otLong:
-            case otLongRaw:
-                buf.fill(' ');
-                buf << TagValue.StringVal;
-                break;
-            case otFloat:
-                buf.fill('0');
-                buf << TagValue.FloatVal;
-                break;
-            case otInteger:
-                buf.fill('0');
-                buf << TagValue.IntegerVal;
-                break;
-            case otDate:
-                TDateTime PrintTime = TagValue.DateTimeVal;
-                if(
-                        di->first == "BRD_FROM" ||
-                        di->first == "BRD_TO" ||
-                        di->first == "SCD"
-                  ) {
-                    PrintTime = UTCToLocal(PrintTime,
-                            AirpTZRegion(data.find("AIRP_DEP")->second.StringVal));
-                }
-                buf << DateTimeToStr(PrintTime, date_format, field_lat);
-                break;
-        }
-        if(!len) len = buf.str().size();
-        result = AlignString(buf.str(), len, align);
-        if(print_mode == 1) {
-            size_t result_size = result.size();
-            result = "";
-            result.append(result_size, '8');
-        }
-        if(name == "ONE_CHAR" || print_mode == 2) {
-            size_t result_size = result.size();
-            result = "";
+    if(field_lat && !di_ru->second.null && di->second.null)
+        throw Exception("value is empty for " + di->first);
+    di_ru->second.pr_print = 1;
+    TTagValue TagValue = di->second;
+    ostringstream buf;
+    buf.width(len);
+    switch(TagValue.type) {
+        case otString:
+        case otChar:
+        case otLong:
+        case otLongRaw:
+            buf.fill(' ');
+            buf << TagValue.StringVal;
+            break;
+        case otFloat:
+            buf.fill('0');
+            buf << TagValue.FloatVal;
+            break;
+        case otInteger:
+            buf.fill('0');
+            buf << TagValue.IntegerVal;
+            break;
+        case otDate:
+            TDateTime PrintTime = TagValue.DateTimeVal;
             if(
-                    name == "PAX_ID" ||
-                    name == "TEST_SERVER" ||
-                    data[name].type == otDate
-                    )
-                result.append(result_size, '8');
-            else
-                result = AlignString("8", result_size, align);
-        }
-        if(print_mode == 3) {
-            size_t result_size = result.size();
-            result = "";
-            result.append(result_size, ' ');
-        }
+                    di->first == "BRD_FROM" ||
+                    di->first == "BRD_TO" ||
+                    di->first == "SCD"
+              ) {
+                PrintTime = UTCToLocal(PrintTime,
+                        AirpTZRegion(data.find("AIRP_DEP")->second.StringVal));
+            }
+            ProgTrace(TRACE5, "date_format: %s", date_format.c_str());
+            ProgTrace(TRACE5, "PrintTime: %s", DateTimeToStr(PrintTime, date_format, field_lat).c_str());
+            buf << DateTimeToStr(PrintTime, date_format, field_lat);
+            break;
+    }
+    if(!len) len = buf.str().size();
+    result = AlignString(buf.str(), len, align);
+    if(print_mode == 1) {
+        size_t result_size = result.size();
+        result = "";
+        result.append(result_size, '8');
+    }
+    if(name == "ONE_CHAR" || print_mode == 2) {
+        size_t result_size = result.size();
+        result = "";
+        if(
+                name == "PAX_ID" ||
+                name == "TEST_SERVER" ||
+                data[name].type == otDate
+          )
+            result.append(result_size, '8');
+        else
+            result = AlignString("8", result_size, align);
+    }
+    if(print_mode == 3) {
+        size_t result_size = result.size();
+        result = "";
+        result.append(result_size, ' ');
     }
     {
         string buf = result;
         TrimString(buf);
         if(buf.empty() && print_mode != 3) {
-            if(name == "GATE") throw UserException("Не указан выход на посадку");
+            if (buf.empty() && !TagValue.nullable)
+                if(name == "GATE") throw UserException("Не указан выход на посадку");
         }
     }
     tst();
@@ -3295,68 +3300,21 @@ string get_validator(TBagReceipt &rcpt)
     return validator.str();
 }
 
-struct TSegPax {
-    int seg_no;
-    int grp_id;
-    int pax_id;
-    TSegPax(): seg_no(NoExists), grp_id(NoExists), pax_id(NoExists) {};
-};
-
-struct TSegPaxList {
-    vector<TSegPax> items;
-    void get(int pax_id)
-    {
-        TQuery Qry(&OraSession);        
-        Qry.SQLText =
-            "select tckin_id, seg_no, pax_no from tckin_pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
-        Qry.Execute();
-        if(!Qry.Eof) {
-            int tckin_id = Qry.FieldAsInteger("tckin_id");
-            int seg_no = Qry.FieldAsInteger("seg_no");
-            int pax_no = Qry.FieldAsInteger("pax_no");
-            Qry.Clear();
-            Qry.SQLText =
-                "select "
-                "   tckin_pax.seg_no, "
-                "   tckin_pax.pax_id, "
-                "   tckin_pax_grp.grp_id "
-                "from "
-                "   tckin_pax, "
-                "   tckin_pax_grp "
-                "where "
-                "   tckin_pax.tckin_id = :tckin_id and "
-                "   tckin_pax.pax_no = :pax_no and "
-                "   tckin_pax.seg_no >= :seg_no and "
-                "   tckin_pax.tckin_id = tckin_pax_grp.tckin_id and "
-                "   tckin_pax.seg_no = tckin_pax_grp.seg_no and "
-                "   (tckin_pax.seg_no = :seg_no or tckin_pax_grp.pr_depend <> 0) "
-                "order by "
-                "   tckin_pax.seg_no ";
-            Qry.CreateVariable("tckin_id", otInteger, tckin_id);
-            Qry.CreateVariable("pax_no", otInteger, pax_no);
-            Qry.CreateVariable("seg_no", otInteger, seg_no);
-            Qry.Execute();
-            if(!Qry.Eof) {
-                int col_seg_no = Qry.FieldIndex("seg_no");
-                int col_pax_id = Qry.FieldIndex("pax_id");
-                int col_grp_id = Qry.FieldIndex("grp_id");
-                for(; !Qry.Eof; Qry.Next()) {
-                    TSegPax item;
-                    item.seg_no = Qry.FieldAsInteger(col_seg_no);
-                    item.grp_id = Qry.FieldAsInteger(col_grp_id);
-                    item.pax_id = Qry.FieldAsInteger(col_pax_id);
-                    items.push_back(item);
-                }
-            }
-        }
-    }
+struct TPaxPrint {
+  int grp_id;
+  int pax_id;
+  int reg_no;
+  TPaxPrint( int vgrp_id, int vpax_id, int vreg_no ) {
+    grp_id=vgrp_id;
+	  pax_id=vpax_id;
+	  reg_no=vreg_no;
+	};
 };
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
-    int grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists);
+    int grp_id = NodeAsIntegerFast("grp_id", currNode, NoExists); // grp_id - первого сегмента или ид. группы
     int pax_id = NodeAsIntegerFast("pax_id", currNode, NoExists);
     int pr_all = NodeAsIntegerFast("pr_all", currNode, NoExists);
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
@@ -3365,10 +3323,9 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
 
-//    check_CUTE_certified(prn_type, dev_model, fmt_type);
+    //    check_CUTE_certified(prn_type, dev_model, fmt_type);
 
     TQuery Qry(&OraSession);
-
     if(grp_id == NoExists) {
         Qry.Clear();
         Qry.SQLText="SELECT grp_id from pax where pax_id = :pax_id";
@@ -3461,87 +3418,123 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data")||
-    	 Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB" || fmt_type == "EPL2")
-    	)
-      throw UserException("Печать пос. талона на выбранный принтер не производится");
+            Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB" || fmt_type == "EPL2")
+      )
+        throw UserException("Печать пос. талона на выбранный принтер не производится");
     string form = Qry.FieldAsString("form");
     string data = Qry.FieldAsString("data");
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", form);
+    vector<int> grps;
+    vector<TPaxPrint> paxs;
     Qry.Clear();
-    if(pax_id == NoExists) {
-        if(pr_all)
+    if ( pax_id == NoExists ) { // печать всех или только тех, у которых не подтверждена распечатка
+        Qry.SQLText =
+            "SELECT t2.grp_id "
+            " FROM tckin_pax_grp t1, tckin_pax_grp t2 "
+            " WHERE t1.grp_id=:grp_id AND "
+            "       t1.tckin_id=t2.tckin_id AND "
+            "       t2.seg_no >= t1.seg_no AND "
+            "       ( t2.pr_depend <> 0 OR t2.grp_id=:grp_id ) "
+            " ORDER BY t2.seg_no ";
+        Qry.CreateVariable( "grp_id", otInteger, grp_id );
+        Qry.Execute();
+        while ( !Qry.Eof ) {
+            grps.push_back( Qry.FieldAsInteger("grp_id") );
+            Qry.Next();
+        }
+        if ( grps.empty() ) { // нет сквозняка - тогда кладем просто группу - grp_id
+            ProgTrace( TRACE5, "grps.empty, grp_id=%d", grp_id );
+            grps.push_back( grp_id );
+        }
+        Qry.Clear();
+        if ( pr_all )
             Qry.SQLText =
-                "select pax_id, grp_id, reg_no from pax where grp_id = :grp_id and refuse is null order by reg_no";
+                "SELECT pax_id, grp_id, reg_no "
+                " FROM pax "
+                "WHERE grp_id = :grp_id AND "
+                "      refuse IS NULL "
+                "ORDER BY reg_no";
         else
             Qry.SQLText =
-                "select pax.pax_id, pax.grp_id, pax.reg_no  from "
-                "   pax, bp_print "
-                "where "
-                "   pax.grp_id = :grp_id and "
-                "   pax.refuse is null and "
-                "   pax.pax_id = bp_print.pax_id(+) and "
-                "   bp_print.pr_print(+) <> 0 and "
-                "   bp_print.pax_id IS NULL "
-                "order by "
-                "   pax.reg_no";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-    } else {
-        Qry.SQLText = "select grp_id, pax_id, reg_no from pax where pax_id = :pax_id";
-        Qry.CreateVariable("pax_id", otInteger, pax_id);
+                "SELECT pax.pax_id, pax.grp_id, pax.reg_no "
+                " FROM pax, bp_print "
+                "WHERE  pax.grp_id = :grp_id AND "
+                "       pax.refuse IS NULL AND "
+                "       pax.pax_id = bp_print.pax_id(+) AND "
+                "       bp_print.pr_print(+) <> 0 AND "
+                "       bp_print.pax_id IS NULL "
+                "ORDER BY pax.reg_no";
+        Qry.DeclareVariable( "grp_id", otInteger );
+        for( vector<int>::iterator igrp=grps.begin(); igrp!=grps.end(); igrp++ ) {
+            Qry.SetVariable( "grp_id", *igrp );
+            Qry.Execute();
+            if ( Qry.Eof && pr_all ) //!!! анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
+                throw UserException("Изменения в группе производились с другой стойки. Обновите данные"); //все посадочные отпечатаны
+            while ( !Qry.Eof ) {
+                paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
+                            Qry.FieldAsInteger("pax_id"),
+                            Qry.FieldAsInteger("reg_no") ) );
+                Qry.Next();
+            }
+        }
+        if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
+            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
     }
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    else { // печать конкретного пассажира
+        Qry.SQLText =
+            "SELECT grp_id, pax_id, reg_no FROM pax where pax_id = :pax_id";
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+        Qry.Execute();
+        if ( Qry.Eof )
+            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+        paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
+                    Qry.FieldAsInteger("pax_id"),
+                    Qry.FieldAsInteger("reg_no") ) );
+    }
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
-    while(!Qry.Eof) {
-        int pax_id = Qry.FieldAsInteger("pax_id");
-        int grp_id = Qry.FieldAsInteger("grp_id");
-        TSegPaxList seg_pax_list;
-        seg_pax_list.get(pax_id);
-        if(seg_pax_list.items.empty()) {
-            TSegPax item;
-            item.seg_no = 0;
-            item.grp_id = grp_id;
-            item.pax_id = pax_id;
-            seg_pax_list.items.push_back(item);
+    for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
+        PrintDataParser parser( iprint->grp_id, iprint->pax_id, pr_lat, clientDataNode );
+        // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
+        //надо удалить выход на посадку из данных по пассажиру
+        if(grp_id != iprint->grp_id) {
+            parser.add_tag("gate", "", true);
+            parser.add_tag("gate_lat", "", true);
         }
-        for(vector<TSegPax>::iterator iv = seg_pax_list.items.begin(); iv != seg_pax_list.items.end(); iv++)  {
 
-            PrintDataParser parser(iv->grp_id, iv->pax_id, pr_lat, clientDataNode);
-            string prn_form = parser.parse(data);
-            if(fmt_type == "EPSON") {
-                TPrnType convert_prn_type;
-                if(dev_model.empty())
-                    convert_prn_type = TPrnType(prn_type);
-                else {
-                    if(dev_model == "OLIVETTI")
-                        convert_prn_type = ptOLIVETTI;
-                    else if(dev_model == "ML390")
+        string prn_form = parser.parse(data);
+        if ( fmt_type == "EPSON" ) {
+            TPrnType convert_prn_type;
+            if ( dev_model.empty() )
+                convert_prn_type = TPrnType(prn_type);
+            else {
+                if ( dev_model == "OLIVETTI" )
+                    convert_prn_type = ptOLIVETTI;
+                else
+                    if ( dev_model == "ML390" )
                         convert_prn_type = ptOKIML390;
-                    else if(dev_model == "ML3310")
-                        convert_prn_type = ptOKIML3310;
                     else
-                        throw Exception(dev_model + " not supported by to_esc::convert");
-                }
-                to_esc::convert(prn_form, convert_prn_type, NULL);
-                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+                        if ( dev_model == "ML3310" )
+                            convert_prn_type = ptOKIML3310;
+                        else
+                            throw Exception(dev_model + " not supported by to_esc::convert");
             }
-            xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-            NewTextChild(paxNode, "prn_form", prn_form);
-            {
-                TQuery *Qry = parser.get_prn_qry();
-                TDateTime time_print = NowUTC();
-                Qry->CreateVariable("now_utc", otDate, time_print);
-                Qry->Execute();
-                SetProp(paxNode, "pax_id", iv->pax_id);
-                SetProp(paxNode, "seg_no", iv->seg_no);
-                SetProp(paxNode, "reg_no", parser.GetTagAsInteger("reg_no"));
-                SetProp(paxNode, "time_print", DateTimeToStr(time_print));
-            }
+            to_esc::convert(prn_form, convert_prn_type, NULL);
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
-        Qry.Next();
+        xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
+        NewTextChild(paxNode, "prn_form", prn_form);
+        {
+            TQuery *Qry = parser.get_prn_qry();
+            TDateTime time_print = NowUTC();
+            Qry->CreateVariable("now_utc", otDate, time_print);
+            Qry->Execute();
+            SetProp(paxNode, "pax_id", iprint->pax_id);
+            //!!!SetProp(paxNode, "seg_no", iv->seg_no);
+            SetProp(paxNode, "reg_no", parser.GetTagAsInteger("reg_no"));
+            SetProp(paxNode, "time_print", DateTimeToStr(time_print));
+        }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
