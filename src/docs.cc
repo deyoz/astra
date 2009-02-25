@@ -659,7 +659,7 @@ string get_hall_list(string airp, string zone, bool pr_lat)
         "   halls2 "
         "where "
         "   airp = :airp and "
-        "   rpt_grp = :rpt_grp "
+        "   nvl(rpt_grp, ' ') = nvl(:rpt_grp, ' ') "
         "order by "
         "   name ";
     Qry.SQLText = SQLText;
@@ -674,6 +674,7 @@ string get_hall_list(string airp, string zone, bool pr_lat)
             result += ", ";
         result += Qry.FieldAsString("name");
     }
+    ProgTrace(TRACE5, "get_hall_list result: %s", result.c_str());
     return result;
 }
 
@@ -1220,9 +1221,6 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     //    TCrafts crafts;
 
     if(zoneNode) {
-        if(zone.empty())
-            NewTextChild(variablesNode, "zone", (pr_lat ? "Ordinary zones" : "Залы общего доступа"));
-        else
             NewTextChild(variablesNode, "zone", get_hall_list(airp, zone, pr_lat));
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
