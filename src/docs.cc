@@ -1192,6 +1192,13 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
     //    TCrafts crafts;
 
+    if(zoneNode) {
+        if(zone.empty())
+            NewTextChild(variablesNode, "zone", "Залы общего доступа");
+        else
+            NewTextChild(variablesNode, "zone", zone);
+    } else
+        NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
