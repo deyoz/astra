@@ -752,8 +752,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 PrintTime = UTCToLocal(PrintTime,
                         AirpTZRegion(data.find("AIRP_DEP")->second.StringVal));
             }
-            ProgTrace(TRACE5, "date_format: %s", date_format.c_str());
-            ProgTrace(TRACE5, "PrintTime: %s", DateTimeToStr(PrintTime, date_format, field_lat).c_str());
             buf << DateTimeToStr(PrintTime, date_format, field_lat);
             break;
     }
@@ -2227,7 +2225,7 @@ string PrintDataParser::parse_field0(int offset, string field)
                                 default:
                                     throw Exception("4th param must be one of R or E at " + IntToString(offset + i + 1));
                             }
-                            buf = buf.substr(0, buf.size() - 3);
+                            buf = buf.substr(0, buf.size() - 2);
                         }
                         DateFormat = buf;
                     }
