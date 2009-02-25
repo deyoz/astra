@@ -184,14 +184,64 @@ void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 
 void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  xmlNodePtr node=GetNode("check_point_id",reqNode);
-  int check_point_id=-1;
-  if (node!=NULL) check_point_id=NodeAsInteger(node);
-  if (ETCheckStatus(NodeAsInteger("grp_id",reqNode),csaGrp,check_point_id))
+  bool tckin_version=GetNode("segments",reqNode)!=NULL;
+
+  bool only_one;
+  xmlNodePtr segNode;
+  if (tckin_version)
   {
-    //если сюда попали, то записать ошибку связи в лог
-    showProgError("Нет связи с сервером эл. билетов");
+    segNode=NodeAsNode("segments/segment",reqNode);
+    only_one=segNode->next==NULL;
+  }
+  else
+  {
+    segNode=reqNode;
+    only_one=true;
   };
+  bool processed=false;
+  for(;segNode!=NULL;segNode=segNode->next)
+  {
+    int grp_id=NodeAsInteger("grp_id",segNode);
+    try
+    {
+      xmlNodePtr node=GetNode("check_point_id",segNode);
+      int check_point_id=-1;
+      if (node!=NULL) check_point_id=NodeAsInteger(node);
+      if (ETCheckStatus(grp_id,csaGrp,check_point_id))
+      {
+        //если сюда попали, то записать ошибку связи в лог
+        processed=true; //послана хотя бы одна телеграмма
+      };
+    }
+    catch(UserException &e)
+    {
+      if (!only_one)
+      {
+        TQuery Qry(&OraSession);
+        Qry.Clear();
+        Qry.SQLText=
+          "SELECT airline,flt_no,suffix,airp,scd_out "
+          "FROM points,pax_grp "
+          "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id";
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          TTripInfo fltInfo(Qry);
+          throw UserException("Рейс %s: %s",
+                              GetTripName(fltInfo,true,false).c_str(),
+                              e.what());
+        }
+        else
+          throw;
+      }
+      else
+        throw;
+    };
+    if (!tckin_version) break; //старый терминал
+  };
+
+  if (processed) showProgError("Нет связи с сервером эл. билетов");
 };
 
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

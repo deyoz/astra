@@ -120,6 +120,18 @@ class TTripRoute : public std::vector<TTripRouteItem>
 
 std::string mkt_airline(int pax_id);
 
+enum TCkinSegmentSet { cssNone,
+                       cssAllPrev,
+                       cssAllPrevCurr,
+                       cssAllPrevCurrNext,
+                       cssCurr };
+
+bool SeparateTCkin(int grp_id,
+                   TCkinSegmentSet upd_depend,
+                   TCkinSegmentSet upd_tid,
+                   int tid,
+                   int &tckin_id, int &seg_no);
+
 #endif /*_ASTRA_MISC_H_*/
 
 

@@ -873,7 +873,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream select;
   if (pr_class) select << ", NVL(class,' ') AS class";
   if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
-  if (pr_hall) select << ", hall";
+  if (pr_hall) select << ", hall, airp_dep";
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer";
   if (pr_user) select << ", user_id";
@@ -883,7 +883,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream group_by;
   if (pr_class) group_by << ", NVL(class,' ')";
   if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
-  if (pr_hall) group_by << ", hall";
+  if (pr_hall) group_by << ", hall, airp_dep";
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
   if (pr_user) group_by << ", user_id";
@@ -908,7 +908,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_class)    sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
   if (pr_cl_grp)   sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
                           ",cls_grp.code AS cl_grp_code" << endl;
-  if (pr_hall)     sql << ",a.hall AS hall_id,halls2.name AS hall_name" << endl;
+  if (pr_hall)     sql << ",a.hall AS hall_id"
+                          ",halls2.name||DECODE(halls2.airp,a.airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
   if (pr_airp_arv) sql << ",a.point_arv,points.airp AS airp_arv" << endl;
   if (pr_trfer)    sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
   if (pr_user)     sql << ",a.user_id,users2.descr AS user_descr" << endl;
@@ -999,11 +1000,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
   };
 
-  if (pr_class) sql << ",classes";
-  if (pr_cl_grp) sql << ",cls_grp";
-  if (pr_hall) sql << ",halls2";
+  if (pr_class)    sql << ",classes";
+  if (pr_cl_grp)   sql << ",cls_grp";
+  if (pr_hall)     sql << ",halls2";
   if (pr_airp_arv) sql << ",points";
-  if (pr_user) sql << ",users2";
+  if (pr_user)     sql << ",users2";
 
   sql << endl;
 
@@ -1434,8 +1435,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
-  if (info.Empty()) return "";
-
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out_local_date,desk_time;
   string &tz_region=AirpTZRegion(info.airp);

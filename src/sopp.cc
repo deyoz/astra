@@ -1714,6 +1714,8 @@ void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
 void DeletePassengers( int point_id, const string status )
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
@@ -1736,27 +1738,126 @@ void DeletePassengers( int point_id, const string status )
   map<bool,string> BSMaddrs;
   map<int,TBSMContent> BSMContentBefore;
   bool BSMsend=TelegramInterface::IsBSMSend(sendInfo,BSMaddrs);
-  string sql;
 
-  if (BSMsend)
+  TQuery DelQry(&OraSession);
+  DelQry.Clear();
+  DelQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM "
+    "   (SELECT * "
+    "    FROM trip_comp_layers,pax,pax_grp,grp_status_types "
+    "    WHERE trip_comp_layers.pax_id=pax.pax_id AND "
+    "          trip_comp_layers.layer_type=grp_status_types.layer_type AND "
+    "          pax.grp_id=pax_grp.grp_id AND "
+    "          pax_grp.status=grp_status_types.code AND "
+    "          pax_grp.grp_id=:grp_id); "
+    "  UPDATE pax SET refuse='А',pr_brd=NULL WHERE grp_id=:grp_id; "
+    "  mvd.sync_pax_grp(:grp_id,:term); "
+    "  ckin.check_grp(:grp_id); "
+    "END;";
+  DelQry.CreateVariable( "term", otString, reqInfo->desk.code );
+  DelQry.DeclareVariable("grp_id",otInteger);
+
+
+  TQuery TCkinQry(&OraSession);
+  TCkinQry.Clear();
+  TCkinQry.SQLText=
+    "SELECT points.point_id,pax_grp.grp_id,pr_depend "
+    "FROM tckin_pax_grp,pax_grp,points "
+    "WHERE tckin_pax_grp.grp_id=pax_grp.grp_id AND "
+    "      pax_grp.point_dep=points.point_id AND "
+    "      tckin_id=:tckin_id AND seg_no>:seg_no "
+    "ORDER BY seg_no FOR UPDATE";  //?может лучше лочить отдельно?
+  TCkinQry.DeclareVariable("tckin_id",otInteger);
+  TCkinQry.DeclareVariable("seg_no",otInteger);
+
+  TQuery PaxQry(&OraSession); //только лишь для журнала операций
+  PaxQry.Clear();
+  PaxQry.SQLText=
+    "SELECT surname,name,pers_type,reg_no FROM pax WHERE grp_id=:grp_id";
+  PaxQry.DeclareVariable("grp_id",otInteger);
+
+  string sql;
+  sql = "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
+	if ( !status.empty() )
+		sql += " AND status=:status ";
+  Qry.Clear();
+  Qry.SQLText= sql;
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  if ( !status.empty() )
+  	Qry.CreateVariable( "status", otString, status );
+  Qry.Execute();
+  if (Qry.Eof) return;
+
+  vector<int> point_ids;
+  point_ids.push_back(point_id);
+  for(;!Qry.Eof;Qry.Next())
   {
-  	sql = "SELECT grp_id FROM pax_grp WHERE point_dep=:point_id";
-  	if ( !status.empty() )
-  		sql += " AND status=:status ";
-    Qry.Clear();
-    Qry.SQLText= sql;
-    Qry.CreateVariable( "point_id", otInteger, point_id );
-    if ( !status.empty() )
-    	Qry.CreateVariable( "status", otString, status );
-    Qry.Execute();
-    for(;!Qry.Eof;Qry.Next())
+    //пробегаемся по всем группам рейса
+    int grp_id=Qry.FieldAsInteger("grp_id");
+    if (BSMsend)
     {
       TBSMContent BSMContent;
-      TelegramInterface::LoadBSMContent(Qry.FieldAsInteger("grp_id"),BSMContent);
-      BSMContentBefore[Qry.FieldAsInteger("grp_id")]=BSMContent;
+      TelegramInterface::LoadBSMContent(grp_id,BSMContent);
+      BSMContentBefore[grp_id]=BSMContent;
     };
+    //отвяжем сквозняков от предыдущих сегментов
+    int tckin_id;
+    int tckin_seg_no;
+    if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no))
+    {
+      //разрегистрируем все сквозные сегменты после нашего
+      TCkinQry.SetVariable("tckin_id",tckin_id);
+      TCkinQry.SetVariable("seg_no",tckin_seg_no);
+      TCkinQry.Execute();
+      for(;!TCkinQry.Eof;TCkinQry.Next())
+      {
+        if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
+
+        int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
+        int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
+
+        if (find(point_ids.begin(),point_ids.end(),tckin_point_id)==point_ids.end())
+          point_ids.push_back(tckin_point_id);
+
+        PaxQry.SetVariable("grp_id",tckin_grp_id);
+        PaxQry.Execute();
+        for(;!PaxQry.Eof;PaxQry.Next())
+        {
+          const char* surname=PaxQry.FieldAsString("surname");
+          const char* name=PaxQry.FieldAsString("name");
+          const char* pers_type=PaxQry.FieldAsString("pers_type");
+
+          reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
+                            "Причина отказа в регистрации: А. ",
+                            ASTRA::evtPax,
+                            tckin_point_id,
+                            PaxQry.FieldAsInteger("reg_no"),
+                            tckin_grp_id);
+        };
+
+        DelQry.SetVariable("grp_id",tckin_grp_id);
+        DelQry.Execute();
+      };
+    };
+    DelQry.SetVariable("grp_id",grp_id);
+    DelQry.Execute();
   };
-  sql =
+
+  //пересчитаем счетчики по всем рейсам, включая сквозные сегменты
+  Qry.Clear();
+	Qry.SQLText=
+	 "BEGIN "
+	 "  ckin.recount(:point_id); "
+   "END;";
+  Qry.DeclareVariable("point_id",otInteger);
+  for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
+  {
+    Qry.SetVariable("point_id",*i);
+    Qry.Execute();
+  };
+
+/*  sql =
 	 "BEGIN "
    " DECLARE "
    " CURSOR cur IS "
@@ -1803,14 +1904,14 @@ void DeletePassengers( int point_id, const string status )
 	Qry.SQLText = sql;
 	ProgTrace( TRACE5, "point_id=%d, status=%s", point_id, status.c_str() );
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "term", otString, TReqInfo::Instance()->desk.code );
+  Qry.CreateVariable( "term", otString, reqInfo->desk.code );
   if ( !status.empty() )
   	Qry.CreateVariable( "status", otString, status );
-  Qry.Execute();
+  Qry.Execute();*/
   if ( status.empty() )
-    TReqInfo::Instance()->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
+    reqInfo->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
   else
-  	TReqInfo::Instance()->MsgToLog( string("Все пассажиры со статусом ") + status + " разрегистрированы", evtPax, point_id );
+  	reqInfo->MsgToLog( string("Все пассажиры со статусом ") + status + " разрегистрированы", evtPax, point_id );
 
   //BSM
   if (BSMsend)

@@ -1591,6 +1591,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
   int col_seat_no=Qry.FieldIndex("seat_no");
+  int col_seats=Qry.FieldIndex("seats");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_document=Qry.FieldIndex("document");
   int col_ticket_no=Qry.FieldIndex("ticket_no");
@@ -1646,6 +1647,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"class",Qry.FieldAsString(col_class));
     NewTextChild(paxNode,"subclass",Qry.FieldAsString(col_subclass),"");
     NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
+    NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString(col_pers_type));
     NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
     NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
@@ -1853,7 +1855,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                          s->second.point_arv,
                          s->second.airp_arv, true, fltInfo))
     {
-      if (!only_one && !fltInfo.Empty())
+      if (!only_one && !fltInfo.airline.empty())
         throw UserException("Рейс %s изменен. Обновите данные",
                             GetTripName(fltInfo,true,false).c_str());
       else
@@ -1861,7 +1863,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
     if (fltInfo.pr_del!=0)
     {
-      if (!only_one && !fltInfo.Empty())
+      if (!only_one && !fltInfo.airline.empty())
         throw UserException("Рейс %s отменен. Обновите данные",
                             GetTripName(fltInfo,true,false).c_str());
       else
@@ -2250,7 +2252,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             //определим алгоритм рассадки
             int algo=SEATS2::GetSeatAlgo(Qry,fltInfo.airline,fltInfo.flt_no,fltInfo.airp);
             //рассадка
-            SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );
+            try {
+              SEATS2::SeatsPassengers( &Salons, algo, SEATS2::Passengers, GetUsePS() );
+            }
+            catch( UserException E ) {
+            	if ( segs.size() <= 1 )
+            		throw;
+              throw UserException( string(E.what()) + " в аэропорту " + fltInfo.airp ); //!!!
+            }
             /*!!! иногда True - возможна рассажка на забронированные места, когда */
             /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
             #else
@@ -2626,28 +2635,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         if (first_segment)
         {
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
-          Qry.CreateVariable("grp_id",otInteger,grp_id);
-          Qry.Execute();
-          if (!Qry.Eof)
-          {
-            tckin_id=Qry.FieldAsInteger("tckin_id");
-            tckin_seg_no=Qry.FieldAsInteger("seg_no");
-            Qry.Clear();
-            Qry.SQLText=
-              "UPDATE tckin_pax_grp SET pr_depend=0 WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
-            Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-            if (!tckin_version)
+          if (!tckin_version)
               //старый терминал
               //придется отвязать сквозной маршрут, так как не можем поддерживать
               //синхронизацию данных по следующим сегментам маршрута
-              Qry.CreateVariable("seg_no",otInteger,tckin_seg_no+1);
-            else
-              Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
-            Qry.Execute();
-          };
+            SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
+          else
+            SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no);
         };
 
         Qry.Clear();
@@ -2715,6 +2709,16 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             "(SELECT layer_type FROM pax,pax_grp,grp_status_types "
             "  WHERE pax.pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND "
             "        pax_grp.status=grp_status_types.code)";
+          /*а можно так:
+          DELETE FROM
+          (SELECT *
+           FROM trip_comp_layers,pax,pax_grp,grp_status_types
+           WHERE trip_comp_layers.pax_id=pax.pax_id AND
+                 trip_comp_layers.layer_type=grp_status_types.layer_type AND
+                 pax.grp_id=pax_grp.grp_id AND
+                 pax_grp.status=grp_status_types.code AND
+                 pax.pax_id=:pax_id)*/
+
           LayerQry.DeclareVariable("pax_id",otInteger);
 
           node=GetNode("passengers",segNode);
@@ -3345,6 +3349,15 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       CheckInInterface::LoadBag(grp_id,resNode);
       CheckInInterface::LoadPaidBag(grp_id,resNode);
     };
+
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
+    Qry.CreateVariable("point_id",otInteger,point_dep);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+    NewTextChild( segNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+    NewTextChild( segNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
   };
 };
 
@@ -5397,7 +5410,17 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       };
 
     if (tckin_route_confirm)
+    {
       NewTextChild(seg2Node,"pr_waitlist",(int)(total_permit && total_waitlist));
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
+      Qry.CreateVariable("point_id",otInteger,point_dep);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+      NewTextChild( seg2Node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+      NewTextChild( seg2Node, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
+    };
 
     if (total_permit)
     {

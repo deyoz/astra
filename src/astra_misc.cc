@@ -326,3 +326,89 @@ string mkt_airline(int pax_id)
     return Qry.FieldAsString(0);
 }
 
+bool SeparateTCkin(int grp_id,
+                   TCkinSegmentSet upd_depend,
+                   TCkinSegmentSet upd_tid,
+                   int tid,
+                   int &tckin_id, int &seg_no)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT tckin_id,seg_no FROM tckin_pax_grp WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return false;
+
+  tckin_id=Qry.FieldAsInteger("tckin_id");
+  seg_no=Qry.FieldAsInteger("seg_no");
+
+  if (upd_depend==cssNone) return true;
+
+  ostringstream sql;
+  string where_str;
+
+  switch (upd_tid)
+  {
+    case cssAllPrev:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
+      break;
+    case cssAllPrevCurr:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
+      break;
+    case cssAllPrevCurrNext:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
+      break;
+    case cssCurr:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
+      break;
+    default:
+      where_str="";
+  };
+  if (!where_str.empty())
+  {
+    sql.str("");
+    sql << "UPDATE pax_grp SET tid=:tid "
+        << "WHERE grp_id IN (SELECT grp_id FROM tckin_pax_grp " << where_str << ") ";
+
+    Qry.Clear();
+    Qry.SQLText=sql.str().c_str();
+    Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+    Qry.CreateVariable("seg_no",otInteger,seg_no);
+    Qry.CreateVariable("tid",otInteger,tid);
+    Qry.Execute();
+  };
+
+  switch (upd_depend)
+  {
+    case cssAllPrev:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<:seg_no";
+      break;
+    case cssAllPrevCurr:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no";
+      break;
+    case cssAllPrevCurrNext:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no<=:seg_no+1";
+      break;
+    case cssCurr:
+      where_str=" WHERE tckin_id=:tckin_id AND seg_no=:seg_no";
+      break;
+    default:
+      where_str="";
+  };
+  if (!where_str.empty())
+  {
+    sql.str("");
+    sql << "UPDATE tckin_pax_grp SET pr_depend=0 " << where_str;
+
+    Qry.Clear();
+    Qry.SQLText=sql.str().c_str();
+    Qry.CreateVariable("tckin_id",otInteger,tckin_id);
+    Qry.CreateVariable("seg_no",otInteger,seg_no);
+    Qry.Execute();
+  };
+
+  return true;
+};
+
+
