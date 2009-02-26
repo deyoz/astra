@@ -11,6 +11,80 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
+string GetTripName( TTripInfo &info, bool showAirp, bool prList )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  TDateTime scd_out_local_date,desk_time;
+  string &tz_region=AirpTZRegion(info.airp);
+  modf(reqInfo->desk.time,&desk_time);
+  modf(UTCToClient(info.scd_out,tz_region),&scd_out_local_date);
+  if (info.real_out!=ASTRA::NoExists)
+    modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
+  else
+    info.real_out_local_date=scd_out_local_date;
+
+  ostringstream trip;
+  trip << info.airline
+       << setw(3) << setfill('0') << info.flt_no
+       << info.suffix;
+
+  if (prList)
+  {
+    if (info.flt_no<10000) trip << " ";
+    if (info.flt_no<1000)  trip << " ";
+  };
+
+  if (desk_time!=info.real_out_local_date)
+  {
+    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(info.real_out_local_date,"mm"))
+      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd");
+    else
+      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd.mm");
+  };
+  if (scd_out_local_date!=info.real_out_local_date)
+    trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
+  if (!(reqInfo->user.user_type==utAirport &&
+        reqInfo->user.access.airps_permit &&
+        reqInfo->user.access.airps.size()==1)||showAirp)
+    trip << " " << info.airp;
+  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
+      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
+
+  return trip.str();
+};
+
+bool GetTripSets( TTripSetType setType, TTripInfo &info )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_misc, "
+    "    DECODE(airline,NULL,0,8)+ "
+    "    DECODE(flt_no,NULL,0,2)+ "
+    "    DECODE(airp_dep,NULL,0,4) AS priority "
+    "FROM misc_set "
+    "WHERE type=:type AND "
+    "      (airline IS NULL OR airline=:airline) AND "
+    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
+    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
+    "ORDER BY priority DESC";
+  Qry.CreateVariable("type",otInteger,(int)setType);
+  Qry.CreateVariable("airline",otString,info.airline);
+  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
+  Qry.CreateVariable("airp_dep",otString,info.airp);
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    switch(setType)
+    {
+      //запрет интерактива с СЭБом
+      case tsETLOnly: return false;
+              default: return false;
+    };
+  };
+  return Qry.FieldAsInteger("pr_misc")!=0;
+};
+
 string GetPnrAddr(int pnr_id, vector<TPnrAddrItem> &pnrs, string airline)
 {
   pnrs.clear();

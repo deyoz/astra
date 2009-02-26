@@ -16,7 +16,6 @@
 #include "base_tables.h"
 #include "astra_service.h"
 #include "czech_police_edi_file.h"
-#include "tripinfo.h"
 #include "telegram.h"
 #include "serverlib/daemon.h"
 #include "serverlib/cfgproc.h"
