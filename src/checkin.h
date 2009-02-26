@@ -7,7 +7,7 @@
 #include "jxtlib/JxtInterface.h"
 #include "astra_ticket.h"
 #include "astra_consts.h"
-#include "tripinfo.h"
+#include "astra_misc.h"
 
 class CheckInInterface : public JxtInterface
 {
@@ -24,9 +24,11 @@ public:
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::SavePax);
      AddEvent("SavePax",evHandle);
      AddEvent("SaveUnaccompBag",evHandle);
+     AddEvent("TCkinSavePax",evHandle);
+     AddEvent("TCkinSaveUnaccompBag",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::LoadPax);
      AddEvent("LoadPax",evHandle);
-     AddEvent("LoadPaxGrp",evHandle);
+     AddEvent("TCkinLoadPax",evHandle);
      evHandle=JxtHandler<CheckInInterface>::CreateHandler(&CheckInInterface::PaxList);
      AddEvent("PaxList",evHandle);
      AddEvent("BagPaxList",evHandle);

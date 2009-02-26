@@ -9,13 +9,13 @@
 #include "seats2.h"
 #include "seats.h"
 #include "stages.h"
-#include "tripinfo.h"
 #include "telegram.h"
 #include "misc.h"
 #include "payment.h"
 #include "astra_misc.h"
 #include "base_tables.h"
 #include "convert.h"
+#include "tripinfo.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -3123,7 +3123,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   }; //цикл по сегментам
 
   //пересчитать данные по группе и отправить на клиент
-  LoadPax(first_grp_id,resNode,tckin_version);
+  LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
+                               strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
 
 };
 
