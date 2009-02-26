@@ -173,22 +173,35 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
     layers_priority[ cltGoShow ].notfree = true;
     layers_priority[ cltSOMTrzt ].notfree = true;
     layers_priority[ cltPRLTrzt ].notfree = true;
-    // что отобразить в help
+    // что отобразить в help Ctrl+F4 - занято на клиенте
     layers_priority[ cltBlockCent ].name_view = layers_priority[ cltBlockCent ].name;
+    if ( FilterLayers.isFlag( cltBlockCent ) )
+    	layers_priority[ cltBlockCent ].func_key = "Ctrl+F7";
     if ( FilterLayers.isFlag( cltTranzit ) ||
     	   FilterLayers.isFlag( cltSOMTrzt ) ||
-    	   FilterLayers.isFlag( cltPRLTrzt ) )
+    	   FilterLayers.isFlag( cltPRLTrzt ) ) {
       layers_priority[ cltBlockTrzt ].name_view = "Транзит";
+    }
     layers_priority[ cltCheckin ].name_view = "Регистрация";
-    if ( FilterLayers.isFlag( cltProtTrzt ) )
+    if ( FilterLayers.isFlag( cltProtTrzt ) ) {
     	layers_priority[ cltProtTrzt ].name_view = layers_priority[ cltProtTrzt ].name;
-    if ( FilterLayers.isFlag( cltBlockTrzt ) )
+      layers_priority[ cltBlockTrzt ].func_key = "Ctrl+F8";
+    }
+    if ( FilterLayers.isFlag( cltBlockTrzt ) ) {
     	layers_priority[ cltBlockTrzt ].name_view = layers_priority[ cltBlockTrzt ].name;
+      layers_priority[ cltBlockTrzt ].func_key = "Ctrl+F8";
+    }
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
+    if ( FilterLayers.isFlag( cltProtect ) )
+      layers_priority[ cltProtect ].func_key = "Ctrl+F5";
     layers_priority[ cltUncomfort ].name_view = layers_priority[ cltUncomfort ].name;
+    if ( FilterLayers.isFlag( cltUncomfort ) )
+    	layers_priority[ cltUncomfort ].func_key = "Ctrl+F11";
     layers_priority[ cltSmoke ].name_view = layers_priority[ cltSmoke ].name;
+    if ( FilterLayers.isFlag( cltSmoke ) )
+    	layers_priority[ cltSmoke ].func_key = "Ctrl+F10";
   }
 }
 
@@ -284,9 +297,18 @@ void TSalons::Build( xmlNodePtr salonsNode )
   	}
   	if ( i->second.notfree )
   		SetProp( n, "notfree", 1 );
-  	if ( !i->second.name_view.empty() )
+  	if ( !i->second.name_view.empty() ) {
   		SetProp( n, "name_view_help", i->second.name_view );
+  		if ( !i->second.func_key.empty() )
+  			SetProp( n, "func_key", i->second.func_key );
+  	}
   }
+ 	xmlNodePtr n = NewTextChild( editNode, "layer",  EncodeCompLayerType( cltUnknown ) );
+ 	SetProp( n, "name", "LAYER_CLEAR_ALL" );
+ 	SetProp( n, "priority", 10000 );
+ 	SetProp( n, "edit", 1 );
+  SetProp( n, "name_view_help", "Очистить все статусы мест" );
+  SetProp( n, "func_key", "Ctrl+F4" );
 }
 
 void TSalons::Write()
@@ -689,20 +711,21 @@ void TSalons::Read( )
   if ( readStyle == rTripSalons ) {
   	PaxQry.Clear();
   	PaxQry.SQLText =
-      " SELECT pax.pax_id, pax.seats, class "
+      " SELECT pax.pax_id, pax.seats, class, 1 priority "
       "    FROM pax_grp,pax "
       "   WHERE pax.grp_id=pax_grp.grp_id AND "
       "         pax_grp.point_dep=:point_dep AND "
       "         pax.seats >= 1 AND "
       "         pax.refuse IS NULL "
       " UNION "
-      " SELECT pax_id, crs_pax.seats, crs_pnr.class "
+      " SELECT pax_id, crs_pax.seats, crs_pnr.class, 2 priority "
       "    FROM crs_pax, crs_pnr, tlg_binding "
       "   WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "         crs_pnr.point_id=tlg_binding.point_id_tlg AND "
       "         tlg_binding.point_id_spp=:point_dep AND "
       "         crs_pax.seats >= 1 AND "
-      "         crs_pax.pr_del=0 ";
+      "         crs_pax.pr_del=0 "
+      " ORDER BY priority ";
     PaxQry.CreateVariable( "point_dep", otInteger, trip_id );
   	// зачитываем все слои в салоне
   	Qry.SQLText =
@@ -771,8 +794,10 @@ void TSalons::Read( )
   if ( readStyle == rTripSalons ) { // заполняем инфу по пассажиру
   	PaxQry.Execute();
     while ( !PaxQry.Eof ) {
-    	pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].seats = PaxQry.FieldAsInteger( "seats" );
-    	pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].cl = PaxQry.FieldAsString( "class" );
+    	if ( pax_layers.find( PaxQry.FieldAsInteger( "pax_id" ) ) == pax_layers.end() ) {
+    	  pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].seats = PaxQry.FieldAsInteger( "seats" );
+    	  pax_layers[ PaxQry.FieldAsInteger( "pax_id" ) ].cl = PaxQry.FieldAsString( "class" );
+    	}
     	PaxQry.Next();
     }
     ProgTrace( TRACE5, "pax_layers.size()=%d", pax_layers.size() );

@@ -181,6 +181,7 @@ struct TLayerProp
 {
 	std::string name;
 	std::string name_view;
+	std::string func_key;
   int priority;
   bool editable;
   bool notfree;
