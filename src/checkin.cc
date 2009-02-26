@@ -1929,7 +1929,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       //map для норм
       map<int,string> norms;
 
-      bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0;
+      bool pr_unaccomp=strcmp((char *)reqNode->name, "SaveUnaccompBag") == 0 ||
+                       strcmp((char *)reqNode->name, "TCkinSaveUnaccompBag") == 0;
 
       TQuery CrsQry(&OraSession);
       CrsQry.Clear();
@@ -3343,7 +3344,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     {
       //несопровождаемый багаж
       if (s==segs.begin())
-        LoadPaxNorms(resNode,pr_unaccomp);
+        LoadPaxNorms(segNode,pr_unaccomp);
     };
     if (s==segs.begin())
     {
