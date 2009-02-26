@@ -2319,15 +2319,18 @@ void DocsInterface::GetSegList2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     if(rpType == "PM") {
         TQuery Qry(&OraSession);
         Qry.SQLText =
-            "select distinct "
-            "   rpt_grp "
-            "from "
-            "   pax_grp, "
-            "   halls2 "
-            "where "
-            "   pax_grp.point_dep = :point_id and "
-            "   pax_grp.hall = halls2.id "
-            "order by "
+            "select distinct  "
+            "   rpt_grp  "
+            "from  "
+            "   pax_grp,  "
+            "   points, "
+            "   halls2  "
+            "where  "
+            "   pax_grp.point_dep = :point_id and  "
+            "   points.point_id = pax_grp.point_dep and "
+            "   pax_grp.hall = halls2.id and "
+            "   halls2.airp = points.airp "
+            "order by  "
             "   rpt_grp ";
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
