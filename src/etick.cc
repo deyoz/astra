@@ -10,8 +10,8 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "astra_consts.h"
+#include "astra_misc.h"
 #include "base_tables.h"
-#include "tripinfo.h"
 #include "jxtlib/jxt_cont.h"
 #include "serverlib/query_runner.h"
 
@@ -170,19 +170,7 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       throw UserException("Рейс не может быть переведен в данный режим");
 };
 
-void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
-{
-  xmlNodePtr node=GetNode("check_point_id",reqNode);
-  int check_point_id=-1;
-  if (node!=NULL) check_point_id=NodeAsInteger(node);
-  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,check_point_id))
-  {
-    //если сюда попали, то записать ошибку связи в лог
-    showProgError("Нет связи с сервером эл. билетов");
-  };
-};
-
-void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   bool tckin_version=GetNode("segments",reqNode)!=NULL;
 
@@ -201,13 +189,27 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   bool processed=false;
   for(;segNode!=NULL;segNode=segNode->next)
   {
-    int grp_id=NodeAsInteger("grp_id",segNode);
+    int id;
+    switch (area)
+    {
+      case csaFlt:
+        id=NodeAsInteger("point_id",segNode);
+        break;
+      case csaGrp:
+        id=NodeAsInteger("grp_id",segNode);
+        break;
+      case csaPax:
+        id=NodeAsInteger("pax_id",segNode);
+        break;
+      default: return;
+    }
+
     try
     {
       xmlNodePtr node=GetNode("check_point_id",segNode);
       int check_point_id=-1;
       if (node!=NULL) check_point_id=NodeAsInteger(node);
-      if (ETCheckStatus(grp_id,csaGrp,check_point_id))
+      if (ETCheckStatus(id,area,check_point_id))
       {
         //если сюда попали, то записать ошибку связи в лог
         processed=true; //послана хотя бы одна телеграмма
@@ -219,11 +221,32 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
       {
         TQuery Qry(&OraSession);
         Qry.Clear();
-        Qry.SQLText=
-          "SELECT airline,flt_no,suffix,airp,scd_out "
-          "FROM points,pax_grp "
-          "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id";
-        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        switch (area)
+        {
+          case csaFlt:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points "
+              "WHERE point_id=:id";
+            break;
+          case csaGrp:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points,pax_grp "
+              "WHERE points.point_id=pax_grp.point_dep AND "
+              "      grp_id=:id";
+            break;
+          case csaPax:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points,pax_grp,pax "
+              "WHERE points.point_id=pax_grp.point_dep AND "
+              "      pax_grp.grp_id=pax.grp_id AND "
+              "      pax_id=:id";
+            break;
+          default: throw;
+        };
+        Qry.CreateVariable("id",otInteger,id);
         Qry.Execute();
         if (!Qry.Eof)
         {
@@ -244,16 +267,36 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   if (processed) showProgError("Нет связи с сервером эл. билетов");
 };
 
+void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ChangeAreaStatus(csaPax,ctxt,reqNode,resNode);
+/*  xmlNodePtr node=GetNode("check_point_id",reqNode);
+  int check_point_id=-1;
+  if (node!=NULL) check_point_id=NodeAsInteger(node);
+  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,check_point_id))
+  {
+    //если сюда попали, то записать ошибку связи в лог
+    showProgError("Нет связи с сервером эл. билетов");
+  };*/
+};
+
+void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ChangeAreaStatus(csaGrp,ctxt,reqNode,resNode);
+};
+
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  xmlNodePtr node=GetNode("check_point_id",reqNode);
+  ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
+
+  /*xmlNodePtr node=GetNode("check_point_id",reqNode);
   int check_point_id=-1;
   if (node!=NULL) check_point_id=NodeAsInteger(node);
   if (ETCheckStatus(NodeAsInteger("point_id",reqNode),csaFlt,check_point_id))
   {
     //если сюда попали, то записать ошибку связи в лог
     showProgError("Нет связи с сервером эл. билетов");
-  };
+  };*/
 };
 
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

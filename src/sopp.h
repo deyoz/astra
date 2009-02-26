@@ -6,8 +6,9 @@
 #include <vector>
 #include "jxtlib/JxtInterface.h"
 #include "basic.h"
-#include "astra_utils.h"
 #include "astra_consts.h"
+#include "astra_utils.h"
+#include "astra_misc.h"
 
 struct Cargo {
 	int cargo;
@@ -218,7 +219,10 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips );
 bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
 
-void DeletePassengers( int point_id, const std::string status );
+void DeletePassengers( int point_id, const std::string status, std::map<int,TTripInfo> &segs, bool tckin_version );
+
+bool is_waitlist_alarm( int point_id );
+bool is_brd_alarm( int point_id );
 
 class SoppInterface : public JxtInterface
 {
@@ -235,6 +239,7 @@ public:
      AddEvent("GetBagTransfer",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::DeleteAllPassangers);
      AddEvent("DeleteAllPassangers",evHandle);
+     AddEvent("TCkinDeleteAllPassangers",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteTrips);
      AddEvent("WriteTrips",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::ReadTripInfo);

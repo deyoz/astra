@@ -2,6 +2,7 @@
 #include "sopp.h"
 #include "stages.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "stl_utils.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -11,14 +12,15 @@
 #include <map>
 #include <vector>
 #include <string>
-#include "season.h" //???
 #include "tripinfo.h"
+#include "season.h" //???
 #include "telegram.h"
 #include "boost/date_time/local_time/local_time.hpp"
 #include "base_tables.h"
 #include "docs.h"
 #include "stat.h"
 #include "salons2.h"
+#include "seats.h"
 
 #include "aodb.h"
 #include "serverlib/perfom.h"
@@ -1712,20 +1714,23 @@ void SoppInterface::GetBagTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   GetTransfer(ctxt,reqNode,resNode,true);
 };
 
-void DeletePassengers( int point_id, const string status )
+void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &segs, bool tckin_version )
 {
+  segs.clear();
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
-	  "SELECT airline,flt_no,airp,point_num, "
+	  "SELECT airline,flt_no,suffix,airp,scd_out,point_num, "
     "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
     "FROM points "
     "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  TTripInfo fltInfo(Qry);
+
   TTypeBSendInfo sendInfo;
   sendInfo.airline=Qry.FieldAsString("airline");
   sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
@@ -1762,7 +1767,9 @@ void DeletePassengers( int point_id, const string status )
   TQuery TCkinQry(&OraSession);
   TCkinQry.Clear();
   TCkinQry.SQLText=
-    "SELECT points.point_id,pax_grp.grp_id,pr_depend "
+    "SELECT points.point_id,points.airline,points.flt_no,points.suffix, "
+    "       points.airp,points.scd_out, "
+    "       pax_grp.grp_id,pr_depend "
     "FROM tckin_pax_grp,pax_grp,points "
     "WHERE tckin_pax_grp.grp_id=pax_grp.grp_id AND "
     "      pax_grp.point_dep=points.point_id AND "
@@ -1789,8 +1796,7 @@ void DeletePassengers( int point_id, const string status )
   Qry.Execute();
   if (Qry.Eof) return;
 
-  vector<int> point_ids;
-  point_ids.push_back(point_id);
+  segs[point_id]=fltInfo;
   for(;!Qry.Eof;Qry.Next())
   {
     //пробегаемся по всем группам рейса
@@ -1804,42 +1810,56 @@ void DeletePassengers( int point_id, const string status )
     //отвяжем сквозняков от предыдущих сегментов
     int tckin_id;
     int tckin_seg_no;
-    if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no))
+    if (tckin_version)
     {
-      //разрегистрируем все сквозные сегменты после нашего
-      TCkinQry.SetVariable("tckin_id",tckin_id);
-      TCkinQry.SetVariable("seg_no",tckin_seg_no);
-      TCkinQry.Execute();
-      for(;!TCkinQry.Eof;TCkinQry.Next())
+      if (SeparateTCkin(grp_id,cssAllPrevCurr,cssNone,-1,tckin_id,tckin_seg_no))
       {
-        if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
-
-        int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
-        int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
-
-        if (find(point_ids.begin(),point_ids.end(),tckin_point_id)==point_ids.end())
-          point_ids.push_back(tckin_point_id);
-
-        PaxQry.SetVariable("grp_id",tckin_grp_id);
-        PaxQry.Execute();
-        for(;!PaxQry.Eof;PaxQry.Next())
+        //разрегистрируем все сквозные сегменты после нашего
+        TCkinQry.SetVariable("tckin_id",tckin_id);
+        TCkinQry.SetVariable("seg_no",tckin_seg_no);
+        TCkinQry.Execute();
+        for(;!TCkinQry.Eof;TCkinQry.Next())
         {
-          const char* surname=PaxQry.FieldAsString("surname");
-          const char* name=PaxQry.FieldAsString("name");
-          const char* pers_type=PaxQry.FieldAsString("pers_type");
+          if (TCkinQry.FieldAsInteger("pr_depend")==0) break;
 
-          reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
-                            "Причина отказа в регистрации: А. ",
-                            ASTRA::evtPax,
-                            tckin_point_id,
-                            PaxQry.FieldAsInteger("reg_no"),
-                            tckin_grp_id);
+          int tckin_point_id=TCkinQry.FieldAsInteger("point_id");
+          int tckin_grp_id=TCkinQry.FieldAsInteger("grp_id");
+
+          if (segs.find(tckin_point_id)==segs.end())
+          {
+            fltInfo.Init(TCkinQry);
+            segs[tckin_point_id]=fltInfo;
+          };
+
+          PaxQry.SetVariable("grp_id",tckin_grp_id);
+          PaxQry.Execute();
+          for(;!PaxQry.Eof;PaxQry.Next())
+          {
+            const char* surname=PaxQry.FieldAsString("surname");
+            const char* name=PaxQry.FieldAsString("name");
+            const char* pers_type=PaxQry.FieldAsString("pers_type");
+
+            reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+" ("+pers_type+") разрегистрирован. "+
+                              "Причина отказа в регистрации: А. ",
+                              ASTRA::evtPax,
+                              tckin_point_id,
+                              PaxQry.FieldAsInteger("reg_no"),
+                              tckin_grp_id);
+          };
+
+          DelQry.SetVariable("grp_id",tckin_grp_id);
+          DelQry.Execute();
         };
-
-        DelQry.SetVariable("grp_id",tckin_grp_id);
-        DelQry.Execute();
       };
+    }
+    else
+    {
+      //старый терминал
+      //придется отвязать сквозной маршрут, так как не можем поддерживать
+      //изменение статуса ЭБ по следующим сегментам маршрута
+      SeparateTCkin(grp_id,cssAllPrevCurrNext,cssNone,-1,tckin_id,tckin_seg_no);
     };
+
     DelQry.SetVariable("grp_id",grp_id);
     DelQry.Execute();
   };
@@ -1851,63 +1871,12 @@ void DeletePassengers( int point_id, const string status )
 	 "  ckin.recount(:point_id); "
    "END;";
   Qry.DeclareVariable("point_id",otInteger);
-  for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
+  for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();i++)
   {
-    Qry.SetVariable("point_id",*i);
+    Qry.SetVariable("point_id",i->first);
     Qry.Execute();
   };
 
-/*  sql =
-	 "BEGIN "
-   " DECLARE "
-   " CURSOR cur IS "
-   "   SELECT grp_id FROM pax_grp WHERE point_dep=:point_id ";
-  if ( !status.empty() )
-  	sql +=  " AND status=:status ";
-  sql += "; ";
-  sql +=
-   " curRow      cur%ROWTYPE; "
-   " BEGIN "
-   "  DELETE FROM trip_comp_layers WHERE point_id=:point_id AND layer_type IN (";
-  if ( status.empty() ) {
-  	sql += "'" + string(EncodeCompLayerType(cltGoShow)) + "',";
-  	sql += "'" + string(EncodeCompLayerType(cltTranzit)) + "',";
-  	sql += "'" + string(EncodeCompLayerType(cltCheckin)) + "',";
-  	sql += "'" + string(EncodeCompLayerType(cltTCheckin)) + "'); ";
-  }
-  else {
-  	switch ( DecodePaxStatus( (char*)status.c_str() ) ) {
-  		case psCheckin:
-  			sql += "'" + string(EncodeCompLayerType(cltCheckin)) + "'); ";
-  			break;
-  		case psTCheckin:
-  			sql +=  "'" + string(EncodeCompLayerType(cltTCheckin)) + "'); ";
-  			break;
-  		case psTransit:
-  			sql += "'" + string(EncodeCompLayerType(cltTranzit)) + "'); ";
-  			break;
-  		case psGoshow:
-  			sql += "'" + string(EncodeCompLayerType(cltGoShow)) + "'); ";
-  			break;
-  	}
-  };
-  sql +=
-   "  FOR curRow IN cur LOOP "
-   "    UPDATE pax SET refuse='А',pr_brd=NULL WHERE grp_id=curRow.grp_id; "
-   "    mvd.sync_pax_grp(curRow.grp_id,:term); "
-   "    ckin.check_grp(curRow.grp_id); "
-   "  END LOOP; "
-   "  ckin.recount(:point_id); "
-   " END; "
-   "END;";
-  Qry.Clear();
-	Qry.SQLText = sql;
-	ProgTrace( TRACE5, "point_id=%d, status=%s", point_id, status.c_str() );
-  Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "term", otString, reqInfo->desk.code );
-  if ( !status.empty() )
-  	Qry.CreateVariable( "status", otString, status );
-  Qry.Execute();*/
   if ( status.empty() )
     reqInfo->MsgToLog( "Все пассажиры разрегистрированы", evtPax, point_id );
   else
@@ -1924,11 +1893,37 @@ void DeletePassengers( int point_id, const string status )
   };
 }
 
-
 void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id = NodeAsInteger( "point_id", reqNode );
-	DeletePassengers( point_id, string("") );
+  bool tckin_version=strcmp((char *)reqNode->name, "DeleteAllPassangers") != 0;
+  map<int,TTripInfo> segs;
+	DeletePassengers( point_id, string(""), segs, tckin_version );
+
+	TQuery Qry(&OraSession);
+	Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
+  Qry.DeclareVariable("point_id",otInteger);
+
+	xmlNodePtr segsNode=NewTextChild(resNode,"segments");
+	for(map<int,TTripInfo>::iterator i=segs.begin();i!=segs.end();i++)
+  {
+    bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
+    Qry.SetVariable("point_id",i->first);
+    Qry.Execute();
+    if (Qry.Eof) continue;
+    int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+
+    if (!pr_etl_only && pr_etstatus>=0)
+    {
+      //здесь формируем список рейсов, на которых надо сделать смену статуса ЭБ
+      xmlNodePtr segNode=NewTextChild(segsNode,"segment");
+      NewTextChild( segNode, "point_id", i->first);
+      NewTextChild( segNode, "pr_etl_only", (int)pr_etl_only );
+      NewTextChild( segNode, "pr_etstatus", pr_etstatus );
+    };
+  };
   showMessage( "Все пассажиры разрегистрированы" );
 }
 
@@ -4171,5 +4166,54 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	Qry.Execute();
 }
 
+/* есть пассажиры, которые на листе ожидания */
+bool is_waitlist_alarm( int point_id )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT waitlist_alarm FROM trip_sets WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	SEATS2::TPassengers p;
+	bool waitlist_alarm = SEATS2::GetPassengersForWaitList( point_id, p, true );
+	if ( !Qry.Eof && (int)waitlist_alarm != Qry.FieldAsInteger( "waitlist_alarm" ) ) {
+		Qry.Clear();
+		Qry.SQLText =
+		  "UPDATE trip_sets SET waitlist_alarm=:waitlist_alarm WHERE point_id=:point_id";
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
+	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
+  	Qry.Execute();
+	}
+	return waitlist_alarm;
+}
+
+/* есть пассажиры, которые зарегистрированы, но не посажены */
+bool is_brd_alarm( int point_id )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT pax_id FROM pax, pax_grp "
+	  " WHERE pax_grp.point_dep=:point_id AND "
+	  "       pax_grp.grp_id=pax.grp_id AND "
+	  "       pax.pr_brd = 0 AND "
+	  "       rownum < 2 ";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	bool brd_alarm = !Qry.Eof;
+	Qry.Clear();
+	Qry.SQLText =
+	  "SELECT brd_alarm FROM trip_sets WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	if ( !Qry.Eof && (int)brd_alarm != Qry.FieldAsInteger( "brd_alarm" ) ) {
+		Qry.Clear();
+		Qry.SQLText =
+		  "UPDATE trip_sets SET brd_alarm=:brd_alarm WHERE point_id=:point_id";
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
+	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
+  	Qry.Execute();
+  }
+	return brd_alarm;
+}
 
 
