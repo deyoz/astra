@@ -2879,7 +2879,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
           "  FROM value_bag WHERE grp_id=:first_grp_id; "
           "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
-          "  SELECT :grp_id,num,0,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
+          "  SELECT :grp_id,num,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
           "  FROM bag2 WHERE grp_id=:first_grp_id; "
           "  IF SQL%FOUND THEN "
           "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
