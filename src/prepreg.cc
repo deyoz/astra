@@ -460,9 +460,10 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    		return;
   		      }
   		      tst();
-  		      map<int,TTripInfo> segs;
+  		      map<int,TTripInfo> segs; // набор рейсов
   		      bool tckin_version=true;
   		      DeletePassengers( point_id, EncodePaxStatus( psTransit ), segs, tckin_version );
+  		      DeletePassengersAnswer( segs, resNode );
   		      //!!! изменение статусов ЭБ !!!
   		      tst();
   		    }
