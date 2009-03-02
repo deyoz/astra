@@ -9,6 +9,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "jxtlib/JxtInterface.h"
 
 struct TVar {
@@ -47,6 +48,7 @@ public:
 };
 
 std::string convertLastTrfer(std::string s);
+int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
 

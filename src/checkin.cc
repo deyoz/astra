@@ -1460,20 +1460,12 @@ int CheckInInterface::CheckCounters(int point_dep, int point_arv, char* cl, TPax
       return 0;
 };
 
-bool CheckInInterface::CheckFltOverload(int point_id)
+bool CheckInInterface::CheckFltOverload(int point_id, const TTripInfo &fltInfo)
 {
   TQuery Qry(&OraSession);
-  Qry.CreateVariable("point_id", otInteger, point_id);
-  Qry.SQLText=
-    "SELECT scd_out,airp FROM points "
-    "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
-  Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-  bool prSummer=is_dst(Qry.FieldAsDateTime("scd_out"),
-                       AirpTZRegion(Qry.FieldAsString("airp")));
-
   Qry.SQLText=
     "SELECT pr_check_load,pr_overload_reg,max_commerce FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
   if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
   if (Qry.FieldIsNULL("max_commerce")) return false;
@@ -1483,40 +1475,7 @@ bool CheckInInterface::CheckFltOverload(int point_id)
 
   if (!pr_check_load && pr_overload_reg) return false;
 
-  int load=0;
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
-    "       NVL(SUM(weight_sum),0) AS weight_sum "
-    "FROM pax_grp,pax,pers_types "
-    "WHERE pax_grp.grp_id=pax.grp_id AND "
-    "      pax.pers_type=pers_types.code AND "
-    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
-  Qry.Execute();
-  if (!Qry.Eof)
-  {
-    if (prSummer)
-      load+=Qry.FieldAsInteger("weight_sum");
-    else
-      load+=Qry.FieldAsInteger("weight_win");
-  };
-
-  Qry.SQLText=
-    "SELECT NVL(SUM(weight),0) AS weight "
-    "FROM pax_grp,bag2 "
-    "WHERE pax_grp.grp_id=bag2.grp_id AND "
-    "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("weight");
-
-  Qry.SQLText=
-    "SELECT NVL(SUM(cargo),0) AS cargo, "
-    "       NVL(SUM(mail),0) AS mail "
-    "FROM trip_load "
-    "WHERE point_dep=:point_id";
-  Qry.Execute();
-  if (!Qry.Eof)
-    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
+  int load=GetFltLoad(point_id,fltInfo);
 
   ProgTrace(TRACE5,"max_commerce=%d load=%d",max_commerce,load);
 
@@ -2963,7 +2922,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           //проверим максимальную загрузку
           try
           {
-            if (CheckFltOverload(point_dep))
+            if (CheckFltOverload(point_dep,fltInfo))
             {
               //работает если разрешена регистрация при превышении загрузки
               //продолжаем регистрацию и зажигаем тревогу
@@ -3082,7 +3041,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         //проверим максимальную загрузку
         try
         {
-          if (CheckFltOverload(point_dep))
+          if (CheckFltOverload(point_dep,fltInfo))
           {
             Qry.SetVariable("rollback",0);
             Qry.Execute();

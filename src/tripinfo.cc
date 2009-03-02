@@ -741,6 +741,54 @@ string convertLastTrfer(string s)
   return res;
 };
 
+int GetFltLoad( int point_id, const TTripInfo &fltInfo)
+{
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+
+  bool prSummer=is_dst(fltInfo.scd_out,
+                       AirpTZRegion(fltInfo.airp));
+
+  int load=0;
+  //пассажиры
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
+    "       NVL(SUM(weight_sum),0) AS weight_sum "
+    "FROM pax_grp,pax,pers_types "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax.pers_type=pers_types.code AND "
+    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    if (prSummer)
+      load+=Qry.FieldAsInteger("weight_sum");
+    else
+      load+=Qry.FieldAsInteger("weight_win");
+  };
+
+  //багаж
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight),0) AS weight "
+    "FROM pax_grp,bag2 "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("weight");
+
+  //груз, почта
+  Qry.SQLText=
+    "SELECT NVL(SUM(cargo),0) AS cargo, "
+    "       NVL(SUM(mail),0) AS mail "
+    "FROM trip_load "
+    "WHERE point_dep=:point_id";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
+  return load;
+};
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -815,11 +863,21 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(node2,"field","bag_amount");
   NewTextChild(node2,"field","bag_weight");
   NewTextChild(node2,"field","excess");
+  NewTextChild(node2,"field","load");
 
   node2=NewTextChild(resNode,"rows");
 
   //строка 'итого'
   TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  TTripInfo fltInfo(Qry);
+
   Qry.Clear();
   Qry.SQLText =
     "SELECT a.seats,a.adult,a.child,a.baby, "
@@ -869,12 +927,13 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
   NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
   NewTextChild(rowNode,"cfg",Qry.FieldAsInteger("cfg"),0);
+  NewTextChild(rowNode,"load",GetFltLoad(point_id,fltInfo),0);
 
   //строка select для подзапросов
   ostringstream select;
   if (pr_class) select << ", NVL(class,' ') AS class";
   if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
-  if (pr_hall) select << ", hall, airp_dep";
+  if (pr_hall) select << ", hall";
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer";
   if (pr_user) select << ", user_id";
@@ -884,7 +943,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream group_by;
   if (pr_class) group_by << ", NVL(class,' ')";
   if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
-  if (pr_hall) group_by << ", hall, airp_dep";
+  if (pr_hall) group_by << ", hall";
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
   if (pr_user) group_by << ", user_id";
@@ -910,7 +969,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_cl_grp)   sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
                           ",cls_grp.code AS cl_grp_code" << endl;
   if (pr_hall)     sql << ",a.hall AS hall_id"
-                          ",halls2.name||DECODE(halls2.airp,a.airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
+                          ",halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
   if (pr_airp_arv) sql << ",a.point_arv,points.airp AS airp_arv" << endl;
   if (pr_trfer)    sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
   if (pr_user)     sql << ",a.user_id,users2.descr AS user_descr" << endl;
@@ -1049,6 +1108,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   Qry.Clear();
   Qry.SQLText = sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
+
+  if (pr_hall) Qry.CreateVariable("airp_dep",otString,fltInfo.airp);
+
   Qry.Execute();
 
   for(;!Qry.Eof;Qry.Next())

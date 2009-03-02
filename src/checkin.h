@@ -83,7 +83,7 @@ public:
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
   int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
-  bool CheckFltOverload(int point_id);
+  bool CheckFltOverload(int point_id, const TTripInfo &fltInfo);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
