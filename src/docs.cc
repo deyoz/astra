@@ -806,17 +806,17 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             target == "tot" ||
             target == "tpm"
             ) { //ОБЩАЯ
-        if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
-            SQLText +=
-                "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
-            Qry.CreateVariable("zone", otString, zone);
-        }
     } else { // сегмент
         SQLText +=
             "    pax_grp.airp_arv = :target AND \n";
         if(pr_vip != 2)
             SQLText +=
                 "    halls2.pr_vip = :pr_vip AND \n";
+        if(zoneNode) {
+            SQLText +=
+                "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+            Qry.CreateVariable("zone", otString, zone);
+        }
     }
     SQLText +=
         "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ";
@@ -865,6 +865,10 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_vip != 2)
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
+
+    for(int i = 0; i < Qry.VariablesCount(); i++) {
+        ProgTrace(TRACE5, "Qry var name: %s", Qry.VariableName(i));
+    }
     Qry.Execute();
 
     xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
@@ -985,7 +989,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
         Qry.CreateVariable("pr_brd_pax", otInteger, pr_brd_pax);
     }
-    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
+    if(zoneNode) {
         SQLText +=
             "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
         Qry.CreateVariable("zone", otString, zone);
@@ -1040,7 +1044,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_brd_pax != -1)
         SQLText +=
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
+    if(zoneNode) {
         SQLText +=
             "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
         Qry.CreateVariable("zone", otString, zone);
@@ -1094,7 +1098,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_brd_pax != -1)
         SQLText +=
             " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    if(zoneNode) { // если указан зал, то общая конкретизируется по этому залу
+    if(zoneNode) {
         SQLText +=
             "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
         Qry.CreateVariable("zone", otString, zone);
@@ -2308,49 +2312,179 @@ void DocsInterface::GetFltInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild( resNode, "scd_out", DateTimeToStr(scd_out) );
 };
 
+
+
+vector<string> get_grp_zone_list(int point_id)
+{
+    vector<string> result;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select distinct  "
+        "   rpt_grp  "
+        "from  "
+        "   points,  "
+        "   halls2  "
+        "where  "
+        "   points.point_id = :point_id and "
+        "   halls2.airp = points.airp "
+        "order by  "
+        "   rpt_grp ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next())
+        result.push_back(Qry.FieldAsString("rpt_grp"));
+    if(result.size() == 1 and result[0].empty())
+        result[0] = " "; // группа залов "все залы"
+    if(result.size() > 1 or result.empty())
+        result.push_back(" ");
+    return result;
+}
+
 void DocsInterface::GetSegList2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    // В новой версии терминала к старому списку сегментов добавим новые элементы
-    GetSegList(ctxt, reqNode, resNode);
-
     int point_id = NodeAsInteger("point_id", reqNode);
-//    int get_tranzit = NodeAsInteger("get_tranzit", reqNode);
+    int get_tranzit = NodeAsInteger("get_tranzit", reqNode);
     string rpType = NodeAsString("rpType", reqNode);
-    if(rpType == "PM") {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select distinct  "
-            "   rpt_grp  "
-            "from  "
-            "   pax_grp,  "
-            "   points, "
-            "   halls2  "
-            "where  "
-            "   pax_grp.point_dep = :point_id and  "
-            "   points.point_id = pax_grp.point_dep and "
-            "   pax_grp.hall = halls2.id and "
-            "   halls2.airp = points.airp "
-            "order by  "
-            "   rpt_grp ";
-        Qry.CreateVariable("point_id", otInteger, point_id);
+
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT airp,point_num, "
+        "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+        "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные.");
+
+    int first_point = Qry.FieldAsInteger("first_point");
+    int point_num = Qry.FieldAsInteger("point_num");
+    string own_airp = Qry.FieldAsString("airp");
+    string prev_airp, curr_airp;
+
+    vector<string> zone_list = get_grp_zone_list(point_id);
+    xmlNodePtr SegListNode = NewTextChild(resNode, "SegList");
+
+    for(int j = -1; j <= 1; j++) {
+        if(j == 0) {
+            curr_airp = own_airp;
+            continue;
+        }
+        Qry.Clear();
+        string SQLText = "select airp from points ";
+        if(j == -1)
+            SQLText +=
+                "where :first_point in(first_point,point_id) and point_num<:point_num and pr_del=0 "
+                "order by point_num desc ";
+        else
+            SQLText +=
+                "where first_point=:first_point and point_num>:point_num and pr_del=0 "
+                "order by point_num asc ";
+        Qry.SQLText = SQLText;
+        Qry.CreateVariable("first_point", otInteger, first_point);
+        Qry.CreateVariable("point_num", otInteger, point_num);
         Qry.Execute();
-        if(!Qry.Eof) {
-            xmlNodePtr SegListNode = NodeAsNode("SegList", resNode);
-            int col_rpt_grp = Qry.FieldIndex("rpt_grp");
-            for(; !Qry.Eof; Qry.Next()) {
-                xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
-                NewTextChild(SegNode, "status");
-                NewTextChild(SegNode, "airp_dep_code");
-                NewTextChild(SegNode, "airp_arv_code", "tot");
-                NewTextChild(SegNode, "pr_vip", 2);
-                if(Qry.FieldIsNULL(col_rpt_grp)) {
-                    NewTextChild(SegNode, "item", "Залы общего доступа");
-                    NewTextChild(SegNode, "zone");
-                } else {
-                    NewTextChild(SegNode, "item", (string)"Общая (" + Qry.FieldAsString("rpt_grp") + ")");
-                    NewTextChild(SegNode, "zone", Qry.FieldAsString("rpt_grp"));
-                }
+        while(!Qry.Eof) {
+            string airp = Qry.FieldAsString("airp");
+            if(j == -1) {
+                if(get_tranzit) prev_airp = airp;
+                break;
             }
+
+            for(vector<string>::iterator iv = zone_list.begin(); iv != zone_list.end(); iv++) {
+                if(prev_airp.size()) {
+                    xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+                    NewTextChild(SegNode, "status", "T");
+                    NewTextChild(SegNode, "airp_dep_code", prev_airp);
+                    NewTextChild(SegNode, "airp_arv_code", airp);
+                    NewTextChild(SegNode, "pr_vip", 2);
+                    if(
+                            rpType == "BM" ||
+                            rpType == "TBM" ||
+                            rpType == "PM" ||
+                            rpType == "TPM"
+                      ) {
+                        string hall;
+                        if(iv->empty()) {
+                            NewTextChild(SegNode, "zone");
+                            hall = " (др. залы)";
+                        } else if(*iv != " ") {
+                            NewTextChild(SegNode, "zone", *iv);
+                            hall = " (" + *iv + ")";
+                        }
+                        NewTextChild(SegNode, "item", prev_airp + "-" + airp + hall);
+                    }
+                }
+                if(curr_airp.size()) {
+                    xmlNodePtr SegNode = NewTextChild(SegListNode, "seg");
+                    NewTextChild(SegNode, "status", "N");
+                    NewTextChild(SegNode, "airp_dep_code", curr_airp);
+                    NewTextChild(SegNode, "airp_arv_code", airp);
+                    NewTextChild(SegNode, "pr_vip", 2);
+                    if(
+                            rpType == "BM" ||
+                            rpType == "TBM" ||
+                            rpType == "PM" ||
+                            rpType == "TPM"
+                      ) {
+                        string hall;
+                        if(iv->empty()) {
+                            NewTextChild(SegNode, "zone");
+                            hall = " (др. залы)";
+                        } else if(*iv != " ") {
+                            NewTextChild(SegNode, "zone", *iv);
+                            hall = " (" + *iv + ")";
+                        }
+                        NewTextChild(SegNode, "item", curr_airp + "-" + airp + hall);
+                    }
+                }
+                if(!(rpType == "BM" || rpType == "TBM" || rpType == "PM" || rpType == "TPM"))
+                    break;
+            }
+            Qry.Next();
+        }
+    }
+    if(
+            rpType == "PM" ||
+            rpType == "TPM" ||
+            rpType == "TBM" ||
+            rpType == "BM"
+      ) {
+        xmlNodePtr SegNode;
+        if(
+                rpType == "PM" ||
+                rpType == "TPM"
+          ) {
+            string item;
+            if(rpType == "TPM")
+                item = "etm";
+            else
+                item = "";
+            SegNode = NewTextChild(SegListNode, "seg");
+            NewTextChild(SegNode, "status");
+            NewTextChild(SegNode, "airp_dep_code", curr_airp);
+            NewTextChild(SegNode, "airp_arv_code", item);
+            NewTextChild(SegNode, "pr_vip", 2);
+            NewTextChild(SegNode, "item", "Список ЭБ");
+        }
+
+        if(
+                rpType == "BM" ||
+                rpType == "TBM" ||
+                rpType == "PM" ||
+                rpType == "TPM"
+          ) {
+            string item;
+            if(rpType == "PM")
+                item = "tot";
+            else if(rpType == "TPM")
+                item = "tpm";
+            else
+                item = "";
+            SegNode = NewTextChild(SegListNode, "seg");
+            NewTextChild(SegNode, "status");
+            NewTextChild(SegNode, "airp_dep_code", curr_airp);
+            NewTextChild(SegNode, "airp_arv_code", item);
+            NewTextChild(SegNode, "pr_vip", 2);
+            NewTextChild(SegNode, "item", "Общая");
         }
     }
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
