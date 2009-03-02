@@ -1,0 +1,91 @@
+#!/bin/sh
+MAKE=make
+C1=""
+C2=""
+C3=""
+C4=""
+
+VERSION=`${LOCALCC:-"gcc"} -dumpversion | sed 's/.[0-9]//2' `
+DISTCC=${LOCALCC:-"gcc-$VERSION"}
+DISTCXX=${LOCALCXX:-"g++-$VERSION"}
+
+if [ -f /usr/bin/distcc  -o -f /usr/local/bin/distcc ] ; then
+ if [ -z "$LOCALCC"  ] ; then
+  DISTCC="distcc gcc-$VERSION"
+ else
+  DISTCC=`echo $DISTCC| sed 's/ccache/ccache distcc/'`
+  if ! echo $DISTCC | grep distcc >/dev/null; then
+    DISTCC="distcc $DISTCC"
+  fi
+ fi
+echo 'hi2'
+ if [ -z "$LOCALCXX"  ] ; then
+  DISTCXX="distcc g++-$VERSION"
+ else
+  DISTCXX=`echo $DISTCXX| sed 's/ccache/ccache distcc/'`
+  if ! echo $DISTCXX | grep distcc >/dev/null; then
+    DISTCXX="distcc $DISTCXX"
+  fi
+ fi
+fi
+echo DISTCC=$DISTCC
+echo DISTCXX=$DISTCXX
+
+export DISTCC
+export DISTCXX
+
+#test all known hosts 
+cat > /tmp/ab.cpp <<EOF
+int main() {
+ return 0;
+}
+EOF
+
+#KHOSTS="konst serg mamontov corall seastar nmu.dev.sirena2000.ru pike asm giv khonov alex dsb bav grigory djek"
+KHOSTS="pike mamontov"
+export DISTCC_FALLBACK=0
+DISTCCTEST=`echo $DISTCC|sed 's/ccache//'`
+for i in $KHOSTS; do
+ DISTCC_HOSTS="$i"
+ export DISTCC_HOSTS  
+ `$DISTCCTEST -c /tmp/ab.cpp -o /tmp/$$.o` 
+ if [ "$?" -eq 0 ]; then
+  GOOD_HOSTS="$i,lzo $GOOD_HOSTS"
+  echo "$i - ok"
+ else
+  echo "$i - error"
+ fi  
+done
+export DISTCC_FALLBACK=0 
+# delete this machine from list 
+for i in `hostname` `hostname -f` ; do
+ GOOD_HOSTS=`echo $GOOD_HOSTS | sed "s/$i,lzo//"`
+done
+DISTCC_HOSTS=$GOOD_HOSTS
+echo -n DISTCC_HOSTS=
+DISTCC_HEAVY=${2:-4}
+if [  "$DISTCC_HEAVY" -eq 1 ] ; then
+DISTCC_HOSTS=`echo $DISTCC_HOSTS | sed "s/,/\/6/g"`
+fi
+
+echo $DISTCC_HOSTS
+export DISTCC_HOSTS
+
+
+for i in $HOME/MAKE/make /usr/bin/make /usr/bin/gmake /usr/local/bin/make \
+	/usr/local/bin/gmake ; do
+	if [ -f $i ] ; then
+		if $i -v | grep GNU >/dev/null ; then
+			MAKE=$i
+			C1=-j
+			C2=${1:-16}
+			break;
+		fi
+	fi
+done
+echo $MAKE
+
+#$MAKE SysTarg2 &&  \
+$MAKE $C1 $C2 $C3 $C4 CC="${DISTCC}" CXX="${DISTCXX}" 
+[ $? -eq 0 ] || exit 1
+$MAKE

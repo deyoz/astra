@@ -1,0 +1,15 @@
+#!/bin/sh 
+
+if [ "$LOCALCC" = "" ] ; then
+	LOCALCC=gcc
+fi
+export LOCALCC
+if [ "$LOCALCXX" = "" ] ; then
+	LOCALCXX=g++
+fi
+export LOCALCXX
+CC=$LOCALCC
+CXX=$LOCALCXX
+echo "make -f Makefile.cvs && ./configure CC=$CC CXX=$CXX $@"
+make -f Makefile.cvs && ./configure CC="$CC" CXX="$CXX" $@
+
