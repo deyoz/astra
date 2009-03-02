@@ -1,9 +1,5 @@
 #include "etick.h"
 #include <string>
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include "query_runner.h"
 #include "xml_unit.h"
 #include "tlg/edi_tlg.h"
 #include "edilib/edi_func_cpp.h"
@@ -11,12 +7,17 @@
 #include "etick_change_status.h"
 #include "astra_tick_view_xml.h"
 #include "astra_tick_read_edi.h"
-#include "jxt_cont.h"
 #include "basic.h"
 #include "exceptions.h"
 #include "astra_consts.h"
 #include "base_tables.h"
 #include "tripinfo.h"
+#include "jxtlib/jxt_cont.h"
+#include "serverlib/query_runner.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace Ticketing;
@@ -110,12 +111,19 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                           "ET_NEG",
                                           CompElement("C901"),
                                           SegmElement("ERC"));
-            ProgTrace(TRACE3,"err code=%s", errc);
+            ProgTrace(TRACE1, "ETS: ERROR %s", errc);
             const char * err_msg = GetDBFName(pMes,
                                               DataElement(4440),
-                                              SegmElement("IFT"), "ET_NEG");
-            ProgTrace(TRACE1, "ëùÅ: %s", err_msg);
-            throw EXCEPTIONS::UserException(err_msg);
+                                              SegmElement("IFT"));
+            if (*err_msg==0)
+            {
+              throw EXCEPTIONS::UserException("ëùÅ: éòàÅäÄ %s", errc);
+            }
+            else
+            {
+              ProgTrace(TRACE1, "ETS: %s", err_msg);
+              throw EXCEPTIONS::UserException("ëùÅ: %s", err_msg);
+            }
         }
         throw EXCEPTIONS::Exception("ETS error");
     } else if(num==1){

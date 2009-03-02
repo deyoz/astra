@@ -1,19 +1,21 @@
+#include <fstream>
 #include "print.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "misc.h"
 #include "stages.h"
-#include "str_utils.h"
 #include "docs.h"
 #include "base_tables.h"
 #include "stl_utils.h"
 #include "payment.h"
 #include "exceptions.h"
-#include <fstream>
+#include "astra_misc.h"
+#include "serverlib/str_utils.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -507,6 +509,8 @@ string PrintDataParser::t_field_map::GetTagAsString(string name)
 {
     TData::iterator di = data.find(upperc(name));
     if(di == data.end()) throw Exception("Tag not found " + name);
+    if(!di->second.err_msg.empty())
+        throw UserException(di->second.err_msg);
     return di->second.StringVal;
 }
 
@@ -517,6 +521,14 @@ void PrintDataParser::t_field_map::add_tag(string name, TDateTime val)
     TagValue.null = false;
     TagValue.type = otDate;
     TagValue.DateTimeVal = val;
+    data[name] = TagValue;
+}
+
+void PrintDataParser::t_field_map::add_err_tag(string name, string val)
+{
+    name = upperc(name);
+    TTagValue TagValue;
+    TagValue.err_msg = val;
     data[name] = TagValue;
 }
 
@@ -544,23 +556,27 @@ void PrintDataParser::t_field_map::dump_data()
 {
         ProgTrace(TRACE5, "------MAP DUMP------");
         for(TData::iterator di = data.begin(); di != data.end(); ++di) {
-            switch(di->second.type) {
-                case otInteger:
-                    ProgTrace(TRACE5, "data[%s] = %d", di->first.c_str(), di->second.IntegerVal);
-                    break;
-                case otFloat:
-                    ProgTrace(TRACE5, "data[%s] = %f", di->first.c_str(), di->second.FloatVal);
-                    break;
-                case otString:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
-                    break;
-                case otDate:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(),
-                            DateTimeToStr(di->second.DateTimeVal, "dd.mm.yyyy hh:nn:ss").c_str());
-                    break;
-                default:
-                    ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
-                    break;
+            if(di->second.err_msg.empty()) {
+                switch(di->second.type) {
+                    case otInteger:
+                        ProgTrace(TRACE5, "data[%s] = %d", di->first.c_str(), di->second.IntegerVal);
+                        break;
+                    case otFloat:
+                        ProgTrace(TRACE5, "data[%s] = %f", di->first.c_str(), di->second.FloatVal);
+                        break;
+                    case otString:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                        break;
+                    case otDate:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(),
+                                DateTimeToStr(di->second.DateTimeVal, "dd.mm.yyyy hh:nn:ss").c_str());
+                        break;
+                    default:
+                        ProgTrace(TRACE5, "data[%s] = %s", di->first.c_str(), di->second.StringVal.c_str());
+                        break;
+                }
+            } else {
+                ProgTrace(TRACE5, "data[%s] = ERROR!!! %s", di->first.c_str(), di->second.err_msg.c_str());
             }
         }
         ProgTrace(TRACE5, "------MAP DUMP------");
@@ -670,16 +686,24 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
     }
 
+    if(field_lat < 0) field_lat = pr_lat;
+
+    if(name == "BCBP_M_2") // 2мерный баркод. Формируется что называется on the fly
+        add_tag(name, BCBP_M_2(field_lat));
+
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
-    if(field_lat < 0) field_lat = pr_lat;
 
     if(field_lat && di != data.end()) {
         TData::iterator di_lat = data.find(name + "_LAT");
         if(di_lat != data.end()) di = di_lat;
     }
     if(di == data.end()) throw Exception("Tag not found " + name);
+    ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
+    ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
+    if(!di->second.err_msg.empty())
+        throw UserException(di->second.err_msg);
 
 
     if(di != data.end()) {
@@ -752,6 +776,179 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     }
     tst();
     return result;
+}
+
+string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
+{
+    string TAG_SURNAME = "SURNAME";
+    string TAG_NAME = "NAME";
+    string TAG_AIRLINE = "AIRLINE";
+    string TAG_AIRP_DEP = "AIRP_DEP";
+    string TAG_AIRP_ARV = "AIRP_ARV";
+    string TAG_SUFFIX = "SUFFIX";
+    string TAG_CLASS = "CLASS";
+    string TAG_SEAT_NO = "SEAT_NO";
+
+    if(pr_lat) {
+        char *lat_suffix = "_LAT";
+        TAG_SURNAME += lat_suffix;
+        TAG_NAME += lat_suffix;
+        TAG_AIRLINE += lat_suffix;
+        TAG_AIRP_DEP += lat_suffix;
+        TAG_AIRP_ARV += lat_suffix;
+        TAG_SUFFIX += lat_suffix;
+        TAG_CLASS += lat_suffix;
+        TAG_SEAT_NO += lat_suffix;
+    }
+
+    ostringstream result;
+    result
+        << "M"
+        << 1;
+    // Passenger Name
+    string surname = data[TAG_SURNAME].StringVal;
+    string name = data[TAG_NAME].StringVal;
+    string pax_name = surname;
+    if(!name.empty())
+        pax_name += "/" + name;
+    if(pax_name.size() > 20){
+        size_t diff = pax_name.size() - 20;
+        if(name.empty()) {
+            result << surname.substr(0, surname.size() - diff);
+        } else {
+            if(name.size() > diff) {
+                name = name.substr(0, name.size() - diff);
+            } else {
+                diff -= name.size() - 1;
+                name = name[0];
+                surname = surname.substr(0, surname.size() - diff);
+            }
+            result << surname + "/" + name;
+        }
+    } else
+        result << setw(20) << left << pax_name;
+
+    // Electronic Ticket Indicator
+    result << (data["ETKT"].StringVal.empty() ? " " : "E");
+    // Operating carrier PNR code
+    int pax_id = data["PAX_ID"].IntegerVal;
+    vector<TPnrAddrItem> pnrs;
+    GetPaxPnrAddr(pax_id, pnrs);
+    vector<TPnrAddrItem>::iterator iv = pnrs.begin();
+    for(; iv != pnrs.end(); iv++)
+        if(data["AIRLINE"].StringVal == iv->airline) {
+            ProgTrace(TRACE5, "PNR found: %s", iv->addr);
+            break;
+        }
+    if(iv == pnrs.end())
+        result << setw(7) << " ";
+    else if(strlen(iv->addr) <= 7)
+        result << setw(7) << left << convert_pnr_addr(iv->addr, pr_lat);
+    // From City Airport Code
+    result << setw(3) << data[TAG_AIRP_DEP].StringVal;
+    // To City Airport Code
+    result << setw(3) << data[TAG_AIRP_ARV].StringVal;
+    // Operating Carrier Designator
+    result << setw(3) << data[TAG_AIRLINE].StringVal;
+    // Flight Number
+    result
+        << setw(4) << right << setfill('0') << data["FLT_NO"].StringVal
+        << setw(1) << setfill(' ') << data[TAG_SUFFIX].StringVal;
+    // Date of Flight
+    TDateTime scd = data["SCD"].DateTimeVal;
+    int Year, Month, Day;
+    DecodeDate(scd, Year, Month, Day);
+    TDateTime first, last;
+    EncodeDate(Year, 1, 1, first);
+    EncodeDate(Year, Month, Day + 1, last);
+    TDateTime period = last - first;
+    result
+        << fixed << setprecision(0) << setw(3) << setfill('0') << period;
+    // Compartment Code
+    result << data[TAG_CLASS].StringVal;
+    // Seat Number
+    result << setw(4) << right << data[TAG_SEAT_NO].StringVal;
+    // Check-In Sequence Number
+    result
+        << setw(4) <<  setfill('0') << data["REG_NO"].IntegerVal
+        << " ";
+    // Passenger Status
+    // Я так понимаю что к этому моменту (т.е. вывод пос. талона на печать)
+    // статус пассажира "1": passenger checked in
+    result << 1;
+
+    ostringstream cond1; // first conditional field
+    { // filling up cond1
+        cond1
+            << ">"
+            << 2;
+        // field size of following structured message
+        // постоянное значение равное сумме зарезервированных длин последующих 7-и полей
+        // в данной версии эта длина равна 24 (двадцать четыре)
+        cond1 << "18";
+        // Passenger Description
+        TPerson pers_type = DecodePerson((char *)data["PERS_TYPE"].StringVal.c_str());
+        int result_pers_type;
+        switch(pers_type) {
+            case adult:
+                result_pers_type = 0;
+                break;
+            case child:
+                result_pers_type = 3;
+                break;
+            case baby:
+                result_pers_type = 4;
+                break;
+            case NoPerson:
+                throw Exception("BCBP_M_2: something wrong with pers_type");
+        }
+        cond1 << result_pers_type;
+        // Source of Check-In
+        cond1 << "O";
+        // Source of Boarding Pass Issuance
+        cond1 << "O";
+        // Date of Issue of Boarding Pass (not used)
+        cond1 << setw(4) << " ";
+        // Document type (B - Boarding Pass, I - Itinerary Receipt)
+        cond1 << "B";
+        // Airline Designator of Boarding Pass Issuer (not used)
+        cond1 << setw(3) << " ";
+        // Baggage Tag License Plate Number(s) (not used  because dont know how)
+        cond1 << setw(13) << " ";
+        // end of 11-length structured message
+
+        // field size of following structured message (41, hex 29)
+        cond1 << "00";
+
+        /*  We'll discuss it later
+
+        // field size of following structured message (41, hex 29)
+        cond1 << "29";
+        // Airline Numeric Code (not used)
+        cond1 << setw(3) << " ";
+        // Document Form/Serial Number (not used)
+        cond1 << setw(10) << " ";
+        // Selectee Indicator (not used)
+        cond1 << " ";
+        // International Documentation Verification (0 - not required)
+        cond1 << 0;
+        // Marketing carrier designator
+        cond1 << setw(3) << setfill(' ') << left << mkt_airline(pax_id);
+
+        //......
+        */
+
+        // For individual airline use
+        cond1 << setw(10) << right << setfill('0') << pax_id;
+
+    }
+
+    // Field size of following varible size field
+    result << setw(2) << right << setfill('0') << hex << uppercase << cond1.str().size();
+    result << cond1.str();
+
+
+    return result.str();
 }
 
 PrintDataParser::t_field_map::~t_field_map()
@@ -854,7 +1051,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
 
         if(pax_id != NoExists && pr_bp_market_flt) {
             Qry.Clear();
-            Qry.SQLText =
+            Qry.SQLText = //pnr_market_flt
                 "select "
                 "   tlg_trips.airline, "
                 "   tlg_trips.flt_no, "
@@ -989,11 +1186,11 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list',NULL,0) AS list_seat_no, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,0) AS str_seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
-            "   salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,0) AS seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'seats',NULL,1)) AS seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,0) AS seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,1)) AS seat_no_lat, "
             "   pax.SEAT_TYPE, "
             "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
             "   to_char(DECODE( "
@@ -1035,7 +1232,6 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax_id = :pax_id and "
             "   pax.pers_type = pers_types.code";
         Qry->CreateVariable("pax_id", otInteger, pax_id);
-        Qry->CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     }
     Qrys.push_back(Qry);
 
@@ -1096,27 +1292,23 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qrys.push_back(Qry);
 }
 
-void get_mso_point(const string &airp, string &point, string &point_lat)
+string get_mso_point(const string &aairp, bool pr_lat)
 {
     TBaseTable &airps = base_tables.get("airps");
     TBaseTable &cities = base_tables.get("cities");
-
-
-
-    string city = airps.get_row("code", airp).AsString("city");
-    point = cities.get_row("code", city).AsString("name", 0);
-    if(point.empty()) throw UserException("Не определено название города '" + city + "'");
-    point_lat = cities.get_row("code", city).AsString("name", 1);
-    if(point_lat.empty()) throw UserException("Не определено лат. название города '" + city + "'");
-
+    string city = airps.get_row("code", aairp).AsString("city");
+    string point = cities.get_row("code", city).AsString("name", pr_lat);
+    if(point.empty()) throw UserException((string)"Не определено" + (pr_lat ? "лат." : " ") + "название города '" + city + "'");
     TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select count(*) from airps where city = :city";
-    airpsQry.CreateVariable("city", otString, base_tables.get("airps").get_row("code", airp).AsString("city"));
+    airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();
     if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
-        point += "(" + airps.get_row("code", airp).AsString("code", 0) + ")";
-        point_lat += "(" + airps.get_row("code", airp).AsString("code", 1) + ")";
+        string airp = airps.get_row("code", aairp).AsString("code", pr_lat);
+        if(airp.empty()) throw UserException((string)"Не определен" + (pr_lat ? "лат." : " ") + "код а/п '" + aairp + "'");
+        point += "(" + airp + ")";
     }
+    return point;
 }
 
 string pieces(int ex_amount, bool pr_lat)
@@ -1258,6 +1450,16 @@ double CalcPayRateSum(const TBagReceipt &rcpt)
   }
   return pay_rate_sum;
 };
+
+void PrintDataParser::t_field_map::add_mso_point(std::string name, std::string airp, bool pr_lat)
+{
+    try {
+        add_tag(name, get_mso_point(airp, pr_lat));
+    } catch(Exception E) {
+        add_err_tag(name, E.what());
+    }
+
+}
 
 void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 {
@@ -1641,33 +1843,18 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   else if(!airline.name.empty())
       add_tag("airline", airline.name);
   else
-      throw UserException("Не определено название а/к '%s'", rcpt.airline.c_str());
+      add_err_tag("airline", "Не определено название а/к '" + rcpt.airline + "'");
 
   if(!airline.short_name_lat.empty())
       add_tag("airline_lat", airline.short_name_lat);
   else if(!airline.name_lat.empty())
       add_tag("airline_lat", airline.name_lat);
   else
-      throw UserException("Не определено лат. название а/к '%s'", rcpt.airline.c_str());
+      add_err_tag("airline_lat", "Не определено лат. название а/к '" + rcpt.airline + "'");
 
   add_tag("aircode", rcpt.aircode);
 
   {
-      string point_dep, point_dep_lat;
-      string point_arv, point_arv_lat;
-      ostringstream airline_code, airline_code_lat;
-
-      get_mso_point(rcpt.airp_dep, point_dep, point_dep_lat);
-      get_mso_point(rcpt.airp_arv, point_arv, point_arv_lat);
-
-      if(airline.code_lat.empty())
-          throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
-      ostringstream buf;
-      buf
-          << point_dep << "-" << point_arv << " ";
-
-      airline_code << airline.code;
-
       ostringstream flt_no, flt_no_lat;
 
       if(rcpt.flt_no != -1) {
@@ -1678,29 +1865,63 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       add_tag("flt_no", flt_no.str());
       add_tag("flt_no_lat", flt_no_lat.str());
 
-      if(rcpt.flt_no != -1)
-          airline_code
-              << " "
-              << flt_no.str();
-      buf << airline_code.str();
-      add_tag("airline_code", airline_code.str());
-      add_tag("to", buf.str());
-      buf.str("");
-      buf
-          << point_dep_lat << "-" << point_arv_lat << " ";
-      airline_code_lat << airline.code_lat;
-      if(rcpt.flt_no != -1)
-          airline_code_lat
-              << " "
-              << flt_no_lat.str();
-      buf << airline_code_lat.str();
-      add_tag("airline_code_lat", airline_code_lat.str());
-      add_tag("to_lat", buf.str());
 
-      add_tag("point_dep", point_dep);
-      add_tag("point_dep_lat", point_dep_lat);
-      add_tag("point_arv", point_arv);
-      add_tag("point_arv_lat", point_arv_lat);
+      add_mso_point("point_dep", rcpt.airp_dep, 0);
+      add_mso_point("point_dep_lat", rcpt.airp_dep, 1);
+      add_mso_point("point_arv", rcpt.airp_arv, 0);
+      add_mso_point("point_arv_lat", rcpt.airp_arv, 1);
+
+      try {
+          if(not data["POINT_DEP"].err_msg.empty())
+              throw Exception(data["POINT_DEP"].err_msg);
+          if(not data["POINT_ARV"].err_msg.empty())
+              throw Exception(data["POINT_ARV"].err_msg);
+
+          ostringstream buf;
+          buf
+              << data["POINT_DEP"].StringVal << "-" << data["POINT_ARV"].StringVal << " ";
+
+          ostringstream airline_code;
+          airline_code << airline.code;
+
+          if(rcpt.flt_no != -1)
+              airline_code
+                  << " "
+                  << flt_no.str();
+          buf << airline_code.str();
+          add_tag("airline_code", airline_code.str());
+          add_tag("to", buf.str());
+      } catch(Exception E) {
+          add_err_tag("airline_code", E.what());
+          add_err_tag("to", E.what());
+      }
+
+      try {
+          if(not data["POINT_DEP_LAT"].err_msg.empty())
+              throw Exception(data["POINT_DEP_LAT"].err_msg);
+          if(not data["POINT_ARV_LAT"].err_msg.empty())
+              throw Exception(data["POINT_ARV_LAT"].err_msg);
+
+          ostringstream buf;
+          buf
+              << data["POINT_DEP_LAT"].StringVal << "-" << data["POINT_ARV_LAT"].StringVal << " ";
+
+          ostringstream airline_code, airline_code_lat;
+          if(airline.code_lat.empty())
+              throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
+          airline_code << airline.code;
+
+          if(rcpt.flt_no != -1)
+              airline_code
+                  << " "
+                  << flt_no.str();
+          buf << airline_code.str();
+          add_tag("airline_code_lat", airline_code.str());
+          add_tag("to_lat", buf.str());
+      } catch(Exception E) {
+          add_err_tag("airline_code_lat", E.what());
+          add_err_tag("to_lat", E.what());
+      }
   }
 
   Qry.Clear();
@@ -2758,7 +2979,7 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.grp_id = NodeAsInteger("grp_id", reqNode);
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
-    tag_key.prn_type = NodeAsInteger("prn_type", reqNode);
+    tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);

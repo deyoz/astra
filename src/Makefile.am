@@ -24,16 +24,17 @@ astra_SOURCES = \
 	events.cc		 base_tables.cc  astra_misc.cc            design_blank.cc \
 	astra_service.cc	 develop_dbf.cc	 flight_cent_dbf.cc       payment.cc payment2.cc \
 	sofi.cc			 aodb.cc	 spp_cek.cc telegram2.cc  czech_police_edi_file.cpp \
-	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc 		 
+	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc \
+	salons2.cc		 salonform2.cc	 seats2.cc		  seats_utils.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
 	@ETICKLIB_LIBS@ \
 	@ORACLE_LIBS@ @EDILIB_LIBS@ @EDILIB_LIBLOADING@ \
-	@JXTLIB_LIBS@ @SERVERLIB_LIBS@ @SHARED_LIBS@ \
-	@LIBTLG_LIBS@ \
+	@JXTLIB_LIBS@ @SHARED_LIBS@ \
+	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\
-	@TCLMON_LDFLAGS@
+	@TCLMON_LDFLAGS@ @BOOST_SYSTEM_LIB@
 
 SUBDIRS = tlg
 
@@ -49,12 +50,13 @@ noinst_HEADERS = \
 	astra_ticket.h         cent.h                 salons.h            timer.h \
 	astra_tick_read_edi.h  checkin.h              season.h            tripinfo.h \
 	astra_tick_reader.h    etick_change_status.h  seats.h             xml_unit.h \
-	astra_tick_view.h      etick.h                setup.h	          docs.h \
+	astra_tick_view.h      etick.h                docs.h \
 	events.h	       base_tables.h	      astra_misc.h        design_blank.h \
 	astra_service.h	       develop_dbf.h	      flight_cent_dbf.h   payment.h payment2.h \
 	sofi.h		       aodb.h		      spp_cek.h		  convert.h \
-	dev_tuning.h           czech_police_edi_file.h                    astra_context.h  
-	
+	dev_tuning.h           czech_police_edi_file.h                    astra_context.h \
+	salons2.h	       salonform2.h	      seats2.h		  seats_utils.h
+
 
 
 

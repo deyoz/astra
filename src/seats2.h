@@ -1,17 +1,15 @@
-#ifndef _SEATS_H_
-#define _SEATS_H_
+#ifndef _SEATS2_H_
+#define _SEATS2_H_
 
 #include "astra_consts.h"
-#include "salons.h"
+#include "salons2.h"
 #include "astra_utils.h"
 #include "seats_utils.h"
-#include "base_tables.h"
 #include <map>
 #include <libxml/tree.h>
 
-namespace SEATS2
-{
-using namespace SALONS2;
+namespace SEATS {
+
 enum TSeatStep { sLeft, sRight, sUp, sDown };
 enum TWhere { sLeftRight, sUpDown, sEveryWhere };
 enum TSeatsType { stSeat, stReseat, stDropseat };
@@ -37,59 +35,42 @@ class TCounters {
     void Add_p_Count( int Count, TSeatStep Step = sRight );
 };
 
-
 struct TPassenger {
-	private:
-    std::vector<std::string> rems;
-	public:
   /*вход*/
   int index;
   int grpId;
   int regNo;
   std::string fullName;
-  std::string pers_type;
   int pax_id; /* pax_id */
   std::string placeName;
   std::string PrevPlaceName;
-  //std::string OldPlaceName;
+  std::string OldPlaceName;
   bool isSeat;
   int countPlace;
   TSeatStep Step;
-  bool pr_MCLS;
+  std::vector<std::string> rems;
   std::string maxRem;
   std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' и т. д. */
   bool prSmoke;
   std::string Elem_Type;
   std::string clname;
-  ASTRA::TCompLayerType layer; // статус пассажира предв. рассадка, бронь, ...
-  ASTRA::TCompLayerType grp_status; // статус группы Т - транзит ...
+  std::string placeStatus;
+  std::string pers_type;
   int priority;
   int tid;
   std::string preseat;
   std::string agent_seat;
   std::vector<TSeat> seat_no;
-  std::string ticket_no;
-  std::string document;
-  int bag_weight;
-  int bag_amount;
-  int excess;
-  std::string trip_from;
-  std::string pass_rem;
   /*выход*/
-  SALONS2::TPlaceList *placeList; /* салон */
-  SALONS2::TPoint Pos; /* указывает место */
+  TPlaceList *placeList; /* салон */
+  TPoint Pos; /* указывает место */
   bool InUse;
   bool isValidPlace;
   TPassenger() {
-  	bag_weight = 0;
-  	bag_amount = 0;
-  	excess = 0;
     countPlace = 1;
     prSmoke = false;
-    layer = ASTRA::cltUnknown;
-    grp_status = ASTRA::cltUnknown;
+    placeStatus = "FP";
     priority = 0;
-    pr_MCLS = false;
     placeList = NULL;
     Pos.x = 0;
     Pos.y = 0;
@@ -98,12 +79,6 @@ struct TPassenger {
     tid = -1;
   }
   void set_seat_no();
-  void add_rem( std::string code );
-  void calc_priority(std::map<std::string, int> &remarks);
-  void get_remarks( std::vector<std::string> &vrems );
-  bool isRemark( std::string code );
-  bool is_valid_seats( const std::vector<SALONS2::TPlace> &places );
-  void build( xmlNodePtr pNode );
 };
 
 typedef std::vector<TPassenger> VPassengers;
@@ -112,7 +87,9 @@ class TPassengers {
   private:
     std::map<std::string, int> remarks;
     VPassengers FPassengers;
-    void LoadRemarksPriority( std::map<std::string, int> &rems );
+    void LoadRemarksPriority();
+    void addRemPriority( TPassenger &pass );
+    void Calc_Priority( TPassenger &pass );
   public:
     TCounters counters;
     std::string clname;   // класс с которым мы работаем
@@ -129,14 +106,14 @@ class TPassengers {
     void copyFrom( VPassengers &npass );
     void SetCountersForPass( TPassenger  &pass );
     bool existsNoSeats();
-    void Build( xmlNodePtr passNode );
+    void Build( TSalons &Salons, xmlNodePtr passNode );
     void sortByIndex();
 };
 
 struct TSeatPlace {
-  SALONS2::TPlaceList *placeList;
-  SALONS2::TPoint Pos;
-  std::vector<SALONS2::TPlace> oldPlaces;
+  TPlaceList *placeList;
+  TPoint Pos;
+  std::vector<TPlace> oldPlaces;
   TSeatStep Step;
   bool InUse;
   bool isValid;
@@ -154,18 +131,17 @@ class TSeatPlaces {
   private:
     VSeatPlaces seatplaces;
     bool Alone; /* посадка одного в ряду - внутренняя переменная - не трогать */
-    int Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int foundCount, TSeatStep Step );
-    int FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep Step );
-    bool SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted );
+    int Put_Find_Places( TPoint FP, TPoint EP, int foundCount, TSeatStep Step );
+    int FindPlaces_From( TPoint FP, int foundCount, TSeatStep Step );
+    bool SeatSubGrp_On( TPoint FP, TSeatStep Step, int Wanted );
     bool SeatsStayedSubGrp( TWhere Where );
     TSeatPlace &GetEqualSeatPlace( TPassenger &pass );
     bool LSD( int G3, int G2, int G, int V3, int V2, TWhere Where );
-    bool SeatsGrp_On( SALONS2::TPoint FP );
+    bool SeatsGrp_On( TPoint FP );
     bool SeatsPassenger_OnBasePlace( std::string &placeName, TSeatStep Step );
   public:
-  	ASTRA::TCompLayerType grp_status;
     TCounters counters;
-    TSeatPlaces( /*ASTRA::TCompLayerType layer_type*/ );
+    TSeatPlaces();
     ~TSeatPlaces();
     void Clear();
     void Add( TSeatPlace &seatplace );
@@ -179,16 +155,17 @@ class TSeatPlaces {
 
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
-void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, int SeatAlgo );
-void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo, TPassengers &passengers, bool FUse_BR=false );
+void AutoReSeatsPassengers( TSalons &Salons, TPassengers &passengers, int SeatAlgo );
+void SeatsPassengers( TSalons *Salons, int SeatAlgo, bool FUse_BR=false );
 void ChangeLayer( ASTRA::TCompLayerType layer_type, int point_id, int pax_id, int &tid,
                   std::string first_xname, std::string first_yname, TSeatsType seat_type, bool pr_lat_seat );
 void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::vector<TSeatRange> &seats,
 	                       int pax_id, int point_dep, int point_arv );
-bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists=false );
+bool GetPassengersForManualSeat( int point_id, ASTRA::TCompLayerType layer_type, TPassengers &p, bool pr_lat_seat );
 int GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
 extern TPassengers Passengers;
-} // end namespace SEATS2
+}
+
 
 #endif /*_SEATS2_H_*/
 

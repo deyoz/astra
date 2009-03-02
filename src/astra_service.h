@@ -4,12 +4,12 @@
 #include <libxml/tree.h>
 #include <string>
 #include <map>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 const char* OWN_POINT_ADDR();
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
-	const std::string PARAM_LOAD_DIR = "LOADDIR";
+const std::string PARAM_LOAD_DIR = "LOADDIR";
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
 const std::string PARAM_IN_ORDER = "IN_ORDER";

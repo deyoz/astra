@@ -3,8 +3,6 @@
 #include "brd.h"
 #include "xml_unit.h"
 #include "exceptions.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "cache.h"
 #include "astra_utils.h"
@@ -12,6 +10,9 @@
 #include "tripinfo.h"
 #include "etick.h"
 #include "astra_ticket.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace EXCEPTIONS;
 using namespace std;
@@ -322,14 +323,13 @@ bool ChckSt(int pax_id, string& curr_seat_no)
       "       TRANSLATE(UPPER(curr_seat_no),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS curr_seat_no2, "
       "       TRANSLATE(UPPER(bp_seat_no),'ÄÇëÖçäåéêíï','ABCEHKMOPTX') AS bp_seat_no2 "
       "FROM "
-      " (SELECT salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,NULL,'list') AS curr_seat_no, "
+      " (SELECT salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list') AS curr_seat_no, "
       "         bp_print.seat_no AS bp_seat_no "
       "  FROM bp_print,pax, "
       "       (SELECT MAX(time_print) AS time_print FROM bp_print WHERE pax_id=:pax_id) a "
       "  WHERE bp_print.time_print=a.time_print AND bp_print.pax_id=:pax_id AND "
       "        pax.pax_id=:pax_id)";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(cltCheckin) );
     Qry.Execute();
     if (!Qry.Eof)
     {
@@ -468,7 +468,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    pers_type, "
         "    class, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-        "    salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "    seats, "
         "    ticket_no, "
         "    coupon_no, "
@@ -492,7 +492,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         " ORDER BY reg_no ";
 
     Qry.SQLText = sqlText;
-    Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
     Qry.Execute();
     if (reg_no!=-1 && Qry.Eof)
       throw UserException("è†··†¶®‡ ≠• ß†‡•£®·‚‡®‡Æ¢†≠");

@@ -2,8 +2,6 @@
 #include "xml_unit.h"
 #include "basic.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "base_tables.h"
@@ -12,6 +10,9 @@
 #include "tripinfo.h"
 #include "oralib.h"
 #include "astra_service.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace ASTRA;
 using namespace BASIC;
@@ -202,6 +203,15 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   NewTextChild(dataNode,"airp_arv",Qry.FieldAsString("airp_arv"));
   NewTextChild(dataNode,"city_arv",Qry.FieldAsString("city_arv"));
   NewTextChild(dataNode,"last_trfer_airp",Qry.FieldAsString("last_trfer_airp"));
+  try
+  {
+    NewTextChild(dataNode,"last_trfer_city",
+                 base_tables.get("airps").get_row("code",Qry.FieldAsString("last_trfer_airp")).AsString("city"));
+  }
+  catch(EBaseTableError)
+  {
+    NewTextChild(dataNode,"last_trfer_city");
+  };
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
   NewTextChild(dataNode,"reg_no",Qry.FieldAsString("reg_no"));
@@ -365,8 +375,8 @@ void PaymentInterface::SaveBag(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     int tid=LockAndUpdTid(point_dep,grp_id,NodeAsInteger("tid",reqNode));
     NewTextChild(resNode,"tid",tid);
 
-    CheckInInterface::SaveBag(reqNode);
-    CheckInInterface::SavePaidBag(reqNode);
+    CheckInInterface::SaveBag(point_dep,grp_id,reqNode);
+    CheckInInterface::SavePaidBag(grp_id,reqNode);
 
     TReqInfo::Instance()->MsgToLog(
             "Данные по багажным тарифам и ценному багажу сохранены.",
@@ -793,7 +803,10 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   rcpt.flt_no=Qry.FieldAsInteger("flt_no");
   rcpt.suffix=Qry.FieldAsString("suffix");
   rcpt.airp_dep=Qry.FieldAsString("airp_dep");
-  rcpt.airp_arv=Qry.FieldAsString("airp_arv");
+  if (GetNode("airp_arv",rcptNode)!=NULL)
+    rcpt.airp_arv=NodeAsString("airp_arv",rcptNode);
+  else
+    rcpt.airp_arv=Qry.FieldAsString("airp_arv");
   string city_dep=base_tables.get("airps").get_row("code", rcpt.airp_dep).AsString("city");
   string city_arv=base_tables.get("airps").get_row("code", rcpt.airp_arv).AsString("city");
   string country_dep=base_tables.get("cities").get_row("code", city_dep).AsString("country");

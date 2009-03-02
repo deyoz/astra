@@ -5,9 +5,9 @@
 #include <libxml/tree.h>
 
 #include "astra_tick_view.h"
-#include "xmllibcpp.h"
-#include "xml_tools.h"
-#include "jxt_tools.h"
+#include "jxtlib/xmllibcpp.h"
+#include "jxtlib/xml_tools.h"
+#include "jxtlib/jxt_tools.h"
 
 namespace Ticketing{
 namespace TickView{

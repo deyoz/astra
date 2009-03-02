@@ -1,3 +1,5 @@
+#include <string>
+#include <fstream>
 #include "maindcs.h"
 #include "basic.h"
 #include "astra_utils.h"
@@ -5,11 +7,12 @@
 #include "base_tables.h"
 #include "oralib.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
-#include <string>
+#include <fstream>
 #include "xml_unit.h"
-#include "jxt_cont.h"
+#include "jxtlib/jxt_cont.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace ASTRA;
 using namespace EXCEPTIONS;
@@ -52,7 +55,7 @@ void GetDeviceAirlines(xmlNodePtr node)
 {
   if (node==NULL) return;
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->desk.mode!=omCUTE) return;
+  if (reqInfo->desk.mode!=omCUTE && reqInfo->desk.mode!=omMUSE) return;
   xmlNodePtr accessNode=NewTextChild(node,"airlines");
   TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
   if (reqInfo->user.access.airlines_permit)
@@ -205,7 +208,6 @@ void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
       dev_model=NodeAsString("dev_model",node);
       sess_type=NodeAsString("sess_type",node);
       fmt_type=NodeAsString("fmt_type",node);
-      ProgTrace( TRACE5, "dev_model=%s,sess_type=%s,fmt_type=%s",dev_model.c_str(),sess_type.c_str(),fmt_type.c_str() );
     };
 
     for(int k=0;k<=1;k++)
@@ -222,21 +224,18 @@ void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
       ModelQry.SetVariable("dev_model",dev_model);
       ModelQry.Execute();
       if (ModelQry.Eof) continue;
-      ProgTrace( TRACE5, "dev_model=%s",dev_model.c_str() );
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
       SessParamsQry.SetVariable("fmt_type",fmt_type);
       SessParamsQry.Execute();
       if (SessParamsQry.Eof) continue;
-      	ProgTrace( TRACE5, "dev_model=%s,sess_type=%s,fmt_type=%s",dev_model.c_str(),sess_type.c_str(),fmt_type.c_str() );
 
       FmtParamsQry.SetVariable("dev_model",dev_model);
       FmtParamsQry.SetVariable("sess_type",sess_type);
       FmtParamsQry.SetVariable("fmt_type",fmt_type);
       FmtParamsQry.Execute();
       if (FmtParamsQry.Eof) continue;
-      ProgTrace( TRACE5, "dev_model=%s",dev_model.c_str() );
 
       ModelParamsQry.SetVariable("dev_model",dev_model);
       ModelParamsQry.Execute();
@@ -266,8 +265,13 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
     }
     catch(EBaseTableError)
     {
-      str=NodeAsString(node);
-      return false;
+    	try {
+    		airlines.push_back(base_tables.get("airlines").get_row("aircode",NodeAsString(node)).AsString("code"));
+    	}
+    	catch(EBaseTableError) {
+        str=NodeAsString(node);
+        return false;
+      }
     };
   };
   if (airlines.empty()) return true;
@@ -354,7 +358,6 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines))
       throw UserException("Не найден код авиакомпании %s",airlines.c_str());
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
-
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     std::string screen = NodeAsString("@screen", node);
     std::string opr = NodeAsString("@opr", node);
@@ -544,6 +547,24 @@ void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   GetDeviceParams(dpcModel,ModelParamsQry,devNode);
 };
 
-
+void MainDCSInterface::SaveDeskTraces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  const char* file_name="astradesk.log";
+  ofstream f;
+  f.open(file_name, ios_base::out | ios_base::app );
+  if (!f.is_open()) throw Exception("Can't open file '%s'",file_name);
+  try
+  {
+    string tracing_data;
+    HexToString(NodeAsString("tracing_data",reqNode),tracing_data);
+    f << tracing_data;
+    f.close();
+  }
+  catch(...)
+  {
+    try { f.close(); } catch( ... ) { };
+    throw;
+  };
+};
 
 

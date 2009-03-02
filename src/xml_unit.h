@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <libxml/parser.h>
-#include "setup.h"
 #include "basic.h"
 #include "exceptions.h"
 

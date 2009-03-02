@@ -1,8 +1,8 @@
 #ifndef _ETICK_H_
 #define _ETICK_H_
 
-#include "JxtInterface.h"
-#include "xmllibcpp.h"
+#include "jxtlib/JxtInterface.h"
+#include "jxtlib/xmllibcpp.h"
 #include "astra_utils.h"
 
 class ETSearchInterface : public JxtInterface

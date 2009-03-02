@@ -3,7 +3,7 @@
 
 #include <libxml/tree.h>
 #include <string>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 class PrepRegInterface : public JxtInterface
 {

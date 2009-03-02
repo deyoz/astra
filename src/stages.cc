@@ -1,7 +1,4 @@
 #include <stdlib.h>
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "basic.h"
 #include "stages.h"
 #include "exceptions.h"
@@ -13,7 +10,10 @@
 #include "telegram.h"
 #include "astra_service.h"
 #include "timer.h"
-#include "salons.h"
+#include "salons2.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;

@@ -27,7 +27,7 @@ class EBaseTableError:public EXCEPTIONS::Exception
 class TBaseTableRow {
   public:
     virtual ~TBaseTableRow() {};
-    virtual char *get_row_name() = 0;
+    virtual const char *get_row_name() = 0;
     virtual bool deleted() = 0;
     virtual std::string AsString(std::string field, bool pr_lat=false)
     {
@@ -50,11 +50,11 @@ class TBaseTable {
   private:
    	bool pr_init,pr_actual;
    	std::vector<TBaseTableRow*> table;
-    virtual char *get_select_sql_text() = 0;
-    virtual char *get_refresh_sql_text() = 0;
+    virtual const char *get_select_sql_text() = 0;
+    virtual const char *get_refresh_sql_text() = 0;
   protected:
     void load_table();
-    virtual char *get_table_name() = 0;
+    virtual const char *get_table_name() = 0;
     virtual void create_variables(TQuery &Qry, bool pr_refresh) = 0;
     virtual void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) = 0;
     virtual void delete_row(TBaseTableRow *row);
@@ -164,7 +164,7 @@ class TCountriesRow: public TTIDBaseTableRow {
   public:
     std::string code_iso,name,name_lat;
     ~TCountriesRow() {};
-    char *get_row_name() { return "TCountriesRow"; };
+    const char *get_row_name() { return "TCountriesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="code_iso") return code_iso;
@@ -176,20 +176,20 @@ class TCountriesRow: public TTIDBaseTableRow {
 class TCountries: public TTIDBaseTable {
   private:
     std::map<std::string, TBaseTableRow*> code_iso;
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_iso,name,name_lat,pr_del,tid "
    	    "FROM countries";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
     	  "SELECT id,code,code_lat,code_iso,name,name_lat,pr_del,tid "
     	  "FROM countries WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TCountries"; };
+    const char *get_table_name() { return "TCountries"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void delete_row(TBaseTableRow *row);
     void add_row(TBaseTableRow *row);
@@ -201,7 +201,7 @@ class TAirpsRow: public TICAOBaseTableRow {
   public:
     std::string name,name_lat,city;
     ~TAirpsRow() {};
-    char *get_row_name() { return "TAirpsRow"; };
+    const char *get_row_name() { return "TAirpsRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -212,20 +212,20 @@ class TAirpsRow: public TICAOBaseTableRow {
 
 class TAirps: public TICAOBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,city,pr_del,tid "
    	    "FROM airps";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
     	  "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,city,pr_del,tid "
     	  "FROM airps WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TAirps"; };
+    const char *get_table_name() { return "TAirps"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
@@ -234,7 +234,7 @@ class TPersTypesRow: public TCodeBaseTableRow {
     std::string name;
     int priority,weight_win,weight_sum;
     ~TPersTypesRow() {};
-    char *get_row_name() { return "TPersTypesRow"; };
+    const char *get_row_name() { return "TPersTypesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return name;
@@ -251,17 +251,17 @@ class TPersTypesRow: public TCodeBaseTableRow {
 
 class TPersTypes: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code,code_lat,name,priority,weight_win,weight_sum FROM pers_types";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TPersTypes"; };
+    const char *get_table_name() { return "TPersTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
@@ -271,7 +271,7 @@ class TGenderTypesRow: public TCodeBaseTableRow {
     std::string name;
     bool pr_inf;
     ~TGenderTypesRow() {};
-    char *get_row_name() { return "TGenderTypesRow"; };
+    const char *get_row_name() { return "TGenderTypesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return name;
@@ -286,17 +286,17 @@ class TGenderTypesRow: public TCodeBaseTableRow {
 
 class TGenderTypes: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code,code AS code_lat,name,pr_inf FROM gender_types";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TGenderTypes"; };
+    const char *get_table_name() { return "TGenderTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
@@ -306,7 +306,7 @@ class TTagColorsRow: public TCodeBaseTableRow {
   public:
     std::string name, name_lat;
     ~TTagColorsRow() {};
-    char *get_row_name() { return "TTagColorsRow"; };
+    const char *get_row_name() { return "TTagColorsRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat ? name_lat : name;
@@ -318,7 +318,7 @@ class TPaxDocTypesRow: public TCodeBaseTableRow {
   public:
     std::string name;
     ~TPaxDocTypesRow() {};
-    char *get_row_name() { return "TPaxDocTypesRow"; };
+    const char *get_row_name() { return "TPaxDocTypesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return name;
@@ -328,34 +328,34 @@ class TPaxDocTypesRow: public TCodeBaseTableRow {
 
 class TTagColors: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code, code_lat, name, name_lat FROM tag_colors";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TTagColors"; };
+    const char *get_table_name() { return "TTagColors"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
 
 class TPaxDocTypes: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code,code AS code_lat,name FROM pax_doc_types";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TPaxDocTypes"; };
+    const char *get_table_name() { return "TPaxDocTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
@@ -365,7 +365,7 @@ class TCitiesRow: public TTIDBaseTableRow {
     std::string name,name_lat,country,region;
     int tz;
     ~TCitiesRow() {};
-    char *get_row_name() { return "TCitiesRow"; };
+    const char *get_row_name() { return "TCitiesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -382,7 +382,7 @@ class TCitiesRow: public TTIDBaseTableRow {
 
 class TCities: public TTIDBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,name,name_lat, "
@@ -393,7 +393,7 @@ class TCities: public TTIDBaseTable {
         "WHERE cities.country=tz_regions.country(+) AND "
         "      cities.tz=tz_regions.tz(+)";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
       	"SELECT id,code,code_lat,name,name_lat, "
@@ -415,7 +415,7 @@ class TCities: public TTIDBaseTable {
         "      cities.tz=tz_regions.tz ";
     };
   protected:
-    char *get_table_name() { return "TCities"; };
+    const char *get_table_name() { return "TCities"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
@@ -423,7 +423,7 @@ class TAirlinesRow: public TICAOBaseTableRow {
   public:
     std::string aircode,name,name_lat,short_name,short_name_lat;
     ~TAirlinesRow() {};
-    char *get_row_name() { return "TAirlinesRow"; };
+    const char *get_row_name() { return "TAirlinesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -435,21 +435,26 @@ class TAirlinesRow: public TICAOBaseTableRow {
 
 class TAirlines: public TICAOBaseTable {
   private:
-    char *get_select_sql_text()
+    std::map<std::string, TBaseTableRow*> aircode;
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_icao,code_icao_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_icao,code_icao_lat,aircode,name,name_lat,short_name,short_name_lat,pr_del,tid "
         "FROM airlines WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TAirlines"; };
+    const char *get_table_name() { return "TAirlines"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    virtual void delete_row(TBaseTableRow *row);
+    virtual void add_row(TBaseTableRow *row);
+  public:
+    virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
 };
 
 class TClassesRow: public TCodeBaseTableRow {
@@ -457,7 +462,7 @@ class TClassesRow: public TCodeBaseTableRow {
     std::string name,name_lat;
     int priority;
     ~TClassesRow() {};
-    char *get_row_name() { return "TClassesRow"; };
+    const char *get_row_name() { return "TClassesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -472,17 +477,17 @@ class TClassesRow: public TCodeBaseTableRow {
 
 class TClasses: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code,code_lat,name,name_lat,priority FROM classes";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TClasses"; };
+    const char *get_table_name() { return "TClasses"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
@@ -491,7 +496,7 @@ class TSubclsRow: public TCodeBaseTableRow {
   public:
     std::string cl;
     ~TSubclsRow() {};
-    char *get_row_name() { return "TSubclsRow"; };
+    const char *get_row_name() { return "TSubclsRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="cl") return cl;
@@ -501,17 +506,17 @@ class TSubclsRow: public TCodeBaseTableRow {
 
 class TSubcls: public TCodeBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT code,code_lat,class AS cl FROM subcls";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return get_select_sql_text();
     };
   protected:
-    char *get_table_name() { return "TSubcls"; };
+    const char *get_table_name() { return "TSubcls"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
     void Invalidate() {}; //всегда актуальна
 };
@@ -520,7 +525,7 @@ class TCraftsRow: public TICAOBaseTableRow {
   public:
     std::string name,name_lat;
     ~TCraftsRow() {};
-    char *get_row_name() { return "TCraftsRow"; };
+    const char *get_row_name() { return "TCraftsRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -530,20 +535,20 @@ class TCraftsRow: public TICAOBaseTableRow {
 
 class TCrafts: public TICAOBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,pr_del,tid "
         "FROM crafts";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
         "SELECT id,code,code_lat,code_icao,code_icao_lat,name,name_lat,pr_del,tid "
         "FROM crafts WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TCrafts"; };
+    const char *get_table_name() { return "TCrafts"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
@@ -551,7 +556,7 @@ class TCurrencyRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat;
     ~TCurrencyRow() {};
-    char *get_row_name() { return "TCurrencyRow"; };
+    const char *get_row_name() { return "TCurrencyRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -561,20 +566,20 @@ class TCurrencyRow: public TTIDBaseTableRow {
 
 class TCurrency: public TTIDBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text ()
     {
       return
         "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
         "FROM currency";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
         "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
         "FROM currency WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TCurrency"; };
+    const char *get_table_name() { return "TCurrency"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
@@ -582,7 +587,7 @@ class TPayTypesRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat;
     ~TPayTypesRow() {};
-    char *get_row_name() { return "TPayTypesRow"; };
+    const char *get_row_name() { return "TPayTypesRow"; };
     std::string AsString(std::string field, bool pr_lat=false)
     {
       if (lowerc(field)=="name") return pr_lat?name_lat:name;
@@ -592,20 +597,20 @@ class TPayTypesRow: public TTIDBaseTableRow {
 
 class TPayTypes: public TTIDBaseTable {
   private:
-    char *get_select_sql_text()
+    const char *get_select_sql_text()
     {
       return
         "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
         "FROM pay_types";
     };
-    char *get_refresh_sql_text()
+    const char *get_refresh_sql_text()
     {
       return
         "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
         "FROM pay_types WHERE tid>:tid";
     };
   protected:
-    char *get_table_name() { return "TPayTypes"; };
+    const char *get_table_name() { return "TPayTypes"; };
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 

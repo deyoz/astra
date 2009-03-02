@@ -9,22 +9,24 @@
 #include "season.h"
 #include "stages.h"
 #include "tlg/tlg.h"
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include <daemon.h>
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "astra_context.h"
 #include "base_tables.h"
 #include "astra_service.h"
-#include "cfgproc.h"
-#include "posthooks.h"
-#include "perfom.h"
 #include "czech_police_edi_file.h"
 #include "tripinfo.h"
 #include "telegram.h"
+#include "serverlib/daemon.h"
+#include "serverlib/cfgproc.h"
+#include "serverlib/posthooks.h"
+#include "serverlib/perfom.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
+
 const int sleepsec = 25;
 
 using namespace ASTRA;
@@ -130,14 +132,21 @@ void exec_tasks( void )
 	    OraSession.Commit();
 	    callPostHooksAfter();
 	  }
-    catch( Exception &E )
+	  catch( EOracleError &E )
     {
-    try { OraSession.Rollback(); } catch(...) {};
-      ProgError( STDLOG, "Exception: %s, task name=%s", E.what(), name.c_str() );
+      try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "EOracleError %d: %s", E.Code, E.what());
+      ProgError( STDLOG, "SQL: %s", E.SQLText());
+      ProgError( STDLOG, "task name=%s", name.c_str() );
+    }
+    catch( std::exception &E )
+    {
+      try { OraSession.Rollback(); } catch(...) {};
+      ProgError( STDLOG, "std::exception: %s, task name=%s", E.what(), name.c_str() );
     }
     catch( ... )
     {
-    try { OraSession.Rollback(); } catch(...) {};
+      try { OraSession.Rollback(); } catch(...) {};
       ProgError( STDLOG, "Unknown error, task name=%s", name.c_str() );
     };
     callPostHooksAlways();
@@ -797,18 +806,29 @@ void sync_mvd(void)
 
 void arx_move(int move_id, TDateTime part_key)
 {
-  TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "BEGIN "
-    "  arch.move(:move_id,:part_key); "
-    "END;";
-  Qry.CreateVariable("move_id",otInteger,move_id);
-  if (part_key!=NoExists)
-  	Qry.CreateVariable("part_key",otDate,part_key);
-  else
-  	Qry.CreateVariable("part_key",otDate,FNull);
-  Qry.Execute();
-  OraSession.Commit();
+  try
+  {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+      "BEGIN "
+      "  arch.move(:move_id,:part_key); "
+      "END;";
+    Qry.CreateVariable("move_id",otInteger,move_id);
+    if (part_key!=NoExists)
+    	Qry.CreateVariable("part_key",otDate,part_key);
+    else
+    	Qry.CreateVariable("part_key",otDate,FNull);
+    Qry.Execute();
+    OraSession.Commit();
+  }
+  catch(...)
+  {
+    if (part_key!=NoExists)
+      ProgError( STDLOG, "move_id=%d, part_key=%s", move_id, DateTimeToStr( part_key, "dd.mm.yy" ).c_str() );
+    else
+      ProgError( STDLOG, "move_id=%d, part_key=NoExists", move_id );
+    throw;
+  };
 };
 
 void get_full_stat(TDateTime utcdate)
@@ -962,7 +982,15 @@ void arx_daily(TDateTime utcdate)
     bool pr_utc=PointsQry.FieldAsInteger("pr_utc")!=0;
     TDateTime scd=PointsQry.FieldAsDateTime("scd"); //NOT NULL всегда
     if (!pr_utc)
-      scd=LocalToUTC(scd+1,AirpTZRegion(PointsQry.FieldAsString("airp_dep")));
+      try
+      {
+        //если дата попадает в перевод времени - проблемы
+        scd=LocalToUTC(scd+1,AirpTZRegion(PointsQry.FieldAsString("airp_dep")));
+      }
+      catch(...)
+      {
+        scd=scd+1;
+      };
 
     if (scd<utcdate-ARX_MAX_DAYS())
     {
@@ -1087,13 +1115,69 @@ void arx_daily(TDateTime utcdate)
 
   //и наконец чистим tlgs, files и т.п.
   ProgTrace(TRACE5,"arx_daily: clear tlgs");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM tlg_error WHERE id=:id; "
+    "  DELETE FROM tlg_queue WHERE id=:id; "
+    "  DELETE FROM tlgs WHERE id=:id; "
+    "END;";
+  DelQry.DeclareVariable("id",otInteger);
+
   Qry.Clear();
   Qry.SQLText=
-    "BEGIN "
-    "  arch.tlgs_files_etc(:arx_date); "
-    "END;";
+    "SELECT id FROM tlgs WHERE time<:arx_date AND rownum<=1000 FOR UPDATE";
   Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
   Qry.Execute();
+  while(!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      DelQry.SetVariable("id",Qry.FieldAsInteger("id"));
+      DelQry.Execute();
+    };
+    OraSession.Commit();
+    Qry.Execute();
+  };
+
+  ProgTrace(TRACE5,"arx_daily: clear files");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM file_queue WHERE id=:id; "
+    "  DELETE FROM file_params WHERE id=:id; "
+    "  DELETE FROM file_error WHERE id=:id; "
+    "  DELETE FROM files WHERE id=:id; "
+    "END;";
+  DelQry.DeclareVariable("id",otInteger);
+
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT id FROM files WHERE time<:arx_date AND rownum<=1000 FOR UPDATE";
+  Qry.CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS());
+  Qry.Execute();
+  while(!Qry.Eof)
+  {
+    for(;!Qry.Eof;Qry.Next())
+    {
+      DelQry.SetVariable("id",Qry.FieldAsInteger("id"));
+      DelQry.Execute();
+    };
+    OraSession.Commit();
+    Qry.Execute();
+  };
+
+  ProgTrace(TRACE5,"arx_daily: clear rozysk");
+  DelQry.Clear();
+  DelQry.SQLText=
+    "DELETE FROM rozysk WHERE time<:arx_date AND rownum<=10000";
+  DelQry.CreateVariable("arx_date",otDate,utcdate-30);
+  DelQry.Execute();
+  while(DelQry.RowsProcessed()>0)
+  {
+    OraSession.Commit();
+    DelQry.Execute();
+  };
   OraSession.Commit();
 
   ProgTrace(TRACE5,"arx_daily stopped");

@@ -6,10 +6,31 @@
 #include <map>
 #include <libxml/tree.h>
 #include "astra_utils.h"
+#include "astra_consts.h"
+#include "basic.h"
+
+namespace SALONS2
+{
 
 enum TReadStyle { rTripSalons, rComponSalons };
 
 enum TModify { mNone, mDelete, mAdd, mChange };
+
+struct TSalonPoint {
+	int x;
+	int y;
+	int num;
+	TSalonPoint() {
+		x = 0;
+		y = 0;
+		num = 0;
+	};
+	TSalonPoint( int ax, int ay, int anum ) {
+		x = ax;
+		y = ay;
+		num = anum;
+	};
+};
 
 struct TPoint {
   public:
@@ -30,26 +51,35 @@ struct TRem {
   bool pr_denial;
 };
 
+struct TPlaceLayer {
+	int pax_id;
+	ASTRA::TCompLayerType layer_type;
+	int priority;
+	BASIC::TDateTime time_create;
+  TPlaceLayer( int vpax_id, ASTRA::TCompLayerType vlayer_type, BASIC::TDateTime vtime_create, int vpriority ) {
+		pax_id = vpax_id;
+		layer_type = vlayer_type;
+		time_create = vtime_create;
+		priority = vpriority;
+  }
+};
+
 class TPlace {
   public:
     bool selected;
     bool visible;
-    int x, y;
+    int x, y, num;
     std::string elem_type;
     bool isplace;
     int xprior, yprior;
     int xnext, ynext;
     int agle;
     std::string clname;
-    bool pr_smoke;
-    bool not_good;
     std::string xname, yname;
-    std::string status;
-    bool pr_free;
-    bool block;
     bool passSel;
     std::vector<TRem> rems;
-    std::vector<std::string> layers;
+    std::vector<TPlaceLayer> layers;
+    bool isPax;
     TPlace() {
       x = -1;
       y = -1;
@@ -60,14 +90,60 @@ class TPlace {
       xnext = -1;
       ynext = -1;
       agle = 0;
-      pr_smoke = false;
-      not_good = false;
-      status = "FP";
-      pr_free = true;
-      block = false;
       passSel = false;
+      isPax = false;
     }
-    void Assign( TPlace &pl );
+    void Assign( TPlace &pl ) {
+      selected = pl.selected;
+      visible = pl.visible;
+      x = pl.x;
+      y = pl.y;
+      elem_type = pl.elem_type;
+      isplace = pl.isplace;
+      xprior = pl.xprior;
+      yprior = pl.yprior;
+      xnext = pl.xnext;
+      ynext = pl.ynext;
+      agle = pl.agle;
+      clname = pl.clname;
+      xname = pl.xname;
+      yname = pl.yname;
+      layers = pl.layers;
+      rems = pl.rems;
+      isPax = pl.isPax;
+    }
+    bool isLayer( ASTRA::TCompLayerType layer ) {
+    	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
+    		if ( i->layer_type == layer )
+    			return true;
+    	};
+    	return false;
+    }
+    void clearLayer( ASTRA::TCompLayerType layer, BASIC::TDateTime time_create ) {
+    	isPax = false;
+    	for (std::vector<TPlaceLayer>::iterator i=layers.begin(); i!=layers.end(); i++ ) {
+    		if ( i->pax_id > 0 )
+    			isPax = true;
+    		if ( i->layer_type == layer && ( time_create <= 0 && i->time_create <= 0 || time_create == i->time_create ) ) {
+    			layers.erase( i );
+    			if ( isPax )
+    			  break;
+    		}
+      }
+    }
+    void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id, int priority ) {
+   		std::vector<TPlaceLayer>::iterator i;
+      for (i=layers.begin(); i!=layers.end(); i++) {
+      	if ( priority < i->priority ||
+      		   priority == i->priority &&
+      		   time_create > i->time_create )
+      		break;
+      }
+      TPlaceLayer pl( pax_id, l, time_create, priority );
+    	layers.insert( i, pl );
+    	if ( pax_id > 0 )
+    		isPax = true;
+    };
 };
 
 typedef std::vector<TPlace> TPlaces;
@@ -93,27 +169,45 @@ class TPlaceList {
     void Add( TPlace &pl );
 };
 
-struct TLayerPriority {
-	std::string code;
-	std::string layer;
-	int priority;
+struct TLayerColor {
+	std::string color;
+	bool framework;
+	TLayerColor() {
+		framework = 0;
+	}
 };
+
+struct TLayerProp
+{
+	std::string name;
+	std::string name_view;
+	std::string func_key;
+  int priority;
+  bool editable;
+  bool notfree;
+  TLayerProp() {
+  	priority=999;
+  	editable = false;
+  	notfree = false;
+  }
+};
+
 
 class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
 	private:
 	  int point_dep;
 	public:
-		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_dep );
+		bool CanUseLayer( ASTRA::TCompLayerType layer_type, int point_id );
 		void getFilterLayers( int point_id );
-
 };
+
+//typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
 class TSalons {
   private:
   	TReadStyle readStyle;
     TFilterLayers FilterLayers;
-  	std::map<std::string,int> status_priority;
-  	std::vector<TLayerPriority> layer_priority;
+  	std::map<ASTRA::TCompLayerType,TLayerProp> layers_priority;
     TPlaceList* FCurrPlaceList;
     bool pr_lat_seat;
   public:
@@ -128,6 +222,7 @@ class TSalons {
     TModify modify;
     std::string ClName;
     std::vector<TPlaceList*> placelists;
+    //TPlacePaxs PaxsOnPlaces;
     ~TSalons( );
     TSalons( int id, TReadStyle vreadStyle );
     TPlaceList *CurrPlaceList();
@@ -135,16 +230,29 @@ class TSalons {
 
     void Clear( );
 
+    bool placeIsFree( TPlace* p ) {
+    	for ( std::vector<TPlaceLayer>::iterator i=p->layers.begin(); i!=p->layers.end(); i++ ) {
+    		if ( layers_priority[ i->layer_type ].notfree )
+    			return false;
+      }
+      return true;
+    };
+
+    int getPriority( ASTRA::TCompLayerType layer_type ) {
+    	if ( layers_priority.find( layer_type ) != layers_priority.end() )
+    		return layers_priority[ layer_type ].priority;
+    	else
+    		return 10000;
+    };
+
     bool getLatSeat() { return pr_lat_seat; };
     void Build( xmlNodePtr salonsNode );
-    void Read( bool wo_invalid_seat_no = false );
+    void Read( );
     void Write( );
     void Parse( xmlNodePtr salonsNode );
     void verifyValidRem( std::string rem_name, std::string class_name );
 };
 
-namespace SALONS
-{
 	typedef std::pair<int,TPlace> TSalonSeat;
 	bool Checkin( int pax_id );
   bool InternalExistsRegPassenger( int trip_id, bool SeatNoIsNull );
@@ -156,13 +264,14 @@ namespace SALONS
   int SetCraft( int point_id, std::string &craft, int comp_id );
   void InitVIP( int point_id );
   void setTRIP_CLASSES( int point_id );
-  void SetLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
-  void ClearLayer( const std::map<std::string,int> &layer_priority, const std::string &layer, TPlace &pl );
+  void SetLayer( const std::map<std::string,int> &layer_priority, ASTRA::TCompLayerType layer, TPlace &pl );
+  void ClearLayer( ASTRA::TCompLayerType layer, TPlace &pl );
   void SetFree( const std::string &layer, TPlace &pl );
   void SetBlock( const std::string &layer, TPlace &pl );
   void getSalonChanges( TSalons &OldSalons, std::vector<TSalonSeat> &seats );
+  bool getSalonChanges( TSalons &OldSalons, TSalons &NewSalon, std::vector<TSalonSeat> &seats );
   void BuildSalonChanges( xmlNodePtr dataNode, const std::vector<TSalonSeat> &seats );
-}
+} // END namespace SALONS2
 
-#endif /*_SALONS_H_*/
+#endif /*_SALONS2_H_*/
 

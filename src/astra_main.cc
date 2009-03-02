@@ -1,17 +1,17 @@
-#define NICKNAME "VLAD"
-#include <test.h>
 #include <string>
-#include <daemon.h>
-#include <ocilocal.h>
 #include "oralib.h"
-#include "jxtlib.h"
 #include "astra_callbacks.h"
 #include "astra_main.h"
 #include "tlg/tlg.h"
-//#include "file_server/msg_server.h"
 #include "timer.h"
-#include "sirena_queue.h"
-#include "xml_stuff.h"
+#include "jxtlib/jxtlib.h"
+#include "jxtlib/xml_stuff.h"
+#include "serverlib/sirena_queue.h"
+#include "serverlib/daemon.h"
+#include "serverlib/ocilocal.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace ServerFramework;
 

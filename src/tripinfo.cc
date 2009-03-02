@@ -1,9 +1,6 @@
 #include <stdlib.h>
 #include <string>
 #include "tripinfo.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "stages.h"
 #include "astra_utils.h"
 #include "base_tables.h"
@@ -20,6 +17,9 @@
 #include "stat.h"
 #include "print.h"
 #include "astra_consts.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace BASIC;
@@ -711,6 +711,15 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
     };
   };
+  if (reqInfo->screen.name == "AIR.EXE")
+    NewTextChild( node, "pr_mixed_norms", (int)GetTripSets(tsMixedNorms,info) );
+
+  if (reqInfo->screen.name == "KASSA.EXE")
+  {
+    NewTextChild( node, "pr_mixed_rates", (int)GetTripSets(tsMixedNorms,info) );
+    NewTextChild( node, "pr_mixed_taxes", (int)GetTripSets(tsMixedNorms,info) );
+  };
+
   return true;
 }
 
@@ -1101,15 +1110,24 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
 void viewCRSList( int point_id, xmlNodePtr dataNode )
 {
+	map<string,string> grp_status_types;
   TQuery Qry( &OraSession );
+  Qry.SQLText =
+     "SELECT code,layer_type FROM grp_status_types";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	grp_status_types[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsString( "layer_type" );
+  	Qry.Next();
+  }
+  Qry.Clear();
   Qry.SQLText=
      "SELECT "
      "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
-     "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS crs_seat_no, "
-     "      salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS preseat_no, "
+     "      crs_pax.seat_xname, "
+     "      crs_pax.seat_yname, "
      "      crs_pax.seats seats, "
      "      crs_pnr.target, "
      "      crs_pnr.last_target, "
@@ -1121,10 +1139,11 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pnr.point_id AS point_id_tlg, "
      "      ids.status, "
      "      pax.reg_no, "
-     "      salons.get_seat_no(pax.pax_id,:checkin_layer,pax.seats,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+     "      pax.seats pax_seats, "
+     "      pax_grp.status grp_status, "
      "      pax.refuse, "
      "      pax.grp_id "
-     "FROM crs_pnr,crs_pax,pax,pax_grp, "
+     "FROM crs_pnr,crs_pax,pax,pax_grp,"
      "       ( "
      "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
      "        FROM crs_pnr, "
@@ -1196,12 +1215,30 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psOk) );
+  Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
-  Qry.CreateVariable( "checkin_layer", otString, EncodeCompLayerType(ASTRA::cltCheckin) );
   Qry.Execute();
+  // места пассажира
+  TQuery SQry( &OraSession );
+  SQry.SQLText =
+    "BEGIN "
+    " IF :mode=0 THEN "
+    "  :seat_no:=salons.get_seat_no(:pax_id,:seats,:layer_type,:point_id,'seats',:pax_row); "
+    " ELSE "
+    "  :seat_no:=salons.get_crs_seat_no(:pax_id,:xname,:yname,:seats,:point_id,:layer_type,'seats',:crs_row); "
+    " END IF; "
+    "END;";
+  SQry.DeclareVariable( "mode", otInteger );
+  SQry.DeclareVariable( "pax_id", otInteger );
+  SQry.DeclareVariable( "xname", otString );
+  SQry.DeclareVariable( "yname", otString );
+  SQry.DeclareVariable( "layer_type", otString );
+  SQry.DeclareVariable( "seats", otInteger );
+  SQry.DeclareVariable( "point_id", otInteger );
+  SQry.DeclareVariable( "pax_row", otInteger );
+  SQry.DeclareVariable( "crs_row", otInteger );
+  SQry.DeclareVariable( "seat_no", otString );
 
   //ремарки пассажиров
   TQuery RQry( &OraSession );
@@ -1233,8 +1270,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
-  int col_crs_seat_no=Qry.FieldIndex("crs_seat_no");
-  int col_preseat_no=Qry.FieldIndex("preseat_no");
+  int col_seat_xname=Qry.FieldIndex("seat_xname");
+  int col_seat_yname=Qry.FieldIndex("seat_yname");
   int col_seats=Qry.FieldIndex("seats");
   int col_target=Qry.FieldIndex("target");
   int col_last_target=Qry.FieldIndex("last_target");
@@ -1246,12 +1283,16 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_point_id_tlg=Qry.FieldIndex("point_id_tlg");
   int col_status=Qry.FieldIndex("status");
   int col_reg_no=Qry.FieldIndex("reg_no");
-  int col_seat_no=Qry.FieldIndex("seat_no");
   int col_refuse=Qry.FieldIndex("refuse");
   int col_grp_id=Qry.FieldIndex("grp_id");
-
+  int col_grp_status=Qry.FieldIndex("grp_status");
+  int col_pax_seats=Qry.FieldIndex("pax_seats");
+  int mode; // режим для поиска мест 0 - регистрация иначе список pnl
+  int crs_row=1, pax_row=1;
   for(;!Qry.Eof;Qry.Next())
   {
+  	mode = -1; // не надо искать место
+  	string seat_no;
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       PointsQry.SetVariable("grp_id",Qry.FieldAsInteger(col_grp_id));
@@ -1282,8 +1323,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
     NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
     NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
-    NewTextChild( node, "crs_seat_no", Qry.FieldAsString( col_crs_seat_no ), "" );
-    NewTextChild( node, "preseat_no", Qry.FieldAsString( col_preseat_no ), "" );
+    //NewTextChild( node, "crs_seat_no", Qry.FieldAsString( col_crs_seat_no ), "" );
+    //NewTextChild( node, "preseat_no", Qry.FieldAsString( col_preseat_no ), "" );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", Qry.FieldAsString( col_target ) );
     if (!Qry.FieldIsNULL(col_last_target))
@@ -1301,7 +1342,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
     NewTextChild( node, "document", Qry.FieldAsString( col_document ), "" );
-    NewTextChild( node, "status", Qry.FieldAsString( col_status ), EncodePaxStatus(ASTRA::psOk) );
+    NewTextChild( node, "status", Qry.FieldAsString( col_status ), EncodePaxStatus(ASTRA::psCheckin) );
 
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
     RQry.Execute();
@@ -1324,8 +1365,62 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
-      NewTextChild( node, "seat_no", Qry.FieldAsString( col_seat_no ), "" );
+      //NewTextChild( node, "seat_no", Qry.FieldAsString( col_seat_no ), "" );
       NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
+      if ( !Qry.FieldIsNULL( col_refuse ) )
+      	continue; // не надо искать место
+      mode = 0;
+      SQry.SetVariable( "layer_type", Qry.FieldAsString( col_grp_status ) );
+      SQry.SetVariable( "seats", Qry.FieldAsInteger(col_pax_seats)  );
+      SQry.SetVariable( "point_id", point_id );
+      SQry.SetVariable( "pax_row", pax_row );
+    ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, pax_row=%d, layer_type=%s",
+                       mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_pax_seats), point_id,
+                       pax_row, Qry.FieldAsString( col_grp_status ) );
+    }
+    else {
+    	mode = 1;
+    	SQry.SetVariable( "xname", Qry.FieldAsString( col_seat_xname ) );
+    	SQry.SetVariable( "yname", Qry.FieldAsString( col_seat_yname ) );
+    	SQry.SetVariable( "layer_type", FNull );
+    	SQry.SetVariable( "seats", Qry.FieldAsInteger(col_seats)  );
+    	SQry.SetVariable( "point_id", Qry.FieldAsInteger(col_point_id_tlg) );
+    	SQry.SetVariable( "crs_row", crs_row );
+    ProgTrace( TRACE5, "mode=%d, pax_id=%d, seats=%d, point_id=%d, crs_row=%d, layer_type=%s",
+                       mode, Qry.FieldAsInteger( col_pax_id ), Qry.FieldAsInteger(col_seats), point_id,
+                       crs_row, "" );
+    }
+    SQry.SetVariable( "mode", mode );
+    SQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
+    SQry.SetVariable( "seat_no", FNull );
+    SQry.Execute();
+    if ( mode == 0 )
+    	pax_row++;
+    else
+    	crs_row++;
+    if ( !SQry.VariableIsNULL( "seat_no" ) ) {
+    	string seat_no = SQry.GetVariableAsString( "seat_no" );
+    	string layer_type;
+    	if ( mode == 0 ) {
+    		layer_type = grp_status_types[ Qry.FieldAsString( col_grp_status ) ];
+    	}
+    	else {
+    		layer_type = SQry.GetVariableAsString( "layer_type" );
+    	}
+    	switch ( DecodeCompLayerType( (char*)layer_type.c_str() ) ) { // 12.12.08 для совместимости со старой версией
+    		case cltProtCkin:
+    			NewTextChild( node, "preseat_no", seat_no );
+    			NewTextChild( node, "crs_seat_no", string(Qry.FieldAsString( col_seat_xname ))+Qry.FieldAsString( col_seat_yname ) );
+    			break;
+    		case cltPNLCkin:
+    			NewTextChild( node, "crs_seat_no", seat_no );
+    			break;
+    		default:
+    			NewTextChild( node, "seat_no", seat_no );
+    			break;
+    	}
+    	NewTextChild( node, "nseat_no", seat_no );
+   		NewTextChild( node, "layer_type", layer_type );
     };
   };
 
@@ -1338,7 +1433,11 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
   string &tz_region=AirpTZRegion(info.airp);
   modf(reqInfo->desk.time,&desk_time);
   modf(UTCToClient(info.scd_out,tz_region),&scd_out_local_date);
-  modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
+  if (info.real_out!=ASTRA::NoExists)
+    modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
+  else
+    info.real_out_local_date=scd_out_local_date;
+
   ostringstream trip;
   trip << info.airline
        << setw(3) << setfill('0') << info.flt_no

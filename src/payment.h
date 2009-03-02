@@ -2,7 +2,7 @@
 #define _PAYMENT_H_
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "basic.h"
 #include "oralib.h"
 #include "print.h"

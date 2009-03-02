@@ -1,10 +1,11 @@
 #include "design_blank.h"
-#define NICKNAME "DENIS"
-#include "test.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+
+#define NICKNAME "DENIS"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -14,7 +15,7 @@ void DesignBlankInterface::PrevNext(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 {
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
     int delta = NodeAsInteger("delta", reqNode);
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     switch (doc) {
         case dtBP:
             Qry.SQLText =
@@ -195,7 +196,7 @@ void DesignBlankInterface::GetBlanksList(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 {
     TDocType doc = DecodeDocType(NodeAsString("doc_type", reqNode));
 
-    TQuery Qry(&OraSession);        
+    TQuery Qry(&OraSession);
     switch(doc) {
         case dtBP:
             Qry.SQLText =

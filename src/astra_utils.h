@@ -2,6 +2,7 @@
 #define _ASTRA_UTILS_H_
 
 #include <string>
+#include <map>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
@@ -9,11 +10,8 @@
 #include "basic.h"
 #include "exceptions.h"
 #include "oralib.h"
-#include <map>
-#include "jxt_xml_cont.h"
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
+#include "jxtlib/jxt_xml_cont.h"
 
 std::string AlignString(std::string str, int len, std::string align);
 
@@ -138,7 +136,6 @@ class TDesk {
     std::string city;
     std::string tz_region;
     std::string lang;
-    int trace_level;
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
     TDesk()
@@ -151,7 +148,6 @@ class TDesk {
       city.clear();
       tz_region.clear();
       lang.clear();
-      trace_level = -1;
       time = 0;
       mode = ASTRA::omSTAND;
     };

@@ -1,11 +1,6 @@
 #include <vector>
 #include <utility>
 #include <boost/date_time/local_time/local_time.hpp>
-#define NICKNAME "VLAD"
-#define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-#include "setup.h"
-#include "logger.h"
 #include "telegram.h"
 #include "xml_unit.h"
 #include "oralib.h"
@@ -17,6 +12,11 @@
 #include "base_tables.h"
 #include "astra_misc.h"
 #include "astra_service.h"
+#include "serverlib/logger.h"
+
+#define NICKNAME "VLAD"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 
 #define ENDL "\015\012"
 
@@ -1459,7 +1459,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
 
   Qry.Clear();
   Qry.SQLText=
-    "SELECT airline,flt_no,suffix,scd,airp_dep,airp_arv,subclass "
+    "SELECT airline,flt_no,suffix,scd,airp_dep,airp_arv "
     "FROM transfer,trfer_trips "
     "WHERE transfer.point_id_trfer=trfer_trips.point_id AND "
     "      grp_id=:grp_id AND transfer_num>0 "
@@ -1468,7 +1468,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   Qry.Execute();
   TBaseTable &airlines=base_tables.get("airlines");
   TBaseTable &airps=base_tables.get("airps");
-  TBaseTable &subcls=base_tables.get("subcls");
+  //TBaseTable &subcls=base_tables.get("subcls");
   for(;!Qry.Eof;Qry.Next())
   {
     TTransferItem flt;
@@ -1484,12 +1484,12 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
     string airp=airps.get_row("code/code_lat",flt.airp_arv).AsString("code");
     strcpy(flt.airp_arv,airp.c_str());
 
-    strcpy(flt.subcl,Qry.FieldAsString("subclass"));
+   /* strcpy(flt.subcl,Qry.FieldAsString("subclass")); по причине того что подкласс у каждого пассажира свой
     if (*(flt.subcl)!=0)
     {
       string subcl=subcls.get_row("code/code_lat",flt.subcl).AsString("code");
       strcpy(flt.subcl,subcl.c_str());
-    };
+    };*/
 
     flt.scd=Qry.FieldAsDateTime("scd");
 

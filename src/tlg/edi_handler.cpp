@@ -7,14 +7,15 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "query_runner.h"
 #include "edi_tlg.h"
 #include "edi_msg.h"
-#include "posthooks.h"
+
+#include "serverlib/query_runner.h"
+#include "serverlib/posthooks.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
+#include "serverlib/test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -169,7 +170,7 @@ void handle_tlg(void)
 }
 
 
-#include "ocilocal.h"
+#include "serverlib/ocilocal.h"
 using namespace OciCpp;
 class EdiHelpSignal:public Posthooks::BaseHook {
     virtual bool less2( const BaseHook *p) const;

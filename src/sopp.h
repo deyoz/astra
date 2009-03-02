@@ -4,7 +4,7 @@
 #include <libxml/tree.h>
 #include <string>
 #include <vector>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 #include "basic.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
@@ -218,6 +218,7 @@ void createSOPPTrip( int point_id, TSOPPTrips &trips );
 bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateTime next_date, /*bool LocalAll,*/
                        std::string &errcity, bool pr_isg );
 
+void DeletePassengers( int point_id, const std::string status );
 
 class SoppInterface : public JxtInterface
 {

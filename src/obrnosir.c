@@ -10,7 +10,7 @@
 #define NICKNAME "SYSTEM"
 #define NICKTRACE SYSTEM_TRACE
 #include "edilib/edi_loading.h"
-#include "test.h"
+#include "serverlib/test.h"
 
 int LocalIsNosir=0;
 

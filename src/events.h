@@ -2,7 +2,7 @@
 #define _EVENTS_H_
 
 #include <libxml/tree.h>
-#include "JxtInterface.h"
+#include "jxtlib/JxtInterface.h"
 
 class EventsInterface : public JxtInterface
 {

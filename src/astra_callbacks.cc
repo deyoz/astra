@@ -1,5 +1,3 @@
-#include "query_runner.h"
-#include "setup.h"
 #include "astra_callbacks.h"
 #include "maindcs.h"
 #include "adm.h"
@@ -12,6 +10,7 @@
 #include "cent.h"
 #include "prepreg.h"
 #include "salonform.h"
+#include "salonform2.h"
 #include "sopp.h"
 #include "stat.h"
 #include "print.h"
@@ -24,20 +23,20 @@
 #include "payment.h"
 #include "payment2.h"
 #include "dev_tuning.h"
-
 #include "astra_utils.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "oralib.h"
+#include "xml_unit.h"
+#include "base_tables.h"
+#include "jxtlib/jxtlib.h"
+#include "serverlib/query_runner.h"
+#include "serverlib/ocilocal.h"
+#include "serverlib/perfom.h"
+
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
-#include "test.h"
-
-#include "jxtlib.h"
-#include "oralib.h"
-#include "ocilocal.h"
-#include "xml_unit.h"
-#include "perfom.h"
-#include "base_tables.h"
+#include "serverlib/test.h"
 
 using namespace jxtlib;
 using namespace BASIC;
@@ -58,6 +57,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new EventsInterface();
     new TripsInterface();
     new SalonsInterface();
+    new SalonFormInterface();
     new CentInterface();
     new PrepRegInterface();
     new SoppInterface();
@@ -91,7 +91,8 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     bool checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
-        GetNode( "ClientError", node ) == NULL;
+        GetNode( "ClientError", node ) == NULL &&
+        GetNode( "SaveDeskTraces", node ) == NULL;
 
     try
     {
@@ -160,7 +161,8 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
         		showError("Версия системы была обновлена. Повторите действие");
         		break;
         	default:
-        	  ProgError(STDLOG,"EOracleError %d: %s\nSQL: %s",orae->Code,orae->what(),orae->SQLText());
+        	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
+        	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
             showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
         }
         return;
@@ -174,9 +176,9 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     }
     std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
     if (exp)
-        ProgError(STDLOG,"logic_error: %s",exp->what());
+        ProgError(STDLOG,"std::logic_error: %s",exp->what());
     else
-        ProgError(STDLOG,"Unknown error");
+        ProgError(STDLOG,"std::exception: %s",e->what());
 
     showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
     return;

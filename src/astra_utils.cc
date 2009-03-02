@@ -1,24 +1,22 @@
-#include "setup.h"
+#include <stdarg.h>
+#include <string>
 #include "astra_utils.h"
 #include "astra_consts.h"
-#include "JxtInterface.h"
-
-#include <stdarg.h>
 #include "basic.h"
 #include "oralib.h"
 #include "exceptions.h"
-#define NICKNAME "VLAD"
-#include "test.h"
-#include <string.h>
 #include "stl_utils.h"
 #include "xml_unit.h"
-#include "monitor_ctl.h"
-#include "cfgproc.h"
 #include "misc.h"
 #include "base_tables.h"
-#include "jxt_cont.h"
-
 #include "tclmon/tcl_utils.h"
+#include "serverlib/monitor_ctl.h"
+#include "serverlib/cfgproc.h"
+#include "jxtlib/JxtInterface.h"
+#include "jxtlib/jxt_cont.h"
+
+#define NICKNAME "VLAD"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace ASTRA;
@@ -124,7 +122,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,trace_level,lang,NVL(under_constr,0) AS under_constr "
+    "SELECT city,lang,NVL(under_constr,0) AS under_constr "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -136,8 +134,6 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
   desk.city = Qry.FieldAsString( "city" );
   desk.lang = Qry.FieldAsString( "lang" );
-  if (!Qry.FieldIsNULL("trace_level"))
-    desk.trace_level=Qry.FieldAsInteger("trace_level");
 
   Qry.Clear();
   Qry.SQLText=
@@ -627,7 +623,7 @@ TPaxStatus DecodePaxStatus(char* s)
   if (i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]))
     return (TPaxStatus)i;
   else
-    return psOk;
+    return psCheckin;
 };
 
 char* EncodePaxStatus(TPaxStatus s)
@@ -782,6 +778,8 @@ void showBasicInfo(void)
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
   NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
 
+  TQuery Qry(&OraSession);
+
   if (!reqInfo->user.login.empty())
   {
     node = NewTextChild(resNode,"user");
@@ -820,8 +818,35 @@ void showBasicInfo(void)
     node = NewTextChild(resNode,"desk");
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"lang",reqInfo->desk.lang);
-    NewTextChild(node,"trace_level",reqInfo->desk.trace_level);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    Qry.Clear();
+    Qry.SQLText="SELECT file_size,send_size,send_portion FROM desk_logging WHERE desk=:desk";
+    Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+    Qry.Execute();
+    if (!Qry.Eof)
+    {
+      xmlNodePtr loggingNode=NewTextChild(node,"logging");
+      NewTextChild(loggingNode,"file_size",Qry.FieldAsInteger("file_size"));
+      NewTextChild(loggingNode,"send_size",Qry.FieldAsInteger("send_size"));
+      NewTextChild(loggingNode,"send_portion",Qry.FieldAsInteger("send_portion"));
+      xmlNodePtr rangesNode=NewTextChild(loggingNode,"trace_ranges");
+      Qry.Clear();
+      Qry.SQLText="SELECT first_trace,last_trace FROM desk_traces WHERE desk=:desk";
+      Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+      Qry.Execute();
+      int trace_level=-1;
+      for(;!Qry.Eof;Qry.Next())
+      {
+        xmlNodePtr rangeNode=NewTextChild(rangesNode,"range");
+        NewTextChild(rangeNode,"first_trace",Qry.FieldAsInteger("first_trace"));
+        NewTextChild(rangeNode,"last_trace",Qry.FieldAsInteger("last_trace"));
+
+        if (trace_level<Qry.FieldAsInteger("last_trace"))
+          trace_level=Qry.FieldAsInteger("last_trace");
+      };
+      if (trace_level>=0) NewTextChild(node,"trace_level",trace_level);
+    };
+
     xmlNodePtr modeNode=NewTextChild(node,EncodeOperMode(reqInfo->desk.mode).c_str());
     if (reqInfo->desk.mode==omCUTE)
     {
@@ -885,7 +910,6 @@ void showBasicInfo(void)
     };
 
     //новый терминал
-    TQuery Qry(&OraSession);
     Qry.Clear();
     Qry.SQLText=
       "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "

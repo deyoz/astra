@@ -1,8 +1,5 @@
 #include "cache.h"
 #include "basic.h"
-#define NICKNAME "DJEK"
-#include "setup.h"
-#include "test.h"
 #include "exceptions.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
@@ -10,6 +7,9 @@
 #include "astra_consts.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
+
+#define NICKNAME "DJEK"
+#include "serverlib/test.h"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
 
