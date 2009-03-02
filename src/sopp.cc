@@ -34,6 +34,8 @@ using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace boost::local_time;
 
+enum TModule { tSOPP, tISG, tSPPCEK };
+
 const char* points_SOPP_SQL =
     "SELECT points.move_id,points.point_id,point_num,airp,airp_fmt,first_point,airline,airline_fmt,flt_no,"
     "       suffix,suffix_fmt,craft,craft_fmt,bort,"
@@ -568,7 +570,7 @@ string addCondition( const char *sql, bool pr_arx )
 }
 
 string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime next_date,
-                          bool arx, bool pr_isg, int point_id = NoExists )
+                          bool arx, TModule module, int point_id = NoExists )
 {
 	string errcity;
 	TReqInfo *reqInfo = TReqInfo::Instance();
@@ -581,12 +583,12 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   TBaseTable &cities = base_tables.get( "cities" );
 
   if ( arx )
-  	if ( pr_isg )
+  	if ( module == tISG )
   		PointsQry.SQLText = addCondition( arx_points_ISG_SQL, arx ).c_str();
   	else
   	  PointsQry.SQLText = addCondition( arx_points_SOPP_SQL, arx ).c_str();
   else
-  	if ( pr_isg )
+  	if ( module == tISG )
   	  PointsQry.SQLText = addCondition( points_ISG_SQL, arx ).c_str();
   	else
   		if ( point_id == NoExists )
@@ -659,7 +661,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   	CRS_DisplfromQry.DeclareVariable( "point_id_spp", otInteger );
   }
   TQuery DelaysQry( &OraSession );
-  if ( pr_isg ) {
+  if ( module == tISG ) {
     if ( arx ) {
       DelaysQry.SQLText = arx_trip_delays_SQL;
       DelaysQry.DeclareVariable( "part_key", otDate );
@@ -683,7 +685,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   string ref;
   int col_move_id = PointsQry.FieldIndex( "move_id" );
   int col_ref;
-  if ( pr_isg )
+  if ( module == tISG )
   	col_ref = PointsQry.FieldIndex( "ref" );
   int col_point_id = PointsQry.FieldIndex( "point_id" );
   int col_point_num = PointsQry.FieldIndex( "point_num" );
@@ -742,9 +744,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		TSOPPTrip ntr = createTrip( move_id, id, dests );
             ntr.ref = ref;
             if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time !=ustTimeUTC*//*==ustTimeLocalAirp,*/
-            	                     errcity, pr_isg ) ) {
+            	                     errcity, module == tISG ) ) {
             	vector<TSOPPTrip>::iterator v=vtrips.end();
-            	if ( pr_isg && reqInfo->desk.city != "ЧЛБ" ) {
+            	if ( module == tISG && reqInfo->desk.city != "ЧЛБ" ) {
             	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
               		if ( EqualTrips( ntr, *v ) )
               			break;
@@ -759,7 +761,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
       }
       move_id = PointsQry.FieldAsInteger( col_move_id );
-      if ( pr_isg )
+      if ( module == tISG )
         ref = PointsQry.FieldAsString( col_ref );
       dests.clear();
     }
@@ -825,7 +827,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     else
     	d.part_key = NoExists;
 
-    if ( pr_isg ) {
+    if ( module == tISG ) {
    	  DelaysQry.SetVariable( "point_id", d.point_id );
    	  if ( arx )
    	  	DelaysQry.SetVariable( "part_key", d.part_key );
@@ -858,9 +860,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
          TSOPPTrip ntr = createTrip( move_id, id, dests );
          ntr.ref = ref;
          if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time != ustTimeUTC*//*==ustTimeLocalAirp,*/
-         	                      errcity, pr_isg ) ) {
+         	                      errcity, module == tISG ) ) {
           	vector<TSOPPTrip>::iterator v=vtrips.end();
-          	if ( pr_isg && reqInfo->desk.city != "ЧЛБ" ) {
+          	if ( module == tISG && reqInfo->desk.city != "ЧЛБ" ) {
            	  for (v=vtrips.begin(); v!=vtrips.end(); v++) {
            	  	if ( EqualTrips( ntr, *v ) )
            	  		break;
@@ -882,7 +884,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   for ( TSOPPTrips::iterator tr=trips.begin(); tr!=trips.end(); tr++ ) {
     if ( !tr->places_out.empty() ) {
       // добор информации
-      if ( !pr_isg ) {
+      if ( module != tISG ) {
         ClassesQry.SetVariable( "point_id", tr->point_id );
         if ( arx )
         	ClassesQry.SetVariable( "part_key", tr->part_key );
@@ -899,11 +901,11 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
            tr->classes += string(ClassesQry.FieldAsString( col_cfg ));
           ClassesQry.Next();
         }
-      } // !pr_isg
-      if ( point_id != NoExists )
+      } // module != tISG
+      if ( module == tSPPCEK )
       	continue;
 
-      if ( !pr_isg ) {
+      if ( module != tISG ) {
         ///////////////////////////// reg /////////////////////////
         RegQry.SetVariable( "point_id", tr->point_id );
         if ( arx )
@@ -914,10 +916,13 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         }
         ///////////////////////// resa ///////////////////////////
         if ( !arx ) {
+        	ProgTrace( TRACE5, "tr->point_id=%d", tr->point_id );
         	ResaQry.SetVariable( "point_id", tr->point_id );
         	ResaQry.Execute();
-          if ( !ResaQry.Eof )
+          if ( !ResaQry.Eof ) {
             tr->resa = ResaQry.FieldAsInteger( "resa" );
+            ProgTrace( TRACE5, "resa=%d", tr->resa );
+          }
         }
         ////////////////////// trfer  ///////////////////////////////
         if ( !arx ) {
@@ -930,14 +935,14 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
           if ( !Trfer_regQry.Eof )
           	tr->TrferType.setFlag( trferCkin );
         }
-      } //!pr_isg
+      } // module != tISG
       ////////////////////// stages ///////////////////////////////
       if ( arx )
         read_TripStages( tr->stages, tr->part_key, tr->point_id );
       else
       	read_TripStages( tr->stages, NoExists, tr->point_id );
       ////////////////////////// stations //////////////////////////////
-      if ( !arx && !pr_isg ) {
+      if ( !arx && module != tISG ) {
         StationsQry.SetVariable( "point_id", tr->point_id );
         StationsQry.Execute();
 
@@ -974,7 +979,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
        }
       }
     } // end if (!place_out.empty())
-   	if ( !arx && !pr_isg && tr->trfer_out_point_id != -1 ) {
+   	if ( !arx && module != tISG && tr->trfer_out_point_id != -1 ) {
    		Trfer_outQry.SetVariable( "point_id", tr->trfer_out_point_id );
    		Trfer_outQry.Execute();
    		if ( !Trfer_outQry.Eof )
@@ -1399,7 +1404,11 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 //  createCentringFile( 13672, "ASTRA", "DMDTST" );
   ProgTrace( TRACE5, "ReadTrips" );
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  bool pr_isg = GetNode( "disp_isg", reqNode );
+  TModule module;
+  if ( GetNode( "disp_isg", reqNode ) )
+  	module = tISG;
+  else
+  	module = tSOPP;
   if ( GetNode( "CorrectStages", reqNode ) ) {
     TStagesRules::Instance()->Build( NewTextChild( dataNode, "CorrectStages" ) );
   }
@@ -1438,8 +1447,8 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     next_date = NoExists;
   }
   TSOPPTrips trips;
-  string errcity = internal_ReadData( trips, first_date, next_date, arx, pr_isg );
-  if ( pr_isg )
+  string errcity = internal_ReadData( trips, first_date, next_date, arx, module );
+  if ( module == tISG )
   	buildISG( trips, errcity, dataNode );
   else
     buildSOPP( trips, errcity, dataNode );
@@ -1893,13 +1902,8 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   };
 }
 
-void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void DeletePassengersAnswer( map<int,TTripInfo> &segs, xmlNodePtr resNode )
 {
-  int point_id = NodeAsInteger( "point_id", reqNode );
-  bool tckin_version=strcmp((char *)reqNode->name, "DeleteAllPassangers") != 0;
-  map<int,TTripInfo> segs;
-	DeletePassengers( point_id, string(""), segs, tckin_version );
-
 	TQuery Qry(&OraSession);
 	Qry.Clear();
   Qry.SQLText=
@@ -1912,19 +1916,33 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     bool pr_etl_only=GetTripSets(tsETLOnly,i->second);
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
-    if (Qry.Eof) continue;
-    int pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
+    int pr_etstatus=-1;
+    if (!Qry.Eof)
+      pr_etstatus=Qry.FieldAsInteger("pr_etstatus");
 
-    if (!pr_etl_only && pr_etstatus>=0)
-    {
       //здесь формируем список рейсов, на которых надо сделать смену статуса ЭБ
-      xmlNodePtr segNode=NewTextChild(segsNode,"segment");
-      NewTextChild( segNode, "point_id", i->first);
-      NewTextChild( segNode, "pr_etl_only", (int)pr_etl_only );
-      NewTextChild( segNode, "pr_etstatus", pr_etstatus );
-    };
-  };
-  showMessage( "Все пассажиры разрегистрированы" );
+    xmlNodePtr segNode=NewTextChild(segsNode,"segment");
+    NewTextChild( segNode, "point_id", i->first);
+    NewTextChild( segNode, "pr_etl_only", (int)pr_etl_only );
+    NewTextChild( segNode, "pr_etstatus", pr_etstatus );
+  }
+}
+
+void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  bool tckin_version=strcmp((char *)reqNode->name, "DeleteAllPassangers") != 0;
+  map<int,TTripInfo> segs;
+	DeletePassengers( point_id, string(""), segs, tckin_version );
+  DeletePassengersAnswer( segs, resNode );
+  TSOPPTrips trips;
+  string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
+  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
+  buildSOPP( trips, errcity, dataNode );
+  if ( !errcity.empty() )
+    showErrorMessage( string("Для города ") + errcity + " не задан регион. Некоторые рейсы не отображаются" );
+  else
+    showMessage( "Все пассажиры разрегистрированы" );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -4065,7 +4083,7 @@ void SoppInterface::GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 //////////////////////////////////////////////////////////////////
 void createSOPPTrip( int point_id, TSOPPTrips &trips )
 {
-	internal_ReadData( trips, NoExists, NoExists, false, false, point_id );
+	internal_ReadData( trips, NoExists, NoExists, false, tSPPCEK, point_id );
 }
 
 void ChangeACT_OUT( int point_id, TDateTime old_act, TDateTime act )
@@ -4164,6 +4182,16 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "crew/point_id", dataNode ) );
 	Qry.CreateVariable( "commander", otString, NodeAsString( "crew/commander", dataNode )  );
 	Qry.Execute();
+}
+
+void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText = "SELECT system.UTCSYSDATE time FROM dual";
+	Qry.Execute();
+	string region = AirpTZRegion( NodeAsString( "airp", reqNode ), true );
+	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
+	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
 
 /* есть пассажиры, которые на листе ожидания */

@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "tripinfo.h"
 
 struct Cargo {
 	int cargo;
@@ -220,6 +221,8 @@ bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateT
                        std::string &errcity, bool pr_isg );
 
 void DeletePassengers( int point_id, const std::string status, std::map<int,TTripInfo> &segs, bool tckin_version );
+void DeletePassengersAnswer( std::map<int,TTripInfo> &segs, xmlNodePtr resNode );
+
 
 bool is_waitlist_alarm( int point_id );
 bool is_brd_alarm( int point_id );
@@ -264,6 +267,8 @@ public:
      AddEvent("ReadCrew",evHandle);
      evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::WriteCrew);
      AddEvent("WriteCrew",evHandle);
+     evHandle=JxtHandler<SoppInterface>::CreateHandler(&SoppInterface::GetTime);
+     AddEvent("GetTime",evHandle);
   };
   void ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, bool pr_bag);
@@ -282,6 +287,7 @@ public:
   void GetReportForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ReadCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
