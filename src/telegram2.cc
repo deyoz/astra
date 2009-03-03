@@ -327,11 +327,13 @@ namespace PRL_SPACE {
     }
 
     struct TInfants {
+        int point_id;
         vector<TInfantsItem> items;
-        void get(int point_id);
+        void get();
+        TInfants(): point_id(NoExists) {};
     };
 
-    void TInfants::get(int point_id) {
+    void TInfants::get() {
         items.clear();
         if(point_id == NoExists) return;
         TQuery Qry(&OraSession);
@@ -414,8 +416,6 @@ namespace PRL_SPACE {
         }
     }
 
-    TInfants infants;
-
     struct TRemItem {
         string rem, cls, crs_cls, crs_subcls;
         void dump();
@@ -455,9 +455,11 @@ namespace PRL_SPACE {
 
     struct TPRLPax;
     struct TRemList {
+        TInfants *infants;
         vector<TRemItem> items;
         void get(TTlgInfo &info, TPRLPax &pax);
         void ToTlg(TTlgInfo &info, vector<string> &body);
+        TRemList(TInfants *ainfants): infants(ainfants) {};
     };
 
     struct TTagItem {
@@ -723,7 +725,6 @@ namespace PRL_SPACE {
         void get(int grp_id);
         void ToTlg(TTlgInfo &info, TPRLPax &pax, vector<string> &body);
     };
-    TGRPMap grp_map;
 
     struct TPRLPax {
         string target;
@@ -734,9 +735,11 @@ namespace PRL_SPACE {
         int pax_id;
         int grp_id;
         TPNRList pnrs;
+        TInfants *infants;
         TRemList rems;
         TPRLOnwardList OList;
-        TPRLPax() {
+        TPRLPax(TInfants *ainfants): rems(ainfants) {
+            infants = ainfants;
             cls_grp_id = NoExists;
             pnr_id = NoExists;
             pax_id = NoExists;
@@ -803,7 +806,7 @@ namespace PRL_SPACE {
         items.clear();
         if(pax.pax_id == NoExists) return;
         // rems must be push_backed exactly in this order. Don't swap!
-        for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
+        for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 TRemItem rem;
                 rem.rem = "1INF " + infRow->surname;
@@ -875,8 +878,12 @@ namespace PRL_SPACE {
         string airp;
         string cls;
         vector<TPRLPax> PaxList;
-        TPRLDest() {
+        TGRPMap *grp_map;
+        TInfants *infants;
+        TPRLDest(TGRPMap *agrp_map, TInfants *ainfants) {
             point_num = NoExists;
+            grp_map = agrp_map;
+            infants = ainfants;
         }
         void GetPaxList(TTlgInfo &info);
         void PaxListToTlg(TTlgInfo &info, vector<string> &body);
@@ -895,12 +902,14 @@ namespace PRL_SPACE {
             body.push_back(line);
             iv->pnrs.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
-            grp_map.ToTlg(info, *iv, body);
+            grp_map->ToTlg(info, *iv, body);
         }
     }
 
     void TPRLDest::GetPaxList(TTlgInfo &info)
     {
+        if(infants->items.empty())
+            infants->get();
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "select "
@@ -946,7 +955,7 @@ namespace PRL_SPACE {
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
             for(; !Qry.Eof; Qry.Next()) {
-                TPRLPax pax;
+                TPRLPax pax(infants);
                 pax.target = Qry.FieldAsString(col_target);
                 if(!Qry.FieldIsNULL(col_cls))
                     pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
@@ -958,7 +967,7 @@ namespace PRL_SPACE {
                 pax.grp_id = Qry.FieldAsInteger(col_grp_id);
                 pax.pnrs.get(pax.pnr_id);
                 pax.rems.get(info, pax);
-                grp_map.get(pax.grp_id);
+                grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id, true);
                 PaxList.push_back(pax);
             }
@@ -3117,6 +3126,8 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
 
 template <class T>
 struct TDestList {
+    TGRPMap grp_map; // PRL, ETL
+    TInfants infants; // PRL
     int vpoint_num;
     int vfirst_point;
     vector<T> items;
@@ -3142,6 +3153,7 @@ void TDestList<T>::get(TTlgInfo &info)
         throw UserException("Рейс не найден");
     vpoint_num = Qry.FieldAsInteger("point_num");
     vfirst_point = Qry.FieldAsInteger("first_point");
+    infants.point_id = vfirst_point;
     Qry.Clear();
     Qry.SQLText =
         "select point_num, airp, class from "
@@ -3164,7 +3176,7 @@ void TDestList<T>::get(TTlgInfo &info)
     Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
-        T dest;
+        T dest(&grp_map, &infants);
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
@@ -3195,8 +3207,6 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
 
     TDestList<TPRLDest> dests2;
     dests2.get(info);
-    infants.get(dests2.vfirst_point);
-    grp_map.items.clear();
     vector<string> body;
     ostringstream line;
     bool pr_empty = true;
