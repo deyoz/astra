@@ -3046,6 +3046,134 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
+struct TETLBody {
+    void get(TTlgInfo &info);
+};
+
+void TETLBody::get(TTlgInfo &info)
+{
+}
+
+int ETL(TTlgInfo &info, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "ETL" << br
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    vector<string> body;
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   class, "
+        "   cfg "
+        "from "
+        "   trip_classes, "
+        "   classes "
+        "where "
+        "   trip_classes.point_id = :point_id and "
+        "   trip_classes.class = classes.code "
+        "order by "
+        "   classes.priority ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        ostringstream cfg;
+        cfg << "CFG/";
+        for(; !Qry.Eof; Qry.Next()) {
+            cfg
+                << setw(3) << setfill('0') << Qry.FieldAsInteger("cfg")
+                << ElemIdToElem(etClass, Qry.FieldAsString("class"), info.pr_lat);
+        }
+        body.push_back(cfg.str());
+    }
+    if(info.act_local != 0) {
+        body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
+    }
+
+    TETLBody ETL;
+    ETL.get(info);
+
+
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+        tlg_row.body += *iv + br;
+    }
+    tlg_row.ending = "ENDETL" + br;
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
+}
+
+template <class T>
+struct TDestList {
+    int vpoint_num;
+    int vfirst_point;
+    vector<T> items;
+    TDestList(): vpoint_num(NoExists), vfirst_point(NoExists) {};
+    void get(TTlgInfo &info);
+};
+
+template <class T>
+void TDestList<T>::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   point_num, "
+        "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Рейс не найден");
+    vpoint_num = Qry.FieldAsInteger("point_num");
+    vfirst_point = Qry.FieldAsInteger("first_point");
+    Qry.Clear();
+    Qry.SQLText =
+        "select point_num, airp, class from "
+        "( "
+        "  SELECT airp, point_num, point_id FROM points "
+        "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
+        ") a, "
+        "( "
+        "  SELECT DISTINCT cls_grp.code AS class "
+        "  FROM pax_grp,cls_grp "
+        "  WHERE pax_grp.class_grp=cls_grp.id AND "
+        "        pax_grp.point_dep = :vpoint_id AND pax_grp.bag_refuse=0 "
+        "  UNION "
+        "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id "
+        ") b  "
+        "ORDER by "
+        "  point_num, airp, class ";
+    Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
+    Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
+    Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
+    Qry.Execute();
+    vector<TPRLDest> dests;
+    for(; !Qry.Eof; Qry.Next()) {
+        T dest;
+        dest.point_num = Qry.FieldAsInteger("point_num");
+        dest.airp = Qry.FieldAsString("airp");
+        dest.cls = Qry.FieldAsString("class");
+        dest.GetPaxList(info);
+        dests.push_back(dest);
+    }
+}
+
 int PRL(TTlgInfo &info, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
@@ -3065,6 +3193,11 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+
+    TDestList<TPRLDest> dests2;
+    dests2.get(info);
+
+
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -3295,6 +3428,7 @@ int TelegramInterface::create_tlg(
     if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
+    else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
     else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
     else if(vbasic_type == "SOM") vid = SOM(info, tst_tlg_id);
     else vid = Unknown(info, vcompleted, tst_tlg_id);
