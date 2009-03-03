@@ -3055,12 +3055,71 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
-struct TETLBody {
-    void get(TTlgInfo &info);
+struct TETLDest {
+    int point_num;
+    string airp;
+    string cls;
+    vector<TPRLPax> PaxList;
+    TGRPMap *grp_map;
+    TInfants *infants;
+    TETLDest(TGRPMap *agrp_map, TInfants *ainfants) {
+        point_num = NoExists;
+        grp_map = agrp_map;
+        infants = ainfants;
+    }
+    void GetPaxList(TTlgInfo &info);
+    void PaxListToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TETLBody::get(TTlgInfo &info)
+void TETLDest::GetPaxList(TTlgInfo &info)
 {
+}
+
+void TETLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
+{
+}
+
+template <class T>
+struct TDestList {
+    TGRPMap grp_map; // PRL, ETL
+    TInfants infants; // PRL
+    int vpoint_num;
+    int vfirst_point;
+    vector<T> items;
+    TDestList(): vpoint_num(NoExists), vfirst_point(NoExists) {};
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+template <class T>
+void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    ostringstream line;
+    bool pr_empty = true;
+    for(size_t i = 0; i < items.size(); i++) {
+        T *iv = &items[i];
+        if(iv->PaxList.empty()) {
+            line.str("");
+            line
+                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
+                << "00" << TlgElemIdToElem(etSubcls, iv->cls, true); //всегда на латинице - так надо
+            body.push_back(line.str());
+        } else {
+            pr_empty = false;
+            line.str("");
+            line
+                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
+                << setw(2) << setfill('0') << iv->PaxList.size()
+                << TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, true); //всегда на латинице - так надо
+            body.push_back(line.str());
+            iv->PaxListToTlg(info, body);
+        }
+    }
+
+    if(pr_empty) {
+        body.clear();
+        body.push_back("NIL");
+    }
 }
 
 int ETL(TTlgInfo &info, int tst_tlg_id)
@@ -3112,9 +3171,7 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
         body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
     }
 
-    TETLBody ETL;
-    ETL.get(info);
-
+    TDestList<TETLDest> dests;
 
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
         tlg_row.body += *iv + br;
@@ -3123,17 +3180,6 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
     SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
 }
-
-template <class T>
-struct TDestList {
-    TGRPMap grp_map; // PRL, ETL
-    TInfants infants; // PRL
-    int vpoint_num;
-    int vfirst_point;
-    vector<T> items;
-    TDestList(): vpoint_num(NoExists), vfirst_point(NoExists) {};
-    void get(TTlgInfo &info);
-};
 
 template <class T>
 void TDestList<T>::get(TTlgInfo &info)
@@ -3205,34 +3251,10 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
-    TDestList<TPRLDest> dests2;
-    dests2.get(info);
+    TDestList<TPRLDest> dests;
+    dests.get(info);
     vector<string> body;
-    ostringstream line;
-    bool pr_empty = true;
-    for(vector<TPRLDest>::iterator iv = dests2.items.begin(); iv != dests2.items.end(); iv++) {
-        if(iv->PaxList.empty()) {
-            line.str("");
-            line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << "00" << TlgElemIdToElem(etSubcls, iv->cls, true); //всегда на латинице - так надо
-            body.push_back(line.str());
-        } else {
-            pr_empty = false;
-            line.str("");
-            line
-                << "-" << TlgElemIdToElem(etAirp, iv->airp, info.pr_lat)
-                << setw(2) << setfill('0') << iv->PaxList.size()
-                << TlgElemIdToElem(etClsGrp, iv->PaxList[0].cls_grp_id, true); //всегда на латинице - так надо
-            body.push_back(line.str());
-            iv->PaxListToTlg(info, body);
-        }
-    }
-
-    if(pr_empty) {
-        body.clear();
-        body.push_back("NIL");
-    }
+    dests.ToTlg(info, body);
     string part_begin;
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
         if(iv->find('-') == 0)
