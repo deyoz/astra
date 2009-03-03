@@ -3163,14 +3163,13 @@ void TDestList<T>::get(TTlgInfo &info)
     Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
     Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
     Qry.Execute();
-    vector<TPRLDest> dests;
     for(; !Qry.Eof; Qry.Next()) {
         T dest;
         dest.point_num = Qry.FieldAsInteger("point_num");
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
         dest.GetPaxList(info);
-        dests.push_back(dest);
+        items.push_back(dest);
     }
 }
 
@@ -3196,59 +3195,12 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
 
     TDestList<TPRLDest> dests2;
     dests2.get(info);
-
-
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   point_num, "
-        "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
-        "from "
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Рейс не найден");
-    int vpoint_num = Qry.FieldAsInteger("point_num");
-    int vfirst_point = Qry.FieldAsInteger("first_point");
-    infants.get(vfirst_point);
+    infants.get(dests2.vfirst_point);
     grp_map.items.clear();
-    Qry.Clear();
-    Qry.SQLText =
-        "select point_num, airp, class from "
-        "( "
-        "  SELECT airp, point_num, point_id FROM points "
-        "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
-        ") a, "
-        "( "
-        "  SELECT DISTINCT cls_grp.code AS class "
-        "  FROM pax_grp,cls_grp "
-        "  WHERE pax_grp.class_grp=cls_grp.id AND "
-        "        pax_grp.point_dep = :vpoint_id AND pax_grp.bag_refuse=0 "
-        "  UNION "
-        "  SELECT class FROM trip_classes WHERE point_id = :vpoint_id "
-        ") b  "
-        "ORDER by "
-        "  point_num, airp, class ";
-    Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
-    Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
-    Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
-    Qry.Execute();
-    vector<TPRLDest> dests;
-    for(; !Qry.Eof; Qry.Next()) {
-        TPRLDest dest;
-        dest.point_num = Qry.FieldAsInteger("point_num");
-        dest.airp = Qry.FieldAsString("airp");
-        dest.cls = Qry.FieldAsString("class");
-        dest.GetPaxList(info);
-        dests.push_back(dest);
-    }
     vector<string> body;
     ostringstream line;
     bool pr_empty = true;
-    for(vector<TPRLDest>::iterator iv = dests.begin(); iv != dests.end(); iv++) {
+    for(vector<TPRLDest>::iterator iv = dests2.items.begin(); iv != dests2.items.end(); iv++) {
         if(iv->PaxList.empty()) {
             line.str("");
             line
