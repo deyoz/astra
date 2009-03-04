@@ -1823,7 +1823,10 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       if ( !canUseAirline || !canUseAirp )
         throw UserException( "Недостаточно прав. Доступ к информации невозможен" );
 //      ProgTrace( TRACE5, "first_dest=%d", ds.first_dest );
-      mapds.insert(std::make_pair( period.move_id, ds ) );
+      if ( mapds.find( period.move_id ) == mapds.end() ) //!!! ввели новый период (рейс) и сразу расширили его новой датой
+        mapds.insert(std::make_pair( period.move_id, ds ) );
+      else
+      	newdests = false; // используем старый маршрут
     } // if ( node )
     // периоды хранять время вылета из п.п. переводим в UTC
     ds = mapds[ period.move_id ];
