@@ -368,6 +368,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if(
           tlg_type == "SOM" or
           tlg_type == "PRL" or
+          tlg_type == "ETL" or
           tlg_type == "BTM" or
           tlg_type == "PTM" or
           tlg_type == "PTMN" or

@@ -242,6 +242,7 @@ struct TWItem {
     {};
 };
 
+struct TETLPax;
 namespace PRL_SPACE {
     struct TPNRItem {
         string airline, addr;
@@ -457,9 +458,10 @@ namespace PRL_SPACE {
     struct TRemList {
         TInfants *infants;
         vector<TRemItem> items;
+        void get(TTlgInfo &info, TETLPax &pax);
         void get(TTlgInfo &info, TPRLPax &pax);
         void ToTlg(TTlgInfo &info, vector<string> &body);
-        TRemList(TInfants *ainfants): infants(ainfants) {};
+        TRemList(TInfants *ainfants = NULL): infants(ainfants) {};
     };
 
     struct TTagItem {
@@ -723,7 +725,7 @@ namespace PRL_SPACE {
     struct TGRPMap {
         map<int, TGRPItem> items;
         void get(int grp_id);
-        void ToTlg(TTlgInfo &info, TPRLPax &pax, vector<string> &body);
+        void ToTlg(TTlgInfo &info, int grp_id, vector<string> &body);
     };
 
     struct TPRLPax {
@@ -747,9 +749,9 @@ namespace PRL_SPACE {
         }
     };
 
-    void TGRPMap::ToTlg(TTlgInfo &info, TPRLPax &pax, vector<string> &body)
+    void TGRPMap::ToTlg(TTlgInfo &info, int grp_id, vector<string> &body)
     {
-        TGRPItem &grp_map = items[pax.grp_id];
+        TGRPItem &grp_map = items[grp_id];
         if(not(grp_map.W.bagAmount == 0 and grp_map.W.bagWeight == 0 and grp_map.W.rkWeight == 0)) {
             ostringstream line;
             if(grp_map.pax_count > 1) {
@@ -902,7 +904,7 @@ namespace PRL_SPACE {
             body.push_back(line);
             iv->pnrs.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
-            grp_map->ToTlg(info, *iv, body);
+            grp_map->ToTlg(info, iv->grp_id, body);
         }
     }
 
@@ -3055,17 +3057,47 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
+struct TETLPax {
+    string target;
+    int cls_grp_id;
+    string surname;
+    string name;
+    int pnr_id;
+    int pax_id;
+    double ticket_no;
+    int coupon_no;
+    int grp_id;
+    TPNRList pnrs;
+    TRemList rems;
+    TETLPax() {
+        cls_grp_id = NoExists;
+        pnr_id = NoExists;
+        pax_id = NoExists;
+        grp_id = NoExists;
+    }
+};
+
+void TRemList::get(TTlgInfo &info, TETLPax &pax)
+{
+    ostringstream buf;
+    buf
+        << "TKNE "
+        << fixed << setprecision(0) << pax.ticket_no << "/" << pax.coupon_no;
+    TRemItem rem;
+    rem.rem = buf.str();
+    items.push_back(rem);
+}
+
+
 struct TETLDest {
     int point_num;
     string airp;
     string cls;
-    vector<TPRLPax> PaxList;
+    vector<TETLPax> PaxList;
     TGRPMap *grp_map;
-    TInfants *infants;
     TETLDest(TGRPMap *agrp_map, TInfants *ainfants) {
         point_num = NoExists;
         grp_map = agrp_map;
-        infants = ainfants;
     }
     void GetPaxList(TTlgInfo &info);
     void PaxListToTlg(TTlgInfo &info, vector<string> &body);
@@ -3073,10 +3105,89 @@ struct TETLDest {
 
 void TETLDest::GetPaxList(TTlgInfo &info)
 {
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    pax_grp.airp_arv target, "
+        "    cls_grp.id cls, "
+        "    pax.surname, "
+        "    pax.name, "
+        "    crs_pnr.pnr_id, "
+        "    pax.pax_id, "
+        "    pax.ticket_no, "
+        "    pax.coupon_no, "
+        "    pax.grp_id "
+        "from "
+        "    pax, "
+        "    pax_grp, "
+        "    cls_grp, "
+        "    crs_pax, "
+        "    crs_pnr "
+        "WHERE "
+        "    pax_grp.point_dep = :point_id and "
+        "    pax_grp.airp_arv = :airp and "
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.class_grp = cls_grp.id(+) AND "
+        "    cls_grp.code = :class and "
+        "    pax.pr_brd = 1 and "
+        "    pax.pax_id = crs_pax.pax_id(+) and "
+        "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
+        "    pax.ticket_rem = 'TKNE' "
+        "order by "
+        "    target, "
+        "    cls, "
+        "    pax.surname, "
+        "    pax.name nulls first, "
+        "    pax.pax_id ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("airp", otString, airp);
+    Qry.CreateVariable("class", otString, cls);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_target = Qry.FieldIndex("target");
+        int col_cls = Qry.FieldIndex("cls");
+        int col_surname = Qry.FieldIndex("surname");
+        int col_name = Qry.FieldIndex("name");
+        int col_pnr_id = Qry.FieldIndex("pnr_id");
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_ticket_no = Qry.FieldIndex("ticket_no");
+        int col_coupon_no = Qry.FieldIndex("coupon_no");
+        int col_grp_id = Qry.FieldIndex("grp_id");
+        for(; !Qry.Eof; Qry.Next()) {
+            TETLPax pax;
+            pax.target = Qry.FieldAsString(col_target);
+            if(!Qry.FieldIsNULL(col_cls))
+                pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
+            pax.surname = Qry.FieldAsString(col_surname);
+            pax.name = Qry.FieldAsString(col_name);
+            if(!Qry.FieldIsNULL(col_pnr_id))
+                pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
+            pax.pax_id = Qry.FieldAsInteger(col_pax_id);
+            pax.ticket_no = Qry.FieldAsFloat(col_ticket_no);
+            pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
+            pax.grp_id = Qry.FieldAsInteger(col_grp_id);
+            pax.pnrs.get(pax.pnr_id);
+            pax.rems.get(info, pax);
+            grp_map->get(pax.grp_id);
+            PaxList.push_back(pax);
+        }
+    }
 }
 
 void TETLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
 {
+    for(vector<TETLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
+        string line = "1" + transliter(iv->surname, info.pr_lat).substr(0, 63);
+        if(!iv->name.empty()) {
+            string name = transliter(iv->name, info.pr_lat);
+            if(iv->name.size() + line.size() + 1 <= LINE_SIZE)
+                line += "/" + name;
+        }
+        body.push_back(line);
+        iv->pnrs.ToTlg(info, body);
+        iv->rems.ToTlg(info, body);
+        grp_map->ToTlg(info, iv->grp_id, body);
+    }
 }
 
 template <class T>
@@ -3089,7 +3200,40 @@ struct TDestList {
     TDestList(): vpoint_num(NoExists), vfirst_point(NoExists) {};
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
+    void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body);
 };
+
+template <class T>
+void TDestList<T>::split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body) {
+    string part_begin;
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
+        if(iv->find('-') == 0)
+            part_begin = *iv;
+        int pax_len = 0;
+        if(iv->find('1') == 0) {
+            pax_len = iv->size() + br.size();
+            for(vector<string>::iterator j = iv + 1; j != body.end() and j->find('1') != 0; j++) {
+                pax_len += j->size() + br.size();
+            }
+        } else
+            pax_len = iv->size() + br.size();
+        if(part_len + pax_len <= PART_SIZE)
+            pax_len = iv->size() + br.size();
+        part_len += pax_len;
+        if(part_len > PART_SIZE) {
+            SaveTlgOutPartTST(tlg_row);
+            tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+            tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+            if(iv->find('-') == 0)
+                tlg_row.body = *iv + br;
+            else
+                tlg_row.body = part_begin + br + *iv + br;
+            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
+                tlg_row.body.size() + tlg_row.ending.size();
+        } else
+            tlg_row.body += *iv + br;
+    }
+}
 
 template <class T>
 void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
@@ -3172,10 +3316,9 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
     }
 
     TDestList<TETLDest> dests;
-
-    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
-        tlg_row.body += *iv + br;
-    }
+    dests.get(info);
+    dests.ToTlg(info, body);
+    dests.split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
     SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
@@ -3255,34 +3398,7 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
     dests.get(info);
     vector<string> body;
     dests.ToTlg(info, body);
-    string part_begin;
-    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
-        if(iv->find('-') == 0)
-            part_begin = *iv;
-        int pax_len = 0;
-        if(iv->find('1') == 0) {
-            pax_len = iv->size() + br.size();
-            for(vector<string>::iterator j = iv + 1; j != body.end() and j->find('1') != 0; j++) {
-                pax_len += j->size() + br.size();
-            }
-        } else
-            pax_len = iv->size() + br.size();
-        if(part_len + pax_len <= PART_SIZE)
-            pax_len = iv->size() + br.size();
-        part_len += pax_len;
-        if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
-            tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
-            tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
-            if(iv->find('-') == 0)
-                tlg_row.body = *iv + br;
-            else
-                tlg_row.body = part_begin + br + *iv + br;
-            part_len = tlg_row.addr.size() + tlg_row.heading.size() +
-                tlg_row.body.size() + tlg_row.ending.size();
-        } else
-            tlg_row.body += *iv + br;
-    }
+    dests.split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
     SaveTlgOutPartTST(tlg_row);
     return tlg_row.id;
