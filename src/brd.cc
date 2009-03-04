@@ -6,6 +6,7 @@
 #include "oralib.h"
 #include "cache.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "stages.h"
 #include "tripinfo.h"
 #include "etick.h"
@@ -292,6 +293,8 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
     Qry.Execute();
     if (!Qry.Eof)
     {
+      int grp_id=Qry.FieldAsInteger("grp_id");
+
       string msg = (string)
                   "Пассажир " + Qry.FieldAsString("surname") + " " +
                   Qry.FieldAsString("name");
@@ -307,7 +310,12 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
       TReqInfo::Instance()->MsgToLog(msg, evtPax,
                                      point_id,
                                      Qry.FieldAsInteger("reg_no"),
-                                     Qry.FieldAsInteger("grp_id"));
+                                     grp_id);
+
+      //отвяжем сквозняков от предыдущих сегментов
+      int tckin_id;
+      int tckin_seg_no;
+      SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid,tckin_id,tckin_seg_no);
     };
     tid=new_tid;
     return true;

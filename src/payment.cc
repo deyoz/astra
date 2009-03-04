@@ -275,8 +275,8 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(dataNode,"tickets");
   };
 
-  CheckInInterface::LoadBag(dataNode);
-  CheckInInterface::LoadPaidBag(dataNode);
+  CheckInInterface::LoadBag(grp_id,dataNode);
+  CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,dataNode);
 
   ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());

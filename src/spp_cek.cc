@@ -20,11 +20,11 @@
 #include "timer.h"
 #include "xml_unit.h"
 #include "jxtlib/xml_stuff.h"
-#include "serverlib/helpcpp.h"
+#include "serverlib/logger.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
-#include "serverlib/slogger.h"
+#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -541,6 +541,25 @@ string getPNR( const string airline, int airline_fmt, int flt_no, const string s
 	return pnr;
 }
 
+string getAirline_CityOnwer( const string triptype, const string airline )
+{
+	if ( triptype == "м" )
+		return string("М");
+	else {
+		TQuery Qry( &OraSession );
+		Qry.SQLText =
+		  "SELECT * FROM area_countries, airlines, cities "
+		  " WHERE airlines.code=:airline AND "
+		  "       cities.code=airlines.city AND "
+		  "       cities.country=area_countries.country AND cities.country<>'РФ'";
+		Qry.CreateVariable( "airline", otString, airline );
+		Qry.Execute();
+		if ( Qry.Eof )
+			return string( "Р" );
+		else return string( "С" );
+  }
+}
+
 xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
 {
 	TDateTime tm;
@@ -556,7 +575,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
   	NewTextChild( NodeA, "PNR", getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ) );
   	NewTextChild( NodeA, "DN", GetStrDate( tr->scd_in ) );
   	NewTextChild( NodeA, "KUG", tr->airline_in );
-  	NewTextChild( NodeA, "TVC", tr->craft_in );
+  	NewTextChild( NodeA, "TVC", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_in, tr->craft_in_fmt ) );
     if ( tr->pr_del_in == 1 )
     	NewTextChild( NodeA, "BNP", "ОТМЕН" );
     else
@@ -572,6 +591,8 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     	NewTextChild( NodeA, "VDV", "МЕЖ" );
     else
       NewTextChild( NodeA, "VDV", "ПАС" );
+    NewTextChild( NodeA, "VRD", tr->litera_in );
+    NewTextChild( NodeA, "ABSM", getAirline_CityOnwer( tr->triptype_in, tr->airline_in ) );
     int k = 0;
     int prior_point_id = ASTRA::NoExists;
     for ( TSOPPDests::iterator d=tr->places_in.begin(); d!= tr->places_in.end(); d++,k++ ) {
@@ -660,7 +681,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
 		NewTextChild( NodeD, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
 		NewTextChild( NodeD, "DN", GetStrDate( tr->scd_out ) );
   	NewTextChild( NodeD, "KUG", tr->airline_out );
-  	NewTextChild( NodeD, "TVC", tr->craft_out );
+  	NewTextChild( NodeD, "TVC", ElemIdToElemCtxt( ecDisp, etCraft, tr->craft_out, tr->craft_out_fmt ) );
     if ( tr->pr_del_out == 1 )
     	NewTextChild( NodeD, "BNP", "ОТМЕН" );
     else
@@ -675,10 +696,12 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
     	NewTextChild( NodeD, "VDV", "МЕЖ" );
     else
     	NewTextChild( NodeD, "VDV", "ПАС" );
+    NewTextChild( NodeD, "VRD", tr->litera_out );
+    NewTextChild( NodeD, "ABSM", getAirline_CityOnwer( tr->triptype_out, tr->airline_out ) );
     // теперь создание записей по плечам
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
-    	ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
+    	//ProgTrace( TRACE5, "k=%d, end=%d", k, (d==tr->places_out.end()) );
       vector<Cargo>::iterator c=lug_out.vcargo.end();
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
@@ -788,6 +811,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
   xmlNodePtr paramsNode;
   xmlNodePtr queryNode, sqlNode, rollbackNode;
   string dbf_type;
+  tst();
   if ( pr_land )
   	dbf_type = "A";
   else
@@ -839,15 +863,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV "
+      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -876,6 +900,8 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     //createParam( paramsNode, "F11", NodeAsString( "F11", nodeN ), DBF_TYPE_NUMBER );
     createParam( paramsNode, "KUR", NodeAsString( "KUR", nodeN ), DBF_TYPE_NUMBER );
    	createParam( paramsNode, "VDV", NodeAsString( "VDV", nodeN ), DBF_TYPE_CHAR );
+   	createParam( paramsNode, "VRD", NodeAsString( "VRD", nodeN ), DBF_TYPE_CHAR );
+   	createParam( paramsNode, "ABSM", NodeAsString( "ABSM", nodeN ), DBF_TYPE_CHAR );
   }
   if ( pr_land )
   	dbf_type = "AK";
@@ -1146,6 +1172,239 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   }
 	return !fds.empty();
 }
+
+struct TField1C {
+	string field_name;
+	string dbf_field_name;
+	string dbf_field_type;
+	TField1C(string vfield_name, string vdbf_field_name, string vdbf_field_type) {
+	  field_name = vfield_name;
+	  dbf_field_name =vdbf_field_name;
+	  dbf_field_type = vdbf_field_type;
+	};
+	TField1C(string vfield_name, string vdbf_field_type) {
+	  field_name = vfield_name;
+	  dbf_field_name = vfield_name;
+	  dbf_field_type = vdbf_field_type;
+	};
+};
+
+struct Table1C{
+	string name;
+	vector<TField1C> fields;
+	string create_sql;
+	string delete_sql;
+	string insert_sql;
+	void clear() {
+		name.clear();
+		fields.clear();
+		create_sql.clear();
+		delete_sql.clear();
+		insert_sql.clear();
+	}
+};
+
+bool Sync1C( const string &point_addr, TFileDatas &fds )
+{
+	vector<Table1C> tables;
+	Table1C tab;
+	tab.name = "airps";
+	tab.create_sql =
+	  "CREATE TABLE AIRPS(ID NUMERIC(9,0),CODE CHAR(3),CODE_LAT CHAR(3),CITY CHAR(3),NAME CHAR(50),NAME_LAT CHAR(50),ICAO CHAR(4),ICAO_LAT CHAR(4))";
+	tab.delete_sql =
+	  "DELETE FROM AIRPS WHERE ID=:ID";
+	tab.insert_sql =
+	  "INSERT INTO AIRPS(ID,CODE,CODE_LAT,CITY,NAME,NAME_LAT,ICAO,ICAO_LAT) "
+	  " VALUES (:ID,:CODE,:CODE_LAT,:CITY,:NAME,:NAME_LAT,:ICAO,:ICAO_LAT) ";
+  tab.fields.push_back(TField1C("ID",DBF_TYPE_NUMBER));
+	tab.fields.push_back(TField1C("CODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CITY",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO","ICAO",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO_LAT","ICAO_LAT",DBF_TYPE_CHAR));
+	tables.push_back( tab );
+	tab.clear();
+	tab.name = "cities";
+	tab.create_sql =
+	  "CREATE TABLE CITIES(ID NUMERIC(9,0),CODE CHAR(3),CODE_LAT CHAR(3),COUNTRY CHAR(2),NAME CHAR(50),NAME_LAT CHAR(50),TZ NUMERIC(3,0))";
+	tab.delete_sql =
+	  "DELETE FROM CITIES WHERE ID=:ID";
+	tab.insert_sql =
+	  "INSERT INTO CITIES(ID,CODE,CODE_LAT,COUNTRY,NAME,NAME_LAT,TZ) "
+	  " VALUES (:ID,:CODE,:CODE_LAT,:COUNTRY,:NAME,:NAME_LAT,:TZ) ";
+  tab.fields.push_back(TField1C("ID",DBF_TYPE_NUMBER));
+	tab.fields.push_back(TField1C("CODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("COUNTRY",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("TZ",DBF_TYPE_NUMBER));
+	tables.push_back( tab );
+	tab.clear();
+	tab.name = "crafts";
+	tab.create_sql =
+	  "CREATE TABLE CRAFTS(ID NUMERIC(9,0),CODE CHAR(3),CODE_LAT CHAR(3),NAME CHAR(20),NAME_LAT CHAR(20),ICAO CHAR(4), ICAO_LAT CHAR(4))";
+	tab.delete_sql =
+	  "DELETE FROM CRAFTS WHERE ID=:ID";
+	tab.insert_sql =
+	  "INSERT INTO CRAFTS(ID,CODE,CODE_LAT,NAME,NAME_LAT,ICAO,ICAO_LAT) "
+	  " VALUES (:ID,:CODE,:CODE_LAT,:NAME,:NAME_LAT,:ICAO,:ICAO_LAT) ";
+  tab.fields.push_back(TField1C("ID",DBF_TYPE_NUMBER));
+	tab.fields.push_back(TField1C("CODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO","ICAO",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO_LAT","ICAO_LAT",DBF_TYPE_CHAR));
+	tables.push_back( tab );
+	tab.clear();
+	tab.name = "airlines";
+	tab.create_sql =
+	  "CREATE TABLE AIRLINES(ID NUMERIC(9,0),CODE CHAR(3),CODE_LAT CHAR(3),NAME CHAR(50),NAME_LAT CHAR(50),SHORT CHAR(50),SHORT_LAT CHAR(50),ICAO CHAR(4),ICAO_LAT CHAR(4),AIRCODE CHAR(3),CITY CHAR(3))";
+	tab.delete_sql =
+	  "DELETE FROM AIRLINES WHERE ID=:ID";
+	tab.insert_sql =
+	  "INSERT INTO AIRLINES(ID,CODE,CODE_LAT,NAME,NAME_LAT,SHORT,SHORT_LAT,ICAO,ICAO_LAT,AIRCODE,CITY) "
+	  " VALUES (:ID,:CODE,:CODE_LAT,:NAME,:NAME_LAT,:SHORT,:SHORT_LAT,:ICAO,:ICAO_LAT,:AIRCODE,:CITY) ";
+  tab.fields.push_back(TField1C("ID",DBF_TYPE_NUMBER));
+	tab.fields.push_back(TField1C("CODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("SHORT_NAME","SHORT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("SHORT_NAME_LAT","SHORT_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO","ICAO",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ICAO_LAT","ICAO_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("AIRCODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CITY",DBF_TYPE_CHAR));
+	tables.push_back( tab );
+	tab.clear();
+	tab.name = "countries";
+	tab.create_sql =
+	  "CREATE TABLE COUNTRIES(ID NUMERIC(9,0),CODE CHAR(2),CODE_LAT CHAR(2),NAME CHAR(50),NAME_LAT CHAR(50),CODE_ISO CHAR(3))";
+	tab.delete_sql =
+	  "DELETE FROM COUNTRIES WHERE ID=:ID";
+	tab.insert_sql =
+	  "INSERT INTO COUNTRIES(ID,CODE,CODE_LAT,NAME,NAME_LAT,CODE_ISO) "
+	  " VALUES (:ID,:CODE,:CODE_LAT,:NAME,:NAME_LAT,:CODE_ISO) ";
+  tab.fields.push_back(TField1C("ID",DBF_TYPE_NUMBER));
+	tab.fields.push_back(TField1C("CODE",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("NAME_LAT",DBF_TYPE_CHAR));
+	tab.fields.push_back(TField1C("CODE_ISO",DBF_TYPE_CHAR));
+	tables.push_back( tab );
+
+
+  TQuery Qry( &OraSession );
+  for ( vector<Table1C>::iterator i = tables.begin(); i!=tables.end(); i++ ) {
+  	ProgTrace( TRACE5, "table name=%s", i->name.c_str() );
+  	Qry.Clear();
+    Qry.SQLText =
+      "SELECT value FROM snapshot_params "
+      " WHERE file_type=:file_type AND point_addr=:point_addr AND name=:table_name";
+    Qry.CreateVariable( "file_type", otString, FILE_1CCEK_TYPE );
+    Qry.CreateVariable( "point_addr", otString, point_addr );
+    Qry.DeclareVariable( "table_name", otString );
+  	Qry.SetVariable( "table_name", i->name );
+    Qry.Execute();
+    int tid = -1, id = -1;
+    bool pr_new_table = false;
+    if ( Qry.Eof ) {  // создаем таблицу
+    	pr_new_table = true;
+    	TFileData fd;
+	    xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+    	try {
+	      xmlNodePtr queryNode = NewTextChild( doc->children, "query" );
+        NewTextChild( queryNode, "sql", i->create_sql );
+        NewTextChild( queryNode, "ignoreErrorCode", 5004 );
+  	    string encoding = getFileEncoding( FILE_1CCEK_TYPE, point_addr );
+ 		    fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
+   	    string s = XMLTreeToText( doc );
+   	    s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
+   	    fd.file_data = s;
+   	    fds.push_back( fd );
+   	    xmlFreeDoc( doc );
+	    }
+    	catch ( ... ) {
+		    xmlFreeDoc( doc );
+		    throw;
+	    }
+    }
+    else {
+    	string param = Qry.FieldAsString( "value" );
+    	StrToInt( param.substr( 0, param.find( "id" ) ).c_str(), tid );
+    	StrToInt( param.substr( param.find( "id" ) + 2 ).c_str(), id );
+    }
+    TFileData fd;
+    Qry.Clear();
+    // передача обновлений
+    Qry.SQLText = string(string( "SELECT * FROM " ) + i->name + " WHERE tid>:tid OR tid=:tid AND id>:id ORDER BY tid,id ").c_str();
+    Qry.CreateVariable( "tid", otInteger, tid );
+    Qry.CreateVariable( "id", otInteger, id );
+    Qry.Execute();
+    if ( Qry.Eof )
+    	continue;
+    xmlDocPtr doc = CreateXMLDoc( "UTF-8", "sqls" );
+    xmlNodePtr queryNode;
+    xmlNodePtr paramsNode;
+    try {
+      while ( !Qry.Eof ) { // считали все изменение из таблицы
+      	if ( !pr_new_table ) {
+      	  queryNode = NewTextChild( doc->children, "query" );
+      	  NewTextChild( queryNode, "sql", i->delete_sql );
+      	  paramsNode = NewTextChild( queryNode, "params" );
+          createParam( paramsNode, "ID", Qry.FieldAsString( "ID" ), DBF_TYPE_NUMBER );
+        }
+        if ( Qry.FieldAsInteger( "pr_del" ) != -1 ) {
+      	  queryNode = NewTextChild( doc->children, "query" );
+      	  NewTextChild( queryNode, "sql", i->insert_sql );
+        	paramsNode = NewTextChild( queryNode, "params" );
+        	for ( vector<TField1C>::iterator ifield=i->fields.begin(); ifield!=i->fields.end(); ifield++ ) {
+            createParam( paramsNode, ifield->dbf_field_name, Qry.FieldAsString( ifield->field_name ), ifield->dbf_field_type );
+          }
+        }
+        if ( tid < Qry.FieldAsInteger( "tid" ) ) {
+        	tid = Qry.FieldAsInteger( "tid" );
+        }
+        if ( id < Qry.FieldAsInteger( "id" ) ) {
+        	id = Qry.FieldAsInteger( "id" );
+        }
+        if ( Qry.RowCount() > 1000 )
+        	break;
+      	Qry.Next();
+      }
+  	  string encoding = getFileEncoding( FILE_1CCEK_TYPE, point_addr );
+ 		  fd.params[ PARAM_TYPE ] = VALUE_TYPE_SQL; // SQL
+   	  string s = XMLTreeToText( doc );
+   	  s.replace( s.find( "encoding=\"UTF-8\""), string( "encoding=\"UTF-8\"" ).size(), string("encoding=\"") + encoding + "\"" );
+   	  fd.file_data = s;
+   	  fds.push_back( fd );
+   	  xmlFreeDoc( doc );
+    }
+    catch(...) {
+		  xmlFreeDoc( doc );
+		  throw;
+    }
+    Qry.Clear();
+    if ( pr_new_table )
+      Qry.SQLText =
+        "INSERT INTO snapshot_params(file_type,point_addr,name,value) VALUES(:file_type,:point_addr,:name,:value)";
+    else
+      Qry.SQLText =
+        "UPDATE snapshot_params SET value=:value "
+        " WHERE file_type=:file_type AND point_addr=:point_addr AND name=:name";
+    Qry.CreateVariable( "file_type", otString, FILE_1CCEK_TYPE );
+    Qry.CreateVariable( "point_addr", otString, point_addr );
+    Qry.CreateVariable( "name", otString, i->name );
+    Qry.CreateVariable( "value", otString, IntToString( tid ) + "id" + IntToString( id ) );
+    Qry.Execute();
+  } // end for
+  return !fds.empty();
+}
+
 
 /*
 drop table sppcikl

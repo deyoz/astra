@@ -2,7 +2,9 @@
 #include <string>
 #include "tripinfo.h"
 #include "stages.h"
+#include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "base_tables.h"
 #include "basic.h"
 #include "exceptions.h"
@@ -16,7 +18,6 @@
 #include "docs.h"
 #include "stat.h"
 #include "print.h"
-#include "astra_consts.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -543,10 +544,16 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "suffix", Qry.FieldAsString( "suffix" ) );
   NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
-  TDateTime scd_out,act_out,real_out;
+  TDateTime scd_out,scd_out_local,act_out,real_out;
   string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp" ));
+  scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
+  if ( reqInfo->screen.name == "AIR.EXE")
+  {
+    //внимание! локальная дата порта
+    NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
+  }
   NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
   NewTextChild( node, "real_out", DateTimeToStr(real_out,"hh:nn") );
   if (!Qry.FieldIsNULL("act_out"))
@@ -734,6 +741,54 @@ string convertLastTrfer(string s)
   return res;
 };
 
+int GetFltLoad( int point_id, const TTripInfo &fltInfo)
+{
+  TQuery Qry(&OraSession);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+
+  bool prSummer=is_dst(fltInfo.scd_out,
+                       AirpTZRegion(fltInfo.airp));
+
+  int load=0;
+  //пассажиры
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight_win),0) AS weight_win, "
+    "       NVL(SUM(weight_sum),0) AS weight_sum "
+    "FROM pax_grp,pax,pers_types "
+    "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax.pers_type=pers_types.code AND "
+    "      pax_grp.point_dep=:point_id AND pax.refuse IS NULL";
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    if (prSummer)
+      load+=Qry.FieldAsInteger("weight_sum");
+    else
+      load+=Qry.FieldAsInteger("weight_win");
+  };
+
+  //багаж
+  Qry.SQLText=
+    "SELECT NVL(SUM(weight),0) AS weight "
+    "FROM pax_grp,bag2 "
+    "WHERE pax_grp.grp_id=bag2.grp_id AND "
+    "      pax_grp.point_dep=:point_id AND pax_grp.bag_refuse=0";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("weight");
+
+  //груз, почта
+  Qry.SQLText=
+    "SELECT NVL(SUM(cargo),0) AS cargo, "
+    "       NVL(SUM(mail),0) AS mail "
+    "FROM trip_load "
+    "WHERE point_dep=:point_id";
+  Qry.Execute();
+  if (!Qry.Eof)
+    load+=Qry.FieldAsInteger("cargo")+Qry.FieldAsInteger("mail");
+  return load;
+};
+
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   reqNode=GetNode("tripcounters",reqNode);
@@ -808,11 +863,21 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(node2,"field","bag_amount");
   NewTextChild(node2,"field","bag_weight");
   NewTextChild(node2,"field","excess");
+  NewTextChild(node2,"field","load");
 
   node2=NewTextChild(resNode,"rows");
 
   //строка 'итого'
   TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  TTripInfo fltInfo(Qry);
+
   Qry.Clear();
   Qry.SQLText =
     "SELECT a.seats,a.adult,a.child,a.baby, "
@@ -862,6 +927,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
   NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
   NewTextChild(rowNode,"cfg",Qry.FieldAsInteger("cfg"),0);
+  NewTextChild(rowNode,"load",GetFltLoad(point_id,fltInfo),0);
 
   //строка select для подзапросов
   ostringstream select;
@@ -902,7 +968,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_class)    sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
   if (pr_cl_grp)   sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
                           ",cls_grp.code AS cl_grp_code" << endl;
-  if (pr_hall)     sql << ",a.hall AS hall_id,halls2.name AS hall_name" << endl;
+  if (pr_hall)     sql << ",a.hall AS hall_id"
+                          ",halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
   if (pr_airp_arv) sql << ",a.point_arv,points.airp AS airp_arv" << endl;
   if (pr_trfer)    sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
   if (pr_user)     sql << ",a.user_id,users2.descr AS user_descr" << endl;
@@ -993,11 +1060,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
   };
 
-  if (pr_class) sql << ",classes";
-  if (pr_cl_grp) sql << ",cls_grp";
-  if (pr_hall) sql << ",halls2";
+  if (pr_class)    sql << ",classes";
+  if (pr_cl_grp)   sql << ",cls_grp";
+  if (pr_hall)     sql << ",halls2";
   if (pr_airp_arv) sql << ",points";
-  if (pr_user) sql << ",users2";
+  if (pr_user)     sql << ",users2";
 
   sql << endl;
 
@@ -1041,6 +1108,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   Qry.Clear();
   Qry.SQLText = sql.str().c_str();
   Qry.CreateVariable("point_id",otInteger,point_id);
+
+  if (pr_hall) Qry.CreateVariable("airp_dep",otString,fltInfo.airp);
+
   Qry.Execute();
 
   for(;!Qry.Eof;Qry.Next())
@@ -1426,77 +1496,5 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
 
 };
 
-string GetTripName( TTripInfo &info, bool showAirp, bool prList )
-{
-  TReqInfo *reqInfo = TReqInfo::Instance();
-  TDateTime scd_out_local_date,desk_time;
-  string &tz_region=AirpTZRegion(info.airp);
-  modf(reqInfo->desk.time,&desk_time);
-  modf(UTCToClient(info.scd_out,tz_region),&scd_out_local_date);
-  if (info.real_out!=ASTRA::NoExists)
-    modf(UTCToClient(info.real_out,tz_region),&info.real_out_local_date);
-  else
-    info.real_out_local_date=scd_out_local_date;
 
-  ostringstream trip;
-  trip << info.airline
-       << setw(3) << setfill('0') << info.flt_no
-       << info.suffix;
-
-  if (prList)
-  {
-    if (info.flt_no<10000) trip << " ";
-    if (info.flt_no<1000)  trip << " ";
-  };
-
-  if (desk_time!=info.real_out_local_date)
-  {
-    if (DateTimeToStr(desk_time,"mm")==DateTimeToStr(info.real_out_local_date,"mm"))
-      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd");
-    else
-      trip << "/" << DateTimeToStr(info.real_out_local_date,"dd.mm");
-  };
-  if (scd_out_local_date!=info.real_out_local_date)
-    trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
-  if (!(reqInfo->user.user_type==utAirport &&
-        reqInfo->user.access.airps_permit &&
-        reqInfo->user.access.airps.size()==1)||showAirp)
-    trip << " " << info.airp;
-  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
-      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
-
-  return trip.str();
-};
-
-bool GetTripSets( TTripSetType setType, TTripInfo &info )
-{
-  TQuery Qry( &OraSession );
-  Qry.Clear();
-  Qry.SQLText=
-    "SELECT pr_misc, "
-    "    DECODE(airline,NULL,0,8)+ "
-    "    DECODE(flt_no,NULL,0,2)+ "
-    "    DECODE(airp_dep,NULL,0,4) AS priority "
-    "FROM misc_set "
-    "WHERE type=:type AND "
-    "      (airline IS NULL OR airline=:airline) AND "
-    "      (flt_no IS NULL OR flt_no=:flt_no) AND "
-    "      (airp_dep IS NULL OR airp_dep=:airp_dep) "
-    "ORDER BY priority DESC";
-  Qry.CreateVariable("type",otInteger,(int)setType);
-  Qry.CreateVariable("airline",otString,info.airline);
-  Qry.CreateVariable("flt_no",otInteger,info.flt_no);
-  Qry.CreateVariable("airp_dep",otString,info.airp);
-  Qry.Execute();
-  if (Qry.Eof)
-  {
-    switch(setType)
-    {
-      //запрет интерактива с СЭБом
-      case tsETLOnly: return false;
-              default: return false;
-    };
-  };
-  return Qry.FieldAsInteger("pr_misc")!=0;
-};
 

@@ -7,7 +7,6 @@
 #include "astra_consts.h"
 #include "stages.h"
 #include "oralib.h"
-#include "tripinfo.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"

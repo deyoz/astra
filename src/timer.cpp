@@ -16,7 +16,6 @@
 #include "base_tables.h"
 #include "astra_service.h"
 #include "czech_police_edi_file.h"
-#include "tripinfo.h"
 #include "telegram.h"
 #include "serverlib/daemon.h"
 #include "serverlib/cfgproc.h"
@@ -116,6 +115,8 @@ void exec_tasks( void )
 	    	  			  	if ( name == "sync_sppcek" ) sync_sppcek( );
 	    	  			  	else
 	    	  			  		if ( name == "get_full_stat" ) get_full_stat( utcdate );
+	    	  			  		else
+	    	  			  			if ( name == "sync_1ccek" ) sync_1ccek();
       TDateTime next_exec;
       if ( Qry.FieldIsNULL( "next_exec" ) )
       	next_exec = utcdate;

@@ -9,6 +9,7 @@
 #include "oralib.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_misc.h"
 #include "jxtlib/JxtInterface.h"
 
 struct TVar {
@@ -47,69 +48,9 @@ public:
 };
 
 std::string convertLastTrfer(std::string s);
+int GetFltLoad( int point_id, const TTripInfo &fltInfo);
 void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode );
 void viewCRSList( int point_id, xmlNodePtr dataNode );
-
-class TTripInfo
-{
-  public:
-    std::string airline,suffix,airp;
-    int flt_no, pr_del, point_num, first_point;
-    BASIC::TDateTime scd_out,real_out,real_out_local_date;
-    TTripInfo()
-    {
-      Clear();
-    };
-    TTripInfo( TQuery &Qry )
-    {
-      Init(Qry);
-    };
-    void Clear()
-    {
-      airline.clear();
-      flt_no=0;
-      suffix.clear();
-      airp.clear();
-      scd_out=ASTRA::NoExists;
-      real_out=ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
-      pr_del = ASTRA::NoExists;
-      point_num = ASTRA::NoExists;
-      first_point = ASTRA::NoExists;
-    };
-    void Init( TQuery &Qry )
-    {
-      airline=Qry.FieldAsString("airline");
-      flt_no=Qry.FieldAsInteger("flt_no");
-      suffix=Qry.FieldAsString("suffix");
-      airp=Qry.FieldAsString("airp");
-      scd_out=Qry.FieldAsDateTime("scd_out");
-      if (Qry.GetFieldIndex("real_out")>=0)
-        real_out = Qry.FieldAsDateTime("real_out");
-      else
-        real_out = ASTRA::NoExists;
-      real_out_local_date=ASTRA::NoExists;
-      if (Qry.GetFieldIndex("pr_del")>=0)
-        pr_del = Qry.FieldAsInteger("pr_del");
-      else
-        pr_del = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("point_num")>=0)
-        point_num = Qry.FieldAsInteger("point_num");
-      else
-        point_num = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("first_point")>=0)
-        first_point = Qry.FieldAsInteger("first_point");
-      else
-        first_point = ASTRA::NoExists;
-    };
-};
-
-std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
-
-//настройки рейса
-enum TTripSetType { tsETLOnly=11, tsIgnoreTrferSet=12, tsMixedNorms=13 };
-bool GetTripSets( TTripSetType setType, TTripInfo &info );
-
 
 class TripsInterface : public JxtInterface
 {

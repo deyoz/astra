@@ -20,6 +20,7 @@
 #include "jxtlib/cont_tools.h"
 #include "serverlib/str_utils.h"
 #include "serverlib/cfgproc.h"
+#include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -803,7 +804,8 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                         type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
                         type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
-                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ) {
+                        type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
+                        type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
                     string encoding = getFileEncoding( type, client_canon_name );
                     for ( vector<TFileData>::iterator i=fds.begin(); i!=fds.end(); i++ ) {
@@ -959,6 +961,10 @@ void sync_sppcek( void )
 
 }
 
+void sync_1ccek( void )
+{
+	CreateCommonFileData( -1, FILE_1CCEK_TYPE, "ЧЛБ", "", "" );
+}
 
 
 void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode )
