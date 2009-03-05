@@ -1192,6 +1192,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               if(
                       tlg_type == "SOM" or
                       tlg_type == "PRL" or
+                      tlg_type == "ETL" or
                       tlg_type == "BTM" or
                       tlg_type == "PTM" or
                       tlg_type == "PTMN" or
