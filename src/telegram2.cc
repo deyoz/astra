@@ -3266,6 +3266,41 @@ void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
+int AHL(TTlgInfo &info, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br;
+    tlg_row.heading = heading.str();
+    tlg_row.body =
+        "AHL" + br
+        + "NM" + br
+        + "IT" + br
+        + "TN" + br
+        + "CT" + br
+        + "RT" + br
+        + "FD" + br
+        + "TK" + br
+        + "BI" + br
+        + "BW" + br
+        + "DW" + br
+        + "CC" + br
+        + "PA" + br
+        + "PN" + br
+        + "TP" + br
+        + "AG" + br;
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
+}
+
 int ETL(TTlgInfo &info, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
@@ -3526,6 +3561,7 @@ int TelegramInterface::create_tlg(
     int vid = NoExists;
 
     if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
+    else if(vbasic_type == "AHL") vid = AHL(info, tst_tlg_id);
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
     else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
