@@ -337,7 +337,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
       		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
-        NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
+        NewTextChild( fileNode, "data", StrUtils::b64_encode( (const char*)p, len ) );
         wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
         NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
@@ -983,7 +983,7 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 		return;
 	}
 	string file_data = NodeAsString( dataNode );
-	file_data = b64_decode( file_data.c_str(), file_data.size() );
+	file_data = StrUtils::b64_decode( file_data.c_str(), file_data.size() );
 	TQuery Qry( &OraSession );
   TQuery EncodeQry( &OraSession );
   EncodeQry.SQLText =
@@ -1085,7 +1085,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   	str_file = ConvertCodepage( str_file, encoding, "CP866" );
   str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
-  NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
+  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), len ) );
   free( p );
   Qry.SQLText = "SELECT * FROM file_params WHERE id=:file_id";
 	Qry.CreateVariable( "file_id", otInteger, file_id );
