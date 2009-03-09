@@ -2365,8 +2365,8 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw UserException("Нет данных");
     get_report_form("TrferFullStat", resNode);
 
-    string ak = Trim(NodeAsString("ak", reqNode));
-    string ap = Trim(NodeAsString("ap", reqNode));
+    string ak = trim(NodeAsString("ak", reqNode));
+    string ap = trim(NodeAsString("ap", reqNode));
 
     TQuery Qry(&OraSession);
     string mainSQLText =
@@ -2692,8 +2692,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw UserException("Нет данных");
     get_report_form("FullStat", resNode);
 
-    string ak = Trim(NodeAsString("ak", reqNode));
-    string ap = Trim(NodeAsString("ap", reqNode));
+    string ak = trim(NodeAsString("ak", reqNode));
+    string ap = trim(NodeAsString("ap", reqNode));
 
     TQuery Qry(&OraSession);
     string mainSQLText =
@@ -3042,8 +3042,8 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw UserException("Нет данных");
     get_report_form("ShortStat", resNode);
 
-    string ak = Trim(NodeAsString("ak", reqNode));
-    string ap = Trim(NodeAsString("ap", reqNode));
+    string ak = trim(NodeAsString("ak", reqNode));
+    string ap = trim(NodeAsString("ap", reqNode));
 
     TQuery Qry(&OraSession);
     string mainSQLText =
@@ -3252,8 +3252,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw UserException("Нет данных");
     get_report_form("DetailStat", resNode);
 
-    string ak = Trim(NodeAsString("ak", reqNode));
-    string ap = Trim(NodeAsString("ap", reqNode));
+    string ak = trim(NodeAsString("ak", reqNode));
+    string ap = trim(NodeAsString("ap", reqNode));
 
     TQuery Qry(&OraSession);
     string mainSQLText =
