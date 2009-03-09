@@ -295,7 +295,7 @@ int init_edifact()
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg)
 {
-    edi_udata_rd udata(new AstraEdiSessRD(), tlg);
+    edi_udata_rd udata(new edifact::AstraEdiSessRD(), tlg);
     int err=0, ret;
 
     try{
@@ -349,7 +349,7 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
 void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
 {
     int err=0;
-    edi_udata_wr ud(new AstraEdiSessWR(TChange.org().pult()), EdiMess::ChangeStat);
+    edi_udata_wr ud(new edifact::AstraEdiSessWR(TChange.org().pult()), EdiMess::ChangeStat);
 
     tst();
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TChange, &err);
@@ -362,7 +362,7 @@ void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 {
     int err=0;
-    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), EdiMess::Display);
+    edi_udata_wr ud(new edifact::AstraEdiSessWR(TDisp.org().pult()), EdiMess::Display);
 
     tst();
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
