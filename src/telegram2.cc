@@ -2974,30 +2974,14 @@ void TTlgSeatList::get(TTlgInfo &info)
     map<int, string> list;
     get_seat_list(list, (info.pr_lat or info.pr_lat_seat));
     // finally we got map with key - point_arv, data - string represents seat list for given point_arv
-
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   point_num, "
-        "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
-        "from "
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Рейс не найден");
-    int vpoint_num = Qry.FieldAsInteger("point_num");
-    int vfirst_point = Qry.FieldAsInteger("first_point");
-    Qry.Clear();
     Qry.SQLText =
         "  SELECT point_id, airp FROM points "
         "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
         "ORDER by "
         "  point_num ";
-    Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
-    Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
+    Qry.CreateVariable("vfirst_point", otInteger, info.first_point);
+    Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         string item;
@@ -3194,10 +3178,7 @@ template <class T>
 struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
-    int vpoint_num;
-    int vfirst_point;
     vector<T> items;
-    TDestList(): vpoint_num(NoExists), vfirst_point(NoExists) {};
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
     void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body);
@@ -3266,9 +3247,244 @@ void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
     }
 }
 
-int AHL(TTlgInfo &info, int tst_tlg_id)
+struct TLDMBag {
+    int baggage, cargo, mail;
+    void get(int point_arv);
+    TLDMBag():
+        baggage(0),
+        cargo(0),
+        mail(0)
+    {};
+};
+
+
+void TLDMBag::get(int point_arv)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT "
+        "  NVL(SUM(weight),0) AS weight "
+        "FROM bag2, "
+        "     (SELECT DISTINCT pax_grp.grp_id FROM pax_grp,pax "
+        "      WHERE pax_grp.grp_id=pax.grp_id AND "
+        "            point_dep=info.point_id AND point_arv=:point_arv AND  "
+        "            bag_refuse=0 AND pr_brd=1 "
+        "      UNION "
+        "      SELECT pax_grp.grp_id FROM pax_grp  "
+        "      WHERE point_dep=info.point_id AND point_arv=:point_arv AND  "
+        "            bag_refuse=0 AND class IS NULL "
+        "     ) pax_grp "
+        "WHERE bag2.grp_id=pax_grp.grp_id AND pr_cabin=0 ";
+    Qry.CreateVariable("point_arv", otInteger, point_arv);
+    Qry.Execute();
+    baggage = Qry.FieldAsInteger("weight");
+    Qry.SQLText =
+        "SELECT cargo,mail "
+        "FROM trip_load "
+        "WHERE point_dep=info.point_id AND point_arv=:point_arv ";
+    Qry.Execute();
+    if(!Qry.Eof) {
+        cargo = Qry.FieldAsInteger("cargo");
+        mail = Qry.FieldAsInteger("mail");
+    }
+}
+
+struct TLDMDest {
+    int point_arv;
+    string target;
+    int f;
+    int c;
+    int y;
+    int adl;
+    int chd;
+    int inf;
+    TLDMBag bag;
+    TLDMDest():
+        point_arv(NoExists),
+        f(NoExists),
+        c(NoExists),
+        y(NoExists),
+        adl(NoExists),
+        chd(NoExists),
+        inf(NoExists)
+    {};
+};
+
+struct TCFGItem {
+    string cls;
+    int cfg;
+    TCFGItem(): cfg(NoExists) {};
+};
+
+struct TCFG {
+    vector<TCFGItem> items;
+    void get(TTlgInfo &info);
+    virtual void ToTlg(TTlgInfo &info, vector<string> &body) = 0;
+    virtual ~TCFG() {};
+};
+
+struct TLDMCFG:TCFG {
+    bool pr_f;
+    bool pr_c;
+    bool pr_y;
+    void ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        ostringstream cfg;
+        for(vector<TCFGItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+        {
+            if(not cfg.str().empty())
+                cfg << "/";
+            int fmt;
+            cfg << iv->cfg << ElemToElemId(etClass, iv->cls, fmt, info.pr_lat);
+            if(iv->cls == "П") pr_f = true;
+            if(iv->cls == "Б") pr_c = true;
+            if(iv->cls == "Э") pr_y = true;
+        }
+        if(cfg.str().empty())
+            cfg  << "?";
+        ostringstream buf;
+        buf
+            << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+            << DateTimeToStr(info.scd, "dd", 1)
+            << "." << cfg.str() << ".?/?";
+        body.push_back(buf.str());
+    }
+    TLDMCFG():
+        pr_f(false),
+        pr_c(false),
+        pr_y(false)
+    {};
+};
+
+void TCFG::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT class,cfg "
+        "FROM trip_classes,classes "
+        "WHERE trip_classes.class=classes.code AND point_id=:point_id "
+        "ORDER BY priority ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TCFGItem item;
+        item.cls = Qry.FieldAsString("class");
+        item.cfg = Qry.FieldAsInteger("cfg");
+        items.push_back(item);
+    }
+    
+}
+
+struct TLDMDests {
+    TLDMCFG cfg;
+    vector<TLDMDest> items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    cfg.ToTlg(info, body);
+    for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        ostringstream row;
+        row
+            << "-" << ElemIdToElem(etAirp, iv->target, info.pr_lat)
+            << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
+            << ".T";
+        if(
+                iv->bag.baggage != 0 and
+                iv->bag.cargo != 0 and
+                iv->bag.mail != 0
+          )
+            row << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
+        else
+            row << "?";
+        row << ".PAX";
+    }
+}
+
+void TLDMDests::get(TTlgInfo &info)
+{
+    cfg.get(info);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT points.point_id AS point_arv, "
+        "       points.airp AS target, "
+        "       NVL(pax.f,0) AS f, "
+        "       NVL(pax.c,0) AS c, "
+        "       NVL(pax.y,0) AS y, "
+        "       NVL(pax.adl,0) AS adl, "
+        "       NVL(pax.chd,0) AS chd, "
+        "       NVL(pax.inf,0) AS inf "
+        "FROM points, "
+        "     (SELECT point_arv, "
+        "             SUM(DECODE(class,'П',DECODE(seats,0,0,1),0)) AS f, "
+        "             SUM(DECODE(class,'Б',DECODE(seats,0,0,1),0)) AS c, "
+        "             SUM(DECODE(class,'Э',DECODE(seats,0,0,1),0)) AS y, "
+        "             SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, "
+        "             SUM(DECODE(pers_type,'РБ',1,0)) AS chd, "
+        "             SUM(DECODE(pers_type,'РМ',1,0)) AS inf "
+        "      FROM pax_grp,pax "
+        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
+        "      GROUP BY point_arv) pax "
+        "WHERE points.point_id=pax.point_arv(+) AND "
+        "      first_point=info.first_point AND point_num>:point_num AND pr_del=0 "
+        "ORDER BY points.point_num ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_point_arv = Qry.FieldIndex("point_arv");
+        int col_target = Qry.FieldIndex("target");
+        int col_f = Qry.FieldIndex("f");
+        int col_c = Qry.FieldIndex("c");
+        int col_y = Qry.FieldIndex("y");
+        int col_adl = Qry.FieldIndex("adl");
+        int col_chd = Qry.FieldIndex("chd");
+        int col_inf = Qry.FieldIndex("inf");
+        for(; !Qry.Eof; Qry.Next()) {
+            TLDMDest item;
+            item.point_arv = Qry.FieldAsInteger(col_point_arv);
+            item.bag.get(item.point_arv);
+            item.f = Qry.FieldAsInteger(col_f);
+            item.target = Qry.FieldAsInteger(col_target);
+            item.c = Qry.FieldAsInteger(col_c);
+            item.y = Qry.FieldAsInteger(col_y);
+            item.adl = Qry.FieldAsInteger(col_adl);
+            item.chd = Qry.FieldAsInteger(col_chd);
+            item.inf = Qry.FieldAsInteger(col_inf);
+            items.push_back(item);
+        }
+    }
+}
+
+int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
+    vcompleted = 1;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream buf;
+    buf
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "LDM" << br;
+    tlg_row.heading = buf.str();
+    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
+    vector<string> body;
+    TLDMDests LDM;
+    LDM.get(info);
+    LDM.ToTlg(info, body);
+}
+
+int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    vcompleted = false;
     tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -3362,23 +3578,8 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
 template <class T>
 void TDestList<T>::get(TTlgInfo &info)
 {
+    infants.point_id = info.first_point;
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   point_num, "
-        "   DECODE(pr_tranzit,0,point_id,first_point) first_point "
-        "from "
-        "   points "
-        "where "
-        "   point_id = :point_id AND pr_del=0 AND pr_reg<>0";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw UserException("Рейс не найден");
-    vpoint_num = Qry.FieldAsInteger("point_num");
-    vfirst_point = Qry.FieldAsInteger("first_point");
-    infants.point_id = vfirst_point;
-    Qry.Clear();
     Qry.SQLText =
         "select point_num, airp, class from "
         "( "
@@ -3396,8 +3597,8 @@ void TDestList<T>::get(TTlgInfo &info)
         "ORDER by "
         "  point_num, airp, class ";
     Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
-    Qry.CreateVariable("vfirst_point", otInteger, vfirst_point);
-    Qry.CreateVariable("vpoint_num", otInteger, vpoint_num);
+    Qry.CreateVariable("vfirst_point", otInteger, info.first_point);
+    Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
@@ -3561,7 +3762,8 @@ int TelegramInterface::create_tlg(
     int vid = NoExists;
 
     if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
-    else if(vbasic_type == "AHL") vid = AHL(info, tst_tlg_id);
+    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted, tst_tlg_id);
+    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted, tst_tlg_id);
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
     else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
