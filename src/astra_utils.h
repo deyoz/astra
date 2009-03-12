@@ -138,6 +138,7 @@ class TDesk {
     std::string lang;
     BASIC::TDateTime time;
     ASTRA::TOperMode mode;
+    int grp_id;
     TDesk()
     {
       clear();
@@ -150,6 +151,7 @@ class TDesk {
       lang.clear();
       time = 0;
       mode = ASTRA::omSTAND;
+      grp_id = -1;
     };
 };
 
