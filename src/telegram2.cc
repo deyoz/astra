@@ -805,6 +805,7 @@ namespace PRL_SPACE {
         string rem_code;
         for(vector<TRemItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
             string rem = iv->ToTlg(info);
+            ProgTrace(TRACE5, "rem: '%s'", rem.c_str());
             if(rem_code != rem.substr(0, 4)) {
                 rem_code = rem.substr(0, 4);
                 rem = ".R/" + rem;
@@ -812,6 +813,7 @@ namespace PRL_SPACE {
                     body.push_back(rem.substr(0, LINE_SIZE));
                     rem = ".RN/" + rem.substr(LINE_SIZE);
                 }
+                ProgTrace(TRACE5, "rem after: '%s'", rem.c_str());
                 if(!rem.empty())
                     body.push_back(rem);
             }
