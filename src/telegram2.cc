@@ -3087,6 +3087,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
         infRow->dump();
         if(infRow->ticket_rem != "TKNE")
             continue;
+        ProgTrace(TRACE5, "pax.grp_id: %d; pax.pax_id: %d", pax.grp_id, pax.pax_id);
         if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
             buf.str("");
             buf
