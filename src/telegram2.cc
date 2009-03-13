@@ -3084,6 +3084,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     rem.rem = buf.str();
     items.push_back(rem);
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
+        infRow->dump();
         if(infRow->ticket_rem != "TKNE")
             continue;
         if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
