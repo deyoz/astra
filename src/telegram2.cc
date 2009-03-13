@@ -3249,7 +3249,7 @@ void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 
 struct TLDMBag {
     int baggage, cargo, mail;
-    void get(int point_arv);
+    void get(TTlgInfo &info, int point_arv);
     TLDMBag():
         baggage(0),
         cargo(0),
@@ -3258,7 +3258,7 @@ struct TLDMBag {
 };
 
 
-void TLDMBag::get(int point_arv)
+void TLDMBag::get(TTlgInfo &info, int point_arv)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3267,26 +3267,44 @@ void TLDMBag::get(int point_arv)
         "FROM bag2, "
         "     (SELECT DISTINCT pax_grp.grp_id FROM pax_grp,pax "
         "      WHERE pax_grp.grp_id=pax.grp_id AND "
-        "            point_dep=info.point_id AND point_arv=:point_arv AND  "
+        "            point_dep=:point_id AND point_arv=:point_arv AND  "
         "            bag_refuse=0 AND pr_brd=1 "
         "      UNION "
         "      SELECT pax_grp.grp_id FROM pax_grp  "
-        "      WHERE point_dep=info.point_id AND point_arv=:point_arv AND  "
+        "      WHERE point_dep=:point_id AND point_arv=:point_arv AND  "
         "            bag_refuse=0 AND class IS NULL "
         "     ) pax_grp "
         "WHERE bag2.grp_id=pax_grp.grp_id AND pr_cabin=0 ";
     Qry.CreateVariable("point_arv", otInteger, point_arv);
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.Execute();
     baggage = Qry.FieldAsInteger("weight");
     Qry.SQLText =
         "SELECT cargo,mail "
         "FROM trip_load "
-        "WHERE point_dep=info.point_id AND point_arv=:point_arv ";
+        "WHERE point_dep=:point_id AND point_arv=:point_arv ";
     Qry.Execute();
     if(!Qry.Eof) {
         cargo = Qry.FieldAsInteger("cargo");
         mail = Qry.FieldAsInteger("mail");
     }
+}
+
+struct TExcess {
+    int excess;
+    void get(int point_id);
+    TExcess(): excess(NoExists) {};
+};
+
+void TExcess::get(int point_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT NVL(SUM(excess),0) excess FROM pax_grp "
+        "WHERE point_dep=:point_id AND bag_refuse=0 ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    excess = Qry.FieldAsInteger("excess");
 }
 
 struct TLDMDest {
@@ -3335,17 +3353,19 @@ struct TLDMCFG:TCFG {
             if(not cfg.str().empty())
                 cfg << "/";
             int fmt;
-            cfg << iv->cfg << ElemToElemId(etClass, iv->cls, fmt, info.pr_lat);
+            cfg << iv->cfg << ElemIdToElem(etClass, iv->cls, info.pr_lat);
             if(iv->cls == "è") pr_f = true;
             if(iv->cls == "Å") pr_c = true;
             if(iv->cls == "ù") pr_y = true;
         }
+        ProgTrace(TRACE5, "cfg.str(): %s", cfg.str().c_str());
         if(cfg.str().empty())
             cfg  << "?";
         ostringstream buf;
         buf
             << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
             << DateTimeToStr(info.scd, "dd", 1)
+            << "." << (info.bort.empty() ? "??" : info.bort)
             << "." << cfg.str() << ".?/?";
         body.push_back(buf.str());
     }
@@ -3377,6 +3397,7 @@ void TCFG::get(TTlgInfo &info)
 
 struct TLDMDests {
     TLDMCFG cfg;
+    TExcess excess;
     vector<TLDMDest> items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
@@ -3385,27 +3406,61 @@ struct TLDMDests {
 void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     cfg.ToTlg(info, body);
+    int baggage_sum = 0;
+    int cargo_sum = 0;
+    int mail_sum = 0;
+    ostringstream row;
     for(vector<TLDMDest>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        ostringstream row;
+        row.str("");
         row
             << "-" << ElemIdToElem(etAirp, iv->target, info.pr_lat)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
-            << ".T";
-        if(
-                iv->bag.baggage != 0 and
-                iv->bag.cargo != 0 and
-                iv->bag.mail != 0
-          )
-            row << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
-        else
-            row << "?";
+            << ".T"
+            << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
         row << ".PAX";
+        if(cfg.pr_f or iv->f != 0)
+            row << "/" << iv->f;
+        row
+            << "/" << iv->c
+            << "/" << iv->y
+            << ".PAD";
+        if(cfg.pr_f)
+            row << "/0";
+        row
+            << "/0"
+            << "/0";
+        body.push_back(row.str());
+        baggage_sum += iv->bag.baggage;
+        cargo_sum += iv->bag.cargo;
+        mail_sum += iv->bag.mail;
     }
+    row.str("");
+    row << "SI: EXB" << excess.excess << "KG";
+    body.push_back(row.str());
+    row.str("");
+    row << "SI: B";
+    if(baggage_sum > 0)
+        row << baggage_sum;
+    else
+        row << "NIL";
+    row << ".C";
+    if(cargo_sum > 0)
+        row << cargo_sum;
+    else
+        row << "NIL";
+    row << ".M";
+    if(mail_sum > 0)
+        row << mail_sum;
+    else
+        row << "NIL";
+    body.push_back(row.str());
+    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
 void TLDMDests::get(TTlgInfo &info)
 {
     cfg.get(info);
+    excess.get(info.point_id);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT points.point_id AS point_arv, "
@@ -3428,10 +3483,11 @@ void TLDMDests::get(TTlgInfo &info)
         "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
         "      GROUP BY point_arv) pax "
         "WHERE points.point_id=pax.point_arv(+) AND "
-        "      first_point=info.first_point AND point_num>:point_num AND pr_del=0 "
+        "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY points.point_num ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     Qry.CreateVariable("point_num", otInteger, info.point_num);
+    Qry.CreateVariable("first_point", otInteger, info.first_point);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_point_arv = Qry.FieldIndex("point_arv");
@@ -3445,9 +3501,9 @@ void TLDMDests::get(TTlgInfo &info)
         for(; !Qry.Eof; Qry.Next()) {
             TLDMDest item;
             item.point_arv = Qry.FieldAsInteger(col_point_arv);
-            item.bag.get(item.point_arv);
+            item.bag.get(info, item.point_arv);
             item.f = Qry.FieldAsInteger(col_f);
-            item.target = Qry.FieldAsInteger(col_target);
+            item.target = Qry.FieldAsString(col_target);
             item.c = Qry.FieldAsInteger(col_c);
             item.y = Qry.FieldAsInteger(col_y);
             item.adl = Qry.FieldAsInteger(col_adl);
@@ -3461,7 +3517,7 @@ void TLDMDests::get(TTlgInfo &info)
 int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
-    vcompleted = 1;
+    vcompleted = 0;
     tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -3479,6 +3535,10 @@ int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     TLDMDests LDM;
     LDM.get(info);
     LDM.ToTlg(info, body);
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
+        tlg_row.body += *iv + br;
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
 }
 
 int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)

@@ -367,6 +367,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   string tlg_type=NodeAsStringFast( "tlg_type", node);
   if(
           tlg_type == "AHL" or
+          tlg_type == "LDM" or
           tlg_type == "SOM" or
           tlg_type == "PRL" or
           tlg_type == "ETL" or
@@ -1192,6 +1193,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               string addrs = TlgQry.GetVariableAsString("addrs");
               if(
                       tlg_type == "AHL" or
+                      tlg_type == "LDM" or
                       tlg_type == "SOM" or
                       tlg_type == "PRL" or
                       tlg_type == "ETL" or
