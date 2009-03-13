@@ -288,11 +288,16 @@ namespace PRL_SPACE {
         string name;
         int pax_id;
         int crs_pax_id;
+        double ticket_no;
+        int coupon_no;
+        string ticket_rem;
         void dump();
         TInfantsItem() {
             grp_id = NoExists;
             pax_id = NoExists;
             crs_pax_id = NoExists;
+            ticket_no = NoExists;
+            coupon_no = NoExists;
         }
     };
 
@@ -304,6 +309,9 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "name: %s", name.c_str());
         ProgTrace(TRACE5, "pax_id: %d", pax_id);
         ProgTrace(TRACE5, "crs_pax_id: %d", crs_pax_id);
+        ProgTrace(TRACE5, "ticket_no: %015.0f", ticket_no);
+        ProgTrace(TRACE5, "coupon_no: %d", coupon_no);
+        ProgTrace(TRACE5, "ticket_rem: %s", ticket_rem.c_str());
         ProgTrace(TRACE5, "--------------------");
     }
 
@@ -328,13 +336,11 @@ namespace PRL_SPACE {
     }
 
     struct TInfants {
-        int point_id;
         vector<TInfantsItem> items;
-        void get();
-        TInfants(): point_id(NoExists) {};
+        void get(int point_id);
     };
 
-    void TInfants::get() {
+    void TInfants::get(int point_id) {
         items.clear();
         if(point_id == NoExists) return;
         TQuery Qry(&OraSession);
@@ -342,6 +348,9 @@ namespace PRL_SPACE {
             "SELECT pax.grp_id, "
             "       pax.surname, "
             "       pax.name, "
+            "       pax.ticket_no, "
+            "       pax.coupon_no, "
+            "       pax.ticket_rem, "
             "       crs_inf.pax_id AS crs_pax_id "
             "FROM pax_grp,pax,crs_inf "
             "WHERE "
@@ -356,11 +365,17 @@ namespace PRL_SPACE {
             int col_surname = Qry.FieldIndex("surname");
             int col_name = Qry.FieldIndex("name");
             int col_crs_pax_id = Qry.FieldIndex("crs_pax_id");
+            int col_ticket_no = Qry.FieldIndex("ticket_no");
+            int col_coupon_no = Qry.FieldIndex("coupon_no");
+            int col_ticket_rem = Qry.FieldIndex("ticket_rem");
             for(; !Qry.Eof; Qry.Next()) {
                 TInfantsItem item;
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
+                item.ticket_no = Qry.FieldAsFloat(col_ticket_no);
+                item.coupon_no = Qry.FieldAsInteger(col_coupon_no);
+                item.ticket_rem = Qry.FieldAsString(col_ticket_rem);
                 if(!Qry.FieldIsNULL(col_crs_pax_id)) {
                     item.crs_pax_id = Qry.FieldAsInteger(col_crs_pax_id);
                     item.pax_id = item.crs_pax_id;
@@ -461,7 +476,7 @@ namespace PRL_SPACE {
         void get(TTlgInfo &info, TETLPax &pax);
         void get(TTlgInfo &info, TPRLPax &pax);
         void ToTlg(TTlgInfo &info, vector<string> &body);
-        TRemList(TInfants *ainfants = NULL): infants(ainfants) {};
+        TRemList(TInfants *ainfants): infants(ainfants) {};
     };
 
     struct TTagItem {
@@ -910,8 +925,6 @@ namespace PRL_SPACE {
 
     void TPRLDest::GetPaxList(TTlgInfo &info)
     {
-        if(infants->items.empty())
-            infants->get();
         TQuery Qry(&OraSession);
         Qry.SQLText =
             "select "
@@ -3053,7 +3066,7 @@ struct TETLPax {
     int grp_id;
     TPNRList pnrs;
     TRemList rems;
-    TETLPax() {
+    TETLPax(TInfants *ainfants): rems(ainfants) {
         cls_grp_id = NoExists;
         pnr_id = NoExists;
         pax_id = NoExists;
@@ -3070,6 +3083,19 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     TRemItem rem;
     rem.rem = buf.str();
     items.push_back(rem);
+    for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
+        if(infRow->ticket_rem != "TKNE")
+            continue;
+        if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
+            buf.str("");
+            buf
+                << "TKNE INF"
+                << fixed << setprecision(0) << pax.ticket_no << "/" << pax.coupon_no;
+            TRemItem rem;
+            rem.rem = buf.str();
+            items.push_back(rem);
+        }
+    }
 }
 
 
@@ -3079,9 +3105,11 @@ struct TETLDest {
     string cls;
     vector<TETLPax> PaxList;
     TGRPMap *grp_map;
+    TInfants *infants;
     TETLDest(TGRPMap *agrp_map, TInfants *ainfants) {
         point_num = NoExists;
         grp_map = agrp_map;
+        infants = ainfants;
     }
     void GetPaxList(TTlgInfo &info);
     void PaxListToTlg(TTlgInfo &info, vector<string> &body);
@@ -3114,6 +3142,7 @@ void TETLDest::GetPaxList(TTlgInfo &info)
         "    pax_grp.class_grp = cls_grp.id(+) AND "
         "    cls_grp.code = :class and "
         "    pax.pr_brd = 1 and "
+        "    pax.seats>0 and "
         "    pax.pax_id = crs_pax.pax_id(+) and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
         "    pax.ticket_rem = 'TKNE' "
@@ -3138,7 +3167,7 @@ void TETLDest::GetPaxList(TTlgInfo &info)
         int col_coupon_no = Qry.FieldIndex("coupon_no");
         int col_grp_id = Qry.FieldIndex("grp_id");
         for(; !Qry.Eof; Qry.Next()) {
-            TETLPax pax;
+            TETLPax pax(infants);
             pax.target = Qry.FieldAsString(col_target);
             if(!Qry.FieldIsNULL(col_cls))
                 pax.cls_grp_id = Qry.FieldAsInteger(col_cls);
@@ -3352,7 +3381,6 @@ struct TLDMCFG:TCFG {
         {
             if(not cfg.str().empty())
                 cfg << "/";
-            int fmt;
             cfg << iv->cfg << ElemIdToElem(etClass, iv->cls, info.pr_lat);
             if(iv->cls == "è") pr_f = true;
             if(iv->cls == "Å") pr_c = true;
@@ -3638,7 +3666,7 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
 template <class T>
 void TDestList<T>::get(TTlgInfo &info)
 {
-    infants.point_id = info.first_point;
+    infants.get(info.first_point);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select point_num, airp, class from "
