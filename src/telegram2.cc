@@ -3183,6 +3183,7 @@ void TETLDest::GetPaxList(TTlgInfo &info)
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
+            ProgTrace(TRACE5, "pax.rems.items.size(): %d", pax.rems.items.size());
             grp_map->get(pax.grp_id);
             PaxList.push_back(pax);
         }
