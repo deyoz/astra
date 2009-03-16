@@ -3081,17 +3081,14 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     rem.rem = buf.str();
     items.push_back(rem);
     for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
-        infRow->dump();
         if(infRow->ticket_rem != "TKNE")
             continue;
-        ProgTrace(TRACE5, "pax.grp_id: %d; pax.pax_id: %d", pax.grp_id, pax.pax_id);
         if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
             buf.str("");
             buf
                 << "TKNE INF"
-                << fixed << setprecision(0) << pax.ticket_no << "/" << pax.coupon_no;
+                << fixed << setprecision(0) << infRow->ticket_no << "/" << infRow->coupon_no;
             TRemItem rem;
-            ProgTrace(TRACE5, "before push_back into items: %s", buf.str().c_str());
             rem.rem = buf.str();
             items.push_back(rem);
         }
@@ -3181,7 +3178,6 @@ void TETLDest::GetPaxList(TTlgInfo &info)
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
             pax.pnrs.get(pax.pnr_id);
             pax.rems.get(info, pax);
-            ProgTrace(TRACE5, "pax.rems.items.size(): %d", pax.rems.items.size());
             grp_map->get(pax.grp_id);
             PaxList.push_back(pax);
         }
