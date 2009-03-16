@@ -66,42 +66,42 @@ void TelegramInterface::delete_tst_tlg(int tlg_id)
 
 void SaveTlgOutPartTST( TTlgOutPartInfo &info )
 {
-  TQuery Qry(&OraSession);
+    TQuery Qry(&OraSession);
 
-  if (info.id<0) {
-      info.pr_tst = false;
-  }
+    if (info.id<0) {
+        info.pr_tst = false;
+    }
 
-  if(info.pr_tst) {
-      Qry.Clear();
-      Qry.SQLText=
-          "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-          "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
-          "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-          "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
-      Qry.CreateVariable("id",otInteger,info.id);
-      Qry.CreateVariable("num",otInteger,info.num);
-      Qry.CreateVariable("type",otString,info.tlg_type);
-      Qry.CreateVariable("point_id",otInteger,info.point_id);
-      Qry.CreateVariable("addr",otString,info.addr);
-      Qry.CreateVariable("heading",otString,info.heading);
-      Qry.CreateVariable("body",otString,info.body);
-      Qry.CreateVariable("ending",otString,info.ending);
-      Qry.CreateVariable("extra",otString,info.extra);
-      Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
-      if (info.time_create!=NoExists)
-          Qry.CreateVariable("time_create",otDate,info.time_create);
-      else
-          Qry.CreateVariable("time_create",otDate,FNull);
-      if (info.time_send_scd!=NoExists)
-          Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
-      else
-          Qry.CreateVariable("time_send_scd",otDate,FNull);
-      Qry.Execute();
+    if(info.pr_tst) {
+        Qry.Clear();
+        Qry.SQLText=
+            "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
+            "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
+            "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
+            "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
+        Qry.CreateVariable("id",otInteger,info.id);
+        Qry.CreateVariable("num",otInteger,info.num);
+        Qry.CreateVariable("type",otString,info.tlg_type);
+        Qry.CreateVariable("point_id",otInteger,info.point_id);
+        Qry.CreateVariable("addr",otString,info.addr);
+        Qry.CreateVariable("heading",otString,info.heading);
+        Qry.CreateVariable("body",otString,info.body);
+        Qry.CreateVariable("ending",otString,info.ending);
+        Qry.CreateVariable("extra",otString,info.extra);
+        Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
+        if (info.time_create!=NoExists)
+            Qry.CreateVariable("time_create",otDate,info.time_create);
+        else
+            Qry.CreateVariable("time_create",otDate,FNull);
+        if (info.time_send_scd!=NoExists)
+            Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
+        else
+            Qry.CreateVariable("time_send_scd",otDate,FNull);
+        Qry.Execute();
 
-      info.num++;
-  } else
-      TelegramInterface::SaveTlgOutPart(info);
+        info.num++;
+    } else
+        TelegramInterface::SaveTlgOutPart(info);
 };
 
 string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
@@ -116,7 +116,7 @@ string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
                 break;
             default:
                 throw Exception("Unsupported int elem type %d", type);
-        throw UserException("Не найден латинский код " + code_name + " '" + result + "'");
+                throw UserException("Не найден латинский код " + code_name + " '" + result + "'");
         }
     }
     return result;
@@ -542,7 +542,7 @@ namespace PRL_SPACE {
                 format_tag_no(line, *prev_item, num, info);
                 body.push_back(line.str());
                 if(iv == items.end())
-                        break;
+                    break;
                 num = 1;
             } else
               num++;
@@ -1983,7 +1983,7 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
         while(
                 iv != pax_list.end() and
                 (iv->trfer_cls != FItem.trfer_cls or iv->pax_id != grp->main_pax_id)
-                )
+             )
             iv++;
         if(iv == pax_list.end())
             continue;
@@ -2110,15 +2110,15 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
     dump_surnames();
 }
 
-struct TPTMGrpList:TBTMGrpList {
-    void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
-    {
-        if(info.tlg_type == "PTM")
-            for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-                iv->PList.ToPTMTlg(info, body, FItem);
-            }
-    }
-};
+    struct TPTMGrpList:TBTMGrpList {
+        void ToTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
+        {
+            if(info.tlg_type == "PTM")
+                for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+                    iv->PList.ToPTMTlg(info, body, FItem);
+                }
+        }
+    };
 
 void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
 {
@@ -2246,7 +2246,7 @@ struct TFList { // Список направлений трансфера
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-template <class T>
+    template <class T>
 void TFList<T>::get(TTlgInfo &info)
 {
     TQuery Qry(&OraSession);
@@ -2315,10 +2315,10 @@ void TFList<T>::get(TTlgInfo &info)
     ProgTrace(TRACE5, "TFList<T>::get: items.size(): %d", items.size());
 }
 
-template <class T>
+    template <class T>
 void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-//    for(vector<T>::iterator iv = items.begin(); iv != items.end(); iv++) { // почему ошибка компиляции ???
+    //    for(vector<T>::iterator iv = items.begin(); iv != items.end(); iv++) { // почему ошибка компиляции ???
     for(size_t i = 0; i < items.size(); i++) {
         vector<string> grp_list_body;
         items[i].grp_list.ToTlg(info, grp_list_body, items[i]);
@@ -2748,9 +2748,9 @@ void TTlgSeatList::get_seat_list(map<int, string> &list, bool pr_lat)
         TSeatListContext *cur_ctxt = NULL;
         t_tlg_row &row = ay->second;
         if(min_col.empty() or less_iata_line(row.begin()->first, min_col))
-                min_col = row.begin()->first;
+            min_col = row.begin()->first;
         if(max_col.empty() or not less_iata_line(row.rbegin()->first, max_col))
-                max_col = row.rbegin()->first;
+            max_col = row.rbegin()->first;
         for(t_tlg_row::iterator ax = row.begin(); ax != row.end(); ax++) {
             ProgTrace(TRACE5, "ax->second.point_arv: %d", ax->second.point_arv);
             cur_ctxt = &ctxt[ax->second.point_arv];
@@ -2946,11 +2946,11 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
                     TTripRoute route;
                     TTripRouteItem next_airp;
                     route.GetNextAirp(info.point_id,
-                                      info.point_num,
-                                      info.first_point,
-                                      true,
-                                      trtNotCancelled,
-                                      next_airp);
+                            info.point_num,
+                            info.first_point,
+                            true,
+                            trtNotCancelled,
+                            next_airp);
 
 
                     if(next_airp.point_id==ASTRA::NoExists)
@@ -2963,13 +2963,13 @@ void TTlgSeatList::apply_comp(TTlgInfo &info)
             } else
                 point_arv = Qry.FieldAsInteger(col_point_arv);
             if (prior_xname==Qry.FieldAsString(col_xname) &&
-                prior_yname==Qry.FieldAsString(col_yname))
-              //нашли менее приоритетный слой на уже обработанное место - выходим
-              continue;
+                    prior_yname==Qry.FieldAsString(col_yname))
+                //нашли менее приоритетный слой на уже обработанное место - выходим
+                continue;
 
             if (!filter_layers.CanUseLayer(DecodeCompLayerType(Qry.FieldAsString(col_layer_type)), point_dep))
-              //при определенных настройках рейса слой не учитывается - выходим
-              continue;
+                //при определенных настройках рейса слой не учитывается - выходим
+                continue;
 
             prior_xname=Qry.FieldAsString(col_xname);
             prior_yname=Qry.FieldAsString(col_yname);
@@ -3242,7 +3242,7 @@ void TDestList<T>::split_n_save(ostringstream &heading, size_t part_len, TTlgOut
     }
 }
 
-template <class T>
+    template <class T>
 void TDestList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     ostringstream line;
@@ -3417,7 +3417,7 @@ void TCFG::get(TTlgInfo &info)
         item.cfg = Qry.FieldAsInteger("cfg");
         items.push_back(item);
     }
-    
+
 }
 
 struct TLDMDests {
@@ -3537,6 +3537,204 @@ void TLDMDests::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
+}
+
+struct TMVTABodyItem {
+    string target;
+    TDateTime est_in;
+    int seats, inf;
+    TMVTABodyItem():
+        est_in(NoExists),
+        seats(NoExists),
+        inf(NoExists)
+    {};
+};
+
+struct TMVTABody {
+    TDateTime act;
+    vector<TMVTABodyItem> items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body);
+    TMVTABody(): act(NoExists) {};
+};
+
+struct TMVTBBody {
+    TDateTime act;
+    void get(TTlgInfo &info);
+    void ToTlg(bool &vcompleted, vector<string> &body);
+    TMVTBBody(): act(NoExists) {};
+};
+
+void TMVTBBody::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT NVL(act_in,NVL(est_in,scd_in)) AS act_in "
+        "FROM points "
+        "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+        "ORDER BY point_num ";
+    Qry.CreateVariable("first_point", otInteger, info.first_point);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        if(!Qry.FieldIsNULL("act_in"))
+            act = Qry.FieldAsDateTime("act_in");
+    }
+
+}
+
+void TMVTBBody::ToTlg(bool &vcompleted, vector<string> &body)
+{
+    ostringstream buf;
+    if(act != NoExists) {
+        int year, month, day1, day2;
+        string fmt;
+        DecodeDate(act, year, month, day1);
+        DecodeDate(act - 5./1440, year, month, day2);
+        if(day1 != day2)
+            fmt = "ddhhnn";
+        else
+            fmt = "hhnn";
+        buf
+            << "AA"
+            << DateTimeToStr(act - 5./1440, fmt)
+            << "/"
+            << DateTimeToStr(act, fmt);
+    } else {
+        vcompleted = 0;
+        buf << "AA\?\?\?\?/\?\?\?\?";
+    }
+    body.push_back(buf.str());
+}
+
+void TMVTABody::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
+{
+    ostringstream buf;
+    if(act != NoExists) {
+        int year, month, day1, day2;
+        string fmt;
+        DecodeDate(act, year, month, day1);
+        DecodeDate(act - 5./1440, year, month, day2);
+        if(day1 != day2)
+            fmt = "ddhhnn";
+        else
+            fmt = "hhnn";
+        buf
+            << "AD"
+            << DateTimeToStr(act - 5./1440, fmt)
+            << "/"
+            << DateTimeToStr(act, fmt);
+    } else {
+        vcompleted = 0;
+        buf << "AD\?\?\?\?/\?\?\?\?";
+    }
+    for(vector<TMVTABodyItem>::iterator i = items.begin(); i != items.end(); i++) {
+        if(i == items.begin()) {
+            buf << " EA";
+            if(i->est_in == NoExists) {
+                vcompleted = 0;
+                buf << "????";
+            } else
+                buf << DateTimeToStr(i->est_in, "hhnn");
+            buf << " " << ElemIdToElem(etAirp, i->target, info.pr_lat);
+            body.push_back(buf.str());
+            buf.str("");
+            buf << "PX" << i->seats;
+        } else {
+            buf << "/" << i->seats;
+        }
+    }
+    body.push_back(buf.str());
+}
+
+void TMVTABody::get(TTlgInfo &info)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT NVL(act_out,NVL(est_out,scd_out)) act FROM points WHERE point_id=:point_id";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    if(!Qry.Eof)
+        act = Qry.FieldAsDateTime("act");
+    Qry.Clear();
+    Qry.SQLText =
+        "select points.airp as target, "
+        "       nvl(est_in,scd_in) as est_in, "
+        "       nvl(pax.seats,0) as seats, "
+        "       nvl(pax.inf,0) as inf "
+        "FROM points, "
+        "     (SELECT pax_grp.point_arv, "
+        "             SUM(pax.seats) AS seats, "
+        "             SUM(DECODE(pax.seats,0,1,0)) AS inf "
+        "      FROM pax_grp,pax "
+        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1 "
+        "      GROUP BY pax_grp.point_arv) pax "
+        "WHERE points.point_id=pax.point_arv(+) AND "
+        "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+        "ORDER BY point_num ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.CreateVariable("first_point", otInteger, info.first_point);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_target = Qry.FieldIndex("target");
+        int col_est_in = Qry.FieldIndex("est_in");
+        int col_seats = Qry.FieldIndex("seats");
+        int col_inf = Qry.FieldIndex("inf");
+        for(; !Qry.Eof; Qry.Next()) {
+            TMVTABodyItem item;
+            item.target = Qry.FieldAsString(col_target);
+            if(not Qry.FieldIsNULL(col_est_in))
+                item.est_in = Qry.FieldAsDateTime(col_est_in);
+            item.seats = Qry.FieldAsInteger(col_seats);
+            item.inf = Qry.FieldAsInteger(col_inf);
+            items.push_back(item);
+        }
+    }
+}
+
+int MVT(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    vcompleted = 1;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream buf;
+    buf
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "MVT" << br;
+    tlg_row.heading = buf.str();
+    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
+    if(info.bort.empty())
+        vcompleted = 0;
+    buf.str("");
+    buf
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd, "dd", 1)
+        << "." << (info.bort.empty() ? "??" : info.bort)
+        << "." << info.airp_dep;
+    vector<string> body;
+    body.push_back(buf.str());
+    buf.str("");
+    if(info.tlg_type == "MVTA") {
+        TMVTABody MVTABody;
+        MVTABody.get(info);
+        MVTABody.ToTlg(info, vcompleted, body);
+    } else {
+        TMVTBBody MVTBBody;
+        MVTBBody.get(info);
+        MVTBBody.ToTlg(vcompleted, body);
+    }
+
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
+        tlg_row.body += *iv + br;
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
 }
 
 int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
@@ -3848,6 +4046,7 @@ int TelegramInterface::create_tlg(
 
     if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
     else if(vbasic_type == "LDM") vid = LDM(info, vcompleted, tst_tlg_id);
+    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted, tst_tlg_id);
     else if(vbasic_type == "AHL") vid = AHL(info, vcompleted, tst_tlg_id);
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
