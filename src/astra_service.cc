@@ -337,7 +337,7 @@ int buildSaveFileData( xmlNodePtr resNode, const std::string &client_canon_name,
       		throw Exception( string( "Can't malloc " ) + IntToString( len ) + " byte" );
         ScanQry.FieldAsLong( "data", p );
         xmlNodePtr fileNode = NewTextChild( dataNode, "file" );
-        NewTextChild( fileNode, "data", StrUtils::b64_encode( (const char*)p, len ) );
+        NewTextChild( fileNode, "data", b64_encode( (const char*)p, len ) );
         wait_time = ScanQry.FieldAsDateTime( "now" ) - ScanQry.FieldAsDateTime( "wait_time" );
         NewTextChild( fileNode, "wait_time", wait_time );
         ScanQry.Next();
@@ -457,7 +457,7 @@ void buildLoadFileData( xmlNodePtr resNode, const std::string &client_canon_name
   	return;
   }
 	ProgTrace( TRACE5, "write prior_id=%d", new_id );
-	if ( fileparams[ PARAM_FILE_TYPE ] == FILE_AODB_TYPE ) {
+	if ( fileparams[ PARAM_FILE_TYPE ] == FILE_AODB_IN_TYPE ) {
 		if ( airline.empty() )
 			return;
 	  string region = CityTZRegion( "МОВ" );
@@ -803,7 +803,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                 if (
                         type == FILE_CENT_TYPE && createCentringFile( id, client_canon_name, fds ) ||
                         type == FILE_SOFI_TYPE && createSofiFile( id, inparams, client_canon_name, fds ) ||
-                        type == FILE_AODB_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
+                        type == FILE_AODB_OUT_TYPE && createAODBFiles( id, client_canon_name, fds ) ||
                         type == FILE_SPPCEK_TYPE && createSPPCEKFile( id, client_canon_name, fds ) ||
                         type == FILE_1CCEK_TYPE && Sync1C( client_canon_name, fds ) ) {
                     /* теперь в params еще лежит и имя файла */
@@ -925,13 +925,13 @@ void sync_aodb( void )
 		 "       file_param_sets.type=:type AND pr_send=1 AND own_point_addr=:own_point_addr AND "
 		 "       points.act_out IS NULL AND points.pr_del=0 ";
 	Qry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
-	Qry.CreateVariable( "type", otString, FILE_AODB_TYPE );
+	Qry.CreateVariable( "type", otString, FILE_AODB_OUT_TYPE );
 	Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
 	Qry.CreateVariable( "no_active_stage_id", otInteger, sNoActive );
 	Qry.CreateVariable( "prep_checkin_stage_id", otInteger, sPrepCheckIn );
 	Qry.Execute();
 	while ( !Qry.Eof ) {
-		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_TYPE, Qry.FieldAsString( "airp" ),
+		CreateCommonFileData( Qry.FieldAsInteger( "point_id" ), FILE_AODB_OUT_TYPE, Qry.FieldAsString( "airp" ),
   	                      Qry.FieldAsString( "airline" ), Qry.FieldAsString( "flt_no" ) );
 		Qry.Next();
 	}
@@ -983,17 +983,18 @@ void AstraServiceInterface::saveFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 		return;
 	}
 	string file_data = NodeAsString( dataNode );
-	file_data = StrUtils::b64_decode( file_data.c_str(), file_data.size() );
+	file_data = b64_decode( file_data.c_str(), file_data.size() );
 	TQuery Qry( &OraSession );
   TQuery EncodeQry( &OraSession );
   EncodeQry.SQLText =
       "select encoding from file_encoding where "
       "   own_point_addr = :own_point_addr and "
-      "   type = 'AODB' and "
+      "   type = :type AND "
       "   point_addr=:point_addr AND "
       "   pr_send = 0";
   EncodeQry.CreateVariable( "own_point_addr", otString, OWN_POINT_ADDR() );
   EncodeQry.CreateVariable( "point_addr", otString, fileparams[ "canon_name" ] );
+  EncodeQry.CreateVariable( "type", otString, FILE_AODB_IN_TYPE );
   EncodeQry.Execute();
 
   string convert_aodb;
@@ -1085,7 +1086,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   	str_file = ConvertCodepage( str_file, encoding, "CP866" );
   str_file = ConvertCodepage( str_file, "CP866", "WINDOWS-1251" );
   ProgTrace( TRACE5, "file_str=%s", str_file.c_str() );
-  NewTextChild( resNode, "data", StrUtils::b64_encode( str_file.c_str(), len ) );
+  NewTextChild( resNode, "data", b64_encode( str_file.c_str(), len ) );
   free( p );
   Qry.SQLText = "SELECT * FROM file_params WHERE id=:file_id";
 	Qry.CreateVariable( "file_id", otInteger, file_id );

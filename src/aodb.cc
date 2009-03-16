@@ -365,7 +365,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "       ckin.get_rkWeight(pax_grp.grp_id,pax.pax_id,rownum) rkweight,"
 	   "       ckin.get_bagAmount(pax_grp.grp_id,pax.pax_id,rownum) bagamount,"
 	   "       ckin.get_bagWeight(pax_grp.grp_id,pax.pax_id,rownum) bagweight,"
-	   "       pax.pr_brd,ckin.get_main_pax_id(pax.grp_id) as main_pax_id "
+	   "       pax.pr_brd,ckin.get_main_pax_id(pax.grp_id) as main_pax_id, "
+	   "       pax_grp.status "
 	   " FROM pax_grp, pax "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
 	   "       pax_grp.point_dep=:point_id"
@@ -386,9 +387,23 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
 	TimeQry.DeclareVariable( "work_mode", otString );
+	TQuery WLQry( &OraSession );
+	WLQry.SQLText =
+	 "SELECT layer_type FROM trip_comp_layers WHERE point_dep=:point_id AND pax_id=:pax_id";
+	WLQry.CreateVariable( "point_id", otInteger, point_id );
+	WLQry.DeclareVariable( "pax_id", otInteger );
 	vector<string> baby_names;
 
 	while ( !Qry.Eof ) {
+		if ( !pr_unaccomp && Qry.FieldIsNULL( "seat_no" ) && Qry.FieldAsInteger( "seats" ) ) {
+      // определяем есть ли у человека место или он зарегистрирован на ЛО
+      WLQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
+      WLQry.Execute();
+      if ( WLQry.Eof ) { // это ЛО
+			  Qry.Next();
+			  continue;
+	    }
+	  }
 		if ( !pr_unaccomp && Qry.FieldAsInteger( "seats" ) == 0 ) {
 			if ( Qry.FieldIsNULL( "refuse" ) )
 			  baby_names.push_back( Qry.FieldAsString( "name" ) );
@@ -489,18 +504,21 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 		  record<<setw(60)<<""; // ДОП. Инфо
 		  record<<setw(1)<<0; // международный багаж
 //		record<<setw(1)<<0; // трансатлантический багаж :)
-// стойка рег. + время рег. + выход на посадку + время прохода на посадку
+      string term;
+      TDateTime t;
+      // стойка рег. + время рег. + выход на посадку + время прохода на посадку
       TimeQry.SetVariable( "reg_no", Qry.FieldAsInteger( "reg_no" ) );
       TimeQry.SetVariable( "screen", "AIR.EXE" );
       TimeQry.SetVariable( "work_mode", "Р" );
       TimeQry.Execute();
-      string term;
-      TDateTime t;
       if ( TimeQry.Eof ) {
       	t = NoExists;
       }
       else {
-      	term = TimeQry.FieldAsString( "station" );
+        if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
+        	term = "99";
+        else
+      	  term = TimeQry.FieldAsString( "station" );
       	if ( !term.empty() && term[0] == 'R' )
       		term = term.substr( 1, term.length() - 1 );
       	t = TimeQry.FieldAsDateTime( "mtime" );
@@ -1316,13 +1334,15 @@ try {
 		}
 	}
 	err++;
+	//bool overload_alarm = false;
 	// запись в БД
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT move_id,point_id,craft,bort,scd_out,est_out,act_out,litera,park_out,pr_del "
 	 " FROM points WHERE airline=:airline AND flt_no=:flt_no AND "
 	 "                   ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
-	 "                   airp=:airp AND TRUNC(scd_out)=TRUNC(:scd_out) ";
+	 "                   airp=:airp AND "
+	 "  scd_out >= TRUNC(:scd_out) AND scd_out < TRUNC(:scd_out) + 1";
 	Qry.CreateVariable( "airline", otString, fl.airline );
 	Qry.CreateVariable( "flt_no", otInteger, fl.flt_no );
 	if ( fl.suffix.empty() )
@@ -1704,7 +1724,6 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	err++;
 	Qry.Execute();
 	err++;
-
 	// обновление времен технологического графика
   Qry.Clear();
 	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id";
@@ -2024,7 +2043,31 @@ bool createAODBFiles( int point_id, const std::string &point_addr, TFileDatas &f
 	BuildAODBTimes( point_id, point_addr, fds );
 	return !fds.empty();
 }
+/*
+ возвращает true только в случае, когда есть перегрузка и нет изменения в max_commerce
+*/
+bool Get_AODB_overload_alarm( int point_id, int max_commerce )
+{
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
+	  "SELECT max_commerce, aodb_points.overload_alarm FROM aodb_points, trip_sets "
+	  " WHERE aodb_points.point_id=:point_id AND aodb_points.point_id=trip_sets.point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	return ( !Qry.Eof &&
+	         Qry.FieldAsInteger( "max_commerce" ) == max_commerce &&
+	         Qry.FieldAsInteger( "overload_alarm" ) );
+}
 
+void Set_AODB_overload_alarm( int point_id, bool overload_alarm )
+{
+	TQuery Qry( &OraSession );
+	Qry.SQLText =
+	  "UPDATE aodb_points SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
+	Qry.CreateVariable( "overload_alarm", otInteger, overload_alarm );
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+}
 
 void VerifyParseFlight( )
 {
