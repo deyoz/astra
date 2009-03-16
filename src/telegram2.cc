@@ -3091,6 +3091,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
                 << "TKNE INF"
                 << fixed << setprecision(0) << pax.ticket_no << "/" << pax.coupon_no;
             TRemItem rem;
+            ProgTrace(TRACE5, "before push_back into items: %s", buf.str().c_str());
             rem.rem = buf.str();
             items.push_back(rem);
         }
