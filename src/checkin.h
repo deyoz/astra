@@ -9,6 +9,14 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 
+struct TSegInfo
+{
+  int point_dep,point_arv;
+  std::string airp_dep,airp_arv;
+  TTripInfo fltInfo;
+};
+
+
 class CheckInInterface : public JxtInterface
 {
 public:
@@ -68,6 +76,7 @@ public:
   void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);
   std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp );
   std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
+  std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
   static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
@@ -83,7 +92,6 @@ public:
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
   int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
-  bool CheckFltOverload(int point_id, const TTripInfo &fltInfo);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
