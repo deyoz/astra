@@ -1549,6 +1549,13 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     bool pr_trfer = (string)NodeAsString("name", reqNode) == "BMTrfer";
 
+    // зал регистрации
+    // если NULL, то отчет общий по всем залам
+    xmlNodePtr zoneNode = GetNode("zone", reqNode);
+    string zone;
+    if(zoneNode != NULL)
+        zone = NodeAsString(zoneNode);
+
     //TODO: get_report_form in each report handler, not once!
     xmlNodePtr resNode = NodeAsNode("/term/answer", formDataNode->doc);
     if(target.empty()) {
@@ -1612,9 +1619,8 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    pax_grp, "
         "    points, "
         "    classes, "
-        "    bag2 ";
-    if(pr_vip != 2)
-        SQLText += ", halls2 ";
+        "    bag2, "
+        "    halls2 ";
     if(pr_trfer)
         SQLText += ", v_last_trfer ";
     if(pr_brd_pax != -1)
@@ -1627,16 +1633,21 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    pax_grp.class = classes.code(+) and "
         "    pax_grp.grp_id = bag2.grp_id and "
         "    pax_grp.bag_refuse = 0 and "
-        "    bag2.pr_cabin = 0 ";
+        "    bag2.pr_cabin = 0 and "
+        "    pax_grp.hall = halls2.id ";
     if(!target.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, target);
     }
     if(pr_vip != 2) {
         SQLText +=
-            " and pax_grp.hall = halls2.id and "
-            " halls2.pr_vip = :pr_vip ";
+            " and halls2.pr_vip = :pr_vip ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    if(zoneNode) {
+        SQLText +=
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') ";
+        Qry.CreateVariable("zone", otString, zone);
     }
     if(pr_trfer)
         SQLText +=
@@ -1928,22 +1939,25 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     SQLText =
         "SELECT NVL(SUM(amount),0) AS amount, "
         "       NVL(SUM(weight),0) AS weight "
-        "FROM pax_grp,bag2 ";
-    if(pr_vip != 2)
-        SQLText +=
-            "   ,halls2 ";
+        "FROM pax_grp,bag2 "
+        "   ,halls2 ";
     if(pr_brd_pax != -1)
         SQLText +=
             "   ,pax ";
     SQLText +=
         "WHERE pax_grp.grp_id=bag2.grp_id AND "
         "      pax_grp.point_dep=:point_id and "
-        "      pax_grp.bag_refuse=0 AND ";
+        "      pax_grp.bag_refuse=0 AND "
+        "      pax_grp.hall=halls2.id AND ";
     if(pr_vip != 2) {
         SQLText +=
-            "      pax_grp.hall=halls2.id AND "
             "      halls2.pr_vip=:pr_vip AND ";
         Qry.CreateVariable("pr_vip", otInteger, pr_vip);
+    }
+    if(zoneNode) {
+        SQLText +=
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, zone);
     }
     if(pr_brd_pax != -1) {
         SQLText +=
@@ -1987,6 +2001,10 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    if(zoneNode) {
+            NewTextChild(variablesNode, "zone", get_hall_list(airp, zone, pr_lat));
+    } else
+        NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
