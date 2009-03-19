@@ -199,8 +199,8 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     NewTextChild(resNode,"subclass",subcl);
     NewTextChild(resNode,"tickets",tickets);
 
-    CheckInInterface::LoadBag(resNode);
-    CheckInInterface::LoadPaidBag(resNode);
+    CheckInInterface::LoadBag(grp_id,resNode);
+    CheckInInterface::LoadPaidBag(grp_id,resNode);
     LoadReceipts(grp_id,true,resNode);
   };
   ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());

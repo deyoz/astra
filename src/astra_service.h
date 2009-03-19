@@ -4,12 +4,12 @@
 #include <libxml/tree.h>
 #include <string>
 #include <map>
-#include "jxtlib/JxtInterface.h"
+#include "JxtInterface.h"
 
 const char* OWN_POINT_ADDR();
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
-const std::string PARAM_LOAD_DIR = "LOADDIR";
+	const std::string PARAM_LOAD_DIR = "LOADDIR";
 const std::string PARAM_CANON_NAME = "CANON_NAME";
 const std::string PARAM_FILE_NAME = "FileName";
 const std::string PARAM_IN_ORDER = "IN_ORDER";
@@ -53,6 +53,7 @@ void createSofiFileDATA( int receipt_id );
 void createAODBFileDATA( int point_id );
 void sync_aodb( void );
 void sync_sppcek( void );
+void sync_1ccek( void );
 
 
 class AstraServiceInterface : public JxtInterface

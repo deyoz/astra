@@ -6,6 +6,7 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "astra_misc.h"
 #include "oralib.h"
 #include "images.h"
 #include "convert.h"
