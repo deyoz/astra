@@ -241,6 +241,11 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   };
   reqInfo->MsgToLog(msg, evtPax, point_id);
 
+  if (reqInfo->screen.name == "BRDBUS.EXE")
+  {
+    check_brd_alarm( point_id );
+  };
+
   GetPax(reqNode,resNode);
 
  /* if (reqInfo->screen.name == "BRDBUS.EXE" &&
@@ -316,6 +321,11 @@ bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool
       int tckin_id;
       int tckin_seg_no;
       SeparateTCkin(grp_id,cssAllPrevCurr,cssCurr,new_tid,tckin_id,tckin_seg_no);
+
+      if (reqInfo->screen.name == "BRDBUS.EXE")
+      {
+        check_brd_alarm( point_id );
+      };
     };
     tid=new_tid;
     return true;
@@ -490,7 +500,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    NVL(pax_grp.excess,0) AS excess, "
         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
-        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment "
+        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+        "    wl_type "
         "FROM "
         "    pax_grp, "
         "    pax "
@@ -536,6 +547,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"), 0);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
+        NewTextChild(paxNode, "wl_type", Qry.FieldAsString("wl_type"), "");
 
         if (reg_no==Qry.FieldAsInteger("reg_no"))
         {
@@ -619,9 +631,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                   pr_check_pay=SetsQry.FieldAsInteger("pr_exam_check_pay")!=0;
                 pr_etstatus=SetsQry.FieldAsInteger("pr_etstatus");
 
-                if (reqInfo->screen.name == "BRDBUS.EXE" &&
-                        boarding && Qry.FieldAsInteger("pr_exam")==0 &&
-                        !pr_exam_with_brd && pr_exam)
+                if (boarding && !Qry.FieldIsNULL("wl_type"))
+                {
+                    showErrorMessage("Пассажир не подтвержден с листа ожидания");
+                }
+                else if (reqInfo->screen.name == "BRDBUS.EXE" &&
+                         boarding && Qry.FieldAsInteger("pr_exam")==0 &&
+                         !pr_exam_with_brd && pr_exam)
                 {
                     showErrorMessage("Пассажир не прошел досмотр");
                 }
