@@ -11,6 +11,7 @@
 #include "astra_service.h"
 #include "timer.h"
 #include "salons2.h"
+#include "tripinfo.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -194,7 +195,10 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      else
      	UpdQry.SetVariable( "pr_auto", -1 );
      UpdQry.SetVariable( "pr_manual", pr_manual );
-     UpdQry.Execute();
+     UpdQry.Execute(); // после выполнения UpdQry, иначе не сработает!
+
+ 	 	 check_brd_alarm( point_id );
+
      TStagesRules *r = TStagesRules::Instance();
      string tolog = string( "Этап '" ) + r->stage_name( i->first, airp ) + "'";
      if ( i->second.old_act == NoExists && i->second.act > NoExists )

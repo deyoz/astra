@@ -6,6 +6,8 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include "oralib.h"
+#include "astra_utils.h"
+#include "stages.h"
 
 class TTripInfo
 {
@@ -178,6 +180,16 @@ class TTripRoute : public std::vector<TTripRouteItem>
                       TTripRouteItem& item);*/
 };
 
+class TPaxSeats {
+	private:
+	  int pr_lat_seat;
+	  TQuery *Qry;
+	public:
+		TPaxSeats( int point_id );
+		std::string getSeats( int pax_id, const std::string format );
+    ~TPaxSeats();
+};
+
 std::string mkt_airline(int pax_id);
 
 enum TCkinSegmentSet { cssNone,
@@ -192,6 +204,9 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
+enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atLength };
+void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
+std::string TripAlarmString( TTripAlarmsType &alarm );
 #endif /*_ASTRA_MISC_H_*/
 
 

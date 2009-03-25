@@ -122,7 +122,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,lang,NVL(under_constr,0) AS under_constr "
+    "SELECT city,lang,NVL(under_constr,0) AS under_constr,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -134,6 +134,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
   desk.city = Qry.FieldAsString( "city" );
   desk.lang = Qry.FieldAsString( "lang" );
+  desk.grp_id = Qry.FieldAsInteger( "grp_id" );
 
   Qry.Clear();
   Qry.SQLText=
@@ -913,39 +914,48 @@ void showBasicInfo(void)
     Qry.Clear();
     Qry.SQLText=
       "SELECT term_mode,op_type,param_type,param_name,subparam_name,param_value "
-      "FROM dev_params WHERE term_mode=:term_mode "
-      "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST ";
-
+      "FROM dev_params "
+      "WHERE term_mode=:term_mode AND (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
+      "ORDER BY op_type,param_type,param_name,subparam_name NULLS FIRST,desk_grp_id NULLS LAST ";
     Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+    Qry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
     Qry.Execute();
 
 
     xmlNodePtr operTypeNode=NULL,paramTypeNode=NULL,paramNameNode=NULL;
+    string op_type,param_type,param_name,subparam_name;
     for(;!Qry.Eof;Qry.Next())
     {
-      if (operTypeNode==NULL ||
-          strcmp((const char*)operTypeNode->name,Qry.FieldAsString("op_type"))!=0)
+      if (op_type==Qry.FieldAsString("op_type") &&
+          param_type==Qry.FieldAsString("param_type") &&
+          param_name==Qry.FieldAsString("param_name") &&
+          subparam_name==Qry.FieldAsString("subparam_name")) continue;
+
+      op_type=Qry.FieldAsString("op_type");
+      param_type=Qry.FieldAsString("param_type");
+      param_name=Qry.FieldAsString("param_name");
+      subparam_name=Qry.FieldAsString("subparam_name");
+
+      if (operTypeNode==NULL || (const char*)operTypeNode->name!=op_type)
       {
-        operTypeNode=NewTextChild(modeNode,Qry.FieldAsString("op_type"));
+        operTypeNode=NewTextChild(modeNode,op_type.c_str());
         paramTypeNode=NULL;
         paramNameNode=NULL;
       };
-      if (paramTypeNode==NULL ||
-          strcmp((const char*)paramTypeNode->name,Qry.FieldAsString("param_type"))!=0)
+      if (paramTypeNode==NULL || (const char*)paramTypeNode->name!=param_type)
       {
-        paramTypeNode=NewTextChild(operTypeNode,Qry.FieldAsString("param_type"));
+        paramTypeNode=NewTextChild(operTypeNode,param_type.c_str());
         paramNameNode=NULL;
       };
-      if (paramNameNode==NULL ||
-          strcmp((const char*)paramNameNode->name,Qry.FieldAsString("param_name"))!=0)
+      if (paramNameNode==NULL || (const char*)paramNameNode->name!=param_name)
       {
-        if (Qry.FieldIsNULL("subparam_name"))
-          paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"),Qry.FieldAsString("param_value"));
+        if (subparam_name.empty())
+          paramNameNode=NewTextChild(paramTypeNode,param_name.c_str(),Qry.FieldAsString("param_value"));
         else
-          paramNameNode=NewTextChild(paramTypeNode,Qry.FieldAsString("param_name"));
+          paramNameNode=NewTextChild(paramTypeNode,param_name.c_str());
       };
-      if (!Qry.FieldIsNULL("subparam_name"))
-        NewTextChild(paramNameNode,Qry.FieldAsString("subparam_name"),Qry.FieldAsString("param_value"));
+      if (!subparam_name.empty())
+        NewTextChild(paramNameNode,subparam_name.c_str(),Qry.FieldAsString("param_value"));
     };
   };
   node = NewTextChild( resNode, "screen" );

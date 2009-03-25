@@ -190,6 +190,7 @@ struct TSOPPTrip {
   std::string region;
   int trfer_out_point_id;
   BitSet<TTrferType> TrferType;
+  BitSet<TTripAlarmsType> Alarms;
 
   TSOPPTrip() {
     flt_no_in = ASTRA::NoExists;
@@ -210,6 +211,7 @@ struct TSOPPTrip {
     pr_reg = 0;
     trfer_out_point_id = -1;
     TrferType.clearFlags();
+    Alarms.clearFlags();
   }
 };
 
@@ -222,10 +224,6 @@ bool FilterFlightDate( TSOPPTrip &tr, BASIC::TDateTime first_date, BASIC::TDateT
 
 void DeletePassengers( int point_id, const std::string status, std::map<int,TTripInfo> &segs, bool tckin_version );
 void DeletePassengersAnswer( std::map<int,TTripInfo> &segs, xmlNodePtr resNode );
-
-
-bool is_waitlist_alarm( int point_id );
-bool is_brd_alarm( int point_id );
 
 class SoppInterface : public JxtInterface
 {
