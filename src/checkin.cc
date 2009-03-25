@@ -1500,7 +1500,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  report.get_last_tckin_seg(pax.grp_id) AS last_tckin_seg, "
     "  class,pax.subclass, "
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-    "  seats,pers_type,document, "
+    "  seats,wl_type,pers_type,document, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
     "  ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bag_weight, "
@@ -1536,6 +1536,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
 
+  int col_pax_id=Qry.FieldIndex("pax_id");
   int col_reg_no=Qry.FieldIndex("reg_no");
   int col_surname=Qry.FieldIndex("surname");
   int col_name=Qry.FieldIndex("name");
@@ -1546,6 +1547,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_subclass=Qry.FieldIndex("subclass");
   int col_seat_no=Qry.FieldIndex("seat_no");
   int col_seats=Qry.FieldIndex("seats");
+  int col_wl_type=Qry.FieldIndex("wl_type");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_document=Qry.FieldIndex("document");
   int col_ticket_no=Qry.FieldIndex("ticket_no");
@@ -1578,6 +1580,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   // признака можно только пробежав группу до конца. Отсюда такой гемор.
   // При смене группы (и после отработки цикла) происходит инициализация признака у всех пассажиров предыдущей группы.
   int rcpt_complete = 0;
+  TPaxSeats priorSeats(point_id);
   for(;!Qry.Eof;Qry.Next())
   {
     int tmp_grp_id = Qry.FieldAsInteger("grp_id");
@@ -1602,6 +1605,24 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                  convertLastTrfer(Qry.FieldAsString(col_last_tckin_seg)),"");
     NewTextChild(paxNode,"class",Qry.FieldAsString(col_class));
     NewTextChild(paxNode,"subclass",Qry.FieldAsString(col_subclass),"");
+    if (Qry.FieldIsNULL(col_wl_type))
+    {
+      //не на листе ожидания, но возможно потерял место при смене компоновки
+      if (Qry.FieldIsNULL(col_seat_no) && Qry.FieldAsInteger(col_seats)>0)
+      {
+        ostringstream seat_no_str;
+        seat_no_str << "("
+                    << priorSeats.getSeats(Qry.FieldAsInteger(col_pax_id),"seats")
+                    << ")";
+        NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+        NewTextChild(paxNode,"seat_no_alarm",(int)true);
+      };
+    }
+    else
+    {
+      NewTextChild(paxNode,"seat_no_str","ЛО");
+      NewTextChild(paxNode,"seat_no_alarm",(int)true);
+    };
     NewTextChild(paxNode,"seat_no",Qry.FieldAsString(col_seat_no));
     NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString(col_pers_type));
@@ -1969,12 +1990,16 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         cl=NodeAsString("class",segNode);
 
         hall=NodeAsInteger("hall",reqNode);
-        Qry.Clear();
-        Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
-        Qry.CreateVariable("hall",otInteger,hall);
-        Qry.Execute();
-        if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
-        bool addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+        bool addVIP=false;
+        if (first_segment)
+        {
+          Qry.Clear();
+          Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
+          Qry.CreateVariable("hall",otInteger,hall);
+          Qry.Execute();
+          if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
+          addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+        };
 
         //новая регистрация
         //проверка наличия свободных мест
@@ -2379,7 +2404,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               Qry.SetVariable("seats",seats);
               Qry.SetVariable("pr_brd",(int)pr_brd_with_reg);
               Qry.SetVariable("pr_exam",(int)(pr_brd_with_reg && pr_exam_with_brd));
-              Qry.SetVariable("wl_type",wl_type);
+              if (seats>0)
+                Qry.SetVariable("wl_type",wl_type);
+              else
+                Qry.SetVariable("wl_type",FNull);
               Qry.SetVariable("reg_no",reg_no);
               Qry.SetVariable("pax_no",pax_no);
               Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));

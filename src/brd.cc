@@ -488,6 +488,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
         "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "    seats, "
+        "    wl_type, "
         "    ticket_no, "
         "    coupon_no, "
         "    document, "
@@ -500,8 +501,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    NVL(pax_grp.excess,0) AS excess, "
         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
-        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
-        "    wl_type "
+        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment "
         "FROM "
         "    pax_grp, "
         "    pax "
@@ -516,6 +516,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       throw UserException("Пассажир не зарегистрирован");
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
+    TPaxSeats priorSeats(point_id);
     for(;!Qry.Eof;Qry.Next())
     {
         int pax_id=Qry.FieldAsInteger("pax_id");
@@ -534,6 +535,24 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
         NewTextChild(paxNode, "seat_no", Qry.FieldAsString("seat_no"), "");
         NewTextChild(paxNode, "seats", Qry.FieldAsInteger("seats"), 1);
+        if (Qry.FieldIsNULL("wl_type"))
+        {
+          //не на листе ожидания, но возможно потерял место при смене компоновки
+          if (Qry.FieldIsNULL("seat_no") && Qry.FieldAsInteger("seats")>0)
+          {
+            ostringstream seat_no_str;
+            seat_no_str << "("
+                        << priorSeats.getSeats(pax_id,"seats")
+                        << ")";
+            NewTextChild(paxNode,"seat_no_str",seat_no_str.str());
+            NewTextChild(paxNode,"seat_no_alarm",(int)true);
+          };
+        }
+        else
+        {
+          NewTextChild(paxNode,"seat_no_str","ЛО");
+          NewTextChild(paxNode,"seat_no_alarm",(int)true);
+        };
         NewTextChild(paxNode, "ticket_no", Qry.FieldAsString("ticket_no"), "");
         NewTextChild(paxNode, "coupon_no", Qry.FieldAsInteger("coupon_no"), 0);
         NewTextChild(paxNode, "document", Qry.FieldAsString("document"), "");
@@ -547,7 +566,6 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"), 0);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
-        NewTextChild(paxNode, "wl_type", Qry.FieldAsString("wl_type"), "");
 
         if (reg_no==Qry.FieldAsInteger("reg_no"))
         {
