@@ -6,6 +6,8 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "tlg/tlg_parser.h"
+#include "convert.h"
+
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -484,5 +486,111 @@ bool SeparateTCkin(int grp_id,
 
   return true;
 };
+
+void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
+{
+	Alarms.clearFlags();
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act "
+    " FROM trip_sets, trip_stages, "
+    " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
+    " WHERE trip_sets.point_id=:point_id AND "
+    "       trip_stages.point_id(+)=trip_sets.point_id AND "
+    "       trip_stages.stage_id(+)=:OpenCheckIn ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "OpenCheckIn", otInteger, sOpenCheckIn );
+  Qry.Execute();
+	if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+  if ( Qry.FieldAsInteger( "overload_alarm" ) ) {
+   	Alarms.setFlag( atOverload );
+  }
+  if ( Qry.FieldAsInteger( "waitlist_alarm" ) ) {
+   	Alarms.setFlag( atWaitlist );
+  }
+  if ( Qry.FieldAsInteger( "brd_alarm" ) ) {
+   	Alarms.setFlag( atBrd );
+  }
+	if ( !Qry.FieldAsInteger( "pr_salon" ) && !Qry.FieldIsNULL( "act" ) ) {
+		Alarms.setFlag( atSalon );
+	}
+	if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
+		Alarms.setFlag( atETStatus );
+	}
+}
+
+string TripAlarmString( TTripAlarmsType &alarm )
+{
+	string mes;
+	switch( alarm ) {
+		case atOverload:
+			mes = "Перегрузка";
+			break;
+		case atWaitlist:
+			mes = "Лист ожидания";
+			break;
+		case atBrd:
+			mes = "Посадка";
+			break;
+		case atSalon:
+			mes = "Не назначен салон";
+			break;
+		case atETStatus:
+			mes = "Нет связи с СЭБ";
+			break;
+		default:;
+	}
+	return mes;
+}
+
+TPaxSeats::TPaxSeats( int point_id )
+{
+	pr_lat_seat = 1;
+	Qry = new TQuery( &OraSession );
+	Qry->SQLText =
+	  "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
+	Qry->CreateVariable( "point_id", otInteger, point_id );
+	Qry->Execute();
+	if ( !Qry->Eof )
+		pr_lat_seat = Qry->FieldAsInteger( "pr_lat_seat" );
+	Qry->Clear();
+	Qry->SQLText =
+    "SELECT first_xname, first_yname "
+    " FROM trip_comp_layers, grp_status_types "
+    " WHERE trip_comp_layers.point_id=:point_id AND "
+    "       trip_comp_layers.pax_id=:pax_id AND "
+    "       trip_comp_layers.layer_type=grp_status_types.layer_type "
+    "ORDER BY first_yname, first_xname";
+  Qry->CreateVariable( "point_id", otInteger, point_id );
+  Qry->DeclareVariable( "pax_id", otInteger );
+}
+
+std::string TPaxSeats::getSeats( int pax_id, const std::string format )
+{
+	string res;
+
+	Qry->SetVariable( "pax_id", pax_id );
+	Qry->Execute();
+	int c=0;
+ 	while ( !Qry->Eof ) {
+ 		TSeat seat;
+    if ( format == "list" && !res.empty() )
+    	res += " ";
+   	res = denorm_iata_row( Qry->FieldAsString( "first_yname" ) ) +
+          denorm_iata_line( Qry->FieldAsString( "first_xname" ), pr_lat_seat );
+    if ( format == "one" )
+    	break;
+   	c++;
+    Qry->Next();
+  }
+  if ( format != "list" && format != "one" && c > 1 )
+  	res += "+" + IntToString( c - 1 );
+  return res;
+}
+
+TPaxSeats::~TPaxSeats()
+{
+	delete Qry;
+}
 
 

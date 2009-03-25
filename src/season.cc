@@ -930,11 +930,11 @@ void CreateSPP( BASIC::TDateTime localdate )
   VQry.SQLText =
    "SELECT 1 FROM points "\
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       TRUNC(scd_in)=TRUNC(:scd_in) AND rownum<2 "
+   "       scd_in >= TRUNC(:scd_in) AND scd_in < TRUNC(:scd_in)+1 AND rownum<2 "
    "UNION "
    "SELECT 2 FROM points "\
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       TRUNC(scd_out)=TRUNC(:scd_out) AND rownum<2 ";
+   "       scd_out >= TRUNC(:scd_out) AND scd_out < TRUNC(:scd_out)+1 AND rownum<2 ";
   VQry.DeclareVariable( "name", otString );
   VQry.DeclareVariable( "airp", otString );
   VQry.DeclareVariable( "scd_in", otDate );

@@ -11,6 +11,7 @@
 #include "salons2.h"
 #include "tlg/tlg_parser.h"
 #include "convert.h"
+#include "tripinfo.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -1814,6 +1815,7 @@ namespace SEATS {
 /* рассадка пассажиров */
 void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FUse_PS )
 {
+	ProgTrace( TRACE5, "SeatAlgo=%d", SeatAlgo );
   if ( !Passengers.getCount() )
     return;
   FSeatAlgo = SeatAlgo;
@@ -1934,8 +1936,8 @@ void SeatsPassengers( TSalons *Salons, int SeatAlgo /* 0 - умолчание */, bool FU
                       continue; ???*/
 
                     CanUseSmoke = FCanUseSmoke;
-/*                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyStatus=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseMCLS=%d",
-                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,KeyStatus,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow,canUseMCLS);*/
+                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyStatus=%d,FCanUseTube=%d,FCanUseSmoke=%d,CanUseGood=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseMCLS=%d",
+                               (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,KeyStatus,FCanUseTube,FCanUseSmoke,CanUseGood,PlaceStatus.c_str(), MAXPLACE(),canUseOneRow,canUseMCLS);
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
                         if ( SeatPlaces.SeatGrpOnBasePlace( ) )
@@ -2001,19 +2003,17 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
      "       cls_grp.code subclass,"
      "       seats,"
      "       pax.tid,"
-     "       step, "
+     "       rem_code, "
      "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'one',rownum) AS seat_no "
-     " FROM pax_grp,pax, cls_grp, points, "
-     "( SELECT COUNT(*) step, pax_id FROM pax_rem "
-     "   WHERE rem_code = 'STCR' "
-     "  GROUP BY pax_id ) a "
+     " FROM pax_grp,pax, cls_grp, points, pax_rem "
      "WHERE pax_grp.grp_id=pax.grp_id AND "
      "      pax_grp.point_dep=:point_id AND "
      "      points.point_id = pax_grp.point_dep AND "
      "      pax_grp.class_grp = cls_grp.id AND "
      "      pax.pr_brd IS NOT NULL AND "
      "      seats > 0 AND "
-     "      a.pax_id(+) = pax.pax_id "
+     "      pax_rem.pax_id(+) = pax.pax_id AND "
+     "      rem_code = 'STCR' "
      "ORDER BY pax.pax_id, pax.reg_no,pax_grp.grp_id ";
     QrySeat.SQLText =
       "SELECT first_xname, first_yname FROM trip_comp_layers "
@@ -2048,7 +2048,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
       		                 denorm_iata_line( QrySeat.FieldAsString( "first_xname" ), pr_lat_seat );
       }
 
-      if ( Qry.FieldAsInteger( "step" ) ) {
+      if ( string("STCR") == Qry.FieldAsString( "rem_code" ) ) {
         pass.rems.push_back( "STCR" );
       }
       if (
@@ -2277,9 +2277,10 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   Qry.Execute();
 	if ( seat_type != stDropseat ) {
 		Qry.Clear();
-	  Qry.SQLText = "SELECT xname,yname FROM trip_comp_elems WHERE xname=:xname AND yname=:yname";
+	  Qry.SQLText = "SELECT xname,yname FROM trip_comp_elems WHERE xname=:xname AND yname=:yname AND point_id=:point_id";
 	  Qry.CreateVariable( "xname", otString, first_xname );
 	  Qry.CreateVariable( "yname", otString, first_yname );
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
 	  Qry.Execute();
 	  if ( Qry.Eof ) {
 		  ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
@@ -2593,6 +2594,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   		}
   		break;
   }
+  check_waitlist_alarm( point_id );
 }
 
 void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
@@ -2711,7 +2713,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
     		if ( !pass.placeName.empty() )
           TReqInfo::Instance()->MsgToLog( string("Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки высажен с места " +
-                                          prev_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );
+                                          prev_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
       }
       else {
       	std::vector<TSeatRange> seats;
@@ -2732,7 +2734,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
       	if ( prev_seat_no != new_seat_no )/* пересадили на другое место */
           TReqInfo::Instance()->MsgToLog( string( "Пассажир " ) + pass.fullName +
                                           " из-за смены компоновки пересажен на место " +
-                                          new_seat_no, evtPax, CurrSalon->trip_id, pass.regNo, pass.grpId );
+                                          new_seat_no, evtPax, Salons.trip_id, pass.regNo, pass.grpId );
       }
     }
   }
@@ -2741,6 +2743,7 @@ void AutoReSeatsPassengers( TSalons &Salons, TPassengers &APass, int SeatAlgo )
     throw;
   }
   SeatPlaces.RollBack( );
+  check_waitlist_alarm( Salons.trip_id );
   ProgTrace( TRACE5, "passengers.count=%d", APass.getCount() );
 }
 

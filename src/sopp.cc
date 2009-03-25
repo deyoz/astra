@@ -185,7 +185,6 @@ const char* trip_delays_SQL =
   "WHERE point_id=:point_id "
   "ORDER BY delay_num";
 
-
 typedef vector<TSoppStage> tstages;
 
 typedef map<int,TSOPPDests> tmapds;
@@ -985,6 +984,9 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
    		if ( !Trfer_outQry.Eof )
    			tr->TrferType.setFlag( trferIn );
    	}
+   	if ( !arx && module == tSOPP && tr->pr_reg ) {
+   		TripAlarms( tr->point_id, tr->Alarms );
+    }
   }
   PerfomTest( 662 );
   return errcity;
@@ -1146,6 +1148,35 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       NewTextChild( stationNode, "work_mode", st->work_mode );
       if ( st->pr_main )
       	NewTextChild( stationNode, "pr_main" );
+    }
+    xmlNodePtr alarmsNode = NULL;
+    for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
+    	TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+      if ( tr->Alarms.isFlag( alarm ) ) {
+      	ProgTrace( TRACE5, "tr->point_id=%d, alarm=%s", tr->point_id, TripAlarmString( alarm ).c_str() );
+      	if ( !alarmsNode )
+      		alarmsNode = NewTextChild( tripNode, "alarms" );
+      	xmlNodePtr an;
+      	switch( alarm ) {
+      		case atWaitlist:
+      			an = NewTextChild( alarmsNode, "alarm", "Waitlist" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      		case atOverload:
+      			an = NewTextChild( alarmsNode, "alarm", "Overload" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      	  case atBrd:
+      			an = NewTextChild( alarmsNode, "alarm", "Brd" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      	  case atSalon:
+      			an = NewTextChild( alarmsNode, "alarm", "Salon" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
+      		default:;
+      	}
+      }
     }
   } // end for trip
 }
@@ -1884,6 +1915,9 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   {
     Qry.SetVariable("point_id",i->first);
     Qry.Execute();
+    Set_overload_alarm( i->first, Get_overload_alarm( i->first, i->second ) );
+    check_waitlist_alarm( i->first );
+    check_brd_alarm( i->first );
   };
 
   if ( status.empty() )
@@ -1950,7 +1984,14 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	xmlNodePtr node = NodeAsNode( "trips", reqNode );
 	node = node->children;
 	TQuery Qry(&OraSession);
+	TQuery QryTripInfo(&OraSession);
+  QryTripInfo.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
+	QryTripInfo.DeclareVariable("point_id", otInteger);
+
 	xmlNodePtr n, stnode;
+	TTripInfo fltInfo;
 	while ( node ) {
 		n = node->children;
 		int point_id = NodeAsIntegerFast( "point_id", n );
@@ -2020,20 +2061,19 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                r->user.access.rights.end(), 370 ) != r->user.access.rights.end() ) {
   		xmlNodePtr max_cNode = GetNode( "max_commerce", luggageNode );
   		if ( max_cNode ) {
+  			int max_commerce = NodeAsInteger( max_cNode );
+  			bool pr_overload_alarm = Get_AODB_overload_alarm( point_id, max_commerce );
  		    Qry.Clear();
   	    Qry.SQLText =
-  	     "UPDATE trip_sets "
-  	     " SET max_commerce=:max_commerce, "
-  	     "     overload_alarm=DECODE(max_commerce,:max_commerce,overload_alarm,0) "
-  	     " WHERE point_id=:point_id";
+  	     "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
   	    Qry.CreateVariable( "point_id", otInteger, point_id );
-  	    int max_commerce = NodeAsInteger( max_cNode );
   	    Qry.CreateVariable( "max_commerce", otInteger, max_commerce );
   	    Qry.Execute();
+  	    Set_AODB_overload_alarm( point_id, pr_overload_alarm );
   	    TReqInfo::Instance()->MsgToLog( string( "Макс. коммерческая загрузка: " ) + IntToString( max_commerce ) + "кг.", evtFlt, point_id );
   		}
-  		xmlNodePtr trip_load = GetNode( "trip_load", luggageNode );
-  		if ( trip_load ) {
+  		xmlNodePtr trip_loadNode = GetNode( "trip_load", luggageNode );
+  		if ( trip_loadNode ) {
   			Qry.Clear();
   			Qry.SQLText =
   			 "BEGIN "\
@@ -2050,7 +2090,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			Qry.DeclareVariable( "airp_arv", otString );
   			Qry.DeclareVariable( "cargo", otInteger );
   			Qry.DeclareVariable( "mail", otInteger );
-  			xmlNodePtr load = trip_load->children;
+  			xmlNodePtr load = trip_loadNode->children;
   			while( load ) {
   				xmlNodePtr x = load->children;
   				Qry.SetVariable( "point_arv", NodeAsIntegerFast( "point_arv", x ) );
@@ -2066,6 +2106,15 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             "груз " + IntToString( cargo ) + " кг., " +
             "почта " + IntToString( mail ) + " кг.", evtFlt, point_id );
   			  load = load->next;
+  			}
+  		}
+  		if ( max_cNode || trip_loadNode ) { // были изменения в весе
+  			//проверим максимальную загрузку
+  			QryTripInfo.SetVariable( "point_id", point_id );
+  			QryTripInfo.Execute();
+  			if ( !QryTripInfo.Eof ) {
+  				fltInfo.Init(QryTripInfo);
+  				Set_overload_alarm( point_id, Get_overload_alarm( point_id, fltInfo ) );
   			}
   		}
   	}
@@ -2297,6 +2346,12 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "luggage", reqNode ) ) {
   	GetLuggage( point_id, dataNode );
   }
+  TSOPPTrips trips;
+
+  string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
+
+  if ( !errcity.empty() )
+    showErrorMessage( string("Для города ") + errcity + " не задан регион. Данные по рейсу не обновляются" );
 
 	TQuery Qry(&OraSession );
  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
@@ -2321,6 +2376,23 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( GetNode( "UpdateGraph_Stages", reqNode ) ) {
   	TStagesRules::Instance()->UpdateGraph_Stages();
   	TStagesRules::Instance()->BuildGraph_Stages( airp, dataNode );
+  }
+  xmlNodePtr headerNode = NewTextChild( dataNode, "header" );
+  for (TSOPPTrips::iterator i=trips.begin(); i!=trips.end(); i++ ) {
+  	if ( i->point_id == point_id ) {
+      NewTextChild( headerNode, "remark_out", i->remark_out );
+      string stralarms;
+  	  for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
+        TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+        if ( !i->Alarms.isFlag( alarm ) )
+      	  continue;
+        if ( !stralarms.empty() )
+        	stralarms += " ";
+        stralarms += "!" + TripAlarmString( alarm );
+      }
+      NewTextChild( headerNode, "alarms", stralarms );
+      break;
+    }
   }
 }
 
@@ -2968,8 +3040,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  else
   	  	init_trip_stages = false;
 
-  	  id->remark = old_dest.remark;
-  	  ProgTrace( TRACE5, "id->remark=%s", id->remark.c_str() );
+  	  //ProgTrace( TRACE5, "id->remark=%s", id->remark.c_str() );
 /*  	  if ( id->act_out == NoExists && id->est_out > NoExists && id->est_out != old_dest.est_out ) { //задержка
   	  	string::size_type idx = id->remark.find( "задержка до " );
   	  	if ( idx != string::npos )
@@ -2985,7 +3056,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  if ( id->pr_del != -1 && !id->craft.empty() && id->craft != old_dest.craft && !old_dest.craft.empty() ) {
   	  	ch_craft = true;
   	  	if ( !old_dest.craft.empty() ) {
-  	  	  id->remark += " изм. типа ВС с " + old_dest.craft;
+  	  		if ( !id->remark.empty() )
+  	  			id->remark += " ";
+  	  	  id->remark += "изм. типа ВС с " + old_dest.craft;
   	  	  if ( !id->craft.empty() )
   	  	    reqInfo->MsgToLog( string( "Изменение типа ВС на " ) + id->craft + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
@@ -2996,7 +3069,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }
   	  if ( id->bort != old_dest.bort ) {
   	  	if ( !old_dest.bort.empty() ) {
-  	  	  id->remark += " изм. борта с " + old_dest.bort;
+  	  		if ( !id->remark.empty() )
+  	  			id->remark += " ";
+  	  	  id->remark += "изм. борта с " + old_dest.bort;
   	  	  if ( !id->bort.empty() )
   	  	    reqInfo->MsgToLog( string( "Изменение борта на " ) + id->bort + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  	}
@@ -3161,6 +3236,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
  		Qry.CreateVariable( "park_out", otString, id->park_out );
   	Qry.CreateVariable( "pr_del", otInteger, id->pr_del );
   	Qry.CreateVariable( "tid", otInteger, new_tid );
+  	if ( !old_dest.remark.empty() )
+  		id->remark += " " + old_dest.remark;
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
 //  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
@@ -4194,54 +4271,5 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
 
-/* есть пассажиры, которые на листе ожидания */
-bool is_waitlist_alarm( int point_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT waitlist_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	SEATS2::TPassengers p;
-	bool waitlist_alarm = SEATS2::GetPassengersForWaitList( point_id, p, true );
-	if ( !Qry.Eof && (int)waitlist_alarm != Qry.FieldAsInteger( "waitlist_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET waitlist_alarm=:waitlist_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
-  	Qry.Execute();
-	}
-	return waitlist_alarm;
-}
-
-/* есть пассажиры, которые зарегистрированы, но не посажены */
-bool is_brd_alarm( int point_id )
-{
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT pax_id FROM pax, pax_grp "
-	  " WHERE pax_grp.point_dep=:point_id AND "
-	  "       pax_grp.grp_id=pax.grp_id AND "
-	  "       pax.pr_brd = 0 AND "
-	  "       rownum < 2 ";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	bool brd_alarm = !Qry.Eof;
-	Qry.Clear();
-	Qry.SQLText =
-	  "SELECT brd_alarm FROM trip_sets WHERE point_id=:point_id";
-	Qry.CreateVariable( "point_id", otInteger, point_id );
-	Qry.Execute();
-	if ( !Qry.Eof && (int)brd_alarm != Qry.FieldAsInteger( "brd_alarm" ) ) {
-		Qry.Clear();
-		Qry.SQLText =
-		  "UPDATE trip_sets SET brd_alarm=:brd_alarm WHERE point_id=:point_id";
-	  Qry.CreateVariable( "point_id", otInteger, point_id );
-	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
-  	Qry.Execute();
-  }
-	return brd_alarm;
-}
 
 
