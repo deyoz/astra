@@ -558,6 +558,7 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
 {
   string code = cachetable->code();
   if ( code == "TRIP_BP" ||
+       code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" ) {
     message.ev_type = evtFlt;
@@ -574,20 +575,16 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       FieldIndex = cachetable->FieldIndex( "point_id" );
       if ( FieldIndex < 0 )
         throw Exception( "Ошибка при поиске поля point_id" );
-      ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
       point_id = ToInt( row.old_cols[ FieldIndex ] );
     }
-    ProgTrace( TRACE5, "point_id=%d", point_id );
     message.id1 = point_id;
     if ( code == "TRIP_BP" ) {
       message.msg.clear();
       if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
         message.msg += string( "Отменен бланк пос. талона '" );
         FieldIndex = cachetable->FieldIndex( "bp_name" );
-        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         message.msg += row.old_cols[ FieldIndex ] + "'";
         FieldIndex = cachetable->FieldIndex( "class" );
-        ProgTrace( TRACE5, "FieldIndex=%d", FieldIndex );
         if ( !row.old_cols[ FieldIndex ].empty() )
           message.msg += " для класса " + row.old_cols[ FieldIndex ];
         message.msg += ". ";
@@ -600,6 +597,20 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
         if ( !row.cols[ FieldIndex ].empty() )
           message.msg += " для класса " + row.cols[ FieldIndex ];
         message.msg += ". ";
+      }
+      return;
+    }
+    if ( code == "TRIP_BT" ) {
+      message.msg.clear();
+      if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
+        message.msg += string( "Отменен бланк баг. бирки '" );
+        FieldIndex = cachetable->FieldIndex( "bt_name" );
+        message.msg += row.old_cols[ FieldIndex ] + "'. ";
+      }
+      if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
+        message.msg += "Установлен бланк баг. бирки '";
+        FieldIndex = cachetable->FieldIndex( "bt_name" );
+        message.msg += row.cols[ FieldIndex ] + "'. ";
       }
       return;
     }
@@ -775,9 +786,11 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
             } catch(UserException E) {
                 throw;
             } catch(Exception E) {
-                ProgTrace(TRACE5, "OnBeforeApply failed: %s", E.what());
+                ProgError(STDLOG, "OnBeforeApply failed: %s", E.what());
+                throw;
             } catch(...) {
-                ProgTrace(TRACE5, "OnBeforeApply failed: something unexpected");
+                ProgError(STDLOG, "OnBeforeApply failed: something unexpected");
+                throw;
             }
 
         SetVariables( *iv, vars );
