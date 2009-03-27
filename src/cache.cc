@@ -20,7 +20,6 @@ using namespace BASIC;
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/
 void TCacheTable::getParams(xmlNodePtr paramNode, TParams &vparams)
 {
-  tst();
   vparams.clear();
   if ( paramNode == NULL ) /* отсутствует тег параметров */
     return;
@@ -281,7 +280,7 @@ bool TCacheTable::refreshData()
     string code = Params[TAG_CODE].Value;
 
     string stid = Params[ TAG_REFRESH_DATA ].Value;
-    tst();
+
     TrimString( stid );
     if ( stid.empty() || StrToInt( stid.c_str(), clientVerData ) == EOF )
       clientVerData = -1; /* не задана версия, значит обновлять всегда все */
@@ -352,7 +351,6 @@ bool TCacheTable::refreshData()
     if ( clientVerData >= 0 && delIdx < 0 )
         throw Exception( "Field '" + code +".PR_DEL' not found");
     //читаем кэш
-    tst();
     while( !Qry->Eof ) {
       if( tidIdx >= 0 && Qry->FieldAsInteger( tidIdx ) > clientVerData )
         clientVerData = Qry->FieldAsInteger( tidIdx );
@@ -424,8 +422,6 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
 
 void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 {
-    tst();
-
     xmlNodePtr ifaceNode = NewTextChild(dataNode, "iface");
 
     NewTextChild(ifaceNode, "title", Title);
@@ -487,11 +483,9 @@ void TCacheTable::XMLData(const xmlNodePtr dataNode)
 
 void TCacheTable::parse_updates(xmlNodePtr rowsNode)
 {
-    tst();
     table.clear();
     if(rowsNode == NULL)
         throw Exception("wrong message format");
-    tst();
     xmlNodePtr rowNode = rowsNode->children;
     while(rowNode) {
     	TRow row;
@@ -540,29 +534,40 @@ int TCacheTable::FieldIndex( const string name )
 {
   string strn = name;
   strn = upperc( strn );
-  int FieldId = -1;
-  int FieldsCount = FFields.size();
-  for ( int i=0; i<FieldsCount; i++ )
-   {
-     if ( strn == FFields[ i ].Name )
-      {
-        FieldId = i;
-        break;
-      };
-   };
+  int FieldId = 0;
+  vector<TCacheField2>::iterator i;
+  for(i=FFields.begin();i!=FFields.end();i++,FieldId++)
+    if ( strn == i->Name ) break;
+  if (i==FFields.end()) FieldId = -1;
   return FieldId;
 }
 
-void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus UpdateStatus,
+string TCacheTable::FieldValue( const string name, const TRow &row )
+{
+  int idx = FieldIndex(name);
+  if ( idx < 0 )
+    throw Exception( "TCacheTable::FieldValue: field '%s' not found", name.c_str() );
+  return row.cols[idx];
+};
+
+string TCacheTable::FieldOldValue( const string name, const TRow &row )
+{
+  int idx = FieldIndex(name);
+  if ( idx < 0 )
+    throw Exception( "TCacheTable::FieldOldValue: field '%s' not found", name.c_str() );
+  return row.old_cols[idx];
+};
+
+void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateStatus,
                  TLogMsg &message )
 {
-  string code = cachetable->code();
+  string code = cache.code();
   if ( code == "TRIP_BP" ||
        code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
        code == "TRIP_EXAM_WITH_BRD" ) {
+    ostringstream msg;
     message.ev_type = evtFlt;
-    int FieldIndex;
     int point_id;
     if ( UpdateStatus == usInserted ) {
       TParams p = row.params;
@@ -572,103 +577,94 @@ void OnLoggingF( TCacheTable *cachetable, const TRow &row, TCacheUpdateStatus Up
       point_id = ToInt( ip->second.Value );
     }
     else {
-      FieldIndex = cachetable->FieldIndex( "point_id" );
-      if ( FieldIndex < 0 )
-        throw Exception( "Ошибка при поиске поля point_id" );
-      point_id = ToInt( row.old_cols[ FieldIndex ] );
+      point_id = ToInt( cache.FieldOldValue("point_id", row) );
     }
     message.id1 = point_id;
-    if ( code == "TRIP_BP" ) {
-      message.msg.clear();
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
-        message.msg += string( "Отменен бланк пос. талона '" );
-        FieldIndex = cachetable->FieldIndex( "bp_name" );
-        message.msg += row.old_cols[ FieldIndex ] + "'";
-        FieldIndex = cachetable->FieldIndex( "class" );
-        if ( !row.old_cols[ FieldIndex ].empty() )
-          message.msg += " для класса " + row.old_cols[ FieldIndex ];
-        message.msg += ". ";
-      }
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
-        message.msg += "Установлен бланк пос. талона '";
-        FieldIndex = cachetable->FieldIndex( "bp_name" );
-        message.msg += row.cols[ FieldIndex ] + "'";
-        FieldIndex = cachetable->FieldIndex( "class" );
-        if ( !row.cols[ FieldIndex ].empty() )
-          message.msg += " для класса " + row.cols[ FieldIndex ];
-        message.msg += ". ";
-      }
-      return;
-    }
+    if ( code == "TRIP_BP" )
+    {
+      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
+      {
+        msg << "Отменен бланк пос. талона '"
+            << cache.FieldOldValue( "bp_name", row ) << "'";
+        if ( !cache.FieldOldValue( "class", row ).empty() )
+          msg << " для класса " + cache.FieldOldValue( "class", row );
+        msg << ". ";
+      };
+      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
+      {
+        msg << "Установлен бланк пос. талона '"
+            << cache.FieldValue( "bp_name", row ) << "'";
+        if ( !cache.FieldValue( "class", row ).empty() )
+          msg << " для класса " + cache.FieldValue( "class", row );
+        msg << ". ";
+      };
+    };
     if ( code == "TRIP_BT" ) {
-      message.msg.clear();
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
-        message.msg += string( "Отменен бланк баг. бирки '" );
-        FieldIndex = cachetable->FieldIndex( "bt_name" );
-        message.msg += row.old_cols[ FieldIndex ] + "'. ";
-      }
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
-        message.msg += "Установлен бланк баг. бирки '";
-        FieldIndex = cachetable->FieldIndex( "bt_name" );
-        message.msg += row.cols[ FieldIndex ] + "'. ";
-      }
-      return;
-    }
+      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
+      {
+        msg << "Отменен бланк баг. бирки '"
+            << cache.FieldOldValue( "bt_name", row ) << "'. ";
+      };
+      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
+      {
+        msg << "Установлен бланк баг. бирки '"
+            << cache.FieldValue( "bt_name", row ) << "'. ";
+      };
+    };
     if ( code == "TRIP_BRD_WITH_REG" ||
-         code == "TRIP_EXAM_WITH_BRD" ) {
-      message.msg.clear();
-      if ( UpdateStatus == usModified || UpdateStatus == usDeleted ) {
-        message.msg = "Отменен режим";
-        FieldIndex = cachetable->FieldIndex( "pr_misc" );
+         code == "TRIP_EXAM_WITH_BRD" )
+    {
+      if ( UpdateStatus == usModified || UpdateStatus == usDeleted )
+      {
+        msg << "Отменен режим";
         if (code == "TRIP_BRD_WITH_REG")
         {
-          if ( row.old_cols[ FieldIndex ] == "0" )
-            message.msg += " раздельной регистрации и посадки";
+          if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+            msg << " раздельной регистрации и посадки";
           else
-            message.msg += " посадки при регистрации";
+            msg << " посадки при регистрации";
         }
         else
         {
-          if ( row.old_cols[ FieldIndex ] == "0" )
-            message.msg += " раздельной посадки и досмотра";
+          if ( ToInt(cache.FieldOldValue( "pr_misc", row )) == 0 )
+            msg << " раздельной посадки и досмотра";
           else
-            message.msg += " досмотра при посадке";
+            msg << " досмотра при посадке";
         };
-        FieldIndex = cachetable->FieldIndex( "hall_id" );
-        if ( !row.old_cols[ FieldIndex ].empty() ) {
-          message.msg += " для зала '";
-          FieldIndex = cachetable->FieldIndex( "hall_name" );
-          message.msg += row.old_cols[ FieldIndex ] + "'";
-        }
-        message.msg += ". ";
-      }
-      if ( UpdateStatus == usInserted || UpdateStatus == usModified ) {
-        message.msg += "Установлен режим";
-        FieldIndex = cachetable->FieldIndex( "pr_misc" );
+        if ( !cache.FieldOldValue( "hall_id", row ).empty() )
+        {
+          msg << " для зала '"
+              << cache.FieldOldValue( "hall_name", row ) << "'";
+        };
+        msg << ". ";
+      };
+      if ( UpdateStatus == usInserted || UpdateStatus == usModified )
+      {
+        msg << "Установлен режим";
         if (code == "TRIP_BRD_WITH_REG")
         {
-          if ( row.cols[ FieldIndex ] == "0" )
-            message.msg += " раздельной регистрации и посадки";
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            msg << " раздельной регистрации и посадки";
           else
-            message.msg += " посадки при регистрации";
+            msg << " посадки при регистрации";
         }
         else
         {
-          if ( row.cols[ FieldIndex ] == "0" )
-            message.msg += " раздельной посадки и досмотра";
+          if ( ToInt(cache.FieldValue( "pr_misc", row )) == 0 )
+            msg << " раздельной посадки и досмотра";
           else
-            message.msg += " досмотра при посадке";
+            msg << " досмотра при посадке";
         };
-        FieldIndex = cachetable->FieldIndex( "hall_id" );
-        if ( !row.cols[ FieldIndex ].empty() ) {
-          message.msg += " для зала '";
-          FieldIndex = cachetable->FieldIndex( "hall_name" );
-          message.msg += row.cols[ FieldIndex ] + "'";
-        }
-        message.msg += ". ";
-      }
-     return;
-    }
+        if ( !cache.FieldValue( "hall_id", row ).empty() )
+        {
+          msg << " для зала '"
+              << cache.FieldValue( "hall_name", row ) << "'";
+        };
+        msg << ". ";
+      };
+    };
+    message.msg=msg.str();
+    return;
   }
 }
 
@@ -732,7 +728,7 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
   TLogMsg message;
   message.msg = str1;
   message.ev_type = EventType;
-  OnLoggingF( this, row, UpdateStatus, message );
+  OnLoggingF( *this, row, UpdateStatus, message );
   TReqInfo::Instance()->MsgToLog( message );
 }
 
@@ -770,19 +766,20 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
       }
       Qry->Clear();
       Qry->SQLText = sql;
-      DeclareVariables( vars );
+      DeclareVariables( vars ); //заранее создаем все переменные
       if ( tidExists ) {
         Qry->DeclareVariable( "tid", otInteger );
         Qry->SetVariable( "tid", NewVerData );
         ProgTrace( TRACE5, "NewVerData=%d", NewVerData );
       }
-      for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ ) {
-        if ( iv->status != status )
-          continue;
+      for( TTable::iterator iv = table.begin(); iv != table.end(); iv++ )
+      {
+        //цикл по строчкам
+        if ( iv->status != status ) continue;
 
         if(OnBeforeApply)
             try {
-                (*OnBeforeApply)(*this, *iv);
+                (*OnBeforeApply)(*this, *iv, *Qry);
             } catch(UserException E) {
                 throw;
             } catch(Exception E) {
@@ -817,20 +814,12 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           } /* end else */
         } /* end try */
       } /* end for */
-        tst();
     } /* end if */
   } /* end for  0..2 */
 }
 
 void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
 {
-
-
-  for( map<std::string, TParam>::iterator r=row.params.begin(); r!=row.params.end(); r++ ) {
-    ProgTrace( TRACE5, "SetVariable11111 name=%s, value=%s",
-              (char*)r->first.c_str(),(char *)r->second.Value.c_str() );
-  }
-
   string value;
   int Idx=0;
   for(vector<TCacheField2>::iterator iv = FFields.begin(); iv != FFields.end(); iv++, Idx++) {
@@ -858,7 +847,6 @@ void TCacheTable::SetVariables(TRow &row, const std::vector<std::string> &vars)
     ProgTrace( TRACE5, "SetVariable name=%s, value=%s",
               (char*)iv->first.c_str(),(char *)iv->second.Value.c_str() );
   }
-  tst();
 }
 
 void TCacheTable::DeclareVariables(std::vector<string> &vars)
@@ -992,6 +980,19 @@ void TCacheTable::getPerms( )
              (DeleteSQL.empty() || DeleteRight<0);
 }
 
+void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry)
+{
+  if (cache.code() == "CODESHARE_SETS")
+  {
+    string airp;
+    if (row.status == usInserted)
+      airp=cache.FieldValue("airp_dep", row);
+    else
+      airp=cache.FieldOldValue("airp_dep", row);
+    applyQry.CreateVariable("now_local", otDate, UTCToLocal( NowUTC(), AirpTZRegion(airp) ));
+  };
+};
+
 /*//////////////////////////////////////////////////////////////////////////////*/
 void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -999,9 +1000,7 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
            (char*)reqNode->name,(char*)resNode->name);
   TCacheTable cache;
   cache.Init(reqNode);
-  tst();
   cache.refresh();
-  tst();
   SetProp(resNode, "handle", "1");
   xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
   SetProp(ifaceNode, "id", "cache");
@@ -1017,9 +1016,9 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
     throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+  cache.OnBeforeApply = BeforeApply;
   cache.ApplyUpdates( reqNode );
   cache.refresh();
-  tst();
   SetProp(resNode, "handle", "1");
   xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");
   SetProp(ifaceNode, "id", "cache");
@@ -1091,3 +1090,4 @@ void TParams1::setSQL(TQuery *Qry)
                 (*this)[ *v ].Value.c_str(), vtype );
     }
 }
+

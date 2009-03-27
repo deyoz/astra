@@ -98,7 +98,7 @@ typedef std::vector<TRow> TTable;
 
 class TCacheTable;
 
-typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &);
+typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &);
 
 class TCacheTable {
     protected:
@@ -142,13 +142,14 @@ class TCacheTable {
         void Clear();
     public:
         TBeforeApplyEvent OnBeforeApply;
-        const std::string GetCacheCode() { return Params[TAG_CODE].Value; };
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
         void ApplyUpdates(xmlNodePtr reqNode);
         bool changeIfaceVer();
         std::string code();
         int FieldIndex( const std::string name );
+        std::string FieldValue( const std::string name, const TRow &row );
+        std::string FieldOldValue( const std::string name, const TRow &row );
         TCacheTable() { OnBeforeApply = NULL; };
         virtual void Init(xmlNodePtr cacheNode);
         virtual ~TCacheTable();
