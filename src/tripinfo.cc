@@ -18,6 +18,7 @@
 #include "docs.h"
 #include "stat.h"
 #include "print.h"
+#include "convert.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -685,14 +686,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
     if (Qryh.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
-    if (Qryh.FieldAsInteger("pr_etstatus")<0)
+/*    if (Qryh.FieldAsInteger("pr_etstatus")<0)
     {
       //вывод "Нет связи с СЭБ" в информации по рейсу
       string remark=Qry.FieldAsString( "remark" );
       if (!remark.empty()) remark.append(" ");
       remark.append("Нет связи с СЭБ.");
       ReplaceTextChild(node, "remark",  remark);
-    };
+    };*/
 
     if (reqInfo->screen.name == "AIR.EXE" ||
         reqInfo->screen.name == "DOCS.EXE" ||
@@ -718,6 +719,100 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
     };
   };
+
+  {
+  	string stralarms;
+    BitSet<TTripAlarmsType> Alarms;
+    TripAlarms( point_id, Alarms );
+    for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
+      string rem;
+      TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
+      if ( !Alarms.isFlag( alarm ) )
+      	continue;
+      switch( alarm ) {
+      	case atWaitlist:
+      		tst();
+          if (reqInfo->screen.name == "CENT.EXE" ||
+  	          reqInfo->screen.name == "PREPREG.EXE" ||
+  	          reqInfo->screen.name == "AIR.EXE" ||
+              reqInfo->screen.name == "BRDBUS.EXE" ||
+              reqInfo->screen.name == "EXAM.EXE" ||
+              reqInfo->screen.name == "DOCS.EXE") {
+            tst();
+            rem = TripAlarmString( alarm );
+          }
+          break;
+        case atOverload:
+          if (reqInfo->screen.name == "CENT.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atBrd:
+          if (reqInfo->screen.name == "BRDBUS.EXE" ||
+          	  reqInfo->screen.name == "DOCS.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atSalon:
+          if (reqInfo->screen.name == "CENT.EXE" ||
+  	          reqInfo->screen.name == "PREPREG.EXE" ||
+  	          reqInfo->screen.name == "AIR.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atETStatus:
+        	if (reqInfo->screen.name == "AIR.EXE" ||
+        		  reqInfo->screen.name == "BRDBUS.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+      	default:
+          break;
+      }
+      if ( !rem.empty() ) {
+        if ( !stralarms.empty() )
+        	stralarms += " ";
+        stralarms += "!" + rem;
+      }
+    }
+    if ( !stralarms.empty() ) {
+      NewTextChild( node, "alarms", stralarms );
+    }
+  }
+
+/*  if (reqInfo->screen.name == "CENT.EXE" ||
+  	  reqInfo->screen.name == "PREPREG.EXE" ||
+  	  reqInfo->screen.name == "AIR.EXE" ||
+      reqInfo->screen.name == "BRDBUS.EXE" ||
+      reqInfo->screen.name == "DOCS.EXE")
+  {
+  	string remark = NodeAsString(node,"remark");
+  	ProgTrace( TRACE5, "remark=%s", remark.c_str() )
+  	TQuery Qrya( &OraSession );
+  	Qrya.SQLText =
+      "SELECT overload_alarm,brd_alarm,waitlist_alarm,salon_alarm "
+      " FROM trip_sets, "
+      " ( SELECT COUNT(*) salon_alarm FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
+      " WHERE trip_sets.point_id=:point_id";
+  	Qrya.CreateVariable( "point_id", otInteger, point_id );
+  	Qrya.Execute();
+  	if (reqInfo->screen.name == "CENT.EXE" ||
+  	    reqInfo->screen.name == "PREPREG.EXE" ||
+  	    reqInfo->screen.name == "AIR.EXE")
+  	{
+  		remark =
+  	}
+
+
+  	bool waitlist_alarm, brd_alarm, overload_alarm;
+  	if ( Qrya.Eof ) {
+  		waitlist_alarm = false;
+  		brd_alarm = false;
+  		overload_alarm = false;
+  	}
+  	else {
+  		waitlist_alarm = Qrya.FieldAsInteger( "waitlist_alarm" );
+  		brd_alarm = Qrya.FieldAsInteger( "brd_alarm" );
+  		overload_alarm = Qrya.FieldAsInteger( "overload_alarm" );
+  	}
+  };*/
+
   if (reqInfo->screen.name == "AIR.EXE")
     NewTextChild( node, "pr_mixed_norms", (int)GetTripSets(tsMixedNorms,info) );
 
@@ -1189,6 +1284,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   	grp_status_types[ Qry.FieldAsString( "code" ) ] = Qry.FieldAsString( "layer_type" );
   	Qry.Next();
   }
+  TPaxSeats priorSeats( point_id );
   Qry.Clear();
   Qry.SQLText=
      "SELECT "
@@ -1212,7 +1308,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.seats pax_seats, "
      "      pax_grp.status grp_status, "
      "      pax.refuse, "
-     "      pax.grp_id "
+     "      pax.grp_id, "
+     "      pax.wl_type "
      "FROM crs_pnr,crs_pax,pax,pax_grp,"
      "       ( "
      "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
@@ -1309,6 +1406,17 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   SQry.DeclareVariable( "pax_row", otInteger );
   SQry.DeclareVariable( "crs_row", otInteger );
   SQry.DeclareVariable( "seat_no", otString );
+  // старые места пассажира
+  TQuery QrySeat( &OraSession );
+  QrySeat.SQLText =
+    "SELECT first_xname, first_yname, layer_type FROM trip_comp_layers, comp_layer_types "
+    " WHERE point_id=:point_id AND "
+    "       pax_id=:pax_id AND "
+    "       trip_comp_layers.layer_type=comp_layer_types.code AND "
+    "       comp_layer_types.pr_occupy=1 "
+    "ORDER BY priority ASC, time_create DESC";
+  QrySeat.CreateVariable( "point_id", otInteger, point_id );
+  QrySeat.DeclareVariable( "pax_id", otInteger );
 
   //ремарки пассажиров
   TQuery RQry( &OraSession );
@@ -1357,6 +1465,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int col_grp_id=Qry.FieldIndex("grp_id");
   int col_grp_status=Qry.FieldIndex("grp_status");
   int col_pax_seats=Qry.FieldIndex("pax_seats");
+  int col_wl_type=Qry.FieldIndex("wl_type");
   int mode; // режим для поиска мест 0 - регистрация иначе список pnl
   int crs_row=1, pax_row=1;
   for(;!Qry.Eof;Qry.Next())
@@ -1431,11 +1540,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pax_id", Qry.FieldAsInteger( col_pax_id ) );
     NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
     NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
+   	if ( !Qry.FieldIsNULL( col_wl_type ) )
+   		NewTextChild( node, "wl_type", Qry.FieldAsString( col_wl_type ) );
 
     if (!Qry.FieldIsNULL(col_grp_id))
     {
       NewTextChild( node, "reg_no", Qry.FieldAsInteger( col_reg_no ) );
-      //NewTextChild( node, "seat_no", Qry.FieldAsString( col_seat_no ), "" );
       NewTextChild( node, "refuse", Qry.FieldAsString( col_refuse ), "" );
       if ( !Qry.FieldIsNULL( col_refuse ) )
       	continue; // не надо искать место
@@ -1468,6 +1578,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	pax_row++;
     else
     	crs_row++;
+    NewTextChild( node, "isseat", (!SQry.VariableIsNULL( "seat_no" ) || !Qry.FieldAsInteger( col_seats ) ) );
     if ( !SQry.VariableIsNULL( "seat_no" ) ) {
     	string seat_no = SQry.GetVariableAsString( "seat_no" );
     	string layer_type;
@@ -1491,10 +1602,106 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     	}
     	NewTextChild( node, "nseat_no", seat_no );
    		NewTextChild( node, "layer_type", layer_type );
-    };
+    } // не задано место
+    else
+    	if ( mode == 0 && Qry.FieldAsInteger( col_seats ) ) {
+    		string old_seat_no;
+    		if ( Qry.FieldIsNULL( col_wl_type ) ) {
+    		  old_seat_no = priorSeats.getSeats( Qry.FieldAsInteger( col_pax_id ), "seats" );
+    		  if ( !old_seat_no.empty() )
+    		  	old_seat_no = "(" + old_seat_no + ")";
+    		}
+    		else
+    			old_seat_no = "ЛО";
+    		if ( !old_seat_no.empty() )
+    		  NewTextChild( node, "nseat_no", old_seat_no );
+   		}
   };
 
 };
 
+bool Get_overload_alarm( int point_id, const TTripInfo &fltInfo )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "SELECT max_commerce FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+  if (Qry.FieldIsNULL("max_commerce")) return false;
+	int load=GetFltLoad(point_id,fltInfo);
+  ProgTrace(TRACE5,"max_commerce=%d load=%d",Qry.FieldAsInteger("max_commerce"),load);
+	return (load>Qry.FieldAsInteger("max_commerce"));
+}
 
+void Set_overload_alarm( int point_id, bool overload_alarm )
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText=
+    "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
+  Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
+  Qry.CreateVariable("point_id", otInteger, point_id);
+  Qry.Execute();
+}
+
+
+/* есть пассажиры, которые на листе ожидания */
+bool check_waitlist_alarm( int point_id )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT waitlist_alarm FROM trip_sets WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	SEATS2::TPassengers p;
+	bool waitlist_alarm = SEATS2::GetPassengersForWaitList( point_id, p, true );
+	if ( !Qry.Eof && (int)waitlist_alarm != Qry.FieldAsInteger( "waitlist_alarm" ) ) {
+		Qry.Clear();
+		Qry.SQLText =
+		  "UPDATE trip_sets SET waitlist_alarm=:waitlist_alarm WHERE point_id=:point_id";
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
+	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
+  	Qry.Execute();
+	}
+	return waitlist_alarm;
+}
+
+/* есть пассажиры, которые зарегистрированы, но не посажены */
+bool check_brd_alarm( int point_id )
+{
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT act FROM trip_stages WHERE point_id=:point_id AND stage_id=:CloseBoarding AND act IS NOT NULL";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "CloseBoarding", otInteger, sCloseBoarding );
+	Qry.Execute();
+	bool brd_alarm = false;
+	if ( !Qry.Eof ) {
+	  Qry.Clear();
+	  Qry.SQLText =
+	    "SELECT pax_id FROM pax, pax_grp "
+	    " WHERE pax_grp.point_dep=:point_id AND "
+	    "       pax_grp.grp_id=pax.grp_id AND "
+	    "       pax.wl_type IS NULL AND "
+	    "       pax.pr_brd = 0 AND "
+	    "       rownum < 2 ";
+  	Qry.CreateVariable( "point_id", otInteger, point_id );
+  	Qry.Execute();
+	  brd_alarm = !Qry.Eof;
+	}
+	Qry.Clear();
+	Qry.SQLText =
+	  "SELECT brd_alarm FROM trip_sets WHERE point_id=:point_id";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.Execute();
+	if ( !Qry.Eof && (int)brd_alarm != Qry.FieldAsInteger( "brd_alarm" ) ) {
+		Qry.Clear();
+		Qry.SQLText =
+		  "UPDATE trip_sets SET brd_alarm=:brd_alarm WHERE point_id=:point_id";
+	  Qry.CreateVariable( "point_id", otInteger, point_id );
+	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
+  	Qry.Execute();
+  }
+	return brd_alarm;
+}
 

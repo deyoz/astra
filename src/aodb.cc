@@ -369,7 +369,8 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	   "       pax_grp.status "
 	   " FROM pax_grp, pax "
 	   " WHERE pax_grp.grp_id=pax.grp_id AND "
-	   "       pax_grp.point_dep=:point_id"
+	   "       pax_grp.point_dep=:point_id AND "
+	   "       pax.wl_type IS NULL "
 	   " ORDER BY pax_grp.grp_id,seats ";
 	};
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -387,23 +388,9 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	TimeQry.DeclareVariable( "reg_no", otInteger );
 	TimeQry.DeclareVariable( "screen", otString );
 	TimeQry.DeclareVariable( "work_mode", otString );
-	TQuery WLQry( &OraSession );
-	WLQry.SQLText =
-	 "SELECT layer_type FROM trip_comp_layers WHERE point_dep=:point_id AND pax_id=:pax_id";
-	WLQry.CreateVariable( "point_id", otInteger, point_id );
-	WLQry.DeclareVariable( "pax_id", otInteger );
 	vector<string> baby_names;
 
 	while ( !Qry.Eof ) {
-		if ( !pr_unaccomp && Qry.FieldIsNULL( "seat_no" ) && Qry.FieldAsInteger( "seats" ) ) {
-      // определяем есть ли у человека место или он зарегистрирован на ЛО
-      WLQry.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
-      WLQry.Execute();
-      if ( WLQry.Eof ) { // это ЛО
-			  Qry.Next();
-			  continue;
-	    }
-	  }
 		if ( !pr_unaccomp && Qry.FieldAsInteger( "seats" ) == 0 ) {
 			if ( Qry.FieldIsNULL( "refuse" ) )
 			  baby_names.push_back( Qry.FieldAsString( "name" ) );
@@ -1334,7 +1321,7 @@ try {
 		}
 	}
 	err++;
-	//bool overload_alarm = false;
+	bool overload_alarm = false;
 	// запись в БД
 	Qry.Clear();
 	Qry.SQLText =
@@ -1696,12 +1683,10 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     	}
     	num++;
     } 	    	 	  	                     */
+    overload_alarm = Get_AODB_overload_alarm( point_id, fl.max_load );
     Qry.Clear();
     Qry.SQLText =
-     "UPDATE trip_sets "
-     " SET max_commerce=:max_commerce, "
-     "     overload_alarm=DECODE(max_commerce,:max_commerce,overload_alarm,0) "
-     " WHERE point_id=:point_id";
+     "UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, point_id );
     Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
     err++;
@@ -1712,10 +1697,12 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
   Qry.Clear();
 	Qry.SQLText =
 	 "BEGIN "
-	 " UPDATE aodb_points SET aodb_point_id=:aodb_point_id WHERE point_id=:point_id AND point_addr=:point_addr; "
+	 " UPDATE aodb_points "
+	 " SET aodb_point_id=:aodb_point_id "
+	 " WHERE point_id=:point_id AND point_addr=:point_addr; "
 	 " IF SQL%NOTFOUND THEN "
-	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,record,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp) "
-	 "    VALUES(:aodb_point_id,:point_addr,:point_id,NULL,-1,-1,-1,-1);"
+	 "  INSERT INTO aodb_points(aodb_point_id,point_addr,point_id,record,rec_no_pax,rec_no_bag,rec_no_flt,rec_no_unaccomp,overload_alarm) "
+	 "    VALUES(:aodb_point_id,:point_addr,:point_id,NULL,-1,-1,-1,-1,0);"
 	 " END IF; "
 	 "END;";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -1724,6 +1711,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	err++;
 	Qry.Execute();
 	err++;
+  Set_AODB_overload_alarm( point_id, overload_alarm );
 	// обновление времен технологического графика
   Qry.Clear();
 	Qry.SQLText = "UPDATE trip_stages SET est=NVL(:scd,est) WHERE point_id=:point_id AND stage_id=:stage_id";
@@ -1927,11 +1915,10 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
 	TFileData fd;
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
-	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,overload_alarm, "
+	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out,aodb_points.overload_alarm, "
 	 "       rec_no_flt,record "
-	 " FROM points, aodb_points, trip_sets "
+	 " FROM points, aodb_points "
 	 " WHERE points.point_id=:point_id AND "
-	 "       points.point_id=trip_sets.point_id AND "
 	 "       points.point_id=aodb_points.point_id(+) AND "
 	 "       :point_addr=aodb_points.point_addr(+) ";
 /*	 "       ( gtimer.get_stage(points.point_id,1) >= :stage2 OR record IS NOT NULL )";

@@ -44,18 +44,10 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     if (init_edifact()<0) throw Exception("'init_edifact' error");
     for( ;; )
     {
-      try
-      {
-      	PerfomInit();
-        base_tables.Invalidate();
-        exec_tasks();
-      }
-      catch( std::exception &E ) {
-        ProgError( STDLOG, "Exception: %s", E.what() );
-      }
-      catch( ... ) {
-        ProgError( STDLOG, "Unknown error" );
-      };
+
+      PerfomInit();
+      base_tables.Invalidate();
+      exec_tasks();
       sleep( sleepsec );
     };
   }

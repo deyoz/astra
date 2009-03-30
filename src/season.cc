@@ -930,11 +930,11 @@ void CreateSPP( BASIC::TDateTime localdate )
   VQry.SQLText =
    "SELECT 1 FROM points "\
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       TRUNC(scd_in)=TRUNC(:scd_in) AND rownum<2 "
+   "       scd_in >= TRUNC(:scd_in) AND scd_in < TRUNC(:scd_in)+1 AND rownum<2 "
    "UNION "
    "SELECT 2 FROM points "\
    " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       TRUNC(scd_out)=TRUNC(:scd_out) AND rownum<2 ";
+   "       scd_out >= TRUNC(:scd_out) AND scd_out < TRUNC(:scd_out)+1 AND rownum<2 ";
   VQry.DeclareVariable( "name", otString );
   VQry.DeclareVariable( "airp", otString );
   VQry.DeclareVariable( "scd_in", otDate );
@@ -1823,7 +1823,10 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
       if ( !canUseAirline || !canUseAirp )
         throw UserException( "Недостаточно прав. Доступ к информации невозможен" );
 //      ProgTrace( TRACE5, "first_dest=%d", ds.first_dest );
-      mapds.insert(std::make_pair( period.move_id, ds ) );
+      if ( mapds.find( period.move_id ) == mapds.end() ) //!!! ввели новый период (рейс) и сразу расширили его новой датой
+        mapds.insert(std::make_pair( period.move_id, ds ) );
+      else
+      	newdests = false; // используем старый маршрут
     } // if ( node )
     // периоды хранять время вылета из п.п. переводим в UTC
     ds = mapds[ period.move_id ];

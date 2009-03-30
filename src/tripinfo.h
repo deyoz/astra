@@ -11,6 +11,7 @@
 #include "astra_utils.h"
 #include "astra_misc.h"
 #include "jxtlib/JxtInterface.h"
+#include "exceptions.h"
 
 struct TVar {
   std::string name;
@@ -70,6 +71,11 @@ public:
 
   static bool readTripHeader( int point_id, xmlNodePtr dataNode );
 };
+
+bool Get_overload_alarm( int point_id, const TTripInfo &fltInfo );
+void Set_overload_alarm( int point_id, bool overload_alarm );
+bool check_waitlist_alarm( int point_id );
+bool check_brd_alarm( int point_id );
 
 #endif /*_TRIPINFO_H_*/
 

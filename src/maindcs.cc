@@ -82,12 +82,20 @@ void GetDeviceParams(TDevParamCategory category, TQuery &ParamsQry, xmlNodePtr d
 
   string paramType;
   xmlNodePtr paramTypeNode=NULL,paramNameNode=NULL,subparamNameNode;
+  string param_type,param_name,subparam_name;
   for(;!ParamsQry.Eof;ParamsQry.Next())
   {
-    if (paramTypeNode==NULL ||
-        paramType!=ParamsQry.FieldAsString("param_type"))
+    if (param_type==ParamsQry.FieldAsString("param_type") &&
+        param_name==ParamsQry.FieldAsString("param_name") &&
+        subparam_name==ParamsQry.FieldAsString("subparam_name")) continue;
+
+    param_type=ParamsQry.FieldAsString("param_type");
+    param_name=ParamsQry.FieldAsString("param_name");
+    subparam_name=ParamsQry.FieldAsString("subparam_name");
+
+    if (paramTypeNode==NULL || paramType!=param_type)
     {
-      paramType=ParamsQry.FieldAsString("param_type");
+      paramType=param_type;
       switch (category)
       {
         case dpcSession: paramTypeNode=NewTextChild(devNode,"sess_params");
@@ -101,20 +109,19 @@ void GetDeviceParams(TDevParamCategory category, TQuery &ParamsQry, xmlNodePtr d
       SetProp(paramTypeNode,"type",paramType);
       paramNameNode=NULL;
     };
-    if (paramNameNode==NULL ||
-        strcmp((const char*)paramNameNode->name,ParamsQry.FieldAsString("param_name"))!=0)
+    if (paramNameNode==NULL || (const char*)paramNameNode->name!=param_name)
     {
-      if (ParamsQry.FieldIsNULL("subparam_name"))
+      if (subparam_name.empty())
       {
-        paramNameNode=NewTextChild(paramTypeNode,ParamsQry.FieldAsString("param_name"),ParamsQry.FieldAsString("param_value"));
+        paramNameNode=NewTextChild(paramTypeNode,param_name.c_str(),ParamsQry.FieldAsString("param_value"));
         SetProp(paramNameNode,"editable",(int)(ParamsQry.FieldAsInteger("editable")!=0));
       }
       else
-        paramNameNode=NewTextChild(paramTypeNode,ParamsQry.FieldAsString("param_name"));
+        paramNameNode=NewTextChild(paramTypeNode,param_name.c_str());
     };
-    if (!ParamsQry.FieldIsNULL("subparam_name"))
+    if (!subparam_name.empty())
     {
-      subparamNameNode=NewTextChild(paramNameNode,ParamsQry.FieldAsString("subparam_name"),ParamsQry.FieldAsString("param_value"));
+      subparamNameNode=NewTextChild(paramNameNode,subparam_name.c_str(),ParamsQry.FieldAsString("param_value"));
       SetProp(subparamNameNode,"editable",(int)(ParamsQry.FieldAsInteger("editable")!=0));
     };
   };
@@ -145,9 +152,11 @@ void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
     "WHERE dev_model_params.dev_model=:dev_model AND "
     "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
     "      dev_sess_modes.term_mode=:term_mode AND dev_sess_modes.sess_type=:sess_type AND "
-    "      (dev_model_params.fmt_type IS NULL OR dev_model_params.fmt_type=:fmt_type) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+    "      (dev_model_params.fmt_type IS NULL OR dev_model_params.fmt_type=:fmt_type) AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
   SessParamsQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  SessParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
   SessParamsQry.DeclareVariable("dev_model",otString);
   SessParamsQry.DeclareVariable("sess_type",otString);
   SessParamsQry.DeclareVariable("fmt_type",otString);
@@ -161,8 +170,10 @@ void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
     "WHERE dev_model_params.dev_model=:dev_model AND "
     "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
     "      dev_fmt_opers.op_type=:op_type AND dev_fmt_opers.fmt_type=:fmt_type AND "
-    "      (dev_model_params.sess_type IS NULL OR dev_model_params.sess_type=:sess_type) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+    "      (dev_model_params.sess_type IS NULL OR dev_model_params.sess_type=:sess_type) AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+  FmtParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
   FmtParamsQry.DeclareVariable("op_type",otString);
   FmtParamsQry.DeclareVariable("dev_model",otString);
   FmtParamsQry.DeclareVariable("sess_type",otString);
@@ -174,8 +185,10 @@ void GetDevices(xmlNodePtr reqNode, xmlNodePtr resNode)
     "SELECT NULL AS param_type, "
     "       param_name,subparam_name,param_value,editable "
     "FROM dev_model_params "
-    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST";
+    "WHERE dev_model_params.dev_model=:dev_model AND sess_type IS NULL AND fmt_type IS NULL AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+  ModelParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
   ModelParamsQry.DeclareVariable("dev_model",otString);
   //считаем все операции + устройства по умолчанию
   TQuery Qry(&OraSession);

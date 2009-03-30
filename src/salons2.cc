@@ -1525,6 +1525,7 @@ void SetFree( const std::string &layer, TPlace &pl )
 {
 	TCompLayerType layer_type = DecodeCompLayerType( (char*)layer.c_str() );
 	if ( layer_type == cltCheckin ||
+	     layer_type == cltTCheckin ||
 		   layer_type == cltTranzit ||
 		   layer_type == cltBlockTrzt ||
 		   layer_type == cltSOMTrzt ||

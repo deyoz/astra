@@ -53,6 +53,7 @@ struct TPassenger {
   std::string PrevPlaceName;
   //std::string OldPlaceName;
   bool isSeat;
+  std::string wl_type;
   int countPlace;
   TSeatStep Step;
   bool pr_MCLS;
