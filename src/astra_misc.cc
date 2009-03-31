@@ -8,10 +8,14 @@
 #include "tlg/tlg_parser.h"
 #include "convert.h"
 
+#define NICKNAME "DEN"
+#define NICKTRACE SYSTEM_TRACE
+#include "serverlib/test.h"
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+using namespace ASTRA;
 
 string GetTripName( TTripInfo &info, bool showAirp, bool prList )
 {
@@ -381,25 +385,87 @@ void TTripRoute::get(int point_id)
     }
 }*/
 
-string mkt_airline(int pax_id)
+void TMktFlight::dump()
+{
+    ProgTrace(TRACE5, "---TMktFlight::dump()---");
+    ProgTrace(TRACE5, "airline: %s", airline.c_str());
+    ProgTrace(TRACE5, "flt_no: %d", flt_no);
+    ProgTrace(TRACE5, "suffix: %s", suffix.c_str());
+    ProgTrace(TRACE5, "subcls: %s", subcls.c_str());
+    ProgTrace(TRACE5, "scd: %d", scd);
+    ProgTrace(TRACE5, "airp_dep: %s", airp_dep.c_str());
+    ProgTrace(TRACE5, "airp_arv: %s", airp_arv.c_str());
+    ProgTrace(TRACE5, "---END OF TMktFlight::dump()---");
+
+}
+
+bool TMktFlight::IsNULL()
+{
+    return
+        airline.empty() or
+        flt_no == NoExists or
+        subcls.empty() or
+        scd == NoExists or
+        airp_dep.empty() or
+        airp_arv.empty();
+}
+
+void TMktFlight::get(int pax_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "   tlg_trips.airline "
+        "    tlg_trips.airline tlg_airline, "
+        "    tlg_trips.flt_no tlg_flt_no, "
+        "    tlg_trips.suffix tlg_suffix, "
+        "    crs_pnr.subclass tlg_subcls, "
+        "    tlg_trips.scd tlg_scd, "
+        "    tlg_trips.airp_dep tlg_airp_dep, "
+        "    crs_pnr.target tlg_airp_arv, "
+        "    pnr_market_flt.airline pax_airline, "
+        "    pnr_market_flt.flt_no pax_flt_no, "
+        "    pnr_market_flt.suffix pax_suffix, "
+        "    pnr_market_flt.subclass pax_subcls, "
+        "    pnr_market_flt.local_date pax_scd, "
+        "    pnr_market_flt.airp_dep pax_airp_dep, "
+        "    pnr_market_flt.airp_arv pax_airp_arv "
         "from "
-        "   tlg_trips, "
+        "   crs_pax, "
         "   crs_pnr, "
-        "   crs_pax "
+        "   tlg_trips, "
+        "   pnr_market_flt "
         "where "
-        "   tlg_trips.point_id = crs_pnr.point_id and "
-        "   crs_pnr.point_id = crs_pax.point_id and "
-        "   crs_pax.pax_id = :pax_id ";
+        "    crs_pax.pax_id = :pax_id and "
+        "    crs_pax.pnr_id = crs_pnr.pnr_id and "
+        "    crs_pnr.point_id = tlg_trips.point_id and "
+        "    crs_pax.pnr_id = pnr_market_flt.pnr_id(+) ";
     Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
-    if(Qry.Eof)
-        throw Exception("mkt_airline: pax_id %d not found", pax_id);
-    return Qry.FieldAsString(0);
+    if(!Qry.Eof) {
+        if(Qry.FieldIsNULL("pax_airline")) {
+            airline = Qry.FieldAsString("tlg_airline");
+            flt_no = Qry.FieldAsInteger("tlg_flt_no");
+            suffix = Qry.FieldAsString("tlg_suffix");
+            subcls = Qry.FieldAsString("tlg_subcls");
+
+            TDateTime tmp_scd = Qry.FieldAsDateTime("tlg_scd");
+            int Year, Month, Day;
+            DecodeDate(tmp_scd, Year, Month, Day);
+
+            scd = Day;
+            airp_dep = Qry.FieldAsString("tlg_airp_dep");
+            airp_arv = Qry.FieldAsString("tlg_airp_arv");
+        } else {
+            airline = Qry.FieldAsString("pax_airline");
+            flt_no = Qry.FieldAsInteger("pax_flt_no");
+            suffix = Qry.FieldAsString("pax_suffix");
+            subcls = Qry.FieldAsString("pax_subcls");
+            scd = Qry.FieldAsInteger("pax_scd");
+            airp_dep = Qry.FieldAsString("pax_airp_dep");
+            airp_arv = Qry.FieldAsString("pax_airp_arv");
+        }
+    }
+    dump();
 }
 
 bool SeparateTCkin(int grp_id,

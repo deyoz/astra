@@ -373,6 +373,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           tlg_type == "SOM" or
           tlg_type == "PRL" or
           tlg_type == "ETL" or
+          tlg_type == "FTL" or
           tlg_type == "BTM" or
           tlg_type == "PTM" or
           tlg_type == "PTMN" or
@@ -1193,6 +1194,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
               string extra = TlgQry.GetVariableAsString("extra");
               int pr_lat = TlgQry.GetVariableAsInteger("pr_lat");
               string addrs = TlgQry.GetVariableAsString("addrs");
+              TCodeShareInfo CodeShareInfo;
               if(
                       tlg_type == "AHL" or
                       tlg_type == "LDM" or
@@ -1201,6 +1203,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       tlg_type == "MVTA" or
                       tlg_type == "MVTB" or
                       tlg_type == "ETL" or
+                      tlg_type == "FTL" or
                       tlg_type == "BTM" or
                       tlg_type == "PTM" or
                       tlg_type == "PTMN" or
@@ -1215,7 +1218,8 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                               crs,
                               extra,
                               pr_lat,
-                              addrs
+                              addrs,
+                              CodeShareInfo
                               );
                       time_end=time(NULL);
                       if (time_end-time_start>1)
@@ -1257,6 +1261,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                                   extra,
                                   pr_lat,
                                   addrs,
+                                  CodeShareInfo,
                                   tlg_id
                                   );
                       } catch(Exception E) {

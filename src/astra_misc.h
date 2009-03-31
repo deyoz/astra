@@ -9,6 +9,23 @@
 #include "astra_utils.h"
 #include "stages.h"
 
+struct TMktFlight {
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    std::string subcls;
+    int scd;
+    std::string airp_dep;
+    std::string airp_arv;
+    void get(int pax_id);
+    bool IsNULL();
+    void dump();
+    TMktFlight():
+        flt_no(ASTRA::NoExists),
+        scd(ASTRA::NoExists)
+    {};
+};
+
 class TTripInfo
 {
   public:
@@ -189,8 +206,6 @@ class TPaxSeats {
 		std::string getSeats( int pax_id, const std::string format );
     ~TPaxSeats();
 };
-
-std::string mkt_airline(int pax_id);
 
 enum TCkinSegmentSet { cssNone,
                        cssAllPrev,

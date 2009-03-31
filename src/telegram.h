@@ -7,7 +7,24 @@
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
 
+struct TCodeShareInfo {
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    bool pr_mark_header;
+    void init(xmlNodePtr node);
+    void dump() const;
+    bool IsNULL() const;
+    bool operator == (const TMktFlight &s) const;
+    TCodeShareInfo():
+        flt_no(ASTRA::NoExists),
+        pr_mark_header(false)
+    {};
+};
+
 struct TTlgInfo {
+    // Информация о коммерческом рейсе
+    const TCodeShareInfo &mark_info;
     // кодировка салона
     bool pr_lat_seat;
     std::string tlg_type;
@@ -27,6 +44,7 @@ struct TTlgInfo {
     BASIC::TDateTime scd;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
+    int local_day;
     bool pr_summer;
     std::string craft;
     std::string bort;
@@ -41,12 +59,14 @@ struct TTlgInfo {
     std::string extra;
     //разные настройки
     bool pr_lat;
-    TTlgInfo() {
+    bool operator == (const TMktFlight &s) const;
+    TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
         point_id = -1;
         flt_no = -1;
         scd = 0;
         scd_local = 0;
         act_local = 0;
+        local_day = 0;
         pr_summer = false;
         first_point = -1;
         point_num = -1;
@@ -240,6 +260,7 @@ public:
           const std::string vextra,
           const bool        vpr_lat,
           const std::string vaddrs,
+          const TCodeShareInfo &CodeShareInfo,
           const int         tst_tlg_id = -1
           );
   void delete_tst_tlg(int tlg_id);
