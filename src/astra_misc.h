@@ -222,6 +222,9 @@ bool SeparateTCkin(int grp_id,
 enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atLength };
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType &alarm );
+
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+
 #endif /*_ASTRA_MISC_H_*/
 
 

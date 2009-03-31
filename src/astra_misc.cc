@@ -659,4 +659,37 @@ TPaxSeats::~TPaxSeats()
 	delete Qry;
 }
 
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo)
+{
+  markFltInfo.clear();
+  TDateTime scd_local=UTCToLocal(operFltInfo.scd_out, AirpTZRegion(operFltInfo.airp));
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline_mark,flt_no_mark "
+    "FROM codeshare_sets "
+    "WHERE airline_oper=:airline AND flt_no_oper=:flt_no AND airp_dep=:airp_dep AND "
+    "      first_date<=:scd_local AND "
+    "      (last_date IS NULL OR last_date>:scd_local) AND "
+    "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 "
+    "ORDER BY flt_no_mark,airline_mark";
+  Qry.CreateVariable("airline",otString,operFltInfo.airline);
+  Qry.CreateVariable("flt_no",otInteger,operFltInfo.flt_no);
+  Qry.CreateVariable("airp_dep",otString,operFltInfo.airp);
+  Qry.CreateVariable("scd_local",otDate,scd_local);
+  Qry.CreateVariable("wday",otInteger,DayOfWeek(scd_local));
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    TTripInfo flt;
+    flt.airline=Qry.FieldAsString("airline_mark");
+    flt.flt_no=Qry.FieldAsInteger("flt_no_mark");
+    flt.scd_out=operFltInfo.scd_out;
+    flt.airp=operFltInfo.airp;
+    markFltInfo.push_back(flt);
+  };
+};
+
+
 
