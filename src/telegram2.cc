@@ -3650,6 +3650,11 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
         row
             << "/0"
             << "/0";
+        if(info.own_airp == "—‹")
+            row
+                << ".B/" << iv->bag.baggage
+                << ".C/" << iv->bag.cargo
+                << ".M/" << iv->bag.mail;
         body.push_back(row.str());
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
@@ -3659,23 +3664,25 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
     row << "SI: EXB" << excess.excess << "KG";
     body.push_back(row.str());
     row.str("");
-    row << "SI: B";
-    if(baggage_sum > 0)
-        row << baggage_sum;
-    else
-        row << "NIL";
-    row << ".C";
-    if(cargo_sum > 0)
-        row << cargo_sum;
-    else
-        row << "NIL";
-    row << ".M";
-    if(mail_sum > 0)
-        row << mail_sum;
-    else
-        row << "NIL";
+    if(info.own_airp != "—‹") {
+        row << "SI: B";
+        if(baggage_sum > 0)
+            row << baggage_sum;
+        else
+            row << "NIL";
+        row << ".C";
+        if(cargo_sum > 0)
+            row << cargo_sum;
+        else
+            row << "NIL";
+        row << ".M";
+        if(mail_sum > 0)
+            row << mail_sum;
+        else
+            row << "NIL";
+    }
     body.push_back(row.str());
-    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
+//    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
 void TLDMDests::get(TTlgInfo &info)
