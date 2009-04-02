@@ -30,7 +30,7 @@ class TTripInfo
 {
   public:
     std::string airline,suffix,airp;
-    int flt_no, pr_del, point_num, first_point;
+    int flt_no, pr_del;
     BASIC::TDateTime scd_out,real_out,real_out_local_date;
     TTripInfo()
     {
@@ -50,8 +50,6 @@ class TTripInfo
       real_out=ASTRA::NoExists;
       real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
-      point_num = ASTRA::NoExists;
-      first_point = ASTRA::NoExists;
     };
     void Init( TQuery &Qry )
     {
@@ -69,14 +67,6 @@ class TTripInfo
         pr_del = Qry.FieldAsInteger("pr_del");
       else
         pr_del = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("point_num")>=0)
-        point_num = Qry.FieldAsInteger("point_num");
-      else
-        point_num = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("first_point")>=0)
-        first_point = Qry.FieldAsInteger("first_point");
-      else
-        first_point = ASTRA::NoExists;
     };
 };
 

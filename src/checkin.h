@@ -13,6 +13,8 @@ struct TSegInfo
 {
   int point_dep,point_arv;
   std::string airp_dep,airp_arv;
+  int point_num,first_point;
+  bool pr_tranzit;
   TTripInfo fltInfo;
 };
 
@@ -67,10 +69,10 @@ public:
 
   bool CheckCkinFlight(const int point_dep,
                        const std::string& airp_dep,
-                       int& point_arv,
+                       const int point_arv,
                        const std::string& airp_arv,
                        bool lock,
-                       TTripInfo& fltInfo);
+                       TSegInfo& segInfo);
 
   void SavePaxRem(xmlNodePtr paxNode);
   void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);

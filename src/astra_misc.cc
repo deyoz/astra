@@ -325,66 +325,6 @@ bool TTripRoute::GetNextAirp(int point_id,
   return true;
 };
 
-/*
-void TTripRoute::get(int point_id)
-{
-    clear();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT point_num, DECODE(pr_tranzit,0,point_id,first_point) first_point "
-        "FROM points WHERE point_id=:point_id AND pr_del>=0 ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw Exception("TRoute::get: point_num & first_point fetch failed for point_id %d", point_id);
-    int point_num = Qry.FieldAsInteger("point_num");
-    int first_point = Qry.FieldAsInteger("first_point");
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT "
-        "  points.airp, "
-        "  cities.name city, "
-        "  points.point_num "
-        "FROM  "
-        "  points, "
-        "  airps, "
-        "  cities "
-        "WHERE "
-        "  points.point_id=:point_id AND points.pr_del>=0 AND "
-        "  points.airp = airps.code and "
-        "  airps.city = cities.code "
-        "union "
-        "SELECT "
-        "  points.airp, "
-        "  cities.name city, "
-        "  points.point_num "
-        "FROM  "
-        "  points, "
-        "  airps, "
-        "  cities "
-        "WHERE "
-        "  points.first_point=:first_point AND "
-        "  points.point_num>:point_num AND "
-        "  points.pr_del=0 and "
-        "  points.airp = airps.code and "
-        "  airps.city = cities.code "
-        "ORDER by "
-        "  point_num ";
-    Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("first_point", otInteger, first_point);
-    Qry.CreateVariable("point_num", otInteger, point_num);
-    Qry.Execute();
-    if(Qry.Eof)
-        throw Exception("TRoute::get route fetch failed for point_id %d", point_id);
-    for(; !Qry.Eof; Qry.Next()) {
-        TTripRouteItem item;
-        item.airp = Qry.FieldAsString("airp");
-        //item.city = Qry.FieldAsString("city");
-        item.point_num = Qry.FieldAsInteger("point_num");
-        push_back(item);
-    }
-}*/
-
 void TMktFlight::dump()
 {
     ProgTrace(TRACE5, "---TMktFlight::dump()---");

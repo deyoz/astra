@@ -184,16 +184,18 @@ class TBSMContent
 struct TTypeBSendInfo
 {
   std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,first_point,point_num;
+  int flt_no,point_id,first_point,point_num;
+  bool pr_tranzit;
 };
 
 struct TTypeBAddrInfo
 {
   std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,first_point,point_num;
-
+  int flt_no,point_id,first_point,point_num;
+  bool pr_tranzit;
   std::string airp_trfer,crs;
   bool pr_lat;
+  TCodeShareInfo mark_info;
 };
 
 struct TTlgOutPartInfo
@@ -282,6 +284,8 @@ public:
   static bool IsBSMSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
   static void SendBSM(int point_dep, int grp_id, TBSMContent &con1, std::map<bool,std::string> &addrs );
 };
+
+std::string fetch_addr(std::string &addr);
 
 #endif /*_TELEGRAM_H_*/
 

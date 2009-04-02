@@ -1731,18 +1731,26 @@ bool GetUsePS()
 
 bool CheckInInterface::CheckCkinFlight(const int point_dep,
                                        const string& airp_dep,
-                                       int& point_arv,
+                                       const int point_arv,
                                        const string& airp_arv,
                                        bool lock,
-                                       TTripInfo& fltInfo)
+                                       TSegInfo& segInfo)
 {
-  fltInfo.Clear();
+  segInfo.point_dep=point_dep;
+  segInfo.airp_dep=airp_dep;
+  segInfo.point_arv=point_arv;
+  segInfo.airp_arv=airp_arv;
+  segInfo.point_num=ASTRA::NoExists;
+  segInfo.first_point=ASTRA::NoExists;
+  segInfo.pr_tranzit=false;
+  segInfo.fltInfo.Clear();
+
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
   sql << "SELECT airline,flt_no,suffix,airp,scd_out, "
          "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-         "       point_num,DECODE(pr_tranzit,0,point_id,first_point) AS first_point, "
+         "       point_num,first_point,pr_tranzit, "
          "       pr_del "
          "FROM points "
          "WHERE point_id=:point_id AND airp=:airp AND pr_del>=0 AND pr_reg<>0";
@@ -1755,22 +1763,26 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   Qry.Execute();
   if (Qry.Eof) return false;
 
-  fltInfo.Init(Qry);
+  segInfo.point_num=Qry.FieldAsInteger("point_num");
+  segInfo.first_point=Qry.FieldAsInteger("first_point");
+  segInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
+  segInfo.fltInfo.Init(Qry);
 
   Qry.Clear();
   if (point_arv==ASTRA::NoExists)
   {
-    Qry.SQLText=
-      "SELECT point_id FROM points "
-      "WHERE first_point=:first_point AND point_num>:point_num AND "
-      "      airp=:airp AND pr_del=0 "
-      "ORDER BY point_num";
-    Qry.CreateVariable("first_point",otInteger,fltInfo.first_point);
-    Qry.CreateVariable("point_num",otInteger,fltInfo.point_num);
-    Qry.CreateVariable("airp",otString,airp_arv);
-    Qry.Execute();
-    if (Qry.Eof) return false;
-    point_arv=Qry.FieldAsInteger("point_id");
+    TTripRoute route;
+    route.GetRouteAfter(segInfo.point_dep,
+                        segInfo.point_num,
+                        segInfo.first_point,
+                        segInfo.pr_tranzit,
+                        trtNotCurrent,trtNotCancelled);
+
+    vector<TTripRouteItem>::iterator r;
+    for(r=route.begin();r!=route.end();r++)
+      if (r->airp==airp_arv) break;
+    if (r==route.end()) return false;
+    segInfo.point_arv=r->point_id;
   }
   else
   {
@@ -1805,6 +1817,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     segNode=reqNode;
     only_one=true;
   };
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  //Qry.SQLText = "SELECT
   for(;segNode!=NULL;segNode=segNode->next)
   {
     TSegInfo segInfo;
@@ -1821,30 +1836,28 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   //лочить рейсы надо по возрастанию poind_dep иначе может быть deadlock
   for(map<int,TSegInfo>::iterator s=segs.begin();s!=segs.end();s++)
   {
-    TTripInfo &fltInfo=s->second.fltInfo;
     if (!CheckCkinFlight(s->second.point_dep,
                          s->second.airp_dep,
                          s->second.point_arv,
-                         s->second.airp_arv, true, fltInfo))
+                         s->second.airp_arv, true, s->second))
     {
-      if (!only_one && !fltInfo.airline.empty())
+      if (!only_one && !s->second.fltInfo.airline.empty())
         throw UserException("Рейс %s изменен. Обновите данные",
-                            GetTripName(fltInfo,true,false).c_str());
+                            GetTripName(s->second.fltInfo,true,false).c_str());
       else
         throw UserException("Рейс изменен. Обновите данные");
     };
-    if (fltInfo.pr_del!=0)
+    if (s->second.fltInfo.pr_del!=0)
     {
-      if (!only_one && !fltInfo.airline.empty())
+      if (!only_one && !s->second.fltInfo.airline.empty())
         throw UserException("Рейс %s отменен. Обновите данные",
-                            GetTripName(fltInfo,true,false).c_str());
+                            GetTripName(s->second.fltInfo,true,false).c_str());
       else
         throw UserException("Рейс отменен. Обновите данные");
     };
   };
 
   //savepoint для отката при превышении загрузки (важно что после лочки)
-  TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
     "BEGIN "
@@ -1887,8 +1900,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       sendInfo.airline=fltInfo.airline;
       sendInfo.flt_no=fltInfo.flt_no;
       sendInfo.airp_dep=fltInfo.airp;
-      sendInfo.point_num=fltInfo.point_num;
-      sendInfo.first_point=fltInfo.first_point;
+      sendInfo.point_id=s->second.point_dep;
+      sendInfo.point_num=s->second.point_num;
+      sendInfo.first_point=s->second.first_point;
+      sendInfo.pr_tranzit=s->second.pr_tranzit;
       sendInfo.tlg_type="BSM";
 
 
@@ -3789,7 +3804,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   TrferQry.Clear();
   TrferQry.SQLText=
     "SELECT airline,flt_no,scd_out,airp AS airp_dep,airp_arv, "
-    "       point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+    "       points.point_id,point_num,first_point,pr_tranzit "
     "FROM points,pax_grp "
     "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id AND points.pr_del>=0";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
@@ -3803,15 +3818,19 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   sendInfo.airline=TrferQry.FieldAsString("airline");
   sendInfo.flt_no=TrferQry.FieldAsInteger("flt_no");
   sendInfo.airp_dep=TrferQry.FieldAsString("airp_dep");
+  sendInfo.point_id=TrferQry.FieldAsInteger("point_id");
   sendInfo.first_point=TrferQry.FieldAsInteger("first_point");
   sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
+  sendInfo.pr_tranzit=TrferQry.FieldAsInteger("pr_tranzit")!=0;
 
   TTypeBAddrInfo addrInfo;
   addrInfo.airline=sendInfo.airline;
   addrInfo.flt_no=sendInfo.flt_no;
   addrInfo.airp_dep=sendInfo.airp_dep;
+  addrInfo.point_id=sendInfo.point_id;
   addrInfo.first_point=sendInfo.first_point;
   addrInfo.point_num=sendInfo.point_num;
+  addrInfo.pr_tranzit=sendInfo.pr_tranzit;
   addrInfo.airp_trfer=sendInfo.airp_arv;
   addrInfo.pr_lat=true;
 
@@ -4854,12 +4873,14 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   airp_arv=NodeAsString("airp_arv",reqNode);
   cl=NodeAsString("class",reqNode);
 
-  TTripInfo fltInfo;
+  TSegInfo segInfo;
 
-  if (!CheckCkinFlight(point_dep, airp_dep, point_arv, airp_arv, false, fltInfo))
+  if (!CheckCkinFlight(point_dep, airp_dep, point_arv, airp_arv, false, segInfo))
     throw UserException("Рейс изменен. Обновите данные");
-  if (fltInfo.pr_del!=0)
+  if (segInfo.fltInfo.pr_del!=0)
     throw UserException("Рейс отменен. Обновите данные");
+
+  TTripInfo &fltInfo=segInfo.fltInfo;
 
   bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
 
@@ -5089,14 +5110,17 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         modf(scd,&scd);
         if (scd!=fltInfo.scd_out) continue;
 
-        TTripInfo fltSPPInfo;
+        TSegInfo segSPPInfo;
         point_arv=ASTRA::NoExists;
         CheckCkinFlight(PointsQry.FieldAsInteger("point_id"),
                         PointsQry.FieldAsString("airp"),
                         point_arv,
                         airp_arv,
                         false,
-                        fltSPPInfo);
+                        segSPPInfo);
+
+        TTripInfo &fltSPPInfo=segSPPInfo.fltInfo;
+        point_arv=segSPPInfo.point_arv;
 
         if (fltSPPInfo.pr_del==ASTRA::NoExists) continue; //не нашли по point_dep
 
