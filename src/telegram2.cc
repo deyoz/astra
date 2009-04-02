@@ -288,7 +288,7 @@ namespace PRL_SPACE {
         string name;
         int pax_id;
         int crs_pax_id;
-        double ticket_no;
+        string ticket_no;
         int coupon_no;
         string ticket_rem;
         void dump();
@@ -296,7 +296,6 @@ namespace PRL_SPACE {
             grp_id = NoExists;
             pax_id = NoExists;
             crs_pax_id = NoExists;
-            ticket_no = NoExists;
             coupon_no = NoExists;
         }
     };
@@ -309,7 +308,7 @@ namespace PRL_SPACE {
         ProgTrace(TRACE5, "name: %s", name.c_str());
         ProgTrace(TRACE5, "pax_id: %d", pax_id);
         ProgTrace(TRACE5, "crs_pax_id: %d", crs_pax_id);
-        ProgTrace(TRACE5, "ticket_no: %015.0f", ticket_no);
+        ProgTrace(TRACE5, "ticket_no: %s", ticket_no.c_str());
         ProgTrace(TRACE5, "coupon_no: %d", coupon_no);
         ProgTrace(TRACE5, "ticket_rem: %s", ticket_rem.c_str());
         ProgTrace(TRACE5, "--------------------");
@@ -373,7 +372,7 @@ namespace PRL_SPACE {
                 item.grp_id = Qry.FieldAsInteger(col_grp_id);
                 item.surname = Qry.FieldAsString(col_surname);
                 item.name = Qry.FieldAsString(col_name);
-                item.ticket_no = Qry.FieldAsFloat(col_ticket_no);
+                item.ticket_no = Qry.FieldAsString(col_ticket_no);
                 item.coupon_no = Qry.FieldAsInteger(col_coupon_no);
                 item.ticket_rem = Qry.FieldAsString(col_ticket_rem);
                 if(!Qry.FieldIsNULL(col_crs_pax_id)) {
@@ -3058,7 +3057,7 @@ struct TETLPax {
     string name;
     int pnr_id;
     int pax_id;
-    double ticket_no;
+    string ticket_no;
     int coupon_no;
     int grp_id;
     TPNRList pnrs;
@@ -3076,7 +3075,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
     ostringstream buf;
     buf
         << "TKNE "
-        << fixed << setprecision(0) << pax.ticket_no << "/" << pax.coupon_no;
+        << pax.ticket_no << "/" << pax.coupon_no;
     TRemItem rem;
     rem.rem = buf.str();
     items.push_back(rem);
@@ -3087,7 +3086,7 @@ void TRemList::get(TTlgInfo &info, TETLPax &pax)
             buf.str("");
             buf
                 << "TKNE INF"
-                << fixed << setprecision(0) << infRow->ticket_no << "/" << infRow->coupon_no;
+                << infRow->ticket_no << "/" << infRow->coupon_no;
             TRemItem rem;
             rem.rem = buf.str();
             items.push_back(rem);
@@ -3173,7 +3172,7 @@ void TETLDest::GetPaxList(TTlgInfo &info)
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
             pax.pax_id = Qry.FieldAsInteger(col_pax_id);
-            pax.ticket_no = Qry.FieldAsFloat(col_ticket_no);
+            pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
             pax.pnrs.get(pax.pnr_id);
