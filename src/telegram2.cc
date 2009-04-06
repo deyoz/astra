@@ -4247,7 +4247,8 @@ int TelegramInterface::create_tlg(
 
         string tz_region=AirpTZRegion(info.own_airp);
         info.scd_local = UTCToLocal( info.scd, tz_region );
-        info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
+        if(!Qry.FieldIsNULL("act_out"))
+            info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
         int Year, Month, Day;
         DecodeDate(info.scd_local, Year, Month, Day);
         info.local_day = Day;

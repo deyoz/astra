@@ -430,27 +430,30 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   bool pr_summer=false;
   if (point_id!=-1)
   {
-    Qry.SQLText=
-      "SELECT scd_out,act_out,airp FROM points WHERE point_id=:point_id AND pr_del>=0";
-    Qry.CreateVariable("point_id",otInteger,point_id);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
-    string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
+      Qry.SQLText=
+          "SELECT scd_out,act_out,airp FROM points WHERE point_id=:point_id AND pr_del>=0";
+      Qry.CreateVariable("point_id",otInteger,point_id);
+      Qry.Execute();
+      if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+      string tz_region=AirpTZRegion(Qry.FieldAsString("airp"));
 
-    TlgQry.CreateVariable("point_id",otInteger,point_id);
-    TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
-    TDateTime act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
-    TlgQry.CreateVariable("scd_local",otDate,scd_local);
-    TlgQry.CreateVariable("act_local",otDate,act_local);
-    //вычисляем признак летней/зимней навигации
-    tz_database &tz_db = get_tz_database();
-    time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
-    if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
-    if (tz->has_dst())
-    {
-      local_date_time ld(DateTimeToBoost(Qry.FieldAsDateTime("scd_out")),tz);
-      pr_summer=ld.is_dst();
-    };
+      TlgQry.CreateVariable("point_id",otInteger,point_id);
+      TDateTime scd_local = UTCToLocal( Qry.FieldAsDateTime("scd_out"), tz_region );
+      TlgQry.CreateVariable("scd_local",otDate,scd_local);
+      if(!Qry.FieldIsNULL("act_out")) {
+          TDateTime act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
+          TlgQry.CreateVariable("act_local",otDate,act_local);
+      } else
+          TlgQry.CreateVariable("act_local",otDate,FNull);
+      //вычисляем признак летней/зимней навигации
+      tz_database &tz_db = get_tz_database();
+      time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );
+      if (tz==NULL) throw Exception("Region '%s' not found",tz_region.c_str());
+      if (tz->has_dst())
+      {
+          local_date_time ld(DateTimeToBoost(Qry.FieldAsDateTime("scd_out")),tz);
+          pr_summer=ld.is_dst();
+      };
   }
   else
   {
