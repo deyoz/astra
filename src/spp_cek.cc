@@ -19,12 +19,17 @@
 #include "sopp.h"
 #include "timer.h"
 #include "xml_unit.h"
+#include "xml_stuff.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/test.h"
+
+
+//#include "serverlib/perfom.h"
+//#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -587,10 +592,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
  	  else
  	  	NewTextChild( NodeA, "PRIZ", IntToString( 1 ) );
     NewTextChild( NodeA, "KUR", IntToString( tr->places_in.size() ) );
-    if ( tr->triptype_in == "м" )
-    	NewTextChild( NodeA, "VDV", "МЕЖ" );
-    else
-      NewTextChild( NodeA, "VDV", "ПАС" );
+   	NewTextChild( NodeA, "VDV", tr->triptype_in );
     NewTextChild( NodeA, "VRD", tr->litera_in );
     NewTextChild( NodeA, "ABSM", getAirline_CityOnwer( tr->triptype_in, tr->airline_in ) );
     int k = 0;
@@ -600,7 +602,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
   			prior_point_id = d->point_id;
       xmlNodePtr NodeAK = NewTextChild( NodeA, "AK" );
     	NewTextChild( NodeAK, "PNR", getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ) );
-    	NewTextChild( NodeAK, "AV", d->airp );
+    	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt );
+    	if ( airp_tmp.size() > 3 )
+    	  NewTextChild( NodeAK, "AV", d->airp );
+    	else
+    		NewTextChild( NodeAK, "AV", airp_tmp );
      /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
         расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
         фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -611,7 +617,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       TSOPPDests::iterator n = d;
       n++;
       if ( n != tr->places_in.end() ) {
-      	NewTextChild( NodeAK, "AP", n->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, n->airp, n->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      		NewTextChild( NodeAK, "AP", n->airp );
+      	else
+      		NewTextChild( NodeAK, "AP", airp_tmp );
         NewTextChild( NodeAK, "DPP", GetStrDate( n->scd_in ) );
         modf( n->scd_in, &tm );
         NewTextChild( NodeAK, "VPP", GetMinutes( tm, n->scd_in ) );
@@ -633,7 +643,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       	NewTextChild( NodeAK, "FVV", GetMinutes( tm, d->act_out ) );
       }
       else {
-      	NewTextChild( NodeAK, "AP", tr->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      	  NewTextChild( NodeAK, "AP", tr->airp );
+      	else
+      		NewTextChild( NodeAK, "AP", airp_tmp );
       	NewTextChild( NodeAK, "DPP", GetStrDate( tr->scd_in ) );
        	modf( tr->scd_in, &tm );
        	NewTextChild( NodeAK, "VPP", GetMinutes( tm, tr->scd_in ) );
@@ -692,10 +706,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
  	    NewTextChild( NodeD, "PRIZ", IntToString( 2 ) );
  	  else
  	  	NewTextChild( NodeD, "PRIZ", IntToString( 1 ) );
-    if ( tr->triptype_out == "м" )
-    	NewTextChild( NodeD, "VDV", "МЕЖ" );
-    else
-    	NewTextChild( NodeD, "VDV", "ПАС" );
+   	NewTextChild( NodeD, "VDV", tr->triptype_out );
     NewTextChild( NodeD, "VRD", tr->litera_out );
     NewTextChild( NodeD, "ABSM", getAirline_CityOnwer( tr->triptype_out, tr->airline_out ) );
     // теперь создание записей по плечам
@@ -706,7 +717,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
-      NewTextChild( NodeDK, "AP", d->airp );
+      string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt );
+      if ( airp_tmp.size() > 3 )
+        NewTextChild( NodeDK, "AP", d->airp );
+      else
+      	NewTextChild( NodeDK, "AP", airp_tmp );
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
          расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
          фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -717,7 +732,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       TDateTime tm;
       if ( k > 0 ) {
       	TSOPPDests::iterator n = d - 1;
-      	NewTextChild( NodeDK, "AV", n->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, n->airp, n->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      	  NewTextChild( NodeDK, "AV", n->airp );
+      	else
+      		NewTextChild( NodeDK, "AV", airp_tmp );
       	NewTextChild( NodeDK, "DPP", GetStrDate( d->scd_in ) );
        	modf( d->scd_in, &tm );
       	NewTextChild( NodeDK, "VPP", GetMinutes( tm, d->scd_in ) );
@@ -743,7 +762,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
         }
       }
       else {
-        NewTextChild( NodeDK, "AV", tr->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+          NewTextChild( NodeDK, "AV", tr->airp );
+        else
+        	NewTextChild( NodeDK, "AV", airp_tmp );
         NewTextChild( NodeDK, "DPP", GetStrDate( d->scd_in ) );
        	modf( d->scd_in, &tm );
        	NewTextChild( NodeDK, "VPP", GetMinutes( tm, d->scd_in ) );
