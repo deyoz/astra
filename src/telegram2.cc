@@ -3377,7 +3377,7 @@ struct TLDMCFG:TCFG {
         {
             if(not cfg.str().empty())
                 cfg << "/";
-            cfg << iv->cfg << ElemIdToElem(etClass, iv->cls, info.pr_lat);
+            cfg << iv->cfg;
             if(iv->cls == "è") pr_f = true;
             if(iv->cls == "Å") pr_c = true;
             if(iv->cls == "ù") pr_y = true;
@@ -3440,8 +3440,9 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
             << "-" << ElemIdToElem(etAirp, iv->target, info.pr_lat)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
             << ".T"
-            << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
-        row << ".PAX";
+            << iv->bag.baggage + iv->bag.cargo + iv->bag.mail
+            << ".?/?"
+            << ".PAX";
         if(cfg.pr_f or iv->f != 0)
             row << "/" << iv->f;
         row
