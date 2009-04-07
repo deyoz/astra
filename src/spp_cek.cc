@@ -565,7 +565,7 @@ string getAirline_CityOnwer( const string triptype, const string airline )
   }
 }
 
-xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
+xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDocPtr &doc )
 {
 	TDateTime tm;
 	Luggage lug_in, lug_out;
@@ -595,6 +595,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
    	NewTextChild( NodeA, "VDV", tr->triptype_in );
     NewTextChild( NodeA, "VRD", tr->litera_in );
     NewTextChild( NodeA, "ABSM", getAirline_CityOnwer( tr->triptype_in, tr->airline_in ) );
+    NewTextChild( NodeA, "FAM", string(""));
     int k = 0;
     int prior_point_id = ASTRA::NoExists;
     for ( TSOPPDests::iterator d=tr->places_in.begin(); d!= tr->places_in.end(); d++,k++ ) {
@@ -709,6 +710,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
    	NewTextChild( NodeD, "VDV", tr->triptype_out );
     NewTextChild( NodeD, "VRD", tr->litera_out );
     NewTextChild( NodeD, "ABSM", getAirline_CityOnwer( tr->triptype_out, tr->airline_out ) );
+    NewTextChild( NodeD, "FAM", commander.substr(0,12) );
     // теперь создание записей по плечам
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
@@ -886,15 +888,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM "
+      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -925,6 +927,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
    	createParam( paramsNode, "VDV", NodeAsString( "VDV", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "VRD", NodeAsString( "VRD", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "ABSM", NodeAsString( "ABSM", nodeN ), DBF_TYPE_CHAR );
+   	createParam( paramsNode, "FAM", NodeAsString( "FAM", nodeN ), DBF_TYPE_CHAR );
   }
   if ( pr_land )
   	dbf_type = "AK";
@@ -1082,6 +1085,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string file_type = FILE_SPPCEK_TYPE;
 	string record;
 	TQuery Qry( &OraSession );
+	TQuery COMMANDERQry( &OraSession );
+	COMMANDERQry.SQLText =
+	  "SELECT commander from trip_crew WHERE point_id=:point_id";
+	COMMANDERQry.DeclareVariable( "point_id", otInteger );
  	TDateTime UTCNow = NowUTC();
  	TDateTime LocalNow;
  	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
@@ -1108,7 +1115,12 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	}
     if ( !res ) continue;
     ProgTrace( TRACE5, "CEK point_id=%d, res=%d, CREATE_SPP_DAYS()=%d", point_id, res, CREATE_SPP_DAYS() );
-  	createXMLTrip( tr, doc );
+    COMMANDERQry.SetVariable( "point_id", point_id );
+    COMMANDERQry.Execute();
+    string commander;
+    if ( !COMMANDERQry.Eof )
+    	commander = COMMANDERQry.FieldAsString( "commander" );
+  	createXMLTrip( tr, commander, doc );
   	break;
   }
   if ( !doc && !trips.empty() ) // рейс не удален
