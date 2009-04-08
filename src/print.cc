@@ -503,10 +503,6 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
             prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
     }
 
-    if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
-
-
     di1 = data.find("SURNAME");
     if(printed(di1))
         prnQry->SetVariable(di1->first, di1->second.StringVal);
