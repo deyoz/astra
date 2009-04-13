@@ -57,7 +57,15 @@ class TLines {
     void clear();
 };
 enum TSeatAlg { sSeatGrpOnBasePlace, sSeatGrp, sSeatPassengers, seatAlgLength };
-enum TUseRem { sAllUse, sMaxUse, sOnlyUse, sNotUse, sNotUseDenial, sIgnoreUse, useremLength };
+enum TUseRem { sAllUse, sMaxUse, sOnlyUse, sNotUse_NotUseDenial, sNotUse, sNotUseDenial, sIgnoreUse, useremLength };
+/*
+ aAllUse - совпадение всех ремарок по самому приоритетному пассажиру
+ sMaxUse - совпадение самой приоритетной ремарки
+ sOnlyUse - хотя бы одна совпадает
+ sNotUse - запрещено использовать место с разрешенной ремаркой, если у пассажира такой ремарки нет
+ sNotUseDenial - запрещено использовать место с запрещенной ремаркой, кот есть у пассажира
+ sIgnoreUse - игнорировать ремарки
+*/
 /* Нельзя разбивать трех, нельзя сажать по одному более одного раза, все можно */
 enum TUseAlone { uFalse3 /* нельзя оставлять одного при рассадке группы*/,
 	               uFalse1 /* можно оставлять одного только один раз при рассадке группы*/,
@@ -77,6 +85,9 @@ string DecodeCanUseRems( TUseRem VCanUseRems )
 		case sMaxUse:
 			  res = "sMaxUse";
 			  break;
+	  case sNotUse_NotUseDenial:
+	  	  res = "sNotUse_NotUseDenial";
+	  	  break;
 		case sNotUseDenial:
 			  res = "sNotUseDenial";
 			  break;
@@ -488,7 +499,7 @@ int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int fo
   return Result;
 }
 
-/* ф-ция для определения возможности рассадки для мест у который есть запрещенные ремарки */
+/* ф-ция для определения возможности рассадки для мест у которых есть запрещенные ремарки */
 bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 {
 	bool res = false; // признак того, что у пассажира есть ремарка, которая запрещена на выбранном месте
@@ -574,15 +585,19 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
              return Result;
          }
          break;
+      case sNotUse_NotUseDenial:
       case sNotUseDenial:
       	if ( DoNotRemsSeats( place->rems ) )
       		return Result;
-      	break;
+      	if ( sNotUseDenial ) break;
       case sNotUse:
 //      	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d", Result, FP.x, FP.y );
   	     for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
-		       if ( !prem->pr_denial )
+  //	     	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
+		       if ( !prem->pr_denial ) {
+		//       	 tst();
 		       	 return Result;
+		       }
   	     }
          break;
     } /* end switch */
@@ -1020,7 +1035,6 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
   	ispPlaceName_lat.clear();
   	ispPlaceName_rus.clear();
     SALONS2::TPlaceList *placeList = isp->placeList;
-    	tst();
     ispPlaceName_lat = denorm_iata_row( placeList->GetYsName( isp->Pos.y ) );
     ispPlaceName_rus = ispPlaceName_lat;
     ispPlaceName_lat += denorm_iata_line( placeList->GetXsName( isp->Pos.x ), 1 );
@@ -1031,7 +1045,7 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
     bool pr_valid_place = true;
     vector<string> vrems;
     pass.get_remarks( vrems );
-    for (vector<string>::iterator irem=vrems.begin(); irem!= vrems.end(); irem++ ) {
+    for (vector<string>::iterator irem=vrems.begin(); irem!= vrems.end(); irem++ ) { // пробег по ремаркам пассажира
       for( vector<SALONS2::TPlace>::iterator ipl=isp->oldPlaces.begin(); ipl!=isp->oldPlaces.end(); ipl++ ) {
       	/* пробег по местам которые может занимать пассажир */
       	vector<SALONS2::TRem>::iterator itr;
@@ -1051,7 +1065,6 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
           EqualQ += PR_REM_TO_NOREM;
       } /* конец пробега по местам */
     } /* конец пробега по ремаркам пассажира */
-    //ProgTrace( TRACE5, "EqualQ=%d", EqualQ );
 
     if ( pass.placeName == ispPlaceName_lat || pass.placeName == ispPlaceName_rus ||
     	   pass.preseat == ispPlaceName_lat || pass.preseat == ispPlaceName_rus )
@@ -1087,7 +1100,6 @@ TSeatPlace &TSeatPlaces::GetEqualSeatPlace( TPassenger &pass )
       misp->isValid = pr_valid_place;
     }
   } /* end for */
- //ProgTrace( TRACE5, "MaxEqualQ=%d", MaxEqualQ );
  misp->InUse = true;
  return *misp;
 }
@@ -1210,6 +1222,7 @@ inline void getRemarks( TPassenger &pass )
   switch ( (int)CanUseRems ) {
     case sAllUse:
     case sOnlyUse:
+    case sNotUse_NotUseDenial:
     case sNotUseDenial:
     	 pass.get_remarks( Remarks );
        break;
@@ -1368,7 +1381,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
         ipass->index = old_index;
 
         if ( SeatGrpOnBasePlace( ) ||
-             ( CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial /*!!!*/ ) &&
+             ( CanUseRems == sNotUse_NotUseDenial || CanUseRems == sNotUse || CanUseRems == sIgnoreUse || CanUseRems == sNotUseDenial /*!!!*/ ) &&
              ( !CanUseLayers || PlaceLayer == cltProtCkin && CanUse_PS || PlaceLayer != cltProtCkin ) && SeatsGrp( ) ) {
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
             throw Exception( "Недопустимое значение направления рассадки" );
@@ -1892,12 +1905,12 @@ bool ExistsBasePlace( SALONS2::TSalons &Salons, TPassenger &pass )
 void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */,  TPassengers &passengers, bool FUse_PS )
 {
 	ProgTrace( TRACE5, "NEWSEATS" );
-  if ( !Passengers.getCount() )
+  if ( !passengers.getCount() )
     return;
   FSeatAlgo = SeatAlgo;
   SeatPlaces.Clear();
-  SeatPlaces.grp_status = Passengers.Get( 0 ).grp_status;
-  ProgTrace( TRACE5, "SeatPlaces.grp_status=%s,counters.p_Count_3( sDown )=%d", EncodeCompLayerType(SeatPlaces.grp_status), Passengers.counters.p_Count_3( sDown ) );
+  SeatPlaces.grp_status = passengers.Get( 0 ).grp_status;
+  ProgTrace( TRACE5, "SeatPlaces.grp_status=%s,counters.p_Count_3( sDown )=%d", EncodeCompLayerType(SeatPlaces.grp_status), passengers.counters.p_Count_3( sDown ) );
   CurrSalon = Salons;
   vector<TCompLayerType> Layers;
   CanUseLayers = true;
@@ -1916,8 +1929,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
 
   /* определение есть ли в группе пассажир с предварительной рассадкой */
   bool Status_seat_no_BR=false;
-  for ( int i=0; i<Passengers.getCount(); i++ ) {
-  	TPassenger &pass = Passengers.Get( i );
+  for ( int i=0; i<passengers.getCount(); i++ ) {
+  	TPassenger &pass = passengers.Get( i );
   	if ( pass.layer == cltProtCkin ) { // !!!
   		Status_preseat = true;
   	}
@@ -1927,8 +1940,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   }
   /*!!!*/
   bool SeatOnlyBasePlace=true;
-  for ( int i=0; i<Passengers.getCount(); i++ ) {
-  	TPassenger &pass = Passengers.Get( i );
+  for ( int i=0; i<passengers.getCount(); i++ ) {
+  	TPassenger &pass = passengers.Get( i );
   	if ( pass.placeName.empty() ) {
   		SeatOnlyBasePlace=false;
   		break;
@@ -1952,6 +1965,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
           case sSeatGrpOnBasePlace:
              switch( (int)CanUseRems ) {
                case sIgnoreUse:
+               case sNotUse_NotUseDenial:
                case sNotUseDenial:
                case sNotUse:
                	 ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%d", SeatAlg, CanUseRems );
@@ -1981,6 +1995,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
                   !Passengers.counters.p_Count_2( sDown )
                  ) ) //???
             continue;???*/
+          if ( CanUseAlone == uTrue && CanUseRems == sNotUse_NotUseDenial	 ) {
+          	// если пассажиров можно оставлять сколько угодно раз по одному в ряду и можно сажать только на места с нужными ремарками
+          	continue;
+          }
           if ( CanUseAlone == uTrue && SeatAlg == sSeatPassengers ) {
           	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%d, CanUseAlone=%d", SeatAlg, CanUseRems, CanUseAlone );
             continue;
@@ -1997,7 +2015,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
             }
 
             /* задаем массив статусов мест */
-            SetLayers( Layers, Passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
+            SetLayers( Layers, passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
             /* пробег по статусом */
             for ( vector<TCompLayerType>::iterator l=Layers.begin(); l!=Layers.end(); l++ ) {
               PlaceLayer = *l;
@@ -2021,7 +2039,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
               	  	continue;
               	  }
                   CanUseTube = FCanUseTube;
-                  for ( int FCanUseSmoke=Passengers.UseSmoke; FCanUseSmoke>=0; FCanUseSmoke-- ) {
+                  for ( int FCanUseSmoke=passengers.UseSmoke; FCanUseSmoke>=0; FCanUseSmoke-- ) {
 /*                    if ( !FCanUseSmoke && CanUseAlone == uFalse3 )
                       continue; ???*/
 
@@ -2036,6 +2054,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
                         }
                         break;
                       case sSeatGrp:
+                      	getRemarks( passengers.Get( 0 ) ); // для самого приоритетного
                         if ( SeatPlaces.SeatsGrp( ) )
                           throw 1;
                         break;
@@ -2065,10 +2084,8 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
 //    ProgTrace( TRACE5, "SeatAlg=%d, CanUseRems=%d", (int)SeatAlg, (int)CanUseRems );
     /* распределение полученных мест по пассажирам, только для SeatPlaces.SeatGrpOnBasePlace */
     if ( SeatAlg != sSeatPassengers ) {
-    	tst();
       SeatPlaces.PlacesToPassengers( );
     }
-    ProgTrace( TRACE5, "SeatAlg=%d, CanUseRems=%d", SeatAlg, CanUseRems );
 
     Passengers.sortByIndex();
 
