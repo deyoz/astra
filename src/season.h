@@ -7,6 +7,7 @@
 #include "basic.h"
 #include "astra_consts.h"
 #include "jxtlib/JxtInterface.h"
+#include "oralib.h"
 
 namespace SEASON {
 
@@ -80,6 +81,19 @@ public:
 
 std::string GetCityFromAirp( std::string &airp );
 std::string GetTZRegion( std::string &city, std::map<std::string,std::string> &regions, bool vexcept=1 );
+
+class TDoubleTrip
+{
+	private:
+		 TQuery *Qry;
+	public:
+		 TDoubleTrip();
+		 ~TDoubleTrip();
+     bool IsExists( int move_id, std::string airline, int flt_no,
+     	              std::string suffix, std::string airp,
+	                  BASIC::TDateTime scd_in, BASIC::TDateTime scd_out );
+};
+
 
 
 #endif
