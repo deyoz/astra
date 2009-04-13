@@ -926,20 +926,6 @@ void CreateSPP( BASIC::TDateTime localdate )
    "END;";
   MIDQry.DeclareVariable( "move_id", otInteger );
   /* необходимо сделать проверку на не существование рейса */
-  TQuery VQry(&OraSession);
-  VQry.SQLText =
-   "SELECT 1 FROM points "\
-   " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       scd_in >= TRUNC(:scd_in) AND scd_in < TRUNC(:scd_in)+1 AND rownum<2 "
-   "UNION "
-   "SELECT 2 FROM points "\
-   " WHERE airline||flt_no||suffix=:name AND pr_del!=-1 AND airp=:airp AND "
-   "       scd_out >= TRUNC(:scd_out) AND scd_out < TRUNC(:scd_out)+1 AND rownum<2 ";
-  VQry.DeclareVariable( "name", otString );
-  VQry.DeclareVariable( "airp", otString );
-  VQry.DeclareVariable( "scd_in", otDate );
-  VQry.DeclareVariable( "scd_out", otDate );
-
   TQuery PRREG(&OraSession);
   PRREG.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
   PRREG.Execute();
@@ -997,6 +983,7 @@ void CreateSPP( BASIC::TDateTime localdate )
   TSpp spp;
   string err_airp;
   createSPP( localdate, spp, false, err_airp );
+  TDoubleTrip doubletrip;
 
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
@@ -1013,24 +1000,24 @@ void CreateSPP( BASIC::TDateTime localdate )
       bool exists = false;
       string name;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end() - 1; d++ ) {
-      	name = d->airline + IntToString( d->trip ) + d->suffix;
-      	ProgTrace( TRACE5, "trip name=%s", name.c_str() );
-        VQry.SetVariable( "name", name );
-        VQry.SetVariable( "airp", ElemToElemId( etAirp, d->airp, fmt ) );
-        if ( d->scd_in > NoExists )
-          VQry.SetVariable( "scd_in", d->scd_in + im->second.diff );
-        else
-          VQry.SetVariable( "scd_in", FNull );
-        if ( d->scd_out > NoExists )
-          VQry.SetVariable( "scd_out", d->scd_out + im->second.diff );
-        else
-          VQry.SetVariable( "scd_out", FNull );
-        VQry.Execute();
-        if ( !VQry.Eof ) {
-        	tst();
-          exists = true;
-          break;
-        }
+      	TDateTime vscd_in, vscd_out;
+      	if ( d->scd_in > NoExists )
+      		vscd_in = d->scd_in + im->second.diff;
+      	else
+      		vscd_in = NoExists;
+      	if ( d->scd_out > NoExists )
+      		vscd_out = d->scd_out + im->second.diff;
+      	else
+      		vscd_out = NoExists;
+
+
+      	if ( doubletrip.IsExists( NoExists, d->airline,
+      		                        d->trip, d->suffix,
+      		                        d->airp,
+      		                        vscd_in, vscd_out ) ) {
+      		exists = true;
+      		break;
+      	}
       }
       if ( exists )
         continue;
@@ -3706,6 +3693,88 @@ void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
 }
 
+TDoubleTrip::TDoubleTrip( )
+{
+	Qry = new TQuery( &OraSession );
+	Qry->SQLText =
+     "SELECT scd_in, scd_out FROM points "
+     " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
+     "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
+     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
+     "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";
+  Qry->DeclareVariable( "move_id", otInteger );
+  Qry->DeclareVariable( "airp", otString );
+  Qry->DeclareVariable( "airline", otString );
+  Qry->DeclareVariable( "flt_no", otInteger );
+  Qry->DeclareVariable( "suffix", otString );
+  Qry->DeclareVariable( "scd_in", otDate );
+  Qry->DeclareVariable( "scd_out", otDate );
+}
+
+bool TDoubleTrip::IsExists( int move_id, string airline, int flt_no,
+	                          string suffix, string airp,
+	                          TDateTime scd_in, TDateTime scd_out )
+{
+	int fmt;
+	airp = ElemToElemId( etAirp, airp, fmt );
+	suffix = ElemToElemId( etSuffix, suffix, fmt );
+	airline = ElemToElemId( etAirline, airline, fmt );
+	Qry->SetVariable( "move_id", move_id );
+	Qry->SetVariable( "flt_no", flt_no );
+	Qry->SetVariable( "suffix", suffix );
+	Qry->SetVariable( "airline", airline );
+	Qry->SetVariable( "airp", airp );
+	if ( scd_in > NoExists )
+	  Qry->SetVariable( "scd_in", scd_in );
+	else
+		Qry->SetVariable( "scd_in", FNull );
+	if ( scd_out > NoExists )
+		Qry->SetVariable( "scd_out", scd_out );
+	else
+		Qry->SetVariable( "scd_out", FNull );
+	Qry->Execute();
+	bool res = false;
+  double local_scd_in,local_scd_out,d1;
+  string region;
+  if ( scd_in > NoExists ) {
+    region = AirpTZRegion( airp );
+    d1 = UTCToLocal( scd_in, region );
+    modf( d1, &local_scd_in );
+  }
+  else local_scd_in = NoExists;
+  if ( scd_out > NoExists ) {
+    if ( region.empty () )
+      region = AirpTZRegion( airp );
+    d1 = UTCToLocal( scd_out, region );
+    modf( d1, &local_scd_out );
+  }
+  else local_scd_out = NoExists;
+  while ( !Qry->Eof ) {
+  	if ( !Qry->FieldIsNULL( "scd_in" ) && local_scd_in > NoExists ) {
+      modf( (double)UTCToLocal( Qry->FieldAsDateTime( "scd_in" ), region ), &d1 );
+      if ( d1 == local_scd_in ) {
+   			res = true;
+        break;
+      }
+    }
+    if ( !Qry->FieldIsNULL( "scd_out" ) && local_scd_out > NoExists ) {
+      modf( (double)UTCToLocal( Qry->FieldAsDateTime( "scd_out" ), region ), &d1 );
+      if ( d1 == local_scd_out ) {
+   			res = true;
+        break;
+      }
+    }
+    Qry->Next();
+  }
+	return res;
+}
+
+TDoubleTrip::~TDoubleTrip()
+{
+	delete Qry;
+}
+
+
 
 
 /* проверка времен по всему маршруту */
@@ -3787,3 +3856,4 @@ void SeasonInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 /*        }
        } // end !timeKey
 */
+
