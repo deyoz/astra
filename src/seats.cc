@@ -1,4 +1,5 @@
 #include <stdlib.h>
+
 #include "seats.h"
 #include "basic.h"
 #include "exceptions.h"
