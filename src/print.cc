@@ -1049,13 +1049,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     }
 
     {
-        TQuery Qry(&OraSession);
-        bool pr_bp_market_flt = false;
-        Qry.SQLText = "select pr_bp_market_flt from trip_sets where point_id = :point_id";
-        Qry.CreateVariable("point_id", otInteger, trip_id);
-        Qry.Execute();
-        if(!Qry.Eof && !Qry.FieldIsNULL(0))
-            pr_bp_market_flt = Qry.FieldAsInteger(0) == 1;
+
         string airline;
         string airline_lat;
         string airline_name;
@@ -1070,71 +1064,38 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         int sel_flt_no;
         string sel_suffix;
 
-        if(pax_id != NoExists && pr_bp_market_flt) {
-            Qry.Clear();
-            Qry.SQLText = //pnr_market_flt
-                "select "
-                "   tlg_trips.airline, "
-                "   tlg_trips.flt_no, "
-                "   tlg_trips.suffix "
-                "from "
-                "   pax, "
-                "   crs_pax, "
-                "   crs_pnr, "
-                "   tlg_trips "
-                "where "
-                "   pax.pax_id = :pax_id and "
-                "   pax.pax_id = crs_pax.pax_id and "
-                "   crs_pax.pnr_id = crs_pnr.pnr_id and "
-                "   crs_pnr.point_id = tlg_trips.point_id ";
-            Qry.CreateVariable("pax_id", otInteger, pax_id);
-            Qry.Execute();
-            if(!Qry.Eof) {
-                sel_airline = Qry.FieldAsString("airline");
-                sel_flt_no = Qry.FieldAsInteger("flt_no");
-                sel_suffix = Qry.FieldAsString("suffix");
-            } else {
-                Qry.Clear();
-                Qry.SQLText =
-                    "select "
-                    "   airline, "
-                    "   flt_no, "
-                    "   suffix "
-                    "from "
-                    "   points "
-                    "where "
-                    "   point_id = :point_id and points.pr_del>=0 ";
-                Qry.CreateVariable("point_id", otInteger, trip_id);
-                Qry.Execute();
-                if(!Qry.Eof) {
-                    sel_airline = Qry.FieldAsString("airline");
-                    sel_flt_no = Qry.FieldAsInteger("flt_no");
-                    sel_suffix = Qry.FieldAsString("suffix");
-                }
-            }
-        } else {
-            Qry.Clear();
-            Qry.SQLText =
-                "select "
-                "   airline, "
-                "   flt_no, "
-                "   suffix "
-                "from "
-                "   points "
-                "where "
-                "   point_id = :point_id and points.pr_del>=0 ";
-            Qry.CreateVariable("point_id", otInteger, trip_id);
-            Qry.Execute();
-            if(!Qry.Eof) {
-                sel_airline = Qry.FieldAsString("airline");
-                sel_flt_no = Qry.FieldAsInteger("flt_no");
-                sel_suffix = Qry.FieldAsString("suffix");
-            }
+        TQuery Qry(&OraSession);
+        Qry.Clear();
+        Qry.SQLText =
+            "select airline, flt_no, suffix, airp, scd_out from points where point_id = :point_id and pr_del >= 0";
+        Qry.CreateVariable("point_id", otInteger, trip_id);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw UserException("Рейс не найден. Обновите данные.");
+        TTripInfo operFlt(Qry);
+        sel_airline = operFlt.airline;
+        sel_flt_no = operFlt.flt_no;
+        sel_suffix = operFlt.suffix;
+        
+        Qry.Clear();  
+        Qry.SQLText=
+            "SELECT airline, flt_no, suffix, airp_dep AS airp, scd AS scd_out "
+            "FROM market_flt WHERE grp_id=:grp_id";
+        Qry.CreateVariable("grp_id",otInteger,grp_id);
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+            TTripInfo markFlt(Qry);  
+            TCodeShareSets codeshareSets;
+            codeshareSets.get(operFlt,markFlt); 
+            if ( codeshareSets.pr_mark_bp )
+            {
+                sel_airline = markFlt.airline;
+                sel_flt_no = markFlt.flt_no;
+                sel_suffix = markFlt.suffix;
+            };
         }
 
-
-        if(sel_airline.empty())
-            throw Exception("fillBTBPMap: arline not defined");
         airline = sel_airline;
         suffix = sel_suffix;
         TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
