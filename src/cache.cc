@@ -288,16 +288,19 @@ bool TCacheTable::refreshData()
 
     /*Попробуем найти в именах переменных :user_id
       потому что возможно чтение данных по опред. авиакомпании */
+    TCacheQueryType query_type;
     vars.clear();
     Qry->Clear();
     vector<string>::iterator f;
     if ( RefreshSQL.empty() || clientVerData < 0 ) { /* считываем все заново */
       Qry->SQLText = SelectSQL;
+      query_type = cqtSelect;
       FindVariables(Qry->SQLText.SQLText(), false, vars);
       clientVerData = -1;
     }
     else { /* обновляем с использованием RefreshSQL и clientVerData */
       Qry->SQLText = RefreshSQL;
+      query_type = cqtRefresh;
       /* выделение всех переменных без повтора */
       FindVariables( Qry->SQLText.SQLText(), false, vars );
       /* задание переменной TID */
@@ -333,6 +336,19 @@ bool TCacheTable::refreshData()
     	ProgTrace( TRACE5, "variable %s = %s, type=%i", v->c_str(),
     	           SQLParams[ *v ].Value.c_str(), vtype );
     }
+
+    if(OnBeforeRefresh)
+      try {
+          (*OnBeforeRefresh)(*this, *Qry, query_type);
+      } catch(UserException E) {
+          throw;
+      } catch(Exception E) {
+          ProgError(STDLOG, "OnBeforeRefresh failed: %s", E.what());
+          throw;
+      } catch(...) {
+          ProgError(STDLOG, "OnBeforeRefresh failed: something unexpected");
+          throw;
+      }
 
     ProgTrace(TRACE5, "SQLText=%s", Qry->SQLText.SQLText());
     Qry->Execute();
@@ -740,18 +756,22 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
   for(int i = 0; i < 3; i++) {
     string sql;
     TCacheUpdateStatus status;
+    TCacheQueryType query_type;
     switch(i) {
       case 0:
           sql = DeleteSQL;
           status = usDeleted;
+          query_type = cqtDelete;
           break;
       case 1:
           sql = UpdateSQL;
           status = usModified;
+          query_type = cqtUpdate;
           break;
       case 2:
           sql = InsertSQL;
           status = usInserted;
+          query_type = cqtInsert;
           break;
     }
     if (!sql.empty()) {
@@ -779,7 +799,7 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
 
         if(OnBeforeApply)
             try {
-                (*OnBeforeApply)(*this, *iv, *Qry);
+                (*OnBeforeApply)(*this, *iv, *Qry, query_type);
             } catch(UserException E) {
                 throw;
             } catch(Exception E) {
@@ -980,7 +1000,29 @@ void TCacheTable::getPerms( )
              (DeleteSQL.empty() || DeleteRight<0);
 }
 
-void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry)
+void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType qryType)
+{
+  if (cache.code() == "TRIP_BAG_NORMS" ||
+      cache.code() == "TRIP_BAG_RATES" ||
+      cache.code() == "TRIP_VALUE_BAG_TAXES" ||
+      cache.code() == "TRIP_EXCHANGE_RATES" )
+  {
+    if (qryType==cqtSelect)
+    {
+      if (refreshQry.Variables==NULL ||
+          refreshQry.Variables->FindVariable("use_mark_flt")==-1)
+      {
+        refreshQry.CreateVariable("use_mark_flt",otInteger,(int)false);
+        refreshQry.CreateVariable("airline_mark",otString,FNull);
+        if (cache.code() == "TRIP_BAG_NORMS" ||
+            cache.code() == "TRIP_BAG_RATES")
+          refreshQry.CreateVariable("flt_no_mark",otString,FNull);
+      };
+    };
+  };
+};
+
+void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
   if (cache.code() == "CODESHARE_SETS")
   {
@@ -989,7 +1031,9 @@ void BeforeApply(TCacheTable &cache, const TRow &row, TQuery &applyQry)
       airp=cache.FieldValue("airp_dep", row);
     else
       airp=cache.FieldOldValue("airp_dep", row);
-    applyQry.CreateVariable("now_local", otDate, UTCToLocal( NowUTC(), AirpTZRegion(airp) ));
+    TDateTime now_local= UTCToLocal( NowUTC(), AirpTZRegion(airp) );
+    modf(now_local,&now_local);
+    applyQry.CreateVariable("now_local", otDate, now_local);
   };
 };
 
@@ -1000,6 +1044,7 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
            (char*)reqNode->name,(char*)resNode->name);
   TCacheTable cache;
   cache.Init(reqNode);
+  cache.OnBeforeRefresh = BeforeRefresh;
   cache.refresh();
   SetProp(resNode, "handle", "1");
   xmlNodePtr ifaceNode = NewTextChild(resNode, "interface");

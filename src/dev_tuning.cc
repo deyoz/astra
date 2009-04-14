@@ -19,7 +19,7 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry)
+void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
     if(cache.code() == "PRN_FORMS") {
         if(

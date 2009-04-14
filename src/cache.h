@@ -37,6 +37,7 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
                       ftUnknown, NumFieldType};
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
+enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
 
 
 struct TCacheField2 {
@@ -98,7 +99,8 @@ typedef std::vector<TRow> TTable;
 
 class TCacheTable;
 
-typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &);
+typedef void  (*TBeforeRefreshEvent)(TCacheTable &, TQuery &, const TCacheQueryType);
+typedef void  (*TBeforeApplyEvent)(TCacheTable &, const TRow &, TQuery &, const TCacheQueryType);
 
 class TCacheTable {
     protected:
@@ -141,6 +143,7 @@ class TCacheTable {
         void OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus );
         void Clear();
     public:
+        TBeforeRefreshEvent OnBeforeRefresh;
         TBeforeApplyEvent OnBeforeApply;
         void refresh();
         void buildAnswer(xmlNodePtr resNode);
@@ -150,7 +153,11 @@ class TCacheTable {
         int FieldIndex( const std::string name );
         std::string FieldValue( const std::string name, const TRow &row );
         std::string FieldOldValue( const std::string name, const TRow &row );
-        TCacheTable() { OnBeforeApply = NULL; };
+        TCacheTable()
+        {
+          OnBeforeApply = NULL;
+          OnBeforeRefresh = NULL;
+        };
         virtual void Init(xmlNodePtr cacheNode);
         virtual ~TCacheTable();
 };
