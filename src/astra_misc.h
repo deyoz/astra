@@ -10,6 +10,9 @@
 #include "stages.h"
 
 struct TMktFlight {
+  private:
+    void get(TQuery &Qry, int id);
+  public:
     std::string airline;
     int flt_no;
     std::string suffix;
@@ -17,13 +20,17 @@ struct TMktFlight {
     int scd;
     std::string airp_dep;
     std::string airp_arv;
-    void get(int pax_id);
+
+    void getByPaxId(int pax_id);
+    void getByPnrId(int pnr_id);
     bool IsNULL();
+    void clear();
     void dump();
     TMktFlight():
         flt_no(ASTRA::NoExists),
         scd(ASTRA::NoExists)
-    {};
+    {
+    };
 };
 
 class TTripInfo
@@ -90,7 +97,11 @@ class TPnrAddrItem
 
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
 std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
-BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date);
+
+//процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
+//ищет ближайшую или совпадающую дату по отношению к base_date
+//параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
+BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back=false);
 
 struct TTripRouteItem
 {
@@ -213,7 +224,31 @@ enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atLen
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType &alarm );
 
+struct TCodeShareSets {
+  private:
+    TQuery *Qry;
+  public:
+    //настройки
+    bool pr_mark_norms;
+    bool pr_mark_bp;
+    bool pr_mark_rpt;
+    TCodeShareSets();
+    ~TCodeShareSets();
+    void clear()
+    {
+      pr_mark_norms=false;
+      pr_mark_bp=false;
+      pr_mark_rpt=false;
+    };
+    //важно! время вылета scd_out у operFlt в UTC
+    void get(const TTripInfo &operFlt,
+             const TTripInfo &markFlt);
+};
+
+//важно! время вылета scd_out у operFlt должно быть в UTC
+//       время вылета в markFltInfo возвращается локальное относительно airp
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+void GetCrsList(int point_id, std::vector<std::string> &crs);
 
 #endif /*_ASTRA_MISC_H_*/
 

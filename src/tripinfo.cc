@@ -550,7 +550,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
-  if ( reqInfo->screen.name == "AIR.EXE")
+  if ( reqInfo->screen.name == "AIR.EXE" ||
+       reqInfo->screen.name == "KASSA.EXE" )
   {
     //внимание! локальная дата порта
     NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
@@ -743,7 +744,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           }
           break;
         case atOverload:
-          if (reqInfo->screen.name == "CENT.EXE")
+          if (reqInfo->screen.name == "CENT.EXE" ||
+          	  reqInfo->screen.name == "PREPREG.EXE")
           	rem = TripAlarmString( alarm );
           break;
         case atBrd:

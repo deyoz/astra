@@ -710,6 +710,22 @@ bool CheckTCkinPermit(string airline_in, int flt_no_in,
 
 int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 {
+  TQuery FltQry(&OraSession);
+  FltQry.Clear();
+  FltQry.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
+  FltQry.CreateVariable("point_id",otInteger,point_dep);
+  FltQry.Execute();
+  if (FltQry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  TTripInfo operFlt(FltQry);
+
+  FltQry.Clear();
+  FltQry.SQLText=
+    "SELECT airline,flt_no,suffix,airp_dep AS airp,scd AS scd_out "
+    "FROM tlg_trips WHERE point_id=:point_id";
+  FltQry.DeclareVariable("point_id",otInteger);
+
   TQuery TrferQry(&OraSession);
   TrferQry.Clear();
   TrferQry.SQLText =
@@ -734,6 +750,10 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
   int pnr_id=-1, pax_id;
   xmlNodePtr tripNode,pnrNode,paxNode,node;
 
+  TMktFlight mktFlt;
+  TTripInfo tlgTripsFlt;
+  TCodeShareSets codeshareSets;
+
   int count=0;
   tripNode=GetNode("trips",resNode);
   if (tripNode==NULL)
@@ -745,12 +765,30 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     {
       node=NewTextChild(tripNode,"trip");
       point_id=PaxQry.FieldAsInteger("point_id");
+      FltQry.SetVariable("point_id",point_id);
+      FltQry.Execute();
+      if (FltQry.Eof)
+        throw Exception("Flight not found in tlg_trips (point_id=%d)",point_id);
+      tlgTripsFlt.Init(FltQry);
+
       NewTextChild(node,"point_id",point_id);
-      NewTextChild(node,"airline",PaxQry.FieldAsString("airline"));
-      NewTextChild(node,"flt_no",PaxQry.FieldAsInteger("flt_no"));
-      NewTextChild(node,"suffix",PaxQry.FieldAsString("suffix"),"");
-      NewTextChild(node,"scd",DateTimeToStr(PaxQry.FieldAsDateTime("scd")));
-      NewTextChild(node,"airp_dep",PaxQry.FieldAsString("airp_dep"));
+      NewTextChild(node,"airline",tlgTripsFlt.airline);
+      NewTextChild(node,"flt_no",tlgTripsFlt.flt_no);
+      NewTextChild(node,"suffix",tlgTripsFlt.suffix,"");
+      NewTextChild(node,"scd",DateTimeToStr(tlgTripsFlt.scd_out));
+      NewTextChild(node,"airp_dep",tlgTripsFlt.airp);
+
+      TDateTime local_scd=UTCToLocal(operFlt.scd_out,AirpTZRegion(operFlt.airp));
+      if (operFlt.airline!=tlgTripsFlt.airline ||
+          operFlt.flt_no!=tlgTripsFlt.flt_no ||
+          operFlt.suffix!=tlgTripsFlt.suffix ||
+          operFlt.airp!=tlgTripsFlt.airp ||
+          local_scd!=tlgTripsFlt.scd_out)
+      {
+        codeshareSets.get(operFlt,tlgTripsFlt);
+        NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms,(int)false);
+      };
+
       pnrNode=NewTextChild(node,"groups");
     };
     if (PaxQry.FieldAsInteger("pnr_id")!=pnr_id)
@@ -761,21 +799,44 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       NewTextChild(node,"airp_arv",PaxQry.FieldAsString("target"));
       NewTextChild(node,"subclass",PaxQry.FieldAsString("subclass"));
       NewTextChild(node,"class",PaxQry.FieldAsString("class"));
+      mktFlt.getByPnrId(pnr_id);
+      if (!mktFlt.IsNULL())
+      {
+        TTripInfo pnrMarkFlt;
+        pnrMarkFlt.airline=mktFlt.airline;
+        pnrMarkFlt.flt_no=mktFlt.flt_no;
+        pnrMarkFlt.suffix=mktFlt.suffix;
+        pnrMarkFlt.airp=mktFlt.airp_dep;
+        pnrMarkFlt.scd_out=DayToDate(mktFlt.scd,tlgTripsFlt.scd_out,true);
+
+        if (pnrMarkFlt.airline!=tlgTripsFlt.airline ||
+            pnrMarkFlt.flt_no!=tlgTripsFlt.flt_no ||
+            pnrMarkFlt.suffix!=tlgTripsFlt.suffix ||
+            pnrMarkFlt.airp!=tlgTripsFlt.airp ||
+            pnrMarkFlt.scd_out!=tlgTripsFlt.scd_out)
+        {
+          //фактический не совпадает с коммерческим
+          xmlNodePtr markFltNode=NewTextChild(node,"mark_flight");
+          NewTextChild(markFltNode,"airline",pnrMarkFlt.airline,tlgTripsFlt.airline);
+          NewTextChild(markFltNode,"flt_no",pnrMarkFlt.flt_no,tlgTripsFlt.flt_no);
+          NewTextChild(markFltNode,"suffix",pnrMarkFlt.suffix,tlgTripsFlt.suffix);
+          NewTextChild(markFltNode,"scd",DateTimeToStr(pnrMarkFlt.scd_out),DateTimeToStr(tlgTripsFlt.scd_out));
+          NewTextChild(markFltNode,"airp_dep",pnrMarkFlt.airp,tlgTripsFlt.airp);
+          codeshareSets.get(operFlt,pnrMarkFlt);
+          NewTextChild(markFltNode,"pr_mark_norms",(int)codeshareSets.pr_mark_norms,(int)false);
+        };
+      };
+
       paxNode=NewTextChild(node,"passengers");
 
       TrferQry.SetVariable("pnr_id",pnr_id);
       TrferQry.Execute();
-      if (TrferQry.Eof || TrferQry.FieldAsInteger("transfer_num")!=0)
-      {
-        //xmlNodePtr node2=NewTextChild(trferNode,"segment");
-      };
-
 
       if (!TrferQry.Eof)
       {
         //данные рейса на прилет
-        string airline_in=PaxQry.FieldAsString("airline");
-        int flt_no_in=PaxQry.FieldAsInteger("flt_no");
+        string airline_in=tlgTripsFlt.airline;
+        int flt_no_in=tlgTripsFlt.flt_no;
         string airp_in=PaxQry.FieldAsString("target");
         //данные рейса на вылет
         string airline_out;
@@ -783,11 +844,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
         string airp_out;
         string subclass;
 
-        TTripInfo fltInfo;
-        fltInfo.airline=PaxQry.FieldAsString("airline");
-        fltInfo.flt_no=PaxQry.FieldAsInteger("flt_no");
-        fltInfo.airp=PaxQry.FieldAsString("airp_dep");
-        bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
+        bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, tlgTripsFlt );
 
 
         bool pr_permit=true;   //этот тэг потом удалить потому как он не будет реально отрабатывать
@@ -850,7 +907,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
           }
           catch(EBaseTableError &e) {};
 
-          if (without_trfer_set && fltInfo.airp==airp_in)
+          if (without_trfer_set && tlgTripsFlt.airp==airp_in)
           {
             //анализируем замкнутый маршрут только если игнорируются настройки трансфера
             //(то бишь в городах)
@@ -890,7 +947,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
           pnrAddrNode=NewTextChild(node,"pnr_addrs");
         else
           pnrAddrNode=node;
-        if (!PnrAddrQry.Eof||airline!=PaxQry.FieldAsString("airline"))
+        if (!PnrAddrQry.Eof||airline!=tlgTripsFlt.airline)
         {
           node2=NewTextChild(pnrAddrNode,"pnr_addr");
           NewTextChild(node2,"airline",airline);
@@ -1007,19 +1064,17 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
-      "       crs_pnr.pnr_id, " //pnr_market_flt
-      "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix,tlg_trips.scd,tlg_trips.airp_dep, "
+      "       crs_pnr.pnr_id, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-      "FROM tlg_trips,crs_pnr,crs_pax,pax "
-      "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
-      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "FROM crs_pnr,crs_pax,pax "
+      "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "      crs_pax.pax_id=pax.pax_id(+) AND "
       "      crs_pnr.pnr_id=:pnr_id AND "
       "      crs_pax.pr_del=0 AND "
       "      pax.pax_id IS NULL "
-      "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+      "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
     PaxQry.CreateVariable("pnr_id",otInteger,NodeAsInteger("pnr_id",reqNode));
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     PaxQry.Execute();
@@ -1225,7 +1280,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       surnames=surnames+"crs_pax.surname LIKE '"+f->surname.substr(0,i==0?4:1)+"%'";
     };
 
-    //обычный поиск //pnr_market_flt
+    //обычный поиск
     sql =
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
@@ -1233,11 +1288,10 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type,crs_pax.seats, "
       "       crs_pnr.pnr_id, "
-      "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix,tlg_trips.scd,tlg_trips.airp_dep, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-      "FROM tlg_trips,crs_pnr,crs_pax,pax, ";
+      "FROM crs_pnr,crs_pax,pax, ";
     if (sum.nPax>1)
       sql+=
           "  (SELECT DISTINCT crs_pnr.pnr_id ";
@@ -1284,8 +1338,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "         crs_pax.pr_del=0 AND "
           "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
           "         ("+surnames+")) ids  "
-          "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
-          "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
           "      crs_pax.pax_id=pax.pax_id(+) AND ";
     if (sum.nPax>1)
       sql+=
@@ -1296,7 +1349,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     sql+= "      crs_pax.pr_del=0 AND "
           "      pax.pax_id IS NULL "
-          "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+          "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
@@ -1892,14 +1945,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     airp_arv=s->second.airp_arv;
 
     TTripInfo &fltInfo=s->second.fltInfo;
+    TTripInfo markFltInfo=fltInfo;
+    markFltInfo.scd_out=UTCToLocal(markFltInfo.scd_out,AirpTZRegion(markFltInfo.airp));
+    modf(markFltInfo.scd_out,&markFltInfo.scd_out);
+    bool pr_mark_norms=false;
 
     try
     {
 
-      TTypeBSendInfo sendInfo;
-      sendInfo.airline=fltInfo.airline;
-      sendInfo.flt_no=fltInfo.flt_no;
-      sendInfo.airp_dep=fltInfo.airp;
+      TTypeBSendInfo sendInfo(fltInfo);
       sendInfo.point_id=s->second.point_dep;
       sendInfo.point_num=s->second.point_num;
       sendInfo.first_point=s->second.first_point;
@@ -2316,6 +2370,77 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         if (!pr_unaccomp)
         {
+          //запишем коммерческий рейс
+          xmlNodePtr markFltNode=GetNode("mark_flight",segNode);
+          if (markFltNode!=NULL)
+          {
+            node2=markFltNode->children;
+
+            markFltInfo.airline=NodeAsStringFast("airline",node2);
+            markFltInfo.flt_no=NodeAsIntegerFast("flt_no",node2);
+            markFltInfo.suffix=NodeAsStringFast("suffix",node2);
+            markFltInfo.scd_out=NodeAsDateTimeFast("scd",node2);
+            modf(markFltInfo.scd_out,&markFltInfo.scd_out);
+            markFltInfo.airp=NodeAsStringFast("airp_dep",node2);
+            pr_mark_norms=NodeAsIntegerFast("pr_mark_norms",node2)!=0;
+            //получим локальную дату выполнения фактического рейса
+            TDateTime scd_local=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
+            modf(scd_local,&scd_local);
+
+            ostringstream flt;
+            flt << markFltInfo.airline
+                << setw(3) << setfill('0') << markFltInfo.flt_no
+                << markFltInfo.suffix;
+            if (markFltInfo.scd_out!=scd_local)
+              flt << "/" << DateTimeToStr(markFltInfo.scd_out,"dd");
+            if (markFltInfo.airp!=fltInfo.airp)
+              flt << "/" << markFltInfo.airp;
+
+            string str;
+            int fmt;
+
+            str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
+            if (!(fmt==0 || fmt==1))
+              throw UserException("Неизвестный код а/к %s коммерческого рейса %s",
+                                  markFltInfo.airline.c_str(),flt.str().c_str());
+            markFltInfo.airline=str;
+
+            if (!markFltInfo.suffix.empty())
+            {
+              str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
+              if (!(fmt==0 || fmt==1))
+                throw UserException("Неверно указан суффикс %s коммерческого рейса %s",
+                                    markFltInfo.suffix.c_str(),flt.str().c_str());
+              markFltInfo.suffix=str;
+            };
+
+            str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
+            if (!(fmt==0 || fmt==1))
+              throw UserException("Неизвестный код а/п вылета %s коммерческого рейса %s",
+                                  markFltInfo.airp.c_str(),flt.str().c_str());
+            markFltInfo.airp=str;
+
+            if (markFltInfo.airline!=fltInfo.airline ||
+                markFltInfo.flt_no!=fltInfo.flt_no ||
+                markFltInfo.suffix!=fltInfo.suffix ||
+                markFltInfo.scd_out!=scd_local ||
+                markFltInfo.airp!=fltInfo.airp)
+            {
+              Qry.Clear();
+              Qry.SQLText=
+                "INSERT INTO market_flt(grp_id,airline,flt_no,suffix,scd,airp_dep,pr_mark_norms) "
+                "VALUES(:grp_id,:airline,:flt_no,:suffix,:scd,:airp_dep,:pr_mark_norms) ";
+              Qry.CreateVariable("grp_id",otInteger,grp_id);
+              Qry.CreateVariable("airline",otString,markFltInfo.airline);
+              Qry.CreateVariable("flt_no",otInteger,markFltInfo.flt_no);
+              Qry.CreateVariable("suffix",otString,markFltInfo.suffix);
+              Qry.CreateVariable("scd",otDate,markFltInfo.scd_out);
+              Qry.CreateVariable("airp_dep",otString,markFltInfo.airp);
+              Qry.CreateVariable("pr_mark_norms",otInteger,(int)pr_mark_norms);
+              Qry.Execute();
+            };
+          };
+
           //получим рег. номера и признак совместной регистрации и посадки
           Qry.Clear();
           Qry.SQLText=
@@ -2579,8 +2704,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               SavePaxRem(node);
               //запись норм
               string normStr;
+              string normMarkFlt;
               if (first_segment)
+              {
+                if (pr_mark_norms &&
+                    fltInfo.airline!=markFltInfo.airline) normMarkFlt=markFltInfo.airline;
                 normStr=SavePaxNorms(node,norms,pr_unaccomp);
+              }
               else
                 normStr="нет";
               //запись информации по пассажиру в лог
@@ -2594,7 +2724,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                       (pr_brd_with_reg?" , прошел посадку":"")+
                       ". "+
                       "П/н: "+airp_arv+", класс: "+cl+", статус: "+EncodePaxStatus(grp_status)+
-                      ", место:"+seat_no_str.str()+". Баг.нормы: "+normStr;
+                      ", место:"+seat_no_str.str()+
+                      ". Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr;
               reqInfo->MsgToLog(msg);
               reg_no++;
               pax_no++;
@@ -2678,6 +2809,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
         if (!pr_unaccomp)
         {
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT airline,flt_no,suffix,scd AS scd_out,airp_dep AS airp,pr_mark_norms "
+            "FROM market_flt WHERE grp_id=:grp_id";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.Execute();
+          if (!Qry.Eof)
+          {
+            markFltInfo.Init(Qry);
+            pr_mark_norms=Qry.FieldAsInteger("pr_mark_norms")!=0;
+          };
+
           TQuery PaxQry(&OraSession);
           PaxQry.Clear();
           PaxQry.SQLText="UPDATE pax "
@@ -2834,13 +2977,19 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               SavePaxRem(node);
               //запись норм
               string normStr;
+              string normMarkFlt;
               if (first_segment)
+              {
+                if (pr_mark_norms &&
+                    fltInfo.airline!=markFltInfo.airline) normMarkFlt=markFltInfo.airline;
                 normStr=SavePaxNorms(node,norms,pr_unaccomp);
+              }
               else
                 normStr="нет";
               if (normStr!="")
                 reqInfo->MsgToLog((string)"Пассажир "+surname+(*name!=0?" ":"")+name+". "+
-                                  "Баг.нормы: "+normStr,ASTRA::evtPax,point_dep,reg_no,grp_id);
+                                  "Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr,
+                                  ASTRA::evtPax,point_dep,reg_no,grp_id);
             };
           };
         }
@@ -3295,6 +3444,23 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     if (!pr_unaccomp)
     {
       Qry.Clear();
+      Qry.SQLText=
+        "SELECT airline,flt_no,suffix,scd,airp_dep,pr_mark_norms "
+        "FROM market_flt WHERE grp_id=:grp_id ";
+      Qry.CreateVariable("grp_id",otInteger,grp_id);
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        xmlNodePtr markFltNode=NewTextChild(segNode,"mark_flight");
+        NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
+        NewTextChild(markFltNode,"flt_no",Qry.FieldAsInteger("flt_no"));
+        NewTextChild(markFltNode,"suffix",Qry.FieldAsString("suffix"));
+        NewTextChild(markFltNode,"scd",DateTimeToStr(Qry.FieldAsDateTime("scd")));
+        NewTextChild(markFltNode,"airp_dep",Qry.FieldAsString("airp_dep"));
+        NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
+      };
+
+      Qry.Clear();
       Qry.SQLText="SELECT pax_id FROM bp_print WHERE pax_id=:pax_id AND pr_print=1 AND rownum=1";
       Qry.DeclareVariable("pax_id",otInteger);
       PaxQry.Clear();
@@ -3664,7 +3830,11 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
     {
       if (!logStr.empty()) logStr+=", ";
       if (!NodeIsNULLFast("norm_id",node2))
-        logStr=logStr+NodeAsStringFast("bag_type",node2)+": "+norms[NodeAsIntegerFast("norm_id",node2)];
+      {
+        logStr=logStr+
+               NodeAsStringFast("bag_type",node2)+": "+
+               norms[NodeAsIntegerFast("norm_id",node2)];
+      }
       else
         logStr=logStr+NodeAsStringFast("bag_type",node2)+": нет";
     }
@@ -3672,7 +3842,10 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
     {
       if (!logStr.empty()) logStr=", "+logStr;
       if (!NodeIsNULLFast("norm_id",node2))
-        logStr=norms[NodeAsIntegerFast("norm_id",node2)]+logStr;
+      {
+        logStr=norms[NodeAsIntegerFast("norm_id",node2)]+
+               logStr;
+      }
       else
         logStr="нет"+logStr;
     };
@@ -3803,7 +3976,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
 
   TrferQry.Clear();
   TrferQry.SQLText=
-    "SELECT airline,flt_no,scd_out,airp AS airp_dep,airp_arv, "
+    "SELECT airline,flt_no,suffix,scd_out,airp,airp_arv, "
     "       points.point_id,point_num,first_point,pr_tranzit "
     "FROM points,pax_grp "
     "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id AND points.pr_del>=0";
@@ -3814,30 +3987,18 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   string airline_in=TrferQry.FieldAsString("airline");
   int flt_no_in=TrferQry.FieldAsInteger("flt_no");
 
-  TTypeBSendInfo sendInfo;
-  sendInfo.airline=TrferQry.FieldAsString("airline");
-  sendInfo.flt_no=TrferQry.FieldAsInteger("flt_no");
-  sendInfo.airp_dep=TrferQry.FieldAsString("airp_dep");
+  TTripInfo fltInfo(TrferQry);
+
+  TTypeBSendInfo sendInfo(fltInfo);
   sendInfo.point_id=TrferQry.FieldAsInteger("point_id");
   sendInfo.first_point=TrferQry.FieldAsInteger("first_point");
   sendInfo.point_num=TrferQry.FieldAsInteger("point_num");
   sendInfo.pr_tranzit=TrferQry.FieldAsInteger("pr_tranzit")!=0;
 
-  TTypeBAddrInfo addrInfo;
-  addrInfo.airline=sendInfo.airline;
-  addrInfo.flt_no=sendInfo.flt_no;
-  addrInfo.airp_dep=sendInfo.airp_dep;
-  addrInfo.point_id=sendInfo.point_id;
-  addrInfo.first_point=sendInfo.first_point;
-  addrInfo.point_num=sendInfo.point_num;
-  addrInfo.pr_tranzit=sendInfo.pr_tranzit;
-  addrInfo.airp_trfer=sendInfo.airp_arv;
+  TTypeBAddrInfo addrInfo(sendInfo);
+  addrInfo.airp_trfer=TrferQry.FieldAsString("airp_arv");
   addrInfo.pr_lat=true;
 
-  TTripInfo fltInfo;
-  fltInfo.airline=sendInfo.airline;
-  fltInfo.flt_no=sendInfo.flt_no;
-  fltInfo.airp=sendInfo.airp_dep;
   bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
 
   //проверка формирования трансфера в латинских телеграммах
@@ -3868,7 +4029,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
 
   string airp_arv=TrferQry.FieldAsString("airp_arv");
   TDateTime local_scd=UTCToLocal(TrferQry.FieldAsDateTime("scd_out"),
-                                 AirpTZRegion(TrferQry.FieldAsString("airp_dep")));
+                                 AirpTZRegion(TrferQry.FieldAsString("airp")));
 
   TrferQry.Clear();
   TrferQry.SQLText=
@@ -4735,13 +4896,14 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TQuery Qry( &OraSession );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airp, point_num, first_point, pr_tranzit "
+    "SELECT airline,flt_no,suffix,airp,scd_out, "
+    "       point_num, first_point, pr_tranzit "
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
-  string airp_dep=Qry.FieldAsString("airp");
 
+  TTripInfo fltInfo(Qry);
   TTripRoute route;
 
   route.GetRouteAfter(point_id,
@@ -4814,7 +4976,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
-  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.CreateVariable("airp_dep",otString,fltInfo.airp);
   Qry.Execute();
   node = NewTextChild( tripdataNode, "halls" );
   for(;!Qry.Eof;Qry.Next())
@@ -4822,6 +4984,31 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     itemNode = NewTextChild( node, "hall" );
     NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
     NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+  };
+
+  vector<TTripInfo> markFltInfo;
+  GetMktFlights(fltInfo,markFltInfo);
+  if (!markFltInfo.empty())
+  {
+    TCodeShareSets codeshareSets;
+    node = NewTextChild( tripdataNode, "mark_flights" );
+    for(vector<TTripInfo>::iterator f=markFltInfo.begin();f!=markFltInfo.end();f++)
+    {
+      xmlNodePtr markFltNode=NewTextChild(node,"flight");
+      NewTextChild(markFltNode,"airline",f->airline);
+      try
+      {
+        TAirlinesRow& airlinesRow=(TAirlinesRow&)base_tables.get("airlines").get_row("code",f->airline);
+        NewTextChild(markFltNode,"airline_lat",airlinesRow.code_lat);
+      }
+      catch(EBaseTableError) {};
+      NewTextChild(markFltNode,"flt_no",f->flt_no);
+      NewTextChild(markFltNode,"suffix",f->suffix);
+      NewTextChild(markFltNode,"scd",DateTimeToStr(f->scd_out));
+      NewTextChild(markFltNode,"airp_dep",f->airp);
+      codeshareSets.get(fltInfo,*f);
+      NewTextChild(markFltNode,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
+    };
   };
 }
 
@@ -4915,14 +5102,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
       "       crs_pax.seats, "
-      "       crs_pnr.pnr_id, " //pnr_market_flt
-      "       tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix,tlg_trips.scd,tlg_trips.airp_dep, "
+      "       crs_pnr.pnr_id, "
       "       report.get_PSPT(crs_pax.pax_id) AS document, "
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-      "FROM tlg_binding,tlg_trips,crs_pnr,crs_pax,pax "
+      "FROM tlg_binding,crs_pnr,crs_pax,pax "
       "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-      "      tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
       "      crs_pax.pax_id=pax.pax_id(+) AND "
       "      tlg_binding.point_id_spp=:point_id AND "
@@ -4934,7 +5119,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      system.transliter(crs_pax.name,1)=:name AND "
       "      crs_pax.pr_del=0 AND "
       "      pax.pax_id IS NULL "
-      "ORDER BY tlg_trips.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+      "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
   CrsQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
   CrsQry.DeclareVariable("point_id",otInteger);
   CrsQry.DeclareVariable("airp_arv",otString);

@@ -142,28 +142,45 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string airline)
     return "";
 };
 
-TDateTime DayToDate(int day, TDateTime base_date)
+TDateTime DayToDate(int day, TDateTime base_date, bool back)
 {
   if (day<1 || day>31) throw EConvertError("DayToDate: wrong day");
   modf(base_date,&base_date);
   int iDay,iMonth,iYear;
   DecodeDate(base_date,iYear,iMonth,iDay);
   TDateTime result;
-  do
-  {
-    try
+  if (!back)
+    do
     {
-      EncodeDate(iYear,iMonth,day,result);
+      try
+      {
+        EncodeDate(iYear,iMonth,day,result);
+      }
+      catch(EConvertError) {};
+      if (iMonth==12)
+      {
+        iMonth=1;
+        iYear++;
+      }
+      else iMonth++;
     }
-    catch(EConvertError) {};
-    if (iMonth==12)
+    while(result<base_date);
+  else
+    do
     {
-      iMonth=1;
-      iYear++;
+      try
+      {
+        EncodeDate(iYear,iMonth,day,result);
+      }
+      catch(EConvertError) {};
+      if (iMonth==1)
+      {
+        iMonth=12;
+        iYear--;
+      }
+      else iMonth--;
     }
-    else iMonth++;
-  }
-  while(result<base_date);
+    while(result>base_date);
   return result;
 };
 
@@ -339,6 +356,17 @@ void TMktFlight::dump()
 
 }
 
+void TMktFlight::clear()
+{
+  airline.clear();
+  flt_no = NoExists;
+  suffix.clear();
+  subcls.clear();
+  scd = NoExists;
+  airp_dep.clear();
+  airp_arv.clear();
+};
+
 bool TMktFlight::IsNULL()
 {
     return
@@ -350,36 +378,10 @@ bool TMktFlight::IsNULL()
         airp_arv.empty();
 }
 
-void TMktFlight::get(int pax_id)
+void TMktFlight::get(TQuery &Qry, int id)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "    tlg_trips.airline tlg_airline, "
-        "    tlg_trips.flt_no tlg_flt_no, "
-        "    tlg_trips.suffix tlg_suffix, "
-        "    crs_pnr.subclass tlg_subcls, "
-        "    tlg_trips.scd tlg_scd, "
-        "    tlg_trips.airp_dep tlg_airp_dep, "
-        "    crs_pnr.target tlg_airp_arv, "
-        "    pnr_market_flt.airline pax_airline, "
-        "    pnr_market_flt.flt_no pax_flt_no, "
-        "    pnr_market_flt.suffix pax_suffix, "
-        "    pnr_market_flt.subclass pax_subcls, "
-        "    pnr_market_flt.local_date pax_scd, "
-        "    pnr_market_flt.airp_dep pax_airp_dep, "
-        "    pnr_market_flt.airp_arv pax_airp_arv "
-        "from "
-        "   crs_pax, "
-        "   crs_pnr, "
-        "   tlg_trips, "
-        "   pnr_market_flt "
-        "where "
-        "    crs_pax.pax_id = :pax_id and "
-        "    crs_pax.pnr_id = crs_pnr.pnr_id and "
-        "    crs_pnr.point_id = tlg_trips.point_id and "
-        "    crs_pax.pnr_id = pnr_market_flt.pnr_id(+) ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    clear();
+    Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
     if(!Qry.Eof) {
         if(Qry.FieldIsNULL("pax_airline")) {
@@ -405,7 +407,69 @@ void TMktFlight::get(int pax_id)
             airp_arv = Qry.FieldAsString("pax_airp_arv");
         }
     }
-    dump();
+  //  dump();
+};
+
+void TMktFlight::getByPaxId(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    tlg_trips.airline tlg_airline, "
+        "    tlg_trips.flt_no tlg_flt_no, "
+        "    tlg_trips.suffix tlg_suffix, "
+        "    crs_pnr.subclass tlg_subcls, "
+        "    tlg_trips.scd tlg_scd, "
+        "    tlg_trips.airp_dep tlg_airp_dep, "
+        "    crs_pnr.target tlg_airp_arv, "
+        "    pnr_market_flt.airline pax_airline, "
+        "    pnr_market_flt.flt_no pax_flt_no, "
+        "    pnr_market_flt.suffix pax_suffix, "
+        "    pnr_market_flt.subclass pax_subcls, "
+        "    pnr_market_flt.local_date pax_scd, "
+        "    pnr_market_flt.airp_dep pax_airp_dep, "
+        "    pnr_market_flt.airp_arv pax_airp_arv "
+        "from "
+        "   crs_pax, "
+        "   crs_pnr, "
+        "   tlg_trips, "
+        "   pnr_market_flt "
+        "where "
+        "    crs_pax.pax_id = :id and "
+        "    crs_pax.pnr_id = crs_pnr.pnr_id and "
+        "    crs_pnr.point_id = tlg_trips.point_id and "
+        "    crs_pax.pnr_id = pnr_market_flt.pnr_id(+) ";
+    get(Qry, pax_id);
+}
+
+void TMktFlight::getByPnrId(int pnr_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "    tlg_trips.airline tlg_airline, "
+        "    tlg_trips.flt_no tlg_flt_no, "
+        "    tlg_trips.suffix tlg_suffix, "
+        "    crs_pnr.subclass tlg_subcls, "
+        "    tlg_trips.scd tlg_scd, "
+        "    tlg_trips.airp_dep tlg_airp_dep, "
+        "    crs_pnr.target tlg_airp_arv, "
+        "    pnr_market_flt.airline pax_airline, "
+        "    pnr_market_flt.flt_no pax_flt_no, "
+        "    pnr_market_flt.suffix pax_suffix, "
+        "    pnr_market_flt.subclass pax_subcls, "
+        "    pnr_market_flt.local_date pax_scd, "
+        "    pnr_market_flt.airp_dep pax_airp_dep, "
+        "    pnr_market_flt.airp_arv pax_airp_arv "
+        "from "
+        "   crs_pnr, "
+        "   tlg_trips, "
+        "   pnr_market_flt "
+        "where "
+        "    crs_pnr.pnr_id = :id and "
+        "    crs_pnr.point_id = tlg_trips.point_id and "
+        "    crs_pnr.pnr_id = pnr_market_flt.pnr_id(+) ";
+    get(Qry, pnr_id);
 }
 
 bool SeparateTCkin(int grp_id,
@@ -625,11 +689,75 @@ void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFlt
     TTripInfo flt;
     flt.airline=Qry.FieldAsString("airline_mark");
     flt.flt_no=Qry.FieldAsInteger("flt_no_mark");
-    flt.scd_out=operFltInfo.scd_out;
+    flt.scd_out=scd_local;
     flt.airp=operFltInfo.airp;
     markFltInfo.push_back(flt);
   };
 };
 
+TCodeShareSets::TCodeShareSets()
+{
+  clear();
+  Qry = new TQuery( &OraSession );
+  Qry->SQLText=
+    "SELECT pr_mark_norms, pr_mark_bp, pr_mark_rpt "
+    "FROM codeshare_sets "
+    "WHERE airline_oper=:airline_oper AND flt_no_oper=:flt_no_oper AND airp_dep=:airp_dep AND "
+    "      airline_mark=:airline_mark AND flt_no_mark=:flt_no_mark AND "
+    "      first_date<=:scd_local AND "
+    "      (last_date IS NULL OR last_date>:scd_local) AND "
+    "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0 ";
+  Qry->DeclareVariable("airline_oper",otString);
+  Qry->DeclareVariable("flt_no_oper",otInteger);
+  Qry->DeclareVariable("airp_dep",otString);
+  Qry->DeclareVariable("airline_mark",otString);
+  Qry->DeclareVariable("flt_no_mark",otInteger);
+  Qry->DeclareVariable("scd_local",otDate);
+  Qry->DeclareVariable("wday",otInteger);
+};
+
+TCodeShareSets::~TCodeShareSets()
+{
+  delete Qry;
+};
+
+void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt)
+{
+  clear();
+  if (operFlt.airline==markFlt.airline &&
+      operFlt.flt_no==markFlt.flt_no) return;
+
+  TDateTime scd_local=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
+
+  Qry->SetVariable("airline_oper",operFlt.airline);
+  Qry->SetVariable("flt_no_oper",operFlt.flt_no);
+  Qry->SetVariable("airp_dep",operFlt.airp);
+  Qry->SetVariable("airline_mark",markFlt.airline);
+  Qry->SetVariable("flt_no_mark",markFlt.flt_no);
+  Qry->SetVariable("scd_local",scd_local);
+  Qry->SetVariable("wday",DayOfWeek(scd_local));
+  Qry->Execute();
+  if (!Qry->Eof)
+  {
+    pr_mark_norms=Qry->FieldAsInteger("pr_mark_norms")!=0;
+    pr_mark_bp=Qry->FieldAsInteger("pr_mark_bp")!=0;
+    pr_mark_rpt=Qry->FieldAsInteger("pr_mark_rpt")!=0;
+  };
+};
+
+void GetCrsList(int point_id, std::vector<std::string> &crs)
+{
+  crs.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT crs FROM tlg_binding,crs_data_stat "
+    "WHERE tlg_binding.point_id_tlg=crs_data_stat.point_id AND "
+    "      tlg_binding.point_id_spp=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+    crs.push_back(Qry.FieldAsString("crs"));
+};
 
 

@@ -4063,35 +4063,62 @@ bool bind_tlg(TQuery &Qry)
    default: bind_type=btAllSeg;
   };
   if (bind_tlg(point_id,flt,bind_type)) return true;
-  //не склалось привязать к рейсу на прямую - привяжем через таблицу CRS_CODE_SHARE
+  //не склалось привязать к рейсу на прямую - привяжем через таблицу CODESHARE_SETS
+
+
+
   bool res=false;
-  TQuery CodeShareQry(&OraSession);
-  CodeShareQry.Clear();
-  CodeShareQry.SQLText=
-    "SELECT airline,flt_no FROM crs_code_share "
-    "WHERE airline_crs=:airline AND "
-    "      (flt_no_crs=:flt_no OR flt_no_crs IS NULL AND :flt_no IS NULL) "
-    "ORDER BY flt_no_crs,airline,flt_no";
-  CodeShareQry.CreateVariable("airline",otString,flt.airline);
-  CodeShareQry.DeclareVariable("flt_no",otInteger);
-  for(int i=0;i<2;i++)
+  if (!flt.pr_utc)
   {
-    if (i==0)
-      //сначала проверим по а/к и номеру рейса
-      CodeShareQry.SetVariable("flt_no",(int)flt.flt_no);
-    else
-      //потом проверим только по а/к
-      CodeShareQry.SetVariable("flt_no",FNull);
+    TQuery CodeShareQry(&OraSession);
+    CodeShareQry.Clear();
+    CodeShareQry.SQLText=
+        "SELECT airline_oper,flt_no_oper FROM codeshare_sets "
+        "WHERE airline_mark=:airline AND flt_no_mark=:flt_no AND "
+        "      airp_dep=:airp_dep AND "
+        "      first_date<=:scd_local AND "
+        "      (last_date IS NULL OR last_date>:scd_local) AND "
+        "      (days IS NULL OR INSTR(days,TO_CHAR(:wday))<>0) AND pr_del=0";
+    CodeShareQry.CreateVariable("airline",otString,flt.airline);
+    CodeShareQry.CreateVariable("flt_no",otInteger,(int)flt.flt_no);
+    CodeShareQry.CreateVariable("airp_dep",otString,flt.airp_dep);
+    CodeShareQry.CreateVariable("scd_local",otDate,flt.scd);
+    CodeShareQry.CreateVariable("wday",otInteger,DayOfWeek(flt.scd));
     CodeShareQry.Execute();
-    if (CodeShareQry.Eof) continue;
     for(;!CodeShareQry.Eof;CodeShareQry.Next())
     {
-      strcpy(flt.airline,CodeShareQry.FieldAsString("airline"));
-      if (!CodeShareQry.FieldIsNULL("flt_no"))
-        flt.flt_no=CodeShareQry.FieldAsInteger("flt_no");
+      strcpy(flt.airline,CodeShareQry.FieldAsString("airline_oper"));
+      flt.flt_no=CodeShareQry.FieldAsInteger("flt_no_oper");
       if (bind_tlg(point_id,flt,bind_type)) res=true;
     };
-    break;
+
+  /*  CodeShareQry.Clear();
+    CodeShareQry.SQLText=
+      "SELECT airline,flt_no FROM crs_code_share "
+      "WHERE airline_crs=:airline AND "
+      "      (flt_no_crs=:flt_no OR flt_no_crs IS NULL AND :flt_no IS NULL) "
+      "ORDER BY flt_no_crs,airline,flt_no";
+    CodeShareQry.CreateVariable("airline",otString,flt.airline);
+    CodeShareQry.DeclareVariable("flt_no",otInteger);
+    for(int i=0;i<2;i++)
+    {
+      if (i==0)
+        //сначала проверим по а/к и номеру рейса
+        CodeShareQry.SetVariable("flt_no",(int)flt.flt_no);
+      else
+        //потом проверим только по а/к
+        CodeShareQry.SetVariable("flt_no",FNull);
+      CodeShareQry.Execute();
+      if (CodeShareQry.Eof) continue;
+      for(;!CodeShareQry.Eof;CodeShareQry.Next())
+      {
+        strcpy(flt.airline,CodeShareQry.FieldAsString("airline"));
+        if (!CodeShareQry.FieldIsNULL("flt_no"))
+          flt.flt_no=CodeShareQry.FieldAsInteger("flt_no");
+        if (bind_tlg(point_id,flt,bind_type)) res=true;
+      };
+      break;
+    };*/
   };
   return res;
 };

@@ -6,6 +6,7 @@
 #include "jxtlib/JxtInterface.h"
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
+#include "astra_misc.h"
 
 struct TCodeShareInfo {
     std::string airline;
@@ -186,6 +187,13 @@ struct TTypeBSendInfo
   std::string tlg_type,airline,airp_dep,airp_arv;
   int flt_no,point_id,first_point,point_num;
   bool pr_tranzit;
+  TTypeBSendInfo() {};
+  TTypeBSendInfo(const TTripInfo &info)
+  {
+    airline=info.airline;
+    flt_no=info.flt_no;
+    airp_dep=info.airp;
+  };
 };
 
 struct TTypeBAddrInfo
@@ -196,6 +204,19 @@ struct TTypeBAddrInfo
   std::string airp_trfer,crs;
   bool pr_lat;
   TCodeShareInfo mark_info;
+  TTypeBAddrInfo() {};
+  TTypeBAddrInfo(const TTypeBSendInfo &info)
+  {
+    tlg_type=info.tlg_type;
+    airline=info.airline;
+    airp_dep=info.airp_dep;
+    airp_arv=info.airp_arv;
+    flt_no=info.flt_no;
+    point_id=info.point_id;
+    first_point=info.first_point;
+    point_num=info.point_num;
+    pr_tranzit=info.pr_tranzit;
+  };
 };
 
 struct TTlgOutPartInfo

@@ -275,11 +275,29 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(dataNode,"tickets");
   };
 
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,scd,airp_dep,pr_mark_norms "
+    "FROM market_flt WHERE grp_id=:grp_id ";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    xmlNodePtr markFltNode=NewTextChild(dataNode,"mark_flight");
+    NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
+    NewTextChild(markFltNode,"flt_no",Qry.FieldAsInteger("flt_no"));
+    NewTextChild(markFltNode,"suffix",Qry.FieldAsString("suffix"));
+    NewTextChild(markFltNode,"scd",DateTimeToStr(Qry.FieldAsDateTime("scd")));
+    NewTextChild(markFltNode,"airp_dep",Qry.FieldAsString("airp_dep"));
+    NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
+    NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
+  };
+
   CheckInInterface::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,dataNode);
 
-  ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)

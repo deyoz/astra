@@ -1762,8 +1762,8 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
-	  "SELECT airline,flt_no,suffix,airp,scd_out,point_num, "
-    "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+	  "SELECT airline,flt_no,suffix,airp,scd_out, "
+	  "       point_num,first_point,pr_tranzit "
     "FROM points "
     "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1771,12 +1771,11 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   TTripInfo fltInfo(Qry);
 
-  TTypeBSendInfo sendInfo;
-  sendInfo.airline=Qry.FieldAsString("airline");
-  sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
-  sendInfo.airp_dep=Qry.FieldAsString("airp");
+  TTypeBSendInfo sendInfo(fltInfo);
+  sendInfo.point_id=point_id;
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
   sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
   sendInfo.tlg_type="BSM";
 
   //BSM
