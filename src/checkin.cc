@@ -17,6 +17,7 @@
 #include "convert.h"
 #include "tripinfo.h"
 #include "aodb.h"
+#include "tlg/tlg_parser.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1850,6 +1851,102 @@ bool CheckInInterface::CheckCkinFlight(const int point_dep,
   return true;
 };
 
+bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
+{
+  char c;
+  int res,k;
+
+  char *p=(char*)rem_text.c_str();
+
+  fqt.Clear();
+
+  if (rem_text.empty()) return false;
+  p=tlg.GetWord(p);
+  c=0;
+  res=sscanf(tlg.lex,"%5[A-ZА-ЯЁ0-9]%c",fqt.rem_code,&c);
+  if (c!=0||res!=1) return false;
+
+  if (strcmp(fqt.rem_code,"FQTV")==0||
+      strcmp(fqt.rem_code,"FQTR")==0||
+      strcmp(fqt.rem_code,"FQTU")==0||
+      strcmp(fqt.rem_code,"FQTS")==0)
+  {
+    try
+    {
+      //проверим чтобы ремарка содержала только буквы, цифры, пробелы и слэши
+      for(string::const_iterator i=rem_text.begin();i!=rem_text.end();i++)
+        if (!(IsUpperLetter(*i) ||
+              IsDigit(*i) ||
+              *i>0 && *i<=' ' ||
+              *i=='/')) throw UserException("недопустимый символ '%c'",*i);
+
+      for(k=0;k<=1;k++)
+      try
+      {
+        p=tlg.GetWord(p);
+        if (p==NULL)
+        {
+          if (k==0)
+            throw UserException("отсутствует код а/к");
+          else
+            throw UserException("отсутствует идентификатор пассажира");
+        };
+
+        c=0;
+        switch(k)
+        {
+          case 0:
+            res=sscanf(tlg.lex,"%3[A-ZА-ЯЁ]%c",fqt.airline,&c);
+            if (c!=0||res!=1)
+            {
+              c=0;
+              res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c",fqt.airline,&c);
+              if (c!=0||res!=1)
+                throw UserException("неверно указан код а/к %s",tlg.lex);
+            };
+
+            try
+            {
+              TAirlinesRow &row=(TAirlinesRow&)(base_tables.get("airlines").get_row("code/code_lat",fqt.airline));
+              strcpy(fqt.airline,row.code.c_str());
+            }
+            catch (EBaseTableError)
+            {
+              throw UserException("неверно указан код а/к %s",fqt.airline);
+            };
+            break;
+          case 1:
+            res=sscanf(tlg.lex,"%25[A-ZА-ЯЁ0-9]%c",fqt.no,&c);
+            if (c!=0||res!=1||strlen(fqt.no)<2)
+              throw UserException("неверно указан идентификатор пассажира %s",tlg.lex);
+            for(;*p!=0;p++)
+              if (IsDigitIsLetter(*p)) break;
+            fqt.extra=trim(p);
+            break;
+        };
+      }
+      catch(logic_error)
+      {
+        switch(k)
+        {
+          case 0:
+            *fqt.airline=0;
+            throw;
+          case 1:
+            *fqt.no=0;
+            throw;
+        };
+      };
+    }
+    catch(UserException &E)
+    {
+      throw UserException("Ошибка ремарки %s: %s",fqt.rem_code,E.what());
+    };
+    return true;
+  };
+  return false;
+};
+
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -1984,16 +2081,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "    WHERE pax_id=:pax_id "
         "    ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no; "
         "  row1 cur1%ROWTYPE; "
-        "  CURSOR cur2 IS "
-        "    SELECT airline,no,extra "
-        "    FROM crs_pax_fqt "
-        "    WHERE pax_id=:pax_id "
-        "    ORDER BY airline,no,extra; "
-        "  row2 cur2%ROWTYPE; "
-        "  prior_airline crs_pax_fqt.airline%TYPE; "
         "BEGIN "
         "  DELETE FROM pax_doc WHERE pax_id=:pax_id; "
-        "  DELETE FROM pax_fqt WHERE pax_id=:pax_id; "
         "  OPEN cur1; "
         "  FETCH cur1 INTO row1; "
         "  IF cur1%FOUND THEN "
@@ -2005,18 +2094,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         "       row1.birth_date,row1.gender,row1.expiry_date,row1.surname,row1.first_name,row1.second_name,row1.pr_multi); "
         "  END IF; "
         "  CLOSE cur1; "
-        "  prior_airline:=NULL; "
-        "  FOR row2 IN cur2 LOOP "
-        "    IF prior_airline=row2.airline THEN "
-        "      NULL; "
-        "    ELSE "
-        "      INSERT INTO pax_fqt "
-        "        (pax_id,airline,no,extra) "
-        "      VALUES "
-        "        (:pax_id,row2.airline,row2.no,row2.extra); "
-        "      prior_airline:=row2.airline; "
-        "    END IF; "
-        "  END LOOP; "
         "END;";
       CrsQry.DeclareVariable("pax_id",otInteger);
 
@@ -2105,7 +2182,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           //подсчет seats
           bool adultwithbaby = false;
           int seats,seats_sum=0;
-          string rem_code;
+          string rem_code, rem_text;
           node=NodeAsNode("passengers",segNode);
           for(node=node->children;node!=NULL;node=node->next)
           {
@@ -2121,9 +2198,20 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               {
                 node2=remNode->children;
                 rem_code=NodeAsStringFast("rem_code",node2);
+                rem_text=NodeAsStringFast("rem_text",node2);
                 if (rem_code=="VIP") flagVIP=true;
                 if (rem_code=="STCR") flagSTCR=true;
                 if (rem_code=="EXST") flagEXST=true;
+                //проверим корректность ремарки FQT...
+                if (rem_code=="FQTV" ||
+                    rem_code=="FQTU" ||
+                    rem_code=="FQTR" ||
+                    rem_code=="FQTS" )
+                {
+                  TFQTItem FQTItem;
+                  TTlgParser parser;
+                  ParseFQTRem(parser,rem_text,FQTItem);
+                };
               };
             if (addVIP && !flagVIP)
             {
@@ -3554,9 +3642,24 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
   xmlNodePtr remNode=GetNodeFast("rems",node2);
   if (remNode==NULL) return;
 
+  TQuery FQTQry(&OraSession);
+  FQTQry.Clear();
+  FQTQry.SQLText=
+    "INSERT INTO pax_fqt(pax_id,rem_code,airline,no,extra) "
+    "VALUES(:pax_id,:rem_code,:airline,:no,:extra)";
+  FQTQry.CreateVariable("pax_id",otInteger,pax_id);
+  FQTQry.DeclareVariable("rem_code",otString);
+  FQTQry.DeclareVariable("airline",otString);
+  FQTQry.DeclareVariable("no",otString);
+  FQTQry.DeclareVariable("extra",otString);
+
   TQuery RemQry(&OraSession);
   RemQry.Clear();
-  RemQry.SQLText="DELETE FROM pax_rem WHERE pax_id=:pax_id";
+  RemQry.SQLText=
+    "BEGIN "
+    "  DELETE FROM pax_rem WHERE pax_id=:pax_id; "
+    "  DELETE FROM pax_fqt WHERE pax_id=:pax_id; "
+    "END;";
   RemQry.CreateVariable("pax_id",otInteger,pax_id);
   RemQry.Execute();
 
@@ -3564,11 +3667,32 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
     "INSERT INTO pax_rem(pax_id,rem,rem_code) VALUES (:pax_id,:rem,:rem_code)";
   RemQry.DeclareVariable("rem",otString);
   RemQry.DeclareVariable("rem_code",otString);
+  string rem_code, rem_text;
   for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
   {
     node2=remNode->children;
-    RemQry.SetVariable("rem",NodeAsStringFast("rem_text",node2));
-    RemQry.SetVariable("rem_code",NodeAsStringFast("rem_code",node2));
+    rem_code=NodeAsStringFast("rem_code",node2);
+    rem_text=NodeAsStringFast("rem_text",node2);
+    if (rem_code=="FQTV" ||
+        rem_code=="FQTU" ||
+        rem_code=="FQTR" ||
+        rem_code=="FQTS" )
+    {
+      TFQTItem FQTItem;
+      TTlgParser parser;
+      if (ParseFQTRem(parser,rem_text,FQTItem))
+      {
+        FQTQry.SetVariable("rem_code",FQTItem.rem_code);
+        FQTQry.SetVariable("airline",FQTItem.airline);
+        FQTQry.SetVariable("no",FQTItem.no);
+        FQTQry.SetVariable("extra",FQTItem.extra);
+        FQTQry.Execute();
+      /*  rem_text.str("");
+        rem_text << FQTItem.rem_code << " " << FQTItem.airline*/
+      };
+    };
+    RemQry.SetVariable("rem",rem_text.c_str());
+    RemQry.SetVariable("rem_code",rem_code.c_str());
     RemQry.Execute();
   };
   RemQry.Close();
