@@ -490,9 +490,17 @@ TQuery *PrintDataParser::t_field_map::get_prn_qry()
 
 
     di1 = data.find("FLT_NO");
-    if(printed(di1) && di1->second.StringVal.size())
-        prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
-
+    if(printed(di1) && di1->second.StringVal.size()) {
+        string flt_no = di1->second.StringVal;
+        if(!IsDigit(flt_no[flt_no.size() - 1])) { // if last char not digit then flt_no with suffix
+            prnQry->SetVariable(di1->first, ToInt(flt_no.substr(0, flt_no.size() - 1)));
+            prnQry->SetVariable("SUFFIX", flt_no.substr(flt_no.size() - 1, 1));
+            TData::iterator i_suffix = data.find("SUFFIX");
+            if(i_suffix != data.end())
+                i_suffix->second.pr_print = true;
+        } else
+            prnQry->SetVariable(di1->first, ToInt(di1->second.StringVal));
+    }
 
     di1 = data.find("SURNAME");
     if(printed(di1))

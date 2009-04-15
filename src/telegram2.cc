@@ -3377,7 +3377,7 @@ struct TLDMCFG:TCFG {
         {
             if(not cfg.str().empty())
                 cfg << "/";
-            cfg << iv->cfg << ElemIdToElem(etClass, iv->cls, info.pr_lat);
+            cfg << iv->cfg;
             if(iv->cls == "П") pr_f = true;
             if(iv->cls == "Б") pr_c = true;
             if(iv->cls == "Э") pr_y = true;
@@ -3440,8 +3440,9 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
             << "-" << ElemIdToElem(etAirp, iv->target, info.pr_lat)
             << "." << iv->adl << "/" << iv->chd << "/" << iv->inf
             << ".T"
-            << iv->bag.baggage + iv->bag.cargo + iv->bag.mail;
-        row << ".PAX";
+            << iv->bag.baggage + iv->bag.cargo + iv->bag.mail
+            << ".?/?"
+            << ".PAX";
         if(cfg.pr_f or iv->f != 0)
             row << "/" << iv->f;
         row
@@ -3453,6 +3454,11 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
         row
             << "/0"
             << "/0";
+        if(info.own_airp == "ЧЛБ")
+            row
+                << ".B/" << iv->bag.baggage
+                << ".C/" << iv->bag.cargo
+                << ".M/" << iv->bag.mail;
         body.push_back(row.str());
         baggage_sum += iv->bag.baggage;
         cargo_sum += iv->bag.cargo;
@@ -3462,23 +3468,25 @@ void TLDMDests::ToTlg(TTlgInfo &info, vector<string> &body)
     row << "SI: EXB" << excess.excess << "KG";
     body.push_back(row.str());
     row.str("");
-    row << "SI: B";
-    if(baggage_sum > 0)
-        row << baggage_sum;
-    else
-        row << "NIL";
-    row << ".C";
-    if(cargo_sum > 0)
-        row << cargo_sum;
-    else
-        row << "NIL";
-    row << ".M";
-    if(mail_sum > 0)
-        row << mail_sum;
-    else
-        row << "NIL";
+    if(info.own_airp != "ЧЛБ") {
+        row << "SI: B";
+        if(baggage_sum > 0)
+            row << baggage_sum;
+        else
+            row << "NIL";
+        row << ".C";
+        if(cargo_sum > 0)
+            row << cargo_sum;
+        else
+            row << "NIL";
+        row << ".M";
+        if(mail_sum > 0)
+            row << mail_sum;
+        else
+            row << "NIL";
+    }
     body.push_back(row.str());
-    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
+//    body.push_back("SI: TRANSFER BAG CPT 0 NS 0");
 }
 
 void TLDMDests::get(TTlgInfo &info)
@@ -4016,7 +4024,8 @@ int TelegramInterface::create_tlg(
 
         string tz_region=AirpTZRegion(info.own_airp);
         info.scd_local = UTCToLocal( info.scd, tz_region );
-        info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
+        if(!Qry.FieldIsNULL("act_out"))
+            info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
         //вычисляем признак летней/зимней навигации
         tz_database &tz_db = get_tz_database();
         time_zone_ptr tz = tz_db.time_zone_from_region( tz_region );

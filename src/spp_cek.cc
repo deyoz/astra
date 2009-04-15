@@ -19,12 +19,17 @@
 #include "sopp.h"
 #include "timer.h"
 #include "xml_unit.h"
+#include "xml_stuff.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DJEK"
 #define NICKTRACE DJEK_TRACE
 #include "serverlib/test.h"
+
+
+//#include "serverlib/perfom.h"
+//#include "serverlib/test.h"
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -560,7 +565,7 @@ string getAirline_CityOnwer( const string triptype, const string airline )
   }
 }
 
-xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
+xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDocPtr &doc )
 {
 	TDateTime tm;
 	Luggage lug_in, lug_out;
@@ -587,12 +592,10 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
  	  else
  	  	NewTextChild( NodeA, "PRIZ", IntToString( 1 ) );
     NewTextChild( NodeA, "KUR", IntToString( tr->places_in.size() ) );
-    if ( tr->triptype_in == "м" )
-    	NewTextChild( NodeA, "VDV", "МЕЖ" );
-    else
-      NewTextChild( NodeA, "VDV", "ПАС" );
+   	NewTextChild( NodeA, "VDV", tr->triptype_in );
     NewTextChild( NodeA, "VRD", tr->litera_in );
     NewTextChild( NodeA, "ABSM", getAirline_CityOnwer( tr->triptype_in, tr->airline_in ) );
+    NewTextChild( NodeA, "FAM", string(""));
     int k = 0;
     int prior_point_id = ASTRA::NoExists;
     for ( TSOPPDests::iterator d=tr->places_in.begin(); d!= tr->places_in.end(); d++,k++ ) {
@@ -600,7 +603,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
   			prior_point_id = d->point_id;
       xmlNodePtr NodeAK = NewTextChild( NodeA, "AK" );
     	NewTextChild( NodeAK, "PNR", getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ) );
-    	NewTextChild( NodeAK, "AV", d->airp );
+    	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt );
+    	if ( airp_tmp.size() > 3 )
+    	  NewTextChild( NodeAK, "AV", d->airp );
+    	else
+    		NewTextChild( NodeAK, "AV", airp_tmp );
      /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
         расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
         фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -611,7 +618,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       TSOPPDests::iterator n = d;
       n++;
       if ( n != tr->places_in.end() ) {
-      	NewTextChild( NodeAK, "AP", n->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, n->airp, n->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      		NewTextChild( NodeAK, "AP", n->airp );
+      	else
+      		NewTextChild( NodeAK, "AP", airp_tmp );
         NewTextChild( NodeAK, "DPP", GetStrDate( n->scd_in ) );
         modf( n->scd_in, &tm );
         NewTextChild( NodeAK, "VPP", GetMinutes( tm, n->scd_in ) );
@@ -633,7 +644,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       	NewTextChild( NodeAK, "FVV", GetMinutes( tm, d->act_out ) );
       }
       else {
-      	NewTextChild( NodeAK, "AP", tr->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      	  NewTextChild( NodeAK, "AP", tr->airp );
+      	else
+      		NewTextChild( NodeAK, "AP", airp_tmp );
       	NewTextChild( NodeAK, "DPP", GetStrDate( tr->scd_in ) );
        	modf( tr->scd_in, &tm );
        	NewTextChild( NodeAK, "VPP", GetMinutes( tm, tr->scd_in ) );
@@ -692,12 +707,10 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
  	    NewTextChild( NodeD, "PRIZ", IntToString( 2 ) );
  	  else
  	  	NewTextChild( NodeD, "PRIZ", IntToString( 1 ) );
-    if ( tr->triptype_out == "м" )
-    	NewTextChild( NodeD, "VDV", "МЕЖ" );
-    else
-    	NewTextChild( NodeD, "VDV", "ПАС" );
+   	NewTextChild( NodeD, "VDV", tr->triptype_out );
     NewTextChild( NodeD, "VRD", tr->litera_out );
     NewTextChild( NodeD, "ABSM", getAirline_CityOnwer( tr->triptype_out, tr->airline_out ) );
+    NewTextChild( NodeD, "FAM", commander.substr(0,12) );
     // теперь создание записей по плечам
     int k = 0;
     for ( TSOPPDests::iterator d=tr->places_out.begin(); d!=tr->places_out.end(); d++, k++ ) {
@@ -706,7 +719,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       xmlNodePtr NodeDK = NewTextChild( NodeD, "DK" );
       NewTextChild( NodeDK, "PNR", getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ) );
       ProgTrace( TRACE5, "tr->places_out.size=%d, d->airp=%s", tr->places_out.size(), d->airp.c_str() );
-      NewTextChild( NodeDK, "AP", d->airp );
+      string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, d->airp, d->airp_fmt );
+      if ( airp_tmp.size() > 3 )
+        NewTextChild( NodeDK, "AP", d->airp );
+      else
+      	NewTextChild( NodeDK, "AP", airp_tmp );
       /* аэропорт прилета(AP), плановая дата прилета(DPP), плановое время прилета(VPP),
          расчетная дата прилета(DPR), расчетное время прилета(VPR), фактическая дата прилета(DPF),
          фактическое время прилета(VPF), плановя дата вылета(PDV), плановое время вылета(PVV),
@@ -717,7 +734,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
       TDateTime tm;
       if ( k > 0 ) {
       	TSOPPDests::iterator n = d - 1;
-      	NewTextChild( NodeDK, "AV", n->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, n->airp, n->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+      	  NewTextChild( NodeDK, "AV", n->airp );
+      	else
+      		NewTextChild( NodeDK, "AV", airp_tmp );
       	NewTextChild( NodeDK, "DPP", GetStrDate( d->scd_in ) );
        	modf( d->scd_in, &tm );
       	NewTextChild( NodeDK, "VPP", GetMinutes( tm, d->scd_in ) );
@@ -743,7 +764,11 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, xmlDocPtr &doc )
         }
       }
       else {
-        NewTextChild( NodeDK, "AV", tr->airp );
+      	string airp_tmp = ElemIdToElemCtxt( ecDisp, etAirp, tr->airp, tr->airp_fmt );
+      	if ( airp_tmp.size() > 3 )
+          NewTextChild( NodeDK, "AV", tr->airp );
+        else
+        	NewTextChild( NodeDK, "AV", airp_tmp );
         NewTextChild( NodeDK, "DPP", GetStrDate( d->scd_in ) );
        	modf( d->scd_in, &tm );
        	NewTextChild( NodeDK, "VPP", GetMinutes( tm, d->scd_in ) );
@@ -863,15 +888,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM "
+      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -902,6 +927,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
    	createParam( paramsNode, "VDV", NodeAsString( "VDV", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "VRD", NodeAsString( "VRD", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "ABSM", NodeAsString( "ABSM", nodeN ), DBF_TYPE_CHAR );
+   	createParam( paramsNode, "FAM", NodeAsString( "FAM", nodeN ), DBF_TYPE_CHAR );
   }
   if ( pr_land )
   	dbf_type = "AK";
@@ -1059,6 +1085,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
 	string file_type = FILE_SPPCEK_TYPE;
 	string record;
 	TQuery Qry( &OraSession );
+	TQuery COMMANDERQry( &OraSession );
+	COMMANDERQry.SQLText =
+	  "SELECT commander from trip_crew WHERE point_id=:point_id";
+	COMMANDERQry.DeclareVariable( "point_id", otInteger );
  	TDateTime UTCNow = NowUTC();
  	TDateTime LocalNow;
  	modf( UTCToClient( UTCNow, reqInfo->desk.tz_region ), &LocalNow );
@@ -1085,7 +1115,12 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	}
     if ( !res ) continue;
     ProgTrace( TRACE5, "CEK point_id=%d, res=%d, CREATE_SPP_DAYS()=%d", point_id, res, CREATE_SPP_DAYS() );
-  	createXMLTrip( tr, doc );
+    COMMANDERQry.SetVariable( "point_id", point_id );
+    COMMANDERQry.Execute();
+    string commander;
+    if ( !COMMANDERQry.Eof )
+    	commander = COMMANDERQry.FieldAsString( "commander" );
+  	createXMLTrip( tr, commander, doc );
   	break;
   }
   if ( !doc && !trips.empty() ) // рейс не удален
