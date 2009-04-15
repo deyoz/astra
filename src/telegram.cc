@@ -402,6 +402,8 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           tlg_type == "MVTB" or
           tlg_type == "SOM" or
           tlg_type == "PRL" or
+          tlg_type == "PFS" or
+          tlg_type == "PFSN" or
           tlg_type == "ETL" or
           tlg_type == "FTL" or
           tlg_type == "BTM" or
@@ -1254,7 +1256,6 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
           for(;k!=codeshare.end();k++)
           {
             addrInfo.mark_info=*k;
-
             for(int pr_mark_header=0;
                 pr_mark_header<=(addrInfo.mark_info.IsNULL()?0:1);
                 pr_mark_header++)
@@ -1283,6 +1284,8 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                           tlg_type == "LDM" or
                           tlg_type == "SOM" or
                           tlg_type == "PRL" or
+                          tlg_type == "PFS" or
+                          tlg_type == "PFSN" or
                           tlg_type == "MVTA" or
                           tlg_type == "MVTB" or
                           tlg_type == "ETL" or
