@@ -415,6 +415,66 @@ void TMktFlight::getByPaxId(int pax_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
+        "    points.airline tlg_airline, "
+        "    points.flt_no tlg_flt_no, "
+        "    points.suffix tlg_suffix, "
+        "    NVL(pax.subclass,pax_grp.class) tlg_subcls, "
+        "    points.scd_out tlg_scd, "
+        "    points.airp tlg_airp_dep, "
+        "    pax_grp.airp_arv tlg_airp_arv, "
+        "    market_flt.airline pax_airline, "
+        "    market_flt.flt_no pax_flt_no, "
+        "    market_flt.suffix pax_suffix, "
+        "    NVL(pax.subclass,pax_grp.class) pax_subcls, "
+        "    market_flt.scd pax_scd, "
+        "    market_flt.airp_dep pax_airp_dep, "
+        "    pax_grp.airp_arv pax_airp_arv "
+        "from "
+        "   pax, "
+        "   pax_grp, "
+        "   points, "
+        "   market_flt "
+        "where "
+        "    pax.pax_id = :id and "
+        "    pax.grp_id = pax_grp.grp_id and "
+        "    pax_grp.point_dep = points.point_id and "
+        "    pax.grp_id = market_flt.grp_id(+) ";
+    clear();
+    Qry.CreateVariable("id",otInteger,pax_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        if(Qry.FieldIsNULL("pax_airline")) {
+            airline = Qry.FieldAsString("tlg_airline");
+            flt_no = Qry.FieldAsInteger("tlg_flt_no");
+            suffix = Qry.FieldAsString("tlg_suffix");
+            subcls = Qry.FieldAsString("tlg_subcls");
+            airp_dep = Qry.FieldAsString("tlg_airp_dep");
+            airp_arv = Qry.FieldAsString("tlg_airp_arv");
+            TDateTime tmp_scd = UTCToLocal(Qry.FieldAsDateTime("tlg_scd"), AirpTZRegion(airp_dep));
+            int Year, Month, Day;
+            DecodeDate(tmp_scd, Year, Month, Day);
+            scd = Day;
+        } else {
+            airline = Qry.FieldAsString("pax_airline");
+            flt_no = Qry.FieldAsInteger("pax_flt_no");
+            suffix = Qry.FieldAsString("pax_suffix");
+            subcls = Qry.FieldAsString("pax_subcls");
+            scd = Qry.FieldAsInteger("pax_scd");
+            TDateTime tmp_scd = Qry.FieldAsDateTime("pax_scd");
+            int Year, Month, Day;
+            DecodeDate(tmp_scd, Year, Month, Day);
+            scd = Day;
+            airp_dep = Qry.FieldAsString("pax_airp_dep");
+            airp_arv = Qry.FieldAsString("pax_airp_arv");
+        }
+    }
+}
+
+void TMktFlight::getByCrsPaxId(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
         "    tlg_trips.airline tlg_airline, "
         "    tlg_trips.flt_no tlg_flt_no, "
         "    tlg_trips.suffix tlg_suffix, "

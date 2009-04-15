@@ -22,6 +22,7 @@ struct TMktFlight {
     std::string airp_arv;
 
     void getByPaxId(int pax_id);
+    void getByCrsPaxId(int pax_id);
     void getByPnrId(int pnr_id);
     bool IsNULL();
     void clear();
