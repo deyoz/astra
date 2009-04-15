@@ -1545,6 +1545,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   readPaxLoad( point_id, reqNode, resNode );
 
   TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out "
+    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  TTripInfo operFlt(Qry);
 
   ostringstream sql;
   sql <<
@@ -1562,6 +1570,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
     "  ckin.get_birks(pax.grp_id,pax.pax_id) AS tags, "
     "  report.get_remarks(pax_id,0) AS rems, "
+    "  market_flt.airline AS airline_mark, "
+    "  market_flt.flt_no AS flt_no_mark, "
+    "  market_flt.suffix AS suffix_mark, "
+    "  market_flt.scd AS scd_local_mark, "
+    "  market_flt.airp_dep AS airp_dep_mark, "
     "  pax.grp_id, "
     "  pax.pax_id, "
     "  pax_grp.class_grp AS cl_grp_id,pax_grp.hall AS hall_id, "
@@ -1573,8 +1586,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  kassa.pr_payment(pax.grp_id) AS pr_payment ";
 
   sql <<
-    "FROM pax_grp,pax "
+    "FROM pax_grp,pax,market_flt "
     "WHERE pax_grp.grp_id=pax.grp_id AND "
+    "      pax_grp.grp_id=market_flt.grp_id(+) AND "
     "      point_dep=:point_id AND pr_brd IS NOT NULL ";
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     sql <<
@@ -1611,6 +1625,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_excess=Qry.FieldIndex("excess");
   int col_tags=Qry.FieldIndex("tags");
   int col_rems=Qry.FieldIndex("rems");
+
+  int col_airline_mark=Qry.FieldIndex("airline_mark");
+  int col_flt_no_mark=Qry.FieldIndex("flt_no_mark");
+  int col_suffix_mark=Qry.FieldIndex("suffix_mark");
+  int col_scd_local_mark=Qry.FieldIndex("scd_local_mark");
+  int col_airp_dep_mark=Qry.FieldIndex("airp_dep_mark");
+
   int col_grp_id=Qry.FieldIndex("grp_id");
   int col_cl_grp_id=Qry.FieldIndex("cl_grp_id");
   int col_hall_id=Qry.FieldIndex("hall_id");
@@ -1688,6 +1709,19 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"excess",Qry.FieldAsInteger(col_excess),0);
     NewTextChild(paxNode,"tags",Qry.FieldAsString(col_tags),"");
     NewTextChild(paxNode,"rems",Qry.FieldAsString(col_rems),"");
+
+    if (!Qry.FieldIsNULL(col_airline_mark))
+    {
+      //коммерческий рейс
+      TTripInfo markFlt;
+      markFlt.airline=Qry.FieldAsString(col_airline_mark);
+      markFlt.flt_no=Qry.FieldAsInteger(col_flt_no_mark);
+      markFlt.suffix=Qry.FieldAsString(col_suffix_mark);
+      markFlt.scd_out=Qry.FieldAsDateTime(col_scd_local_mark);
+      markFlt.airp=Qry.FieldAsString(col_airp_dep_mark);
+      NewTextChild(paxNode,"mark_flt_str",GetMktFlightStr(operFlt,markFlt));
+    };
+
     if(col_receipts != -1)
     {
       NewTextChild(paxNode,"rcpt_no_list",Qry.FieldAsString(col_receipts));
