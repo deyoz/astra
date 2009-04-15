@@ -249,6 +249,11 @@ struct TCodeShareSets {
 //важно! время вылета scd_out у operFlt должно быть в UTC
 //       время вылета в markFltInfo возвращается локальное относительно airp
 void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+
+//важно! время вылета scd_out у operFlt должно быть в UTC
+//       время вылета в markFltInfo возвращается локальное относительно airp
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
+
 void GetCrsList(int point_id, std::vector<std::string> &crs);
 
 #endif /*_ASTRA_MISC_H_*/

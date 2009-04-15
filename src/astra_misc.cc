@@ -150,6 +150,8 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
   DecodeDate(base_date,iYear,iMonth,iDay);
   TDateTime result;
   if (!back)
+  {
+    result=base_date-1.0;
     do
     {
       try
@@ -165,7 +167,10 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
       else iMonth++;
     }
     while(result<base_date);
+  }
   else
+  {
+    result=base_date+1.0;
     do
     {
       try
@@ -181,6 +186,7 @@ TDateTime DayToDate(int day, TDateTime base_date, bool back)
       else iMonth--;
     }
     while(result>base_date);
+  };
   return result;
 };
 
@@ -803,6 +809,24 @@ void TCodeShareSets::get(const TTripInfo &operFlt, const TTripInfo &markFlt)
     pr_mark_bp=Qry->FieldAsInteger("pr_mark_bp")!=0;
     pr_mark_rpt=Qry->FieldAsInteger("pr_mark_rpt")!=0;
   };
+};
+
+string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt )
+{
+  TDateTime scd_local_oper=UTCToLocal(operFlt.scd_out, AirpTZRegion(operFlt.airp));
+  modf(scd_local_oper,&scd_local_oper);
+  TDateTime scd_local_mark=markFlt.scd_out;
+  modf(scd_local_mark,&scd_local_mark);
+
+  ostringstream trip;
+  trip << markFlt.airline
+       << setw(3) << setfill('0') << markFlt.flt_no
+       << markFlt.suffix;
+  if (scd_local_oper!=scd_local_mark)
+    trip << "/" << DateTimeToStr(markFlt.scd_out,"dd");
+  if (operFlt.airp!=markFlt.airp)
+    trip << " " << markFlt.airp;
+  return trip.str();
 };
 
 void GetCrsList(int point_id, std::vector<std::string> &crs)
