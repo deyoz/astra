@@ -4209,7 +4209,6 @@ struct TSubClsCmp {
 
 typedef vector<TPFSPax> TPFSPaxList;
 typedef map<string, TPFSPaxList, TSubClsCmp> TPFSClsList;
-//typedef map<string, TPFSPaxList> TPFSClsList;
 typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
 
@@ -4386,7 +4385,7 @@ struct TCKINPaxInfo {
                 "    pax.surname, "
                 "    pax.name, "
                 "    nvl(pax.subclass, pax_grp.class) subclass, "
-                "    pax_grp.arip_arv target, "
+                "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
                 "    pax_grp.status "
                 "from "
@@ -4398,6 +4397,38 @@ struct TCKINPaxInfo {
             Qry.DeclareVariable("pax_id", otInteger);
         }
 };
+
+bool PAXLST_cmp(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "(select name, surname, pers_type from pax where pax_id = :pax_id "
+        "minus "
+        "select name, surname, pers_type from crs_pax where pax_id = :pax_id) "
+        "union "
+        "(select name, surname, pers_type from crs_pax where pax_id = :pax_id "
+        "minus "
+        "select name, surname, pers_type from pax where pax_id = :pax_id) ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    return Qry.Eof;
+}
+
+bool fqt_compare(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "(select airline, no, extra, rem_code from pax_fqt where pax_id = :pax_id "
+        "minus "
+        "select airline, no, extra, rem_code from crs_pax_fqt where pax_id = :pax_id) "
+        "union "
+        "(select airline, no, extra, rem_code from crs_pax_fqt where pax_id = :pax_id "
+        "minus "
+        "select airline, no, extra, rem_code from pax_fqt where pax_id = :pax_id) ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    return Qry.Eof;
+}
 
 void TPFSBody::get(TTlgInfo &info)
 {
@@ -4415,22 +4446,29 @@ void TPFSBody::get(TTlgInfo &info)
         "    pax, "
         "    crs_pax "
         "where "
-        "    pax.status <> :psTransit and "
+        "    pax_grp.status <> :psTransit and "
         "    pax_grp.point_dep = :point_id and "
         "    pax_grp.grp_id = pax.grp_id and "
-        "    pax.pax_id = crs_pax.pax_id(+) "
+        "    pax.pax_id = crs_pax.pax_id(+) and "
+        "    crs_pax.pr_del(+) = 0 "
         ") ck full join "
         "( "
         "select "
-        "    crs_pax.pax_id pnl_pax_id "
+        "    crs_pax.pax_id pnl_pax_id, "
+        "    pax_grp.point_dep pnl_point_id "
         "from "
         "    tlg_binding, "
         "    crs_pnr, "
-        "    crs_pax "
+        "    crs_pax, "
+        "    pax, "
+        "    pax_grp "
         "where "
         "    tlg_binding.point_id_spp = :point_id and "
         "    tlg_binding.point_id_tlg = crs_pnr.point_id and "
-        "    crs_pnr.pnr_id = crs_pax.pnr_id "
+        "    crs_pnr.pnr_id = crs_pax.pnr_id and "
+        "    crs_pax.pr_del = 0 and "
+        "    crs_pax.pax_id = pax.pax_id(+) and "
+        "    pax.grp_id = pax_grp.grp_id(+) "
         ") pnl "
         "on "
         "ck.pax_id = pnl.pnl_pax_id ";
@@ -4441,28 +4479,33 @@ void TPFSBody::get(TTlgInfo &info)
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_pnr_id = Qry.FieldIndex("pnr_id");
         int col_pnl_pax_id = Qry.FieldIndex("pnl_pax_id");
+        int col_pnl_point_id = Qry.FieldIndex("pnl_point_id");
         TPNLPaxInfo pnl_pax;
         TCKINPaxInfo ckin_pax;
         for(; !Qry.Eof; Qry.Next()) {
             int pax_id = NoExists;
             int pnr_id = NoExists;
             int pnl_pax_id = NoExists;
+            int pnl_point_id = NoExists;
             if(!Qry.FieldIsNULL(col_pax_id))
                 pax_id = Qry.FieldAsInteger(col_pax_id);
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pnr_id = Qry.FieldAsInteger(col_pnr_id);
             if(!Qry.FieldIsNULL(col_pnl_pax_id))
                 pnl_pax_id = Qry.FieldAsInteger(col_pnl_pax_id);
-            ProgTrace(TRACE5, "pax_id: %d", pax_id);
-            ProgTrace(TRACE5, "pnr_id: %d", pnr_id);
-            ProgTrace(TRACE5, "pnl_pax_id: %d", pnl_pax_id);
-            ProgTrace(TRACE5, "========================");
+            if(!Qry.FieldIsNULL(col_pnl_point_id))
+                pnl_point_id = Qry.FieldAsInteger(col_pnl_point_id);
+
+
+
+
+
             if(pax_id == NoExists) { // NOSHO
                 pnl_pax.get(pnl_pax_id);
                 TPFSPax item;
                 item.pax_id = pnl_pax.pax_id;
-                item.name.surname = pnl_pax.name;
-                item.name.name = pnl_pax.surname;
+                item.name.surname = pnl_pax.surname;
+                item.name.name = pnl_pax.name;
                 items
                     [pnl_pax.target]
                     ["NOSHO"]
@@ -4473,20 +4516,25 @@ void TPFSBody::get(TTlgInfo &info)
                 string category;
                 TPFSPax item;
                 item.pax_id = ckin_pax.pax_id;
-                item.name.surname = ckin_pax.name;
-                item.name.name = ckin_pax.surname;
+                item.name.surname = ckin_pax.surname;
+                item.name.name = ckin_pax.name;
                 if(pnr_id != NoExists) { // пассажиры из бронирования
-                    if(pnl_pax_id == NoExists) { // пересадка
+                    if(not fqt_compare(ckin_pax.pax_id) and ckin_pax.pr_brd != 0)
+                        category = "FQTVN";
+                    else if(pnl_pax_id == NoExists) // пересадка
                         category = "CHGFL";
-                    } else if(ckin_pax.target != ckin_pax.crs_pax.target)
+                    // shown in PNL/ADL
+                    else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
                     else if(ckin_pax.subclass != ckin_pax.crs_pax.subclass)
                         category = "INVOL";
-                    else { // shown in PNL/ADL
+                    else {
                         if(ckin_pax.OK_status()) { // with OK ticket
                             if(ckin_pax.pr_brd == 0) // but not departed
                                 category = "OFFLK";
-                        }
+                            else if(not PAXLST_cmp(ckin_pax.pax_id)) // changed or added PAXLST information for this passenger
+                                category = "PXLST";
+                        } // without OK ticket - filtered out
                     }
                 } else { // NOREC
                     if(ckin_pax.OK_status()) { // with OK ticket
@@ -4503,6 +4551,9 @@ void TPFSBody::get(TTlgInfo &info)
                         }
                     }
                 }
+
+                if(category.empty())
+                    continue;
 
                 items
                     [ckin_pax.target]
