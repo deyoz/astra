@@ -23,7 +23,9 @@ alter table aodb_bag add pr_cabin NUMBER(1) NOT NULL;
 #include "astra_utils.h"
 #include "astra_service.h"
 #include "misc.h"
+#include "astra_misc.h"
 #include "stages.h"
+#include "tripinfo.h"
 #include "salons2.h"
 #include "serverlib/helpcpp.h"
 
@@ -919,6 +921,12 @@ void createRecord( int point_id, int pax_id, int reg_no, const string &point_add
 
 void ParseFlight( const std::string &point_addr, std::string &linestr, AODB_Flight &fl )
 {
+	TQuery QryTripInfo(&OraSession);
+  QryTripInfo.SQLText=
+    "SELECT airline,flt_no,suffix,airp,scd_out FROM points "
+    "WHERE point_id=:point_id AND pr_del>=0";
+	QryTripInfo.DeclareVariable("point_id", otInteger);
+  TTripInfo fltInfo;
 	int err=0;
 try {
 	fl.invalid_term.clear();
@@ -1692,6 +1700,12 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
     err++;
     Qry.Execute();
     err++;
+  	QryTripInfo.SetVariable( "point_id", point_id );
+    QryTripInfo.Execute();
+    if ( !QryTripInfo.Eof ) {
+    	fltInfo.Init(QryTripInfo);
+    	Set_overload_alarm( point_id, Get_overload_alarm( point_id, fltInfo ) );
+    }
 	}
 
   Qry.Clear();
