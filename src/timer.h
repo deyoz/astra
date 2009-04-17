@@ -11,7 +11,7 @@ void ETCheckStatusFlt(void);
 void sync_mvd(void);
 void create_czech_police_file(int point_id, bool is_edi);
 void createSPP( BASIC::TDateTime utcdate );
-void exec_tasks( void );
+void exec_tasks( const char *proc_name );
 void get_full_stat( BASIC::TDateTime utcdate );
 void arx_daily( BASIC::TDateTime utcdate );
 void sync_sirena_codes( void );

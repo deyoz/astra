@@ -39,6 +39,26 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     sleep(10);
     OpenLogFile("log1");
+
+    int p_count;
+    string num="1";
+    if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
+    	ProgError( STDLOG,
+                 "ERROR:main_timer_tcl wrong parameters:%s",
+                 Tcl_GetString(Tcl_GetObjResult(interp)) );
+      return 1;
+    }
+    if ( p_count != 2 ) {
+    	ProgError( STDLOG,
+                 "ERROR:main_timer_tcl wrong number of parameters:%d",
+                 p_count );
+    }
+    else {
+    	 Tcl_Obj *val;
+    	 Tcl_ListObjIndex( interp, argslist, 1, &val );
+    	 num = Tcl_GetString( val );
+    }
+
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
         ->connect_db();
     if (init_edifact()<0) throw Exception("'init_edifact' error");
@@ -47,7 +67,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
 
       PerfomInit();
       base_tables.Invalidate();
-      exec_tasks();
+      exec_tasks( num.c_str() );
       sleep( sleepsec );
     };
   }
@@ -60,7 +80,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   return 0;
 }
 
-void exec_tasks( void )
+void exec_tasks( const char *proc_name )
 {
 	TDateTime VTime = 0.0, utcdate = NowUTC();
 	int Hour, Min, Sec;
@@ -71,8 +91,9 @@ void exec_tasks( void )
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
 	 "SELECT name,last_exec,next_exec,interval FROM tasks "\
-	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate ";
+	 " WHERE pr_denial=0 AND NVL(next_exec,:utcdate) <= :utcdate AND proc_name=:proc_name ";
 	Qry.CreateVariable( "utcdate", otDate, utcdate );
+	Qry.CreateVariable( "proc_name", otString, proc_name );
 	Qry.Execute();
 	TQuery UQry(&OraSession);
 	UQry.SQLText =
