@@ -952,6 +952,7 @@ namespace PRL_SPACE {
             "    pax.pr_brd = 1 and "
             "    pax.seats>0 and "
             "    pax.pax_id = crs_pax.pax_id(+) and "
+            "    crs_pax.pr_del(+)=0 and "
             "    crs_pax.pnr_id = crs_pnr.pnr_id(+) "
             "order by "
             "    target, "
@@ -3140,6 +3141,7 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
         "where "
         "   pax_fqt.pax_id = :pax_id and "
         "   pax_fqt.pax_id = crs_pax.pax_id(+) and "
+        "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
         "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ";
     Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
@@ -3227,6 +3229,7 @@ void TFTLBody::get(TTlgInfo &info)
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
         "    pax.pax_id=crs_pax.pax_id(+) AND "
+        "    crs_pax.pr_del(+)=0 AND "
         "    crs_pax.pnr_id=crs_pnr.pnr_id(+) AND "
         "    pax_grp.class=classes.code AND "
         "    pax_grp.point_dep=:point_id AND "
@@ -3332,6 +3335,7 @@ void TETLDest::GetPaxList(TTlgInfo &info)
         "    pax.pr_brd = 1 and "
         "    pax.seats>0 and "
         "    pax.pax_id = crs_pax.pax_id(+) and "
+        "    crs_pax.pr_del(+)=0 and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
         "    pax.ticket_rem = 'TKNE' "
         "order by "
@@ -4247,12 +4251,14 @@ struct TPNLPaxInfo {
         int col_pax_id;
         int col_surname;
         int col_name;
+        int col_pers_type;
         int col_subclass;
         int col_target;
     public:
         int pax_id;
         string surname;
         string name;
+        string pers_type;
         string subclass;
         string target;
         void Clear()
@@ -4260,6 +4266,7 @@ struct TPNLPaxInfo {
             pax_id = NoExists;
             surname.erase();
             name.erase();
+            pers_type.erase();
             subclass.erase();
             target.erase();
         }
@@ -4275,12 +4282,14 @@ struct TPNLPaxInfo {
                     col_pax_id = Qry.FieldIndex("pax_id");
                     col_surname = Qry.FieldIndex("surname");
                     col_name = Qry.FieldIndex("name");
+                    col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
                     col_target = Qry.FieldIndex("target");
                 }
                 pax_id = Qry.FieldAsInteger(col_pax_id);
                 surname = Qry.FieldAsString(col_surname);
                 name = Qry.FieldAsString(col_name);
+                pers_type = Qry.FieldAsString(col_pers_type);
                 subclass = Qry.FieldAsString(col_subclass);
                 target = Qry.FieldAsString(col_target);
             }
@@ -4290,6 +4299,7 @@ struct TPNLPaxInfo {
             col_pax_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_pers_type(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
             pax_id(NoExists)
@@ -4299,6 +4309,7 @@ struct TPNLPaxInfo {
                 "    crs_pax.pax_id, "
                 "    crs_pax.surname, "
                 "    crs_pax.name, "
+                "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
                 "    crs_pnr.target "
                 "from "
@@ -4306,6 +4317,7 @@ struct TPNLPaxInfo {
                 "    crs_pax "
                 "where "
                 "    crs_pax.pax_id = :pax_id and "
+                "    crs_pax.pr_del=0 and "
                 "    crs_pnr.pnr_id = crs_pax.pnr_id ";
             Qry.DeclareVariable("pax_id", otInteger);
         }
@@ -4317,6 +4329,7 @@ struct TCKINPaxInfo {
         int col_pax_id;
         int col_surname;
         int col_name;
+        int col_pers_type;
         int col_subclass;
         int col_target;
         int col_pr_brd;
@@ -4325,16 +4338,25 @@ struct TCKINPaxInfo {
         int pax_id;
         string surname;
         string name;
+        string pers_type;
         string subclass;
         string target;
         int pr_brd;
         TPaxStatus status;
         TPNLPaxInfo crs_pax;
+        bool PAXLST_cmp()
+        {
+            return
+                surname == crs_pax.surname and
+                name == crs_pax.name and
+                pers_type == crs_pax.pers_type;
+        }
         void Clear()
         {
             pax_id = NoExists;
             surname.erase();
             name.erase();
+            pers_type.erase();
             subclass.erase();
             target.erase();
             pr_brd = NoExists;
@@ -4348,24 +4370,26 @@ struct TCKINPaxInfo {
             Clear();
             Qry.SetVariable("pax_id", apax_id);
             Qry.Execute();
-            if(Qry.Eof)
-                throw Exception("TCKINPaxInfo::get failed: pax_id %d not found", apax_id);
-            if(col_pax_id == NoExists) {
-                col_pax_id = Qry.FieldIndex("pax_id");
-                col_surname = Qry.FieldIndex("surname");
-                col_name = Qry.FieldIndex("name");
-                col_subclass = Qry.FieldIndex("subclass");
-                col_target = Qry.FieldIndex("target");
-                col_pr_brd = Qry.FieldIndex("pr_brd");
-                col_status = Qry.FieldIndex("status");
+            if(!Qry.Eof) {
+                if(col_pax_id == NoExists) {
+                    col_pax_id = Qry.FieldIndex("pax_id");
+                    col_surname = Qry.FieldIndex("surname");
+                    col_name = Qry.FieldIndex("name");
+                    col_pers_type = Qry.FieldIndex("pers_type");
+                    col_subclass = Qry.FieldIndex("subclass");
+                    col_target = Qry.FieldIndex("target");
+                    col_pr_brd = Qry.FieldIndex("pr_brd");
+                    col_status = Qry.FieldIndex("status");
+                }
+                pax_id = Qry.FieldAsInteger(col_pax_id);
+                surname = Qry.FieldAsString(col_surname);
+                name = Qry.FieldAsString(col_name);
+                pers_type = Qry.FieldAsString(col_pers_type);
+                subclass = Qry.FieldAsString(col_subclass);
+                target = Qry.FieldAsString(col_target);
+                pr_brd = Qry.FieldAsInteger(col_pr_brd);
+                status = DecodePaxStatus(Qry.FieldAsString(col_status));
             }
-            pax_id = Qry.FieldAsInteger(col_pax_id);
-            surname = Qry.FieldAsString(col_surname);
-            name = Qry.FieldAsString(col_name);
-            subclass = Qry.FieldAsString(col_subclass);
-            target = Qry.FieldAsString(col_target);
-            pr_brd = Qry.FieldAsInteger(col_pr_brd);
-            status = DecodePaxStatus(Qry.FieldAsString(col_status));
             crs_pax.get(apax_id);
         }
         TCKINPaxInfo():
@@ -4373,6 +4397,7 @@ struct TCKINPaxInfo {
             col_pax_id(NoExists),
             col_surname(NoExists),
             col_name(NoExists),
+            col_pers_type(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
             col_pr_brd(NoExists),
@@ -4384,6 +4409,7 @@ struct TCKINPaxInfo {
                 "    pax.pax_id, "
                 "    pax.surname, "
                 "    pax.name, "
+                "    pax.pers_type, "
                 "    nvl(pax.subclass, pax_grp.class) subclass, "
                 "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
@@ -4397,22 +4423,6 @@ struct TCKINPaxInfo {
             Qry.DeclareVariable("pax_id", otInteger);
         }
 };
-
-bool PAXLST_cmp(int pax_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "(select name, surname, pers_type from pax where pax_id = :pax_id "
-        "minus "
-        "select name, surname, pers_type from crs_pax where pax_id = :pax_id) "
-        "union "
-        "(select name, surname, pers_type from crs_pax where pax_id = :pax_id "
-        "minus "
-        "select name, surname, pers_type from pax where pax_id = :pax_id) ";
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    return Qry.Eof;
-}
 
 bool fqt_compare(int pax_id)
 {
@@ -4430,180 +4440,179 @@ bool fqt_compare(int pax_id)
     return Qry.Eof;
 }
 
-void TPFSBody::get(TTlgInfo &info)
+struct TPFSInfoItem {
+    int pax_id, pnr_id, pnl_pax_id, pnl_point_id;
+    TPFSInfoItem():
+        pax_id(NoExists),
+        pnr_id(NoExists),
+        pnl_pax_id(NoExists),
+        pnl_point_id(NoExists)
+    {}
+};
+
+struct TPFSInfo {
+    map<int, TPFSInfoItem> items;
+    void get(int point_id);
+    void dump();
+};
+
+void TPFSInfo::dump()
+{
+    ostringstream buf;
+    buf
+        << setw(20) << "pax_id"
+        << setw(20) << "pnr_id"
+        << setw(20) << "pnl_pax_id"
+        << setw(20) << "pnl_point_id";
+    ProgTrace(TRACE5, "%s", buf.str().c_str());
+    for(map<int, TPFSInfoItem>::iterator im = items.begin(); im != items.end(); im++) {
+        const TPFSInfoItem &item = im->second;
+        buf.str("");
+        buf
+            << setw(20) << item.pax_id
+            << setw(20) << item.pnr_id
+            << setw(20) << item.pnl_pax_id
+            << setw(20) << item.pnl_point_id;
+        ProgTrace(TRACE5, "%s", buf.str().c_str());
+    }
+}
+
+void TPFSInfo::get(int point_id)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select "
-        "    * "
-        "from "
-        "( "
-        "select "
-        "    pax.pax_id, "
-        "    crs_pax.pnr_id "
-        "from "
-        "    pax_grp, "
-        "    pax, "
-        "    crs_pax "
-        "where "
-        "    pax_grp.status <> :psTransit and "
-        "    pax_grp.point_dep = :point_id and "
-        "    pax_grp.grp_id = pax.grp_id and "
-        "    pax.pax_id = crs_pax.pax_id(+) and "
-        "    crs_pax.pr_del(+) = 0 "
-        ") ck full join "
-        "( "
-        "select "
-        "    crs_pax.pax_id pnl_pax_id, "
-        "    pax_grp.point_dep pnl_point_id "
-        "from "
-        "    tlg_binding, "
-        "    crs_pnr, "
-        "    crs_pax, "
-        "    pax, "
-        "    pax_grp "
-        "where "
-        "    tlg_binding.point_id_spp = :point_id and "
-        "    tlg_binding.point_id_tlg = crs_pnr.point_id and "
-        "    crs_pnr.pnr_id = crs_pax.pnr_id and "
-        "    crs_pax.pr_del = 0 and "
-        "    crs_pax.pax_id = pax.pax_id(+) and "
-        "    pax.grp_id = pax_grp.grp_id(+) "
-        ") pnl "
-        "on "
-        "ck.pax_id = pnl.pnl_pax_id ";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
+        "select  "
+        "    pax.pax_id,  "
+        "    crs_pax.pnr_id  "
+        "from  "
+        "    pax_grp,  "
+        "    pax,  "
+        "    crs_pax  "
+        "where  "
+        "    pax_grp.status <> :psTransit and  "
+        "    pax_grp.point_dep = :point_id and  "
+        "    pax_grp.grp_id = pax.grp_id and  "
+        "    pax.refuse is null and "
+        "    pax.pax_id = crs_pax.pax_id(+) and  "
+        "    crs_pax.pr_del(+) = 0  ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("psTransit", otString, EncodePaxStatus(psTransit));
     Qry.Execute();
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_pnr_id = Qry.FieldIndex("pnr_id");
-        int col_pnl_pax_id = Qry.FieldIndex("pnl_pax_id");
-        int col_pnl_point_id = Qry.FieldIndex("pnl_point_id");
-        TPNLPaxInfo pnl_pax;
-        TCKINPaxInfo ckin_pax;
         for(; !Qry.Eof; Qry.Next()) {
-            int pax_id = NoExists;
+            int pax_id = Qry.FieldAsInteger(col_pax_id);
             int pnr_id = NoExists;
-            int pnl_pax_id = NoExists;
-            int pnl_point_id = NoExists;
-            if(!Qry.FieldIsNULL(col_pax_id))
-                pax_id = Qry.FieldAsInteger(col_pax_id);
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pnr_id = Qry.FieldAsInteger(col_pnr_id);
-            if(!Qry.FieldIsNULL(col_pnl_pax_id))
-                pnl_pax_id = Qry.FieldAsInteger(col_pnl_pax_id);
-            if(!Qry.FieldIsNULL(col_pnl_point_id))
-                pnl_point_id = Qry.FieldAsInteger(col_pnl_point_id);
-
-
-
-
-
-            if(pax_id == NoExists) { // NOSHO
-                pnl_pax.get(pnl_pax_id);
-                TPFSPax item;
-                item.pax_id = pnl_pax.pax_id;
-                item.name.surname = pnl_pax.surname;
-                item.name.name = pnl_pax.name;
-                items
-                    [pnl_pax.target]
-                    ["NOSHO"]
-                    [pnl_pax.subclass]
-                    .push_back(item);
-            } else { // checked-in
-                ckin_pax.get(pax_id);
-                string category;
-                TPFSPax item;
-                item.pax_id = ckin_pax.pax_id;
-                item.name.surname = ckin_pax.surname;
-                item.name.name = ckin_pax.name;
-                if(pnr_id != NoExists) { // пассажиры из бронирования
-                    if(not fqt_compare(ckin_pax.pax_id) and ckin_pax.pr_brd != 0)
-                        category = "FQTVN";
-                    else if(pnl_pax_id == NoExists) // пересадка
-                        category = "CHGFL";
-                    // shown in PNL/ADL
-                    else if(ckin_pax.target != ckin_pax.crs_pax.target)
-                        category = "CHGSG";
-                    else if(ckin_pax.subclass != ckin_pax.crs_pax.subclass)
-                        category = "INVOL";
-                    else {
-                        if(ckin_pax.OK_status()) { // with OK ticket
-                            if(ckin_pax.pr_brd == 0) // but not departed
-                                category = "OFFLK";
-                            else if(not PAXLST_cmp(ckin_pax.pax_id)) // changed or added PAXLST information for this passenger
-                                category = "PXLST";
-                        } // without OK ticket - filtered out
-                    }
-                } else { // NOREC
-                    if(ckin_pax.OK_status()) { // with OK ticket
-                        if(ckin_pax.pr_brd == 0) { // but not departed
-                            category = "OFFLN";
-                        } else { // departed
-                            category = "NOREC";
-                        }
-                    } else { // without OK ticket
-                        if(ckin_pax.pr_brd == 0) { // but not departed
-                            category = "GOSHN";
-                        } else { // departed
-                            category = "GOSHO";
-                        }
-                    }
-                }
-
-                if(category.empty())
-                    continue;
-
-                items
-                    [ckin_pax.target]
-                    [category]
-                    [ckin_pax.subclass]
-                    .push_back(item);
-            }
+            items[pax_id].pax_id = pax_id;
+            items[pax_id].pnr_id = pnr_id;
         }
     }
-    return;
+    Qry.Clear();
+    Qry.SQLText =
+        "select  "
+        "    crs_pax.pax_id pnl_pax_id, "
+        "    pax_grp.point_dep pnl_point_id "
+        "from  "
+        "    tlg_binding,  "
+        "    crs_pnr,  "
+        "    crs_pax, "
+        "    pax, "
+        "    pax_grp "
+        "where  "
+        "    tlg_binding.point_id_spp = :point_id and  "
+        "    tlg_binding.point_id_tlg = crs_pnr.point_id and  "
+        "    crs_pnr.pnr_id = crs_pax.pnr_id and  "
+        "    crs_pax.pr_del = 0 and "
+        "    crs_pax.pax_id = pax.pax_id(+) and "
+        "    pax.refuse(+) is null and "
+        "    pax.grp_id = pax_grp.grp_id(+) ";
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_pnl_pax_id = Qry.FieldIndex("pnl_pax_id");
+        int col_pnl_point_id = Qry.FieldIndex("pnl_point_id");
+        for(; !Qry.Eof; Qry.Next()) {
+            int pnl_pax_id = Qry.FieldAsInteger(col_pnl_pax_id);
+            int pnl_point_id = NoExists;
+            if(!Qry.FieldIsNULL(col_pnl_point_id))
+                pnl_point_id = Qry.FieldAsInteger(col_pnl_point_id);
+            items[pnl_pax_id].pnl_pax_id = pnl_pax_id;
+            items[pnl_pax_id].pnl_point_id = pnl_point_id;
+        }
+    }
+}
 
-    {
-        TQuery Qry(&OraSession);
-        Qry.SQLText =
-            "select "
-            "    crs_pax.pax_id, "
-            "    crs_pax.surname, "
-            "    crs_pax.name, "
-            "    crs_pnr.subclass, "
-            "    crs_pnr.target "
-            "from "
-            "    tlg_binding, "
-            "    crs_pnr, "
-            "    crs_pax "
-            "where "
-            "    tlg_binding.point_id_spp = :point_id and "
-            "    tlg_binding.point_id_tlg = crs_pnr.point_id and "
-            "    crs_pnr.pnr_id = crs_pax.pnr_id and "
-            "    not exists(select * from pax where pax_id = crs_pax.pax_id) ";
-        Qry.CreateVariable("point_id", otInteger, info.point_id);
-        Qry.Execute();
-        if(!Qry.Eof) {
-            int col_pax_id = Qry.FieldIndex("pax_id");
-            int col_surname = Qry.FieldIndex("surname");
-            int col_name = Qry.FieldIndex("name");
-            int col_subclass = Qry.FieldIndex("subclass");
-            int col_target = Qry.FieldIndex("target");
-            vector<TPFSPax> pax_list;
-            for(; !Qry.Eof; Qry.Next()) {
-                TPFSPax item;
-                item.pax_id = Qry.FieldAsInteger(col_pax_id);
-                item.name.surname = Qry.FieldAsString(col_surname);
-                item.name.name = Qry.FieldAsString(col_name);
-                items
-                    [Qry.FieldAsString(col_target)]
-                    ["NOSHO"]
-                    [Qry.FieldAsString(col_subclass)]
-                    .push_back(item);
+void TPFSBody::get(TTlgInfo &info)
+{
+    TPFSInfo PFSInfo;
+    PFSInfo.get(info.point_id);
+    PFSInfo.dump();
+    TCKINPaxInfo ckin_pax;
+    for(map<int, TPFSInfoItem>::iterator im = PFSInfo.items.begin(); im != PFSInfo.items.end(); im++) {
+        string category;
+        const TPFSInfoItem &item = im->second;
+        ckin_pax.get(im->first);
+        if(item.pnl_pax_id != NoExists) { // Пассажир присутствует в PNL/ADL рейса
+            if(item.pax_id == NoExists) { // Не зарегистрирован на данный рейс
+                if(item.pnl_point_id != NoExists and item.pnl_point_id != info.point_id) // зарегистрирован на другой рейс
+                    category = "CHGFL";
+                else
+                    category = "NOSHO";
+            } else { // Зарегистрирован
+                if(ckin_pax.pr_brd != 0) { // Прошел посадку
+                    if(not fqt_compare(item.pax_id))
+                        category = "FQTVN";
+                    else if(ckin_pax.subclass != ckin_pax.crs_pax.subclass)
+                        category = "INVOL";
+                    else if(ckin_pax.target != ckin_pax.crs_pax.target)
+                        category = "CHGSG";
+                    else if(not ckin_pax.PAXLST_cmp())
+                        category = "PXLST";
+                } else { // Не прошел посадку
+                    if(ckin_pax.OK_status())
+                        category = "OFFLK";
+                }
+            }
+        } else { // Пассажир НЕ присутствует в PNL/ADL рейса
+            if(item.pax_id != NoExists) { // Зарегистрирован
+                if(ckin_pax.OK_status()) { // Пассажир имеет статус "бронь" или "сквозная регистрация"
+                    if(ckin_pax.pr_brd != 0)
+                        category = "NOREC";
+                    else
+                        category = "OFFLN";
+                } else { // Пассажир имеет статус "посадка"
+                    if(ckin_pax.pr_brd != 0)
+                        category = "GOSHO";
+                    else
+                        category = "GOSHN";
+                }
             }
         }
+        if(category.empty())
+            continue;
+
+        TPFSPax PFSPax;
+        string target, cls;
+        if(ckin_pax.pax_id != NoExists) {
+            PFSPax.pax_id = ckin_pax.pax_id;
+            PFSPax.name.name = ckin_pax.name;
+            PFSPax.name.surname = ckin_pax.surname;
+            target = ckin_pax.target;
+            cls = ckin_pax.subclass;
+        } else {
+            if(ckin_pax.crs_pax.pax_id == NoExists)
+                throw Exception("TPFSBody::get: both ckin and crs pax_id are not exists");
+            PFSPax.pax_id = ckin_pax.crs_pax.pax_id;
+            PFSPax.name.name = ckin_pax.crs_pax.name;
+            PFSPax.name.surname = ckin_pax.crs_pax.surname;
+            target = ckin_pax.crs_pax.target;
+            cls = ckin_pax.crs_pax.subclass;
+        }
+
+        items[target][category][cls].push_back(PFSPax);
     }
 }
 
@@ -4646,7 +4655,7 @@ int PFS(TTlgInfo &info, int tst_tlg_id)
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
     SaveTlgOutPartTST(tlg_row);
-    
+
     return tlg_row.id;
 }
 
