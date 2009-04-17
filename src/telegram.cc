@@ -520,14 +520,6 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
   if (point_id==-1) point_id=0;
   TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
   NewTextChild( resNode, "tlg_id", tlg_id);
-///  GetTlgOut(ctxt,resNode,resNode);
-  try {//!!!
-      CreateTlg2(ctxt, reqNode, resNode, tlg_id);
-  } catch(Exception E) {
-      ProgTrace(TRACE5, "CreateTlg2 failed for %s: %s", tlg_type.c_str(), E.what());
-  } catch(...) {
-      ProgTrace(TRACE5, "CreateTlg2: unexpected behavior for %s", tlg_type.c_str());
-  }
 };
 
 #include "base_tables.h"
