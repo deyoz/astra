@@ -289,7 +289,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
         "      pax.grp_id, "
         "      pax.refuse "
         "FROM crs_pnr,crs_pax,pax,pax_grp "
-        "WHERE crs_pax.pax_id=:pax_id AND "
+        "WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
         "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
         "      crs_pax.pax_id=pax.pax_id(+) AND "
         "      pax.grp_id=pax_grp.grp_id(+)";

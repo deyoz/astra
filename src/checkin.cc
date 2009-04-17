@@ -3595,7 +3595,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         "       pax.document,pax.subclass,pax.tid, "
         "       crs_pax.pax_id AS crs_pax_id "
         "FROM pax,crs_pax "
-        "WHERE pax.pax_id=crs_pax.pax_id(+) AND pax.grp_id=:grp_id ORDER BY pax.reg_no";
+        "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
+        "      pax.grp_id=:grp_id ORDER BY pax.reg_no";
       PaxQry.CreateVariable("grp_id",otInteger,grp_id);
       PaxQry.Execute();
 

@@ -133,7 +133,7 @@ string GetPaxPnrAddr(int pax_id, vector<TPnrAddrItem> &pnrs, string airline)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id";
+    "SELECT pnr_id FROM crs_pax WHERE pax_id=:pax_id AND pr_del=0";
   Qry.CreateVariable("pax_id",otInteger,pax_id);
   Qry.Execute();
   if (!Qry.Eof)
@@ -501,7 +501,7 @@ void TMktFlight::getByCrsPaxId(int pax_id)
         "   tlg_trips, "
         "   pnr_market_flt "
         "where "
-        "    crs_pax.pax_id = :id and "
+        "    crs_pax.pax_id = :id and crs_pax.pr_del=0 and "
         "    crs_pax.pnr_id = crs_pnr.pnr_id and "
         "    crs_pnr.point_id = tlg_trips.point_id and "
         "    crs_pax.pnr_id = pnr_market_flt.pnr_id(+) ";
