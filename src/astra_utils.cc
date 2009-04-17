@@ -681,11 +681,12 @@ void showError(const std::string &message, int code)
   SetProp(resNode, "code", code);
 };
 
-void showErrorMessage(const std::string &message )
+void showErrorMessage(const std::string &message, bool pr_dialog )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
+  xmlNodePtr node = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
+  SetProp( node, "pr_dialog", (int)pr_dialog );
 };
 
 void showErrorMessageAndRollback(const std::string &message )
