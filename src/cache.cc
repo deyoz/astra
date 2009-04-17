@@ -1009,6 +1009,17 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
   {
     if (qryType==cqtSelect)
     {
+      if (refreshQry.Variables!=NULL &&
+          refreshQry.Variables->FindVariable("use_mark_flt")!=-1 &&
+          refreshQry.VariableIsNULL("use_mark_flt"))
+      {
+        refreshQry.DeleteVariable("use_mark_flt");
+        refreshQry.DeleteVariable("airline_mark");
+        if (cache.code() == "TRIP_BAG_NORMS" ||
+            cache.code() == "TRIP_BAG_RATES")
+          refreshQry.DeleteVariable("flt_no_mark");
+      };
+
       if (refreshQry.Variables==NULL ||
           refreshQry.Variables->FindVariable("use_mark_flt")==-1)
       {
@@ -1016,7 +1027,7 @@ void BeforeRefresh(TCacheTable &cache, TQuery &refreshQry, const TCacheQueryType
         refreshQry.CreateVariable("airline_mark",otString,FNull);
         if (cache.code() == "TRIP_BAG_NORMS" ||
             cache.code() == "TRIP_BAG_RATES")
-          refreshQry.CreateVariable("flt_no_mark",otString,FNull);
+          refreshQry.CreateVariable("flt_no_mark",otInteger,FNull);
       };
     };
   };
