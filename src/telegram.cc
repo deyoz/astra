@@ -60,9 +60,9 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
       if (*i==r->airp) break;
     if (i!=airps.end()) continue;
 
-    NewTextChild( node, "airp", Qry.FieldAsString("airp") );
+    NewTextChild( node, "airp", r->airp );
 
-    airps.push_back(Qry.FieldAsString( "airp" ));
+    airps.push_back(r->airp);
   };
 
   vector<TTripInfo> markFltInfo;
