@@ -4131,8 +4131,9 @@ void TDestList<T>::get(TTlgInfo &info)
 }
 
 struct TNumByDestItem {
-    string target;
     int f, c, y;
+    void add(string cls);
+    void ToTlg(TTlgInfo &info, string airp, vector<string> &body);
     TNumByDestItem():
         f(0),
         c(0),
@@ -4140,53 +4141,35 @@ struct TNumByDestItem {
     {};
 };
 
-struct TNumByDest {
-    vector<TNumByDestItem> items;
-    void get(TTlgInfo &info);
-    void ToTlg(TTlgInfo &info, vector<string> &body);
-};
-
-void TNumByDest::ToTlg(TTlgInfo &info, vector<string> &body)
+void TNumByDestItem::ToTlg(TTlgInfo &info, string airp, vector<string> &body)
 {
-    for(vector<TNumByDestItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-        ostringstream buf;
-        buf
-            << ElemIdToElem(etAirp, iv->target, info.pr_lat)
-            << " "
-            << setw(2) << setfill('0') << iv->f << "/"
-            << setw(3) << setfill('0') << iv->c << "/"
-            << setw(3) << setfill('0') << iv->y;
-        body.push_back(buf.str());
-    }
+    ostringstream buf;
+    buf
+        << ElemIdToElem(etAirp, airp, info.pr_lat)
+        << " "
+        << setw(2) << setfill('0') << f << "/"
+        << setw(3) << setfill('0') << c << "/"
+        << setw(3) << setfill('0') << y;
+    body.push_back(buf.str());
 }
 
-void TNumByDest::get(TTlgInfo &info)
+void TNumByDestItem::add(string cls)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "SELECT points.airp AS target, "
-        "       NVL(SUM(DECODE(class,'П',seats,0)),0) AS f, "
-        "       NVL(SUM(DECODE(class,'Б',seats,0)),0) AS c, "
-        "       NVL(SUM(DECODE(class,'Э',seats,0)),0) AS y "
-        "FROM points, "
-        "     (SELECT point_arv,class,seats "
-        "      FROM pax_grp,pax "
-        "      WHERE pax_grp.grp_id=pax.grp_id AND point_dep=:point_id AND pr_brd=1) pax "
-        "WHERE points.point_id=pax.point_arv(+) AND "
-        "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
-        "GROUP BY point_num,airp "
-        "ORDER BY point_num ";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("first_point", otInteger, info.first_point);
-    Qry.CreateVariable("point_num", otInteger, info.point_num);
-    Qry.Execute();
-    for(; !Qry.Eof; Qry.Next()) {
-        TNumByDestItem item;
-        item.target = Qry.FieldAsString("target");
-        item.f = Qry.FieldAsInteger("f");
-        item.c = Qry.FieldAsInteger("c");
-        item.y = Qry.FieldAsInteger("y");
-        items.push_back(item);
+    if(cls.empty())
+        return;
+    switch(cls[0])
+    {
+        case 'П':
+            f++;
+                break;
+        case 'Б':
+            c++;
+                break;
+        case 'Э':
+            y++;
+                break;
+        default:
+            throw Exception("TNumByDestItem::add: strange cls: %s", cls.c_str());
     }
 }
 
@@ -4301,6 +4284,7 @@ struct TCKINPaxInfo {
         int col_surname;
         int col_name;
         int col_pers_type;
+        int col_cls;
         int col_subclass;
         int col_target;
         int col_pr_brd;
@@ -4310,6 +4294,7 @@ struct TCKINPaxInfo {
         string surname;
         string name;
         string pers_type;
+        string cls;
         string subclass;
         string target;
         int pr_brd;
@@ -4329,6 +4314,7 @@ struct TCKINPaxInfo {
             surname.erase();
             name.erase();
             pers_type.erase();
+            cls.erase();
             subclass.erase();
             target.erase();
             pr_brd = NoExists;
@@ -4351,6 +4337,7 @@ struct TCKINPaxInfo {
                         col_surname = Qry.FieldIndex("surname");
                         col_name = Qry.FieldIndex("name");
                         col_pers_type = Qry.FieldIndex("pers_type");
+                        col_cls = Qry.FieldIndex("cls");
                         col_subclass = Qry.FieldIndex("subclass");
                         col_target = Qry.FieldIndex("target");
                         col_pr_brd = Qry.FieldIndex("pr_brd");
@@ -4360,6 +4347,7 @@ struct TCKINPaxInfo {
                     surname = Qry.FieldAsString(col_surname);
                     name = Qry.FieldAsString(col_name);
                     pers_type = Qry.FieldAsString(col_pers_type);
+                    cls = Qry.FieldAsString(col_cls);
                     subclass = Qry.FieldAsString(col_subclass);
                     target = Qry.FieldAsString(col_target);
                     pr_brd = Qry.FieldAsInteger(col_pr_brd);
@@ -4375,6 +4363,7 @@ struct TCKINPaxInfo {
             col_surname(NoExists),
             col_name(NoExists),
             col_pers_type(NoExists),
+            col_cls(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
             col_pr_brd(NoExists),
@@ -4389,6 +4378,7 @@ struct TCKINPaxInfo {
                 "    pax.surname, "
                 "    pax.name, "
                 "    pax.pers_type, "
+                "    pax_grp.class cls, "
                 "    nvl(pax.subclass, pax_grp.class) subclass, "
                 "    pax_grp.airp_arv target, "
                 "    pax.pr_brd, "
@@ -4424,6 +4414,7 @@ void TCKINPaxInfo::dump()
     ProgTrace(TRACE5, "surname: %s", surname.c_str());
     ProgTrace(TRACE5, "name: %s", name.c_str());
     ProgTrace(TRACE5, "pers_type: %s", pers_type.c_str());
+    ProgTrace(TRACE5, "cls: %s", cls.c_str());
     ProgTrace(TRACE5, "subclass: %s", subclass.c_str());
     ProgTrace(TRACE5, "target: %s", target.c_str());
     ProgTrace(TRACE5, "pr_brd: %d", pr_brd);
@@ -4438,7 +4429,7 @@ struct TPFSPax {
     int pnr_id;
     TName name;
     string target;
-    string cls;
+    string subcls;
     string crs;
     TMItem M;
     TPNRList pnrs;
@@ -4460,7 +4451,7 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
             name.name = ckin_pax.name;
             name.surname = ckin_pax.surname;
             target = ckin_pax.target;
-            cls = ckin_pax.subclass;
+            subcls = ckin_pax.subclass;
             M.m_flight.getByPaxId(pax_id);
         } else {
             if(ckin_pax.crs_pax.pax_id == NoExists)
@@ -4469,7 +4460,7 @@ void TPFSPax::operator = (const TCKINPaxInfo &ckin_pax)
             name.name = ckin_pax.crs_pax.name;
             name.surname = ckin_pax.crs_pax.surname;
             target = ckin_pax.crs_pax.target;
-            cls = ckin_pax.crs_pax.subclass;
+            subcls = ckin_pax.crs_pax.subclass;
             M.m_flight.getByCrsPaxId(pax_id);
         }
         crs = ckin_pax.crs_pax.crs;
@@ -4505,6 +4496,7 @@ typedef map<string, TPFSClsList> TPFSCtgryList;
 typedef map<string, TPFSCtgryList> TPFSItems;
 
 struct TPFSBody {
+    map<string, TNumByDestItem> pfsn;
     TPFSItems items;
     void get(TTlgInfo &info);
     void ToTlg(TTlgInfo &info, vector<string> &body);
@@ -4512,25 +4504,30 @@ struct TPFSBody {
 
 void TPFSBody::ToTlg(TTlgInfo &info, vector<string> &body)
 {
+    vector<string> category_lst;
     TTripRoute route;
     route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
-        TPFSCtgryList &CtgryList = items[iv->airp];
-        if(CtgryList.empty())
-            continue;
-        body.push_back((string)"-" + ElemIdToElem(etAirp, iv->airp, info.pr_lat));
-        for(TPFSCtgryList::iterator ctgry = CtgryList.begin(); ctgry != CtgryList.end(); ctgry++) {
-            TPFSClsList &ClsList = ctgry->second;
-            for(TPFSClsList::iterator cls = ClsList.begin(); cls != ClsList.end(); cls++) {
-                ostringstream buf;
-                TPFSPaxList &pax_list = cls->second;
-                buf << ctgry->first << " " << pax_list.size() << ElemIdToElem(etSubcls, cls->first, info.pr_lat);
-                body.push_back(buf.str());
-                for(TPFSPaxList::iterator pax = pax_list.begin(); pax != pax_list.end(); pax++)
-                    pax->ToTlg(info, body);
+        pfsn[iv->airp].ToTlg(info, iv->airp, body);
+        if(info.tlg_type == "PFS") {
+            TPFSCtgryList &CtgryList = items[iv->airp];
+            if(CtgryList.empty())
+                continue;
+            category_lst.push_back((string)"-" + ElemIdToElem(etAirp, iv->airp, info.pr_lat));
+            for(TPFSCtgryList::iterator ctgry = CtgryList.begin(); ctgry != CtgryList.end(); ctgry++) {
+                TPFSClsList &ClsList = ctgry->second;
+                for(TPFSClsList::iterator cls = ClsList.begin(); cls != ClsList.end(); cls++) {
+                    ostringstream buf;
+                    TPFSPaxList &pax_list = cls->second;
+                    buf << ctgry->first << " " << pax_list.size() << ElemIdToElem(etSubcls, cls->first, info.pr_lat);
+                    category_lst.push_back(buf.str());
+                    for(TPFSPaxList::iterator pax = pax_list.begin(); pax != pax_list.end(); pax++)
+                        pax->ToTlg(info, category_lst);
+                }
             }
         }
     }
+    body.insert(body.end(), category_lst.begin(), category_lst.end());
 }
 
 
@@ -4692,8 +4689,6 @@ void TPFSBody::get(TTlgInfo &info)
                 }
             }
         }
-        if(category.empty())
-            continue;
         ProgTrace(TRACE5, "category: %s", category.c_str());
 
         TPFSPax PFSPax = ckin_pax; // PFSPax.M inits within assignment
@@ -4701,8 +4696,12 @@ void TPFSBody::get(TTlgInfo &info)
             continue;
         if(not info.mark_info.IsNULL() and not(info.mark_info == PFSPax.M.m_flight))
             continue;
+        if(item.pax_id != NoExists) // для зарегистрированных пассажиров собираем инфу для цифровой PFS
+            pfsn[ckin_pax.target].add(ckin_pax.cls);
+        if(category.empty())
+            continue;
         PFSPax.pnrs.get(PFSPax.pnr_id);
-        items[PFSPax.target][category][PFSPax.cls].push_back(PFSPax);
+        items[PFSPax.target][category][PFSPax.subcls].push_back(PFSPax);
     }
 }
 
@@ -4736,15 +4735,10 @@ int PFS(TTlgInfo &info, int tst_tlg_id)
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    TNumByDest num_by_dest;
     vector<string> body;
-    num_by_dest.get(info);
-    num_by_dest.ToTlg(info, body);
-    if(info.tlg_type == "PFS") {
-        TPFSBody pfs;
-        pfs.get(info);
-        pfs.ToTlg(info, body);
-    }
+    TPFSBody pfs;
+    pfs.get(info);
+    pfs.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
     SaveTlgOutPartTST(tlg_row);
