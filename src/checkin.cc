@@ -2806,13 +2806,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   i++;
                 };
                 if ( invalid_seat_no )
-                  showErrorMessage("Пассажиры посажены на запрещенные места");
+                  showErrorMessage("Пассажиры посажены на запрещенные места",true);
                 else
               		if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
-             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места",true);
                 	else
                 	  if ( change_agent_seat_no || change_preseat_no )
-                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные",true);
               };
               if (seat_no_str.str().empty()) seat_no_str << " нет";
 
