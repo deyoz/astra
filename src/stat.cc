@@ -838,7 +838,9 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     } else {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from arx_points where part_key = :part_key and point_id = :point_id";
+            Qry.SQLText =
+              "select move_id from arx_points "
+              "where part_key = :part_key and point_id = :point_id and pr_del>=0";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
@@ -1201,7 +1203,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order "
+                "  ev_user, station, ev_order, null part_key "
                 "FROM "
                 "   events "
                 "WHERE "
@@ -1232,7 +1234,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "       screen, "
                 "       DECODE(type,:evtPax,id2,:evtPay,id2,NULL) AS reg_no, "
                 "       DECODE(type,:evtPax,id3,:evtPay,id3,NULL) AS grp_id, "
-                "  ev_user, station, ev_order "
+                "  ev_user, station, ev_order, part_key "
                 "FROM "
                 "   arx_events "
                 "WHERE "
@@ -1306,7 +1308,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             else
                 throw;
         }
-        ProgTrace(TRACE5, "SystemLogRun%d EXEC QRY: %s", j, tm.PrintWithMessage().c_str());
+        ProgTrace(TRACE5, "SystemLogRun%d EXEC QRY: %s, Qry.Eof: %d", j, tm.PrintWithMessage().c_str(), Qry.Eof);
 
         typedef map<string, bool> TAccessMap;
         TAccessMap user_access;
@@ -1321,6 +1323,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             int col_msg=Qry.FieldIndex("msg");
             int col_ev_order=Qry.FieldIndex("ev_order");
             int col_screen=Qry.FieldIndex("screen");
+            int col_part_key=Qry.FieldIndex("part_key");
 
             xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
             for( ; !Qry.Eof; Qry.Next()) {
@@ -1384,7 +1387,11 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         SQLText += (j == 0 ? "points" : "arx_points");
                         SQLText +=
                             " where "
-                            "   point_id = :point_id ";
+                            "   point_id = :point_id "; //!!!!!
+                        if(j == 1) {
+                            SQLText += " and part_key = :part_key ";
+                            tripQry.CreateVariable("part_key", otDate,  Qry.FieldAsDateTime(col_part_key));
+                        }
                         tripQry.SQLText = SQLText;
                         tripQry.CreateVariable("point_id", otInteger,  point_id);
                         tripQry.Execute();

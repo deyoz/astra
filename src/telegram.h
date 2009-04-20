@@ -6,8 +6,37 @@
 #include "jxtlib/JxtInterface.h"
 #include "tlg/tlg_parser.h"
 #include "astra_consts.h"
+#include "astra_misc.h"
+
+struct TCodeShareInfo {
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    bool pr_mark_header;
+    void init(xmlNodePtr node);
+    void dump() const;
+    bool IsNULL() const;
+    bool operator == (const TMktFlight &s) const;
+    TCodeShareInfo():
+        flt_no(ASTRA::NoExists),
+        pr_mark_header(false)
+    {};
+};
+
+struct TCreateTlgInfo {
+    std::string type;
+    int         point_id;
+    std::string airp_trfer;
+    std::string crs;
+    std::string extra;
+    bool        pr_lat;
+    std::string addrs;
+    TCodeShareInfo mark_info;
+};
 
 struct TTlgInfo {
+    // Информация о коммерческом рейсе
+    const TCodeShareInfo &mark_info;
     // кодировка салона
     bool pr_lat_seat;
     std::string tlg_type;
@@ -27,6 +56,7 @@ struct TTlgInfo {
     BASIC::TDateTime scd;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
+    int local_day;
     bool pr_summer;
     std::string craft;
     std::string bort;
@@ -41,12 +71,14 @@ struct TTlgInfo {
     std::string extra;
     //разные настройки
     bool pr_lat;
-    TTlgInfo() {
+    bool operator == (const TMktFlight &s) const;
+    TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
         point_id = -1;
         flt_no = -1;
         scd = 0;
         scd_local = 0;
         act_local = 0;
+        local_day = 0;
         pr_summer = false;
         first_point = -1;
         point_num = -1;
@@ -164,16 +196,38 @@ class TBSMContent
 struct TTypeBSendInfo
 {
   std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,first_point,point_num;
+  int flt_no,point_id,first_point,point_num;
+  bool pr_tranzit;
+  TTypeBSendInfo() {};
+  TTypeBSendInfo(const TTripInfo &info)
+  {
+    airline=info.airline;
+    flt_no=info.flt_no;
+    airp_dep=info.airp;
+  };
 };
 
 struct TTypeBAddrInfo
 {
   std::string tlg_type,airline,airp_dep,airp_arv;
-  int flt_no,first_point,point_num;
-
+  int flt_no,point_id,first_point,point_num;
+  bool pr_tranzit;
   std::string airp_trfer,crs;
   bool pr_lat;
+  TCodeShareInfo mark_info;
+  TTypeBAddrInfo() {};
+  TTypeBAddrInfo(const TTypeBSendInfo &info)
+  {
+    tlg_type=info.tlg_type;
+    airline=info.airline;
+    airp_dep=info.airp_dep;
+    airp_arv=info.airp_arv;
+    flt_no=info.flt_no;
+    point_id=info.point_id;
+    first_point=info.first_point;
+    point_num=info.point_num;
+    pr_tranzit=info.pr_tranzit;
+  };
 };
 
 struct TTlgOutPartInfo
@@ -233,16 +287,12 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(
-          const std::string vtype,
-          const int         vpoint_id,
-          const std::string vairp_trfer,
-          const std::string vcrs,
-          const std::string vextra,
-          const bool        vpr_lat,
-          const std::string vaddrs,
+          const             TCreateTlgInfo &createInfo,
           const int         tst_tlg_id = -1
           );
   void delete_tst_tlg(int tlg_id);
+
+  static std::string GetTlgLogMsg(const TCreateTlgInfo &createInfo);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
@@ -261,6 +311,8 @@ public:
   static bool IsBSMSend( TTypeBSendInfo info, std::map<bool,std::string> &addrs );
   static void SendBSM(int point_dep, int grp_id, TBSMContent &con1, std::map<bool,std::string> &addrs );
 };
+
+std::string fetch_addr(std::string &addr);
 
 #endif /*_TELEGRAM_H_*/
 

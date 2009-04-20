@@ -9,11 +9,36 @@
 #include "astra_utils.h"
 #include "stages.h"
 
+struct TMktFlight {
+  private:
+    void get(TQuery &Qry, int id);
+  public:
+    std::string airline;
+    int flt_no;
+    std::string suffix;
+    std::string subcls;
+    int scd;
+    std::string airp_dep;
+    std::string airp_arv;
+
+    void getByPaxId(int pax_id);
+    void getByCrsPaxId(int pax_id);
+    void getByPnrId(int pnr_id);
+    bool IsNULL();
+    void clear();
+    void dump();
+    TMktFlight():
+        flt_no(ASTRA::NoExists),
+        scd(ASTRA::NoExists)
+    {
+    };
+};
+
 class TTripInfo
 {
   public:
     std::string airline,suffix,airp;
-    int flt_no, pr_del, point_num, first_point;
+    int flt_no, pr_del;
     BASIC::TDateTime scd_out,real_out,real_out_local_date;
     TTripInfo()
     {
@@ -33,8 +58,6 @@ class TTripInfo
       real_out=ASTRA::NoExists;
       real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
-      point_num = ASTRA::NoExists;
-      first_point = ASTRA::NoExists;
     };
     void Init( TQuery &Qry )
     {
@@ -52,14 +75,6 @@ class TTripInfo
         pr_del = Qry.FieldAsInteger("pr_del");
       else
         pr_del = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("point_num")>=0)
-        point_num = Qry.FieldAsInteger("point_num");
-      else
-        point_num = ASTRA::NoExists;
-      if (Qry.GetFieldIndex("first_point")>=0)
-        first_point = Qry.FieldAsInteger("first_point");
-      else
-        first_point = ASTRA::NoExists;
     };
 };
 
@@ -83,7 +98,11 @@ class TPnrAddrItem
 
 std::string GetPnrAddr(int pnr_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
 std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::string airline="");
-BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date);
+
+//процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
+//ищет ближайшую или совпадающую дату по отношению к base_date
+//параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
+BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back=false);
 
 struct TTripRouteItem
 {
@@ -190,8 +209,6 @@ class TPaxSeats {
     ~TPaxSeats();
 };
 
-std::string mkt_airline(int pax_id);
-
 enum TCkinSegmentSet { cssNone,
                        cssAllPrev,
                        cssAllPrevCurr,
@@ -207,6 +224,38 @@ bool SeparateTCkin(int grp_id,
 enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atLength };
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType &alarm );
+
+struct TCodeShareSets {
+  private:
+    TQuery *Qry;
+  public:
+    //настройки
+    bool pr_mark_norms;
+    bool pr_mark_bp;
+    bool pr_mark_rpt;
+    TCodeShareSets();
+    ~TCodeShareSets();
+    void clear()
+    {
+      pr_mark_norms=false;
+      pr_mark_bp=false;
+      pr_mark_rpt=false;
+    };
+    //важно! время вылета scd_out у operFlt в UTC
+    void get(const TTripInfo &operFlt,
+             const TTripInfo &markFlt);
+};
+
+//важно! время вылета scd_out у operFlt должно быть в UTC
+//       время вылета в markFltInfo возвращается локальное относительно airp
+void GetMktFlights(const TTripInfo &operFltInfo, std::vector<TTripInfo> &markFltInfo);
+
+//важно! время вылета scd_out у operFlt должно быть в UTC
+//       время вылета в markFltInfo возвращается локальное относительно airp
+std::string GetMktFlightStr( const TTripInfo &operFlt, const TTripInfo &markFlt );
+
+void GetCrsList(int point_id, std::vector<std::string> &crs);
+
 #endif /*_ASTRA_MISC_H_*/
 
 

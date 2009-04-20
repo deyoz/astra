@@ -672,9 +672,9 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDo
       NewTextChild( NodeAK, "PUR", IntToString( k + 1 ) );
       NewTextChild( NodeAK, "PR", IntToString( 0 ) );
       //NewTextChild( NodeAK, "PC", IntToString( 0 ) );
-      NewTextChild( NodeAK, "TPC", IntToString( 0 ) );
+      //NewTextChild( NodeAK, "TPC", IntToString( 0 ) );
       //NewTextChild( NodeAK, "GRU", IntToString( 0 ) );
-      NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
+      //NewTextChild( NodeAK, "TGRU", IntToString( 0 ) );
     };
 		if ( prior_point_id > ASTRA::NoExists ) {
  			GetLuggage( prior_point_id, lug_in );
@@ -686,7 +686,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDo
        	mail_in += wc->mail;
        }
      }
-    NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
+    //NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
     //NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
     //NewTextChild( NodeA, "F11", IntToString( mail_in ) );
 	} // end if !place_in.empty()
@@ -803,14 +803,14 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDo
       	//NewTextChild( NodeDK, "PC", IntToString( 0 ) );
       	//NewTextChild( NodeDK, "GRU", IntToString( 0 ) );
       }
-      NewTextChild( NodeDK, "TPC", IntToString( 0 ) );
-      NewTextChild( NodeDK, "TGRU", IntToString( 0 ) );
+      //NewTextChild( NodeDK, "TPC", IntToString( 0 ) );
+      //NewTextChild( NodeDK, "TGRU", IntToString( 0 ) );
     }; // end for
     for ( vector<Cargo>::iterator wc=lug_out.vcargo.begin(); wc!=lug_out.vcargo.end(); wc++ ) {
     	cargo_out += wc->cargo;
     	mail_out += wc->mail;
     }
- 	  NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
+ 	  //NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
  	  //NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
  	  //NewTextChild( NodeD, "F11", IntToString( mail_out ) );
  	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );
@@ -888,15 +888,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
+      "    PRIZ=:PRIZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -920,7 +920,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     createParam( paramsNode, "NMSF", NodeAsString( "NMSF", nodeN ), DBF_TYPE_CHAR );
     createParam( paramsNode, "RPVSN", NodeAsString( "RPVSN", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "PRIZ", NodeAsString( "PRIZ", nodeN ), DBF_TYPE_NUMBER );
-    createParam( paramsNode, "PKZ", NodeAsString( "PKZ", nodeN ), DBF_TYPE_NUMBER );
+    //createParam( paramsNode, "PKZ", NodeAsString( "PKZ", nodeN ), DBF_TYPE_NUMBER );
     //createParam( paramsNode, "F9", NodeAsString( "F9", nodeN ),  DBF_TYPE_NUMBER );
     //createParam( paramsNode, "F11", NodeAsString( "F11", nodeN ), DBF_TYPE_NUMBER );
     createParam( paramsNode, "KUR", NodeAsString( "KUR", nodeN ), DBF_TYPE_NUMBER );
@@ -981,15 +981,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     if ( pr_insert ) {
       sql_str =
         string("INSERT INTO ") + tablename +
-        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR,TPC,TGRU) "
-        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR,:TPC,:TGRU)";
+        "(PNR,AV,AP,DPP,VPP,DPR,VPR,DPF,VPF,PDV,PVV,RDV,RVV,FDV,FVV,PUR,SPUR,PR) "
+        " VALUES(:PNR,:AV,:AP,:DPP,:VPP,:DPR,:VPR,:DPF,:VPF,:PDV,:PVV,:RDV,:RVV,:FDV,:FVV,:PUR,:SPUR,:PR)";
     }
     if ( pr_update ) {
       sql_str =
         string("UPDATE ") + tablename +
         " SET "
         "AV=:AV,AP=:AP,DPP=:DPP,VPP=:VPP,DPR=:DPR,VPR=:VPR,DPF=:DPF,VPF=:VPF,PDV=:PDV,PVV=:PVV,RDV=:RDV,"
-        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR,TPC=:TPC,TGRU=:TGRU "
+        "RVV=:RVV,FDV=:FDV,FVV=:FVV,PUR=:PUR,SPUR=:SPUR,PR=:PR "
         " WHERE PNR=:PNR AND DPP=:DPP AND PUR=:PUR";
     }
     if ( pr_insert || pr_update ) {
@@ -1028,9 +1028,9 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
      	createParam( paramsNode, "FVV", NodeAsString( "FVV", *nodeNK ), DBF_TYPE_NUMBER );
       createParam( paramsNode, "PR", NodeAsString( "PR", *nodeNK ), DBF_TYPE_CHAR );
       //createParam( paramsNode, "PC", NodeAsString( "PC", *nodeNK ), DBF_TYPE_NUMBER );
-      createParam( paramsNode, "TPC", NodeAsString( "TPC", *nodeNK ), DBF_TYPE_NUMBER );
+      //createParam( paramsNode, "TPC", NodeAsString( "TPC", *nodeNK ), DBF_TYPE_NUMBER );
       //createParam( paramsNode, "GRU", NodeAsString( "GRU", *nodeNK ), DBF_TYPE_NUMBER );
-      createParam( paramsNode, "TGRU", NodeAsString( "TGRU", *nodeNK ), DBF_TYPE_NUMBER );
+      //createParam( paramsNode, "TGRU", NodeAsString( "TGRU", *nodeNK ), DBF_TYPE_NUMBER );
     }
 
     if ( nodePK != nodesPK.end() )

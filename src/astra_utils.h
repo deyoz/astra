@@ -246,7 +246,7 @@ signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 
 void showProgError(const std::string &message );
 void showError(const std::string &message, int code = 0 );
-void showErrorMessage( const std::string &message );
+void showErrorMessage( const std::string &message, bool pr_dialog=false );
 void showMessage( const std::string &message );
 void showErrorMessageAndRollback(const std::string &message );
 void showBasicInfo(void);

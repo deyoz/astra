@@ -275,11 +275,29 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(dataNode,"tickets");
   };
 
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,scd,airp_dep,pr_mark_norms "
+    "FROM market_flt WHERE grp_id=:grp_id ";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (!Qry.Eof)
+  {
+    xmlNodePtr markFltNode=NewTextChild(dataNode,"mark_flight");
+    NewTextChild(markFltNode,"airline",Qry.FieldAsString("airline"));
+    NewTextChild(markFltNode,"flt_no",Qry.FieldAsInteger("flt_no"));
+    NewTextChild(markFltNode,"suffix",Qry.FieldAsString("suffix"));
+    NewTextChild(markFltNode,"scd",DateTimeToStr(Qry.FieldAsDateTime("scd")));
+    NewTextChild(markFltNode,"airp_dep",Qry.FieldAsString("airp_dep"));
+    NewTextChild(markFltNode,"pr_mark_norms",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
+    NewTextChild(markFltNode,"pr_mark_rates",(int)(Qry.FieldAsInteger("pr_mark_norms")!=0));
+  };
+
   CheckInInterface::LoadBag(grp_id,dataNode);
   CheckInInterface::LoadPaidBag(grp_id,dataNode);
   LoadReceipts(grp_id,true,dataNode);
 
-  ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
 
 void PaymentInterface::LoadReceipts(int id, bool pr_grp, xmlNodePtr dataNode)
@@ -799,7 +817,6 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     throw UserException("Информация по рейсу или пассажиру изменена. Обновите данные");
 
   rcpt.airline=Qry.FieldAsString("airline");
-  rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
   rcpt.flt_no=Qry.FieldAsInteger("flt_no");
   rcpt.suffix=Qry.FieldAsString("suffix");
   rcpt.airp_dep=Qry.FieldAsString("airp_dep");
@@ -807,6 +824,21 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
     rcpt.airp_arv=NodeAsString("airp_arv",rcptNode);
   else
     rcpt.airp_arv=Qry.FieldAsString("airp_arv");
+
+  //проверим, надо ли выводить в квитанцию коммерческий рейс
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT airline,flt_no,suffix,pr_mark_norms FROM market_flt WHERE grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (!Qry.Eof && Qry.FieldAsInteger("pr_mark_norms")!=0)
+  {
+    rcpt.airline=Qry.FieldAsString("airline");
+    rcpt.flt_no=Qry.FieldAsInteger("flt_no");
+    rcpt.suffix=Qry.FieldAsString("suffix");
+  };
+
+  rcpt.aircode=base_tables.get("airlines").get_row("code", rcpt.airline).AsString("aircode");
   string city_dep=base_tables.get("airps").get_row("code", rcpt.airp_dep).AsString("city");
   string city_arv=base_tables.get("airps").get_row("code", rcpt.airp_arv).AsString("city");
   string country_dep=base_tables.get("cities").get_row("code", city_dep).AsString("country");

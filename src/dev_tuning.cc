@@ -19,72 +19,56 @@ using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
 
-string FieldAsString(TCacheTable &cache, const TRow &row, string name)
+void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
-    int FieldIndex = cache.FieldIndex(name);
-    if ( FieldIndex < 0 )
-        throw Exception( "FieldAsString: Ошибка при поиске поля " + name);
-    return row.cols[FieldIndex];
-}
-
-string OldFieldAsString(TCacheTable &cache, const TRow &row, string name)
-{
-    int FieldIndex = cache.FieldIndex(name);
-    if ( FieldIndex < 0 )
-        throw Exception( "OldFieldAsString: Ошибка при поиске поля " + name);
-    return row.old_cols[FieldIndex];
-}
-
-void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
-{
-    if(cache.GetCacheCode() == "PRN_FORMS") {
+    if(cache.code() == "PRN_FORMS") {
         if(
                 row.status == usDeleted
           ) {
             TQuery Qry(&OraSession);
             Qry.SQLText = "select * from prn_form_vers where id = :id";
-            Qry.CreateVariable("id", otString, ToInt(OldFieldAsString(cache, row, "id")));
+            Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
             Qry.Execute();
             if(!Qry.Eof)
-                throw UserException("Для формы " + OldFieldAsString(cache, row, "name") + " задан список версий.");
+                throw UserException("Для формы " + cache.FieldOldValue("name", row) + " задан список версий.");
         }
     }
-    if(cache.GetCacheCode() == "PRN_FORM_VERS") {
+    if(cache.code() == "PRN_FORM_VERS") {
         if(row.status == usInserted) {
-            if(FieldAsString(cache, row, "read_only") == "0")
-                throw UserException("Версия " + FieldAsString(cache, row, "version") + ". При создании версии, редактирование должно быть включено.");
+            if(cache.FieldValue("read_only", row) == "0")
+                throw UserException("Версия " + cache.FieldValue("version", row) + ". При создании версии, редактирование должно быть включено.");
         }
         if(
                 row.status == usModified or
                 row.status == usDeleted
           ) {
-            if(OldFieldAsString(cache, row, "read_only") == "0")
-                throw UserException("Редактирование версии " + OldFieldAsString(cache, row, "version") + " запрещено.");
+            if(cache.FieldOldValue("read_only", row) == "0")
+                throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
             if(row.status == usDeleted) {
                 TQuery Qry(&OraSession);
                 Qry.SQLText =
                     "select * from bp_models where id = :id and version = :version";
-                Qry.CreateVariable("id", otString, ToInt(OldFieldAsString(cache, row, "id")));
-                Qry.CreateVariable("version", otString, ToInt(OldFieldAsString(cache, row, "version")));
+                Qry.CreateVariable("id", otString, ToInt(cache.FieldOldValue("id", row)));
+                Qry.CreateVariable("version", otString, ToInt(cache.FieldOldValue("version", row)));
                 Qry.Execute();
                 if(!Qry.Eof)
-                    throw UserException("Для версии " + OldFieldAsString(cache, row, "version") + " задан список бланков.");
+                    throw UserException("Для версии " + cache.FieldOldValue("version", row) + " задан список бланков.");
             }
         }
     }
     if(
-            cache.GetCacheCode() == "BLANK_LIST" or
-            cache.GetCacheCode() == "BP_MODELS"
+            cache.code() == "BLANK_LIST" or
+            cache.code() == "BP_MODELS"
       ) {
         if(
                 row.status == usInserted or
                 row.status == usModified
           ) {
-            string form_type = FieldAsString(cache, row, (cache.GetCacheCode() == "BLANK_LIST" ?  "form_type" : "code"));
-            string dev_model = FieldAsString(cache, row, "dev_model");
-            string fmt_type = FieldAsString(cache, row, "fmt_type");
-            int id = ToInt(FieldAsString(cache, row, "id"));
-            int version = ToInt(FieldAsString(cache, row, "version"));
+            string form_type = cache.FieldValue((cache.code() == "BLANK_LIST" ?  "form_type" : "code"), row);
+            string dev_model = cache.FieldValue("dev_model", row);
+            string fmt_type = cache.FieldValue("fmt_type", row);
+            int id = ToInt(cache.FieldValue("id", row));
+            int version = ToInt(cache.FieldValue("version", row));
             TQuery Qry(&OraSession);
             Qry.SQLText = "select * from prn_form_vers where id = :id and version = :version and form is null and data is null";
             Qry.CreateVariable("id", otInteger, id);
@@ -92,14 +76,14 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
             Qry.Execute();
             if(!Qry.Eof) {
                 string err;
-                if(cache.GetCacheCode() == "BLANK_LIST")
+                if(cache.code() == "BLANK_LIST")
                     err = "Вер. " + IntToString(version) + ". ";
                 err += "Форма не заполнена.";
                 throw UserException(err);
             }
             if(
                     row.status == usInserted and
-                    cache.GetCacheCode() == "BLANK_LIST"
+                    cache.code() == "BLANK_LIST"
               ) {
                 Qry.Clear();
                 Qry.SQLText =
@@ -120,7 +104,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row)
                 Qry.Execute();
                 if(!Qry.Eof) {
                     throw UserException(
-                            "На бланк " + FieldAsString(cache, row, "form_type") + " " +
+                            "На бланк " + cache.FieldValue("form_type", row) + " " +
                             dev_model + " " + fmt_type + " уже назначена форма " +
                             Qry.FieldAsString("form_name") + " Вер. " + IntToString(version) + "."
                             );
