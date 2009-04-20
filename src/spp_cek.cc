@@ -686,7 +686,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDo
        	mail_in += wc->mail;
        }
      }
-    NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
+    //NewTextChild( NodeA, "PKZ", IntToString( lug_in.max_commerce ) );
     //NewTextChild( NodeA, "F9", IntToString( cargo_in ) );
     //NewTextChild( NodeA, "F11", IntToString( mail_in ) );
 	} // end if !place_in.empty()
@@ -810,7 +810,7 @@ xmlDocPtr createXMLTrip( TSOPPTrips::iterator tr, const string &commander, xmlDo
     	cargo_out += wc->cargo;
     	mail_out += wc->mail;
     }
- 	  NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
+ 	  //NewTextChild( NodeD, "PKZ", IntToString( lug_out.max_commerce ) );
  	  //NewTextChild( NodeD, "F9", IntToString( cargo_out ) );
  	  //NewTextChild( NodeD, "F11", IntToString( mail_out ) );
  	  NewTextChild( NodeD, "KUR", IntToString( tr->places_out.size() ) );
@@ -888,15 +888,15 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
 		//insert прилет
     sql_str =
     string("INSERT INTO ") + tablename +
-    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,PKZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
-    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:PKZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
+    "(PNR,KUG,TVC,BNP,NMSF,RPVSN,DN,PRIZ,KUR,VDV,VRD,ABSM,FAM) VALUES"
+    "(:PNR,:KUG,:TVC,:BNP,:NMSF,:RPVSN,:DN,:PRIZ,:KUR,:VDV,:VRD,:ABSM,:FAM)";
   };
   if ( pr_update ) {
 		// update if change
 		sql_str =
       string("UPDATE ") + tablename +
       " SET KUG=:KUG,TVC=:TVC,BNP=:BNP,NMSF=:NMSF,RPVSN=:RPVSN,"
-      "    PRIZ=:PRIZ,PKZ=:PKZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
+      "    PRIZ=:PRIZ,KUR=:KUR,VDV=:VDV,VRD=:VRD,ABSM=:ABSM,FAM=:FAM "
       " WHERE PNR=:PNR AND DN=:DN";
   };
   if ( pr_insert || pr_update ) {
@@ -920,7 +920,7 @@ void createDBF( xmlDocPtr &sqldoc, xmlDocPtr old_doc, xmlDocPtr doc, const strin
     createParam( paramsNode, "NMSF", NodeAsString( "NMSF", nodeN ), DBF_TYPE_CHAR );
     createParam( paramsNode, "RPVSN", NodeAsString( "RPVSN", nodeN ), DBF_TYPE_CHAR );
    	createParam( paramsNode, "PRIZ", NodeAsString( "PRIZ", nodeN ), DBF_TYPE_NUMBER );
-    createParam( paramsNode, "PKZ", NodeAsString( "PKZ", nodeN ), DBF_TYPE_NUMBER );
+    //createParam( paramsNode, "PKZ", NodeAsString( "PKZ", nodeN ), DBF_TYPE_NUMBER );
     //createParam( paramsNode, "F9", NodeAsString( "F9", nodeN ),  DBF_TYPE_NUMBER );
     //createParam( paramsNode, "F11", NodeAsString( "F11", nodeN ), DBF_TYPE_NUMBER );
     createParam( paramsNode, "KUR", NodeAsString( "KUR", nodeN ), DBF_TYPE_NUMBER );
