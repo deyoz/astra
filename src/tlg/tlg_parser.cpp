@@ -4091,34 +4091,6 @@ bool bind_tlg(TQuery &Qry)
       flt.flt_no=CodeShareQry.FieldAsInteger("flt_no_oper");
       if (bind_tlg(point_id,flt,bind_type)) res=true;
     };
-
-  /*  CodeShareQry.Clear();
-    CodeShareQry.SQLText=
-      "SELECT airline,flt_no FROM crs_code_share "
-      "WHERE airline_crs=:airline AND "
-      "      (flt_no_crs=:flt_no OR flt_no_crs IS NULL AND :flt_no IS NULL) "
-      "ORDER BY flt_no_crs,airline,flt_no";
-    CodeShareQry.CreateVariable("airline",otString,flt.airline);
-    CodeShareQry.DeclareVariable("flt_no",otInteger);
-    for(int i=0;i<2;i++)
-    {
-      if (i==0)
-        //сначала проверим по а/к и номеру рейса
-        CodeShareQry.SetVariable("flt_no",(int)flt.flt_no);
-      else
-        //потом проверим только по а/к
-        CodeShareQry.SetVariable("flt_no",FNull);
-      CodeShareQry.Execute();
-      if (CodeShareQry.Eof) continue;
-      for(;!CodeShareQry.Eof;CodeShareQry.Next())
-      {
-        strcpy(flt.airline,CodeShareQry.FieldAsString("airline"));
-        if (!CodeShareQry.FieldIsNULL("flt_no"))
-          flt.flt_no=CodeShareQry.FieldAsInteger("flt_no");
-        if (bind_tlg(point_id,flt,bind_type)) res=true;
-      };
-      break;
-    };*/
   };
   return res;
 };

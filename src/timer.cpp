@@ -911,7 +911,9 @@ bool arx_daily(TDateTime utcdate)
     count=0;
     Qry.Clear();
     Qry.SQLText =
-      "SELECT move_id "
+      "SELECT move_id, "
+      "       MAX(NVL(act_out,NVL(est_out,scd_out))) AS time_out_max, "
+      "       MAX(NVL(act_in,NVL(est_in,scd_in))) AS time_in_max "
       "FROM points "
       "GROUP BY move_id "
       "HAVING MAX(pr_del)=-1 AND MIN(pr_del)=-1 OR "
@@ -984,8 +986,14 @@ bool arx_daily(TDateTime utcdate)
       else
       {
         //переместить в архив удаленный рейс
-        arx_move(move_id,NoExists);
-        count++;
+        if ((Qry.FieldIsNULL("time_out_max") ||
+             Qry.FieldAsDateTime("time_out_max")<utcdate-ARX_MIN_DAYS()) &&
+            (Qry.FieldIsNULL("time_in_max") ||
+             Qry.FieldAsDateTime("time_in_max")<utcdate-ARX_MIN_DAYS()))
+        {
+          arx_move(move_id,NoExists);
+          count++;
+        };
       };
 
       if (count>0 && time(NULL)-time_start>ARX_DURATION)
