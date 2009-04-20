@@ -23,6 +23,17 @@ struct TCodeShareInfo {
     {};
 };
 
+struct TCreateTlgInfo {
+    std::string type;
+    int         point_id;
+    std::string airp_trfer;
+    std::string crs;
+    std::string extra;
+    bool        pr_lat;
+    std::string addrs;
+    TCodeShareInfo mark_info;
+};
+
 struct TTlgInfo {
     // Информация о коммерческом рейсе
     const TCodeShareInfo &mark_info;
@@ -276,17 +287,12 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static int create_tlg(
-          const std::string vtype,
-          const int         vpoint_id,
-          const std::string vairp_trfer,
-          const std::string vcrs,
-          const std::string vextra,
-          const bool        vpr_lat,
-          const std::string vaddrs,
-          const TCodeShareInfo &CodeShareInfo,
+          const             TCreateTlgInfo &createInfo,
           const int         tst_tlg_id = -1
           );
   void delete_tst_tlg(int tlg_id);
+
+  static std::string GetTlgLogMsg(const TCreateTlgInfo &createInfo);
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
   static void SendTlg( int tlg_id );
