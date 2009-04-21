@@ -2706,22 +2706,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       }
     }
     // проверка упорядоченности времен + дублирование рейса, если move_id == NoExists
-    Qry.Clear();
-    Qry.SQLText =
-     "SELECT scd_in, scd_out FROM points "
-     " WHERE airline=:airline AND flt_no=:flt_no AND NVL(suffix,' ')=NVL(:suffix,' ') AND "
-     "       move_id!=:move_id AND airp=:airp AND pr_del!=-1 AND "
-     "       ( scd_in BETWEEN :scd_in-2 AND :scd_in+2 OR "
-     "         scd_out BETWEEN :scd_out-2 AND :scd_out+2 )";
-    Qry.CreateVariable( "move_id", otInteger, move_id );
-    Qry.DeclareVariable( "airp", otString );
-    Qry.DeclareVariable( "airline", otString );
-    Qry.DeclareVariable( "flt_no", otInteger );
-    Qry.DeclareVariable( "suffix", otString );
-    Qry.DeclareVariable( "scd_in", otDate );
-    Qry.DeclareVariable( "scd_out", otDate );
     TDateTime oldtime, curtime = NoExists;
     bool pr_time=false;
+    TDoubleTrip doubletrip;
     for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
   	  if ( id->scd_in > NoExists || id->scd_out > NoExists )
   	  	pr_time = true;
@@ -2748,58 +2735,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
           throw UserException( string("Не задан код воздушного судна") );
         }
       }
-      if ( !existsTrip && id != dests.end() - 1 ) {
-        Qry.SetVariable( "airline", id->airline );
-        Qry.SetVariable( "flt_no", id->flt_no );
-        Qry.SetVariable( "suffix", id->suffix );
-        Qry.SetVariable( "airp", id->airp );
-        if ( id->scd_in > NoExists )
-          Qry.SetVariable( "scd_in", id->scd_in );
-        else
-          Qry.SetVariable( "scd_in", FNull );
-        if ( id->scd_out > NoExists )
-          Qry.SetVariable( "scd_out", id->scd_out );
-        else
-          Qry.SetVariable( "scd_out", FNull );
-        Qry.Execute();
-        double scd_in,scd_out,d1;
-        string region;
-        if ( id->scd_in > NoExists ) {
-    		  region = AirpTZRegion( id->airp );
-        	ProgTrace( TRACE5, "id->airp=%s, region=%s, id->point_id=%d", id->airp.c_str(), region.c_str(), id->point_id );
-          d1 = UTCToLocal( id->scd_in, region );
-          modf( d1, &scd_in );
-        }
-        else scd_in = NoExists;
-        if ( id->scd_out > NoExists ) {
-        	if ( region.empty () )
-            region = AirpTZRegion( id->airp );
-        	ProgTrace( TRACE5, "id->airp=%s, region=%s, id->point_id=%d", id->airp.c_str(), region.c_str(), id->point_id );
-          d1 = UTCToLocal( id->scd_out, region );
-          modf( d1, &scd_out );
-        }
-        else scd_out = NoExists;
-        while ( !Qry.Eof ) {
-        	if ( !Qry.FieldIsNULL( "scd_in" ) && scd_in > NoExists ) {
-        		modf( (double)UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region ), &d1 );
-        		if ( d1 == scd_in ) {
-        			ProgTrace( TRACE5, "d1=%f, scd_in=%f", d1, scd_in );
-        			existsTrip = true;
-        			break;
-        		}
-        	}
-        	if ( !Qry.FieldIsNULL( "scd_out" ) && scd_out > NoExists ) {
-        		modf( (double)UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), &d1 );
-        		if ( d1 == scd_out ) {
-        			ProgTrace( TRACE5, "d1=%f, scd_out=%f", d1, scd_out );
-        			existsTrip = true;
-        			break;
-        		}
-        	}
-        	Qry.Next();
-        }
+      if ( !existsTrip &&
+      	   id != dests.end() - 1 &&
+      	   doubletrip.IsExists( move_id, id->airline, id->flt_no, id->suffix, id->airp, id->scd_in, id->scd_out ) ) { //??? почему идет сравнение локальных времен в СОПП??? в Сезонке сравнение в UTC!!!
+      	existsTrip = true;
+      	break;
       }
-
     } // end for
     if ( !pr_time )
     	throw UserException( string("В маршруте на заданы времена прилета/вылета") );
@@ -4266,7 +4207,9 @@ void SoppInterface::GetTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	TQuery Qry(&OraSession);
 	Qry.SQLText = "SELECT system.UTCSYSDATE time FROM dual";
 	Qry.Execute();
-	string region = AirpTZRegion( NodeAsString( "airp", reqNode ), true );
+	int airp_fmt;
+	string airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsString( "airp", reqNode ), airp_fmt, true );
+	string region = AirpTZRegion( airp, true );
 	TDateTime time = UTCToClient( Qry.FieldAsDateTime( "time" ), region );
 	NewTextChild( resNode, "time", DateTimeToStr( time, ServerFormatDateTimeAsString ) );
 }
