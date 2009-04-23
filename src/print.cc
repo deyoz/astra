@@ -24,9 +24,11 @@ using namespace ASTRA;
 using namespace StrUtils;
 
 
+const string STX = "\x2";
+const string CR = "\xd\xa";
 const string delim = "\xb";
 
-typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
+typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
 namespace to_esc {
     struct TPrnParams {
@@ -100,6 +102,112 @@ namespace to_esc {
         if(!out.good())
             throw Exception("dump: cannot open file '%s' for output", fname.c_str());
         out << data;
+    }
+
+    void parse(TFields &fields, string &mso_form)
+    {
+        string num;
+        int x, y, font;
+        char Mode = 'S';
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = ToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = ToInt(num);
+                        num.erase();
+                        Mode = 'B';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.font = font;
+                        field.data = num;
+                        field.parse_data();
+                        if(field.font == 'B' && field.data.size() != 10)
+                            throw Exception("barcode data len must be 10");
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char) || curr_char == 'B')
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        if(num.size() != 1) throw Exception("font fild must by 1 char");
+                        font = num[0];
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: font must be num or 'B'");
+                    break;
+            }
+        }
+    }
+
+    void convert_dmx(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
+    {
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+        try {
+            mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
+        } catch(EConvertError &E) {
+            ProgError(STDLOG, E.what());
+            throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
+        }
+        TFields fields;
+        parse(fields, mso_form);
+        ostringstream aform;
+        aform
+             << STX << "L" << CR
+             << "D11" << CR
+             << "m" << CR
+             << "A2" << CR;
+        for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
+            if(fi->font == 'B')
+                aform
+                    << "4" // rotation
+                    << "a62100" // barcode definition (10mm height)
+                    << setw(3) << setfill('0') << fi->x << "0"
+                    << setw(3) << setfill('0') << fi->y << "0"
+                    << fi->data << CR;
+            else
+                aform
+                    << "4" // rotation
+                    << (char)fi->font
+                    << "11" // horiz, vert multipliers
+                    << "000" // font selection. Unused while using built-in raster fonts
+                    << setw(3) << setfill('0') << fi->x << "0"
+                    << setw(3) << setfill('0') << fi->y << "0"
+                    << fi->data << CR;
+        }
+        aform << "Q0001" << CR << "E" << CR;
+        mso_form = aform.str();
     }
 
     void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
@@ -3488,6 +3596,19 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::convert(prn_form, convert_prn_type, NULL);
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+        }
+        if(fmt_type == "DATAMAX") {
+            TPrnType convert_prn_type;
+            if ( dev_model.empty() )
+                convert_prn_type = TPrnType(prn_type);
+            else {
+                if ( dev_model == "CLP-521" )
+                    convert_prn_type = ptDATAMAX;
+                else
+                    throw Exception(dev_model + " not supported by to_esc::convert");
+            }
+            to_esc::convert_dmx(prn_form, convert_prn_type, NULL);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");

@@ -53,11 +53,13 @@ typedef enum {
     ptOKIML3310,
     ptOLIVETTI,
     ptZEBRA,
-    ptOLIVETTICOM
+    ptOLIVETTICOM,
+    ptDATAMAX
 } TPrnType;
 
 namespace to_esc {
     void convert(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
+    void convert_dmx(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
 }
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
