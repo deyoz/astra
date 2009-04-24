@@ -259,22 +259,36 @@ void TFilter::GetSeason()
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   bool summer = true;
   /* устанавливаем первый год и признак периода */
-  if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
-    dst_offset = tz->dst_offset().hours();
-    if ( ld.is_dst() ) {  // если сейчас лето
-      year--;
-      summer = false;
+  for ( int i=0; i<SEASON_PRIOR_PERIOD; i++ ) {
+    if ( tz->has_dst() ) {  // если есть переход на зимнее/летнее расписание
+    	if ( i == 0 ) {
+        dst_offset = tz->dst_offset().hours();
+        if ( ld.is_dst() ) {  // если сейчас лето
+          year--;
+          summer = false;
+        }
+        else {  // если сейчас зима
+          ptime start_time = tz->dst_local_start_time( year );
+          ProgTrace( TRACE5, "start_time=%s", DateTimeToStr( BoostToDateTime(start_time),"dd.mm.yy hh:nn:ss" ).c_str() );
+          if ( ld.local_time() < start_time ) {
+          	tst();
+            year--;
+          }
+          summer = true;
+        }
+      }
+      else {
+      	summer = !summer;
+        if ( !summer ) {  // если сейчас лето
+          year--;
+        }
+      }
     }
-    else {  // если сейчас зима
-      ptime start_time = tz->dst_local_start_time( year );
-      if ( ld.local_time() < start_time )
-        year--;
-      summer = true;
+    else {
+     year--;
+     dst_offset = 0;
     }
-  }
-  else {
-   year--;
-   dst_offset = 0;
+
   }
   for ( int i=0; i<SEASON_PERIOD_COUNT; i++ ) {
     ptime s_time, e_time;
@@ -300,9 +314,9 @@ void TFilter::GetSeason()
      e_time = ptime( boost::gregorian::date(year,1,1) );
      name = IntToString( year - 1 ) + " год";
     }
-/*    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d",
+    ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d, i=%d",
                DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), region ),"dd.mm.yy hh:nn:ss" ).c_str(),
-               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer );*/
+               DateTimeToStr( UTCToLocal( BoostToDateTime(e_time), region ), "dd.mm.yy hh:nn:ss" ).c_str(), !summer, i );
     periods.push_back( TSeason( s_time, e_time, !summer, name ) );
     if ( i == SEASON_PRIOR_PERIOD ) {
       range.first = BoostToDateTime( periods[ i ].period.begin() );
@@ -876,7 +890,7 @@ void TFilter::Build( xmlNodePtr filterNode )
 {
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
-  NewTextChild( filterNode, "season_idx", SEASON_PRIOR_PERIOD - 1 );
+  NewTextChild( filterNode, "season_idx", 0 );
   NewTextChild( filterNode, "season_count", SEASON_PERIOD_COUNT );
   filterNode = NewTextChild( filterNode, "seasons" );
   int i=0;
