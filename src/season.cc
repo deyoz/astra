@@ -18,8 +18,8 @@
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
-const int SEASON_PERIOD_COUNT = 4;
-const int SEASON_PRIOR_PERIOD = 1;
+const int SEASON_PERIOD_COUNT = 5;
+const int SEASON_PRIOR_PERIOD = 2;
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
