@@ -19,6 +19,7 @@
 #include "stat.h"
 #include "print.h"
 #include "convert.h"
+#include "astra_misc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -1637,11 +1638,23 @@ bool Get_overload_alarm( int point_id, const TTripInfo &fltInfo )
 void Set_overload_alarm( int point_id, bool overload_alarm )
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
-  Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
+  Qry.SQLText = "SELECT overload_alarm FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
+  if ( !Qry.Eof && (int)overload_alarm != Qry.FieldAsInteger( "overload_alarm" ) ) {
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
+    Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+  	string msg = "Тревога 'Перегрузка'";
+  	if ( overload_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
+  }
 }
 
 
@@ -1662,6 +1675,12 @@ bool check_waitlist_alarm( int point_id )
 	  Qry.CreateVariable( "point_id", otInteger, point_id );
 	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
   	Qry.Execute();
+  	string msg = "Тревога 'Лист ожидания'";
+  	if ( waitlist_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
 	}
 	return waitlist_alarm;
 }
@@ -1701,6 +1720,12 @@ bool check_brd_alarm( int point_id )
 	  Qry.CreateVariable( "point_id", otInteger, point_id );
 	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
   	Qry.Execute();
+  	string msg = "Тревога 'Посадка'";
+  	if ( brd_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
   }
 	return brd_alarm;
 }
