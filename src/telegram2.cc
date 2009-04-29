@@ -2359,6 +2359,240 @@ int calculate_btm_grp_len(const vector<string>::iterator &iv, const vector<strin
     return result;
 }
 
+struct TSSRItem {
+    string code;
+    string free_text;
+};
+
+struct TSSR {
+    vector<TSSRItem> items;
+    void get(int pax_id);
+    void ToTlg(vector<string> &body);
+};
+
+void TSSR::ToTlg(vector<string> &body)
+{
+    for(vector<TSSRItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        string buf = " " + iv->code;
+        if(not iv->free_text.empty()) {
+            buf += " " + iv->free_text;
+            string offset;
+            while(buf.size() > LINE_SIZE) {
+                size_t idx = buf.rfind(" ", LINE_SIZE - 1);
+                if(idx <= 5)
+                    idx = LINE_SIZE;
+                body.push_back(offset + buf.substr(0, idx));
+                buf = buf.substr(idx);
+                if(offset.empty())
+                    offset.assign(6, ' ');
+            }
+            if(not buf.empty())
+                body.push_back(offset + buf);
+        } else
+            body.push_back(buf);
+    }
+}
+
+void TSSR::get(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax_rem.rem_code, "
+        "   pax_rem.rem "
+        "from "
+        "   pax_rem, "
+        "   rem_types "
+        "where "
+        "   pax_rem.pax_id = :pax_id and "
+        "   pax_rem.rem_code = rem_types.code and "
+        "   rem_types.pr_psm <> 0 "
+        "order by "
+        "   pax_rem.rem_code ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_rem_code = Qry.FieldIndex("rem_code");
+        int col_rem = Qry.FieldIndex("rem");
+        for(; !Qry.Eof; Qry.Next()) {
+            TSSRItem item;
+            item.code = Qry.FieldAsString(col_rem_code);
+            item.free_text = Qry.FieldAsString(col_rem);
+            if(item.code == item.free_text)
+                item.free_text.erase();
+            else
+                item.free_text = item.free_text.substr(item.code.size() + 1);
+            TrimString(item.free_text);
+            items.push_back(item);
+        }
+    }
+}
+
+struct TClsCmp {
+    bool operator() (const string &l, const string &r) const
+    {
+        TClasses &classes = (TClasses &)base_tables.get("classes");
+        int l_prior = ((TClassesRow &)classes.get_row("code", l)).priority;
+        int r_prior = ((TClassesRow &)classes.get_row("code", r)).priority;
+        return l_prior < r_prior;
+    }
+};
+
+struct TCFGItem {
+    string cls;
+    int cfg;
+    TCFGItem(): cfg(NoExists) {};
+};
+
+struct TCFG {
+    vector<TCFGItem> items;
+    void get(TTlgInfo &info);
+};
+
+struct TPSMPax {
+    int pax_id;
+    TName name;
+    string airp_arv;
+    string cls;
+    TSSR ssr;
+    TPSMPax(): pax_id(NoExists) {}
+};
+
+typedef vector<TPSMPax> TPSMPaxLst;
+typedef map<string, TPSMPaxLst, TClsCmp> TPSMCls;
+typedef map<string, TPSMCls> TPSMTarget;
+
+struct TPSM {
+    TCFG cfg;
+    TPSMTarget items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    TTripRoute route;
+    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
+        TPSMCls &PSMCls = items[iv->airp];
+        vector<string> pax_list_body;
+        int target_pax = 0;
+        int target_ssr = 0;
+        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+            TPSMPaxLst &pax_list = PSMCls[i_cfg->cls];
+            int ssr = 0;
+            vector<string> cls_body;
+            for(TPSMPaxLst::iterator i_pax = pax_list.begin(); i_pax != pax_list.end(); i_pax++) {
+                i_pax->name.ToTlg(info, cls_body);
+                i_pax->ssr.ToTlg(cls_body);
+                ssr += i_pax->ssr.items.size();
+            }
+            target_pax += pax_list.size();
+            target_ssr += ssr;
+            ostringstream buf;
+            buf
+                << i_cfg->cls
+                << " CLASS ";
+            if(pax_list.empty())
+                buf << "NIL";
+            else
+                buf
+                    << pax_list.size() 
+                    << "PAX / "
+                    << ssr
+                    << "SSR";
+            pax_list_body.push_back(buf.str());
+            pax_list_body.insert(pax_list_body.end(), cls_body.begin(), cls_body.end());
+        }
+        ostringstream buf;
+        buf
+            << "-" << ElemIdToElem(etAirp, iv->airp, info.pr_lat)
+            << " ";
+        if(target_pax == 0) {
+            buf << "NIL";
+            body.push_back(buf.str());
+        } else {
+            buf
+                << target_pax
+                << "PAX / "
+                << target_ssr
+                << "SSR";
+            body.push_back(buf.str());
+            body.insert(body.end(), pax_list_body.begin(), pax_list_body.end());
+        }
+    }
+}
+
+void TPSM::get(TTlgInfo &info)
+{
+    cfg.get(info);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax_id, "
+        "   pax.surname, "
+        "   pax.name, "
+        "   pax_grp.airp_arv, "
+        "   pax_grp.class "
+        "from "
+        "   pax, "
+        "   pax_grp "
+        "where "
+        "   pax_grp.point_dep = :point_dep and "
+        "   pax_grp.grp_id = pax.grp_id ";
+    Qry.CreateVariable("point_dep", otInteger, info.point_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_surname = Qry.FieldIndex("surname");
+        int col_name = Qry.FieldIndex("name");
+        int col_airp_arv = Qry.FieldIndex("airp_arv");
+        int col_class = Qry.FieldIndex("class");
+        for(; !Qry.Eof; Qry.Next()) {
+            TPSMPax item;
+            item.pax_id = Qry.FieldAsInteger(col_pax_id);
+            item.name.surname = Qry.FieldAsString(col_surname);
+            item.name.name = Qry.FieldAsString(col_name);
+            item.airp_arv = Qry.FieldAsString(col_airp_arv);
+            item.cls = Qry.FieldAsString(col_class);
+            item.ssr.get(item.pax_id);
+            if(item.ssr.items.empty())
+                continue;
+            items[item.airp_arv][item.cls].push_back(item);
+        }
+    }
+}
+
+int PSM(TTlgInfo &info, int tst_tlg_id)
+{
+    TTlgOutPartInfo tlg_row;
+    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "PSM" << br
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    vector<string> body;
+    TPSM psm;
+    psm.get(info);
+    psm.ToTlg(info, body);
+    simple_split(heading, part_len, tlg_row, body);
+    tlg_row.ending = "ENDPSM" + br;
+    SaveTlgOutPartTST(tlg_row);
+    return tlg_row.id;
+}
+
 int BTM(TTlgInfo &info, int tst_tlg_id)
 {
     TTlgOutPartInfo tlg_row;
@@ -3541,19 +3775,6 @@ struct TLDMDest {
         chd(NoExists),
         inf(NoExists)
     {};
-};
-
-struct TCFGItem {
-    string cls;
-    int cfg;
-    TCFGItem(): cfg(NoExists) {};
-};
-
-struct TCFG {
-    vector<TCFGItem> items;
-    void get(TTlgInfo &info);
-    virtual void ToTlg(TTlgInfo &info, vector<string> &body) = 0;
-    virtual ~TCFG() {};
 };
 
 struct TETLCFG:TCFG {
@@ -4929,6 +5150,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "AHL") vid = AHL(info, vcompleted, tst_tlg_id);
     else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
     else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
+    else if(vbasic_type == "PSM") vid = PSM(info, tst_tlg_id);
     else if(vbasic_type == "PFS") vid = PFS(info, tst_tlg_id);
     else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
     else if(vbasic_type == "FTL") vid = FTL(info, tst_tlg_id);
