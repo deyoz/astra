@@ -2367,15 +2367,15 @@ struct TSSRItem {
 struct TSSR {
     vector<TSSRItem> items;
     void get(int pax_id);
-    void ToTlg(vector<string> &body);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TSSR::ToTlg(vector<string> &body)
+void TSSR::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     for(vector<TSSRItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         string buf = " " + iv->code;
         if(not iv->free_text.empty()) {
-            buf += " " + iv->free_text;
+            buf += " " + transliter(iv->free_text, info.pr_lat);
             string offset;
             while(buf.size() > LINE_SIZE) {
                 size_t idx = buf.rfind(" ", LINE_SIZE - 1);
@@ -2459,7 +2459,7 @@ struct TPSMPax {
 };
 
 typedef vector<TPSMPax> TPSMPaxLst;
-typedef map<string, TPSMPaxLst, TClsCmp> TPSMCls;
+typedef map<string, TPSMPaxLst> TPSMCls;
 typedef map<string, TPSMCls> TPSMTarget;
 
 struct TPSM {
@@ -2469,11 +2469,48 @@ struct TPSM {
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
+struct TCounter {
+    int val;
+    TCounter(): val(0) {};
+};
+
+typedef map<string, TCounter, TClsCmp> TPSMSSRItem;
+typedef map<string, TPSMSSRItem> TSSRCodesList;
+
+struct TSSRCodes {
+    TCFG &cfg;
+    TSSRCodesList items;
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+    void add(string cls, TSSR &ssr);
+    TSSRCodes(TCFG &acfg): cfg(acfg) {};
+};
+
+void TSSRCodes::add(string cls, TSSR &ssr)
+{
+    for(vector<TSSRItem>::iterator iv = ssr.items.begin(); iv != ssr.items.end(); iv++)
+        (items[iv->code][cls]).val++;
+}
+
+void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(TSSRCodesList::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
+        ostringstream buf;
+        buf << setw(4) << left << i_items->first;
+        TPSMSSRItem &SSRItem = i_items->second;
+        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+            TCounter &counter = SSRItem[i_cfg->cls];
+            buf << " " << setw(3) << setfill('0') << right << counter.val << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat);
+        }
+        body.push_back(buf.str());
+    }
+}
+
 void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
 {
     TTripRoute route;
     route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
     for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
+        TSSRCodes ssr_codes(cfg);
         TPSMCls &PSMCls = items[iv->airp];
         vector<string> pax_list_body;
         int target_pax = 0;
@@ -2483,15 +2520,16 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
             int ssr = 0;
             vector<string> cls_body;
             for(TPSMPaxLst::iterator i_pax = pax_list.begin(); i_pax != pax_list.end(); i_pax++) {
+                ssr_codes.add(i_cfg->cls, i_pax->ssr);
                 i_pax->name.ToTlg(info, cls_body);
-                i_pax->ssr.ToTlg(cls_body);
+                i_pax->ssr.ToTlg(info, cls_body);
                 ssr += i_pax->ssr.items.size();
             }
             target_pax += pax_list.size();
             target_ssr += ssr;
             ostringstream buf;
             buf
-                << i_cfg->cls
+                << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat)
                 << " CLASS ";
             if(pax_list.empty())
                 buf << "NIL";
@@ -2518,6 +2556,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
                 << target_ssr
                 << "SSR";
             body.push_back(buf.str());
+            ssr_codes.ToTlg(info, body);
             body.insert(body.end(), pax_list_body.begin(), pax_list_body.end());
         }
     }
