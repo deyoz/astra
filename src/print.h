@@ -54,7 +54,8 @@ typedef enum {
     ptOLIVETTI,
     ptZEBRA,
     ptOLIVETTICOM,
-    ptDATAMAX
+    ptDATAMAX,
+    ptDATAMAXCOM
 } TPrnType;
 
 namespace to_esc {
