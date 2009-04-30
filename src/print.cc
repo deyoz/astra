@@ -880,8 +880,8 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
     DecodeDate(scd, Year, Month, Day);
     TDateTime first, last;
     EncodeDate(Year, 1, 1, first);
-    EncodeDate(Year, Month, Day + 1, last);
-    TDateTime period = last - first;
+    EncodeDate(Year, Month, Day, last);
+    TDateTime period = last + 1 - first;
     result
         << fixed << setprecision(0) << setw(3) << setfill('0') << period;
     // Compartment Code
