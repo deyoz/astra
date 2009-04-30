@@ -403,6 +403,7 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           createInfo.type == "MVTB" or
           createInfo.type == "SOM" or
           createInfo.type == "PRL" or
+          createInfo.type == "PSM" or
           createInfo.type == "PFS" or
           createInfo.type == "PFSN" or
           createInfo.type == "ETL" or
@@ -1264,6 +1265,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                           createInfo.type == "LDM" or
                           createInfo.type == "SOM" or
                           createInfo.type == "PRL" or
+                          createInfo.type == "PSM" or
                           createInfo.type == "PFS" or
                           createInfo.type == "PFSN" or
                           createInfo.type == "MVTA" or
