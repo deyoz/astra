@@ -48,7 +48,7 @@ namespace ChangeStatus
             list<FreeTextInfo> lIft;
             TickReader::readEdiIFT(pMes, lIft);
             return ChngStatAnswer(pair<string, string>
-                    (GlobErr, lIft.front().fullText()));
+                    (GlobErr, lIft.empty() ? "" : lIft.front().fullText()));
         }
 
         list<Ticket> lTick;
