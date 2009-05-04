@@ -43,7 +43,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OpenLogFile("log1");
 
     int p_count;
-    string num="error";
+    string num;
     if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
     	ProgError( STDLOG,
                  "ERROR:main_timer_tcl wrong parameters:%s",
