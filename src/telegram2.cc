@@ -64,57 +64,6 @@ void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_l
             seat_list.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"));
 }
 
-void TelegramInterface::delete_tst_tlg(int tlg_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "DELETE FROM tst_tlg_out WHERE id=:id AND time_send_act IS NULL ";
-    Qry.CreateVariable( "id", otInteger, tlg_id);
-    Qry.Execute();
-    if(Qry.RowsProcessed() == 0)
-        ProgTrace(TRACE5, "delete_tst_tlg: not found tlg_id %d", tlg_id);
-}
-
-void SaveTlgOutPartTST( TTlgOutPartInfo &info )
-{
-    TQuery Qry(&OraSession);
-
-    if (info.id<0) {
-        info.pr_tst = false;
-    }
-
-    if(info.pr_tst) {
-        Qry.Clear();
-        Qry.SQLText=
-            "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-            "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
-            "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-            "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
-        Qry.CreateVariable("id",otInteger,info.id);
-        Qry.CreateVariable("num",otInteger,info.num);
-        Qry.CreateVariable("type",otString,info.tlg_type);
-        Qry.CreateVariable("point_id",otInteger,info.point_id);
-        Qry.CreateVariable("addr",otString,info.addr);
-        Qry.CreateVariable("heading",otString,info.heading);
-        Qry.CreateVariable("body",otString,info.body);
-        Qry.CreateVariable("ending",otString,info.ending);
-        Qry.CreateVariable("extra",otString,info.extra);
-        Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
-        if (info.time_create!=NoExists)
-            Qry.CreateVariable("time_create",otDate,info.time_create);
-        else
-            Qry.CreateVariable("time_create",otDate,FNull);
-        if (info.time_send_scd!=NoExists)
-            Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
-        else
-            Qry.CreateVariable("time_send_scd",otDate,FNull);
-        Qry.Execute();
-
-        info.num++;
-    } else
-        TelegramInterface::SaveTlgOutPart(info);
-};
-
 void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
 {
     if(body.empty())
@@ -123,7 +72,7 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
         for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
             part_len += iv->size() + br.size();
             if(part_len > PART_SIZE) {
-                SaveTlgOutPartTST(tlg_row);
+                TelegramInterface::SaveTlgOutPart(tlg_row);
                 tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
                 tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
                 tlg_row.body = *iv + br;
@@ -1428,10 +1377,9 @@ namespace PRL_SPACE {
 
 using namespace PRL_SPACE;
 
-int COM(TTlgInfo &info, int tst_tlg_id)
+int COM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -1458,7 +1406,7 @@ int COM(TTlgInfo &info, int tst_tlg_id)
     stats.ToTlg(body);
     tlg_row.body = body.str();
     ProgTrace(TRACE5, "COM: before save");
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -2633,10 +2581,9 @@ void TPSM::get(TTlgInfo &info)
     }
 }
 
-int PSM(TTlgInfo &info, int tst_tlg_id)
+int PSM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -2659,14 +2606,13 @@ int PSM(TTlgInfo &info, int tst_tlg_id)
     psm.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPSM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int BTM(TTlgInfo &info, int tst_tlg_id)
+int BTM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -2711,7 +2657,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
             grp_len = iv->size() + br.size();
         part_len += grp_len;
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + br + heading2.str();
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find(".F") == 0)
@@ -2728,14 +2674,13 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
     if(tlg_row.num == 1)
         tlg_row.heading = heading1.str() + br + heading2.str();
     tlg_row.ending = "ENDBTM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int PTM(TTlgInfo &info, int tst_tlg_id)
+int PTM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -2758,7 +2703,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     FList.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPTM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -3315,11 +3260,10 @@ void TTlgSeatList::get(TTlgInfo &info)
     }
 }
 
-int SOM(TTlgInfo &info, int tst_tlg_id)
+int SOM(TTlgInfo &info)
 {
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -3341,7 +3285,7 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             tlg_row.body = *iv + br;
@@ -3351,7 +3295,7 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
             tlg_row.body += *iv + br;
     }
     tlg_row.ending = "ENDSOM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -3738,7 +3682,7 @@ void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
             pax_len = iv->size() + br.size();
         part_len += pax_len;
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find('-') == 0)
@@ -4216,11 +4160,10 @@ void TMVTABody::get(TTlgInfo &info)
     }
 }
 
-int MVT(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int MVT(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = 1;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4257,15 +4200,14 @@ int MVT(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
 
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int LDM(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = 0;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4285,15 +4227,14 @@ int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     LDM.ToTlg(info, body);
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int AHL(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4322,14 +4263,13 @@ int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
         + "PN" + br
         + "TP" + br
         + "AG" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int FTL(TTlgInfo &info, int tst_tlg_id)
+int FTL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4361,14 +4301,13 @@ int FTL(TTlgInfo &info, int tst_tlg_id)
     FTL.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDFTL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int ETL(TTlgInfo &info, int tst_tlg_id)
+int ETL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4398,7 +4337,7 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -5013,10 +4952,9 @@ void TPFSBody::get(TTlgInfo &info)
     }
 }
 
-int PFS(TTlgInfo &info, int tst_tlg_id)
+int PFS(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -5049,15 +4987,14 @@ int PFS(TTlgInfo &info, int tst_tlg_id)
     pfs.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
 
     return tlg_row.id;
 }
 
-int PRL(TTlgInfo &info, int tst_tlg_id)
+int PRL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -5091,15 +5028,14 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int Unknown(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -5108,16 +5044,14 @@ int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     tlg_row.addr = info.addrs;
     tlg_row.time_create = NowUTC();
     tlg_row.heading = '.' + info.sender + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
 int TelegramInterface::create_tlg(
-        const             TCreateTlgInfo &createInfo,
-        const int         tst_tlg_id
+        const             TCreateTlgInfo &createInfo
         )
 {
-    ProgTrace(TRACE5, "create_tlg entrance: %s", (tst_tlg_id < 0 ? "real_mode" : "test_mode"));
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
     if(createInfo.type.empty())
         throw UserException("Не указан тип телеграммы");
@@ -5231,25 +5165,22 @@ int TelegramInterface::create_tlg(
     bool vcompleted = !veditable;
     int vid = NoExists;
 
-    if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
-    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
-    else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
-    else if(vbasic_type == "PSM") vid = PSM(info, tst_tlg_id);
-    else if(vbasic_type == "PFS") vid = PFS(info, tst_tlg_id);
-    else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
-    else if(vbasic_type == "FTL") vid = FTL(info, tst_tlg_id);
-    else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
-    else if(vbasic_type == "SOM") vid = SOM(info, tst_tlg_id);
-    else vid = Unknown(info, vcompleted, tst_tlg_id);
+    if(vbasic_type == "PTM") vid = PTM(info);
+    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
+    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
+    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
+    else if(vbasic_type == "BTM") vid = BTM(info);
+    else if(vbasic_type == "PRL") vid = PRL(info);
+    else if(vbasic_type == "PSM") vid = PSM(info);
+    else if(vbasic_type == "PFS") vid = PFS(info);
+    else if(vbasic_type == "ETL") vid = ETL(info);
+    else if(vbasic_type == "FTL") vid = FTL(info);
+    else if(vbasic_type == "COM") vid = COM(info);
+    else if(vbasic_type == "SOM") vid = SOM(info);
+    else vid = Unknown(info, vcompleted);
 
     Qry.Clear();
-    if(tst_tlg_id < 0) // real_mode
-        Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
-    else
-        Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
+    Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
@@ -5298,7 +5229,7 @@ void TCodeShareInfo::init(xmlNodePtr node)
     pr_mark_header = NodeAsIntegerFast("pr_mark_header", currNode) != 0;
 }
 
-void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int tst_tlg_id)
+void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     TCreateTlgInfo createInfo;
@@ -5333,10 +5264,7 @@ void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
     int tlg_id = NoExists;
     try {
-        tlg_id = create_tlg(
-                createInfo,
-                tst_tlg_id //!!!
-                );
+        tlg_id = create_tlg(createInfo);
     } catch(UserException E) {
         throw UserException( "Ошибка формирования. %s", E.what());
     }
