@@ -313,10 +313,11 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
 
 struct TFTLPax;
 struct TETLPax;
+
 struct TName {
     string surname;
     string name;
-    void ToTlg(TTlgInfo &info, vector<string> &body);
+    void ToTlg(TTlgInfo &info, vector<string> &body, string postfix = "");
 };
 
 namespace PRL_SPACE {
@@ -652,7 +653,7 @@ namespace PRL_SPACE {
             virtual string format(const TOnwardItem &item, const int i, TTlgInfo &info)=0;
         public:
             vector<TOnwardItem> items;
-            void get(int pax_id, bool tmp);
+            void get(int pax_id);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TOnwardList(){};
     };
@@ -681,6 +682,29 @@ namespace PRL_SPACE {
             }
     };
 
+    struct TPSMOnwardList:TOnwardList {
+        private:
+            string format(const TOnwardItem &item, const int i, TTlgInfo &info)
+            {
+                ostringstream line;
+                line
+                    << " "
+                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << setw(3) << setfill('0') << item.flt_no
+                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
+                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.pr_lat)
+                    << DateTimeToStr(item.scd, "dd", info.pr_lat)
+                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                return line.str();
+            }
+        public:
+            void ToTlg(TTlgInfo &info, vector<string> &body)
+            {
+                if(not items.empty())
+                    body.push_back(format(items[0], 0, info));
+            }
+    };
+
     struct TPRLOnwardList:TOnwardList {
         private:
             string format(const TOnwardItem &item, const int i, TTlgInfo &info)
@@ -701,7 +725,7 @@ namespace PRL_SPACE {
             }
     };
 
-    void TOnwardList::get(int pax_id, bool tmp)
+    void TOnwardList::get(int pax_id)
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -993,7 +1017,7 @@ namespace PRL_SPACE {
                 pax.pnrs.get(pax.pnr_id);
                 pax.rems.get(info, pax);
                 grp_map->get(pax.grp_id);
-                pax.OList.get(pax.pax_id, true);
+                pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
             }
         }
@@ -2116,7 +2140,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
-            item.OList.get(item.pax_id, true);
+            item.OList.get(item.pax_id);
             surnames[item.surname].push_back(item);
         }
     }
@@ -2452,6 +2476,8 @@ struct TCFG {
 struct TPSMPax {
     int pax_id;
     TName name;
+    TPSMOnwardList OItem;
+    TTlgSeatList seat_no;
     string airp_arv;
     string cls;
     TSSR ssr;
@@ -2521,7 +2547,8 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
             vector<string> cls_body;
             for(TPSMPaxLst::iterator i_pax = pax_list.begin(); i_pax != pax_list.end(); i_pax++) {
                 ssr_codes.add(i_cfg->cls, i_pax->ssr);
-                i_pax->name.ToTlg(info, cls_body);
+                i_pax->name.ToTlg(info, cls_body, "  " + i_pax->seat_no.get_seat_one(info.pr_lat));
+                i_pax->OItem.ToTlg(info, cls_body);
                 i_pax->ssr.ToTlg(info, cls_body);
                 ssr += i_pax->ssr.items.size();
             }
@@ -2578,7 +2605,9 @@ void TPSM::get(TTlgInfo &info)
         "   pax_grp "
         "where "
         "   pax_grp.point_dep = :point_dep and "
-        "   pax_grp.grp_id = pax.grp_id ";
+        "   pax_grp.grp_id = pax.grp_id "
+        "order by "
+        "   pax.surname ";
     Qry.CreateVariable("point_dep", otInteger, info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
@@ -2597,6 +2626,8 @@ void TPSM::get(TTlgInfo &info)
             item.ssr.get(item.pax_id);
             if(item.ssr.items.empty())
                 continue;
+            get_seat_list(item.pax_id, cltCheckin, item.seat_no);
+            item.OItem.get(item.pax_id);
             items[item.airp_arv][item.cls].push_back(item);
         }
     }
@@ -3324,15 +3355,32 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     return tlg_row.id;
 }
 
-void TName::ToTlg(TTlgInfo &info, vector<string> &body)
+void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
-    string line = "1" + transliter(surname, info.pr_lat).substr(0, 63);
-    if(!name.empty()) {
-        string tmp_name = transliter(name, info.pr_lat);
-        if(tmp_name.size() + line.size() + 1 <= LINE_SIZE)
-            line += "/" + tmp_name;
-    }
-    body.push_back(line);
+    size_t name_size = LINE_SIZE - postfix.size();
+    string result;
+    string one_surname = "1" + surname;
+    string pax_name = one_surname;
+    if(!name.empty())
+        pax_name += "/" + name;
+    if(pax_name.size() > name_size){
+        size_t diff = pax_name.size() - name_size;
+        if(name.empty()) {
+            result = one_surname.substr(0, one_surname.size() - diff);
+        } else {
+            if(name.size() > diff) {
+                name = name.substr(0, name.size() - diff);
+            } else {
+                diff -= name.size() - 1;
+                name = name[0];
+                one_surname = one_surname.substr(0, one_surname.size() - diff);
+            }
+            result = one_surname + "/" + name;
+        }
+    } else
+        result = pax_name;
+    result += postfix;
+    body.push_back(result);
 }
 
 struct TETLPax {
