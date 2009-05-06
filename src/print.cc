@@ -56,7 +56,7 @@ namespace to_esc {
 
     typedef struct {
         int x, y, font;
-        int len, height;
+        int len, height, rotate;
         string align;
         string data;
         void parse_data();
@@ -69,8 +69,9 @@ namespace to_esc {
             len = 0;
             height = 1;
             align = "L";
+            rotate = 1;
         } else {
-            for(int i = 0; i < 3; i++) {
+            for(int i = 0; i < 4; i++) {
                 string buf = data.substr(0, si);
                 data.erase(0, si + 1);
                 si = data.find(delim);
@@ -83,6 +84,11 @@ namespace to_esc {
                         break;
                     case 2:
                         align = buf;
+                        break;
+                    case 3:
+                        if(buf.empty())
+                            throw Exception("TField::parse_data(): rotate not defined");
+                        rotate = ToInt(buf);
                         break;
                 }
             }
@@ -148,7 +154,7 @@ namespace to_esc {
                         field.data = num;
                         field.parse_data();
                         if(field.font == 'B' && field.data.size() != 10)
-                            throw Exception("barcode data len must be 10");
+                            throw Exception("barcode data len must be 10: %s", field.data.c_str());
                         fields.push_back(field);
                         num.erase();
                         Mode = 'S';
@@ -191,14 +197,14 @@ namespace to_esc {
         for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
             if(fi->font == 'B')
                 aform
-                    << "4" // rotation
-                    << "a62100" // barcode definition (10mm height)
+                    << fi->rotate // rotation
+                    << "a62" << setw(2) << setfill('0') << fi->height << "0" // barcode definition (10mm height)
                     << setw(3) << setfill('0') << fi->x << "0"
                     << setw(3) << setfill('0') << fi->y << "0"
                     << fi->data << CR;
             else
                 aform
-                    << "4" // rotation
+                    << fi->rotate // rotation
                     << (char)fi->font
                     << "11" // horiz, vert multipliers
                     << "000" // font selection. Unused while using built-in raster fonts
@@ -2108,11 +2114,12 @@ bool PrintDataParser::IsDelim(char curr_char, char &Mode)
 {
     bool result = true;
     switch(curr_char) {
-        case 'C':
-        case 'D':
-        case 'F':
-        case 'H':
-        case 'L':
+        case 'C': // align
+        case 'D': // date format
+        case 'F': // rus/lat
+        case 'H': // height
+        case 'L': // length
+        case 'R': // rotate
             Mode = curr_char;
             break;
         case ')':
@@ -2135,6 +2142,7 @@ string PrintDataParser::parse_field1(int offset, string field)
     string FieldHeight = "1";
     string FieldAlign = "L";
     string DateFormat = ServerFormatDateTimeAsString;
+    string FieldRotate;
     int FieldLat = -1;
 
     string buf;
@@ -2170,6 +2178,16 @@ string PrintDataParser::parse_field1(int offset, string field)
                         VarPos = i;
                     } else
                         throw Exception("L param must consist of digits only at " + IntToString(offset + i + 1));
+                }
+                break;
+            case 'R':
+                if(!IsDigit(curr_char)) {
+                    if(IsDelim(curr_char, Mode)) {
+                        buf = field.substr(VarPos + 1, i - VarPos - 1);
+                        if(buf.size()) FieldRotate = buf;
+                        VarPos = i;
+                    } else
+                        throw Exception("R param must consist of digits only at " + IntToString(offset + i + 1));
                 }
                 break;
             case 'H':
@@ -2217,13 +2235,26 @@ string PrintDataParser::parse_field1(int offset, string field)
     if(Mode != 'N' && Mode != 'F')
         throw Exception("')' not found at " + IntToString(offset + i + 1));
     string result;
-    if(FieldHeight != "1")
+    if(not FieldRotate.empty())
         result =
             FieldLen +
             delim +
             FieldHeight +
             delim +
             FieldAlign +
+            delim +
+            FieldRotate +
+            delim +
+            field_map.get_field(FieldName, ToInt(FieldLen), FieldAlign, DateFormat, FieldLat);
+    else if(FieldHeight != "1")
+        result =
+            FieldLen +
+            delim +
+            FieldHeight +
+            delim +
+            FieldAlign +
+            delim +
+            FieldRotate +
             delim +
             field_map.get_field(FieldName, 0, "L", DateFormat, FieldLat);
     else
