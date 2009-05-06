@@ -1395,9 +1395,13 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                         tripQry.SQLText = SQLText;
                         tripQry.CreateVariable("point_id", otInteger,  point_id);
                         tripQry.Execute();
-                        TTripInfo trip_info(tripQry);
-                        trip_info.pr_del = tripQry.FieldAsInteger("pr_del");
-                        TripItems[point_id] = GetTripName(trip_info);
+                        if(tripQry.Eof)
+                            TripItems[point_id]; // записываем пустую строку для данного point_id
+                        else {
+                            TTripInfo trip_info(tripQry);
+                            trip_info.pr_del = tripQry.FieldAsInteger("pr_del");
+                            TripItems[point_id] = GetTripName(trip_info);
+                        }
                     }
                     NewTextChild(rowNode, "trip", TripItems[point_id]);
                 }
