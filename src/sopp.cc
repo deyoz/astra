@@ -512,7 +512,16 @@ bool EqualTrips( TSOPPTrip &tr1, TSOPPTrip &tr2 )
 			return false;
 		j++;
 	}
-	return true;
+	int flt1, flt2;
+	if ( tr1.flt_no_out > NoExists )
+		flt1 = tr1.flt_no_out;
+	else
+		flt1 = tr1.flt_no_in;
+	if ( tr2.flt_no_out > NoExists )
+		flt2 = tr2.flt_no_out;
+	else
+		flt2 = tr2.flt_no_in;
+	return ( flt1 == flt2 );
 }
 
 string addCondition( const char *sql, bool pr_arx )
