@@ -25,7 +25,7 @@ using namespace StrUtils;
 
 
 const string STX = "\x2";
-const string CR = "\xd\xa";
+const string CR = "\xd";
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
@@ -56,11 +56,26 @@ namespace to_esc {
 
     typedef struct {
         int x, y, font;
-        int len, height;
+        int len, height, rotation;
         string align;
         string data;
+        void dump();
         void parse_data();
     } TField;
+
+    void TField::dump()
+    {
+        ProgTrace(TRACE5, "TField::dump()");
+        ProgTrace(TRACE5, "x: %d", x);
+        ProgTrace(TRACE5, "y: %d", y);
+        ProgTrace(TRACE5, "font: %d", font);
+        ProgTrace(TRACE5, "len: %d", len);
+        ProgTrace(TRACE5, "height: %d", height);
+        ProgTrace(TRACE5, "rotation: %d", rotation);
+        ProgTrace(TRACE5, "align: %s", align.c_str());
+        ProgTrace(TRACE5, "data: %s", data.c_str());
+        ProgTrace(TRACE5, "--------------------");
+    }
 
     void TField::parse_data()
     {
@@ -102,6 +117,101 @@ namespace to_esc {
         if(!out.good())
             throw Exception("dump: cannot open file '%s' for output", fname.c_str());
         out << data;
+    }
+
+    void parse_dmx(TFields &fields, string &mso_form)
+    {
+        string num;
+        int x, y, font;
+        char Mode = 'S';
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = ToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'D':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        field.rotation = ToInt(num);
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: rotation must be num");
+                    break;
+                case 'C':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        field.height = ToInt(num);
+                        num.erase();
+                        Mode = 'D';
+                    } else
+                        throw Exception("to_esc: height must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = ToInt(num);
+                        num.erase();
+                        Mode = 'B';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.font = font;
+                        field.data = num;
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char) || curr_char == 'B')
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        if(num.size() != 1) throw Exception("font fild must by 1 char");
+                        font = num[0];
+                        num.erase();
+                        Mode = 'C';
+                    } else
+                        throw Exception("to_esc: font must be num or 'B'");
+                    break;
+            }
+        }
+    }
+
+    void parse_dmx(string &prn_form)
+    {
+        prn_form = STX + prn_form;
+        size_t pos = 0;
+        while(true) {
+            pos = prn_form.find('\xa');
+            if(pos == string::npos)
+                break;
+            prn_form.replace(pos, 1, CR);
+        }
     }
 
     void parse(TFields &fields, string &mso_form)
@@ -168,46 +278,6 @@ namespace to_esc {
                     break;
             }
         }
-    }
-
-    void convert_dmx(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
-    {
-        TPrnParams prnParams;
-        prnParams.get_prn_params(reqNode);
-        try {
-            mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
-        } catch(EConvertError &E) {
-            ProgError(STDLOG, E.what());
-            throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
-        }
-        TFields fields;
-        parse(fields, mso_form);
-        ostringstream aform;
-        aform
-             << STX << "L" << CR
-             << "D11" << CR
-             << "m" << CR
-             << "A2" << CR;
-        for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
-            if(fi->font == 'B')
-                aform
-                    << "4" // rotation
-                    << "a62100" // barcode definition (10mm height)
-                    << setw(3) << setfill('0') << fi->x << "0"
-                    << setw(3) << setfill('0') << fi->y << "0"
-                    << fi->data << CR;
-            else
-                aform
-                    << "4" // rotation
-                    << (char)fi->font
-                    << "11" // horiz, vert multipliers
-                    << "000" // font selection. Unused while using built-in raster fonts
-                    << setw(3) << setfill('0') << fi->x << "0"
-                    << setw(3) << setfill('0') << fi->y << "0"
-                    << fi->data << CR;
-        }
-        aform << "Q0001" << CR << "E" << CR;
-        mso_form = aform.str();
     }
 
     void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
@@ -2909,6 +2979,25 @@ void check_CUTE_certified(int &prn_type, string &dev_model, string &fmt_type)
     }
 }
 
+string get_fmt_type(int prn_type)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   prn_formats.code "
+        "from "
+        "   prn_types, "
+        "   prn_formats "
+        "where "
+        "   prn_types.code = :prn_type and "
+        "   prn_types.format = prn_formats.id ";
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("fmt_type not found for prn_type %d", prn_type);
+    return Qry.FieldAsString("code");
+}
+
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
@@ -3000,9 +3089,10 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            if(tag_key.dev_model.empty())
+            if(tag_key.dev_model.empty()) {
+                tag_key.fmt_type = get_fmt_type(tag_key.prn_type);
                 get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
-            else
+            } else
                 get_bt_forms(tag_type, tag_key.dev_model, tag_key.fmt_type, pectabsNode, prn_forms);
         }
 
@@ -3050,12 +3140,22 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms.back()));
+            string prn_form = parser.parse(prn_forms.back());
+            if(tag_key.fmt_type == "DATAMAX") {
+                to_esc::parse_dmx(prn_form);
+                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            }
+            NewTextChild(tagNode, "prn_form", prn_form);
         }
 
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
-            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms[BT_reminder - 1]));
+            string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
+            if(tag_key.fmt_type == "DATAMAX") {
+                to_esc::parse_dmx(prn_form);
+                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            }
+            NewTextChild(tagNode, "prn_form", prn_form);
         }
         Qry.Next();
     }
@@ -3433,20 +3533,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Clear();
 
     if(dev_model.empty()) {
-        Qry.SQLText =
-            "select "
-            "   prn_formats.code "
-            "from "
-            "   prn_types, "
-            "   prn_formats "
-            "where "
-            "   prn_types.code = :prn_type and "
-            "   prn_types.format = prn_formats.id ";
-        Qry.CreateVariable("prn_type", otInteger, prn_type);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("fmt_type not found for prn_type %d", prn_type);
-        fmt_type = Qry.FieldAsString("code");
+        fmt_type = get_fmt_type(prn_type);
         Qry.Clear();
         Qry.SQLText =
             "select  "
@@ -3608,7 +3695,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 else
                     throw Exception(dev_model + " not supported by to_esc::convert");
             }
-            to_esc::convert_dmx(prn_form, convert_prn_type, NULL);
+            to_esc::parse_dmx(prn_form);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
