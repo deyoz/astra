@@ -891,6 +891,12 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(name == "BCBP_M_2") // 2мерный баркод. Формируется что называется on the fly
         add_tag(name, BCBP_M_2(field_lat));
 
+    if(name == "LONG_DEP")
+        add_tag(name, LONG_DEP(field_lat));
+
+    if(name == "LONG_ARV")
+        add_tag(name, LONG_ARV(field_lat));
+
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
@@ -974,6 +980,70 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
     }
     tst();
+    return result;
+}
+
+string PrintDataParser::t_field_map::LONG_DEP(bool pr_lat)
+{
+    string result;
+    string city_dep_name_lat = data["CITY_DEP_NAME_LAT"].StringVal;
+    string airp_dep_lat = data["AIRP_DEP_LAT"].StringVal;
+    if(pr_lat) {
+        if(airp_dep_lat.empty())
+            throw UserException("Не задан лат. код а/п назначения");
+        if(city_dep_name_lat.empty())
+            result = airp_dep_lat;
+        else
+            result = city_dep_name_lat.substr(0, 9) + "(" + airp_dep_lat + ")";
+    } else {
+        string city_dep_name = data["CITY_DEP_NAME"].StringVal;
+        string airp_dep = data["AIRP_DEP"].StringVal;
+        result = city_dep_name.substr(0, 9) + "(" + airp_dep + ")";
+        string lat_part;
+        if(not city_dep_name_lat.empty()) {
+            if(not airp_dep_lat.empty())
+                lat_part = city_dep_name_lat.substr(0, 9) + "(" + airp_dep_lat + ")";
+            else
+                lat_part = city_dep_name_lat.substr(0, 14);
+        } else {
+            if(not airp_dep_lat.empty())
+                lat_part = airp_dep_lat;
+        }
+        if(not lat_part.empty())
+            result += "/" + lat_part;
+    }
+    return result;
+}
+
+string PrintDataParser::t_field_map::LONG_ARV(bool pr_lat)
+{
+    string result;
+    string city_arv_name_lat = data["CITY_ARV_NAME_LAT"].StringVal;
+    string airp_arv_lat = data["AIRP_ARV_LAT"].StringVal;
+    if(pr_lat) {
+        if(airp_arv_lat.empty())
+            throw UserException("Не задан лат. код а/п назначения");
+        if(city_arv_name_lat.empty())
+            result = airp_arv_lat;
+        else
+            result = city_arv_name_lat.substr(0, 9) + "(" + airp_arv_lat + ")";
+    } else {
+        string city_arv_name = data["CITY_ARV_NAME"].StringVal;
+        string airp_arv = data["AIRP_ARV"].StringVal;
+        result = city_arv_name.substr(0, 9) + "(" + airp_arv + ")";
+        string lat_part;
+        if(not city_arv_name_lat.empty()) {
+            if(not airp_arv_lat.empty())
+                lat_part = city_arv_name_lat.substr(0, 9) + "(" + airp_arv_lat + ")";
+            else
+                lat_part = city_arv_name_lat.substr(0, 14);
+        } else {
+            if(not airp_arv_lat.empty())
+                lat_part = airp_arv_lat;
+        }
+        if(not lat_part.empty())
+            result += "/" + lat_part;
+    }
     return result;
 }
 
@@ -3486,6 +3556,26 @@ struct TPaxPrint {
 	};
 };
 
+bool get_bp_pr_lat(int grp_id, bool pr_lat)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+        "select airp_arv from pax_grp where grp_id = :grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    string airp_arv = Qry.FieldAsString("airp_arv");
+
+    TBaseTable &airpsTable = base_tables.get("AIRPS");
+    TBaseTable &citiesTable = base_tables.get("CITIES");
+
+    TBaseTableRow &airpRow = airpsTable.get_row("code", airp_arv);
+    TBaseTableRow &citiesRow = citiesTable.get_row("code",airpRow.AsString("city"));
+
+    return pr_lat || citiesRow.AsString("country") != "РФ";
+}
+
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -3657,7 +3747,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
-        PrintDataParser parser( iprint->grp_id, iprint->pax_id, pr_lat, clientDataNode );
+        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id) {
