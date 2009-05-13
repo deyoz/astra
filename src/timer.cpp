@@ -873,7 +873,7 @@ void get_full_stat(TDateTime utcdate)
     "SELECT points.point_id FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND "
     "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
-    "      NVL(act_out,NVL(est_out,scd_out))<:stat_date";
+    "      time_out<:stat_date AND time_out<>TO_DATE('01.01.0001','DD.MM.YYYY')";
   PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
   PointsQry.Execute();
   for(;!PointsQry.Eof;PointsQry.Next())
