@@ -1591,12 +1591,12 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "select ";
     if(pr_trfer)
         SQLText +=
-            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, "
-            "    v_last_trfer.airline trfer_airline, "
-            "    v_last_trfer.flt_no trfer_flt_no, "
-            "    v_last_trfer.suffix trfer_suffix, "
-            "    v_last_trfer.airp_arv trfer_airp_arv, "
-            "    v_last_trfer.scd trfer_scd, ";
+            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
+            "    trfer_trips.airline trfer_airline, \n"
+            "    trfer_trips.flt_no trfer_flt_no, \n"
+            "    trfer_trips.suffix trfer_suffix, \n"
+            "    transfer.airp_arv trfer_airp_arv, \n"
+            "    trfer_trips.scd trfer_scd, \n";
     else
         SQLText +=
             "    0 pr_trfer, "
@@ -1624,7 +1624,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "    bag2, "
         "    halls2 ";
     if(pr_trfer)
-        SQLText += ", v_last_trfer ";
+        SQLText += ", transfer, trfer_trips ";
     if(pr_brd_pax != -1)
         SQLText += ", pax ";
     SQLText +=
@@ -1653,7 +1653,9 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     if(pr_trfer)
         SQLText +=
-            " and pax_grp.grp_id = v_last_trfer.grp_id(+) ";
+            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
+            " transfer.pr_final(+) <> 0 and \n"
+            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
     if(pr_brd_pax != -1) {
         SQLText +=
             "   and pax.pax_id(+) = ckin.get_main_pax_id(pax_grp.grp_id) and "
