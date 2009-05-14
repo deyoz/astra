@@ -120,7 +120,6 @@ void TSQL::createSQLTrips( ) {
 
 
   /* ------------…ƒˆ‘’€–ˆŸ------------ */
-  /* ------------„ŽŠ“Œ…’€–ˆŸ------------ */
   p.sqlfrom =
     "points,trip_final_stages";
   p.sqlwhere =
@@ -133,6 +132,21 @@ void TSQL::createSQLTrips( ) {
   p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
   p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
   sqltrips[ "AIR.EXE" ] = p;
+  p.clearVariables();
+
+  /* ------------„ŽŠ“Œ…’€–ˆŸ------------ */
+  p.sqlfrom =
+    "points,trip_final_stages";
+  p.sqlwhere =
+    "points.point_id= trip_final_stages.point_id AND "
+    "points.pr_del=0 AND "
+    "points.time_out>=system.UTCSYSDATE-30 AND "
+    "trip_final_stages.stage_type=:ckin_stage_type AND "
+    "trip_final_stages.stage_id IN (:ckin_open_stage_id,:ckin_close_stage_id,:ckin_doc_stage_id) ";
+  p.addVariable( "ckin_stage_type", otInteger, IntToString( stCheckIn ) );
+  p.addVariable( "ckin_open_stage_id", otInteger, IntToString( sOpenCheckIn ) );
+  p.addVariable( "ckin_close_stage_id", otInteger, IntToString( sCloseCheckIn ) );
+  p.addVariable( "ckin_doc_stage_id", otInteger, IntToString( sCloseBoarding ) );
   sqltrips[ "DOCS.EXE" ] = p;
   p.clearVariables();
 
@@ -244,7 +258,7 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
                    GetSQLEnum(info.user.access.airps)+")";
     };
   };
-  sql+="ORDER BY TRUNC(real_out) DESC,flt_no,airline, "
+  sql+="ORDER BY flt_no,airline, "
        "         NVL(suffix,' '),move_id,point_num";
   Qry.SQLText = sql;
   p.setVariables( Qry );
@@ -683,7 +697,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus,pr_airp_seance "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -710,6 +724,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
       NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
+      if (!Qryh.FieldIsNULL("pr_airp_seance"))
+        NewTextChild( node, "pr_airp_seance", (int)(Qryh.FieldAsInteger("pr_airp_seance")!=0) );
+      else
+        NewTextChild( node, "pr_airp_seance" );
       NewTextChild( node, "pr_trfer_reg", (int)false );  //!!!¯®â®¬ ã¡à âì GetNode 01.12.08
       NewTextChild( node, "pr_bp_market_flt", (int)false );  //!!!¯®â®¬ ã¡à âì 14.04.09
     };
@@ -719,6 +737,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     {
       NewTextChild( node, "pr_etstatus", Qryh.FieldAsInteger("pr_etstatus") );
       NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,info) );
+    };
+    if (reqInfo->screen.name == "AIR.EXE")
+    {
+      NewTextChild( node, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,info) );
     };
   };
 
@@ -763,6 +785,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
         case atETStatus:
         	if (reqInfo->screen.name == "AIR.EXE" ||
         		  reqInfo->screen.name == "BRDBUS.EXE")
+          	rem = TripAlarmString( alarm );
+          break;
+        case atSeance:
+        	if (reqInfo->screen.name == "AIR.EXE")
           	rem = TripAlarmString( alarm );
           break;
       	default:
@@ -901,6 +927,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
        pr_airp_arv=false,
        pr_trfer=false,
        pr_user=false,
+       pr_status=false,
+       pr_ticket_rem=false,
        pr_rems=false;
   ostringstream order_by;
   NewTextChild(node2,"field","title");
@@ -936,6 +964,16 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       pr_user=true;
       order_by << ", users2.descr,a.user_id";
+    };
+    if (strcmp((char*)node->name,"status")==0)
+    {
+      pr_status=true;
+      order_by << ", grp_status_types.priority";
+    };
+    if (strcmp((char*)node->name,"ticket_rem")==0)
+    {
+      pr_ticket_rem=true;
+      order_by << ", a.ticket_rem";
     };
     if (strcmp((char*)node->name,"rems")==0)
     {
@@ -1035,6 +1073,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer";
   if (pr_user) select << ", user_id";
+  if (pr_status) select << ", status";
+  if (pr_ticket_rem) select << ", ticket_rem";
   if (pr_rems) select << ", rem_code";
 
   //áâà®ª  group by ¤«ï ¯®¤§ ¯à®á®¢
@@ -1045,6 +1085,8 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
   if (pr_user) group_by << ", user_id";
+  if (pr_status) group_by << ", status";
+  if (pr_ticket_rem) group_by << ", ticket_rem";
   if (pr_rems) group_by << ", rem_code";
 
   if (group_by.str().empty()) return;
@@ -1052,26 +1094,28 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream sql;
   sql << "SELECT a.seats,a.adult,a.child,a.baby" << endl;
 
-  if (!pr_rems)
+  if (!pr_ticket_rem && !pr_rems)
   {
       sql << ",b.bag_amount,b.bag_weight,b.rk_weight,e.excess" << endl;
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
     {
       sql << ",c.crs_ok,c.crs_tranzit" << endl;
       if (!pr_airp_arv) sql << ",f.cfg" << endl;
     };
   };
 
-  if (pr_class)    sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
-  if (pr_cl_grp)   sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
-                          ",cls_grp.code AS cl_grp_code" << endl;
-  if (pr_hall)     sql << ",a.hall AS hall_id"
-                          ",halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
-  if (pr_airp_arv) sql << ",a.point_arv,points.airp AS airp_arv" << endl;
-  if (pr_trfer)    sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
-  if (pr_user)     sql << ",a.user_id,users2.descr AS user_descr" << endl;
-  if (pr_rems)     sql << ",a.rem_code" << endl;
+  if (pr_class)      sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
+  if (pr_cl_grp)     sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
+                            ",cls_grp.code AS cl_grp_code" << endl;
+  if (pr_hall)       sql << ",a.hall AS hall_id"
+                            ",halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
+  if (pr_airp_arv)   sql << ",a.point_arv,points.airp AS airp_arv" << endl;
+  if (pr_trfer)      sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
+  if (pr_user)       sql << ",a.user_id,users2.descr AS user_descr" << endl;
+  if (pr_status)     sql << ",a.status,grp_status_types.name AS status_name" << endl;
+  if (pr_ticket_rem) sql << ",a.ticket_rem" << endl;
+  if (pr_rems)       sql << ",a.rem_code" << endl;
 
   sql << "FROM" << endl
       << "(SELECT SUM(seats) AS seats, " << endl
@@ -1105,7 +1149,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
 
   sql << "GROUP BY " << group_by.str().erase(0,1) << ") a" << endl;
 
-  if (!pr_rems)
+  if (!pr_ticket_rem && !pr_rems)
   {
     //§ ¯à®á ¯® ¡ £ ¦ã
     sql << ",(SELECT SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, " << endl
@@ -1137,7 +1181,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     sql << "GROUP BY " << group_by.str().erase(0,1) << ") e" << endl;
 
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
     {
       //§ ¯à®á ¯® ¡à®­¨
       sql << ",(SELECT SUM(crs_ok) AS crs_ok, " << endl
@@ -1163,6 +1207,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_hall)     sql << ",halls2";
   if (pr_airp_arv) sql << ",points";
   if (pr_user)     sql << ",users2";
+  if (pr_status)   sql << ",grp_status_types";
 
   sql << endl;
 
@@ -1172,8 +1217,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (pr_hall)     where << " AND a.hall=halls2.id" << endl;
   if (pr_airp_arv) where << " AND a.point_arv=points.point_id" << endl;
   if (pr_user)     where << " AND a.user_id=users2.user_id" << endl;
+  if (pr_status)   where << " AND a.status=grp_status_types.code" << endl;
 
-  if (!pr_rems)
+  if (!pr_ticket_rem && !pr_rems)
   {
     if (pr_class)    where << " AND a.class=b.class(+) AND a.class=e.class(+)" << endl;
     if (pr_cl_grp)   where << " AND a.class_grp=b.class_grp(+) AND a.class_grp=e.class_grp(+)" << endl;
@@ -1181,8 +1227,9 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_airp_arv) where << " AND a.point_arv=b.point_arv(+) AND a.point_arv=e.point_arv(+)" << endl;
     if (pr_trfer)    where << " AND a.last_trfer=b.last_trfer(+) AND a.last_trfer=e.last_trfer(+)" << endl;
     if (pr_user)     where << " AND a.user_id=b.user_id(+) AND a.user_id=e.user_id(+)" << endl;
+    if (pr_status)   where << " AND a.status=b.status(+) AND a.status=e.status(+)" << endl;
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
     {
       if (pr_class)    where << " AND a.class=c.class(+)" << endl;
       if (pr_airp_arv) where << " AND a.point_arv=c.point_arv(+)" << endl;
@@ -1219,14 +1266,14 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     NewTextChild(rowNode,"child",Qry.FieldAsInteger("child"),0);
     NewTextChild(rowNode,"baby",Qry.FieldAsInteger("baby"),0);
 
-    if (!pr_rems)
+    if (!pr_ticket_rem && !pr_rems)
     {
       NewTextChild(rowNode,"bag_amount",Qry.FieldAsInteger("bag_amount"),0);
       NewTextChild(rowNode,"bag_weight",Qry.FieldAsInteger("bag_weight"),0);
       NewTextChild(rowNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
       NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
 
-      if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user)
+      if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
       {
         NewTextChild(rowNode,"crs_ok",Qry.FieldAsInteger("crs_ok"),0);
         NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
@@ -1263,11 +1310,19 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"trfer",
                    convertLastTrfer(Qry.FieldAsString("last_trfer")));
     };
-
     if (pr_user)
     {
       node=NewTextChild(rowNode,"user",Qry.FieldAsString("user_descr"));
       SetProp(node,"id",Qry.FieldAsInteger("user_id"));
+    };
+    if (pr_status)
+    {
+      node=NewTextChild(rowNode,"status",Qry.FieldAsString("status_name"));
+      SetProp(node,"id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
+    };
+    if (pr_ticket_rem)
+    {
+      NewTextChild(rowNode,"ticket_rem",Qry.FieldAsString("ticket_rem"));
     };
     if (pr_rems)
     {

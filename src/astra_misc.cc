@@ -628,7 +628,7 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 	Alarms.clearFlags();
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act "
+    "SELECT overload_alarm,brd_alarm,waitlist_alarm,pr_etstatus,pr_salon,act,pr_airp_seance "
     " FROM trip_sets, trip_stages, "
     " ( SELECT COUNT(*) pr_salon FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
     " WHERE trip_sets.point_id=:point_id AND "
@@ -653,6 +653,9 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 	if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
 		Alarms.setFlag( atETStatus );
 	}
+	if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
+	  Alarms.setFlag( atSeance );
+  }
 }
 
 string TripAlarmString( TTripAlarmsType &alarm )
@@ -673,6 +676,9 @@ string TripAlarmString( TTripAlarmsType &alarm )
 			break;
 		case atETStatus:
 			mes = "Нет связи с СЭБ";
+			break;
+		case atSeance:
+		  mes = "Не определен сеанс";
 			break;
 		default:;
 	}

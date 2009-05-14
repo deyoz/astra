@@ -1563,9 +1563,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  report.get_last_tckin_seg(pax.grp_id) AS last_tckin_seg, "
-    "  class,pax.subclass, "
+    "  class,pax.subclass,pax_grp.status, "
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-    "  seats,wl_type,pers_type,document, "
+    "  seats,wl_type,pers_type,document,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
     "  ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bag_weight, "
@@ -1616,11 +1616,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_last_tckin_seg=Qry.FieldIndex("last_tckin_seg");
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
+  int col_status=Qry.FieldIndex("status");
   int col_seat_no=Qry.FieldIndex("seat_no");
   int col_seats=Qry.FieldIndex("seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_document=Qry.FieldIndex("document");
+  int col_ticket_rem=Qry.FieldIndex("ticket_rem");
   int col_ticket_no=Qry.FieldIndex("ticket_no");
   int col_bag_amount=Qry.FieldIndex("bag_amount");
   int col_bag_weight=Qry.FieldIndex("bag_weight");
@@ -1705,6 +1707,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString(col_pers_type));
     NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
+    NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
     NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
     NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
     NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
@@ -1738,6 +1741,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
   };
   if(!v_rcpt_complete.empty()) {
       for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
@@ -1751,7 +1755,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   sql <<
     "SELECT "
-    "  pax_grp.airp_arv, "
+    "  pax_grp.airp_arv,pax_grp.status, "
     "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
     "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
@@ -1810,6 +1814,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
   };
 
   Qry.Close();

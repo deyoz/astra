@@ -1185,6 +1185,10 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
       			an = NewTextChild( alarmsNode, "alarm", "Salon" );
       			SetProp( an, "text", TripAlarmString( alarm ) );
       			break;
+      	  case atSeance:
+      			an = NewTextChild( alarmsNode, "alarm", "Seance" );
+      			SetProp( an, "text", TripAlarmString( alarm ) );
+      			break;
       		default:;
       	}
       }
