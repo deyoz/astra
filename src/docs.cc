@@ -742,12 +742,12 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   pax_grp.airp_arv AS target, \n";
     if(name == "PMTrfer")
         SQLText +=
-            "    nvl2(v_last_trfer.last_trfer, 1, 0) pr_trfer, \n"
-            "    v_last_trfer.airline trfer_airline, \n"
-            "    v_last_trfer.flt_no trfer_flt_no, \n"
-            "    v_last_trfer.suffix trfer_suffix, \n"
-            "    v_last_trfer.airp_arv trfer_airp_arv, \n"
-            "    v_last_trfer.scd trfer_scd, \n";
+            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
+            "    trfer_trips.airline trfer_airline, \n"
+            "    trfer_trips.flt_no trfer_flt_no, \n"
+            "    trfer_trips.suffix trfer_suffix, \n"
+            "    transfer.airp_arv trfer_airp_arv, \n"
+            "    trfer_trips.scd trfer_scd, \n";
     SQLText +=
         "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, \n"
         "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, \n"
@@ -781,7 +781,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         "   cls_grp classes, \n"
         "   halls2 \n";
     if(name == "PMTrfer")
-        SQLText += ", v_last_trfer \n";
+        SQLText += ", transfer, trfer_trips \n";
     SQLText +=
         "WHERE \n"
         "   points.pr_del>=0 AND \n"
@@ -828,7 +828,9 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
             "    ('T', 'N') \n";
     if(name == "PMTrfer")
         SQLText +=
-            " and pax_grp.grp_id=v_last_trfer.grp_id(+) \n";
+            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
+            " transfer.pr_final(+) <> 0 and \n"
+            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
     SQLText +=
         "ORDER BY \n";
     if(
@@ -961,13 +963,13 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
     SQLText +=
         "         SUM(seats) AS seats, \n"
         "         SUM(DECODE(pers_type,'Çá',1,0)) AS adl, \n"
         "         SUM(DECODE(pers_type,'êÅ',1,0)) AS chd, \n"
         "         SUM(DECODE(pers_type,'êå',1,0)) AS inf \n"
-        "  FROM pax_grp,pax,v_last_trfer,halls2 \n"
+        "  FROM pax_grp,pax,transfer,halls2 \n"
         "  WHERE \n"
         "       pax_grp.point_dep = :point_id and \n"
         "       pax.grp_id = pax_grp.grp_id and \n";
@@ -995,7 +997,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("zone", otString, zone);
     }
     SQLText +=
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
         "       pax_grp.hall = halls2.id and \n"
         "       pr_brd IS NOT NULL and \n"
         "       bag_refuse=0 AND class IS NOT NULL \n"
@@ -1005,7 +1007,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   ,pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
     if(pr_vip != 2) {
         SQLText +=
             ", halls2.pr_vip \n";
@@ -1021,12 +1023,12 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
     SQLText +=
         "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, \n"
         "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, \n"
         "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight \n"
-        "  FROM pax_grp,pax,bag2,v_last_trfer,halls2 \n"
+        "  FROM pax_grp,pax,bag2,transfer,halls2 \n"
         "  WHERE \n"
         "       pax_grp.point_dep = :point_id and \n"
         "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
@@ -1051,7 +1053,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     }
     SQLText +=
         "       pax_grp.grp_id=bag2.grp_id AND \n"
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
         "       pax_grp.hall = halls2.id and \n"
         "       pr_brd IS NOT NULL and \n"
         "       bag_refuse=0 AND class IS NOT NULL \n"
@@ -1061,7 +1063,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   ,pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
     if(pr_vip != 2) {
         SQLText +=
             ", halls2.pr_vip \n";
@@ -1077,10 +1079,10 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
     SQLText +=
         "         SUM(excess) AS excess \n"
-        "  FROM pax_grp,pax,v_last_trfer,halls2 \n"
+        "  FROM pax_grp,pax,transfer,halls2 \n"
         "  WHERE \n"
         "       pax_grp.point_dep = :point_id and \n"
         "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
@@ -1104,7 +1106,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
         Qry.CreateVariable("zone", otString, zone);
     }
     SQLText +=
-        "       pax_grp.grp_id = v_last_trfer.grp_id(+) AND \n"
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
         "       pax_grp.hall = halls2.id and \n"
         "       pr_brd IS NOT NULL and \n"
         "       bag_refuse=0 AND class IS NOT NULL \n"
@@ -1114,7 +1116,7 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(pr_trfer)
         SQLText +=
             "   ,pax_grp.airp_arv, \n"
-            "   DECODE(v_last_trfer.grp_id,NULL,0,1) \n";
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
     if(pr_vip != 2) {
         SQLText +=
             ", halls2.pr_vip \n";
