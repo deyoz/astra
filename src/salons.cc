@@ -734,7 +734,7 @@ void TSalons::Read( )
   	Qry.SQLText =
       "SELECT DISTINCT t.num,t.x,t.y,t.elem_type,t.xprior,t.yprior,t.agle,"
       "                t.pr_smoke,t.not_good,t.xname,t.yname,t.class,r.layer_type, "
-      "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep, l.time_create "
+      "                NVL(l.pax_id, l.crs_pax_id) pax_id, l.point_dep, l.point_arv, l.time_create "
       " FROM trip_comp_elems t, trip_comp_ranges r, trip_comp_layers l "
       "WHERE t.point_id=:point_id AND "
       "      t.point_id=r.point_id(+) AND "
@@ -791,7 +791,7 @@ void TSalons::Read( )
   int num = -1;
   TPoint point_p;
   int pax_id;
-  TPlaceLayer PlaceLayer( 0, cltUnknown, ASTRA::NoExists, 10000 );
+  TPlaceLayer PlaceLayer( 0, 0, 0, cltUnknown, ASTRA::NoExists, 10000 );
   TPaxLayers pax_layers;
   //PaxsOnPlaces.clear();
   if ( readStyle == rTripSalons ) { // заполняем инфу по пассажиру
@@ -846,9 +846,9 @@ void TSalons::Read( )
       place.agle = Qry.FieldAsInteger( col_agle );
       place.clname = Qry.FieldAsString( col_class );
       if ( !Qry.FieldIsNULL( col_pr_smoke ) )
-      	place.AddLayerToPlace( cltSmoke, 0, 0, layers_priority[ cltSmoke ].priority );
+      	place.AddLayerToPlace( cltSmoke, 0, 0, NoExists, NoExists, layers_priority[ cltSmoke ].priority );
       if ( !Qry.FieldIsNULL( col_not_good ) )
-      	place.AddLayerToPlace( cltUncomfort, 0, 0, layers_priority[ cltUncomfort ].priority );
+      	place.AddLayerToPlace( cltUncomfort, 0, 0, NoExists, NoExists, layers_priority[ cltUncomfort ].priority );
       place.xname = Qry.FieldAsString( col_xname );
       place.yname = Qry.FieldAsString( col_yname );
       while ( !RQry.Eof && RQry.FieldAsInteger( col_num ) == num &&
@@ -861,7 +861,7 @@ void TSalons::Read( )
         RQry.Next();
       }
       if ( ClName.find( Qry.FieldAsString( col_class ) ) == string::npos )
-        ClName += Qry.FieldAsString( col_class );
+        ClName += Qry.FieldAsString(col_class );
     }
     else { // это место проинициализировано - это новый слой
     	tst();
@@ -871,17 +871,25 @@ void TSalons::Read( )
     PlaceLayer.pax_id = -1;
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для удаления менее приоритетных слоев по пассажирам
    		PlaceLayer.layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
+   		if ( Qry.FieldIsNULL( "point_dep" ) )
+   			PlaceLayer.point_dep = NoExists;
+   		else
+   		  PlaceLayer.point_dep = Qry.FieldAsInteger( "point_dep" );
+   		if ( Qry.FieldIsNULL( "point_arv" ) )
+   			PlaceLayer.point_arv = NoExists;
+   		else
+   		  PlaceLayer.point_arv = Qry.FieldAsInteger( "point_arv" );
    		PlaceLayer.time_create = Qry.FieldAsDateTime( "time_create" );
       if ( FilterLayers.CanUseLayer( PlaceLayer.layer_type, Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
       	ProgTrace( TRACE5, "seat_no=%s, pax_id=%d", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str(), pax_id );
       	if ( PlaceLayer.layer_type != cltUnknown ) { // слои сортированы по приоритету, первый - самый приоритетный слой в векторе
       		tst();
-          place.AddLayerToPlace( PlaceLayer.layer_type, PlaceLayer.time_create, pax_id, layers_priority[ PlaceLayer.layer_type ].priority ); // может быть повторение слоев
+          place.AddLayerToPlace( PlaceLayer.layer_type, PlaceLayer.time_create, pax_id,
+                                 PlaceLayer.point_dep, PlaceLayer.point_arv, layers_priority[ PlaceLayer.layer_type ].priority ); // может быть повторение слоев
           PlaceLayer.pax_id = pax_id;
         } // задан слой у места
       }
     }
-    tst();
     place.visible = true;
     placeList->Add( place );
     if ( PlaceLayer.pax_id > 0 ) {
@@ -913,7 +921,6 @@ void TSalons::Read( )
     placelists.pop_back( );
     delete placeList; // нам этот класс/салон не нужен
   }
-  tst();
   // имеем салон и места в салоне со всеми слоями. Нам предстоит разобраться какие из них лишние. До этого мы фильтровали только те, которые не использвем
   for( TPaxLayers::iterator ipax=pax_layers.begin(); ipax!=pax_layers.end(); ipax++ ) { // пробег по пассажирам
   	for (vector<TPaxLayer>::iterator r=ipax->second.paxLayers.begin(); r!=ipax->second.paxLayers.end(); r++ ) { // пробег по слоям пассажира
@@ -921,19 +928,14 @@ void TSalons::Read( )
   			           ipax->first, ipax->second.seats, ipax->second.cl.c_str(), EncodeCompLayerType( r->layer_type ), r->time_create, r->places.size() );
 
   		if ( !isValidLayer( this, ipax, pax_layers, r )  ) {
-  			tst();
   			ipax->second.clearLayer( this, ipax->first, r );
-  			tst();
   		}
   		else { // слой правильный
-  			tst();
         // вычисление случая, когда разные места размечены под одного пассажира (разные слои)
         for (vector<TPaxLayer>::iterator ir=ipax->second.paxLayers.begin(); ir!=ipax->second.paxLayers.end(); ir++ ) { // пробег по слоям пассажира
 	        // пассажир может занимать разные места с одним слоем???
-	        tst();
 	        if ( !isValidLayer( this, ipax, pax_layers, ir ) || ir == r )
 	  	      continue;
-	  	    tst();
 	        if ( ir->priority < r->priority ||
          	     ir->priority == r->priority &&
 	  	         ir->time_create > r->time_create ) { //есть более приоритетный слой у пассажира
@@ -1106,7 +1108,7 @@ void TSalons::Parse( xmlNodePtr salonsNode )
 //      		ProgTrace( TRACE5, "la
       		TCompLayerType l = DecodeCompLayerType( NodeAsStringFast( "layer_type", remNode ) );
       		if ( l != cltUnknown && !place.isLayer( l ) )
-      			 place.AddLayerToPlace( l, 0, 0, layers_priority[ l ].priority );
+      			 place.AddLayerToPlace( l, 0, 0, NoExists, NoExists, layers_priority[ l ].priority );
       		remsNode = remsNode->next;
       	}
       }
