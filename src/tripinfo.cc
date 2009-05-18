@@ -19,6 +19,7 @@
 #include "stat.h"
 #include "print.h"
 #include "convert.h"
+#include "astra_misc.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -550,7 +551,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
   scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
   real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
-  if ( reqInfo->screen.name == "AIR.EXE")
+  if ( reqInfo->screen.name == "AIR.EXE" ||
+       reqInfo->screen.name == "KASSA.EXE" )
   {
     //внимание! локальная дата порта
     NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
@@ -681,7 +683,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       "SELECT NVL(pr_tranz_reg,0) AS pr_tranz_reg, "
       "       NVL(pr_block_trzt,0) AS pr_block_trzt, "
       "       pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-      "       pr_reg_with_tkn,pr_reg_with_doc,pr_bp_market_flt,pr_etstatus "
+      "       pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
       "FROM trip_sets WHERE point_id=:point_id ";
     Qryh.CreateVariable( "point_id", otInteger, point_id );
     Qryh.Execute();
@@ -706,10 +708,10 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "pr_exam", (int)(Qryh.FieldAsInteger("pr_exam")!=0) );
       NewTextChild( node, "pr_check_pay", (int)(Qryh.FieldAsInteger("pr_check_pay")!=0) );
       NewTextChild( node, "pr_exam_check_pay", (int)(Qryh.FieldAsInteger("pr_exam_check_pay")!=0) );
-      NewTextChild( node, "pr_trfer_reg", (int)false );  //!!!потом убрать GetNode 01.12.08
       NewTextChild( node, "pr_reg_with_tkn", (int)(Qryh.FieldAsInteger("pr_reg_with_tkn")!=0) );
       NewTextChild( node, "pr_reg_with_doc", (int)(Qryh.FieldAsInteger("pr_reg_with_doc")!=0) );
-      NewTextChild( node, "pr_bp_market_flt", (int)(Qryh.FieldAsInteger("pr_bp_market_flt")!=0) );
+      NewTextChild( node, "pr_trfer_reg", (int)false );  //!!!потом убрать GetNode 01.12.08
+      NewTextChild( node, "pr_bp_market_flt", (int)false );  //!!!потом убрать 14.04.09
     };
     if (reqInfo->screen.name == "AIR.EXE" ||
         reqInfo->screen.name == "BRDBUS.EXE" ||
@@ -743,7 +745,8 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
           }
           break;
         case atOverload:
-          if (reqInfo->screen.name == "CENT.EXE")
+          if (reqInfo->screen.name == "CENT.EXE" ||
+          	  reqInfo->screen.name == "PREPREG.EXE")
           	rem = TripAlarmString( alarm );
           break;
         case atBrd:
@@ -1637,11 +1640,23 @@ bool Get_overload_alarm( int point_id, const TTripInfo &fltInfo )
 void Set_overload_alarm( int point_id, bool overload_alarm )
 {
   TQuery Qry(&OraSession);
-  Qry.SQLText=
-    "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
-  Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
+  Qry.SQLText = "SELECT overload_alarm FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
+  if ( !Qry.Eof && (int)overload_alarm != Qry.FieldAsInteger( "overload_alarm" ) ) {
+    Qry.Clear();
+    Qry.SQLText=
+      "UPDATE trip_sets SET overload_alarm=:overload_alarm WHERE point_id=:point_id";
+    Qry.CreateVariable("overload_alarm", otInteger, overload_alarm);
+    Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.Execute();
+  	string msg = "Тревога 'Перегрузка'";
+  	if ( overload_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
+  }
 }
 
 
@@ -1662,6 +1677,12 @@ bool check_waitlist_alarm( int point_id )
 	  Qry.CreateVariable( "point_id", otInteger, point_id );
 	  Qry.CreateVariable( "waitlist_alarm", otInteger, waitlist_alarm );
   	Qry.Execute();
+  	string msg = "Тревога 'Лист ожидания'";
+  	if ( waitlist_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
 	}
 	return waitlist_alarm;
 }
@@ -1701,6 +1722,12 @@ bool check_brd_alarm( int point_id )
 	  Qry.CreateVariable( "point_id", otInteger, point_id );
 	  Qry.CreateVariable( "brd_alarm", otInteger, brd_alarm );
   	Qry.Execute();
+  	string msg = "Тревога 'Посадка'";
+  	if ( brd_alarm )
+  		msg += " установлена";
+  	else
+  		msg += " отменена";
+  	TReqInfo::Instance()->MsgToLog( msg, evtFlt, point_id );
   }
 	return brd_alarm;
 }

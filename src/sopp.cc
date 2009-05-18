@@ -34,6 +34,8 @@ using namespace EXCEPTIONS;
 using namespace ASTRA;
 using namespace boost::local_time;
 
+#define NOT_CHANGE_AIRLINE_FLT_NO_SCD_
+
 enum TModule { tSOPP, tISG, tSPPCEK };
 
 const char* points_SOPP_SQL =
@@ -1762,8 +1764,8 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   TQuery Qry(&OraSession);
 	Qry.Clear();
 	Qry.SQLText=
-	  "SELECT airline,flt_no,suffix,airp,scd_out,point_num, "
-    "       DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+	  "SELECT airline,flt_no,suffix,airp,scd_out, "
+	  "       point_num,first_point,pr_tranzit "
     "FROM points "
     "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
@@ -1771,12 +1773,11 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
   TTripInfo fltInfo(Qry);
 
-  TTypeBSendInfo sendInfo;
-  sendInfo.airline=Qry.FieldAsString("airline");
-  sendInfo.flt_no=Qry.FieldAsInteger("flt_no");
-  sendInfo.airp_dep=Qry.FieldAsString("airp");
+  TTypeBSendInfo sendInfo(fltInfo);
+  sendInfo.point_id=point_id;
   sendInfo.point_num=Qry.FieldAsInteger("point_num");
   sendInfo.first_point=Qry.FieldAsInteger("first_point");
+  sendInfo.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
   sendInfo.tlg_type="BSM";
 
   //BSM
@@ -2991,6 +2992,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
         	id->remark = string( "задержка до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ) + id->remark;
         reqInfo->MsgToLog( string( "Изменение расчетного времени вылета до " ) + DateTimeToStr( id->est_out, "dd hh:nn" ), evtDisp, move_id, id->point_id );
   	  }*/
+  	  #ifdef NOT_CHANGE_AIRLINE_FLT_NO_SCD
+  	  if ( id->pr_del!=-1 && !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
+  	  	throw UserException( "Нельзя изменить авиакомпанию в маршруте" );
+  	  	//reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	  }
+  	  if ( id->pr_del!=-1 && id->flt_no > NoExists && old_dest.flt_no > NoExists && id->flt_no != old_dest.flt_no ) {
+  	  	throw UserException( "Нельзя изменить номер рейса в маршруте" );
+  	  }
+  	  if ( id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out > NoExists && id->scd_out != old_dest.scd_out ) {
+  	  	throw UserException( "Нельзя изменить плановое время вылета в маршруте" );
+  	  }
+  	  #endif
+
   	  if ( id->pr_del != -1 && id->airline+IntToString(id->flt_no)+id->suffix != old_dest.airline+IntToString(old_dest.flt_no)+old_dest.suffix ) {
   	  	reSetCraft = true;
   	  }
@@ -3049,9 +3063,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		    A.pr_land = false;
   		    vchangeAct.push_back( A );
   	    }
-  	  if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
-  	  	reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
-  	  }
+     if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
+       reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
+     }
     	set_pr_del = ( !old_dest.pr_del && id->pr_del );
     	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	  set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );

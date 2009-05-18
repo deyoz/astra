@@ -35,8 +35,6 @@ public:
      AddEvent("BaseComponsRead",evHandle);
      evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::ChangeBC);
      AddEvent("ChangeBC",evHandle);
-     evHandle=JxtHandler<SalonsInterface>::CreateHandler(&SalonsInterface::Convert_salons);
-     AddEvent("Convert_salons",evHandle);
      //////////////////new layer mode////////////////////////////////
   };
 
@@ -54,8 +52,6 @@ public:
   void BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-
-  void Convert_salons(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 
 };
 

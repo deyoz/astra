@@ -2013,7 +2013,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
      "      pax.pr_brd IS NOT NULL AND "
      "      seats > 0 AND "
      "      pax_rem.pax_id(+) = pax.pax_id AND "
-     "      rem_code = 'STCR' "
+     "      rem_code(+) = 'STCR' "
      "ORDER BY pax.pax_id, pax.reg_no,pax_grp.grp_id ";
     QrySeat.SQLText =
       "SELECT first_xname, first_yname FROM trip_comp_layers "
@@ -2312,7 +2312,8 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         " FROM crs_pax, crs_pnr, "
         "( SELECT COUNT(*) step FROM crs_pax_rem "
         "   WHERE rem_code = 'STCR' AND pax_id=:pax_id ) a "
-        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pnr_id=crs_pnr.pnr_id";
+        " WHERE crs_pax.pax_id=:pax_id AND crs_pax.pr_del=0 AND "
+        "       crs_pax.pnr_id=crs_pnr.pnr_id";
       ncrs_pax_id = pax_id;
       Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
     	break;
