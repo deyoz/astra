@@ -2013,7 +2013,7 @@ bool GetPassengersForManualSeat( int point_id, TCompLayerType layer_type, TPasse
      "      pax.pr_brd IS NOT NULL AND "
      "      seats > 0 AND "
      "      pax_rem.pax_id(+) = pax.pax_id AND "
-     "      rem_code(+) = 'STCR' "
+     "      rem_code = 'STCR' "
      "ORDER BY pax.pax_id, pax.reg_no,pax_grp.grp_id ";
     QrySeat.SQLText =
       "SELECT first_xname, first_yname FROM trip_comp_layers "

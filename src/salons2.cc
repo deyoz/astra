@@ -10,7 +10,6 @@
 #include "oralib.h"
 #include "images.h"
 #include "convert.h"
-#include "tripinfo.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -490,8 +489,6 @@ void TSalons::Write()
       }
     } //for place
   }
-  if ( readStyle == rTripSalons )
-    check_waitlist_alarm( trip_id );
 }
 
   struct TPlaceLayer {
@@ -1400,7 +1397,6 @@ int SetCraft( int point_id, std::string &craft, int comp_id )
   Qry.Execute();
   TReqInfo::Instance()->MsgToLog( string( "Назначена базовая компоновка (ид=" ) + IntToString( comp_id ) +
   	                              "). Классы: " + Qry.FieldAsString( "cl" ), evtFlt, point_id );
-  check_waitlist_alarm( point_id );
   return comp_id;
 }
 
