@@ -6,6 +6,8 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
+#include "salons.h"
+#include "astra_consts.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -35,33 +37,85 @@ bool TTlgInfo::operator == (const TMktFlight &s) const
         local_day == s.scd;
 }
 
-void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list)
+
+
+
+bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 {
-    seat_list.Clear();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select distinct "
-        "   trip_comp_elems.xname, "
-        "   trip_comp_elems.yname "
-        "from "
-        "   trip_comp_layers, "
-        "   trip_comp_ranges, "
-        "   trip_comp_elems "
-        "where "
-        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
-        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.num = trip_comp_ranges.num and "
-        "   trip_comp_elems.x = trip_comp_ranges.x and "
-        "   trip_comp_elems.y = trip_comp_ranges.y and "
-        "   trip_comp_layers.layer_type = :ckin_layer and "
-        "   trip_comp_layers.pax_id = :pax_id ";
-    Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(layer));
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if(!Qry.Eof)
-        for(; !Qry.Eof; Qry.Next())
-            seat_list.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"));
+	if ( t1.yname < t2.yname )
+		return true;
+	else
+		if ( t1.yname > t2.yname )
+			return false;
+		else
+			if ( t1.xname < t2.xname )
+				return true;
+			else
+			  return false;
+};
+
+void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
+{
+	complayers.clear();
+  vector<ASTRA::TCompLayerType> layers;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
+  	Qry.Next();
+  }
+  TTlgCompLayer comp_layer;
+  int next_point_arv = -1;
+
+  SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
+  Salons.Read();
+  for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
+    for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
+    	bool pr_break = false;
+    	for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
+    		for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
+    			if ( il->layer_type == *ilayer ) { // нашли нужный слой
+    				if ( il->point_dep == NoExists )
+    					comp_layer.point_dep = info.point_id;
+    				else
+              comp_layer.point_dep = il->point_dep;
+            if ( il->point_arv == NoExists )  {
+              if ( next_point_arv == -1 ) {
+                TTripRoute route;
+                TTripRouteItem next_airp;
+                route.GetNextAirp(info.point_id,
+                                  info.point_num,
+                                  info.first_point,
+                                  true,
+                                  trtNotCancelled,
+                                  next_airp);
+
+                if ( next_airp.point_id == NoExists )
+                  throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
+                else
+                  next_point_arv = next_airp.point_id;
+              }
+              comp_layer.point_arv = next_point_arv;
+            }
+            else
+            	comp_layer.point_arv = il->point_arv;
+            comp_layer.layer_type = il->layer_type;
+            comp_layer.xname = ip->xname;
+            comp_layer.yname = ip->yname;
+            comp_layer.pax_id = il->pax_id;
+            complayers.push_back( comp_layer );
+    				pr_break = true;
+    				break;
+    			}
+    		}
+    		if ( pr_break ) // закончили бежать по слоям места
+    			break;
+    	}
+    }
+  }
+  // сортировка по yname, xname
+  sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
 void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
@@ -463,7 +517,7 @@ namespace PRL_SPACE {
         vector<string> items;
         void get(TTlgInfo &info, TFTLPax &pax);
         void get(TTlgInfo &info, TETLPax &pax);
-        void get(TTlgInfo &info, TPRLPax &pax);
+        void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
         void ToTlg(TTlgInfo &info, vector<string> &body);
         TRemList(TInfants *ainfants): infants(ainfants) {};
     };
@@ -825,7 +879,7 @@ namespace PRL_SPACE {
         }
     }
 
-    void TRemList::get(TTlgInfo &info, TPRLPax &pax)
+    void TRemList::get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
         items.clear();
         if(pax.pax_id == NoExists) return;
@@ -847,7 +901,7 @@ namespace PRL_SPACE {
         if(!Qry.Eof)
             items.push_back("1CHD");
         TTlgSeatList seats;
-        get_seat_list(pax.pax_id, cltCheckin, seats);
+        seats.add_seats(pax.pax_id, complayers);
         string seat_list = seats.get_seat_list(info.pr_lat or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
@@ -881,7 +935,7 @@ namespace PRL_SPACE {
             grp_map = agrp_map;
             infants = ainfants;
         }
-        void GetPaxList(TTlgInfo &info);
+        void GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers);
         void PaxListToTlg(TTlgInfo &info, vector<string> &body);
     };
 
@@ -897,7 +951,7 @@ namespace PRL_SPACE {
         }
     }
 
-    void TPRLDest::GetPaxList(TTlgInfo &info)
+    void TPRLDest::GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers)
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -964,7 +1018,7 @@ namespace PRL_SPACE {
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
                 pax.pnrs.get(pax.pnr_id);
-                pax.rems.get(info, pax);
+                pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
@@ -2510,7 +2564,7 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
                 buf << "NIL";
             else
                 buf
-                    << pax_list.size() 
+                    << pax_list.size()
                     << "PAX / "
                     << ssr
                     << "SSR";
@@ -2540,6 +2594,8 @@ void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
 void TPSM::get(TTlgInfo &info)
 {
     cfg.get(info);
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -2574,7 +2630,7 @@ void TPSM::get(TTlgInfo &info)
             item.ssr.get(item.pax_id);
             if(item.ssr.items.empty())
                 continue;
-            get_seat_list(item.pax_id, cltCheckin, item.seat_no);
+            item.seat_no.add_seats(item.pax_id, complayers);
             item.OItem.get(item.pax_id);
             items[item.airp_arv][item.cls].push_back(item);
         }
@@ -2920,6 +2976,14 @@ struct TSeatListContext {
     void vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
 };
 
+void TTlgSeatList::add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers)
+{
+    for (vector<TTlgCompLayer>::iterator ic=complayers.begin(); ic!=complayers.end(); ic++ ) {
+        if ( ic->pax_id != pax_id ) continue;
+        add_seat(ic->xname, ic->yname);
+    }
+}
+
 void TTlgSeatList::add_seat(int point_id, string xname, string yname)
 {
     if(is_iata_row(yname) && is_iata_line(xname)) {
@@ -3142,88 +3206,13 @@ void TTlgSeatList::dump_comp()
 
 void TTlgSeatList::apply_comp(TTlgInfo &info)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   trip_comp_elems.yname, "
-        "   trip_comp_elems.xname, "
-        "   comp_layer_types.priority, "
-        "   trip_comp_layers.point_arv, "
-        "   trip_comp_layers.point_dep, "
-        "   trip_comp_layers.layer_type "
-        "from "
-        "   trip_comp_layers, "
-        "   trip_comp_ranges, "
-        "   trip_comp_elems, "
-        "   comp_layer_types "
-        "where "
-        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
-        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.num = trip_comp_ranges.num and "
-        "   trip_comp_elems.x = trip_comp_ranges.x and "
-        "   trip_comp_elems.y = trip_comp_ranges.y and "
-        "   trip_comp_layers.layer_type = comp_layer_types.code and "
-        "   comp_layer_types.pr_occupy <> 0 and "
-        "   trip_comp_layers.point_id = :point_id "
-        "order by trip_comp_elems.yname, "
-        "         trip_comp_elems.xname, "
-        "         comp_layer_types.priority ";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        TFilterLayers filter_layers;
-        filter_layers.getFilterLayers(info.point_id);
-        int col_point_arv = Qry.FieldIndex("point_arv");
-        int col_point_dep = Qry.FieldIndex("point_dep");
-        int col_layer_type = Qry.FieldIndex("layer_type");
-        int col_xname = Qry.FieldIndex("xname");
-        int col_yname = Qry.FieldIndex("yname");
-        int next_point_arv = -1;
-        string prior_xname,prior_yname;
-        for(; !Qry.Eof; Qry.Next()) {
-            int point_dep;
-            int point_arv;
-            if(Qry.FieldIsNULL(col_point_dep))
-                point_dep = info.point_id;
-            else
-                point_dep = Qry.FieldAsInteger(col_point_dep);
-            if(Qry.FieldIsNULL(col_point_arv)) {
-                if(next_point_arv == -1)
-                {
-                    TTripRoute route;
-                    TTripRouteItem next_airp;
-                    route.GetNextAirp(info.point_id,
-                            info.point_num,
-                            info.first_point,
-                            true,
-                            trtNotCancelled,
-                            next_airp);
 
-
-                    if(next_airp.point_id==ASTRA::NoExists)
-                        throw Exception("next_id not found");
-                    else {
-                        next_point_arv = next_airp.point_id;
-                    }
-                }
-                point_arv = next_point_arv;
-            } else
-                point_arv = Qry.FieldAsInteger(col_point_arv);
-            if (prior_xname==Qry.FieldAsString(col_xname) &&
-                    prior_yname==Qry.FieldAsString(col_yname))
-                //нашли менее приоритетный слой на уже обработанное место - выходим
-                continue;
-
-            if (!filter_layers.CanUseLayer(DecodeCompLayerType(Qry.FieldAsString(col_layer_type)), point_dep))
-                //при определенных настройках рейса слой не учитывается - выходим
-                continue;
-
-            prior_xname=Qry.FieldAsString(col_xname);
-            prior_yname=Qry.FieldAsString(col_yname);
-            add_seat( point_arv, prior_xname, prior_yname );
-        }
-    }
+  vector<TTlgCompLayer> complayers;
+  ReadSalons( info, complayers );
+  for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
+    ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
+    add_seat( il->point_arv, il->xname, il->yname );
+  }
 }
 
 void TTlgSeatList::get(TTlgInfo &info)
@@ -3569,11 +3558,11 @@ struct TETLDest {
         grp_map = agrp_map;
         infants = ainfants;
     }
-    void GetPaxList(TTlgInfo &info);
+    void GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers);
     void PaxListToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TETLDest::GetPaxList(TTlgInfo &info)
+void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3661,7 +3650,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
-    void get(TTlgInfo &info);
+    void get(TTlgInfo &info,vector<TTlgCompLayer> &complayers);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
@@ -4332,8 +4321,9 @@ int ETL(TTlgInfo &info)
         body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
     }
 
+    vector<TTlgCompLayer> complayers;
     TDestList<TETLDest> dests;
-    dests.get(info);
+    dests.get(info,complayers);
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
@@ -4342,7 +4332,7 @@ int ETL(TTlgInfo &info)
 }
 
 template <class T>
-void TDestList<T>::get(TTlgInfo &info)
+void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 {
     infants.get(info.first_point);
     TQuery Qry(&OraSession);
@@ -4372,7 +4362,7 @@ void TDestList<T>::get(TTlgInfo &info)
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
         ProgTrace(TRACE5, "airp: %s, cls: %s", dest.airp.c_str(), dest.cls.c_str());
-        dest.GetPaxList(info);
+        dest.GetPaxList(info,complayers);
         items.push_back(dest);
     }
 }
@@ -5022,8 +5012,11 @@ int PRL(TTlgInfo &info)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
+    ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
     TDestList<TPRLDest> dests;
-    dests.get(info);
+    dests.get(info,complayers);
     vector<string> body;
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
@@ -5063,7 +5056,8 @@ int TelegramInterface::create_tlg(
         throw UserException("Неверно указан тип телеграммы");
     string vbasic_type = Qry.FieldAsString("basic_type");
     bool veditable = Qry.FieldAsInteger("editable") != 0;
-    TTlgInfo info(createInfo.mark_info);
+    TTlgInfo info;
+    info.mark_info = createInfo.mark_info;
     info.tlg_type = createInfo.type;
     if((vbasic_type == "PTM" || vbasic_type == "BTM") && createInfo.airp_trfer.empty())
         throw UserException("Не указан аэропорт назначения");
@@ -5229,7 +5223,7 @@ void TCodeShareInfo::init(xmlNodePtr node)
     pr_mark_header = NodeAsIntegerFast("pr_mark_header", currNode) != 0;
 }
 
-void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     TCreateTlgInfo createInfo;

@@ -1282,14 +1282,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
         con.pax.name=Qry.FieldAsString("name");
         con.pax.status=Qry.FieldAsString("status");
       };
-//???      get_seat_list(pax_id,cltCheckin,con.pax.seat_no);
-      for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
-      	if ( pax_id != il->pax_id ) continue;
-        ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
-        con.pax.seat_no.add_seat( il->xname, il->yname );
-      }
-
-
+      con.pax.seat_no.add_seats(pax_id, complayers);
       vector<TPnrAddrItem> pnrs;
       con.pax.pnr_addr=GetPaxPnrAddr(pax_id,pnrs);
     };

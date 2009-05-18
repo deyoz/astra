@@ -8,6 +8,16 @@
 #include "astra_consts.h"
 #include "astra_misc.h"
 
+
+struct TTlgCompLayer {
+	int pax_id;
+	int point_dep;
+	int point_arv;
+	ASTRA::TCompLayerType layer_type;
+	std::string xname;
+	std::string yname;
+};
+
 struct TCodeShareInfo {
     std::string airline;
     int flt_no;
@@ -36,7 +46,8 @@ struct TCreateTlgInfo {
 
 struct TTlgInfo {
     // Информация о коммерческом рейсе
-    const TCodeShareInfo &mark_info;
+    /*const TCodeShareInfo &mark_info;*/
+    TCodeShareInfo mark_info;
     // кодировка салона
     bool pr_lat_seat;
     std::string tlg_type;
@@ -72,7 +83,10 @@ struct TTlgInfo {
     //разные настройки
     bool pr_lat;
     bool operator == (const TMktFlight &s) const;
-    TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
+    /*TTlgInfo(const TCodeShareInfo &aCodeShareInfo): mark_info(aCodeShareInfo) {
+    	TTlgInfo();
+    };*/
+    TTlgInfo(){
         point_id = -1;
         flt_no = -1;
         scd = 0;
@@ -83,7 +97,7 @@ struct TTlgInfo {
         first_point = -1;
         point_num = -1;
         pr_lat = false;
-    };
+    }
 };
 
 // stuff used to form seat ranges in tlgs
@@ -131,12 +145,11 @@ struct TTlgSeatList {
         void add_seat(std::string xname, std::string yname) { // used in PRL
             add_seat(0, xname, yname);
         };
+        void add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers);
         std::string get_seat_list(bool pr_lat); // used in PRL
         std::string get_seat_one(bool pr_lat);
         void Clear() { comp.clear(); };
 };
-
-void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list);
 
 // End of previous stuff
 
@@ -277,7 +290,6 @@ public:
   void GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
-  void CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
@@ -311,6 +323,10 @@ public:
 };
 
 std::string fetch_addr(std::string &addr);
+std::string format_addr_line(std::string vaddrs);
+
+void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers );
+
 
 #endif /*_TELEGRAM_H_*/
 
