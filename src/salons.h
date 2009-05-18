@@ -53,11 +53,16 @@ struct TRem {
 
 struct TPlaceLayer {
 	int pax_id;
+	int point_dep;
+	int point_arv;
 	ASTRA::TCompLayerType layer_type;
 	int priority;
 	BASIC::TDateTime time_create;
-  TPlaceLayer( int vpax_id, ASTRA::TCompLayerType vlayer_type, BASIC::TDateTime vtime_create, int vpriority ) {
+  TPlaceLayer( int vpax_id, int vpoint_dep, int vpoint_arv,
+               ASTRA::TCompLayerType vlayer_type, BASIC::TDateTime vtime_create, int vpriority ) {
 		pax_id = vpax_id;
+		point_dep = vpoint_dep;
+		point_arv = vpoint_arv;
 		layer_type = vlayer_type;
 		time_create = vtime_create;
 		priority = vpriority;
@@ -131,7 +136,8 @@ class TPlace {
     		}
       }
     }
-    void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id, int priority ) {
+    void AddLayerToPlace( ASTRA::TCompLayerType l, BASIC::TDateTime time_create, int pax_id,
+    	                   int point_dep, int point_arv, int priority ) {
    		std::vector<TPlaceLayer>::iterator i;
       for (i=layers.begin(); i!=layers.end(); i++) {
       	if ( priority < i->priority ||
@@ -139,7 +145,7 @@ class TPlace {
       		   time_create > i->time_create )
       		break;
       }
-      TPlaceLayer pl( pax_id, l, time_create, priority );
+      TPlaceLayer pl( pax_id, point_dep, point_arv, l, time_create, priority );
     	layers.insert( i, pl );
     	if ( pax_id > 0 )
     		isPax = true;

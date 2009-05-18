@@ -485,6 +485,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    name, "
         "    pers_type, "
         "    class, "
+        "    pax_grp.status, "
         "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
         "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "    seats, "
@@ -737,7 +738,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                 if (reqInfo->screen.name == "BRDBUS.EXE")
                                 {
                                     if (mark)
+                                    {
+                                      if (DecodePaxStatus(Qry.FieldAsString("status"))==psTCheckin)
+                                        showErrorMessage("Внимание! Сквозная регистрация. Заберите полетный купон");
+                                      else
                                         showMessage("Пассажир прошел посадку");
+                                    }
                                     else
                                         showMessage("Пассажир высажен");
                                 }

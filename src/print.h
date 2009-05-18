@@ -53,11 +53,14 @@ typedef enum {
     ptOKIML3310,
     ptOLIVETTI,
     ptZEBRA,
-    ptOLIVETTICOM
+    ptOLIVETTICOM,
+    ptDATAMAX,
+    ptDATAMAXCOM
 } TPrnType;
 
 namespace to_esc {
     void convert(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
+    void convert_dmx(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
 }
 
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
@@ -92,6 +95,8 @@ class PrintDataParser {
                 TData data;
                 void dump_data();
                 std::string BCBP_M_2(bool pr_lat);
+                std::string LONG_DEP(bool pr_lat);
+                std::string LONG_ARV(bool pr_lat);
 
 
                 std::string class_checked;

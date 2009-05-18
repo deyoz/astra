@@ -56,7 +56,7 @@ struct TPassenger {
   std::string wl_type;
   int countPlace;
   TSeatStep Step;
-  bool pr_MCLS;
+  std::string SUBCLS_REM;
   std::string maxRem;
   std::string placeRem; /* 'NSSA', 'NSSW', 'NSSB' ¨ â. ¤. */
   bool prSmoke;
@@ -90,7 +90,7 @@ struct TPassenger {
     layer = ASTRA::cltUnknown;
     grp_status = ASTRA::cltUnknown;
     priority = 0;
-    pr_MCLS = false;
+    SUBCLS_REM = "";
     placeList = NULL;
     Pos.x = 0;
     Pos.y = 0;

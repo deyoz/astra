@@ -1098,6 +1098,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
+  TQuery Qry(&OraSession);
   if (!pr_unaccomp)
   {
     readTripCounters(point_dep,resNode);
@@ -1107,8 +1108,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     fmt.persCountFmt=0;
     fmt.infSeatsFmt=0;
 
-
-    TQuery Qry(&OraSession);
+    Qry.Clear();
     Qry.SQLText=
       "SELECT pers_count_fmt,inf_seats_fmt "
       "FROM desks,desk_grp_sets "
@@ -1144,13 +1144,16 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   else
     NewTextChild(node,"grp_name");
 
+  Qry.Clear();
+  Qry.SQLText="SELECT pr_tranz_reg,pr_airp_seance FROM trip_sets WHERE point_id=:point_id";
+  Qry.CreateVariable("point_id",otInteger,point_dep);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.FieldIsNULL("pr_airp_seance"))
+    throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+
   if (pax_status==psTransit)
   {
-    TQuery Qry(&OraSession);
-    Qry.SQLText="SELECT pr_tranz_reg FROM trip_sets WHERE point_id=:point_id";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
     if (Qry.FieldIsNULL("pr_tranz_reg")||Qry.FieldAsInteger("pr_tranz_reg")==0)
       throw UserException("Перерегистрация транзита на данный рейс не производится");
   };
@@ -1560,9 +1563,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  reg_no,surname,name,pax_grp.airp_arv, "
     "  report.get_last_trfer(pax.grp_id) AS last_trfer, "
     "  report.get_last_tckin_seg(pax.grp_id) AS last_tckin_seg, "
-    "  class,pax.subclass, "
+    "  class,pax.subclass,pax_grp.status, "
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-    "  seats,wl_type,pers_type,document, "
+    "  seats,wl_type,pers_type,document,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
     "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
     "  ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bag_weight, "
@@ -1613,11 +1616,13 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_last_tckin_seg=Qry.FieldIndex("last_tckin_seg");
   int col_class=Qry.FieldIndex("class");
   int col_subclass=Qry.FieldIndex("subclass");
+  int col_status=Qry.FieldIndex("status");
   int col_seat_no=Qry.FieldIndex("seat_no");
   int col_seats=Qry.FieldIndex("seats");
   int col_wl_type=Qry.FieldIndex("wl_type");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_document=Qry.FieldIndex("document");
+  int col_ticket_rem=Qry.FieldIndex("ticket_rem");
   int col_ticket_no=Qry.FieldIndex("ticket_no");
   int col_bag_amount=Qry.FieldIndex("bag_amount");
   int col_bag_weight=Qry.FieldIndex("bag_weight");
@@ -1702,6 +1707,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"seats",Qry.FieldAsInteger(col_seats),1);
     NewTextChild(paxNode,"pers_type",Qry.FieldAsString(col_pers_type));
     NewTextChild(paxNode,"document",Qry.FieldAsString(col_document));
+    NewTextChild(paxNode,"ticket_rem",Qry.FieldAsString(col_ticket_rem),"");
     NewTextChild(paxNode,"ticket_no",Qry.FieldAsString(col_ticket_no),"");
     NewTextChild(paxNode,"bag_amount",Qry.FieldAsInteger(col_bag_amount),0);
     NewTextChild(paxNode,"bag_weight",Qry.FieldAsInteger(col_bag_weight),0);
@@ -1735,6 +1741,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
   };
   if(!v_rcpt_complete.empty()) {
       for(vector<xmlNodePtr>::iterator iv = v_rcpt_complete.begin(); iv != v_rcpt_complete.end(); iv++)
@@ -1748,7 +1755,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   sql <<
     "SELECT "
-    "  pax_grp.airp_arv, "
+    "  pax_grp.airp_arv,pax_grp.status, "
     "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
     "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
     "  ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
@@ -1807,6 +1814,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+    NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
   };
 
   Qry.Close();
@@ -2133,11 +2141,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
       Qry.Clear();
       Qry.SQLText=
-        "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus "
+        "SELECT pr_tranz_reg,pr_reg_with_tkn,pr_reg_with_doc,pr_etstatus,pr_airp_seance "
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
       if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+      if (Qry.FieldIsNULL("pr_airp_seance"))
+        throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;
@@ -2371,7 +2381,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 pas.countPlace=NodeAsIntegerFast("seats",node2);
                 pas.placeRem=NodeAsStringFast("seat_type",node2);
                 remNode=GetNodeFast("rems",node2);
-                bool flagMCLS=false;
+                bool flagMCLS=false,
+                     flagSCLS=false;
                 pas.pers_type = NodeAsStringFast("pers_type",node2);
                 bool flagCHIN=pas.pers_type != "ВЗ";
                 if (remNode!=NULL)
@@ -2382,12 +2393,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     const char *rem_code=NodeAsStringFast("rem_code",node2);
                     if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
                         fltInfo.airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
+                    if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"SCLS")==0) flagSCLS=true;
                     if ( strcmp(rem_code,"BLND")==0 ||
                     	   strcmp(rem_code,"STCR")==0 ||
                     	   strcmp(rem_code,"UMNR")==0 ||
                     	   strcmp(rem_code,"WCHS")==0 ||
                     	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
-                    if (strcmp(rem_code,"MCLS")==0) continue; //добавим ремарку MCLS позже
+                    if (strcmp(rem_code,"MCLS")==0 ||
+                    	  strcmp(rem_code,"SCLS")==0) continue; //добавим ремарку MCLS, SCLS позже
                     #ifdef NEWSEATS
                     pas.add_rem(rem_code);
                     #else
@@ -2395,8 +2408,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     #endif
                   };
                 };
-                //ProgTrace(TRACE5,"airline=%s, subclass=%s, flagMCLS=%d",airline.c_str(),subclass,flagMCLS!=0);
-                if (!flagMCLS &&
+                if (!flagMCLS && //??? возможно имеет смысл этот алгоритм перенести в seats.cc, т.к. там есть похожее
                     (fltInfo.airline=="ЮТ" && strcmp(subclass,"М")==0 ||
                      fltInfo.airline=="ПО" && strcmp(subclass,"Ю")==0 ))
                   #ifdef NEWSEATS
@@ -2404,6 +2416,14 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   #else
                   pas.rems.push_back("MCLS");
                   #endif
+                if (!flagSCLS &&
+                    (fltInfo.airline=="ЮТ" && strcmp(subclass,"С")==0))
+                  #ifdef NEWSEATS
+                  pas.add_rem("SCLS");
+                  #else
+                  pas.rems.push_back("SCLS");
+                  #endif
+
                 if ( flagCHIN || adultwithbaby ) {
                 	tst();
                 	adultwithbaby = false;
@@ -4400,6 +4420,223 @@ void CheckInInterface::LoadTransfer(int grp_id, xmlNodePtr transferNode)
   TrferQry.Close();
 };
 
+void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges)
+{
+  tag_ranges.clear();
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT points.airline, "
+    "       pax_grp.point_dep,pax_grp.airp_dep,pax_grp.class, "
+    "       NVL(transfer.airp_arv,pax_grp.airp_arv) AS airp_arv "
+    "FROM points, pax_grp, transfer "
+    "WHERE points.point_id=pax_grp.point_dep AND "
+    "      pax_grp.grp_id=transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND "
+    "      pax_grp.grp_id=:grp_id";
+  Qry.CreateVariable("grp_id",otInteger,grp_id);
+  Qry.Execute();
+  if (Qry.Eof) throw Exception("CheckInInterface::GetNextTagNo: group not found (grp_id=%d)",grp_id);
+
+  int point_id=Qry.FieldAsInteger("point_dep");
+  string airp_dep=Qry.FieldAsString("airp_dep");
+  string airp_arv=Qry.FieldAsString("airp_arv");
+  string cl=Qry.FieldAsString("class");
+  int aircode=-1;
+  try
+  {
+    aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
+    if (aircode<=0 || aircode>999) throw EConvertError("");
+  }
+  catch(EBaseTableError) {}
+  catch(EConvertError) {};
+
+  if (aircode==-1) aircode=954;
+
+  Qry.Clear();
+  Qry.SQLText=
+    "BEGIN "
+    "  SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+    "EXCEPTION "
+    "  WHEN NO_DATA_FOUND THEN "
+    "  BEGIN "
+    "    :range:=9999; "
+    "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+    "  EXCEPTION "
+    "    WHEN DUP_VAL_ON_INDEX THEN "
+    "      SELECT range INTO :range FROM last_tag_ranges2 WHERE aircode=:aircode FOR UPDATE; "
+    "  END; "
+    "END;";
+  Qry.CreateVariable("aircode",otInteger,aircode);
+  Qry.CreateVariable("range",otInteger,FNull);
+  Qry.Execute();
+  //получим последний использованный диапазон (+лочка):
+  int last_range=Qry.GetVariableAsInteger("range");
+
+  int range;
+  int no;
+  bool use_new_range=false;
+  while (tag_count>0)
+  {
+    if (!use_new_range)
+    {
+      int k;
+      for(k=1;k<=5;k++)
+      {
+        Qry.Clear();
+        Qry.CreateVariable("aircode",otInteger,aircode);
+        ostringstream sql;
+
+        sql << "SELECT range,no FROM tag_ranges2 ";
+        if (k>=2) sql << ",points ";
+        sql << "WHERE aircode=:aircode AND ";
+
+
+        if (k==1)
+        {
+          sql <<
+            "      point_id=:point_id AND airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
+            "      (class IS NULL AND :class IS NULL OR class=:class) ";
+          Qry.CreateVariable("point_id",otInteger,point_id);
+          Qry.CreateVariable("airp_dep",otString,airp_dep);
+          Qry.CreateVariable("airp_arv",otString,airp_arv);
+          Qry.CreateVariable("class",otString,cl);
+        };
+
+        if (k>=2)
+        {
+          sql <<
+            "      tag_ranges2.point_id=points.point_id(+) AND "
+            "      (points.point_id IS NULL OR "
+            "       points.pr_del<>0 OR "
+            "       points.time_out<system.UTCSYSDATE AND last_access<system.UTCSYSDATE-2/24 OR "
+            "       points.time_out>=system.UTCSYSDATE AND last_access<system.UTCSYSDATE-2) AND ";
+          if (k==2)
+          {
+            sql <<
+              "      airp_dep=:airp_dep AND airp_arv=:airp_arv AND "
+              "      (class IS NULL AND :class IS NULL OR class=:class) ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+            Qry.CreateVariable("airp_arv",otString,airp_arv);
+            Qry.CreateVariable("class",otString,cl);
+          };
+          if (k==3)
+          {
+            sql <<
+              "      airp_dep=:airp_dep AND airp_arv=:airp_arv ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+            Qry.CreateVariable("airp_arv",otString,airp_arv);
+          };
+          if (k==4)
+          {
+            sql <<
+              "      airp_dep=:airp_dep ";
+            Qry.CreateVariable("airp_dep",otString,airp_dep);
+          };
+          if (k==5)
+          {
+            sql <<
+              "      last_access<system.UTCSYSDATE-1 ";
+          };
+        };
+        sql << "ORDER BY last_access";
+
+
+        Qry.SQLText=sql.str().c_str();
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          range=Qry.FieldAsInteger("range");
+          no=Qry.FieldAsInteger("no");
+          break;
+        };
+      };
+      if (k>5) //среди уже существующих диапазонов нет подходящего - берем новый
+      {
+        use_new_range=true;
+        range=last_range;
+      };
+    };
+    if (use_new_range)
+    {
+      range++;
+      no=-1;
+      if (range>9999)
+      {
+        range=0;
+        no=0; //нулевая бирка 000000 запрещена IATA
+      };
+
+
+      if (range==last_range)
+        throw Exception("CheckInInterface::GetNextTagNo: free range not found (aircode=%d)",aircode);
+
+      Qry.Clear();
+      Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
+      Qry.CreateVariable("aircode",otInteger,aircode);
+      Qry.CreateVariable("range",otInteger,range);
+      Qry.Execute();
+      if (!Qry.Eof) continue; //этот диапазон используется
+    };
+
+    pair<int,int> tag_range;
+    tag_range.first=aircode*1000000+range*100+no+1; //первая неиспользовання бирка от старого диапазона
+
+    if (tag_count>=99-no)
+    {
+      tag_count-=99-no;
+      no=99;
+    }
+    else
+    {
+      no+=tag_count;
+      tag_count=0;
+    };
+
+    tag_range.second=aircode*1000000+range*100+no; //последняя использовання бирка нового диапазона
+    if (tag_range.first<=tag_range.second) tag_ranges.push_back(tag_range);
+
+    Qry.Clear();
+    Qry.CreateVariable("aircode",otInteger,aircode);
+    Qry.CreateVariable("range",otInteger,range);
+    if (no>=99)
+      Qry.SQLText="DELETE FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
+    else
+    {
+      Qry.SQLText=
+        "BEGIN "
+        "  UPDATE tag_ranges2 "
+        "  SET no=:no, airp_dep=:airp_dep, airp_arv=:airp_arv, class=:class, point_id=:point_id, "
+        "      last_access=system.UTCSYSDATE "
+        "  WHERE aircode=:aircode AND range=:range; "
+        "  IF SQL%NOTFOUND THEN "
+        "    INSERT INTO tag_ranges2(aircode,range,no,airp_dep,airp_arv,class,point_id,last_access) "
+        "    VALUES(:aircode,:range,:no,:airp_dep,:airp_arv,:class,:point_id,system.UTCSYSDATE); "
+        "  END IF; "
+        "END;";
+      Qry.CreateVariable("no",otInteger,no);
+      Qry.CreateVariable("airp_dep",otString,airp_dep);
+      Qry.CreateVariable("airp_arv",otString,airp_arv);
+      Qry.CreateVariable("class",otString,cl);
+      Qry.CreateVariable("point_id",otInteger,point_id);
+    };
+    Qry.Execute();
+  };
+  if (use_new_range)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "BEGIN "
+      "  UPDATE last_tag_ranges2 SET range=:range WHERE aircode=:aircode; "
+      "  IF SQL%NOTFOUND THEN "
+      "    INSERT INTO last_tag_ranges2(aircode,range) VALUES(:aircode,:range); "
+      "  END IF; "
+      "END;";
+    Qry.CreateVariable("aircode",otInteger,aircode);
+    Qry.CreateVariable("range",otInteger,range);
+    Qry.Execute();
+  };
+};
+
 void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
 {
   if (bagtagNode==NULL) return;
@@ -4441,6 +4678,22 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
         if (Qry.Eof) throw UserException("На рейс не назначен бланк печатаемой багажной бирки");
         string tag_type = Qry.FieldAsString("tag_type");
         //получим номера печатаемых бирок
+        vector< pair<int,int> > tag_ranges;
+        GetNextTagNo(grp_id, bagAmount-tagCount, tag_ranges);
+        for(vector< pair<int,int> >::iterator r=tag_ranges.begin();r!=tag_ranges.end();r++)
+        {
+          for(int i=r->first;i<=r->second;i++,tagCount++)
+          {
+            node=NewTextChild(tagNode,"tag");
+            NewTextChild(node,"num",tagCount+1);
+            NewTextChild(node,"tag_type",tag_type);
+            NewTextChild(node,"no",i);
+            NewTextChild(node,"color");
+            NewTextChild(node,"bag_num");
+            NewTextChild(node,"pr_print",(int)false);
+          };
+        };
+/*
         Qry.Clear();
         Qry.SQLText=
           "DECLARE "
@@ -4504,7 +4757,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
             NewTextChild(node,"bag_num");
             NewTextChild(node,"pr_print",(int)false);
           };
-        };
+        };*/
         xmlNodePtr bNode,tNode;
         int bag_num,bag_amount;
 
