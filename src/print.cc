@@ -908,6 +908,9 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(di == data.end()) throw Exception("Tag not found " + name);
     ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
     ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
+    if(name == "PNR")
+        di->second.StringVal = convert_pnr_addr(di->second.StringVal, field_lat);
+
     if(!di->second.err_msg.empty())
         throw UserException(di->second.err_msg);
 
@@ -1254,20 +1257,10 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   points.SCD_OUT scd, "
         "   points.EST_OUT est, "
         "   points.ACT_OUT act, "
-//        "   points.AIRLINE, "
-//        "   airlines.code_lat airline_lat, "
-//        "   airlines.name airline_name, "
-//        "   airlines.name_lat airline_name_lat, "
-//        "   nvl(airlines.short_name, airlines.name) airline_short, "
-//        "   nvl(airlines.short_name_lat, airlines.name_lat) airline_short_lat, "
         "   crafts.code craft, "
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat "
-//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||points.suffix flt_no, "
-//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
-//        "   points.SUFFIX, "
-//        "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
         "   points, "
         "   airlines, "
@@ -1453,8 +1446,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
-            "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
-            "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id), 1) pnr_lat "
+            "   ckin.get_pax_pnr_addr(:pax_id) pnr "
             "from "
             "   pax, "
             "   pers_types "
