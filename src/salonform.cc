@@ -410,7 +410,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   Salons.Read();
 
   // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!!!
-  if ( seat_type != SEATS2::stDropseat && !pr_waitlist && GetNode( "question_reseat_protckin", reqNode ) ) {
+  if ( seat_type != SEATS2::stDropseat && !pr_waitlist && GetNode( "question_reseat", reqNode ) ) {
     Qry.Clear();
     Qry.SQLText =
       "SELECT seat_no1,seat_no2 FROM "
@@ -426,7 +426,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
     if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
     	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-    	NewTextChild( resNode, "question_reseat_protckin" );
+    	NewTextChild( resNode, "question_reseat", "Пассажир имеет предварительную рассадку. Пересадить пассажира?" );
     	return;
     }
   }
