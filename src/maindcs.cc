@@ -10,6 +10,7 @@
 #include "exceptions.h"
 #include <fstream>
 #include "xml_unit.h"
+#include "print.h"
 #include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
@@ -529,6 +530,332 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     };
 }
 
+struct TOldPrnParams
+{
+  int code;
+  string name;
+  string iface;
+//    format_id: TPectabFmt;
+  string format;
+  bool pr_stock;
+};
+struct TNewPrnParams
+{
+  string code;
+  string name;
+};
+struct TDocTypeConvert
+{
+  TDocType oldDoc;
+  string newDoc;
+};
+
+TDocTypeConvert docTypes[7] = { {dtBP,     "PRINT_BP"   },
+                                {dtBT,     "PRINT_BT"   },
+                                {dtReceipt,"PRINT_BR"   },
+                                {dtFltDoc, "PRINT_FLT"  },
+                                {dtArchive,"PRINT_ARCH" },
+                                {dtDisp,   "PRINT_DISP" },
+                                {dtTlg,    "PRINT_TLG"  } };
+
+
+void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  XMLRequestCtxt *ctxt = getXmlCtxt();
+
+  xmlNodePtr node,node2;
+  xmlNodePtr oldParamsNode=GetNode("old_profile",reqNode);
+  if (oldParamsNode==NULL) return;
+
+  try
+  {
+    xmlNodePtr prnNode=GetNode("Printers/Printers",oldParamsNode);
+    if (prnNode!=NULL) prnNode=prnNode->children; //спустились на уровень <printer>
+    while (prnNode!=NULL)
+    {
+      node2=prnNode->children;
+      if ((GetNodeFast("type",node2)==NULL) ||
+          (GetNodeFast("name",node2)==NULL) ||
+          (GetNodeFast("port",node2)==NULL)) throw EConvertError("type, name, port not found");
+
+      string devOper=NodeAsStringFast("type",node2);
+      string devName=NodeAsStringFast("name",node2);
+      string devPort=NodeAsStringFast("port",node2);
+
+      TOldPrnParams oldPrn;
+      TNewPrnParams newPrn;
+      string dev_model, dev_sess_type, dev_fmt_type;
+
+      //находим операцию
+      int docIdx=0;
+      for(;docIdx<=6;docIdx++)
+        if (devOper==EncodeDocType(docTypes[docIdx].oldDoc)) break;
+      if (docIdx>6)
+        throw EConvertError("operation %s not found",devOper.c_str());
+
+      {
+        XMLDoc reqDoc,resDoc;
+        reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
+        node=NodeAsNode("/request",reqDoc.docPtr);
+        NewTextChild(node, "doc_type", devOper);
+
+
+        resDoc.docPtr=CreateXMLDoc("UTF-8","response");
+        if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
+          throw EConvertError("can't create reqDoc or resDoc");
+        JxtInterfaceMng::Instance()->
+          GetInterface("print")->
+            OnEvent("GetPrinterList",  ctxt,
+                                       NodeAsNode("/request",reqDoc.docPtr),
+                                       NodeAsNode("/response",resDoc.docPtr));
+
+        node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr);
+
+
+
+
+        if (strcmp((char*)node->name,"drv")==0)
+        {
+          if (devPort.empty())
+          {
+            //WINDOWS-принтер
+            dev_model="DRV PRINT";
+            dev_sess_type="WDP";
+            dev_fmt_type="FRX";
+          }
+          else
+          {
+            //прямой вывод в локальный порт
+            switch (docTypes[docIdx].oldDoc)
+            {
+              case dtReceipt:
+                dev_model="DIR PRINT";
+                dev_sess_type="LPT";
+                dev_fmt_type="EPSON";
+                break;
+              case dtFltDoc:
+              case dtArchive:
+              case dtDisp:
+              case dtTlg:
+                dev_model="DIR PRINT";
+                dev_sess_type="LPT";
+                dev_fmt_type="TEXT";
+                break;
+              default:
+                throw EConvertError("wrong printer %s",devName.c_str());
+            };
+          };
+        }
+        else
+        {
+          while (node != NULL)
+          {
+            oldPrn.code = NodeAsInteger("code", node);
+            oldPrn.name = NodeAsString("name", node);
+            oldPrn.iface = NodeAsString("iface", node);
+           // oldPrn.format_id = TPectabFmt(NodeAsInteger("format_id", node));
+            oldPrn.format = NodeAsString("format", node);
+            oldPrn.pr_stock = NodeAsInteger("pr_stock", node) != 0;
+
+            ProgTrace(TRACE5,"ConvertDevOldFormat: %s %s %s",
+                                        oldPrn.name.c_str(),
+                                        oldPrn.format.c_str(),
+                                        oldPrn.iface.c_str());
+
+            if ((oldPrn.name  + " (" + oldPrn.format + " " + oldPrn.iface + ")") == devName) break;
+
+            node = node->next;
+          };
+          if (node==NULL) //не нашли соответствие name
+            throw EConvertError("printer %s not found in GetPrinterList",devName.c_str());
+
+          //находим модель
+          TQuery Qry(&OraSession);
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT new_code FROM convert_old_prn WHERE old_code=:code";
+          Qry.CreateVariable("code",otInteger,oldPrn.code);
+          Qry.Execute();
+          if (Qry.Eof || Qry.FieldIsNULL("new_code"))
+            throw EConvertError("printer code %d not found",oldPrn.code);
+
+          dev_model=Qry.FieldAsString("new_code");
+
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT new_iface FROM convert_old_iface WHERE old_iface=:iface";
+          Qry.CreateVariable("iface",otString,oldPrn.iface);
+          Qry.Execute();
+          if (Qry.Eof || Qry.FieldIsNULL("new_iface"))
+            throw EConvertError("iface code %d not found",oldPrn.iface.c_str());
+
+          dev_sess_type=Qry.FieldAsString("new_iface");
+
+          Qry.Clear();
+          Qry.SQLText=
+            "SELECT new_fmt FROM convert_old_fmt WHERE old_fmt=:fmt";
+          Qry.CreateVariable("fmt",otString,oldPrn.format);
+          Qry.Execute();
+          if (Qry.Eof || Qry.FieldIsNULL("new_fmt"))
+            throw EConvertError("format code %d not found",oldPrn.format.c_str());
+
+          dev_fmt_type=Qry.FieldAsString("new_fmt");
+
+        };
+      };
+
+
+      {
+        XMLDoc reqDoc,resDoc;
+        reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
+        node=NodeAsNode("/request",reqDoc.docPtr);
+        NewTextChild(node,"operation",docTypes[docIdx].newDoc);
+
+
+        resDoc.docPtr=CreateXMLDoc("UTF-8","response");
+        if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
+          throw EConvertError("can't create reqDoc or resDoc");
+        JxtInterfaceMng::Instance()->
+          GetInterface("MainDCS")->
+            OnEvent("GetDeviceList",   ctxt,
+                                       NodeAsNode("/request",reqDoc.docPtr),
+                                       NodeAsNode("/response",resDoc.docPtr));
+
+        node=NodeAsNode("/response/operations",resDoc.docPtr)->children;
+        xmlNodePtr devNode=NULL;
+        while (node!=NULL)
+        {
+          if (NodeAsString("type",node)==docTypes[docIdx].newDoc)
+          {
+            devNode=NodeAsNode("devices",node)->children;
+            while (devNode!=NULL)
+            {
+              newPrn.code=NodeAsString("code",devNode);
+              newPrn.name=NodeAsString("name",devNode);
+              if (newPrn.code==dev_model) break;
+              devNode=devNode->next;
+            };
+            if (devNode!=NULL) break;
+          };
+          node=node->next;
+        };
+        if (node==NULL || devNode==NULL)
+          throw EConvertError("device %s not found in GetDeviceList",dev_model.c_str());
+      };
+
+
+      int i;
+      string str;
+
+      xmlNodePtr devicesNode=NodeAsNode("devices",reqNode);
+      if (devicesNode==NULL)
+        throw EConvertError("devices node not found in request");
+    /*  if (devicesNode->children!=NULL)
+        throw EConvertError("devices node not empty in request");*/
+
+      xmlNodePtr operNode=NewTextChild(devicesNode,"operation");
+      SetProp(operNode,"type",docTypes[docIdx].newDoc);
+
+      node=NewTextChild(operNode,"dev_model_code",newPrn.code);
+      //SetProp(node,"dev_model_name",newPrn.name);
+
+      node=NewTextChild(operNode,"sess_params");
+      SetProp(node,"type",dev_sess_type);
+
+      if (dev_model=="DRV PRINT")
+        NewTextChild(node,"addr",devName);
+      else
+        NewTextChild(node,"addr",devPort);
+      if (dev_sess_type=="COM")
+      {
+        if (GetNodeFast("BaudRate",node2)!=NULL)
+          NewTextChild(node,"baud_rate",NodeAsStringFast("BaudRate",node2));
+        if (GetNodeFast("DataBits",node2)!=NULL)
+          NewTextChild(node,"data_bits",NodeAsStringFast("DataBits",node2));
+        if (GetNodeFast("Parity",node2)!=NULL)
+          NewTextChild(node,"parity_bits",NodeAsStringFast("Parity",node2));
+        if (GetNodeFast("StopBits",node2)!=NULL)
+          NewTextChild(node,"stop_bits",NodeAsStringFast("StopBits",node2));
+        if (GetNodeFast("FrameBegin",node2)!=NULL &&
+           !NodeIsNULLFast("FrameBegin",node2))
+        {
+          i=NodeAsIntegerFast("FrameBegin",node2);
+          if (i<0 || i>255) throw EConvertError("wrong FrameBegin=%d",i);
+          char b[2] = {0,0};
+          b[0]=i;
+          StringToHex(b,str);
+          NewTextChild(node,"prefix",str);
+        };
+        if (GetNodeFast("FrameEnd",node2)!=NULL &&
+           !NodeIsNULLFast("FrameEnd",node2))
+        {
+          i=NodeAsIntegerFast("FrameEnd",node2);
+          if (i<0 || i>255) throw EConvertError("wrong FrameEnd=%d",i);
+          char b[2] = {0,0};
+          b[0]=i;
+          StringToHex(b,str);
+          NewTextChild(node,"suffix",str);
+        };
+      };
+
+      node=NewTextChild(operNode,"fmt_params");
+      SetProp(node,"type",dev_fmt_type);
+      if (GetNodeFast("encoding",node2)!=NULL)
+        NewTextChild(node,"encoding",NodeAsStringFast("encoding",node2));
+      if (dev_fmt_type=="EPSON")
+      {
+        if (GetNodeFast("offset",node2)!=NULL)
+          NewTextChild(node,"left",NodeAsStringFast("offset",node2));
+        if (GetNodeFast("top",node2)!=NULL)
+          NewTextChild(node,"top",NodeAsStringFast("top",node2));
+      };
+      if (dev_fmt_type=="FRX")
+      {
+        if (GetNodeFast("graphic",node2)!=NULL)
+          NewTextChild(node,"export_bmp",NodeAsStringFast("graphic",node2));
+      };
+      if (dev_fmt_type=="ATB" ||
+          dev_fmt_type=="BTP")
+      {
+        if (GetNodeFast("timeout",node2)!=NULL)
+          NewTextChild(NewTextChild(node,"timeouts"),
+                       "print",NodeAsStringFast("timeout",node2));
+      };
+      prnNode=prnNode->next;
+    };
+    xmlUnlinkNode(oldParamsNode);
+    xmlFreeNode(oldParamsNode);
+    ProgTrace(TRACE5,"ConvertDevOldFormat: %s",XMLTreeToText(reqNode->doc).c_str());
+  }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"ConvertDevOldFormat: %s",E.what());
+    NewTextChild(resNode,"convert_profile_error");
+  };
+  /*
+             <printer>
+               <type>
+               <name>
+               <port>
+               <encoding>     format +
+               <timeout>      format/timeouts +
+               <BaudRate>     sess +
+               <DataBits>     sess +
+               <StopBits>     sess +
+               <ReplaceChar>  sess -
+               <FrameBegin>   sess +
+               <FrameEnd>     sess +
+               <ParityReplace>sess -
+               <Check>        sess -
+               <Parity>       sess +
+               <offset>       format +
+               <top>          format +
+               <graphic>      format +
+               <RTS>          sess
+             </printer>
+  */
+}
+
 void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
@@ -584,6 +911,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     //здесь reqInfo нормально инициализирован
     GetModuleList(resNode);
+    ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
     showBasicInfo();
 }
@@ -720,32 +1048,4 @@ void MainDCSInterface::SaveDeskTraces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     throw;
   };
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
