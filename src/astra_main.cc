@@ -4,6 +4,7 @@
 #include "astra_main.h"
 #include "tlg/tlg.h"
 #include "timer.h"
+#include "empty_proc.h"
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
@@ -84,6 +85,7 @@ class AstraApplication : public ApplicationCallbacks
               ->add("typeb_handler", main_typeb_handler_tcl)
               ->add("edi_handler", main_edi_handler_tcl)
               ->add("timer",main_timer_tcl)
+              ->add("empty_proc",main_empty_proc_tcl)
 //!!!              ->add("file_srv",main_file_srv_tcl)
               ->setApplicationCallbacks(this);
     }
