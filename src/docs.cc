@@ -2211,6 +2211,79 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     tst();
 }
 
+enum TRptType {rtPTM, rtBTM, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
+const char *RptTypeS[rtTypeNum] = {
+    "PTM",
+    "BTM",
+    "REFUSE",
+    "NOTPRES",
+    "REM",
+    "CRS",
+    "CRSUNREG",
+    "EXAM",
+    "?"
+};
+
+TRptType DecodeRptType( const string rpt_type )
+{
+  int i;
+  for( i=0; i<(int)rtTypeNum; i++ )
+    if ( rpt_type == RptTypeS[ i ] )
+      break;
+  if ( i == rtTypeNum )
+    return rtUnknown;
+  else
+    return (TRptType)i;
+}
+
+struct TRptParams {
+    int point_id;
+    TRptType rpt_type;
+    string airp_arv;
+    string ckin_zone;
+    bool pr_et;
+    bool pr_trfer;
+    bool pr_brd;
+    TRptParams():
+        point_id(NoExists),
+        pr_et(false),
+        pr_trfer(false),
+        pr_brd(false)
+    {};
+};
+
+void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+}
+
+void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    xmlNodePtr node = resNode->children;
+    TRptParams rpt_params;
+    rpt_params.point_id = NodeAsIntegerFast("point_id", node);
+    rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
+    rpt_params.airp_arv = NodeAsStringFast("airp_arv", node, "");
+    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, "");
+    rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
+    rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
+    rpt_params.pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
+    switch(rpt_params.rpt_type) {
+        case rtPTM:
+            PTM(rpt_params, resNode);
+            break;
+        case rtBTM:
+        case rtREFUSE:
+        case rtNOTPRES:
+        case rtREM:
+        case rtCRS:
+        case rtCRSUNREG:
+        case rtEXAM:
+        case rtUnknown:
+        case rtTypeNum:
+            throw UserException("Отчет временно не поддерживается системой");
+    }
+}
+
 void  DocsInterface::RunReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     if(NodeIsNULL("name", reqNode))
@@ -2360,6 +2433,25 @@ vector<string> get_grp_zone_list(int point_id)
     if(result.size() > 1 or result.empty())
         result.push_back(" ");
     return result;
+}
+
+void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
+{
+    vector<string> zone_list = get_grp_zone_list(point_id);
+    xmlNodePtr ckin_zonesNode = NewTextChild(dataNode, "ckin_zones");
+    for(vector<string>::iterator iv = zone_list.begin(); iv != zone_list.end(); iv++) {
+        xmlNodePtr itemNode = NewTextChild(ckin_zonesNode, "item");
+        if(iv->empty()) {
+            NewTextChild(itemNode, "code");
+            NewTextChild(itemNode, "name", "Др. залы");
+        } else if(*iv == " ") {
+            NewTextChild(itemNode, "code", *iv);
+            NewTextChild(itemNode, "name", "Все залы");
+        } else {
+            NewTextChild(itemNode, "code", *iv);
+            NewTextChild(itemNode, "name", *iv);
+        }
+    }
 }
 
 void DocsInterface::GetSegList2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
