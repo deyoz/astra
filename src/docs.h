@@ -4,10 +4,12 @@
 #include <libxml/tree.h>
 #include "jxtlib/JxtInterface.h"
 #include "astra_consts.h"
+#include "basic.h"
 
 void RunRpt(std::string name, xmlNodePtr reqNode, xmlNodePtr resNode);
 void get_report_form(const std::string name, xmlNodePtr node);
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f = ASTRA::NoExists);
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode,
+                 BASIC::TDateTime part_key = ASTRA::NoExists);
 void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePtr reqNode);
 
 std::string vs_number(int number, bool pr_lat = false);
