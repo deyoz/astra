@@ -52,6 +52,8 @@ enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoSh
 	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
+const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
+
 };
 
 #endif

@@ -84,7 +84,7 @@ const char * arx_points_SOPP_SQL =
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, arx_points.part_key "
     " FROM arx_points,"
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date AND part_key<:next_date+10 AND "
+    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
     "         ( :first_date IS NULL OR "
@@ -101,7 +101,7 @@ const char * arx_points_ISG_SQL =
     "       pr_tranzit,pr_reg,arx_points.pr_del pr_del,arx_points.tid tid, reference ref, arx_points.part_key "
     " FROM arx_points, arx_move_ref,"
     " (SELECT DISTINCT move_id, part_key FROM arx_points "
-    "   WHERE part_key>=:first_date AND part_key<:next_date+10 AND "
+    "   WHERE part_key>=:first_date AND part_key<:next_date+:arx_trip_date_range AND "
     "         pr_del!=-1 "
     "         :where_sql AND "
     "         ( :first_date IS NULL OR "
@@ -620,11 +620,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       else {*/
         PointsQry.CreateVariable( "first_date", otDate, first_date );
         PointsQry.CreateVariable( "next_date", otDate, next_date );
+        if ( arx )
+          PointsQry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range );
 /*      }*/
     }
     else {
     	PointsQry.CreateVariable( "first_date", otDate, FNull );
     	PointsQry.CreateVariable( "next_date", otDate, FNull );
+    	if ( arx )
+    	  PointsQry.CreateVariable( "arx_trip_date_range", otInteger, FNull );
     }
   }
   TQuery ClassesQry( &OraSession );
@@ -2419,8 +2423,10 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   if ( arx_date > NoExists ) {
   	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
     Qry.SQLText =
-      "SELECT reference, part_key FROM arx_move_ref WHERE part_key>=:arx_date AND part_key<:arx_date+10 AND move_id=:move_id";
+      "SELECT reference, part_key FROM arx_move_ref "
+      "WHERE part_key>=:arx_date AND part_key<:arx_date+:arx_trip_date_range AND move_id=:move_id";
     Qry.CreateVariable( "arx_date", otDate, arx_date );
+    Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
   }
   else
     Qry.SQLText =
@@ -4300,16 +4306,17 @@ void ChangeTrip( int point_id, TSOPPTrip tr1, TSOPPTrip tr2, BitSet<TSOPPTripCha
   	    FltChange.isFlag( tsRestoreFltOut ) ) { // восстановление (новый)
   	ProgTrace( TRACE5, "point_id=%d,airline=%s, flt_no=%d, suffix=%s, scd_out=%f, airp=%s, pr_del=%d",
   	           tr1.point_id, tr1.airline_out.c_str(), tr1.flt_no_out, tr1.suffix_out.c_str(), tr1.scd_out, tr1.airp.c_str(), tr1.pr_del_out );
+
   }
   if ( FltChange.isFlag( tsDelete ) ||
   	   FltChange.isFlag( tsDelFltOut ) ||
   	   FltChange.isFlag( tsCancelFltOut ) && !FltChange.isFlag( tsAddFltOut ) ) { // удаление
   	ProgTrace( TRACE5, "point_id=%d,airline=%s, flt_no=%d, suffix=%s, scd_out=%f, airp=%s, pr_del=%d",
   	           tr2.point_id, tr2.airline_out.c_str(), tr2.flt_no_out, tr2.suffix_out.c_str(), tr2.scd_out,tr2.airp.c_str(), tr2.pr_del_out );
+
   }
 	//Влад!!!
-	//внимательно смотри переменные. Может случится так, что tripinfo1.scd_out=NoExists
-	// т.к. сюда попадают все рейсы у кот. были изменения по след. полям:
+	//внимательно смотри переменные. Может случится так, что scd_out=NoExists
 }
 
 

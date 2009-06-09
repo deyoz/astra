@@ -261,7 +261,7 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
   }
 }
 
-void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
+void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
 {
     TQuery Qry(&OraSession);
     string SQLText =
@@ -277,7 +277,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
         "   scd_out, "
         "   ckin.get_airps(point_id, 1) long_route "
         "from ";
-    if(f == NoExists)
+    if(part_key == NoExists)
         SQLText +=
         "   points "
         "where "
@@ -286,9 +286,9 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, double f)
         SQLText +=
         "   arx_points "
         "where "
-        "   part_key >= :f and "
+        "   part_key = :part_key and "
         "   point_id = :point_id AND pr_del>=0 ";
-        Qry.CreateVariable("f", otDate, f);
+        Qry.CreateVariable("part_key", otDate, part_key);
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -687,14 +687,14 @@ void RunPMNew(string name, xmlNodePtr reqNode, xmlNodePtr formDataNode)
     if(prBrdPaxNode)
         pr_brd_pax = NodeAsInteger(prBrdPaxNode);
     string target = NodeAsString("target", reqNode);
-    
+
     // зал регистрации
     // если NULL, то отчет общий по всем залам
     xmlNodePtr zoneNode = GetNode("zone", reqNode);
     string zone;
     if(zoneNode != NULL)
         zone = NodeAsString(zoneNode);
-    
+
     int pr_lat = GetRPEncoding(point_id, target);
     int pr_vip = NodeAsInteger("pr_vip", reqNode);
     string status = NodeAsString("status", reqNode);

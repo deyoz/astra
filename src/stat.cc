@@ -253,7 +253,8 @@ void GetFltLogSQL(TQuery &Qry)
             "WHERE "
             "    arx_points.pr_del >= 0 and "
             "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-            "    arx_points.part_key >= :FirstDate ";
+            "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
+        Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         if (!info.user.access.airps.empty()) {
             if (info.user.access.airps_permit)
                 res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -317,7 +318,8 @@ void GetPaxSrcAwkSQL(TQuery &Qry)
         "    arx_points.pr_del >= 0 and "
         "    arx_points.pr_reg <> 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "    arx_points.part_key >= :FirstDate ";
+        "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
+    Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -387,7 +389,8 @@ void GetPaxListSQL(TQuery &Qry)
         "    arx_points.pr_del >= 0 and "
         "    arx_points.pr_reg <> 0 and "
         "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "    arx_points.part_key >= :FirstDate ";
+        "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
+    Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
     if (!info.user.access.airps.empty()) {
         if (info.user.access.airps_permit)
             res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
@@ -557,7 +560,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    arx_points "
                     "WHERE "
                     "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-                    "    arx_points.part_key >= :FirstDate ";
+                    "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
+                Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
                 if(scr == PaxList)
                     SQLText += " and arx_points.pr_del = 0 ";
                 if(scr == FltLog and !pr_show_del)
@@ -1238,8 +1242,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                 "FROM "
                 "   arx_events "
                 "WHERE "
-                "  arx_events.part_key >= :FirstDate - 5 and " // time и part_key не совпадают для
-                "  arx_events.part_key < :LastDate + 5 and "   // разных типов событий
+                "  arx_events.part_key >= :FirstDate - 10 and " // time и part_key не совпадают для
+                "  arx_events.part_key < :LastDate + 10 and "   // разных типов событий
                 "  arx_events.time >= :FirstDate and "         // поэтому для part_key берем больший диапазон time
                 "  arx_events.time < :LastDate and "
                 "  (:agent is null or nvl(ev_user, 'Система') = :agent) and "
@@ -2605,11 +2609,11 @@ string GetStatSQLText( TStatType statType, const string &ak, const string &ap, b
         "where \n";
     if(ap.empty() and ak.empty())
         arxSQLText +=
-            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + 5 AND \n"
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND \n"
             "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
     else
         arxSQLText +=
-            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + 5 AND \n"
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND \n"
             "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n"
             "  arx_points.part_key = arx_trip_sets.part_key AND \n"
             "  arx_points.point_id = arx_trip_sets.point_id AND \n";
@@ -2712,6 +2716,8 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statTrferFull,ak,ap,i!=0).c_str();
+        if(i != 0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         //ProgTrace(TRACE5, "RunTrferFullStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         if(!Qry.Eof) {
@@ -2928,6 +2934,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statFull,ak,ap,i!=0).c_str();
+        if(i != 0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         //ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         if(!Qry.Eof) {
@@ -3148,6 +3156,8 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TShortStat ShortStat;
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statShort,ak,ap,i!=0).c_str();
+        if(i != 0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         //ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
@@ -3242,6 +3252,8 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statDetail,ak,ap,i!=0).c_str();
+        if(i != 0)
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         //ProgTrace(TRACE5, "RunDetailStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
@@ -3499,8 +3511,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_pax_grp.class_grp = cls_grp.id and "
-                "   arx_points.part_key >= :FirstDate and "
+                "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
+            Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
             if(!tag_no.empty())
                 SQLText +=
                     " and arx_pax_grp.part_key = arx_bag_tags.part_key and "
