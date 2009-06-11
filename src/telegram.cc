@@ -1476,6 +1476,22 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
 void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
 {
+    if(info.pr_lat) {
+        string err_text;
+        if(not is_lat(info.addr)) err_text = info.addr;
+        else if(not is_lat(info.heading)) err_text = info.heading;
+        else if(not is_lat(info.body)) err_text = info.body;
+        else if(not is_lat(info.ending)) err_text = info.ending;
+        if(not err_text.empty()) {
+            ostringstream buf;
+            buf
+                << "telegram is not lat. point_id: " << info.point_id
+                << "; tlg_type: " << info.tlg_type
+                << "; extra: " << info.extra << endl
+                << "text: " << err_text;
+            throw Exception(buf.str());
+        }
+    }
   TQuery Qry(&OraSession);
 
   if (info.id<0)

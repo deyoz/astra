@@ -513,13 +513,16 @@ namespace PRL_SPACE {
 
     struct TPRLPax;
     struct TRemList {
-        TInfants *infants;
-        vector<string> items;
-        void get(TTlgInfo &info, TFTLPax &pax);
-        void get(TTlgInfo &info, TETLPax &pax);
-        void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
-        void ToTlg(TTlgInfo &info, vector<string> &body);
-        TRemList(TInfants *ainfants): infants(ainfants) {};
+        private:
+            void internal_get(TTlgInfo &info, int pax_id, string subcls);
+        public:
+            TInfants *infants;
+            vector<string> items;
+            void get(TTlgInfo &info, TFTLPax &pax);
+            void get(TTlgInfo &info, TETLPax &pax);
+            void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
+            void ToTlg(TTlgInfo &info, vector<string> &body);
+            TRemList(TInfants *ainfants): infants(ainfants) {};
     };
 
     struct TTagItem {
@@ -817,6 +820,7 @@ namespace PRL_SPACE {
         string crs;
         int pax_id;
         int grp_id;
+        string subcls;
         TPNRList pnrs;
         TMItem M;
         TRemList rems;
@@ -887,9 +891,9 @@ namespace PRL_SPACE {
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 string rem;
-                rem = "1INF " + infRow->surname;
+                rem = "1INF " + transliter(infRow->surname, info.pr_lat);
                 if(!infRow->name.empty()) {
-                    rem += "/" + infRow->name;
+                    rem += "/" + transliter(infRow->name, info.pr_lat);
                 }
                 items.push_back(rem);
             }
@@ -905,6 +909,7 @@ namespace PRL_SPACE {
         string seat_list = seats.get_seat_list(info.pr_lat or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
+        internal_get(info, pax.pax_id, pax.subcls);
         Qry.Clear();
         Qry.SQLText =
             "select "
@@ -913,13 +918,13 @@ namespace PRL_SPACE {
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', 'DOCS', 'CHD', 'CHLD', 'INF', 'INFT') ";
+            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', 'DOCS', 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_rem = Qry.FieldIndex("rem");
             for(; !Qry.Eof; Qry.Next())
-                items.push_back(Qry.FieldAsString(col_rem));
+                items.push_back(transliter(Qry.FieldAsString(col_rem), info.pr_lat));
         }
     }
 
@@ -963,7 +968,8 @@ namespace PRL_SPACE {
             "    crs_pnr.pnr_id, "
             "    crs_pnr.crs, "
             "    pax.pax_id, "
-            "    pax.grp_id "
+            "    pax.grp_id, "
+            "    NVL(pax.subclass,pax_grp.class) subclass "
             "from "
             "    pax, "
             "    pax_grp, "
@@ -1000,6 +1006,7 @@ namespace PRL_SPACE {
             int col_crs = Qry.FieldIndex("crs");
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_subcls = Qry.FieldIndex("subclass");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
                 pax.target = Qry.FieldAsString(col_target);
@@ -1021,6 +1028,8 @@ namespace PRL_SPACE {
                 pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id);
+                if(!Qry.FieldIsNULL(col_subcls))
+                    pax.subcls = Qry.FieldAsString(col_subcls);
                 PaxList.push_back(pax);
             }
         }
@@ -3290,6 +3299,8 @@ int SOM(TTlgInfo &info)
 
 void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
+    name = transliter(name, info.pr_lat);
+    surname = transliter(surname, info.pr_lat);
     size_t name_size = LINE_SIZE - postfix.size();
     string result;
     string one_surname = "1" + surname;
@@ -3380,7 +3391,7 @@ struct TFTLDest {
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TRemList::get(TTlgInfo &info, TFTLPax &pax)
+void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3400,7 +3411,7 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
         "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
         "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ";
-    Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_rem_code = Qry.FieldIndex("rem_code");
@@ -3420,7 +3431,7 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
                 ElemIdToElem(etAirline, airline, info.pr_lat) + " " +
                 transliter(no, info.pr_lat);
             if(rem_code == "FQTV") {
-                if(not subclass.empty() and subclass != pax.destInfo->subcls)
+                if(not subclass.empty() and subclass != subcls)
                     item += "-" + ElemIdToElem(etSubcls, subclass, info.pr_lat);
             } else {
                 if(not extra.empty())
@@ -3429,6 +3440,11 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
             items.push_back(item);
         }
     }
+}
+
+void TRemList::get(TTlgInfo &info, TFTLPax &pax)
+{
+    internal_get(info, pax.pax_id, pax.destInfo->subcls);
 }
 
 
@@ -4904,8 +4920,8 @@ void TPFSBody::get(TTlgInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-                    else if(not ckin_pax.PAXLST_cmp())
-                        category = "PXLST";
+//!!!                    else if(not ckin_pax.PAXLST_cmp())
+//                        category = "PXLST";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
