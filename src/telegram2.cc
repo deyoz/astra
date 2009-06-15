@@ -118,7 +118,7 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
   sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
-void simple_split(ostringstream &heading, string ending, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
+void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
 {
     if(body.empty())
         tlg_row.body = "NIL" + br;
@@ -135,8 +135,6 @@ void simple_split(ostringstream &heading, string ending, size_t part_len, TTlgOu
             } else
                 tlg_row.body += *iv + br;
         }
-    tlg_row.ending = ending + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
 }
 
 string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
@@ -1125,16 +1123,15 @@ namespace PRL_SPACE {
         vector<TCOMStatsItem> items;
         TTotalPaxWeight total_pax_weight;
         void get(TTlgInfo &info);
-        void ToTlg(vector<string> &body);
+        void ToTlg(ostringstream &body);
     };
 
-    void TCOMStats::ToTlg(vector<string> &body)
+    void TCOMStats::ToTlg(ostringstream &body)
     {
-        ostringstream buf;
         TCOMStatsItem sum;
         sum.target = "TTL";
         for(vector<TCOMStatsItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
-            buf
+            body
                 << iv->target       << ' '
                 << iv->adult        << '/'
                 << iv->child        << '/'
@@ -1187,7 +1184,7 @@ namespace PRL_SPACE {
             sum.c_bag_weight += iv->c_bag_weight;
             sum.y_bag_weight += iv->y_bag_weight;
         }
-        buf
+        body
             << sum.target       << ' '
             << sum.adult        << '/'
             << sum.child        << '/'
@@ -1214,8 +1211,7 @@ namespace PRL_SPACE {
             << sum.y_rk_weight  << ' '
             << sum.f_bag_weight << '/'
             << sum.c_bag_weight << '/'
-            << sum.y_bag_weight;
-        body.push_back(buf.str());
+            << sum.y_bag_weight << br;
     }
 
     void TCOMStats::get(TTlgInfo &info)
@@ -1380,10 +1376,10 @@ namespace PRL_SPACE {
     struct TCOMClasses {
         vector<TCOMClassesItem> items;
         void get(TTlgInfo &info);
-        void ToTlg(TTlgInfo &info, vector<string> &body);
+        void ToTlg(TTlgInfo &info, ostringstream &body);
     };
 
-    void TCOMClasses::ToTlg(TTlgInfo &info, vector<string> &body)
+    void TCOMClasses::ToTlg(TTlgInfo &info, ostringstream &body)
     {
         ostringstream classes, av, padc;
         for(vector<TCOMClassesItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
@@ -1391,14 +1387,13 @@ namespace PRL_SPACE {
             av << iv->cls << iv->av;
             padc << iv->cls << '0';
         }
-        ostringstream buf;
-        buf
+        body
             << "ARN/" << info.bort
             << " CNF/" << classes.str()
             << " CAP/" << classes.str()
             << " AV/" << av.str()
-            << " PADC/" << padc.str();
-        body.push_back(buf.str());
+            << " PADC/" << padc.str()
+            << br;
     }
 
     void TCOMClasses::get(TTlgInfo &info)
@@ -1461,21 +1456,20 @@ int COM(TTlgInfo &info)
         << "COM" << br;
     tlg_row.heading = heading.str();
     tlg_row.ending = "ENDCOM" + br;
-    vector<string> body;
-    ostringstream buf;
-    buf
+    ostringstream body;
+    body
         << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep
-        << "/0 OP/NAM";
-    body.push_back(buf.str());
+        << "/0 OP/NAM" << br;
     TCOMClasses classes;
     TCOMStats stats;
     classes.get(info);
     stats.get(info);
     classes.ToTlg(info, body);
     stats.ToTlg(body);
-    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
-    simple_split(heading, "ENDCOM", part_len, tlg_row, body);
+    tlg_row.body = body.str();
+    ProgTrace(TRACE5, "COM: before save");
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -2675,7 +2669,9 @@ int PSM(TTlgInfo &info)
     TPSM psm;
     psm.get(info);
     psm.ToTlg(info, body);
-    simple_split(heading, "ENDPSM", part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_row, body);
+    tlg_row.ending = "ENDPSM" + br;
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -2770,7 +2766,9 @@ int PTM(TTlgInfo &info)
     FList.get(info);
     vector<string> body;
     FList.ToTlg(info, body);
-    simple_split(heading, "ENDPTM", part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_row, body);
+    tlg_row.ending = "ENDPTM" + br;
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -4993,7 +4991,9 @@ int PFS(TTlgInfo &info)
     TPFSBody pfs;
     pfs.get(info);
     pfs.ToTlg(info, body);
-    simple_split(heading, "ENDPFS", part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_row, body);
+    tlg_row.ending = "ENDPFS" + br;
+    TelegramInterface::SaveTlgOutPart(tlg_row);
 
     return tlg_row.id;
 }
