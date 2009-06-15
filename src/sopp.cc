@@ -2262,7 +2262,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   Qry.SQLText =
    "SELECT airp,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
    " FROM points,trip_sets "
-    "WHERE points.point_id=:point_id AND trip_sets.point_id=:point_id ";
+    "WHERE points.point_id=:point_id AND trip_sets.point_id(+)=points.point_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
