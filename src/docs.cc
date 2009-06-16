@@ -341,6 +341,70 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
+enum TRptType {rtPTM, rtBTM, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
+const char *RptTypeS[rtTypeNum] = {
+    "PTM",
+    "BTM",
+    "REFUSE",
+    "NOTPRES",
+    "REM",
+    "CRS",
+    "CRSUNREG",
+    "EXAM",
+    "?"
+};
+
+TRptType DecodeRptType( const string rpt_type )
+{
+  int i;
+  for( i=0; i<(int)rtTypeNum; i++ )
+    if ( rpt_type == RptTypeS[ i ] )
+      break;
+  if ( i == rtTypeNum )
+    return rtUnknown;
+  else
+    return (TRptType)i;
+}
+
+struct TRptParams {
+    int point_id;
+    TRptType rpt_type;
+    string airp_arv;
+    string ckin_zone;
+    bool pr_et;
+    bool pr_trfer;
+    bool pr_brd;
+    TRptParams():
+        point_id(NoExists),
+        pr_et(false),
+        pr_trfer(false),
+        pr_brd(false)
+    {};
+};
+
+int GetRPEncoding(TRptParams &rpt_params)
+{
+    TBaseTable &airps = base_tables.get("AIRPS");
+    TBaseTable &cities = base_tables.get("CITIES");
+    int result = 0;
+    if(rpt_params.airp_arv.empty()) {
+        TTripRoute route;
+        if (!route.GetRouteAfter(rpt_params.point_id,trtWithCurrent,trtNotCancelled))
+            throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", rpt_params.point_id);
+        for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++) {
+            //ProgTrace(TRACE5, "%s %s", iv->airp.c_str(), iv->city.c_str());
+            ProgTrace(TRACE5, "%s", cities.get_row("code",
+                        airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
+            result = result or cities.get_row("code",
+                    airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
+        }
+    } else {
+        result = cities.get_row("code",
+                airps.get_row("code",rpt_params.airp_arv).AsString("city")).AsString("country") != "РФ";
+    }
+    return result;
+}
+
 int GetRPEncoding(int point_id, string target)
 {
     TBaseTable &airps = base_tables.get("AIRPS");
@@ -450,7 +514,6 @@ void RunSZV(xmlNodePtr reqNode, xmlNodePtr formDataNode)
 
 void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 {
-    tst();
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
     xmlNodePtr resNode = formDataNode->parent;
 
@@ -466,10 +529,8 @@ void RunExam(xmlNodePtr reqNode, xmlNodePtr &formDataNode)
 
     xmlUnlinkNode(dataNode);
 
-    tst();
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
     xmlAddChild(formDataNode, dataNode);
-    tst();
     int point_id = NodeAsInteger("point_id", reqNode);
     int pr_lat = NodeAsInteger("pr_lat", reqNode);
     // Теперь переменные отчета
@@ -1904,9 +1965,7 @@ void RunBMNew(xmlNodePtr reqNode, xmlNodePtr formDataNode)
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
-    tst();
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-    tst();
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
     //    TCrafts crafts;
 
@@ -2203,62 +2262,97 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     else if(name == "exam") RunExam(reqNode, formDataNode);
     else
         throw UserException("data handler not found for " + name);
-    tst();
     xmlNodePtr variablesNode = GetNode("variables", formDataNode);
     if(!variablesNode)
         variablesNode = NewTextChild(formDataNode, "variables");
     NewTextChild(variablesNode, "test_server", get_test_server());
-    tst();
 }
-
-enum TRptType {rtPTM, rtBTM, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
-const char *RptTypeS[rtTypeNum] = {
-    "PTM",
-    "BTM",
-    "REFUSE",
-    "NOTPRES",
-    "REM",
-    "CRS",
-    "CRSUNREG",
-    "EXAM",
-    "?"
-};
-
-TRptType DecodeRptType( const string rpt_type )
-{
-  int i;
-  for( i=0; i<(int)rtTypeNum; i++ )
-    if ( rpt_type == RptTypeS[ i ] )
-      break;
-  if ( i == rtTypeNum )
-    return rtUnknown;
-  else
-    return (TRptType)i;
-}
-
-struct TRptParams {
-    int point_id;
-    TRptType rpt_type;
-    string airp_arv;
-    string ckin_zone;
-    bool pr_et;
-    bool pr_trfer;
-    bool pr_brd;
-    TRptParams():
-        point_id(NoExists),
-        pr_et(false),
-        pr_trfer(false),
-        pr_brd(false)
-    {};
-};
 
 void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
 {
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    int pr_lat = GetRPEncoding(rpt_params);
+    if(rpt_params.airp_arv.empty()) {
+        if(rpt_params.pr_trfer)
+            get_report_form("PMTrferTotalEL", resNode);
+        else
+            get_report_form("PMTotalEL", resNode);
+    } else {
+        if(rpt_params.pr_trfer)
+            get_report_form("PMTrfer", resNode);
+        else
+            get_report_form("PM", resNode);
+    }
+    {
+        string et, et_lat;
+        if(rpt_params.pr_et) {
+            et = "(ЭБ)";
+            et_lat = "(ET)";
+        }
+        NewTextChild(variablesNode, "et", et);
+        NewTextChild(variablesNode, "et_lat", et_lat);
+    }
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "SELECT \n"
+        "   pax_grp.point_dep AS trip_id, \n"
+        "   pax_grp.airp_arv AS target, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "    nvl2(transfer.grp_id, 1, 0) pr_trfer, \n"
+            "    trfer_trips.airline trfer_airline, \n"
+            "    trfer_trips.flt_no trfer_flt_no, \n"
+            "    trfer_trips.suffix trfer_suffix, \n"
+            "    transfer.airp_arv trfer_airp_arv, \n"
+            "    trfer_trips.scd trfer_scd, \n";
+    SQLText +=
+        "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, \n"
+        "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, \n"
+        "   surname||' '||pax.name AS full_name, \n"
+        "   pax.pers_type, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, \n"
+        "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,1) AS seat_no_lat, \n"
+        "   pax.seats, \n";
+    if(rpt_params.pr_et) { //ЭБ
+        SQLText +=
+            "    ticket_no||'/'||coupon_no AS remarks, \n";
+    } else {
+        SQLText +=
+            " SUBSTR(report.get_remarks(pax_id,0),1,250) AS remarks, \n";
+    }
+    SQLText +=
+        "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id),0) AS rk_weight, \n"
+        "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id),0) AS bag_amount, \n"
+        "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id),0) AS bag_weight, \n"
+        "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) AS excess, \n"
+        "   ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags, \n"
+        "   reg_no, \n"
+        "   pax_grp.grp_id \n"
+        "FROM  \n"
+        "   pax_grp, \n"
+        "   points, \n"
+        "   pax, \n"
+        "   cls_grp classes, \n"
+        "   halls2 \n";
+    if(rpt_params.pr_trfer)
+        SQLText += ", transfer, trfer_trips \n";
+    SQLText +=
+        "WHERE \n"
+        "   points.pr_del>=0 AND \n"
+        "   pax_grp.point_dep = :point_id and \n"
+        "   pax_grp.point_arv = points.point_id and \n"
+        "   pax_grp.grp_id=pax.grp_id AND \n"
+        "   pax_grp.class_grp = classes.id AND \n"
+        "   pax_grp.hall = halls2.id and \n"
+        "   pr_brd IS NOT NULL and \n"
+        "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    xmlNodePtr node = resNode->children;
+    xmlNodePtr node = reqNode->children;
     TRptParams rpt_params;
     rpt_params.point_id = NodeAsIntegerFast("point_id", node);
     rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
