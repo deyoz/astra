@@ -1,5 +1,6 @@
 #include "docs.h"
 #include "stat.h"
+#include "telegram.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "exceptions.h"
@@ -19,6 +20,8 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+
+const string ALL_CKIN_ZONES = " ";
 
 string vsHow_ru(int nmb, int range)
 {
@@ -374,6 +377,7 @@ struct TRptParams {
     bool pr_et;
     bool pr_trfer;
     bool pr_brd;
+    TCodeShareInfo mkt_flt;
     TRptParams():
         point_id(NoExists),
         pr_et(false),
@@ -2348,6 +2352,392 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
+    if(rpt_params.pr_et) //ЭБ
+        SQLText +=
+            "   pax.ticket_rem='TKNE' and \n";
+    if(not rpt_params.airp_arv.empty()) { // сегмент
+        SQLText +=
+            "    pax_grp.airp_arv = :target AND \n";
+        Qry.CreateVariable("target", otString, rpt_params.airp_arv);
+    }
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    SQLText +=
+        "       DECODE(pax_grp.status, 'T', pax_grp.status, 'N') in ('T', 'N') \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            " and pax_grp.grp_id=transfer.grp_id(+) and \n"
+            " transfer.pr_final(+) <> 0 and \n"
+            " transfer.point_id_trfer = trfer_trips.point_id(+) \n";
+    SQLText +=
+        "ORDER BY \n";
+    if(rpt_params.airp_arv.empty())
+        SQLText +=
+            "   points.point_num, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "    PR_TRFER ASC, \n"
+            "    TRFER_AIRP_ARV ASC, \n";
+    SQLText +=
+        "    CLASS ASC, \n"
+        "    grp_id, \n"
+        "    REG_NO ASC \n";
+    ProgTrace(TRACE5, "SQLText: %s", SQLText.c_str());
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_pm_trfer");
+    // следующие 2 переменные введены для нужд FastReport
+    map<string, int> fr_target_ref;
+    int fr_target_ref_idx = 0;
+
+    while(!Qry.Eof) {
+        string cls = Qry.FieldAsString("class");
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
+        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), pr_lat));
+        string last_target;
+        int pr_trfer = 0;
+        if(rpt_params.pr_trfer) {
+            last_target = get_last_target(Qry, pr_lat);
+            pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        }
+        NewTextChild(rowNode, "last_target", last_target);
+        NewTextChild(rowNode, "pr_trfer", pr_trfer);
+
+        string airp_arv = Qry.FieldAsString("target");
+        if(fr_target_ref.find(airp_arv) == fr_target_ref.end())
+            fr_target_ref[airp_arv] = fr_target_ref_idx++;
+        TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
+        NewTextChild(rowNode, "airp_arv", airp_arv);
+        NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+
+        NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("seats"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        string pers_type = Qry.FieldAsString("pers_type");
+        if(pers_type == "ВЗ")
+            NewTextChild(rowNode, "pers_type", "ADL");
+        else if(pers_type == "РБ")
+            NewTextChild(rowNode, "pers_type", "CHD");
+        else if(pers_type == "РМ")
+            NewTextChild(rowNode, "pers_type", "INF");
+        else
+            throw Exception("RunPM: unknown pers_type " + pers_type);
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("excess"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+        if (pr_lat==0)
+            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        else
+            NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no_lat"));
+        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+        Qry.Next();
+    }
+    Qry.Clear();
+    SQLText =
+        "SELECT \n"
+        "       a.point_id, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   a.pr_trfer, \n"
+            "   a.airp_arv target, \n";
+    SQLText +=
+        "       a.status, \n"
+        "       classes.code class, \n"
+        "       DECODE(:pr_lat,0,classes.name,classes.name_lat) AS class_name, \n"
+        "       classes.priority AS lvl, \n"
+        "       NVL(a.seats,0) AS seats, \n"
+        "       NVL(a.adl,0) AS adl, \n"
+        "       NVL(a.chd,0) AS chd, \n"
+        "       NVL(a.inf,0) AS inf, \n"
+        "       NVL(b.rk_weight,0) AS rk_weight, \n"
+        "       NVL(b.bag_amount,0) AS bag_amount, \n"
+        "       NVL(b.bag_weight,0) AS bag_weight, \n"
+        "       NVL(c.excess,0) AS excess \n"
+        "FROM \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+    SQLText +=
+        "         SUM(seats) AS seats, \n"
+        "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, \n"
+        "         SUM(DECODE(pers_type,'РБ',1,0)) AS chd, \n"
+        "         SUM(DECODE(pers_type,'РМ',1,0)) AS inf \n"
+        "  FROM pax_grp,pax,transfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.grp_id = pax_grp.grp_id and \n";
+    if(not rpt_params.airp_arv.empty()) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and \n";
+        Qry.CreateVariable("target", otString, rpt_params.airp_arv);
+    }
+    if(rpt_params.pr_et)
+        SQLText +=
+            "   pax.ticket_rem='TKNE' and \n";
+    SQLText +=
+        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    SQLText +=
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "           pax_grp.class_grp, \n"
+        "           DECODE(status,'T','T','N') \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
+    SQLText +=
+        ") a, \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+    SQLText +=
+        "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, \n"
+        "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, \n"
+        "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight \n"
+        "  FROM pax_grp,pax,bag2,transfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
+    if(not rpt_params.airp_arv.empty()) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and \n";
+    }
+    if(rpt_params.pr_et)
+        SQLText +=
+            "   pax.ticket_rem='TKNE' and \n";
+    SQLText +=
+        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    SQLText +=
+        "       pax_grp.grp_id=bag2.grp_id AND \n"
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "         pax_grp.class_grp, \n"
+        "        DECODE(status,'T','T','N') \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
+    SQLText +=
+        ") b, \n"
+        "( \n"
+        "  SELECT point_dep AS point_id, \n"
+        "         pax_grp.class_grp, \n"
+        "         DECODE(status,'T','T','N') AS status, \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
+    SQLText +=
+        "         SUM(excess) AS excess \n"
+        "  FROM pax_grp,pax,transfer,halls2 \n"
+        "  WHERE \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
+    if(not rpt_params.airp_arv.empty()) {
+        SQLText +=
+            "   pax_grp.airp_arv = :target and \n";
+    }
+    if(rpt_params.pr_et)
+        SQLText +=
+            "   pax.ticket_rem='TKNE' and \n";
+    SQLText +=
+        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        SQLText +=
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
+    }
+    SQLText +=
+        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
+        "       pax_grp.hall = halls2.id and \n"
+        "       pr_brd IS NOT NULL and \n"
+        "       bag_refuse=0 AND class IS NOT NULL \n"
+        "  GROUP BY point_dep, \n"
+        "           pax_grp.class_grp, \n"
+        "           DECODE(status,'T','T','N') \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   ,pax_grp.airp_arv, \n"
+            "   DECODE(transfer.grp_id,NULL,0,1) \n";
+    SQLText +=
+        ") c, \n"
+        "cls_grp classes \n"
+        "WHERE a.class_grp=classes.id AND \n"
+        "      a.point_id=b.point_id(+) AND \n"
+        "      a.class_grp=b.class_grp(+) AND \n"
+        "      a.status=b.status(+) AND \n"
+        "      a.point_id=c.point_id(+) AND \n"
+        "      a.class_grp=c.class_grp(+) AND \n"
+        "      a.status=c.status(+) \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   and a.airp_arv=b.airp_arv(+) AND \n"
+            "   a.pr_trfer=b.pr_trfer(+) AND \n"
+            "   a.airp_arv=c.airp_arv(+) AND \n"
+            "   a.pr_trfer=c.pr_trfer(+) \n";
+    SQLText +=
+        "    and a.STATUS in ('T', 'N') \n";
+    SQLText +=
+        "order by \n";
+    if(rpt_params.pr_trfer)
+        SQLText +=
+            "   target, \n"
+            "   pr_trfer, \n";
+    SQLText +=
+        "      lvl \n";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otInteger, pr_lat);
+    Qry.Execute();
+    dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
+    while(!Qry.Eof) {
+        string cls = Qry.FieldAsString("class");
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+        if(rpt_params.pr_trfer) {
+            string airp_arv = Qry.FieldAsString("TARGET");
+            NewTextChild(rowNode, "target", airp_arv);
+            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
+            NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
+        }
+        NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
+        NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
+        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
+        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
+        NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
+        NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
+        NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
+        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
+        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
+        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
+        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    Qry.Clear();
+    Qry.SQLText =
+        "select "
+        "   airp, "
+        "   airline, "
+        "   flt_no, "
+        "   suffix, "
+        "   craft, "
+        "   bort, "
+        "   park_out park, "
+        "   scd_out, "
+        "   airp_fmt, "
+        "   airline_fmt, "
+        "   suffix_fmt, "
+        "   craft_fmt "
+        "from "
+        "   points "
+        "where "
+        "   point_id = :point_id AND pr_del>=0";
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.Execute();
+    if(Qry.Eof) throw Exception("RunPM: variables fetch failed for point_id " + IntToString(rpt_params.point_id));
+
+    int airline_fmt = Qry.FieldAsInteger("airline_fmt");
+    int suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
+    int craft_fmt = Qry.FieldAsInteger("craft_fmt");
+
+    string airp = Qry.FieldAsString("airp");
+    string airline = Qry.FieldAsString("airline");
+    string suffix = Qry.FieldAsString("suffix");
+    string craft = Qry.FieldAsString("craft");
+    string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
+
+    TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
+    TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+    //    TCrafts crafts;
+
+    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
+        NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params.ckin_zone, pr_lat));
+    } else
+        NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
+    NewTextChild(variablesNode, "own_airp_name", "АЭРОПОРТ " + airpRow.AsString("name", false));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "flt",
+            ElemIdToElem(etAirline, airline, airline_fmt) +
+            IntToString(Qry.FieldAsInteger("flt_no")) +
+            ElemIdToElem(etSuffix, suffix, suffix_fmt)
+            );
+    NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt));
+    NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
+    TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
+    NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
+    NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh.nn", pr_lat));
+    string airp_arv_name;
+    if(not rpt_params.airp_arv.empty())
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat);
+    NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
+
+    TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
+    NewTextChild(variablesNode, "date_issue", DateTimeToStr(issued, "dd.mm.yy hh:nn", pr_lat));
+
+    NewTextChild(variablesNode, "pr_vip", 2);
+    string pr_brd_pax_str_lat;
+    string pr_brd_pax_str;
+    if(rpt_params.pr_brd) {
+        pr_brd_pax_str_lat = "(boarded)";
+        pr_brd_pax_str = "(посаж)";
+    } else {
+        pr_brd_pax_str_lat = "(checked)";
+        pr_brd_pax_str = "(зарег)";
+    }
+    NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
+    NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    STAT::set_variables(resNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2357,10 +2747,17 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     rpt_params.point_id = NodeAsIntegerFast("point_id", node);
     rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
     rpt_params.airp_arv = NodeAsStringFast("airp_arv", node, "");
-    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, "");
+    rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, " ");
     rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
     rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
     rpt_params.pr_brd = NodeAsIntegerFast("pr_brd", node, 0) != 0;
+    xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
+    if(mktFltNode != NULL) {
+        xmlNodePtr node = mktFltNode->children;
+        rpt_params.mkt_flt.airline = NodeAsStringFast("airline", node);
+        rpt_params.mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
+        rpt_params.mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
+    }
     switch(rpt_params.rpt_type) {
         case rtPTM:
             PTM(rpt_params, resNode);
