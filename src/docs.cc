@@ -2272,6 +2272,60 @@ void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
+struct TPMTotalsKey {
+    int point_id;
+    int pr_trfer;
+    string target;
+    string status;
+    string cls;
+    string cls_name;
+    int lvl;
+    TPMTotalsKey():
+        point_id(NoExists),
+        pr_trfer(NoExists),
+        lvl(NoExists)
+    {
+    };
+};
+
+struct TPMTotalsCmp {
+    bool operator() (const TPMTotalsKey &l, const TPMTotalsKey &r) const
+    {
+        if(l.point_id == r.point_id)
+            if(l.target == r.target)
+                if(l.pr_trfer == r.pr_trfer)
+                    if(l.lvl == r.lvl)
+                        if(l.status == r.status)
+                            return l.cls < r.cls;
+                        else
+                            return l.status < r.status;
+                    else
+                        return l.lvl < r.lvl;
+                else
+                    return l.pr_trfer < r.pr_trfer;
+            else
+                return l.target < r.target;
+        else
+            return l.point_id < r.point_id;
+    }
+};
+
+struct TPMTotalsRow {
+    int seats, adl, chd, inf, rk_weight, bag_amount, bag_weight, excess;
+    TPMTotalsRow():
+        seats(0),
+        adl(0),
+        chd(0),
+        inf(0),
+        rk_weight(0),
+        bag_amount(0),
+        bag_weight(0),
+        excess(0)
+    {};
+};
+
+typedef map<TPMTotalsKey, TPMTotalsRow, TPMTotalsCmp> TPMTotals;
+
 void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
@@ -2313,6 +2367,8 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     SQLText +=
         "   DECODE(:pr_lat,0,classes.code,nvl(classes.code_lat, classes.code)) AS class, \n"
         "   DECODE(:pr_lat,0,classes.name,nvl(classes.name_lat, classes.name)) AS class_name, \n"
+        "   DECODE(pax_grp.status, 'T', pax_grp.status, 'N') status, \n"
+        "   classes.priority lvl, \n"
         "   surname||' '||pax.name AS full_name, \n"
         "   pax.pers_type, \n"
         "   salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum,0) AS seat_no, \n"
@@ -2397,7 +2453,42 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     map<string, int> fr_target_ref;
     int fr_target_ref_idx = 0;
 
+    TPMTotals PMTotals;
     while(!Qry.Eof) {
+        TPMTotalsKey key;
+        key.point_id = Qry.FieldAsInteger("trip_id");
+        key.target = Qry.FieldAsString("target");
+        key.status = Qry.FieldAsString("status");
+        key.cls = Qry.FieldAsString("class");
+        key.cls_name = Qry.FieldAsString("class_name");
+        key.lvl = Qry.FieldAsInteger("lvl");
+        if(rpt_params.pr_trfer) {
+            key.pr_trfer = Qry.FieldAsInteger("pr_trfer");
+        }
+        TPMTotalsRow &row = PMTotals[key];
+        row.seats += Qry.FieldAsInteger("seats");
+        {
+            TPerson pers_type = DecodePerson(Qry.FieldAsString("pers_type"));
+            switch(pers_type) {
+                case adult:
+                    row.adl++;
+                    break;
+                case child:
+                    row.chd++;
+                    break;
+                case baby:
+                    row.inf++;
+                    break;
+                default:
+                    throw Exception("DecodePerson failed");
+            }
+        }
+        row.rk_weight += Qry.FieldAsInteger("rk_weight");
+        row.bag_amount += Qry.FieldAsInteger("bag_amount");
+        row.bag_weight += Qry.FieldAsInteger("bag_weight");
+        row.excess += Qry.FieldAsInteger("excess");
+
+
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
@@ -2633,6 +2724,27 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.CreateVariable("pr_lat", otInteger, pr_lat);
     Qry.Execute();
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
+
+    ostringstream buf;
+    buf
+        << setw(10) << "point_id"
+        << setw(10) << "airp_arv"
+        << setw(10) << "fr_t_ref"
+        << setw(10) << "pr_trfer"
+        << setw(10) << "status"
+        << setw(10) << "cls_name"
+        << setw(10) << "lvl"
+        << setw(10) << "seats"
+        << setw(10) << "adl"
+        << setw(10) << "chd"
+        << setw(10) << "inf"
+        << setw(10) << "rk_w"
+        << setw(10) << "bag_am"
+        << setw(10) << "bag_w"
+        << setw(10) << "excess";
+    ProgTrace(TRACE5, "%s", buf.str().c_str());
+
+
     while(!Qry.Eof) {
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
@@ -2656,7 +2768,65 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
         NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
 
+
+        //!!!
+        buf.str("");
+        buf
+            << setw(10) << Qry.FieldAsInteger("POINT_ID");
+        if(rpt_params.pr_trfer) {
+            string airp_arv = Qry.FieldAsString("TARGET");
+            buf
+                << setw(10) << airp_arv
+                << setw(10) << fr_target_ref[airp_arv]
+                << setw(10) << Qry.FieldAsInteger("PR_TRFER");
+        }
+        buf
+            << setw(10) << Qry.FieldAsString("STATUS")
+            << setw(10) << Qry.FieldAsString("CLASS_NAME")
+            << setw(10) << Qry.FieldAsInteger("LVL")
+            << setw(10) << Qry.FieldAsInteger("SEATS")
+            << setw(10) << Qry.FieldAsInteger("ADL")
+            << setw(10) << Qry.FieldAsInteger("CHD")
+            << setw(10) << Qry.FieldAsInteger("INF")
+            << setw(10) << Qry.FieldAsInteger("RK_WEIGHT")
+            << setw(10) << Qry.FieldAsInteger("BAG_AMOUNT")
+            << setw(10) << Qry.FieldAsInteger("BAG_WEIGHT")
+            << setw(10) << Qry.FieldAsInteger("EXCESS");
+        ProgTrace(TRACE5, "%s", buf.str().c_str());
+
         Qry.Next();
+    }
+
+    tst();
+    tst();
+    tst();
+
+    for(TPMTotals::iterator im = PMTotals.begin(); im != PMTotals.end(); im++) {
+        const TPMTotalsKey &key = im->first;
+        TPMTotalsRow &row = im->second;
+
+        buf.str("");
+        buf
+            << setw(10) << key.point_id;
+        if(rpt_params.pr_trfer) {
+            buf
+                << setw(10) << key.target
+                << setw(10) << fr_target_ref[key.target]
+                << setw(10) << key.pr_trfer;
+        }
+        buf
+            << setw(10) << key.status
+            << setw(10) << key.cls_name
+            << setw(10) << key.lvl
+            << setw(10) << row.seats
+            << setw(10) << row.adl
+            << setw(10) << row.chd
+            << setw(10) << row.inf
+            << setw(10) << row.rk_weight
+            << setw(10) << row.bag_amount
+            << setw(10) << row.bag_weight
+            << setw(10) << row.excess;
+        ProgTrace(TRACE5, "%s", buf.str().c_str());
     }
 
     // Теперь переменные отчета
