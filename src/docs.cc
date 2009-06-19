@@ -2548,7 +2548,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
 
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
 
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
+        NewTextChild(rowNode, "point_id", key.point_id);
         if(rpt_params.pr_trfer) {
             NewTextChild(rowNode, "target", key.target);
             NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
