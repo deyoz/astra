@@ -2539,294 +2539,32 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
         Qry.Next();
     }
-    Qry.Clear();
-    SQLText =
-        "SELECT \n"
-        "       a.point_id, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   a.pr_trfer, \n"
-            "   a.airp_arv target, \n";
-    SQLText +=
-        "       a.status, \n"
-        "       classes.code class, \n"
-        "       DECODE(:pr_lat,0,classes.name,classes.name_lat) AS class_name, \n"
-        "       classes.priority AS lvl, \n"
-        "       NVL(a.seats,0) AS seats, \n"
-        "       NVL(a.adl,0) AS adl, \n"
-        "       NVL(a.chd,0) AS chd, \n"
-        "       NVL(a.inf,0) AS inf, \n"
-        "       NVL(b.rk_weight,0) AS rk_weight, \n"
-        "       NVL(b.bag_amount,0) AS bag_amount, \n"
-        "       NVL(b.bag_weight,0) AS bag_weight, \n"
-        "       NVL(c.excess,0) AS excess \n"
-        "FROM \n"
-        "( \n"
-        "  SELECT point_dep AS point_id, \n"
-        "         pax_grp.class_grp, \n"
-        "         DECODE(status,'T','T','N') AS status, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
-    SQLText +=
-        "         SUM(seats) AS seats, \n"
-        "         SUM(DECODE(pers_type,'ВЗ',1,0)) AS adl, \n"
-        "         SUM(DECODE(pers_type,'РБ',1,0)) AS chd, \n"
-        "         SUM(DECODE(pers_type,'РМ',1,0)) AS inf \n"
-        "  FROM pax_grp,pax,transfer,halls2 \n"
-        "  WHERE \n"
-        "       pax_grp.point_dep = :point_id and \n"
-        "       pax.grp_id = pax_grp.grp_id and \n";
-    if(not rpt_params.airp_arv.empty()) {
-        SQLText +=
-            "   pax_grp.airp_arv = :target and \n";
-        Qry.CreateVariable("target", otString, rpt_params.airp_arv);
-    }
-    if(rpt_params.pr_et)
-        SQLText +=
-            "   pax.ticket_rem='TKNE' and \n";
-    SQLText +=
-        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
-    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
-        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
-    }
-    SQLText +=
-        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
-        "       pax_grp.hall = halls2.id and \n"
-        "       pr_brd IS NOT NULL and \n"
-        "       bag_refuse=0 AND class IS NOT NULL \n"
-        "  GROUP BY point_dep, \n"
-        "           pax_grp.class_grp, \n"
-        "           DECODE(status,'T','T','N') \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   ,pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) \n";
-    SQLText +=
-        ") a, \n"
-        "( \n"
-        "  SELECT point_dep AS point_id, \n"
-        "         pax_grp.class_grp, \n"
-        "         DECODE(status,'T','T','N') AS status, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
-    SQLText +=
-        "     SUM(DECODE(pr_cabin,1,weight,0)) AS rk_weight, \n"
-        "     SUM(DECODE(pr_cabin,0,amount,0)) AS bag_amount, \n"
-        "     SUM(DECODE(pr_cabin,0,weight,0)) AS bag_weight \n"
-        "  FROM pax_grp,pax,bag2,transfer,halls2 \n"
-        "  WHERE \n"
-        "       pax_grp.point_dep = :point_id and \n"
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
-    if(not rpt_params.airp_arv.empty()) {
-        SQLText +=
-            "   pax_grp.airp_arv = :target and \n";
-    }
-    if(rpt_params.pr_et)
-        SQLText +=
-            "   pax.ticket_rem='TKNE' and \n";
-    SQLText +=
-        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
-        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
-    }
-    SQLText +=
-        "       pax_grp.grp_id=bag2.grp_id AND \n"
-        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
-        "       pax_grp.hall = halls2.id and \n"
-        "       pr_brd IS NOT NULL and \n"
-        "       bag_refuse=0 AND class IS NOT NULL \n"
-        "  GROUP BY point_dep, \n"
-        "         pax_grp.class_grp, \n"
-        "        DECODE(status,'T','T','N') \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   ,pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) \n";
-    SQLText +=
-        ") b, \n"
-        "( \n"
-        "  SELECT point_dep AS point_id, \n"
-        "         pax_grp.class_grp, \n"
-        "         DECODE(status,'T','T','N') AS status, \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) AS pr_trfer, \n";
-    SQLText +=
-        "         SUM(excess) AS excess \n"
-        "  FROM pax_grp,pax,transfer,halls2 \n"
-        "  WHERE \n"
-        "       pax_grp.point_dep = :point_id and \n"
-        "       pax.pax_id = ckin.get_main_pax_id(pax_grp.grp_id) and \n";
-    if(not rpt_params.airp_arv.empty()) {
-        SQLText +=
-            "   pax_grp.airp_arv = :target and \n";
-    }
-    if(rpt_params.pr_et)
-        SQLText +=
-            "   pax.ticket_rem='TKNE' and \n";
-    SQLText +=
-        " decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
-    if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
-        SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
-        Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
-    }
-    SQLText +=
-        "       pax_grp.grp_id = transfer.grp_id(+) AND transfer.pr_final(+)<>0 AND \n"
-        "       pax_grp.hall = halls2.id and \n"
-        "       pr_brd IS NOT NULL and \n"
-        "       bag_refuse=0 AND class IS NOT NULL \n"
-        "  GROUP BY point_dep, \n"
-        "           pax_grp.class_grp, \n"
-        "           DECODE(status,'T','T','N') \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   ,pax_grp.airp_arv, \n"
-            "   DECODE(transfer.grp_id,NULL,0,1) \n";
-    SQLText +=
-        ") c, \n"
-        "cls_grp classes \n"
-        "WHERE a.class_grp=classes.id AND \n"
-        "      a.point_id=b.point_id(+) AND \n"
-        "      a.class_grp=b.class_grp(+) AND \n"
-        "      a.status=b.status(+) AND \n"
-        "      a.point_id=c.point_id(+) AND \n"
-        "      a.class_grp=c.class_grp(+) AND \n"
-        "      a.status=c.status(+) \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   and a.airp_arv=b.airp_arv(+) AND \n"
-            "   a.pr_trfer=b.pr_trfer(+) AND \n"
-            "   a.airp_arv=c.airp_arv(+) AND \n"
-            "   a.pr_trfer=c.pr_trfer(+) \n";
-    SQLText +=
-        "    and a.STATUS in ('T', 'N') \n";
-    SQLText +=
-        "order by \n";
-    if(rpt_params.pr_trfer)
-        SQLText +=
-            "   target, \n"
-            "   pr_trfer, \n";
-    SQLText +=
-        "      lvl \n";
-    Qry.SQLText = SQLText;
-    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
-    Qry.CreateVariable("pr_lat", otInteger, pr_lat);
-    Qry.Execute();
+
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
-
-    ostringstream buf;
-    buf
-        << setw(10) << "point_id"
-        << setw(10) << "airp_arv"
-        << setw(10) << "fr_t_ref"
-        << setw(10) << "pr_trfer"
-        << setw(10) << "status"
-        << setw(10) << "cls_name"
-        << setw(10) << "lvl"
-        << setw(10) << "seats"
-        << setw(10) << "adl"
-        << setw(10) << "chd"
-        << setw(10) << "inf"
-        << setw(10) << "rk_w"
-        << setw(10) << "bag_am"
-        << setw(10) << "bag_w"
-        << setw(10) << "excess";
-    ProgTrace(TRACE5, "%s", buf.str().c_str());
-
-
-    while(!Qry.Eof) {
-        string cls = Qry.FieldAsString("class");
-        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
-
-        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
-        if(rpt_params.pr_trfer) {
-            string airp_arv = Qry.FieldAsString("TARGET");
-            NewTextChild(rowNode, "target", airp_arv);
-            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
-            NewTextChild(rowNode, "pr_trfer", Qry.FieldAsInteger("PR_TRFER"));
-        }
-        NewTextChild(rowNode, "status", Qry.FieldAsString("STATUS"));
-        NewTextChild(rowNode, "class_name", Qry.FieldAsString("CLASS_NAME"));
-        NewTextChild(rowNode, "lvl", Qry.FieldAsInteger("LVL"));
-        NewTextChild(rowNode, "seats", Qry.FieldAsInteger("SEATS"));
-        NewTextChild(rowNode, "adl", Qry.FieldAsInteger("ADL"));
-        NewTextChild(rowNode, "chd", Qry.FieldAsInteger("CHD"));
-        NewTextChild(rowNode, "inf", Qry.FieldAsInteger("INF"));
-        NewTextChild(rowNode, "rk_weight", Qry.FieldAsInteger("RK_WEIGHT"));
-        NewTextChild(rowNode, "bag_amount", Qry.FieldAsInteger("BAG_AMOUNT"));
-        NewTextChild(rowNode, "bag_weight", Qry.FieldAsInteger("BAG_WEIGHT"));
-        NewTextChild(rowNode, "excess", Qry.FieldAsInteger("EXCESS"));
-
-
-        //!!!
-        buf.str("");
-        buf
-            << setw(10) << Qry.FieldAsInteger("POINT_ID");
-        if(rpt_params.pr_trfer) {
-            string airp_arv = Qry.FieldAsString("TARGET");
-            buf
-                << setw(10) << airp_arv
-                << setw(10) << fr_target_ref[airp_arv]
-                << setw(10) << Qry.FieldAsInteger("PR_TRFER");
-        }
-        buf
-            << setw(10) << Qry.FieldAsString("STATUS")
-            << setw(10) << Qry.FieldAsString("CLASS_NAME")
-            << setw(10) << Qry.FieldAsInteger("LVL")
-            << setw(10) << Qry.FieldAsInteger("SEATS")
-            << setw(10) << Qry.FieldAsInteger("ADL")
-            << setw(10) << Qry.FieldAsInteger("CHD")
-            << setw(10) << Qry.FieldAsInteger("INF")
-            << setw(10) << Qry.FieldAsInteger("RK_WEIGHT")
-            << setw(10) << Qry.FieldAsInteger("BAG_AMOUNT")
-            << setw(10) << Qry.FieldAsInteger("BAG_WEIGHT")
-            << setw(10) << Qry.FieldAsInteger("EXCESS");
-        ProgTrace(TRACE5, "%s", buf.str().c_str());
-
-        Qry.Next();
-    }
-
-    tst();
-    tst();
-    tst();
 
     for(TPMTotals::iterator im = PMTotals.begin(); im != PMTotals.end(); im++) {
         const TPMTotalsKey &key = im->first;
         TPMTotalsRow &row = im->second;
 
-        buf.str("");
-        buf
-            << setw(10) << key.point_id;
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("POINT_ID"));
         if(rpt_params.pr_trfer) {
-            buf
-                << setw(10) << key.target
-                << setw(10) << fr_target_ref[key.target]
-                << setw(10) << key.pr_trfer;
+            NewTextChild(rowNode, "target", key.target);
+            NewTextChild(rowNode, "fr_target_ref", fr_target_ref[key.target]);
+            NewTextChild(rowNode, "pr_trfer", key.pr_trfer);
         }
-        buf
-            << setw(10) << key.status
-            << setw(10) << key.cls_name
-            << setw(10) << key.lvl
-            << setw(10) << row.seats
-            << setw(10) << row.adl
-            << setw(10) << row.chd
-            << setw(10) << row.inf
-            << setw(10) << row.rk_weight
-            << setw(10) << row.bag_amount
-            << setw(10) << row.bag_weight
-            << setw(10) << row.excess;
-        ProgTrace(TRACE5, "%s", buf.str().c_str());
+        NewTextChild(rowNode, "status", key.status);
+        NewTextChild(rowNode, "class_name", key.cls_name);
+        NewTextChild(rowNode, "lvl", key.lvl);
+        NewTextChild(rowNode, "seats", row.seats);
+        NewTextChild(rowNode, "adl", row.adl);
+        NewTextChild(rowNode, "chd", row.chd);
+        NewTextChild(rowNode, "inf", row.inf);
+        NewTextChild(rowNode, "rk_weight", row.rk_weight);
+        NewTextChild(rowNode, "bag_amount", row.bag_amount);
+        NewTextChild(rowNode, "bag_weight", row.bag_weight);
+        NewTextChild(rowNode, "excess", row.excess);
     }
 
     // Теперь переменные отчета
