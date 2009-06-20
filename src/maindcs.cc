@@ -264,12 +264,15 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     "SELECT dev_model_params.sess_type AS param_type, "
     "       param_name,subparam_name,param_value,editable "
     "FROM dev_model_params,dev_sess_modes "
-    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
     "      dev_model_params.sess_type=dev_sess_modes.sess_type AND "
     "      dev_sess_modes.term_mode=:term_mode AND dev_sess_modes.sess_type=:sess_type AND "
-    "      (dev_model_params.fmt_type IS NULL OR dev_model_params.fmt_type=:fmt_type) AND "
-    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+    "      (dev_model_params.fmt_type=:fmt_type OR dev_model_params.fmt_type IS NULL) AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
+    "      (pr_sess_param<>0 OR pr_sess_param IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+    "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
+    "         dev_model_params.fmt_type NULLS LAST";
 
 
   SessParamsQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
@@ -283,12 +286,15 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     "SELECT dev_model_params.fmt_type AS param_type, "
     "       param_name,subparam_name,param_value,editable "
     "FROM dev_model_params,dev_fmt_opers "
-    "WHERE dev_model_params.dev_model=:dev_model AND "
+    "WHERE (dev_model_params.dev_model=:dev_model OR dev_model_params.dev_model IS NULL) AND "
     "      dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND "
     "      dev_fmt_opers.op_type=:op_type AND dev_fmt_opers.fmt_type=:fmt_type AND "
-    "      (dev_model_params.sess_type IS NULL OR dev_model_params.sess_type=:sess_type) AND "
-    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) "
-    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, desk_grp_id NULLS LAST";
+    "      (dev_model_params.sess_type=:sess_type OR dev_model_params.sess_type IS NULL) AND "
+    "      (desk_grp_id=:desk_grp_id OR desk_grp_id IS NULL) AND "
+    "      (pr_sess_param=0 OR pr_sess_param IS NULL) "
+    "ORDER BY param_type, param_name, subparam_name NULLS FIRST, "
+    "         dev_model_params.dev_model NULLS LAST, desk_grp_id NULLS LAST, "
+    "         dev_model_params.sess_type NULLS LAST";
   FmtParamsQry.CreateVariable("desk_grp_id",otInteger,reqInfo->desk.grp_id);
   FmtParamsQry.DeclareVariable("op_type",otString);
   FmtParamsQry.DeclareVariable("dev_model",otString);
@@ -562,6 +568,7 @@ TDocTypeConvert docTypes[7] = { {dtBP,     "PRINT_BP"   },
 void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   XMLRequestCtxt *ctxt = getXmlCtxt();
+  TReqInfo *reqInfo = TReqInfo::Instance();
 
   xmlNodePtr node,node2;
   xmlNodePtr oldParamsNode=GetNode("old_profile",reqNode);
@@ -569,259 +576,313 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
   try
   {
-    xmlNodePtr prnNode=GetNode("Printers/Printers",oldParamsNode);
-    if (prnNode!=NULL) prnNode=prnNode->children; //спустились на уровень <printer>
-    while (prnNode!=NULL)
+    if (reqInfo->desk.mode==omSTAND)
     {
-      node2=prnNode->children;
-      if ((GetNodeFast("type",node2)==NULL) ||
-          (GetNodeFast("name",node2)==NULL) ||
-          (GetNodeFast("port",node2)==NULL)) throw EConvertError("type, name, port not found");
-
-      string devOper=NodeAsStringFast("type",node2);
-      string devName=NodeAsStringFast("name",node2);
-      string devPort=NodeAsStringFast("port",node2);
-
-      TOldPrnParams oldPrn;
-      TNewPrnParams newPrn;
-      string dev_model, dev_sess_type, dev_fmt_type;
-
-      //находим операцию
-      int docIdx=0;
-      for(;docIdx<=6;docIdx++)
-        if (devOper==EncodeDocType(docTypes[docIdx].oldDoc)) break;
-      if (docIdx>6)
-        throw EConvertError("operation %s not found",devOper.c_str());
-
+      xmlNodePtr prnNode=GetNode("Printers/Printers",oldParamsNode);
+      if (prnNode!=NULL) prnNode=prnNode->children; //спустились на уровень <printer>
+      while (prnNode!=NULL)
       {
-        XMLDoc reqDoc,resDoc;
-        reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
-        node=NodeAsNode("/request",reqDoc.docPtr);
-        NewTextChild(node, "doc_type", devOper);
+        node2=prnNode->children;
+        if ((GetNodeFast("type",node2)==NULL) ||
+            (GetNodeFast("name",node2)==NULL) ||
+            (GetNodeFast("port",node2)==NULL)) throw EConvertError("type, name, port not found");
 
+        string devOper=NodeAsStringFast("type",node2);
+        string devName=NodeAsStringFast("name",node2);
+        string devPort=NodeAsStringFast("port",node2);
 
-        resDoc.docPtr=CreateXMLDoc("UTF-8","response");
-        if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
-          throw EConvertError("can't create reqDoc or resDoc");
-        JxtInterfaceMng::Instance()->
-          GetInterface("print")->
-            OnEvent("GetPrinterList",  ctxt,
-                                       NodeAsNode("/request",reqDoc.docPtr),
-                                       NodeAsNode("/response",resDoc.docPtr));
+        TOldPrnParams oldPrn;
+        TNewPrnParams newPrn;
+        string dev_model, dev_sess_type, dev_fmt_type;
 
-        node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr);
+        //находим операцию
+        int docIdx=0;
+        for(;docIdx<=6;docIdx++)
+          if (devOper==EncodeDocType(docTypes[docIdx].oldDoc)) break;
+        if (docIdx>6)
+          throw EConvertError("operation %s not found",devOper.c_str());
 
-
-
-
-        if (strcmp((char*)node->name,"drv")==0)
         {
-          if (devPort.empty())
+          XMLDoc reqDoc,resDoc;
+          reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
+          node=NodeAsNode("/request",reqDoc.docPtr);
+          NewTextChild(node, "doc_type", devOper);
+
+
+          resDoc.docPtr=CreateXMLDoc("UTF-8","response");
+          if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
+            throw EConvertError("can't create reqDoc or resDoc");
+          JxtInterfaceMng::Instance()->
+            GetInterface("print")->
+              OnEvent("GetPrinterList",  ctxt,
+                                         NodeAsNode("/request",reqDoc.docPtr),
+                                         NodeAsNode("/response",resDoc.docPtr));
+
+          node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr);
+
+
+
+
+          if (strcmp((char*)node->name,"drv")==0)
           {
-            //WINDOWS-принтер
-            dev_model="DRV PRINT";
-            dev_sess_type="WDP";
-            dev_fmt_type="FRX";
+            if (devPort.empty())
+            {
+              //WINDOWS-принтер
+              dev_model="DRV PRINT";
+              dev_sess_type="WDP";
+              dev_fmt_type="FRX";
+            }
+            else
+            {
+              //прямой вывод в локальный порт
+              switch (docTypes[docIdx].oldDoc)
+              {
+                case dtReceipt:
+                  dev_model="DIR PRINT";
+                  dev_sess_type="LPT";
+                  dev_fmt_type="EPSON";
+                  break;
+                case dtFltDoc:
+                case dtArchive:
+                case dtDisp:
+                case dtTlg:
+                  dev_model="DIR PRINT";
+                  dev_sess_type="LPT";
+                  dev_fmt_type="TEXT";
+                  break;
+                default:
+                  throw EConvertError("wrong printer %s",devName.c_str());
+              };
+            };
           }
           else
           {
-            //прямой вывод в локальный порт
-            switch (docTypes[docIdx].oldDoc)
+            while (node != NULL)
             {
-              case dtReceipt:
-                dev_model="DIR PRINT";
-                dev_sess_type="LPT";
-                dev_fmt_type="EPSON";
-                break;
-              case dtFltDoc:
-              case dtArchive:
-              case dtDisp:
-              case dtTlg:
-                dev_model="DIR PRINT";
-                dev_sess_type="LPT";
-                dev_fmt_type="TEXT";
-                break;
-              default:
-                throw EConvertError("wrong printer %s",devName.c_str());
+              oldPrn.code = NodeAsInteger("code", node);
+              oldPrn.name = NodeAsString("name", node);
+              oldPrn.iface = NodeAsString("iface", node);
+             // oldPrn.format_id = TPectabFmt(NodeAsInteger("format_id", node));
+              oldPrn.format = NodeAsString("format", node);
+              oldPrn.pr_stock = NodeAsInteger("pr_stock", node) != 0;
+
+              ProgTrace(TRACE5,"ConvertDevOldFormat: %s %s %s",
+                                          oldPrn.name.c_str(),
+                                          oldPrn.format.c_str(),
+                                          oldPrn.iface.c_str());
+
+              if ((oldPrn.name  + " (" + oldPrn.format + " " + oldPrn.iface + ")") == devName) break;
+
+              node = node->next;
             };
+            if (node==NULL) //не нашли соответствие name
+              throw EConvertError("printer %s not found in GetPrinterList",devName.c_str());
+
+            //находим модель
+            TQuery Qry(&OraSession);
+            Qry.Clear();
+            Qry.SQLText=
+              "SELECT new_code FROM convert_old_prn WHERE old_code=:code";
+            Qry.CreateVariable("code",otInteger,oldPrn.code);
+            Qry.Execute();
+            if (Qry.Eof || Qry.FieldIsNULL("new_code"))
+              throw EConvertError("printer code %d not found",oldPrn.code);
+
+            dev_model=Qry.FieldAsString("new_code");
+
+            Qry.Clear();
+            Qry.SQLText=
+              "SELECT new_iface FROM convert_old_iface WHERE old_iface=:iface";
+            Qry.CreateVariable("iface",otString,oldPrn.iface);
+            Qry.Execute();
+            if (Qry.Eof || Qry.FieldIsNULL("new_iface"))
+              throw EConvertError("iface code %d not found",oldPrn.iface.c_str());
+
+            dev_sess_type=Qry.FieldAsString("new_iface");
+
+            Qry.Clear();
+            Qry.SQLText=
+              "SELECT new_fmt FROM convert_old_fmt WHERE old_fmt=:fmt";
+            Qry.CreateVariable("fmt",otString,oldPrn.format);
+            Qry.Execute();
+            if (Qry.Eof || Qry.FieldIsNULL("new_fmt"))
+              throw EConvertError("format code %d not found",oldPrn.format.c_str());
+
+            dev_fmt_type=Qry.FieldAsString("new_fmt");
+
           };
-        }
+        };
+
+
+        {
+          XMLDoc reqDoc,resDoc;
+          reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
+          node=NodeAsNode("/request",reqDoc.docPtr);
+          NewTextChild(node,"operation",docTypes[docIdx].newDoc);
+
+
+          resDoc.docPtr=CreateXMLDoc("UTF-8","response");
+          if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
+            throw EConvertError("can't create reqDoc or resDoc");
+          JxtInterfaceMng::Instance()->
+            GetInterface("MainDCS")->
+              OnEvent("GetDeviceList",   ctxt,
+                                         NodeAsNode("/request",reqDoc.docPtr),
+                                         NodeAsNode("/response",resDoc.docPtr));
+
+          node=NodeAsNode("/response/operations",resDoc.docPtr)->children;
+          xmlNodePtr devNode=NULL;
+          while (node!=NULL)
+          {
+            if (NodeAsString("type",node)==docTypes[docIdx].newDoc)
+            {
+              devNode=NodeAsNode("devices",node)->children;
+              while (devNode!=NULL)
+              {
+                newPrn.code=NodeAsString("code",devNode);
+                newPrn.name=NodeAsString("name",devNode);
+                if (newPrn.code==dev_model) break;
+                devNode=devNode->next;
+              };
+              if (devNode!=NULL) break;
+            };
+            node=node->next;
+          };
+          if (node==NULL || devNode==NULL)
+            throw EConvertError("device %s not found in GetDeviceList",dev_model.c_str());
+        };
+
+
+        int i;
+        string str;
+
+        xmlNodePtr devicesNode=NodeAsNode("devices",reqNode);
+        if (devicesNode==NULL)
+          throw EConvertError("devices node not found in request");
+      /*  if (devicesNode->children!=NULL)
+          throw EConvertError("devices node not empty in request");*/
+
+        xmlNodePtr operNode=NewTextChild(devicesNode,"operation");
+        SetProp(operNode,"type",docTypes[docIdx].newDoc);
+
+        node=NewTextChild(operNode,"dev_model_code",newPrn.code);
+        //SetProp(node,"dev_model_name",newPrn.name);
+
+        node=NewTextChild(operNode,"sess_params");
+        SetProp(node,"type",dev_sess_type);
+
+        if (dev_model=="DRV PRINT")
+          NewTextChild(node,"addr",devName);
         else
+          NewTextChild(node,"addr",devPort);
+        if (dev_sess_type=="COM")
         {
-          while (node != NULL)
+          if (GetNodeFast("Check",node2)!=NULL)
+            str=NodeAsStringFast("Check",node2);
+          if (!str.empty() && str!="false")
+            throw EConvertError("wrong Check=%s",str.c_str());
+
+          if (GetNodeFast("BaudRate",node2)!=NULL)
+            NewTextChild(node,"baud_rate",NodeAsStringFast("BaudRate",node2));
+          if (GetNodeFast("DataBits",node2)!=NULL)
+            NewTextChild(node,"data_bits",NodeAsStringFast("DataBits",node2));
+          if (GetNodeFast("Parity",node2)!=NULL)
+            NewTextChild(node,"parity_bits",NodeAsStringFast("Parity",node2));
+          if (GetNodeFast("StopBits",node2)!=NULL)
+            NewTextChild(node,"stop_bits",NodeAsStringFast("StopBits",node2));
+          if (GetNodeFast("FrameBegin",node2)!=NULL &&
+             !NodeIsNULLFast("FrameBegin",node2))
           {
-            oldPrn.code = NodeAsInteger("code", node);
-            oldPrn.name = NodeAsString("name", node);
-            oldPrn.iface = NodeAsString("iface", node);
-           // oldPrn.format_id = TPectabFmt(NodeAsInteger("format_id", node));
-            oldPrn.format = NodeAsString("format", node);
-            oldPrn.pr_stock = NodeAsInteger("pr_stock", node) != 0;
-
-            ProgTrace(TRACE5,"ConvertDevOldFormat: %s %s %s",
-                                        oldPrn.name.c_str(),
-                                        oldPrn.format.c_str(),
-                                        oldPrn.iface.c_str());
-
-            if ((oldPrn.name  + " (" + oldPrn.format + " " + oldPrn.iface + ")") == devName) break;
-
-            node = node->next;
+            i=NodeAsIntegerFast("FrameBegin",node2);
+            if (i<0 || i>255) throw EConvertError("wrong FrameBegin=%d",i);
+            char b[2] = {0,0};
+            b[0]=i;
+            StringToHex(b,str);
+            NewTextChild(node,"prefix",str);
           };
-          if (node==NULL) //не нашли соответствие name
-            throw EConvertError("printer %s not found in GetPrinterList",devName.c_str());
-
-          //находим модель
-          TQuery Qry(&OraSession);
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT new_code FROM convert_old_prn WHERE old_code=:code";
-          Qry.CreateVariable("code",otInteger,oldPrn.code);
-          Qry.Execute();
-          if (Qry.Eof || Qry.FieldIsNULL("new_code"))
-            throw EConvertError("printer code %d not found",oldPrn.code);
-
-          dev_model=Qry.FieldAsString("new_code");
-
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT new_iface FROM convert_old_iface WHERE old_iface=:iface";
-          Qry.CreateVariable("iface",otString,oldPrn.iface);
-          Qry.Execute();
-          if (Qry.Eof || Qry.FieldIsNULL("new_iface"))
-            throw EConvertError("iface code %d not found",oldPrn.iface.c_str());
-
-          dev_sess_type=Qry.FieldAsString("new_iface");
-
-          Qry.Clear();
-          Qry.SQLText=
-            "SELECT new_fmt FROM convert_old_fmt WHERE old_fmt=:fmt";
-          Qry.CreateVariable("fmt",otString,oldPrn.format);
-          Qry.Execute();
-          if (Qry.Eof || Qry.FieldIsNULL("new_fmt"))
-            throw EConvertError("format code %d not found",oldPrn.format.c_str());
-
-          dev_fmt_type=Qry.FieldAsString("new_fmt");
-
-        };
-      };
-
-
-      {
-        XMLDoc reqDoc,resDoc;
-        reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
-        node=NodeAsNode("/request",reqDoc.docPtr);
-        NewTextChild(node,"operation",docTypes[docIdx].newDoc);
-
-
-        resDoc.docPtr=CreateXMLDoc("UTF-8","response");
-        if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
-          throw EConvertError("can't create reqDoc or resDoc");
-        JxtInterfaceMng::Instance()->
-          GetInterface("MainDCS")->
-            OnEvent("GetDeviceList",   ctxt,
-                                       NodeAsNode("/request",reqDoc.docPtr),
-                                       NodeAsNode("/response",resDoc.docPtr));
-
-        node=NodeAsNode("/response/operations",resDoc.docPtr)->children;
-        xmlNodePtr devNode=NULL;
-        while (node!=NULL)
-        {
-          if (NodeAsString("type",node)==docTypes[docIdx].newDoc)
+          if (GetNodeFast("FrameEnd",node2)!=NULL &&
+             !NodeIsNULLFast("FrameEnd",node2))
           {
-            devNode=NodeAsNode("devices",node)->children;
-            while (devNode!=NULL)
-            {
-              newPrn.code=NodeAsString("code",devNode);
-              newPrn.name=NodeAsString("name",devNode);
-              if (newPrn.code==dev_model) break;
-              devNode=devNode->next;
-            };
-            if (devNode!=NULL) break;
+            i=NodeAsIntegerFast("FrameEnd",node2);
+            if (i<0 || i>255) throw EConvertError("wrong FrameEnd=%d",i);
+            char b[2] = {0,0};
+            b[0]=i;
+            StringToHex(b,str);
+            NewTextChild(node,"suffix",str);
           };
-          node=node->next;
         };
-        if (node==NULL || devNode==NULL)
-          throw EConvertError("device %s not found in GetDeviceList",dev_model.c_str());
-      };
 
-
-      int i;
-      string str;
-
-      xmlNodePtr devicesNode=NodeAsNode("devices",reqNode);
-      if (devicesNode==NULL)
-        throw EConvertError("devices node not found in request");
-    /*  if (devicesNode->children!=NULL)
-        throw EConvertError("devices node not empty in request");*/
-
-      xmlNodePtr operNode=NewTextChild(devicesNode,"operation");
-      SetProp(operNode,"type",docTypes[docIdx].newDoc);
-
-      node=NewTextChild(operNode,"dev_model_code",newPrn.code);
-      //SetProp(node,"dev_model_name",newPrn.name);
-
-      node=NewTextChild(operNode,"sess_params");
-      SetProp(node,"type",dev_sess_type);
-
-      if (dev_model=="DRV PRINT")
-        NewTextChild(node,"addr",devName);
-      else
-        NewTextChild(node,"addr",devPort);
-      if (dev_sess_type=="COM")
-      {
-        if (GetNodeFast("BaudRate",node2)!=NULL)
-          NewTextChild(node,"baud_rate",NodeAsStringFast("BaudRate",node2));
-        if (GetNodeFast("DataBits",node2)!=NULL)
-          NewTextChild(node,"data_bits",NodeAsStringFast("DataBits",node2));
-        if (GetNodeFast("Parity",node2)!=NULL)
-          NewTextChild(node,"parity_bits",NodeAsStringFast("Parity",node2));
-        if (GetNodeFast("StopBits",node2)!=NULL)
-          NewTextChild(node,"stop_bits",NodeAsStringFast("StopBits",node2));
-        if (GetNodeFast("FrameBegin",node2)!=NULL &&
-           !NodeIsNULLFast("FrameBegin",node2))
+        node=NewTextChild(operNode,"fmt_params");
+        SetProp(node,"type",dev_fmt_type);
+        if (GetNodeFast("encoding",node2)!=NULL)
+          NewTextChild(node,"encoding",NodeAsStringFast("encoding",node2));
+        if (dev_fmt_type=="EPSON")
         {
-          i=NodeAsIntegerFast("FrameBegin",node2);
-          if (i<0 || i>255) throw EConvertError("wrong FrameBegin=%d",i);
-          char b[2] = {0,0};
-          b[0]=i;
-          StringToHex(b,str);
-          NewTextChild(node,"prefix",str);
+          if (GetNodeFast("offset",node2)!=NULL)
+            NewTextChild(node,"left",NodeAsStringFast("offset",node2));
+          if (GetNodeFast("top",node2)!=NULL)
+            NewTextChild(node,"top",NodeAsStringFast("top",node2));
         };
-        if (GetNodeFast("FrameEnd",node2)!=NULL &&
-           !NodeIsNULLFast("FrameEnd",node2))
+        if (dev_fmt_type=="FRX")
         {
-          i=NodeAsIntegerFast("FrameEnd",node2);
-          if (i<0 || i>255) throw EConvertError("wrong FrameEnd=%d",i);
-          char b[2] = {0,0};
-          b[0]=i;
-          StringToHex(b,str);
-          NewTextChild(node,"suffix",str);
+          if (GetNodeFast("graphic",node2)!=NULL)
+            NewTextChild(node,"export_bmp",NodeAsStringFast("graphic",node2));
+        };
+        if (dev_fmt_type=="ATB" ||
+            dev_fmt_type=="BTP")
+        {
+          if (GetNodeFast("timeout",node2)!=NULL)
+            NewTextChild(NewTextChild(node,"timeouts"),
+                         "print",NodeAsStringFast("timeout",node2));
+        };
+        prnNode=prnNode->next;
+      };
+      //конвертация параметров сканера
+      xmlNodePtr scnNode=GetNode("Peripherals",oldParamsNode);
+      if (scnNode!=NULL)
+      {
+        scnNode=GetNode("Scanner",scnNode);
+        if (scnNode!=NULL)
+        {
+          xmlNodePtr devicesNode=NodeAsNode("devices",reqNode);
+          if (devicesNode==NULL)
+            throw EConvertError("devices node not found in request");
+        /*  if (devicesNode->children!=NULL)
+            throw EConvertError("devices node not empty in request");*/
+
+          xmlNodePtr operNode=NewTextChild(devicesNode,"operation");
+          SetProp(operNode,"type","SCAN_BP");
+
+          node=NewTextChild(operNode,"dev_model_code","SCANNER");
+          //SetProp(node,"dev_model_name","");
+
+          node=NewTextChild(operNode,"sess_params");
+          if (NodeIsNULL(scnNode))
+            //разрыв клавиатуры
+            SetProp(node,"type","KBW");
+          else
+          {
+            //COM-сессия
+            SetProp(node,"type","COM");
+            NewTextChild(node,"addr",NodeAsString(scnNode));
+          };
+
+          node=NewTextChild(operNode,"fmt_params");
+          SetProp(node,"type","SCAN1");
+
+          xmlNodePtr scnParamNode=GetNode("Peripherals/ScanParams",oldParamsNode);
+          if (scnParamNode!=NULL)
+          {
+            node2=scnParamNode->children;
+            if (GetNodeFast("Prefix",node2)!=NULL)
+              NewTextChild(node,"prefix",NodeAsStringFast("Prefix",node2));
+            if (GetNodeFast("Postfix",node2)!=NULL)
+              NewTextChild(node,"postfix",NodeAsStringFast("Postfix",node2));
+            if (GetNodeFast("Interval",node2)!=NULL)
+              NewTextChild(node,"interval",NodeAsStringFast("Interval",node2));
+          };
         };
       };
-
-      node=NewTextChild(operNode,"fmt_params");
-      SetProp(node,"type",dev_fmt_type);
-      if (GetNodeFast("encoding",node2)!=NULL)
-        NewTextChild(node,"encoding",NodeAsStringFast("encoding",node2));
-      if (dev_fmt_type=="EPSON")
-      {
-        if (GetNodeFast("offset",node2)!=NULL)
-          NewTextChild(node,"left",NodeAsStringFast("offset",node2));
-        if (GetNodeFast("top",node2)!=NULL)
-          NewTextChild(node,"top",NodeAsStringFast("top",node2));
-      };
-      if (dev_fmt_type=="FRX")
-      {
-        if (GetNodeFast("graphic",node2)!=NULL)
-          NewTextChild(node,"export_bmp",NodeAsStringFast("graphic",node2));
-      };
-      if (dev_fmt_type=="ATB" ||
-          dev_fmt_type=="BTP")
-      {
-        if (GetNodeFast("timeout",node2)!=NULL)
-          NewTextChild(NewTextChild(node,"timeouts"),
-                       "print",NodeAsStringFast("timeout",node2));
-      };
-      prnNode=prnNode->next;
     };
     xmlUnlinkNode(oldParamsNode);
     xmlFreeNode(oldParamsNode);
@@ -891,9 +952,17 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "BEGIN "
       "  UPDATE users2 SET desk = NULL WHERE desk = :desk; "
       "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
+      "  UPDATE desks SET version = :version WHERE code = :desk; "
       "END;";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);
+    string version;
+    if (GetNode("term_version", reqNode)!=NULL)
+      version=NodeAsString("term_version", reqNode);
+    if (!version.empty())
+      Qry.CreateVariable("version",otString,version);
+    else
+      Qry.CreateVariable("version",otString,"UNKNOWN");
     Qry.Execute();
 
     string airlines;
@@ -967,26 +1036,33 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   TQuery Qry(&OraSession);
   Qry.Clear();
   ostringstream sql;
-  sql << "SELECT dev_oper_types.code AS op_type, dev_oper_types.name AS op_name, "
-         "       dev_models.code AS dev_model_code, dev_models.name AS dev_model_name "
-         "FROM dev_oper_types,dev_models, "
-         "     (SELECT DISTINCT dev_model_params.dev_model,dev_fmt_opers.op_type "
-         "      FROM dev_fmt_opers,dev_model_params, "
-         "           (SELECT DISTINCT dev_model "
-         "            FROM dev_sess_modes,dev_model_params "
-         "            WHERE dev_model_params.sess_type=dev_sess_modes.sess_type AND "
-         "                  dev_sess_modes.term_mode=:term_mode) dev_sess_models "
-         "      WHERE dev_model_params.fmt_type=dev_fmt_opers.fmt_type AND ";
-  if (!op_type.empty())
-    sql << "          dev_fmt_opers.op_type=:op_type AND ";
 
-  sql << "            dev_model_params.dev_model=dev_sess_models.dev_model) dev_fmt_models "
-         "WHERE dev_oper_types.code=dev_fmt_models.op_type(+) AND ";
-  if (!op_type.empty())
-    sql << "    dev_oper_types.code=:op_type AND ";
+  sql <<
+    "SELECT dev_oper_types.code AS op_type, dev_oper_types.name AS op_name, "
+    "       dev_model_code,dev_model_name "
+    "FROM dev_oper_types, "
+    "  (SELECT DISTINCT "
+    "          dev_models.code AS dev_model_code, dev_models.name AS dev_model_name, "
+    "          dev_fmt_opers.op_type "
+    "   FROM dev_models, "
+    "        dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
+    "   WHERE dev_model_sess_fmt.dev_model=dev_models.code AND "
+    "         dev_model_sess_fmt.sess_type=dev_sess_modes.sess_type AND "
+    "         dev_model_sess_fmt.fmt_type=dev_fmt_opers.fmt_type AND "
+    "         dev_sess_modes.term_mode=:term_mode ";
 
-  sql << "      dev_fmt_models.dev_model=dev_models.code(+) "
-         "ORDER BY op_type,dev_model_name ";
+  if (!op_type.empty())
+    sql << " AND dev_fmt_opers.op_type=:op_type ";
+
+  sql <<
+    "  ) dev_models "
+    "WHERE dev_oper_types.code=dev_models.op_type(+) ";
+
+  if (!op_type.empty())
+    sql << " AND dev_oper_types.code=:op_type ";
+
+  sql <<
+    "ORDER BY op_type,dev_model_name";
 
   if (!op_type.empty())
     Qry.CreateVariable("op_type",otString,op_type);

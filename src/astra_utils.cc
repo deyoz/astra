@@ -122,7 +122,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,lang,NVL(under_constr,0) AS under_constr,desks.grp_id "
+    "SELECT city,lang,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -134,7 +134,10 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
   desk.city = Qry.FieldAsString( "city" );
   desk.lang = Qry.FieldAsString( "lang" );
+  desk.version = Qry.FieldAsString( "version" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
+
+  ProgTrace( TRACE5, "terminal version='%s'", desk.version.c_str() );
 
   Qry.Clear();
   Qry.SQLText=
@@ -966,11 +969,10 @@ void showBasicInfo(void)
 /***************************************************************************************/
 void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ProgError( STDLOG, "Модуль: %s. Пульт: %s. Оператор: %s. Время: %s. Ошибка: %s.",
-               NodeAsString("/term/query/@screen", ctxt->reqDoc),
-               ctxt->pult.c_str(), ctxt->opr.c_str(),
-               DateTimeToStr(NowUTC(),"dd.mm.yyyy hh:nn:ss").c_str(),
-               NodeAsString( "msg", reqNode ) ) ;
+  if (reqNode==NULL) return;
+  xmlNodePtr node=reqNode->children;
+  for(;node!=NULL;node=node->next)
+    ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
 }
 
 tz_database &get_tz_database()
