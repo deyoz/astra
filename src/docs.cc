@@ -2354,6 +2354,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     string SQLText =
         "SELECT \n"
+        "   pax.pax_id, \n"
         "   pax_grp.point_dep AS trip_id, \n"
         "   pax_grp.airp_arv AS target, \n";
     if(rpt_params.pr_trfer)
@@ -2454,7 +2455,18 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     int fr_target_ref_idx = 0;
 
     TPMTotals PMTotals;
-    while(!Qry.Eof) {
+    for(; !Qry.Eof; Qry.Next()) {
+        if(not rpt_params.mkt_flt.IsNULL()) {
+            TMktFlight mkt_flt;
+            mkt_flt.getByPaxId(Qry.FieldAsInteger("pax_id"));
+            ProgTrace(TRACE5, "PAX_ID: %d", Qry.FieldAsInteger("pax_id"));
+            mkt_flt.dump();
+            rpt_params.mkt_flt.dump();
+            ProgTrace(TRACE5, "--------------------------------------------------");
+            if(mkt_flt.IsNULL() or not(rpt_params.mkt_flt == mkt_flt))
+                continue;
+        }
+
         TPMTotalsKey key;
         key.point_id = Qry.FieldAsInteger("trip_id");
         key.target = Qry.FieldAsString("target");
@@ -2537,7 +2549,6 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         else
             NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no_lat"));
         NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
-        Qry.Next();
     }
 
     dataSetNode = NewTextChild(dataSetsNode, rpt_params.pr_trfer ? "v_pm_trfer_total" : "v_pm_total");
@@ -2596,8 +2607,17 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     int craft_fmt = Qry.FieldAsInteger("craft_fmt");
 
     string airp = Qry.FieldAsString("airp");
-    string airline = Qry.FieldAsString("airline");
-    string suffix = Qry.FieldAsString("suffix");
+    string airline, suffix;
+    int flt_no = NoExists;
+    if(rpt_params.mkt_flt.IsNULL()) {
+        airline = Qry.FieldAsString("airline");
+        flt_no = Qry.FieldAsInteger("flt_no");
+        suffix = Qry.FieldAsString("suffix");
+    } else {
+        airline = rpt_params.mkt_flt.airline;
+        flt_no = rpt_params.mkt_flt.flt_no;
+        suffix = rpt_params.mkt_flt.suffix;
+    }
     string craft = Qry.FieldAsString("craft");
     string tz_region = AirpTZRegion(Qry.FieldAsString("airp"));
 
@@ -2615,7 +2635,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "flt",
             ElemIdToElem(etAirline, airline, airline_fmt) +
-            IntToString(Qry.FieldAsInteger("flt_no")) +
+            IntToString(flt_no) +
             ElemIdToElem(etSuffix, suffix, suffix_fmt)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
