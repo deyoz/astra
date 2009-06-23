@@ -3150,6 +3150,195 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    get_report_form("notpres", resNode);
+    int pr_lat = GetRPEncoding(rpt_params);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bagAmount, "
+        "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bagWeight, "
+        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
+        "FROM   pax_grp,pax,pers_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pax.pr_brd=0 and "
+        "       point_dep = :point_id "
+        "order by "
+        "       reg_no ";
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_notpres");
+    TBaseTable &pers_types = base_tables.get("PERS_TYPES");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type",
+          pers_types.get_row("code",Qry.FieldAsString("pers_type")).AsString("code",pr_lat));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
+        NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void REM(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    get_report_form("rem", resNode);
+    int pr_lat = GetRPEncoding(rpt_params);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+        "       report.get_reminfo(pax_id,',') AS info "
+        "FROM   pax_grp,pax,pers_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pr_brd IS NOT NULL and "
+        "       point_dep = :point_id and "
+        "       report.get_reminfo(pax_id,',') is not null "
+        "order by "
+        "       reg_no ";
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_rem");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "info", Qry.FieldAsString("info"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    if(rpt_params.rpt_type == rtCRSUNREG)
+        get_report_form("crsUnreg", resNode);
+    else
+        get_report_form("crs", resNode);
+    int pr_lat = GetRPEncoding(rpt_params);
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    TQuery Qry(&OraSession);
+    string SQLText =
+        "SELECT "
+        "      tlg_binding.point_id_spp AS point_id, "
+        "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+        "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name)) family, "
+        "      decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "      decode(:pr_lat, 0, classes.code, classes.code_lat) class, "
+        "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no, "
+        "      decode(:pr_lat, 0, airps.code, NVL(airps.code_lat,airps.code)) target, "
+        "      report.get_trfer_airp(last_target) last_target, "
+        "      report.get_TKNO(crs_pax.pax_id) ticket_no, "
+        "      report.get_PSPT(crs_pax.pax_id) AS document, "
+        "      report.get_crsRemarks(crs_pax.pax_id) AS remarks "
+        "FROM crs_pnr,tlg_binding,crs_pax,pers_types,classes,airps ";
+    if(rpt_params.rpt_type == rtCRSUNREG)
+        SQLText += " , pax ";
+    SQLText +=
+        "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
+        "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+        "      crs_pax.pers_type=pers_types.code AND "
+        "      crs_pnr.class=classes.code AND "
+        "      crs_pnr.target=airps.code AND "
+        "      crs_pax.pr_del=0 and "
+        "      tlg_binding.point_id_spp = :point_id ";
+    if(rpt_params.rpt_type == rtCRSUNREG)
+        SQLText +=
+            "    and crs_pax.pax_id = pax.pax_id(+) and "
+            "    pax.pax_id is null ";
+    SQLText +=
+            "order by "
+            "    family ";
+    Qry.SQLText = SQLText;
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_crs");
+
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "pnr_ref", Qry.FieldAsString("pnr_ref"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "class", Qry.FieldAsString("class"));
+        NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
+        NewTextChild(rowNode, "target", Qry.FieldAsString("target"));
+
+        string last_target = Qry.FieldAsString("last_target");
+        NewTextChild(rowNode, "last_target", last_target);
+
+        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(rowNode, "document", Qry.FieldAsString("document"));
+        NewTextChild(rowNode, "remarks", Qry.FieldAsString("remarks"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
+void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    get_report_form("exam", resNode);
+    int pr_lat = GetRPEncoding(rpt_params);
+
+    BrdInterface::GetPax(reqNode, resNode);
+    xmlNodePtr currNode = resNode->children;
+    xmlNodePtr formDataNode = NodeAsNodeFast("form_data", currNode);
+    xmlNodePtr dataNode = NodeAsNodeFast("data", currNode);
+    currNode = formDataNode->children;
+    xmlNodePtr variablesNode = NodeAsNodeFast("variables", currNode);
+
+    xmlUnlinkNode(dataNode);
+
+    xmlNodeSetName(dataNode, (xmlChar *)"datasets");
+    xmlAddChild(formDataNode, dataNode);
+    // Теперь переменные отчета
+    NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
+    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
+    currNode = variablesNode->children;
+    xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
+    NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
+    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -3179,10 +3368,18 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             REFUSE(rpt_params, resNode);
             break;
         case rtNOTPRES:
+            NOTPRES(rpt_params, resNode);
+            break;
         case rtREM:
+            REM(rpt_params, resNode);
+            break;
         case rtCRS:
         case rtCRSUNREG:
+            CRS(rpt_params, resNode);
+            break;
         case rtEXAM:
+            EXAM(rpt_params, reqNode, resNode);
+            break;
         case rtUnknown:
         case rtTypeNum:
             throw UserException("Отчет временно не поддерживается системой");
