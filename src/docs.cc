@@ -3105,6 +3105,51 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
 
+void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    get_report_form("ref", resNode);
+    int pr_lat = GetRPEncoding(rpt_params);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "SELECT point_dep AS point_id, "
+        "       reg_no, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       ticket_no, "
+        "       decode(:pr_lat, 0, refusal_types.name, NVL(refusal_types.name_lat,refusal_types.name)) refuse, "
+        "       ckin.get_birks(pax.grp_id,pax.pax_id,:pr_lat) AS tags "
+        "FROM   pax_grp,pax,pers_types,refusal_types "
+        "WHERE  pax_grp.grp_id=pax.grp_id AND "
+        "       pax.pers_type=pers_types.code AND "
+        "       pax.refuse = refusal_types.code AND "
+        "       pax.refuse IS NOT NULL and "
+        "       point_dep = :point_id "
+        "order by "
+        "       reg_no ";
+    Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+    Qry.CreateVariable("pr_lat", otString, pr_lat);
+    Qry.Execute();
+    xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
+    xmlNodePtr dataSetsNode = NewTextChild(formDataNode, "datasets");
+    xmlNodePtr dataSetNode = NewTextChild(dataSetsNode, "v_ref");
+    while(!Qry.Eof) {
+        xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
+
+        NewTextChild(rowNode, "point_id", Qry.FieldAsInteger("point_id"));
+        NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
+        NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
+        NewTextChild(rowNode, "pers_type", Qry.FieldAsString("pers_type"));
+        NewTextChild(rowNode, "ticket_no", Qry.FieldAsString("ticket_no"));
+        NewTextChild(rowNode, "refuse", Qry.FieldAsString("refuse"));
+        NewTextChild(rowNode, "tags", Qry.FieldAsString("tags"));
+
+        Qry.Next();
+    }
+
+    // Теперь переменные отчета
+    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+}
+
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr node = reqNode->children;
@@ -3131,6 +3176,8 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             BTM(rpt_params, resNode);
             break;
         case rtREFUSE:
+            REFUSE(rpt_params, resNode);
+            break;
         case rtNOTPRES:
         case rtREM:
         case rtCRS:
