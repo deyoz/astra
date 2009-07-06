@@ -4971,12 +4971,11 @@ void TPFSInfo::get(int point_id)
         "    pax_grp.point_dep = :point_id and  "
         "    pax_grp.grp_id = pax.grp_id and  "
         "    pax.refuse is null and "
-        "    pax.pers_type <> :inf and "
+        "    pax.seats > 0 and "
         "    pax.pax_id = crs_pax.pax_id(+) and  "
         "    crs_pax.pr_del(+) = 0  ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("psTransit", otString, EncodePaxStatus(psTransit));
-    Qry.CreateVariable("inf", otString, EncodePerson(baby));
     Qry.Execute();
     if(!Qry.Eof) {
         int col_pax_id = Qry.FieldIndex("pax_id");
@@ -5005,13 +5004,12 @@ void TPFSInfo::get(int point_id)
         "    tlg_binding.point_id_spp = :point_id and  "
         "    tlg_binding.point_id_tlg = crs_pnr.point_id and  "
         "    crs_pnr.pnr_id = crs_pax.pnr_id and  "
-        "    crs_pax.pers_type <> :inf and "
+        "    crs_pax.seats > 0 and "
         "    crs_pax.pr_del = 0 and "
         "    crs_pax.pax_id = pax.pax_id(+) and "
         "    pax.refuse(+) is null and "
         "    pax.grp_id = pax_grp.grp_id(+) ";
     Qry.CreateVariable("point_id", otInteger, point_id);
-    Qry.CreateVariable("inf", otString, EncodePerson(baby));
     Qry.Execute();
     if(!Qry.Eof) {
         int col_pnl_pax_id = Qry.FieldIndex("pnl_pax_id");
