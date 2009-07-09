@@ -3533,7 +3533,7 @@ vector<string> get_grp_zone_list(int point_id)
     if(result.size() == 1 and result[0].empty())
         result[0] = " "; // группа залов "все залы"
     if(result.size() > 1 or result.empty())
-        result.push_back(" ");
+        result.insert(result.begin(), " ");
     return result;
 }
 
