@@ -200,6 +200,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SALONS2::TSalons Salons( trip_id, SALONS2::rTripSalons );
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "Э"); //???
+  Salons.verifyValidRem( "SCLS", "Э"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
@@ -396,8 +397,9 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
-  if ( !Qry.Eof )
+  if ( !Qry.Eof ) {
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
+  }
   else {
   	layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode ) );
   }
@@ -406,6 +408,29 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
 
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   Salons.Read();
+
+  // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!!!
+  if ( seat_type != SEATS2::stDropseat && !pr_waitlist && GetNode( "question_reseat", reqNode ) ) {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT seat_no1,seat_no2 FROM "
+      "(SELECT first_yname||first_xname seat_no1 FROM trip_comp_layers "
+      " WHERE point_id=:point_id AND layer_type=:protckin_layer AND crs_pax_id=:pax_id) a,"
+      "(SELECT first_yname||first_xname seat_no2 FROM trip_comp_layers "
+      " WHERE point_id=:point_id AND layer_type=:layer_type AND pax_id=:pax_id ) b ";
+    Qry.CreateVariable( "point_id", otInteger, point_id );
+    Qry.CreateVariable( "pax_id", otInteger, pax_id );
+    Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType( cltProtCkin ) );
+    Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType(layer_type) );
+    Qry.Execute();
+    ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
+    if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
+    	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
+    	NewTextChild( resNode, "question_reseat", "Пассажир имеет предварительную рассадку. Пересадить пассажира?" );
+    	return;
+    }
+  }
+
   vector<SALONS2::TSalonSeat> seats;
 
   try {

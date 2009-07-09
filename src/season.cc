@@ -1372,20 +1372,28 @@ void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_a
               ds.tz = ptz;
               ds.region = pregion;
 
-              ProgTrace( TRACE5, "canspp trip vmove_id=%d,vd=%s,d=%s spp[ *vd ][ vold_move_id ].trips.size()=%d",
-                         vmove_id,
-                         DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
+              ProgTrace( TRACE5, "canspp trip d=%s spp[ %s ][ %d ].trips.size()=%d",
                          DateTimeToStr( d, "dd.mm.yy hh:nn" ).c_str(),
+                         DateTimeToStr( *vd, "dd.mm.yy hh:nn" ).c_str(),
+                         vmove_id,
                          (int)spp[ *vd ][ vmove_id ].trips.size() );
               if ( createViewer ) {
-                if ( spp[ *vd ][ vmove_id ].trips.empty() ) {
-
+              	vector<trip> trips = spp[ *vd ][ vmove_id ].trips; // сохраняем уже полученные рейсы
+/*                if ( spp[ *vd ][ vmove_id ].trips.empty() ) {*/
                   createTrips( d, localdate, filter, offset, ds, err_airp );
-
+                  // удаление дублирующих роейсов
+                  for ( vector<trip>::iterator itr=trips.begin(); itr!=trips.end(); itr++ ) {
+                  	vector<trip>::iterator jtr=ds.trips.begin();
+                  	for ( ; jtr!=ds.trips.end(); jtr++ )
+                  	  if ( itr->name == jtr->name && itr->scd_out == jtr->scd_out && itr->scd_in == jtr->scd_in )
+                  	  	break;
+                  	if ( jtr == ds.trips.end() )
+                  		ds.trips.push_back( *itr );
+                  }
                   ProgTrace( TRACE5, "ds.trips.size()=%d", (int)ds.trips.size() );
-                }
+                /*}
                 else
-                  ds.trips = spp[ *vd ][ vmove_id ].trips;
+                  ds.trips = spp[ *vd ][ vmove_id ].trips;*/
               }
               spp[ *vd ][ vmove_id ] = ds;
 /*              ProgTrace( TRACE5, "vmove_id=%d, vd=%f, spp[ *vd ][ vmove_id ].dests.size()=%d", vmove_id, *vd, spp[ *vd ][ vmove_id ].dests.size() );
@@ -2436,7 +2444,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
   string crafts, craft_format;
   vector<TDest> vecportsFrom, vecportsTo;
   int i=0;
-  ProgTrace( TRACE5, "createAirporttrip trip_id=%d", trip_id );
+  ProgTrace( TRACE5, "createAirporttrip trip_id=%d, trips.size()=%d", trip_id, (int)ds.trips.size() );
   do {
     NDest = &ds.dests[ i ];
     craft_format = ElemIdToElemCtxt( ecDisp, etCraft, NDest->craft, NDest->craft_fmt );

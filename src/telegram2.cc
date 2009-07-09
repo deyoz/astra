@@ -6,6 +6,8 @@
 #include "astra_utils.h"
 #include "stl_utils.h"
 #include "convert.h"
+#include "salons.h"
+#include "astra_consts.h"
 #include "serverlib/logger.h"
 
 #define NICKNAME "DEN"
@@ -35,85 +37,86 @@ bool TTlgInfo::operator == (const TMktFlight &s) const
         local_day == s.scd;
 }
 
-void get_seat_list(int pax_id, ASTRA::TCompLayerType layer, TTlgSeatList &seat_list)
+
+
+
+bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 {
-    seat_list.Clear();
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select distinct "
-        "   trip_comp_elems.xname, "
-        "   trip_comp_elems.yname "
-        "from "
-        "   trip_comp_layers, "
-        "   trip_comp_ranges, "
-        "   trip_comp_elems "
-        "where "
-        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
-        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.num = trip_comp_ranges.num and "
-        "   trip_comp_elems.x = trip_comp_ranges.x and "
-        "   trip_comp_elems.y = trip_comp_ranges.y and "
-        "   trip_comp_layers.layer_type = :ckin_layer and "
-        "   trip_comp_layers.pax_id = :pax_id ";
-    Qry.CreateVariable("ckin_layer", otString, EncodeCompLayerType(layer));
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.Execute();
-    if(!Qry.Eof)
-        for(; !Qry.Eof; Qry.Next())
-            seat_list.add_seat(Qry.FieldAsString("xname"), Qry.FieldAsString("yname"));
-}
-
-void TelegramInterface::delete_tst_tlg(int tlg_id)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "DELETE FROM tst_tlg_out WHERE id=:id AND time_send_act IS NULL ";
-    Qry.CreateVariable( "id", otInteger, tlg_id);
-    Qry.Execute();
-    if(Qry.RowsProcessed() == 0)
-        ProgTrace(TRACE5, "delete_tst_tlg: not found tlg_id %d", tlg_id);
-}
-
-void SaveTlgOutPartTST( TTlgOutPartInfo &info )
-{
-    TQuery Qry(&OraSession);
-
-    if (info.id<0) {
-        info.pr_tst = false;
-    }
-
-    if(info.pr_tst) {
-        Qry.Clear();
-        Qry.SQLText=
-            "INSERT INTO tst_tlg_out(id,num,type,point_id,addr,heading,body,ending,extra, "
-            "                    pr_lat,completed,time_create,time_send_scd,time_send_act) "
-            "VALUES(:id,:num,:type,:point_id,:addr,:heading,:body,:ending,:extra, "
-            "       :pr_lat,0,NVL(:time_create,system.UTCSYSDATE),:time_send_scd,NULL)";
-        Qry.CreateVariable("id",otInteger,info.id);
-        Qry.CreateVariable("num",otInteger,info.num);
-        Qry.CreateVariable("type",otString,info.tlg_type);
-        Qry.CreateVariable("point_id",otInteger,info.point_id);
-        Qry.CreateVariable("addr",otString,info.addr);
-        Qry.CreateVariable("heading",otString,info.heading);
-        Qry.CreateVariable("body",otString,info.body);
-        Qry.CreateVariable("ending",otString,info.ending);
-        Qry.CreateVariable("extra",otString,info.extra);
-        Qry.CreateVariable("pr_lat",otInteger,(int)info.pr_lat);
-        if (info.time_create!=NoExists)
-            Qry.CreateVariable("time_create",otDate,info.time_create);
-        else
-            Qry.CreateVariable("time_create",otDate,FNull);
-        if (info.time_send_scd!=NoExists)
-            Qry.CreateVariable("time_send_scd",otDate,info.time_send_scd);
-        else
-            Qry.CreateVariable("time_send_scd",otDate,FNull);
-        Qry.Execute();
-
-        info.num++;
-    } else
-        TelegramInterface::SaveTlgOutPart(info);
+	if ( t1.yname < t2.yname )
+		return true;
+	else
+		if ( t1.yname > t2.yname )
+			return false;
+		else
+			if ( t1.xname < t2.xname )
+				return true;
+			else
+			  return false;
 };
+
+void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
+{
+	complayers.clear();
+  vector<ASTRA::TCompLayerType> layers;
+  TQuery Qry(&OraSession);
+  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
+  	Qry.Next();
+  }
+  TTlgCompLayer comp_layer;
+  int next_point_arv = -1;
+
+  SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
+  Salons.Read();
+  for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
+    for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
+    	bool pr_break = false;
+    	for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
+    		for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
+    			if ( il->layer_type == *ilayer ) { // нашли нужный слой
+    				if ( il->point_dep == NoExists )
+    					comp_layer.point_dep = info.point_id;
+    				else
+              comp_layer.point_dep = il->point_dep;
+            if ( il->point_arv == NoExists )  {
+              if ( next_point_arv == -1 ) {
+                TTripRoute route;
+                TTripRouteItem next_airp;
+                route.GetNextAirp(info.point_id,
+                                  info.point_num,
+                                  info.first_point,
+                                  true,
+                                  trtNotCancelled,
+                                  next_airp);
+
+                if ( next_airp.point_id == NoExists )
+                  throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
+                else
+                  next_point_arv = next_airp.point_id;
+              }
+              comp_layer.point_arv = next_point_arv;
+            }
+            else
+            	comp_layer.point_arv = il->point_arv;
+            comp_layer.layer_type = il->layer_type;
+            comp_layer.xname = ip->xname;
+            comp_layer.yname = ip->yname;
+            comp_layer.pax_id = il->pax_id;
+            complayers.push_back( comp_layer );
+    				pr_break = true;
+    				break;
+    			}
+    		}
+    		if ( pr_break ) // закончили бежать по слоям места
+    			break;
+    	}
+    }
+  }
+  // сортировка по yname, xname
+  sort( complayers.begin(), complayers.end(), CompareCompLayers );
+}
 
 void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
 {
@@ -123,7 +126,7 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
         for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
             part_len += iv->size() + br.size();
             if(part_len > PART_SIZE) {
-                SaveTlgOutPartTST(tlg_row);
+                TelegramInterface::SaveTlgOutPart(tlg_row);
                 tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
                 tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
                 tlg_row.body = *iv + br;
@@ -313,10 +316,11 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
 
 struct TFTLPax;
 struct TETLPax;
+
 struct TName {
     string surname;
     string name;
-    void ToTlg(TTlgInfo &info, vector<string> &body);
+    void ToTlg(TTlgInfo &info, vector<string> &body, string postfix = "");
 };
 
 namespace PRL_SPACE {
@@ -513,7 +517,7 @@ namespace PRL_SPACE {
         vector<string> items;
         void get(TTlgInfo &info, TFTLPax &pax);
         void get(TTlgInfo &info, TETLPax &pax);
-        void get(TTlgInfo &info, TPRLPax &pax);
+        void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
         void ToTlg(TTlgInfo &info, vector<string> &body);
         TRemList(TInfants *ainfants): infants(ainfants) {};
     };
@@ -652,7 +656,7 @@ namespace PRL_SPACE {
             virtual string format(const TOnwardItem &item, const int i, TTlgInfo &info)=0;
         public:
             vector<TOnwardItem> items;
-            void get(int pax_id, bool tmp);
+            void get(int pax_id);
             void ToTlg(TTlgInfo &info, vector<string> &body);
             virtual ~TOnwardList(){};
     };
@@ -681,6 +685,29 @@ namespace PRL_SPACE {
             }
     };
 
+    struct TPSMOnwardList:TOnwardList {
+        private:
+            string format(const TOnwardItem &item, const int i, TTlgInfo &info)
+            {
+                ostringstream line;
+                line
+                    << " "
+                    << ElemIdToElem(etAirline, item.airline, info.pr_lat)
+                    << setw(3) << setfill('0') << item.flt_no
+                    << ElemIdToElem(etSuffix, item.suffix, info.pr_lat)
+                    << ElemIdToElem(etSubcls, item.trfer_subcls, info.pr_lat)
+                    << DateTimeToStr(item.scd, "dd", info.pr_lat)
+                    << ElemIdToElem(etAirp, item.airp_arv, info.pr_lat);
+                return line.str();
+            }
+        public:
+            void ToTlg(TTlgInfo &info, vector<string> &body)
+            {
+                if(not items.empty())
+                    body.push_back(format(items[0], 0, info));
+            }
+    };
+
     struct TPRLOnwardList:TOnwardList {
         private:
             string format(const TOnwardItem &item, const int i, TTlgInfo &info)
@@ -701,7 +728,7 @@ namespace PRL_SPACE {
             }
     };
 
-    void TOnwardList::get(int pax_id, bool tmp)
+    void TOnwardList::get(int pax_id)
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -852,7 +879,7 @@ namespace PRL_SPACE {
         }
     }
 
-    void TRemList::get(TTlgInfo &info, TPRLPax &pax)
+    void TRemList::get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers )
     {
         items.clear();
         if(pax.pax_id == NoExists) return;
@@ -874,7 +901,7 @@ namespace PRL_SPACE {
         if(!Qry.Eof)
             items.push_back("1CHD");
         TTlgSeatList seats;
-        get_seat_list(pax.pax_id, cltCheckin, seats);
+        seats.add_seats(pax.pax_id, complayers);
         string seat_list = seats.get_seat_list(info.pr_lat or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
@@ -908,7 +935,7 @@ namespace PRL_SPACE {
             grp_map = agrp_map;
             infants = ainfants;
         }
-        void GetPaxList(TTlgInfo &info);
+        void GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers);
         void PaxListToTlg(TTlgInfo &info, vector<string> &body);
     };
 
@@ -924,7 +951,7 @@ namespace PRL_SPACE {
         }
     }
 
-    void TPRLDest::GetPaxList(TTlgInfo &info)
+    void TPRLDest::GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers)
     {
         TQuery Qry(&OraSession);
         Qry.SQLText =
@@ -991,9 +1018,9 @@ namespace PRL_SPACE {
                 if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
                     continue;
                 pax.pnrs.get(pax.pnr_id);
-                pax.rems.get(info, pax);
+                pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id);
-                pax.OList.get(pax.pax_id, true);
+                pax.OList.get(pax.pax_id);
                 PaxList.push_back(pax);
             }
         }
@@ -1404,10 +1431,9 @@ namespace PRL_SPACE {
 
 using namespace PRL_SPACE;
 
-int COM(TTlgInfo &info, int tst_tlg_id)
+int COM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -1434,7 +1460,7 @@ int COM(TTlgInfo &info, int tst_tlg_id)
     stats.ToTlg(body);
     tlg_row.body = body.str();
     ProgTrace(TRACE5, "COM: before save");
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -2116,7 +2142,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
-            item.OList.get(item.pax_id, true);
+            item.OList.get(item.pax_id);
             surnames[item.surname].push_back(item);
         }
     }
@@ -2359,10 +2385,290 @@ int calculate_btm_grp_len(const vector<string>::iterator &iv, const vector<strin
     return result;
 }
 
-int BTM(TTlgInfo &info, int tst_tlg_id)
+struct TSSRItem {
+    string code;
+    string free_text;
+};
+
+struct TSSR {
+    vector<TSSRItem> items;
+    void get(int pax_id);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TSSR::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(vector<TSSRItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
+        string buf = " " + iv->code;
+        if(not iv->free_text.empty()) {
+            buf += " " + transliter(iv->free_text, info.pr_lat);
+            string offset;
+            while(buf.size() > LINE_SIZE) {
+                size_t idx = buf.rfind(" ", LINE_SIZE - 1);
+                if(idx <= 5)
+                    idx = LINE_SIZE;
+                body.push_back(offset + buf.substr(0, idx));
+                buf = buf.substr(idx);
+                if(offset.empty())
+                    offset.assign(6, ' ');
+            }
+            if(not buf.empty())
+                body.push_back(offset + buf);
+        } else
+            body.push_back(buf);
+    }
+}
+
+void TSSR::get(int pax_id)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax_rem.rem_code, "
+        "   pax_rem.rem "
+        "from "
+        "   pax_rem, "
+        "   rem_types "
+        "where "
+        "   pax_rem.pax_id = :pax_id and "
+        "   pax_rem.rem_code = rem_types.code and "
+        "   rem_types.pr_psm <> 0 "
+        "order by "
+        "   pax_rem.rem_code ";
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_rem_code = Qry.FieldIndex("rem_code");
+        int col_rem = Qry.FieldIndex("rem");
+        for(; !Qry.Eof; Qry.Next()) {
+            TSSRItem item;
+            item.code = Qry.FieldAsString(col_rem_code);
+            item.free_text = Qry.FieldAsString(col_rem);
+            if(item.code == item.free_text)
+                item.free_text.erase();
+            else
+                item.free_text = item.free_text.substr(item.code.size() + 1);
+            TrimString(item.free_text);
+            items.push_back(item);
+        }
+    }
+}
+
+struct TClsCmp {
+    bool operator() (const string &l, const string &r) const
+    {
+        TClasses &classes = (TClasses &)base_tables.get("classes");
+        int l_prior = ((TClassesRow &)classes.get_row("code", l)).priority;
+        int r_prior = ((TClassesRow &)classes.get_row("code", r)).priority;
+        return l_prior < r_prior;
+    }
+};
+
+struct TCFGItem {
+    string cls;
+    int cfg;
+    TCFGItem(): cfg(NoExists) {};
+};
+
+struct TCFG {
+    vector<TCFGItem> items;
+    void get(TTlgInfo &info);
+};
+
+struct TPSMPax {
+    int pax_id;
+    TName name;
+    TPSMOnwardList OItem;
+    TTlgSeatList seat_no;
+    string airp_arv;
+    string cls;
+    TSSR ssr;
+    TPSMPax(): pax_id(NoExists) {}
+};
+
+typedef vector<TPSMPax> TPSMPaxLst;
+typedef map<string, TPSMPaxLst> TPSMCls;
+typedef map<string, TPSMCls> TPSMTarget;
+
+struct TPSM {
+    TCFG cfg;
+    TPSMTarget items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+struct TCounter {
+    int val;
+    TCounter(): val(0) {};
+};
+
+typedef map<string, TCounter, TClsCmp> TPSMSSRItem;
+typedef map<string, TPSMSSRItem> TSSRCodesList;
+
+struct TSSRCodes {
+    TCFG &cfg;
+    TSSRCodesList items;
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+    void add(string cls, TSSR &ssr);
+    TSSRCodes(TCFG &acfg): cfg(acfg) {};
+};
+
+void TSSRCodes::add(string cls, TSSR &ssr)
+{
+    for(vector<TSSRItem>::iterator iv = ssr.items.begin(); iv != ssr.items.end(); iv++)
+        (items[iv->code][cls]).val++;
+}
+
+void TSSRCodes::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(TSSRCodesList::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
+        ostringstream buf;
+        buf << setw(4) << left << i_items->first;
+        TPSMSSRItem &SSRItem = i_items->second;
+        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+            TCounter &counter = SSRItem[i_cfg->cls];
+            buf << " " << setw(3) << setfill('0') << right << counter.val << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat);
+        }
+        body.push_back(buf.str());
+    }
+}
+
+void TPSM::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    TTripRoute route;
+    route.GetRouteAfter(info.point_id, trtNotCurrent, trtNotCancelled);
+    for(TTripRoute::iterator iv = route.begin(); iv != route.end(); iv++) {
+        TSSRCodes ssr_codes(cfg);
+        TPSMCls &PSMCls = items[iv->airp];
+        vector<string> pax_list_body;
+        int target_pax = 0;
+        int target_ssr = 0;
+        for(vector<TCFGItem>::iterator i_cfg = cfg.items.begin(); i_cfg != cfg.items.end(); i_cfg++) {
+            TPSMPaxLst &pax_list = PSMCls[i_cfg->cls];
+            int ssr = 0;
+            vector<string> cls_body;
+            for(TPSMPaxLst::iterator i_pax = pax_list.begin(); i_pax != pax_list.end(); i_pax++) {
+                ssr_codes.add(i_cfg->cls, i_pax->ssr);
+                i_pax->name.ToTlg(info, cls_body, "  " + i_pax->seat_no.get_seat_one(info.pr_lat));
+                i_pax->OItem.ToTlg(info, cls_body);
+                i_pax->ssr.ToTlg(info, cls_body);
+                ssr += i_pax->ssr.items.size();
+            }
+            target_pax += pax_list.size();
+            target_ssr += ssr;
+            ostringstream buf;
+            buf
+                << TlgElemIdToElem(etClass, i_cfg->cls, info.pr_lat)
+                << " CLASS ";
+            if(pax_list.empty())
+                buf << "NIL";
+            else
+                buf
+                    << pax_list.size()
+                    << "PAX / "
+                    << ssr
+                    << "SSR";
+            pax_list_body.push_back(buf.str());
+            pax_list_body.insert(pax_list_body.end(), cls_body.begin(), cls_body.end());
+        }
+        ostringstream buf;
+        buf
+            << "-" << ElemIdToElem(etAirp, iv->airp, info.pr_lat)
+            << " ";
+        if(target_pax == 0) {
+            buf << "NIL";
+            body.push_back(buf.str());
+        } else {
+            buf
+                << target_pax
+                << "PAX / "
+                << target_ssr
+                << "SSR";
+            body.push_back(buf.str());
+            ssr_codes.ToTlg(info, body);
+            body.insert(body.end(), pax_list_body.begin(), pax_list_body.end());
+        }
+    }
+}
+
+void TPSM::get(TTlgInfo &info)
+{
+    cfg.get(info);
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax_id, "
+        "   pax.surname, "
+        "   pax.name, "
+        "   pax_grp.airp_arv, "
+        "   pax_grp.class "
+        "from "
+        "   pax, "
+        "   pax_grp "
+        "where "
+        "   pax_grp.point_dep = :point_dep and "
+        "   pax_grp.grp_id = pax.grp_id "
+        "order by "
+        "   pax.surname ";
+    Qry.CreateVariable("point_dep", otInteger, info.point_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_surname = Qry.FieldIndex("surname");
+        int col_name = Qry.FieldIndex("name");
+        int col_airp_arv = Qry.FieldIndex("airp_arv");
+        int col_class = Qry.FieldIndex("class");
+        for(; !Qry.Eof; Qry.Next()) {
+            TPSMPax item;
+            item.pax_id = Qry.FieldAsInteger(col_pax_id);
+            item.name.surname = Qry.FieldAsString(col_surname);
+            item.name.name = Qry.FieldAsString(col_name);
+            item.airp_arv = Qry.FieldAsString(col_airp_arv);
+            item.cls = Qry.FieldAsString(col_class);
+            item.ssr.get(item.pax_id);
+            if(item.ssr.items.empty())
+                continue;
+            item.seat_no.add_seats(item.pax_id, complayers);
+            item.OItem.get(item.pax_id);
+            items[item.airp_arv][item.cls].push_back(item);
+        }
+    }
+}
+
+int PSM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "PSM" << br
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    vector<string> body;
+    TPSM psm;
+    psm.get(info);
+    psm.ToTlg(info, body);
+    simple_split(heading, part_len, tlg_row, body);
+    tlg_row.ending = "ENDPSM" + br;
+    TelegramInterface::SaveTlgOutPart(tlg_row);
+    return tlg_row.id;
+}
+
+int BTM(TTlgInfo &info)
+{
+    TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -2407,7 +2713,7 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
             grp_len = iv->size() + br.size();
         part_len += grp_len;
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + br + heading2.str();
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find(".F") == 0)
@@ -2424,14 +2730,13 @@ int BTM(TTlgInfo &info, int tst_tlg_id)
     if(tlg_row.num == 1)
         tlg_row.heading = heading1.str() + br + heading2.str();
     tlg_row.ending = "ENDBTM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int PTM(TTlgInfo &info, int tst_tlg_id)
+int PTM(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -2454,7 +2759,7 @@ int PTM(TTlgInfo &info, int tst_tlg_id)
     FList.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPTM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
@@ -2670,6 +2975,14 @@ struct TSeatListContext {
     void seat_to_str(TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
     void vert_seat_to_str(TSeatRectList &SeatRectList, string yname, string first_place,  string last_place, bool pr_lat);
 };
+
+void TTlgSeatList::add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers)
+{
+    for (vector<TTlgCompLayer>::iterator ic=complayers.begin(); ic!=complayers.end(); ic++ ) {
+        if ( ic->pax_id != pax_id ) continue;
+        add_seat(ic->xname, ic->yname);
+    }
+}
 
 void TTlgSeatList::add_seat(int point_id, string xname, string yname)
 {
@@ -2893,88 +3206,13 @@ void TTlgSeatList::dump_comp()
 
 void TTlgSeatList::apply_comp(TTlgInfo &info)
 {
-    TQuery Qry(&OraSession);
-    Qry.SQLText =
-        "select "
-        "   trip_comp_elems.yname, "
-        "   trip_comp_elems.xname, "
-        "   comp_layer_types.priority, "
-        "   trip_comp_layers.point_arv, "
-        "   trip_comp_layers.point_dep, "
-        "   trip_comp_layers.layer_type "
-        "from "
-        "   trip_comp_layers, "
-        "   trip_comp_ranges, "
-        "   trip_comp_elems, "
-        "   comp_layer_types "
-        "where "
-        "   trip_comp_layers.range_id = trip_comp_ranges.range_id and "
-        "   trip_comp_layers.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.point_id = trip_comp_ranges.point_id and "
-        "   trip_comp_elems.num = trip_comp_ranges.num and "
-        "   trip_comp_elems.x = trip_comp_ranges.x and "
-        "   trip_comp_elems.y = trip_comp_ranges.y and "
-        "   trip_comp_layers.layer_type = comp_layer_types.code and "
-        "   comp_layer_types.pr_occupy <> 0 and "
-        "   trip_comp_layers.point_id = :point_id "
-        "order by trip_comp_elems.yname, "
-        "         trip_comp_elems.xname, "
-        "         comp_layer_types.priority ";
-    Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.Execute();
-    if(!Qry.Eof) {
-        TFilterLayers filter_layers;
-        filter_layers.getFilterLayers(info.point_id);
-        int col_point_arv = Qry.FieldIndex("point_arv");
-        int col_point_dep = Qry.FieldIndex("point_dep");
-        int col_layer_type = Qry.FieldIndex("layer_type");
-        int col_xname = Qry.FieldIndex("xname");
-        int col_yname = Qry.FieldIndex("yname");
-        int next_point_arv = -1;
-        string prior_xname,prior_yname;
-        for(; !Qry.Eof; Qry.Next()) {
-            int point_dep;
-            int point_arv;
-            if(Qry.FieldIsNULL(col_point_dep))
-                point_dep = info.point_id;
-            else
-                point_dep = Qry.FieldAsInteger(col_point_dep);
-            if(Qry.FieldIsNULL(col_point_arv)) {
-                if(next_point_arv == -1)
-                {
-                    TTripRoute route;
-                    TTripRouteItem next_airp;
-                    route.GetNextAirp(info.point_id,
-                            info.point_num,
-                            info.first_point,
-                            true,
-                            trtNotCancelled,
-                            next_airp);
 
-
-                    if(next_airp.point_id==ASTRA::NoExists)
-                        throw Exception("next_id not found");
-                    else {
-                        next_point_arv = next_airp.point_id;
-                    }
-                }
-                point_arv = next_point_arv;
-            } else
-                point_arv = Qry.FieldAsInteger(col_point_arv);
-            if (prior_xname==Qry.FieldAsString(col_xname) &&
-                    prior_yname==Qry.FieldAsString(col_yname))
-                //нашли менее приоритетный слой на уже обработанное место - выходим
-                continue;
-
-            if (!filter_layers.CanUseLayer(DecodeCompLayerType(Qry.FieldAsString(col_layer_type)), point_dep))
-                //при определенных настройках рейса слой не учитывается - выходим
-                continue;
-
-            prior_xname=Qry.FieldAsString(col_xname);
-            prior_yname=Qry.FieldAsString(col_yname);
-            add_seat( point_arv, prior_xname, prior_yname );
-        }
-    }
+  vector<TTlgCompLayer> complayers;
+  ReadSalons( info, complayers );
+  for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
+    ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
+    add_seat( il->point_arv, il->xname, il->yname );
+  }
 }
 
 void TTlgSeatList::get(TTlgInfo &info)
@@ -3011,11 +3249,10 @@ void TTlgSeatList::get(TTlgInfo &info)
     }
 }
 
-int SOM(TTlgInfo &info, int tst_tlg_id)
+int SOM(TTlgInfo &info)
 {
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -3037,7 +3274,7 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             tlg_row.body = *iv + br;
@@ -3047,19 +3284,36 @@ int SOM(TTlgInfo &info, int tst_tlg_id)
             tlg_row.body += *iv + br;
     }
     tlg_row.ending = "ENDSOM" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-void TName::ToTlg(TTlgInfo &info, vector<string> &body)
+void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
-    string line = "1" + transliter(surname, info.pr_lat).substr(0, 63);
-    if(!name.empty()) {
-        string tmp_name = transliter(name, info.pr_lat);
-        if(tmp_name.size() + line.size() + 1 <= LINE_SIZE)
-            line += "/" + tmp_name;
-    }
-    body.push_back(line);
+    size_t name_size = LINE_SIZE - postfix.size();
+    string result;
+    string one_surname = "1" + surname;
+    string pax_name = one_surname;
+    if(!name.empty())
+        pax_name += "/" + name;
+    if(pax_name.size() > name_size){
+        size_t diff = pax_name.size() - name_size;
+        if(name.empty()) {
+            result = one_surname.substr(0, one_surname.size() - diff);
+        } else {
+            if(name.size() > diff) {
+                name = name.substr(0, name.size() - diff);
+            } else {
+                diff -= name.size() - 1;
+                name = name[0];
+                one_surname = one_surname.substr(0, one_surname.size() - diff);
+            }
+            result = one_surname + "/" + name;
+        }
+    } else
+        result = pax_name;
+    result += postfix;
+    body.push_back(result);
 }
 
 struct TETLPax {
@@ -3304,11 +3558,11 @@ struct TETLDest {
         grp_map = agrp_map;
         infants = ainfants;
     }
-    void GetPaxList(TTlgInfo &info);
+    void GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers);
     void PaxListToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TETLDest::GetPaxList(TTlgInfo &info)
+void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3396,7 +3650,7 @@ struct TDestList {
     TGRPMap grp_map; // PRL, ETL
     TInfants infants; // PRL
     vector<T> items;
-    void get(TTlgInfo &info);
+    void get(TTlgInfo &info,vector<TTlgCompLayer> &complayers);
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
@@ -3417,7 +3671,7 @@ void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
             pax_len = iv->size() + br.size();
         part_len += pax_len;
         if(part_len > PART_SIZE) {
-            SaveTlgOutPartTST(tlg_row);
+            TelegramInterface::SaveTlgOutPart(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find('-') == 0)
@@ -3541,19 +3795,6 @@ struct TLDMDest {
         chd(NoExists),
         inf(NoExists)
     {};
-};
-
-struct TCFGItem {
-    string cls;
-    int cfg;
-    TCFGItem(): cfg(NoExists) {};
-};
-
-struct TCFG {
-    vector<TCFGItem> items;
-    void get(TTlgInfo &info);
-    virtual void ToTlg(TTlgInfo &info, vector<string> &body) = 0;
-    virtual ~TCFG() {};
 };
 
 struct TETLCFG:TCFG {
@@ -3908,11 +4149,10 @@ void TMVTABody::get(TTlgInfo &info)
     }
 }
 
-int MVT(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int MVT(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = 1;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -3949,15 +4189,14 @@ int MVT(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
 
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int LDM(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = 0;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -3977,15 +4216,14 @@ int LDM(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     LDM.ToTlg(info, body);
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int AHL(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4014,14 +4252,13 @@ int AHL(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
         + "PN" + br
         + "TP" + br
         + "AG" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int FTL(TTlgInfo &info, int tst_tlg_id)
+int FTL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4053,14 +4290,13 @@ int FTL(TTlgInfo &info, int tst_tlg_id)
     FTL.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDFTL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int ETL(TTlgInfo &info, int tst_tlg_id)
+int ETL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4085,17 +4321,18 @@ int ETL(TTlgInfo &info, int tst_tlg_id)
         body.push_back("ATD/" + DateTimeToStr(info.act_local, "ddhhnn"));
     }
 
+    vector<TTlgCompLayer> complayers;
     TDestList<TETLDest> dests;
-    dests.get(info);
+    dests.get(info,complayers);
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
 template <class T>
-void TDestList<T>::get(TTlgInfo &info)
+void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
 {
     infants.get(info.first_point);
     TQuery Qry(&OraSession);
@@ -4125,7 +4362,7 @@ void TDestList<T>::get(TTlgInfo &info)
         dest.airp = Qry.FieldAsString("airp");
         dest.cls = Qry.FieldAsString("class");
         ProgTrace(TRACE5, "airp: %s, cls: %s", dest.airp.c_str(), dest.cls.c_str());
-        dest.GetPaxList(info);
+        dest.GetPaxList(info,complayers);
         items.push_back(dest);
     }
 }
@@ -4705,10 +4942,9 @@ void TPFSBody::get(TTlgInfo &info)
     }
 }
 
-int PFS(TTlgInfo &info, int tst_tlg_id)
+int PFS(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4741,15 +4977,14 @@ int PFS(TTlgInfo &info, int tst_tlg_id)
     pfs.ToTlg(info, body);
     simple_split(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
 
     return tlg_row.id;
 }
 
-int PRL(TTlgInfo &info, int tst_tlg_id)
+int PRL(TTlgInfo &info)
 {
     TTlgOutPartInfo tlg_row;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4777,21 +5012,23 @@ int PRL(TTlgInfo &info, int tst_tlg_id)
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
 
+    vector<TTlgCompLayer> complayers;
+    ReadSalons( info, complayers );
+    ProgTrace( TRACE5, "complayers.size()=%d", complayers.size() );
     TDestList<TPRLDest> dests;
-    dests.get(info);
+    dests.get(info,complayers);
     vector<string> body;
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
-int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
+int Unknown(TTlgInfo &info, bool &vcompleted)
 {
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
-    tlg_row.id = tst_tlg_id;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
     tlg_row.point_id = info.point_id;
@@ -4800,16 +5037,14 @@ int Unknown(TTlgInfo &info, bool &vcompleted, int tst_tlg_id)
     tlg_row.addr = info.addrs;
     tlg_row.time_create = NowUTC();
     tlg_row.heading = '.' + info.sender + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
-    SaveTlgOutPartTST(tlg_row);
+    TelegramInterface::SaveTlgOutPart(tlg_row);
     return tlg_row.id;
 }
 
 int TelegramInterface::create_tlg(
-        const             TCreateTlgInfo &createInfo,
-        const int         tst_tlg_id
+        const             TCreateTlgInfo &createInfo
         )
 {
-    ProgTrace(TRACE5, "create_tlg entrance: %s", (tst_tlg_id < 0 ? "real_mode" : "test_mode"));
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
     if(createInfo.type.empty())
         throw UserException("Не указан тип телеграммы");
@@ -4821,7 +5056,8 @@ int TelegramInterface::create_tlg(
         throw UserException("Неверно указан тип телеграммы");
     string vbasic_type = Qry.FieldAsString("basic_type");
     bool veditable = Qry.FieldAsInteger("editable") != 0;
-    TTlgInfo info(createInfo.mark_info);
+    TTlgInfo info;
+    info.mark_info = createInfo.mark_info;
     info.tlg_type = createInfo.type;
     if((vbasic_type == "PTM" || vbasic_type == "BTM") && createInfo.airp_trfer.empty())
         throw UserException("Не указан аэропорт назначения");
@@ -4923,24 +5159,22 @@ int TelegramInterface::create_tlg(
     bool vcompleted = !veditable;
     int vid = NoExists;
 
-    if(vbasic_type == "PTM") vid = PTM(info, tst_tlg_id);
-    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted, tst_tlg_id);
-    else if(vbasic_type == "BTM") vid = BTM(info, tst_tlg_id);
-    else if(vbasic_type == "PRL") vid = PRL(info, tst_tlg_id);
-    else if(vbasic_type == "PFS") vid = PFS(info, tst_tlg_id);
-    else if(vbasic_type == "ETL") vid = ETL(info, tst_tlg_id);
-    else if(vbasic_type == "FTL") vid = FTL(info, tst_tlg_id);
-    else if(vbasic_type == "COM") vid = COM(info, tst_tlg_id);
-    else if(vbasic_type == "SOM") vid = SOM(info, tst_tlg_id);
-    else vid = Unknown(info, vcompleted, tst_tlg_id);
+    if(vbasic_type == "PTM") vid = PTM(info);
+    else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
+    else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
+    else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
+    else if(vbasic_type == "BTM") vid = BTM(info);
+    else if(vbasic_type == "PRL") vid = PRL(info);
+    else if(vbasic_type == "PSM") vid = PSM(info);
+    else if(vbasic_type == "PFS") vid = PFS(info);
+    else if(vbasic_type == "ETL") vid = ETL(info);
+    else if(vbasic_type == "FTL") vid = FTL(info);
+    else if(vbasic_type == "COM") vid = COM(info);
+    else if(vbasic_type == "SOM") vid = SOM(info);
+    else vid = Unknown(info, vcompleted);
 
     Qry.Clear();
-    if(tst_tlg_id < 0) // real_mode
-        Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
-    else
-        Qry.SQLText = "update tst_tlg_out set completed = :vcompleted where id = :vid";
+    Qry.SQLText = "update tlg_out set completed = :vcompleted where id = :vid";
     Qry.CreateVariable("vcompleted", otInteger, vcompleted);
     Qry.CreateVariable("vid", otInteger, vid);
     Qry.Execute();
@@ -4989,7 +5223,7 @@ void TCodeShareInfo::init(xmlNodePtr node)
     pr_mark_header = NodeAsIntegerFast("pr_mark_header", currNode) != 0;
 }
 
-void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode, int tst_tlg_id)
+void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     TCreateTlgInfo createInfo;
@@ -5024,10 +5258,7 @@ void TelegramInterface::CreateTlg2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 
     int tlg_id = NoExists;
     try {
-        tlg_id = create_tlg(
-                createInfo,
-                tst_tlg_id //!!!
-                );
+        tlg_id = create_tlg(createInfo);
     } catch(UserException E) {
         throw UserException( "Ошибка формирования. %s", E.what());
     }

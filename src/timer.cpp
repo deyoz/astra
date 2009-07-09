@@ -43,7 +43,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     OpenLogFile("log1");
 
     int p_count;
-    string num="1";
+    string num;
     if ( TCL_OK != Tcl_ListObjLength( interp, argslist, &p_count ) ) {
     	ProgError( STDLOG,
                  "ERROR:main_timer_tcl wrong parameters:%s",
@@ -873,7 +873,7 @@ void get_full_stat(TDateTime utcdate)
     "SELECT points.point_id FROM points,trip_sets "
     "WHERE points.point_id=trip_sets.point_id AND "
     "      points.pr_del=0 AND points.pr_reg<>0 AND trip_sets.pr_stat=0 AND "
-    "      NVL(act_out,NVL(est_out,scd_out))<:stat_date";
+    "      time_out<:stat_date AND time_out<>TO_DATE('01.01.0001','DD.MM.YYYY')";
   PointsQry.CreateVariable("stat_date",otDate,utcdate-2); //2 дня
   PointsQry.Execute();
   for(;!PointsQry.Eof;PointsQry.Next())
@@ -924,9 +924,7 @@ bool arx_daily(TDateTime utcdate)
 
     PointsQry.Clear();
     PointsQry.SQLText =
-      "SELECT act_out,act_in,pr_del, "
-      "       NVL(act_out,NVL(est_out,scd_out)) AS time_out, "
-      "       NVL(act_in,NVL(est_in,scd_in)) AS time_in "
+      "SELECT act_out,est_out,scd_out,act_in,est_in,scd_in,pr_del "
       "FROM points "
       "WHERE move_id=:move_id AND pr_del<>-1"
       "ORDER BY point_num";
@@ -937,31 +935,77 @@ bool arx_daily(TDateTime utcdate)
       PointsQry.SetVariable("move_id",move_id);
       PointsQry.Execute();
 
+      TDateTime first_date=NoExists;
       TDateTime last_date=NoExists;
-      TDateTime prior_time_out=NoExists;
+      TDateTime max_time_out=NoExists;
+      TDateTime min_time_out=NoExists;
+      TDateTime max_time_in=NoExists;
+      TDateTime min_time_in=NoExists;
       TDateTime final_act_in=NoExists;
 
       if (!PointsQry.Eof)
       {
         while(!PointsQry.Eof)
         {
-          if (!PointsQry.FieldIsNULL("time_out"))
-            prior_time_out=PointsQry.FieldAsDateTime("time_out");
-          else
-            prior_time_out=NoExists;
+          max_time_out=NoExists;
+          min_time_out=NoExists;
+          for(int i=0;i<=2;i++)
+          {
+            int idx;
+            switch(i)
+            {
+              case 0: idx=PointsQry.FieldIndex("scd_out");
+                      break;
+              case 1: idx=PointsQry.FieldIndex("est_out");
+                      break;
+             default: idx=PointsQry.FieldIndex("act_out");
+                      break;
+            };
+            if (PointsQry.FieldIsNULL(idx)) continue;
+            if (max_time_out==NoExists || max_time_out<PointsQry.FieldAsDateTime(idx))
+              max_time_out=PointsQry.FieldAsDateTime(idx);
+            if (min_time_out==NoExists || min_time_out>PointsQry.FieldAsDateTime(idx))
+              min_time_out=PointsQry.FieldAsDateTime(idx);
+          };
 
           PointsQry.Next();
 
           if (PointsQry.Eof) break;
 
-          //анализируем предыдущий time_out,act_out
-          if (prior_time_out!=NoExists &&
-              (last_date==NoExists || last_date<prior_time_out))
-            last_date=prior_time_out;
+          max_time_in=NoExists;
+          min_time_in=NoExists;
+          for(int i=0;i<=2;i++)
+          {
+            int idx;
+            switch(i)
+            {
+              case 0: idx=PointsQry.FieldIndex("scd_in");
+                      break;
+              case 1: idx=PointsQry.FieldIndex("est_in");
+                      break;
+             default: idx=PointsQry.FieldIndex("act_in");
+                      break;
+            };
+            if (PointsQry.FieldIsNULL(idx)) continue;
+            if (max_time_in==NoExists || max_time_in<PointsQry.FieldAsDateTime(idx))
+              max_time_in=PointsQry.FieldAsDateTime(idx);
+            if (min_time_in==NoExists || min_time_in>PointsQry.FieldAsDateTime(idx))
+              min_time_in=PointsQry.FieldAsDateTime(idx);
+          };
 
-          if (!PointsQry.FieldIsNULL("time_in") &&
-              (last_date==NoExists || last_date<PointsQry.FieldAsDateTime("time_in")))
-            last_date=PointsQry.FieldAsDateTime("time_in");
+          if (max_time_out!=NoExists &&
+              (last_date==NoExists || last_date<max_time_out))
+            last_date=max_time_out;
+          if (max_time_in!=NoExists &&
+              (last_date==NoExists || last_date<max_time_in))
+            last_date=max_time_in;
+
+          if (min_time_out!=NoExists &&
+              (first_date==NoExists || first_date>min_time_out))
+            first_date=min_time_out;
+          if (min_time_in!=NoExists &&
+              (first_date==NoExists || first_date>min_time_in))
+            first_date=min_time_in;
 
           if (PointsQry.FieldAsInteger("pr_del")==0)
           {
@@ -972,7 +1016,9 @@ bool arx_daily(TDateTime utcdate)
           };
 
         };
-        if (last_date!=NoExists)
+        if (first_date!=NoExists && last_date!=NoExists &&
+            last_date-first_date>=0 &&
+            last_date-first_date<arx_trip_date_range)
         {
           if ( final_act_in!=NoExists && last_date<utcdate-ARX_MIN_DAYS() ||
                final_act_in==NoExists && last_date<utcdate-ARX_MAX_DAYS() )
@@ -1343,5 +1389,6 @@ void sync_sirena_codes( void )
   OraSession.Commit();
 	ProgTrace(TRACE5,"sync_sirena_codes stopped");
 };
+
 
 

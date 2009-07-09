@@ -81,7 +81,7 @@ class TTripInfo
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
 
 //настройки рейса
-enum TTripSetType { tsETLOnly=11, tsIgnoreTrferSet=12, tsMixedNorms=13 };
+enum TTripSetType { tsETLOnly=11, tsIgnoreTrferSet=12, tsMixedNorms=13, tsNoTicketCheck=15 };
 bool GetTripSets( TTripSetType setType, TTripInfo &info );
 
 class TPnrAddrItem
@@ -221,7 +221,7 @@ bool SeparateTCkin(int grp_id,
                    int tid,
                    int &tckin_id, int &seg_no);
 
-enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atLength };
+enum TTripAlarmsType { atSalon, atWaitlist, atBrd, atOverload, atETStatus, atSeance, atLength };
 void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms );
 std::string TripAlarmString( TTripAlarmsType &alarm );
 

@@ -23,9 +23,11 @@ using namespace BASIC;
 using namespace ASTRA;
 
 
+const string STX = "\x2";
+const string CR = "\xd";
 const string delim = "\xb";
 
-typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA} TPrnFormat;
+typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
 namespace to_esc {
     struct TPrnParams {
@@ -53,11 +55,26 @@ namespace to_esc {
 
     typedef struct {
         int x, y, font;
-        int len, height;
+        int len, height, rotation;
         string align;
         string data;
+        void dump();
         void parse_data();
     } TField;
+
+    void TField::dump()
+    {
+        ProgTrace(TRACE5, "TField::dump()");
+        ProgTrace(TRACE5, "x: %d", x);
+        ProgTrace(TRACE5, "y: %d", y);
+        ProgTrace(TRACE5, "font: %d", font);
+        ProgTrace(TRACE5, "len: %d", len);
+        ProgTrace(TRACE5, "height: %d", height);
+        ProgTrace(TRACE5, "rotation: %d", rotation);
+        ProgTrace(TRACE5, "align: %s", align.c_str());
+        ProgTrace(TRACE5, "data: %s", data.c_str());
+        ProgTrace(TRACE5, "--------------------");
+    }
 
     void TField::parse_data()
     {
@@ -99,6 +116,167 @@ namespace to_esc {
         if(!out.good())
             throw Exception("dump: cannot open file '%s' for output", fname.c_str());
         out << data;
+    }
+
+    void parse_dmx(TFields &fields, string &mso_form)
+    {
+        string num;
+        int x, y, font;
+        char Mode = 'S';
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = ToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'D':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        field.rotation = ToInt(num);
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: rotation must be num");
+                    break;
+                case 'C':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        field.height = ToInt(num);
+                        num.erase();
+                        Mode = 'D';
+                    } else
+                        throw Exception("to_esc: height must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = ToInt(num);
+                        num.erase();
+                        Mode = 'B';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.font = font;
+                        field.data = num;
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char) || curr_char == 'B')
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        if(num.size() != 1) throw Exception("font fild must by 1 char");
+                        font = num[0];
+                        num.erase();
+                        Mode = 'C';
+                    } else
+                        throw Exception("to_esc: font must be num or 'B'");
+                    break;
+            }
+        }
+    }
+
+    void parse_dmx(string &prn_form)
+    {
+        prn_form = STX + prn_form;
+        size_t pos = 0;
+        while(true) {
+            pos = prn_form.find('\xa');
+            if(pos == string::npos)
+                break;
+            prn_form.replace(pos, 1, CR);
+        }
+    }
+
+    void parse(TFields &fields, string &mso_form)
+    {
+        string num;
+        int x, y, font;
+        char Mode = 'S';
+        TField field;
+        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
+            char curr_char = *si;
+            switch(Mode) {
+                case 'S':
+                    if(IsDigit(curr_char)) {
+                        num += curr_char;
+                        Mode = 'X';
+                    } else
+                        throw Exception("to_esc: x must start from digit");
+                    break;
+                case 'X':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        x = ToInt(num);
+                        num.erase();
+                        Mode = 'Y';
+                    } else
+                        throw Exception("to_esc: x must be num");
+                    break;
+                case 'Y':
+                    if(IsDigit(curr_char))
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        y = ToInt(num);
+                        num.erase();
+                        Mode = 'B';
+                    } else
+                        throw Exception("to_esc: y must be num");
+                    break;
+                case 'A':
+                    if(curr_char == 10) {
+                        field.x = x;
+                        field.y = y;
+                        field.font = font;
+                        field.data = num;
+                        field.parse_data();
+                        if(field.font == 'B' && field.data.size() != 10)
+                            throw Exception("barcode data len must be 10");
+                        fields.push_back(field);
+                        num.erase();
+                        Mode = 'S';
+                    } else
+                        num += curr_char;
+                    break;
+                case 'B':
+                    if(IsDigit(curr_char) || curr_char == 'B')
+                        num += curr_char;
+                    else if(curr_char == ',') {
+                        if(num.size() != 1) throw Exception("font fild must by 1 char");
+                        font = num[0];
+                        num.erase();
+                        Mode = 'A';
+                    } else
+                        throw Exception("to_esc: font must be num or 'B'");
+                    break;
+            }
+        }
     }
 
     void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
@@ -712,6 +890,12 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(name == "BCBP_M_2") // 2мерный баркод. Формируется что называется on the fly
         add_tag(name, BCBP_M_2(field_lat));
 
+    if(name == "LONG_DEP")
+        add_tag(name, LONG_DEP(field_lat));
+
+    if(name == "LONG_ARV")
+        add_tag(name, LONG_ARV(field_lat));
+
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
@@ -723,6 +907,9 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(di == data.end()) throw Exception("Tag not found " + name);
     ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
     ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
+    if(name == "PNR")
+        di->second.StringVal = convert_pnr_addr(di->second.StringVal, field_lat);
+
     if(!di->second.err_msg.empty())
         throw UserException(di->second.err_msg);
 
@@ -795,6 +982,70 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         }
     }
     tst();
+    return result;
+}
+
+string PrintDataParser::t_field_map::LONG_DEP(bool pr_lat)
+{
+    string result;
+    string city_dep_name_lat = data["CITY_DEP_NAME_LAT"].StringVal;
+    string airp_dep_lat = data["AIRP_DEP_LAT"].StringVal;
+    if(pr_lat) {
+        if(airp_dep_lat.empty())
+            throw UserException("Не задан лат. код а/п назначения");
+        if(city_dep_name_lat.empty())
+            result = airp_dep_lat;
+        else
+            result = city_dep_name_lat.substr(0, 9) + "(" + airp_dep_lat + ")";
+    } else {
+        string city_dep_name = data["CITY_DEP_NAME"].StringVal;
+        string airp_dep = data["AIRP_DEP"].StringVal;
+        result = city_dep_name.substr(0, 9) + "(" + airp_dep + ")";
+        string lat_part;
+        if(not city_dep_name_lat.empty()) {
+            if(not airp_dep_lat.empty())
+                lat_part = city_dep_name_lat.substr(0, 9) + "(" + airp_dep_lat + ")";
+            else
+                lat_part = city_dep_name_lat.substr(0, 14);
+        } else {
+            if(not airp_dep_lat.empty())
+                lat_part = airp_dep_lat;
+        }
+        if(not lat_part.empty())
+            result += "/" + lat_part;
+    }
+    return result;
+}
+
+string PrintDataParser::t_field_map::LONG_ARV(bool pr_lat)
+{
+    string result;
+    string city_arv_name_lat = data["CITY_ARV_NAME_LAT"].StringVal;
+    string airp_arv_lat = data["AIRP_ARV_LAT"].StringVal;
+    if(pr_lat) {
+        if(airp_arv_lat.empty())
+            throw UserException("Не задан лат. код а/п назначения");
+        if(city_arv_name_lat.empty())
+            result = airp_arv_lat;
+        else
+            result = city_arv_name_lat.substr(0, 9) + "(" + airp_arv_lat + ")";
+    } else {
+        string city_arv_name = data["CITY_ARV_NAME"].StringVal;
+        string airp_arv = data["AIRP_ARV"].StringVal;
+        result = city_arv_name.substr(0, 9) + "(" + airp_arv + ")";
+        string lat_part;
+        if(not city_arv_name_lat.empty()) {
+            if(not airp_arv_lat.empty())
+                lat_part = city_arv_name_lat.substr(0, 9) + "(" + airp_arv_lat + ")";
+            else
+                lat_part = city_arv_name_lat.substr(0, 14);
+        } else {
+            if(not airp_arv_lat.empty())
+                lat_part = airp_arv_lat;
+        }
+        if(not lat_part.empty())
+            result += "/" + lat_part;
+    }
     return result;
 }
 
@@ -1005,20 +1256,10 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   points.SCD_OUT scd, "
         "   points.EST_OUT est, "
         "   points.ACT_OUT act, "
-//        "   points.AIRLINE, "
-//        "   airlines.code_lat airline_lat, "
-//        "   airlines.name airline_name, "
-//        "   airlines.name_lat airline_name_lat, "
-//        "   nvl(airlines.short_name, airlines.name) airline_short, "
-//        "   nvl(airlines.short_name_lat, airlines.name_lat) airline_short_lat, "
         "   crafts.code craft, "
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
         "   system.transliter(points.BORT, 1) bort_lat "
-//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||points.suffix flt_no, "
-//        "   DECODE(SIGN(LENGTH(points.flt_no)-3),-1,LPAD(points.flt_no,3,'0'),points.flt_no)||tlg.convert_suffix(points.SUFFIX, 1) flt_no_lat, "
-//        "   points.SUFFIX, "
-//        "   tlg.convert_suffix(points.SUFFIX, 1) suffix_lat "
         "from "
         "   points, "
         "   airlines, "
@@ -1204,8 +1445,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
-            "   ckin.get_pax_pnr_addr(:pax_id) pnr, "
-            "   tlg.convert_pnr_addr(ckin.get_pax_pnr_addr(:pax_id), 1) pnr_lat "
+            "   ckin.get_pax_pnr_addr(:pax_id) pnr "
             "from "
             "   pax, "
             "   pers_types "
@@ -2800,6 +3040,25 @@ void check_CUTE_certified(int &prn_type, string &dev_model, string &fmt_type)
     }
 }
 
+string get_fmt_type(int prn_type)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   prn_formats.code "
+        "from "
+        "   prn_types, "
+        "   prn_formats "
+        "where "
+        "   prn_types.code = :prn_type and "
+        "   prn_types.format = prn_formats.id ";
+    Qry.CreateVariable("prn_type", otInteger, prn_type);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("fmt_type not found for prn_type %d", prn_type);
+    return Qry.FieldAsString("code");
+}
+
 void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
@@ -2891,9 +3150,10 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         string tmp_tag_type = Qry.FieldAsString("tag_type");
         if(tag_type != tmp_tag_type) {
             tag_type = tmp_tag_type;
-            if(tag_key.dev_model.empty())
+            if(tag_key.dev_model.empty()) {
+                tag_key.fmt_type = get_fmt_type(tag_key.prn_type);
                 get_bt_forms(tag_type, tag_key.prn_type, pectabsNode, prn_forms);
-            else
+            } else
                 get_bt_forms(tag_type, tag_key.dev_model, tag_key.fmt_type, pectabsNode, prn_forms);
         }
 
@@ -2941,12 +3201,22 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
-            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms.back()));
+            string prn_form = parser.parse(prn_forms.back());
+            if(tag_key.fmt_type == "DATAMAX") {
+                to_esc::parse_dmx(prn_form);
+                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            }
+            NewTextChild(tagNode, "prn_form", prn_form);
         }
 
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
-            NewTextChild(tagNode, "prn_form", parser.parse(prn_forms[BT_reminder - 1]));
+            string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
+            if(tag_key.fmt_type == "DATAMAX") {
+                to_esc::parse_dmx(prn_form);
+                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            }
+            NewTextChild(tagNode, "prn_form", prn_form);
         }
         Qry.Next();
     }
@@ -3277,6 +3547,26 @@ struct TPaxPrint {
 	};
 };
 
+bool get_bp_pr_lat(int grp_id, bool pr_lat)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText=
+        "select airp_arv from pax_grp where grp_id = :grp_id";
+    Qry.CreateVariable("grp_id",otInteger,grp_id);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    string airp_arv = Qry.FieldAsString("airp_arv");
+
+    TBaseTable &airpsTable = base_tables.get("AIRPS");
+    TBaseTable &citiesTable = base_tables.get("CITIES");
+
+    TBaseTableRow &airpRow = airpsTable.get_row("code", airp_arv);
+    TBaseTableRow &citiesRow = citiesTable.get_row("code",airpRow.AsString("city"));
+
+    return pr_lat || citiesRow.AsString("country") != "РФ";
+}
+
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     xmlNodePtr currNode = reqNode->children;
@@ -3324,20 +3614,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Clear();
 
     if(dev_model.empty()) {
-        Qry.SQLText =
-            "select "
-            "   prn_formats.code "
-            "from "
-            "   prn_types, "
-            "   prn_formats "
-            "where "
-            "   prn_types.code = :prn_type and "
-            "   prn_types.format = prn_formats.id ";
-        Qry.CreateVariable("prn_type", otInteger, prn_type);
-        Qry.Execute();
-        if(Qry.Eof)
-            throw Exception("fmt_type not found for prn_type %d", prn_type);
-        fmt_type = Qry.FieldAsString("code");
+        fmt_type = get_fmt_type(prn_type);
         Qry.Clear();
         Qry.SQLText =
             "select  "
@@ -3461,7 +3738,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
-        PrintDataParser parser( iprint->grp_id, iprint->pax_id, pr_lat, clientDataNode );
+        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id) {
@@ -3487,6 +3764,19 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::convert(prn_form, convert_prn_type, NULL);
+            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+        }
+        if(fmt_type == "DATAMAX") {
+            TPrnType convert_prn_type;
+            if ( dev_model.empty() )
+                convert_prn_type = TPrnType(prn_type);
+            else {
+                if ( dev_model == "CLP-521" )
+                    convert_prn_type = ptDATAMAX;
+                else
+                    throw Exception(dev_model + " not supported by to_esc::convert");
+            }
+            to_esc::parse_dmx(prn_form);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
