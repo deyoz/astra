@@ -2736,6 +2736,108 @@ int PIL(TTlgInfo &info)
     return tlg_row.id;
 }
 
+struct TTPMItem {
+    int pax_id, grp_id;
+    TName name;
+    TTPMItem():
+        pax_id(NoExists),
+        grp_id(NoExists)
+    {}
+};
+
+typedef vector<TTPMItem> TTPMItemList;
+
+struct TTPM {
+    TInfants infants;
+    TTPMItemList items;
+    void get(TTlgInfo &info);
+    void ToTlg(TTlgInfo &info, vector<string> &body);
+};
+
+void TTPM::get(TTlgInfo &info)
+{
+    infants.get(info.first_point);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "   pax.pax_id, "
+        "   pax.grp_id, "
+        "   pax.name, "
+        "   pax.surname "
+        "from "
+        "   pax, "
+        "   pax_grp "
+        "where "
+        "   pax_grp.point_dep = :point_id and "
+        "   pax_grp.grp_id = pax.grp_id and "
+        "   pax.refuse is null and "
+        "   pax.pr_brd = 1 and "
+        "   pax.seats > 0 "
+        "order by "
+        "   pax.surname, "
+        "   pax.name ";
+    Qry.CreateVariable("point_id", otInteger, info.point_id);
+    Qry.Execute();
+    for(; !Qry.Eof; Qry.Next()) {
+        TTPMItem item;
+        item.pax_id = Qry.FieldAsInteger("pax_id");
+        item.grp_id = Qry.FieldAsInteger("grp_id");
+        item.name.name = Qry.FieldAsString("name");
+        item.name.surname = Qry.FieldAsString("surname");
+        items.push_back(item);
+    }
+}
+
+void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
+{
+    for(TTPMItemList::iterator iv = items.begin(); iv != items.end(); iv++) {
+        int inf_count = 0;
+        ostringstream buf, buf2;
+        for(vector<TInfantsItem>::iterator infRow = infants.items.begin(); infRow != infants.items.end(); infRow++) {
+            if(infRow->grp_id == iv->grp_id and infRow->pax_id == iv->pax_id) {
+                inf_count++;
+                if(!infRow->name.empty())
+                    buf << "/" << transliter(infRow->name, info.pr_lat);
+            }
+        }
+        if(inf_count > 0)
+            buf2 << " " << inf_count << "INF" << buf.str();
+            
+        iv->name.ToTlg(info, body, buf2.str());
+    }
+}
+
+int TPM(TTlgInfo &info)
+{
+    TTlgDraft tlg_draft;
+    TTlgOutPartInfo tlg_row;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream heading;
+    heading
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "TPM" << br
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
+    tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
+    tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
+    size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
+    vector<string> body;
+    TTPM tpm;
+    tpm.get(info);
+    tpm.ToTlg(info, body);
+    simple_split(heading, part_len, tlg_draft, tlg_row, body);
+    tlg_row.ending = "ENDTPM" + br;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
+}
+
 int PSM(TTlgInfo &info)
 {
     TTlgDraft tlg_draft;
@@ -3419,6 +3521,8 @@ void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
     name = transliter(name, info.pr_lat);
     surname = transliter(surname, info.pr_lat);
+    if(postfix.size() > (LINE_SIZE - sizeof("1X/X ")))
+        throw Exception("TName::ToTlg: postfix too long %s", postfix.c_str());
     size_t name_size = LINE_SIZE - postfix.size();
     string result;
     string one_surname = "1" + surname;
@@ -5317,6 +5421,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
     else if(vbasic_type == "BTM") vid = BTM(info);
     else if(vbasic_type == "PRL") vid = PRL(info);
+    else if(vbasic_type == "TPM") vid = TPM(info);
     else if(vbasic_type == "PSM") vid = PSM(info);
     else if(vbasic_type == "PIL") vid = PIL(info);
     else if(vbasic_type == "PFS") vid = PFS(info);
