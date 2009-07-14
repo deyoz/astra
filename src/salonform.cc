@@ -201,6 +201,8 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.Parse( NodeAsNode( "salons", reqNode ) );
   Salons.verifyValidRem( "MCLS", "ù"); //???
   Salons.verifyValidRem( "SCLS", "ù"); //???
+  Salons.verifyValidRem( "YCLS", "ù"); //???
+  Salons.verifyValidRem( "LCLS", "ù"); //???
   Salons.trip_id = trip_id;
   Salons.ClName = "";
   Qry.Execute();
