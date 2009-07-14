@@ -2382,7 +2382,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 pas.placeRem=NodeAsStringFast("seat_type",node2);
                 remNode=GetNodeFast("rems",node2);
                 bool flagMCLS=false,
-                     flagSCLS=false;
+                     flagSCLS=false,
+                     flagYCLS=false,
+                     flagLCLS=false;
                 pas.pers_type = NodeAsStringFast("pers_type",node2);
                 bool flagCHIN=pas.pers_type != "ВЗ";
                 if (remNode!=NULL)
@@ -2394,13 +2396,18 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
                         fltInfo.airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
                     if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"SCLS")==0) flagSCLS=true;
+                    if (fltInfo.airline=="УН" && strcmp(rem_code,"YCLS")==0) flagYCLS=true;
+                    if (fltInfo.airline=="УН" && strcmp(rem_code,"LCLS")==0) flagLCLS=true;
+
                     if ( strcmp(rem_code,"BLND")==0 ||
                     	   strcmp(rem_code,"STCR")==0 ||
                     	   strcmp(rem_code,"UMNR")==0 ||
                     	   strcmp(rem_code,"WCHS")==0 ||
                     	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
                     if (strcmp(rem_code,"MCLS")==0 ||
-                    	  strcmp(rem_code,"SCLS")==0) continue; //добавим ремарку MCLS, SCLS позже
+                    	  strcmp(rem_code,"SCLS")==0 ||
+                    	  strcmp(rem_code,"YCLS")==0 ||
+                    	  strcmp(rem_code,"LCLS")==0) continue; //добавим ремарку MCLS, SCLS, YCLS, LCLS позже
                     #ifdef NEWSEATS
                     pas.add_rem(rem_code);
                     #else
@@ -2422,6 +2429,40 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   pas.add_rem("SCLS");
                   #else
                   pas.rems.push_back("SCLS");
+                  #endif
+
+                if (!flagYCLS &&
+                    (fltInfo.airline=="УН" &&
+                     (strcmp(subclass,"Э")==0 ||
+                      strcmp(subclass,"Ц")==0 ||
+                      strcmp(subclass,"М")==0 ||
+                      strcmp(subclass,"Я")==0 ||
+                      strcmp(subclass,"Ж")==0 ||
+                      strcmp(subclass,"К")==0 ||
+                      strcmp(subclass,"О")==0 ||
+                      strcmp(subclass,"Р")==0 ||
+                      strcmp(subclass,"Е")==0)))
+                  #ifdef NEWSEATS
+                  pas.add_rem("YCLS");
+                  #else
+                  pas.rems.push_back("YCLS");
+                  #endif
+
+                if (!flagLCLS &&
+                    (fltInfo.airline=="УН" &&
+                     (strcmp(subclass,"Л")==0 ||
+                      strcmp(subclass,"В")==0 ||
+                      strcmp(subclass,"Х")==0 ||
+                      strcmp(subclass,"Т")==0 ||
+                      strcmp(subclass,"Н")==0 ||
+                      strcmp(subclass,"Ы")==0 ||
+                      strcmp(subclass,"Ю")==0 ||
+                      strcmp(subclass,"Г")==0 ||
+                      strcmp(subclass,"У")==0)))
+                  #ifdef NEWSEATS
+                  pas.add_rem("LCLS");
+                  #else
+                  pas.rems.push_back("LCLS");
                   #endif
 
                 if ( flagCHIN || adultwithbaby ) {
