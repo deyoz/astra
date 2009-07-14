@@ -118,7 +118,56 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
   sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
-void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body)
+struct TTlgDraftPart {
+    string addr, heading, ending, body;
+};
+
+struct TTlgDraft {
+    vector<TTlgDraftPart> parts;
+    void Save(TTlgOutPartInfo &info);
+    void Commit(TTlgOutPartInfo &info);
+};
+
+void TTlgDraft::Commit(TTlgOutPartInfo &tlg_row)
+{
+    tlg_row.num = 1;
+    for(vector<TTlgDraftPart>::iterator iv = parts.begin(); iv != parts.end(); iv++){
+        tlg_row.addr = iv->addr;
+        tlg_row.heading = iv->heading;
+        tlg_row.body = iv->body;
+        tlg_row.ending = iv->ending;
+        TelegramInterface::SaveTlgOutPart(tlg_row);
+    }
+}
+
+void TTlgDraft::Save(TTlgOutPartInfo &info)
+{
+    if(info.pr_lat) {
+        string err_text;
+        if(not is_lat(info.addr)) err_text = info.addr;
+        else if(not is_lat(info.heading)) err_text = info.heading;
+        else if(not is_lat(info.body)) err_text = info.body;
+        else if(not is_lat(info.ending)) err_text = info.ending;
+        if(not err_text.empty()) {
+            ostringstream buf;
+            buf
+                << "telegram is not lat. point_id: " << info.point_id
+                << "; tlg_type: " << info.tlg_type
+                << "; extra: " << info.extra << endl
+                << "text: " << err_text;
+            throw Exception(buf.str());
+        }
+    }
+    TTlgDraftPart part;
+    part.addr = info.addr;
+    part.heading = info.heading;
+    part.body = info.body;
+    part.ending = info.ending;
+    parts.push_back(part);
+    info.num++;
+}
+
+void simple_split(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft, TTlgOutPartInfo &tlg_row, vector<string> &body)
 {
     if(body.empty())
         tlg_row.body = "NIL" + br;
@@ -126,7 +175,7 @@ void simple_split(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
         for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
             part_len += iv->size() + br.size();
             if(part_len > PART_SIZE) {
-                TelegramInterface::SaveTlgOutPart(tlg_row);
+                tlg_draft.Save(tlg_row);
                 tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
                 tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
                 tlg_row.body = *iv + br;
@@ -513,13 +562,16 @@ namespace PRL_SPACE {
 
     struct TPRLPax;
     struct TRemList {
-        TInfants *infants;
-        vector<string> items;
-        void get(TTlgInfo &info, TFTLPax &pax);
-        void get(TTlgInfo &info, TETLPax &pax);
-        void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
-        void ToTlg(TTlgInfo &info, vector<string> &body);
-        TRemList(TInfants *ainfants): infants(ainfants) {};
+        private:
+            void internal_get(TTlgInfo &info, int pax_id, string subcls);
+        public:
+            TInfants *infants;
+            vector<string> items;
+            void get(TTlgInfo &info, TFTLPax &pax);
+            void get(TTlgInfo &info, TETLPax &pax);
+            void get(TTlgInfo &info, TPRLPax &pax, vector<TTlgCompLayer> &complayers);
+            void ToTlg(TTlgInfo &info, vector<string> &body);
+            TRemList(TInfants *ainfants): infants(ainfants) {};
     };
 
     struct TTagItem {
@@ -817,6 +869,7 @@ namespace PRL_SPACE {
         string crs;
         int pax_id;
         int grp_id;
+        string subcls;
         TPNRList pnrs;
         TMItem M;
         TRemList rems;
@@ -887,9 +940,9 @@ namespace PRL_SPACE {
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 string rem;
-                rem = "1INF " + infRow->surname;
+                rem = "1INF " + transliter(infRow->surname, info.pr_lat);
                 if(!infRow->name.empty()) {
-                    rem += "/" + infRow->name;
+                    rem += "/" + transliter(infRow->name, info.pr_lat);
                 }
                 items.push_back(rem);
             }
@@ -905,6 +958,7 @@ namespace PRL_SPACE {
         string seat_list = seats.get_seat_list(info.pr_lat or info.pr_lat_seat);
         if(!seat_list.empty())
             items.push_back("SEAT " + seat_list);
+        internal_get(info, pax.pax_id, pax.subcls);
         Qry.Clear();
         Qry.SQLText =
             "select "
@@ -913,13 +967,13 @@ namespace PRL_SPACE {
             "    pax_rem "
             "where "
             "    pax_rem.pax_id = :pax_id and "
-            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', 'DOCS', 'CHD', 'CHLD', 'INF', 'INFT') ";
+            "    pax_rem.rem_code not in (/*'PSPT',*/ 'OTHS', 'DOCS', 'CHD', 'CHLD', 'INF', 'INFT', 'FQTV', 'FQTU', 'FQTR') ";
         Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_rem = Qry.FieldIndex("rem");
             for(; !Qry.Eof; Qry.Next())
-                items.push_back(Qry.FieldAsString(col_rem));
+                items.push_back(transliter(Qry.FieldAsString(col_rem), info.pr_lat));
         }
     }
 
@@ -963,7 +1017,8 @@ namespace PRL_SPACE {
             "    crs_pnr.pnr_id, "
             "    crs_pnr.crs, "
             "    pax.pax_id, "
-            "    pax.grp_id "
+            "    pax.grp_id, "
+            "    NVL(pax.subclass,pax_grp.class) subclass "
             "from "
             "    pax, "
             "    pax_grp, "
@@ -1000,6 +1055,7 @@ namespace PRL_SPACE {
             int col_crs = Qry.FieldIndex("crs");
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
+            int col_subcls = Qry.FieldIndex("subclass");
             for(; !Qry.Eof; Qry.Next()) {
                 TPRLPax pax(infants);
                 pax.target = Qry.FieldAsString(col_target);
@@ -1021,6 +1077,8 @@ namespace PRL_SPACE {
                 pax.rems.get(info, pax, complayers);
                 grp_map->get(pax.grp_id);
                 pax.OList.get(pax.pax_id);
+                if(!Qry.FieldIsNULL(col_subcls))
+                    pax.subcls = Qry.FieldAsString(col_subcls);
                 PaxList.push_back(pax);
             }
         }
@@ -1433,6 +1491,7 @@ using namespace PRL_SPACE;
 
 int COM(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -1460,7 +1519,8 @@ int COM(TTlgInfo &info)
     stats.ToTlg(body);
     tlg_row.body = body.str();
     ProgTrace(TRACE5, "COM: before save");
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
@@ -2639,6 +2699,7 @@ void TPSM::get(TTlgInfo &info)
 
 int PSM(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2660,14 +2721,16 @@ int PSM(TTlgInfo &info)
     TPSM psm;
     psm.get(info);
     psm.ToTlg(info, body);
-    simple_split(heading, part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPSM" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int BTM(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2713,7 +2776,7 @@ int BTM(TTlgInfo &info)
             grp_len = iv->size() + br.size();
         part_len += grp_len;
         if(part_len > PART_SIZE) {
-            TelegramInterface::SaveTlgOutPart(tlg_row);
+            tlg_draft.Save(tlg_row);
             tlg_row.heading = heading1.str() + "/PART" + IntToString(tlg_row.num) + br + heading2.str();
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find(".F") == 0)
@@ -2730,12 +2793,14 @@ int BTM(TTlgInfo &info)
     if(tlg_row.num == 1)
         tlg_row.heading = heading1.str() + br + heading2.str();
     tlg_row.ending = "ENDBTM" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int PTM(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -2757,9 +2822,10 @@ int PTM(TTlgInfo &info)
     FList.get(info);
     vector<string> body;
     FList.ToTlg(info, body);
-    simple_split(heading, part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPTM" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
@@ -3251,6 +3317,7 @@ void TTlgSeatList::get(TTlgInfo &info)
 
 int SOM(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
@@ -3274,7 +3341,7 @@ int SOM(TTlgInfo &info)
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
-            TelegramInterface::SaveTlgOutPart(tlg_row);
+            tlg_draft.Save(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             tlg_row.body = *iv + br;
@@ -3284,12 +3351,15 @@ int SOM(TTlgInfo &info)
             tlg_row.body += *iv + br;
     }
     tlg_row.ending = "ENDSOM" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
+    name = transliter(name, info.pr_lat);
+    surname = transliter(surname, info.pr_lat);
     size_t name_size = LINE_SIZE - postfix.size();
     string result;
     string one_surname = "1" + surname;
@@ -3380,7 +3450,7 @@ struct TFTLDest {
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void TRemList::get(TTlgInfo &info, TFTLPax &pax)
+void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3400,7 +3470,7 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
         "   crs_pax.pr_del(+)=0 and "
         "   crs_pax.pnr_id = crs_pnr.pnr_id(+) and "
         "   pax_fqt.rem_code in('FQTV', 'FQTU', 'FQTR') ";
-    Qry.CreateVariable("pax_id", otInteger, pax.pax_id);
+    Qry.CreateVariable("pax_id", otInteger, pax_id);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_rem_code = Qry.FieldIndex("rem_code");
@@ -3420,7 +3490,7 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
                 ElemIdToElem(etAirline, airline, info.pr_lat) + " " +
                 transliter(no, info.pr_lat);
             if(rem_code == "FQTV") {
-                if(not subclass.empty() and subclass != pax.destInfo->subcls)
+                if(not subclass.empty() and subclass != subcls)
                     item += "-" + ElemIdToElem(etSubcls, subclass, info.pr_lat);
             } else {
                 if(not extra.empty())
@@ -3429,6 +3499,11 @@ void TRemList::get(TTlgInfo &info, TFTLPax &pax)
             items.push_back(item);
         }
     }
+}
+
+void TRemList::get(TTlgInfo &info, TFTLPax &pax)
+{
+    internal_get(info, pax.pax_id, pax.destInfo->subcls);
 }
 
 
@@ -3654,7 +3729,7 @@ struct TDestList {
     void ToTlg(TTlgInfo &info, vector<string> &body);
 };
 
-void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_row, vector<string> &body) {
+void split_n_save(ostringstream &heading, size_t part_len, TTlgDraft &tlg_draft, TTlgOutPartInfo &tlg_row, vector<string> &body) {
     string part_begin;
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++) {
         if(iv->find('-') == 0)
@@ -3671,7 +3746,7 @@ void split_n_save(ostringstream &heading, size_t part_len, TTlgOutPartInfo &tlg_
             pax_len = iv->size() + br.size();
         part_len += pax_len;
         if(part_len > PART_SIZE) {
-            TelegramInterface::SaveTlgOutPart(tlg_row);
+            tlg_draft.Save(tlg_row);
             tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
             tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
             if(iv->find('-') == 0)
@@ -4151,6 +4226,7 @@ void TMVTABody::get(TTlgInfo &info)
 
 int MVT(TTlgInfo &info, bool &vcompleted)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     vcompleted = 1;
     tlg_row.num = 1;
@@ -4189,12 +4265,14 @@ int MVT(TTlgInfo &info, bool &vcompleted)
 
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int LDM(TTlgInfo &info, bool &vcompleted)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     vcompleted = 0;
     tlg_row.num = 1;
@@ -4216,12 +4294,14 @@ int LDM(TTlgInfo &info, bool &vcompleted)
     LDM.ToTlg(info, body);
     for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
         tlg_row.body += *iv + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int AHL(TTlgInfo &info, bool &vcompleted)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
     tlg_row.num = 1;
@@ -4252,12 +4332,14 @@ int AHL(TTlgInfo &info, bool &vcompleted)
         + "PN" + br
         + "TP" + br
         + "AG" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int FTL(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4288,14 +4370,16 @@ int FTL(TTlgInfo &info)
     TFTLBody FTL;
     FTL.get(info);
     FTL.ToTlg(info, body);
-    split_n_save(heading, part_len, tlg_row, body);
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDFTL" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int ETL(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4325,9 +4409,10 @@ int ETL(TTlgInfo &info)
     TDestList<TETLDest> dests;
     dests.get(info,complayers);
     dests.ToTlg(info, body);
-    split_n_save(heading, part_len, tlg_row, body);
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDETL" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
@@ -4827,6 +4912,7 @@ void TPFSInfo::get(int point_id)
         "    pax_grp.point_dep = :point_id and  "
         "    pax_grp.grp_id = pax.grp_id and  "
         "    pax.refuse is null and "
+        "    pax.seats > 0 and "
         "    pax.pax_id = crs_pax.pax_id(+) and  "
         "    crs_pax.pr_del(+) = 0  ";
     Qry.CreateVariable("point_id", otInteger, point_id);
@@ -4862,6 +4948,7 @@ void TPFSInfo::get(int point_id)
         "    crs_pax.pr_del = 0 and "
         "    crs_pax.pax_id = pax.pax_id(+) and "
         "    pax.refuse(+) is null and "
+        "    nvl2(pax.seats(+), pax.seats(+), crs_pax.seats) > 0 and "
         "    pax.grp_id = pax_grp.grp_id(+) ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
@@ -4904,8 +4991,8 @@ void TPFSBody::get(TTlgInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-                    else if(not ckin_pax.PAXLST_cmp())
-                        category = "PXLST";
+//!!!                    else if(not ckin_pax.PAXLST_cmp())
+//                        category = "PXLST";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
@@ -4944,6 +5031,7 @@ void TPFSBody::get(TTlgInfo &info)
 
 int PFS(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -4975,15 +5063,17 @@ int PFS(TTlgInfo &info)
     TPFSBody pfs;
     pfs.get(info);
     pfs.ToTlg(info, body);
-    simple_split(heading, part_len, tlg_row, body);
+    simple_split(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPFS" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
 
     return tlg_row.id;
 }
 
 int PRL(TTlgInfo &info)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     tlg_row.num = 1;
     tlg_row.tlg_type = info.tlg_type;
@@ -5019,14 +5109,16 @@ int PRL(TTlgInfo &info)
     dests.get(info,complayers);
     vector<string> body;
     dests.ToTlg(info, body);
-    split_n_save(heading, part_len, tlg_row, body);
+    split_n_save(heading, part_len, tlg_draft, tlg_row, body);
     tlg_row.ending = "ENDPRL" + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
 int Unknown(TTlgInfo &info, bool &vcompleted)
 {
+    TTlgDraft tlg_draft;
     TTlgOutPartInfo tlg_row;
     vcompleted = false;
     tlg_row.num = 1;
@@ -5037,7 +5129,8 @@ int Unknown(TTlgInfo &info, bool &vcompleted)
     tlg_row.addr = info.addrs;
     tlg_row.time_create = NowUTC();
     tlg_row.heading = '.' + info.sender + ' ' + DateTimeToStr(tlg_row.time_create,"ddhhnn") + br;
-    TelegramInterface::SaveTlgOutPart(tlg_row);
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
     return tlg_row.id;
 }
 
