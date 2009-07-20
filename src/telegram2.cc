@@ -5111,7 +5111,7 @@ void TPFSInfo::get(int point_id)
         "    crs_pax.pr_del = 0 and "
         "    crs_pax.pax_id = pax.pax_id(+) and "
         "    pax.refuse(+) is null and "
-        "    nvl2(pax.seats(+), pax.seats(+), crs_pax.seats) > 0 and "
+        "    nvl(pax.seats, crs_pax.seats) > 0 and "
         "    pax.grp_id = pax_grp.grp_id(+) ";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
