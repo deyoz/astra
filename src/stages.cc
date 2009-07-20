@@ -776,6 +776,7 @@ void Takeoff( int point_id )
     tlg_types.push_back("PTM");
     tlg_types.push_back("PTMN");
     tlg_types.push_back("BTM");
+    tlg_types.push_back("TPM");
     tlg_types.push_back("PSM");
     tlg_types.push_back("PFS");
     tlg_types.push_back("PFSN");

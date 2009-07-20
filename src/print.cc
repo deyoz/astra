@@ -1316,8 +1316,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         sel_airline = operFlt.airline;
         sel_flt_no = operFlt.flt_no;
         sel_suffix = operFlt.suffix;
-        
-        Qry.Clear();  
+
+        Qry.Clear();
         Qry.SQLText=
             "SELECT airline, flt_no, suffix, airp_dep AS airp, scd AS scd_out "
             "FROM market_flt WHERE grp_id=:grp_id";
@@ -1325,9 +1325,9 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         Qry.Execute();
         if (!Qry.Eof)
         {
-            TTripInfo markFlt(Qry);  
+            TTripInfo markFlt(Qry);
             TCodeShareSets codeshareSets;
-            codeshareSets.get(operFlt,markFlt); 
+            codeshareSets.get(operFlt,markFlt);
             if ( codeshareSets.pr_mark_bp )
             {
                 sel_airline = markFlt.airline;
@@ -2628,7 +2628,7 @@ void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
         "   bp_models.fmt_type = :fmt_type and "
         "   bp_models.id = prn_form_vers.id and "
         "   bp_models.version = prn_form_vers.version and "
-        "   prn_form_vers.form is not null";
+        "   prn_form_vers.form IS NOT NULL";
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -2690,7 +2690,8 @@ void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
         "   bt_models.dev_model = :dev_model and "
         "   bt_models.fmt_type = :fmt_type and "
         "   bt_models.id = prn_form_vers.id and "
-        "   bt_models.version = prn_form_vers.version ";
+        "   bt_models.version = prn_form_vers.version and "
+        "   prn_form_vers.form IS NOT NULL";;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("dev_model", otString, dev_model);
     Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -2738,6 +2739,22 @@ void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
     for(;!Qry.Eof;Qry.Next())
       NewTextChild(formNode,"form",Qry.FieldAsString("form"));
 
+};
+
+void previewDeviceSets(bool conditional, string msg)
+{
+  if (!TReqInfo::Instance()->desk.version.empty() &&
+      TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+  {
+    xmlNodePtr resNode=NodeAsNode("/term/answer",getXmlCtxt()->resDoc);
+    if (conditional)
+      NewTextChild(resNode,"preview_device_sets","conditional");
+    else
+      NewTextChild(resNode,"preview_device_sets");
+    showErrorMessageAndRollback(msg);
+  }
+  else
+    throw UserException(msg);
 };
 
 void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
@@ -2798,7 +2815,7 @@ void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
     if(Qry.Eof||Qry.FieldIsNULL("data")||
     	 Qry.FieldIsNULL( "form" ) && (prn_format==pfBTP || prn_format==pfATB || prn_format==pfEPL2)
     	)
-      throw UserException("Печать пос. талона на выбранный принтер не производится");
+    	previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
 
     Pectab = Qry.FieldAsString("form");
     Print = Qry.FieldAsString("data");
@@ -2827,12 +2844,12 @@ void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr
     FormsQry.CreateVariable("fmt_type", otString, fmt_type);
     FormsQry.Execute();
     if(FormsQry.Eof)
-      throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+      previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
     while(!FormsQry.Eof)
     {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
         if (FormsQry.FieldIsNULL("data"))
-          throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+          previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
         prn_forms.push_back(FormsQry.FieldAsString("data"));
         FormsQry.Next();
     };
@@ -2875,12 +2892,12 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     FormsQry.CreateVariable("prn_type", otInteger, prn_type);
     FormsQry.Execute();
     if(FormsQry.Eof)
-      throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+      previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
     while(!FormsQry.Eof)
     {
         NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
         if (FormsQry.FieldIsNULL("data"))
-          throw UserException("Печать баг. бирки %s на выбранный принтер не производится",tag_type.c_str());
+          previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
         prn_forms.push_back(FormsQry.FieldAsString("data"));
         FormsQry.Next();
     };
@@ -3235,6 +3252,8 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
+    if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
+      previewDeviceSets(false, "Не выбрано устройство для печати");
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -3247,6 +3266,8 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
     tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
+      previewDeviceSets(false, "Не выбрано устройство для печати");
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -3406,11 +3427,20 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataParser &parser, string &Print,
+void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, string &Print,
         xmlNodePtr reqNode)
 {
+    xmlNodePtr currNode = reqNode->children;
+    int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
+    string dev_model = NodeAsStringFast("dev_model", currNode, "");
+    string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
+    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
+    if(prn_type == NoExists and dev_model.empty())
+      previewDeviceSets(false, "Не выбрано устройство для печати");
+
     TQuery Qry(&OraSession);
-    Qry.SQLText =
+    if(dev_model.empty()) {
+        Qry.SQLText =
             "select  "
             "   br_forms.data  "
             "from  "
@@ -3432,17 +3462,48 @@ void PrintInterface::GetPrintDataBR(string &form_type, int prn_type, PrintDataPa
             "   a.form_type = br_forms.form_type and "
             "   a.prn_type = br_forms.prn_type and "
             "   a.version = br_forms.version ";
-    Qry.CreateVariable("form_type", otString, form_type);
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
+        Qry.CreateVariable("form_type", otString, form_type);
+        Qry.CreateVariable("prn_type", otInteger, prn_type);
+    } else {
+        Qry.SQLText =
+            "select "
+            "   prn_form_vers.form, "
+            "   prn_form_vers.data "
+            "from "
+            "   br_models, "
+            "   prn_form_vers "
+            "where "
+            "   br_models.form_type = :form_type and "
+            "   br_models.dev_model = :dev_model and "
+            "   br_models.fmt_type = :fmt_type and "
+            "   br_models.id = prn_form_vers.id and "
+            "   br_models.version = prn_form_vers.version ";
+        Qry.CreateVariable("form_type", otString, form_type);
+        Qry.CreateVariable("dev_model", otString, dev_model);
+        Qry.CreateVariable("fmt_type", otString, fmt_type);
+    }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data"))
-      throw UserException("Печать квитанции на выбранный принтер не производится");
+      previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
 
     string mso_form = Qry.FieldAsString("data");
     mso_form = parser.parse(mso_form);
-
-    to_esc::convert(mso_form, TPrnType(prn_type), reqNode);
-
+    TPrnType convert_prn_type;
+    if ( dev_model.empty() )
+        convert_prn_type = TPrnType(prn_type);
+    else {
+        if ( dev_model == "OLIVETTI" )
+            convert_prn_type = ptOLIVETTI;
+        else
+            if ( dev_model == "ML390" )
+                convert_prn_type = ptOKIML390;
+            else
+                if ( dev_model == "ML3310" )
+                    convert_prn_type = ptOKIML3310;
+                else
+                    throw Exception(dev_model + " not supported by to_esc::convert");
+    }
+    to_esc::convert(mso_form, convert_prn_type, reqNode);
     Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
 
@@ -3578,6 +3639,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
     int pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
+    if(prn_type == NoExists and dev_model.empty())
+      previewDeviceSets(false, "Не выбрано устройство для печати");
 
     //    check_CUTE_certified(prn_type, dev_model, fmt_type);
 
@@ -3661,9 +3724,9 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data")||
-            Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB" || fmt_type == "EPL2")
+            Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB")
       )
-        throw UserException("Печать пос. талона на выбранный принтер не производится");
+        previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
     string form = Qry.FieldAsString("form");
     string data = Qry.FieldAsString("data");
     xmlNodePtr dataNode = NewTextChild(resNode, "data");

@@ -133,7 +133,7 @@ struct TTlgSeatList {
     private:
         t_tlg_comp comp;
         void apply_comp(TTlgInfo &info);
-        void dump_comp();
+        void dump_comp() const;
         void dump_list(std::map<int, std::string> &list);
         void dump_list(std::map<int, TSeatRectList> &list);
         void get_seat_list(std::map<int, std::string> &list, bool pr_lat);
@@ -147,6 +147,7 @@ struct TTlgSeatList {
         };
         void add_seats(int pax_id, std::vector<TTlgCompLayer> &complayers);
         std::string get_seat_list(bool pr_lat); // used in PRL
+        std::vector<std::string>  get_seat_vector(bool pr_lat) const;
         std::string get_seat_one(bool pr_lat);
         void Clear() { comp.clear(); };
 };

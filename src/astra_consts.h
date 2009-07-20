@@ -54,6 +54,8 @@ extern const char* CompLayerTypeS[cltTypeNum];
 
 const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
 
+#define UNKNOWN_VERSION "UNKNOWN"
+
 };
 
 #endif

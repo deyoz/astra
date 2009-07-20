@@ -1264,11 +1264,9 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
     //последовательность для принтера
     PrintDataParser parser(rcpt);
-    int prn_type=NodeAsInteger("prn_type", reqNode);
     string data;
     PrintInterface::GetPrintDataBR(
             rcpt.form_type,
-            prn_type,
             parser,
             data,
             reqNode

@@ -514,10 +514,13 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "crsdata", reqNode ) )
       PrepRegInterface::readTripData( point_id, dataNode );
   };
-  if (reqInfo->screen.name == "TLG.EXE")
+  if (reqInfo->screen.name == "TLG.EXE" or
+          reqInfo->screen.name == "DOCS.EXE")
   {
     if ( GetNode( "tripdata", reqNode ) && point_id != -1 )
       TelegramInterface::readTripData( point_id, dataNode );
+    if ( GetNode( "ckin_zones", reqNode ) )
+        DocsInterface::GetZoneList(point_id, dataNode);
   };
   ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 };
