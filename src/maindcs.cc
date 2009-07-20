@@ -962,7 +962,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (!version.empty())
       Qry.CreateVariable("version",otString,version);
     else
-      Qry.CreateVariable("version",otString,"UNKNOWN");
+      Qry.CreateVariable("version",otString,UNKNOWN_VERSION);
     Qry.Execute();
 
     string airlines;
