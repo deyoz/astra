@@ -12,6 +12,7 @@
 
 #include "serverlib/query_runner.h"
 #include "serverlib/posthooks.h"
+#include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -32,6 +33,7 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   try
   {
     sleep(10);
+    InitLogTime(NULL);
     OpenLogFile("logairimp");
 
     ServerFramework::Obrzapnik::getInstance()->getApplicationCallbacks()
@@ -42,14 +44,17 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     char buf[10];
     for(;;)
     {
+      InitLogTime(NULL);
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        InitLogTime(NULL);
         base_tables.Invalidate();
         handle_tlg();
         scan_time=time(NULL);
       };
       if (waitCmd("CMD_EDI_HANDLER",WAIT_INTERVAL,buf,sizeof(buf)))
       {
+        InitLogTime(NULL);
         base_tables.Invalidate();
         handle_tlg();
         scan_time=time(NULL);
