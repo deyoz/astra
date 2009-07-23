@@ -13,6 +13,7 @@
 #include "tlg_parser.h"
 #include "edilib/edi_user_func.h"
 #include "serverlib/daemon.h"
+#include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -36,6 +37,7 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   try
   {
     sleep(10);
+    InitLogTime(NULL);
     OpenLogFile("logairimp");
 
     int SRV_PORT;
@@ -64,6 +66,8 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     time_t scan_time=0;
     for (;;)
     {
+      InitLogTime(NULL);
+
       FD_ZERO(&rfds);
       FD_SET(sockfd,&rfds);
       tv.tv_sec=WAIT_INTERVAL;
@@ -73,11 +77,13 @@ int main_srv_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
         throw Exception("'select' error %d: %s",errno,strerror(errno));
       if (res!=0&&FD_ISSET(sockfd,&rfds))
       {
+        InitLogTime(NULL);
         base_tables.Invalidate();
         process_tlg();
       };
       if (time(NULL)-scan_time>=TLG_SCAN_INTERVAL)
       {
+        InitLogTime(NULL);
         base_tables.Invalidate();
         scan_tlg();
       };

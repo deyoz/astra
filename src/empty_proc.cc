@@ -23,6 +23,7 @@
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"*/
 #include "tclmon/tcl_utils.h"
+#include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -36,12 +37,14 @@ int main_empty_proc_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   try
   {
     sleep(10);
+    InitLogTime(NULL);
     OpenLogFile("log1");
 
 
     for( ;; )
     {
       sleep( sleepsec );
+      InitLogTime(NULL);
       ProgTrace( TRACE0, "empty_proc: Next iteration");
     };
   }
