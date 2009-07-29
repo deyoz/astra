@@ -25,6 +25,7 @@
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
+#include "serverlib/ourtime.h"
 
 const int sleepsec = 25;
 
@@ -40,6 +41,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   try
   {
     sleep(10);
+    InitLogTime(NULL);
     OpenLogFile("log1");
 
     int p_count;
@@ -66,7 +68,7 @@ int main_timer_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
     if (init_edifact()<0) throw Exception("'init_edifact' error");
     for( ;; )
     {
-
+      InitLogTime(NULL);
       PerfomInit();
       base_tables.Invalidate();
       exec_tasks( num.c_str() );
@@ -107,6 +109,7 @@ void exec_tasks( const char *proc_name )
 	TDateTime execTasks = NowUTC();
 	while ( !Qry.Eof )
 	{
+	  InitLogTime(NULL);
 	  bool Result=true;
 
 	  TReqInfo::Instance()->clear();
