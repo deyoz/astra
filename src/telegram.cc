@@ -95,6 +95,185 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
   };
 };
 
+struct TTlgSearchParams {
+    string tlg_type;
+    string airline;
+    string airp;
+    int flt_no;
+    string suffix;
+    bool pr_time_create;
+    bool pr_time_receive;
+    TDateTime TimeCreateFrom;
+    TDateTime TimeCreateTo;
+    TDateTime TimeReceiveFrom;
+    TDateTime TimeReceiveTo;
+    void get(xmlNodePtr reqNode);
+    void dump();
+    TTlgSearchParams():
+        flt_no(NoExists),
+        pr_time_create(false),
+        pr_time_receive(false),
+        TimeCreateFrom(0),
+        TimeCreateTo(0),
+        TimeReceiveFrom(0),
+        TimeReceiveTo(0)
+    {};
+};
+
+void TTlgSearchParams::dump()
+{
+    ProgTrace(TRACE5, "tlg_type: '%s'", tlg_type.c_str());
+    ProgTrace(TRACE5, "airline: '%s'", airline.c_str());
+    ProgTrace(TRACE5, "airp: '%s'", airp.c_str());
+    if(flt_no == NoExists)
+        ProgTrace(TRACE5, "flt_no: NoExists");
+    else
+        ProgTrace(TRACE5, "flt_no: %d", flt_no);
+    ProgTrace(TRACE5, "suffix: '%s'", suffix.c_str());
+    ProgTrace(TRACE5, "pr_time_create: %s", pr_time_create ? "true" : "false");
+    ProgTrace(TRACE5, "pr_time_receive: %s", pr_time_receive ? "true" : "false");
+    if(pr_time_create) {
+        ProgTrace(TRACE5, "TimeCreateFrom: %s", DateTimeToStr(TimeCreateFrom, ServerFormatDateTimeAsString).c_str());
+        ProgTrace(TRACE5, "TimeCreateTo: %s", DateTimeToStr(TimeCreateTo, ServerFormatDateTimeAsString).c_str());
+    }
+    if(pr_time_receive) {
+        ProgTrace(TRACE5, "TimeReceiveFrom: %s", DateTimeToStr(TimeReceiveFrom, ServerFormatDateTimeAsString).c_str());
+        ProgTrace(TRACE5, "TimeReceiveTo: %s", DateTimeToStr(TimeReceiveTo, ServerFormatDateTimeAsString).c_str());
+    }
+}
+
+void TTlgSearchParams::get(xmlNodePtr reqNode)
+{
+    xmlNodePtr currNode = reqNode->children;
+    tlg_type = NodeAsStringFast("tlg_type", currNode, "");
+    airline = NodeAsStringFast("airline", currNode, "");
+    airp = NodeAsStringFast("airp", currNode, "");
+    flt_no = NodeAsIntegerFast("flt_no", currNode, NoExists);
+    suffix = NodeAsStringFast("suffix", currNode, "");
+    pr_time_create = NodeAsIntegerFast("pr_time_create", currNode, 0) != 0;
+    pr_time_receive = NodeAsIntegerFast("pr_time_receive", currNode, 0) != 0;
+    if(pr_time_create) {
+        TimeCreateFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
+        TimeCreateTo = NodeAsDateTimeFast("TimeCreateFrom", currNode);
+    }
+    if(pr_time_receive) {
+        TimeReceiveFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
+        TimeReceiveTo = NodeAsDateTimeFast("TimeCreateFrom", currNode);
+    }
+}
+
+void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo &info = *(TReqInfo::Instance());
+    TTlgSearchParams search_params;
+    search_params.get(reqNode);
+    search_params.dump();
+    TQuery Qry(&OraSession);
+    string tz_region =  info.desk.tz_region;
+    string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive \n"
+        "FROM tlgs_in, \n";
+    sql+="( \n";
+    if (!info.user.access.airlines.empty()||
+            !info.user.access.airps.empty())
+    {
+        sql+="SELECT DISTINCT ids.id \n"
+            "FROM tlg_trips \n";
+        sql+=",( \n";
+
+    };
+    sql+="SELECT DISTINCT tlgs_in.id \n";
+
+    if (!info.user.access.airlines.empty()||
+            !info.user.access.airps.empty())
+        sql+=",tlg_source.point_id_tlg \n";
+
+    sql+="FROM tlgs_in,tlg_source,tlg_binding \n"
+        "WHERE tlgs_in.id=tlg_source.tlg_id AND \n"
+        "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND \n"
+        "      tlg_binding.point_id_tlg IS NULL AND \n"
+        "      time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
+    if (!info.user.access.airlines.empty()||
+            !info.user.access.airps.empty())
+    {
+        sql+="ORDER BY tlgs_in.id) ids \n"
+            "WHERE ids.point_id_tlg=tlg_trips.point_id \n";
+        if (!info.user.access.airlines.empty())
+        {
+            if (info.user.access.airlines_permit)
+                sql+="AND tlg_trips.airline IN "+GetSQLEnum(info.user.access.airlines);
+            else
+                sql+="AND tlg_trips.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
+        };
+        if (!info.user.access.airps.empty())
+        {
+            if (info.user.access.airps_permit)
+                sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
+                    "     tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR \n"+
+                    "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+") \n" ;
+            else
+                sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
+                    "     tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR \n"+
+                    "     tlg_trips.airp_arv NOT IN "+GetSQLEnum(info.user.access.airps)+")\n" ;
+        };
+    };
+    sql+=" UNION \n"
+        " SELECT DISTINCT tlgs_in.id \n"
+        " FROM tlgs_in,tlg_source \n"
+        " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL AND \n"
+        "       time_receive>=TRUNC(system.UTCSYSDATE)-2 \n"
+        ") ids \n";
+    "FROM tlgs_in, \n";
+    sql+="WHERE tlgs_in.id=ids.id \n"
+        "ORDER BY id,num \n";
+
+    xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
+    if (info.user.access.airps_permit && info.user.access.airps.empty() ||
+            info.user.access.airlines_permit && info.user.access.airlines.empty() ) return;
+
+    ProgTrace(TRACE5, "sql: %s", sql.c_str());
+    Qry.SQLText=sql;
+    Qry.Execute();
+    xmlNodePtr node;
+    int len,bufLen=0;
+    char *ph,*buf=NULL;
+    try
+    {
+        for(;!Qry.Eof;Qry.Next())
+        {
+            node = NewTextChild( tlgsNode, "tlg" );
+            NewTextChild( node, "id", Qry.FieldAsInteger("id") );
+            NewTextChild( node, "num", Qry.FieldAsInteger("num") );
+            NewTextChild( node, "type", Qry.FieldAsString("type") );
+            NewTextChild( node, "addr", Qry.FieldAsString("addr") );
+            NewTextChild( node, "heading", Qry.FieldAsString("heading") );
+            NewTextChild( node, "ending", Qry.FieldAsString("ending") );
+            TDateTime time_receive = UTCToClient( Qry.FieldAsDateTime("time_receive"), tz_region );
+            NewTextChild( node, "time_receive", DateTimeToStr( time_receive ) );
+
+            len=Qry.GetSizeLongField("body")+1;
+            if (len>bufLen)
+            {
+                if (buf==NULL)
+                    ph=(char*)malloc(len);
+                else
+                    ph=(char*)realloc(buf,len);
+                if (ph==NULL) throw EMemoryError("Out of memory");
+                buf=ph;
+                bufLen=len;
+            };
+            Qry.FieldAsLong("body",buf);
+            buf[len-1]=0;
+            NewTextChild( node, "body", buf);
+        };
+        if (buf!=NULL) free(buf);
+    }
+    catch(...)
+    {
+        if (buf!=NULL) free(buf);
+        throw;
+    };
+}
+
 void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   TReqInfo &info = *(TReqInfo::Instance());
@@ -102,8 +281,8 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
   TQuery Qry(&OraSession);
   string tz_region =  info.desk.tz_region;
-  string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive "
-             "FROM tlgs_in, ";
+  string sql="SELECT tlgs_in.id,num,type,addr,heading,body,ending,time_receive \n"
+             "FROM tlgs_in, \n";
   if (point_id!=-1)
   {
     TQuery RegionQry(&OraSession);
@@ -113,36 +292,36 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
     tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
 
-    sql+="(SELECT DISTINCT tlg_source.tlg_id AS id "
-         " FROM tlg_source,tlg_binding "
-         " WHERE tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND "
-         "       tlg_binding.point_id_spp=:point_id) ids ";
+    sql+="(SELECT DISTINCT tlg_source.tlg_id AS id  \n"
+         " FROM tlg_source,tlg_binding  \n"
+         " WHERE tlg_source.point_id_tlg=tlg_binding.point_id_tlg AND  \n"
+         "       tlg_binding.point_id_spp=:point_id) ids  \n";
     Qry.CreateVariable("point_id",otInteger,point_id);
   }
   else
   {
-    sql+="( ";
+    sql+="( \n";
     if (!info.user.access.airlines.empty()||
         !info.user.access.airps.empty())
     {
-      sql+="SELECT DISTINCT ids.id "
-           "FROM tlg_trips ";
-      sql+=",( ";
+      sql+="SELECT DISTINCT ids.id \n"
+           "FROM tlg_trips \n";
+      sql+=",( \n";
 
     };
-    sql+="SELECT DISTINCT tlgs_in.id ";
+    sql+="SELECT DISTINCT tlgs_in.id \n";
     if (!info.user.access.airlines.empty()||
-        !info.user.access.airps.empty()) sql+=",tlg_source.point_id_tlg ";
-    sql+="FROM tlgs_in,tlg_source,tlg_binding "
-         "WHERE tlgs_in.id=tlg_source.tlg_id AND "
-         "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND "
-         "      tlg_binding.point_id_tlg IS NULL AND "
-         "      time_receive>=TRUNC(system.UTCSYSDATE)-2 ";
+        !info.user.access.airps.empty()) sql+=",tlg_source.point_id_tlg \n";
+    sql+="FROM tlgs_in,tlg_source,tlg_binding \n"
+         "WHERE tlgs_in.id=tlg_source.tlg_id AND \n"
+         "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND \n"
+         "      tlg_binding.point_id_tlg IS NULL AND \n"
+         "      time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
     if (!info.user.access.airlines.empty()||
         !info.user.access.airps.empty())
     {
-      sql+="ORDER BY tlgs_in.id) ids "
-           "WHERE ids.point_id_tlg=tlg_trips.point_id ";
+      sql+="ORDER BY tlgs_in.id) ids \n"
+           "WHERE ids.point_id_tlg=tlg_trips.point_id \n";
       if (!info.user.access.airlines.empty())
       {
         if (info.user.access.airlines_permit)
@@ -153,29 +332,30 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if (!info.user.access.airps.empty())
       {
         if (info.user.access.airps_permit)
-          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR "
-               "     tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-               "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+")" ;
+          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
+               "     tlg_trips.airp_dep IN "+GetSQLEnum(info.user.access.airps)+" OR \n"+
+               "     tlg_trips.airp_arv IN "+GetSQLEnum(info.user.access.airps)+") \n" ;
         else
-          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR "
-               "     tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR "+
-               "     tlg_trips.airp_arv NOT IN "+GetSQLEnum(info.user.access.airps)+")" ;
+          sql+="AND (tlg_trips.airp_dep IS NULL AND tlg_trips.airp_arv IS NULL OR \n"
+               "     tlg_trips.airp_dep NOT IN "+GetSQLEnum(info.user.access.airps)+" OR \n"+
+               "     tlg_trips.airp_arv NOT IN "+GetSQLEnum(info.user.access.airps)+")\n" ;
       };
     };
-    sql+=" UNION "
-         " SELECT DISTINCT tlgs_in.id "
-         " FROM tlgs_in,tlg_source "
-         " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL AND "
-         "       time_receive>=TRUNC(system.UTCSYSDATE)-2 "
-         ") ids ";
+    sql+=" UNION \n"
+         " SELECT DISTINCT tlgs_in.id \n"
+         " FROM tlgs_in,tlg_source \n"
+         " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL AND \n"
+         "       time_receive>=TRUNC(system.UTCSYSDATE)-2 \n"
+         ") ids \n";
   };
-  sql+="WHERE tlgs_in.id=ids.id "
-       "ORDER BY id,num ";
+  sql+="WHERE tlgs_in.id=ids.id \n"
+       "ORDER BY id,num \n";
 
   xmlNodePtr tlgsNode = NewTextChild( resNode, "tlgs" );
   if (info.user.access.airps_permit && info.user.access.airps.empty() ||
       info.user.access.airlines_permit && info.user.access.airlines.empty() ) return;
 
+  ProgTrace(TRACE5, "sql: %s", sql.c_str());
   Qry.SQLText=sql;
   Qry.Execute();
   xmlNodePtr node;
@@ -1476,22 +1656,6 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
 
 void TelegramInterface::SaveTlgOutPart( TTlgOutPartInfo &info )
 {
-    if(info.pr_lat) {
-        string err_text;
-        if(not is_lat(info.addr)) err_text = info.addr;
-        else if(not is_lat(info.heading)) err_text = info.heading;
-        else if(not is_lat(info.body)) err_text = info.body;
-        else if(not is_lat(info.ending)) err_text = info.ending;
-        if(not err_text.empty()) {
-            ostringstream buf;
-            buf
-                << "telegram is not lat. point_id: " << info.point_id
-                << "; tlg_type: " << info.tlg_type
-                << "; extra: " << info.extra << endl
-                << "text: " << err_text;
-            throw Exception(buf.str());
-        }
-    }
   TQuery Qry(&OraSession);
 
   if (info.id<0)
