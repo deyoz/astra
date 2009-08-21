@@ -4488,8 +4488,8 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
     aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
     if (aircode<=0 || aircode>999) throw EConvertError("");
   }
-  catch(EBaseTableError) {}
-  catch(EConvertError) {};
+  catch(EBaseTableError) { aircode=-1; }
+  catch(EConvertError)   { aircode=-1; };
 
   if (aircode==-1) aircode=954;
 
