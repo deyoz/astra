@@ -2860,7 +2860,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.Execute();
     //reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
   }
-  TSOPPDest old_dest;
   bool ch_dests = false;
   int new_tid;
   bool init_trip_stages;
@@ -2930,6 +2929,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	change_est_out = false;
   	reSetCraft = false;
   	pr_change_tripinfo = false;
+    TSOPPDest old_dest;
+
 
     if ( insert_point ) {
     	ch_craft = false;
@@ -3138,7 +3139,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "     bort=:bort,scd_in=:scd_in,est_in=:est_in,act_in=:act_in,"\
        "     scd_out=:scd_out,est_out=:est_out,act_out=:act_out,trip_type=:trip_type,"\
        "     litera=:litera,park_in=:park_in,park_out=:park_out,pr_del=:pr_del,tid=:tid,"\
-       "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
+       "     remark=:remark,pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end update else
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
@@ -3234,7 +3235,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	Qry.CreateVariable( "pr_del", otInteger, id->pr_del );
   	Qry.CreateVariable( "tid", otInteger, new_tid );
   	if ( !old_dest.remark.empty() )
-  		id->remark += " " + old_dest.remark;
+  		if ( !id->remark.empty() )
+  		  id->remark += " " + old_dest.remark;
+  		else
+  			id->remark = old_dest.remark;
+  	if ( id->remark.size() > 250 )
+  		id->remark = id->remark.substr( 0, 250 );
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
 //  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
