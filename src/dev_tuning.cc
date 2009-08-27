@@ -42,7 +42,10 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                 row.status == usModified or
                 row.status == usDeleted
           ) {
-            if(cache.FieldOldValue("read_only", row) == "0")
+            if(cache.FieldOldValue("version", row) == "0")
+                throw UserException("Редактирование версии 0 запрещено.");
+            if(cache.FieldOldValue("read_only", row) == cache.FieldValue("read_only", row) and
+                    cache.FieldOldValue("read_only", row) == "0")
                 throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
             if(row.status == usDeleted) {
                 TQuery Qry(&OraSession);
@@ -218,4 +221,158 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
         throw UserException(not_avail_err);
+}
+
+struct TPrnFormsItem {
+    string op_type, fmt_type, name;
+};
+
+struct TPrnFormVersRow {
+    string descr, form, data;
+    bool read_only;
+    TPrnFormVersRow(): read_only(false) {};
+};
+
+struct TPrnFormVersKey {
+    int id, version;
+    TPrnFormVersKey(): id(NoExists), version(NoExists) {};
+};
+
+struct TPrnFormVersCmp {
+    bool operator() (const TPrnFormVersKey &lr, const TPrnFormVersKey &rr) const
+    {
+        if(lr.id == rr.id)
+            return lr.version < rr.version;
+        else
+            return lr.id < rr.id;
+    }
+};
+
+void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    map<int, TPrnFormsItem> prn_forms;
+    map<TPrnFormVersKey, TPrnFormVersRow, TPrnFormVersCmp> prn_form_vers;
+    xmlNodePtr currNode = NodeAsNode("types", reqNode);
+    currNode = currNode->children;
+    string op_type = NodeAsString("op_type", reqNode);
+    xmlNodePtr bp_typesNode = NULL;
+    xmlNodePtr bp_modelsNode = NULL;
+    for(; currNode; currNode = currNode->next) {
+        string type = NodeAsString(currNode);
+        TQuery Qry(&OraSession);
+        Qry.SQLText =
+            "select "
+            "   airline, "
+            "   airp, "
+            "   name "
+            "from "
+            "   bp_types "
+            "where "
+            "   code = :code ";
+        Qry.CreateVariable("code", otString, type);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw UserException("Информация по типу бланка %s недоступна. Обновите данные.", type.c_str());
+        if(not bp_typesNode)
+            bp_typesNode = NewTextChild(resNode, "bp_types");
+        xmlNodePtr itemNode = NewTextChild(bp_typesNode, "item");
+        NewTextChild(itemNode, "code", type);
+        NewTextChild(itemNode, "airline", Qry.FieldAsString("airline"));
+        NewTextChild(itemNode, "airp", Qry.FieldAsString("airp"));
+        NewTextChild(itemNode, "name", Qry.FieldAsString("name"));
+        Qry.SQLText =
+            "select "
+            "   form_type, "
+            "   dev_model, "
+            "   fmt_type, "
+            "   id, "
+            "   version "
+            "from "
+            "   bp_models "
+            "where "
+            "   form_type = :code ";
+        Qry.Execute();
+        for(; !Qry.Eof; Qry.Next()) {
+            if(not bp_modelsNode)
+                bp_modelsNode = NewTextChild(resNode, "bp_models");
+            itemNode = NewTextChild(bp_modelsNode, "item");
+            int id = Qry.FieldAsInteger("id");
+            int version = Qry.FieldAsInteger("version");
+            NewTextChild(itemNode, "form_type", Qry.FieldAsString("form_type"));
+            NewTextChild(itemNode, "dev_model", Qry.FieldAsString("dev_model"));
+            NewTextChild(itemNode, "fmt_type", Qry.FieldAsString("fmt_type"));
+            NewTextChild(itemNode, "id", id);
+            NewTextChild(itemNode, "version", version);
+            if(prn_forms.find(id) == prn_forms.end()) {
+                TQuery PrnFormQry(&OraSession);
+                PrnFormQry.SQLText =
+                    "select "
+                    "   op_type, "
+                    "   fmt_type, "
+                    "   name "
+                    "from "
+                    "   prn_forms "
+                    "where "
+                    "   id = :id ";
+                PrnFormQry.CreateVariable("id", otInteger, id);
+                PrnFormQry.Execute();
+                if(PrnFormQry.Eof)
+                    throw UserException("Информация по форме недоступна. Обновите данные.");
+                TPrnFormsItem &prn_form = prn_forms[id];
+                prn_form.op_type = PrnFormQry.FieldAsString("op_type");
+                prn_form.fmt_type = PrnFormQry.FieldAsString("fmt_type");
+                prn_form.name = PrnFormQry.FieldAsString("name");
+            }
+            TPrnFormVersKey vers_key;
+            vers_key.id = id;
+            vers_key.version = version;
+            if(prn_form_vers.find(vers_key) == prn_form_vers.end()) {
+                TQuery VersQry(&OraSession);
+                VersQry.SQLText =
+                    "select "
+                    "   descr, "
+                    "   form, "
+                    "   data, "
+                    "   read_only "
+                    "from "
+                    "   prn_form_vers "
+                    "where "
+                    "   id = :id and "
+                    "   version = :version ";
+                VersQry.CreateVariable("id", otInteger, id);
+                VersQry.CreateVariable("version", otInteger, version);
+                VersQry.Execute();
+                if(VersQry.Eof)
+                    throw UserException("Информация по форме недоступна. Обновите данные.");
+                TPrnFormVersRow &row = prn_form_vers[vers_key];
+                row.descr = VersQry.FieldAsString("descr");
+                row.form = VersQry.FieldAsString("form");
+                row.data = VersQry.FieldAsString("data");
+                row.read_only = VersQry.FieldAsInteger("read_only") != 0;
+            }
+        }
+    }
+    if(not prn_forms.empty()) {
+        xmlNodePtr prn_formsNode = NewTextChild(resNode, "prn_forms");
+        for(map<int, TPrnFormsItem>::iterator it = prn_forms.begin(); it != prn_forms.end(); it++) {
+            xmlNodePtr itemNode = NewTextChild(prn_formsNode, "item");
+            NewTextChild(itemNode, "id", it->first);
+            NewTextChild(itemNode, "op_type", it->second.op_type);
+            NewTextChild(itemNode, "fmt_type", it->second.fmt_type);
+            NewTextChild(itemNode, "name", it->second.name);
+        }
+    }
+    if(not prn_form_vers.empty()) {
+        xmlNodePtr prn_form_versNode = NewTextChild(resNode, "prn_form_vers");
+        for(map<TPrnFormVersKey, TPrnFormVersRow, TPrnFormVersCmp>::iterator it = prn_form_vers.begin(); it != prn_form_vers.end(); it++) {
+            xmlNodePtr itemNode = NewTextChild(prn_form_versNode, "item");
+            NewTextChild(itemNode, "id", it->first.id);
+            NewTextChild(itemNode, "version", it->first.version);
+            NewTextChild(itemNode, "descr", it->second.descr);
+            NewTextChild(itemNode, "form", it->second.form);
+            NewTextChild(itemNode, "data", it->second.data);
+            NewTextChild(itemNode, "read_only", it->second.read_only);
+        }
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }

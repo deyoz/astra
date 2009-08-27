@@ -20,11 +20,14 @@ public:
      evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::UpdateCopy);
      AddEvent("Copy",evHandle);
      AddEvent("Update",evHandle);
+     evHandle=JxtHandler<DevTuningInterface>::CreateHandler(&DevTuningInterface::Export);
+     AddEvent("export",evHandle);
   };
   void UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Cache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void ApplyCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
 
