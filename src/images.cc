@@ -49,12 +49,34 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    SetProp( imagesNode, "lastUpdDate", DateTimeToStr( lastUpdDate ) );
 
    bool sendImages = ( fabs( lastUpdDate - NodeAsDateTime( "@lastUpdDate", reqNode ) ) > 5.0/(24.0*60.0*60.0) );
+
+   xmlNodePtr codeNode = GetNode( "codes", reqNode );
+   if ( codeNode && !sendImages ) {
+   	 codeNode = GetNode( "code", codeNode );
+     vector<string> codes;
+     while ( codeNode ) {
+     	 codes.push_back( NodeAsString( codeNode ) );
+     	 codeNode = codeNode->next;
+     }
+     Qry->Clear();
+     Qry->SQLText = "SELECT code FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
+     Qry->Execute();
+     while ( !Qry->Eof ) {
+     	 if ( find( codes.begin(), codes.end(), Qry->FieldAsString( "code" ) ) == codes.end() ) { // в базе есть то, что нет на клиенте
+     	 	sendImages = true;
+     	 	break;
+     	 }
+     	 Qry->Next();
+     }
+   }
+
+   if ( sendImages ) {
+   	 SetProp( imagesNode, "sendimages", "true" );
+   }
+
    /* пересылаем все данные */
    Qry->Clear();
-   if ( sendImages )
-     Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
-   else
-     Qry->SQLText = "SELECT code, name, pr_seat FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
+   Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
    Qry->Execute();
    int len = 0;
    while ( !Qry->Eof ) {
