@@ -383,7 +383,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
 	TQuery TimeQry( &OraSession );
 	TimeQry.SQLText =
 	 "SELECT time as mtime,NVL(stations.name,events.station) station FROM events,stations "
-	 " WHERE type='€‘' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode=:work_mode "
+	 " WHERE type='€‘' AND id1=:point_id AND id2=:reg_no AND events.station=stations.desk(+) AND stations.work_mode(+)=:work_mode "
 	 " AND screen=:screen "
 	 " ORDER BY time DESC,ev_order DESC";
 	TimeQry.CreateVariable( "point_id", otInteger, point_id );
@@ -512,7 +512,7 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
       		term = term.substr( 1, term.length() - 1 );
       	t = TimeQry.FieldAsDateTime( "mtime" );
       }
-      if ( t == NoExists )
+      if ( t == NoExists || term.empty() )
         record<<setw(4)<<"";
       else
         record<<setw(4)<<string(term).substr(0,4); // αβ®©ª  ΰ¥£.

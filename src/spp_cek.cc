@@ -1186,8 +1186,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	else
   		scd_out = Qry.FieldAsDateTime( "scd_out" );
   }
-  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_in, "dd" ), true ); // на прилет
-  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_out, "dd" ), false ); // на вылет
+  if ( scd_in > NoExists )
+    createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_in, "dd" ), true ); // на прилет
+  if ( scd_out > NoExists )
+   createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_out, "dd" ), false ); // на вылет
 
   string sres;
   if ( sqldoc ) { // CP-866

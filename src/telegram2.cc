@@ -387,8 +387,22 @@ namespace PRL_SPACE {
     struct TPNRList {
         vector<TPNRItem> items;
         void get(int pnr_id);
+        virtual void ToTlg(TTlgInfo &info, vector<string> &body);
+        virtual ~TPNRList() {};
+    };
+
+    struct TPNRListAddressee: public TPNRList {
         void ToTlg(TTlgInfo &info, vector<string> &body);
     };
+
+    void TPNRListAddressee::ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        for(vector<TPNRItem>::iterator iv = items.begin(); iv != items.end(); iv++)
+            if(info.airline == TlgElemIdToElem(etAirline, iv->airline, info.pr_lat)) {
+                iv->ToTlg(info, body);
+                break;
+            }
+    }
 
     void TPNRList::ToTlg(TTlgInfo &info, vector<string> &body)
     {
@@ -3558,7 +3572,7 @@ struct TETLPax {
     string ticket_no;
     int coupon_no;
     int grp_id;
-    TPNRList pnrs;
+    TPNRListAddressee pnrs;
     TRemList rems;
     TETLPax(TInfants *ainfants): rems(ainfants) {
         cls_grp_id = NoExists;
@@ -3596,7 +3610,7 @@ struct TFTLPax {
     string crs;
     int pax_id;
     TMItem M;
-    TPNRList pnrs;
+    TPNRListAddressee pnrs;
     TRemList rems;
     TFTLDest *destInfo;
     TFTLPax(TFTLDest *aDestInfo): rems(NULL) {

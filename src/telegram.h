@@ -266,6 +266,8 @@ public:
   TelegramInterface() : JxtInterface("","Telegram")
   {
      Handler *evHandle;
+     evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::GetTlgIn2);
+     AddEvent("GetTlgIn2",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::GetTlgIn);
      AddEvent("GetTlgIn",evHandle);
      evHandle=JxtHandler<TelegramInterface>::CreateHandler(&TelegramInterface::GetTlgOut);
@@ -287,6 +289,7 @@ public:
      AddEvent("TestSeatRanges",evHandle);
   };
 
+  void GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
