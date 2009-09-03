@@ -653,9 +653,9 @@ void TripAlarms( int point_id, BitSet<TTripAlarmsType> &Alarms )
 	if ( Qry.FieldAsInteger( "pr_etstatus" ) < 0 ) {
 		Alarms.setFlag( atETStatus );
 	}
-	if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
+/*	if ( Qry.FieldIsNULL( "pr_airp_seance" ) ) {
 	  Alarms.setFlag( atSeance );
-  }
+  }*/
 }
 
 string TripAlarmString( TTripAlarmsType &alarm )
