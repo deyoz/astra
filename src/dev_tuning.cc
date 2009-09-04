@@ -255,6 +255,8 @@ struct TFormTypes {
     virtual void add(xmlNodePtr reqNode) = 0;
     virtual void ToXML(xmlNodePtr resNode) = 0;
     virtual void ToBase() = 0;
+    virtual void PrnFormsToBase() = 0;
+    virtual void copy(string src, string dest) = 0;
     virtual ~TFormTypes() {};
 };
 
@@ -630,7 +632,53 @@ struct TBRTypes:TFormTypes {
     void ToXML(xmlNodePtr resNode);
     void add(string type);
     void ToBase();
+    void PrnFormsToBase();
+    void copy(string src, string dest);
 };
+
+void TBRTypes::PrnFormsToBase()
+{
+    br_models.prn_forms.ToBase();
+    br_models.prn_form_vers.ToBase();
+}
+
+void TBRTypes::copy(string src, string dest)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "delete from br_models where form_type = :dest";
+    Qry.CreateVariable("dest", otString, dest);
+    Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+        "insert into br_models ( "
+        "  form_type, "
+        "  dev_model, "
+        "  fmt_type, "
+        "  id, "
+        "  version "
+        ") values ( "
+        "  :form_type, "
+        "  :dev_model, "
+        "  :fmt_type, "
+        "  :id, "
+        "  :version "
+        ") ";
+    Qry.DeclareVariable("form_type", otString);
+    Qry.DeclareVariable("dev_model", otString);
+    Qry.DeclareVariable("fmt_type", otString);
+    Qry.DeclareVariable("id", otInteger);
+    Qry.DeclareVariable("version", otInteger);
+    for(vector<TBRModelsItem>::iterator iv = br_models.items.begin(); iv != br_models.items.end(); iv++) {
+        if(iv->form_type != src)
+            continue;
+        Qry.SetVariable("form_type", dest);
+        Qry.SetVariable("dev_model", iv->dev_model);
+        Qry.SetVariable("fmt_type", iv->fmt_type);
+        Qry.SetVariable("id", iv->id);
+        Qry.SetVariable("version", iv->version);
+        Qry.Execute();
+    }
+}
 
 struct TBPTypes:TFormTypes {
     TBPModels bp_models;
@@ -639,7 +687,54 @@ struct TBPTypes:TFormTypes {
     void ToXML(xmlNodePtr resNode);
     void add(string type);
     void ToBase();
+    void PrnFormsToBase();
+    void copy(string src, string dest);
 };
+
+void TBPTypes::PrnFormsToBase()
+{
+    bp_models.prn_forms.ToBase();
+    bp_models.prn_form_vers.ToBase();
+}
+
+void TBPTypes::copy(string src, string dest)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "  delete from bp_models where form_type = :dest ";
+    Qry.CreateVariable("dest", otString, dest);
+    Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+        "insert into bp_models ( "
+        "  form_type, "
+        "  dev_model, "
+        "  fmt_type, "
+        "  id, "
+        "  version "
+        ") values ( "
+        "  :form_type, "
+        "  :dev_model, "
+        "  :fmt_type, "
+        "  :id, "
+        "  :version "
+        ") ";
+    Qry.DeclareVariable("form_type", otString);
+    Qry.DeclareVariable("dev_model", otString);
+    Qry.DeclareVariable("fmt_type", otString);
+    Qry.DeclareVariable("id", otInteger);
+    Qry.DeclareVariable("version", otInteger);
+    for(vector<TBPModelsItem>::iterator iv = bp_models.items.begin(); iv != bp_models.items.end(); iv++) {
+        if(iv->form_type != src)
+            continue;
+        Qry.SetVariable("form_type", dest);
+        Qry.SetVariable("dev_model", iv->dev_model);
+        Qry.SetVariable("fmt_type", iv->fmt_type);
+        Qry.SetVariable("id", iv->id);
+        Qry.SetVariable("version", iv->version);
+        Qry.Execute();
+    }
+}
 
 void TBRTypes::ToBase()
 {
@@ -963,7 +1058,57 @@ struct TTagTypes:TFormTypes {
     void ToXML(xmlNodePtr resNode);
     void add(string type);
     void ToBase();
+    void PrnFormsToBase();
+    void copy(string src, string dest);
 };
+
+void TTagTypes::PrnFormsToBase()
+{
+    bt_models.prn_forms.ToBase();
+    bt_models.prn_form_vers.ToBase();
+}
+
+void TTagTypes::copy(string src, string dest)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "delete from bt_models where form_type = :dest";
+    Qry.CreateVariable("dest", otString, dest);
+    Qry.Execute();
+    Qry.Clear();
+    Qry.SQLText =
+        "insert into bt_models ( "
+        "  form_type, "
+        "  dev_model, "
+        "  num, "
+        "  fmt_type, "
+        "  id, "
+        "  version "
+        ") values ( "
+        "  :form_type, "
+        "  :dev_model, "
+        "  :num, "
+        "  :fmt_type, "
+        "  :id, "
+        "  :version "
+        ") ";
+    Qry.DeclareVariable("form_type", otString);
+    Qry.DeclareVariable("dev_model", otString);
+    Qry.DeclareVariable("num", otInteger);
+    Qry.DeclareVariable("fmt_type", otString);
+    Qry.DeclareVariable("id", otInteger);
+    Qry.DeclareVariable("version", otInteger);
+    for(vector<TBTModelsItem>::iterator iv = bt_models.items.begin(); iv != bt_models.items.end(); iv++) {
+        if(iv->form_type != src)
+            continue;
+        Qry.SetVariable("form_type", dest);
+        Qry.SetVariable("dev_model", iv->dev_model);
+        Qry.SetVariable("num", iv->num);
+        Qry.SetVariable("fmt_type", iv->fmt_type);
+        Qry.SetVariable("id", iv->id);
+        Qry.SetVariable("version", iv->version);
+        Qry.Execute();
+    }
+}
 
 void TTagTypes::ToBase()
 {
@@ -1264,7 +1409,19 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         } else
             throw Exception("Unknown type: %s", op_type.c_str());
         form_types->add(reqNode);
-        form_types->ToBase();
+        form_types->PrnFormsToBase();
+        xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
+        for(; cfgNode; cfgNode = cfgNode->next) {
+            xmlNodePtr fastNode = cfgNode->children;
+            string src = NodeAsStringFast("src", fastNode);
+            ProgTrace(TRACE5, "src: %s", src.c_str());
+            xmlNodePtr destsNode = NodeAsNodeFast("dests", fastNode)->children;
+            for(; destsNode; destsNode = destsNode->next) {
+                string dest = NodeAsString(destsNode);
+                ProgTrace(TRACE5, "    dest: %s", dest.c_str());
+                form_types->copy(src, dest);
+            }
+        }
         delete form_types;
     } catch(...) {
         delete form_types;
