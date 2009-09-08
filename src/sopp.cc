@@ -1053,6 +1053,8 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
+    if ( tr->part_key > NoExists )
+      NewTextChild( tripNode, "part_key", DateTimeToStr( tr->part_key, ServerFormatDateTimeAsString ) );
     if ( !tr->airline_in.empty() )
       NewTextChild( tripNode, "airline_in", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_in, tr->airline_in_fmt ) );
     if ( tr->flt_no_in > NoExists )
@@ -1289,6 +1291,8 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     xmlNodePtr tripNode = NewTextChild( tripsNode, "trip" );
     NewTextChild( tripNode, "move_id", tr->move_id );
     NewTextChild( tripNode, "point_id", tr->point_id );
+    if ( tr->part_key > NoExists )
+      NewTextChild( tripNode, "part_key", DateTimeToStr( tr->part_key, ServerFormatDateTimeAsString ) );
     if ( !tr->airline_in.empty() )
       NewTextChild( tripNode, "airline_in", ElemIdToElemCtxt( ecDisp, etAirline, tr->airline_in, tr->airline_in_fmt ) );
     if ( tr->flt_no_in > NoExists )
@@ -2262,7 +2266,7 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   Qry.SQLText =
    "SELECT airp,act_out,points.pr_del pr_del,max_commerce,pr_tranzit,first_point,point_num "
    " FROM points,trip_sets "
-    "WHERE points.point_id=:point_id AND trip_sets.point_id=:point_id ";
+    "WHERE points.point_id=:point_id AND trip_sets.point_id(+)=points.point_id ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   lug.max_commerce = Qry.FieldAsInteger( "max_commerce" );
@@ -2416,33 +2420,40 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, string &reference )
+void internal_ReadDests( int move_id, TSOPPDests &dests, string &reference, TDateTime part_key, TDateTime arx_date )
 {
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry(&OraSession);
-  if ( arx_date > NoExists ) {
-  	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
-    Qry.SQLText =
-      "SELECT reference, part_key FROM arx_move_ref "
-      "WHERE part_key>=:arx_date AND part_key<:arx_date+:arx_trip_date_range AND move_id=:move_id";
-    Qry.CreateVariable( "arx_date", otDate, arx_date );
-    Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
+  if ( part_key > NoExists ) {
+      Qry.SQLText =
+        "SELECT reference, part_key FROM arx_move_ref WHERE part_key=:part_key AND move_id=:move_id";
+      Qry.CreateVariable( "part_key", otDate, part_key );
   }
   else
-    Qry.SQLText =
-      "SELECT reference FROM move_ref WHERE move_id=:move_id";
+    if ( arx_date > NoExists ) {
+    	ProgTrace( TRACE5, "arx_date=%s, move_id=%d", DateTimeToStr( arx_date, "dd.mm.yyyy hh:nn" ).c_str(), move_id );
+      Qry.SQLText =
+        "SELECT reference, part_key FROM arx_move_ref "
+        "WHERE part_key>=:arx_date AND part_key<:arx_date+:arx_trip_date_range AND move_id=:move_id";
+      Qry.CreateVariable( "arx_date", otDate, arx_date );
+      Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
+    }
+    else
+      Qry.SQLText =
+        "SELECT reference FROM move_ref WHERE move_id=:move_id";
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
-  TDateTime part_key = NoExists;
   if ( !Qry.Eof ) {
+  	ProgTrace( TRACE5, "part_key=%f", part_key );
   	 if ( !Qry.FieldIsNULL( "reference" ) )
   	   reference = Qry.FieldAsString( "reference" );
   	 if ( arx_date > NoExists )
   	   part_key = Qry.FieldAsDateTime( "part_key" );
+  	ProgTrace( TRACE5, "part_key=%f", part_key );
   }
   dests.clear();
   Qry.Clear();
-  if ( arx_date > NoExists ) {
+  if ( part_key > NoExists ) {
 	  Qry.SQLText =
     "SELECT point_id,point_num,first_point,airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,"
     "       scd_in,est_in,act_in,scd_out,est_out,act_out,trip_type,litera,park_in,park_out,remark,"
@@ -2465,7 +2476,7 @@ void internal_ReadDests( int move_id, TDateTime arx_date, TSOPPDests &dests, str
   Qry.CreateVariable( "move_id", otInteger, move_id );
   Qry.Execute();
   TQuery DQry(&OraSession);
-  if ( arx_date > NoExists ) {
+  if ( part_key > NoExists ) {
     DQry.SQLText = arx_trip_delays_SQL;
     DQry.CreateVariable( "part_key", otDate, part_key );
   }
@@ -2554,10 +2565,14 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 		arx_date = NodeAsDateTime( pNode ) - 3;
 	else
 		arx_date = NoExists;
+	TDateTime part_key = NoExists;
+	pNode = GetNode( "part_key", reqNode );
+	if ( pNode )
+		part_key = NodeAsDateTime( pNode );
 	NewTextChild( node, "move_id", move_id );
 	TSOPPDests dests;
 	string reference;
-	internal_ReadDests( move_id, arx_date, dests, reference );
+	internal_ReadDests( move_id, dests, reference, part_key, arx_date );
   if ( !reference.empty() )
   	NewTextChild( node, "reference", reference );
   node = NewTextChild( node, "dests" );
@@ -2845,7 +2860,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     Qry.Execute();
     //reqInfo->MsgToLog( "Изменение рейса ", evtDisp, move_id );
   }
-  TSOPPDest old_dest;
   bool ch_dests = false;
   int new_tid;
   bool init_trip_stages;
@@ -2915,6 +2929,8 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	change_est_out = false;
   	reSetCraft = false;
   	pr_change_tripinfo = false;
+    TSOPPDest old_dest;
+
 
     if ( insert_point ) {
     	ch_craft = false;
@@ -3123,7 +3139,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "     bort=:bort,scd_in=:scd_in,est_in=:est_in,act_in=:act_in,"\
        "     scd_out=:scd_out,est_out=:est_out,act_out=:act_out,trip_type=:trip_type,"\
        "     litera=:litera,park_in=:park_in,park_out=:park_out,pr_del=:pr_del,tid=:tid,"\
-       "     remark=SUBSTR(:remark,1,250),pr_reg=:pr_reg "
+       "     remark=:remark,pr_reg=:pr_reg "
        " WHERE point_id=:point_id AND move_id=:move_id ";
   	} // end update else
   	ProgTrace( TRACE5, "move_id=%d,point_id=%d,point_num=%d,first_point=%d,flt_no=%d",
@@ -3219,7 +3235,12 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	Qry.CreateVariable( "pr_del", otInteger, id->pr_del );
   	Qry.CreateVariable( "tid", otInteger, new_tid );
   	if ( !old_dest.remark.empty() )
-  		id->remark += " " + old_dest.remark;
+  		if ( !id->remark.empty() )
+  		  id->remark += " " + old_dest.remark;
+  		else
+  			id->remark = old_dest.remark;
+  	if ( id->remark.size() > 250 )
+  		id->remark = id->remark.substr( 0, 250 );
   	Qry.CreateVariable( "remark", otString, id->remark );
   	Qry.CreateVariable( "pr_reg", otInteger, id->pr_reg );
 //  	ProgTrace( TRACE5, "sqltext=%s", Qry.SQLText.SQLText() );
@@ -4061,7 +4082,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	  tripNode = node->children;
 	  int move_id = NodeAsIntegerFast( "move_id", tripNode );
     int point_id = NodeAsIntegerFast( "point_id", tripNode );
-  	internal_ReadDests( move_id, NoExists, dests, reference );
+  	internal_ReadDests( move_id, dests, reference, NoExists, NoExists );
 	  xmlNodePtr snode = GetNodeFast( "reference", tripNode );
 	  if ( snode )
 	  	reference = NodeAsString( snode );

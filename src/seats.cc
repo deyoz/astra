@@ -29,7 +29,7 @@ namespace SEATS2
 {
 
 
-const char* TSubcls_Remarks[2] = {"MCLS","SCLS"};
+const char* TSubcls_Remarks[4] = {"MCLS","SCLS","YCLS","LCLS"};
 
 const int PR_N_PLACE = 9;
 const int PR_REMPLACE = 8;
@@ -2330,6 +2330,30 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     }
     if ( airline == string( "ûí" ) && string( "ë" ) == Qry.FieldAsString( "subclass" ) ) {
   	  pass.add_rem( "SCLS" );
+    }
+    if ( airline == string( "ìç" ) &&
+         (string( "ù" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ñ" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "å" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ü" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "Ü" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ä" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "é" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ê" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "Ö" ) == Qry.FieldAsString( "subclass" ) ) ) {
+  	  pass.add_rem( "YCLS" );
+    }
+    if ( airline == string( "ìç" ) &&
+         (string( "ã" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "Ç" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ï" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "í" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ç" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "õ" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "û" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "É" ) == Qry.FieldAsString( "subclass" ) ||
+          string( "ì" ) == Qry.FieldAsString( "subclass" ) ) ) {
+  	  pass.add_rem( "LCLS" );
     }
     if ( pass.grp_status == cltTCheckin ) {
     	ProgTrace( TRACE5, "grp_id=%d", pass.grpId );

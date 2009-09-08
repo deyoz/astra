@@ -2483,51 +2483,65 @@ void ParseRemarks(TTlgParser &tlg, TPnrItem &pnr, TNameElement &ne)
         pos=string::npos;
     };
 
-    if (pos==string::npos)
+    pr_parse=false;
+    if (pos!=string::npos)
     {
-      //не нашли ссылку на пассажира
-      iRemItem++;
-      continue;
-    };
-
-    pr_parse=true;
-    for(vector<string>::iterator i=names.begin();i!=names.end();i++)
-    {
-      if (i!=names.begin())
+      pr_parse=true;
+      for(vector<string>::iterator i=names.begin();i!=names.end();i++)
       {
-        for(k=0;k<=1;k++)
+        if (i!=names.begin())
         {
-          for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
+          for(k=0;k<=1;k++)
           {
-            if (k==0&&iPaxItem->name!=*i||
-                k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i)) continue;
-            if (iPaxItem->rem.empty())
+            for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
             {
-              iPaxItem->rem.push_back(TRemItem());
-              break;
-            }
-            else
-            {
-              TRemItem& RemItem=iPaxItem->rem.back();
-              if (RemItem.text.empty()) continue;
-              else
+              if (k==0&&iPaxItem->name!=*i||
+                  k!=0&&OnlyAlphaInLexeme(iPaxItem->name)!=OnlyAlphaInLexeme(*i)) continue;
+              if (iPaxItem->rem.empty())
               {
                 iPaxItem->rem.push_back(TRemItem());
                 break;
+              }
+              else
+              {
+                TRemItem& RemItem=iPaxItem->rem.back();
+                if (RemItem.text.empty()) continue;
+                else
+                {
+                  iPaxItem->rem.push_back(TRemItem());
+                  break;
+                };
               };
             };
+            if (iPaxItem!=ne.pax.end()) break;
           };
-          if (iPaxItem!=ne.pax.end()) break;
-        };
-        if (k>1&&iPaxItem==ne.pax.end())
-        {
-          pr_parse=false;
-          break;
+          if (k>1&&iPaxItem==ne.pax.end())
+          {
+            pr_parse=false;
+            break;
+          };
         };
       };
-    };
 
-    if (pr_parse) iRemItem->text.erase(pos); //убрать окончание ремарки после -
+      if (pr_parse) iRemItem->text.erase(pos); //убрать окончание ремарки после -
+    }
+    else
+    {
+      //не нашли ссылку на пассажира
+      if (ne.pax.size()!=1)
+      {
+        iRemItem++;
+        continue;
+      };
+
+      iPaxItem=ne.pax.begin();
+      if (iPaxItem->rem.empty() ||
+          !iPaxItem->rem.back().text.empty())
+      {
+        iPaxItem->rem.push_back(TRemItem());
+      };
+      pr_parse=true;
+    };
 
     for(iPaxItem=ne.pax.begin();iPaxItem!=ne.pax.end();iPaxItem++)
     {

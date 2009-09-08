@@ -1109,6 +1109,11 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	bool res;
   	try {
   	  res = FilterFlightDate( *tr, UTCNow, UTCNow + CREATE_SPP_DAYS() + 1, /*true,*/ errcity, false ); // фильтр по датам прилета-вылета рейса
+  	  if ( res ) {
+ 	  		if ( !tr->places_in.empty() && getPNR( tr->airline_in, tr->airline_in_fmt, tr->flt_no_in, tr->suffix_in, tr->suffix_in_fmt ).size() > 7 ||
+ 	  			   !tr->places_out.empty() && getPNR( tr->airline_out, tr->airline_out_fmt, tr->flt_no_out, tr->suffix_out, tr->suffix_out_fmt ).size() > 7 )
+ 	  			res = false;
+  	  }
   	}
   	catch(...) {
   		res = false;
@@ -1181,8 +1186,10 @@ bool createSPPCEKFile( int point_id, const string &point_addr, TFileDatas &fds )
   	else
   		scd_out = Qry.FieldAsDateTime( "scd_out" );
   }
-  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_in, "dd" ), true ); // на прилет
-  createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_out, "dd" ), false ); // на вылет
+  if ( scd_in > NoExists )
+    createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_in, "dd" ), true ); // на прилет
+  if ( scd_out > NoExists )
+   createDBF( sqldoc, old_doc, doc, DateTimeToStr( scd_out, "dd" ), false ); // на вылет
 
   string sres;
   if ( sqldoc ) { // CP-866

@@ -430,6 +430,22 @@ void TCacheTable::buildAnswer(xmlNodePtr resNode)
     NewTextChild(dataNode, "Forbidden", Forbidden);
     NewTextChild(dataNode, "ReadOnly", ReadOnly);
     NewTextChild( dataNode, "Keep_Locally", Keep_Locally );
+    vector<string> sql_vars;
+    bool user_depend = false;
+    if (!user_depend)
+    {
+      FindVariables(SelectSQL, false, sql_vars);
+      if ( find( sql_vars.begin(), sql_vars.end(), "SYS_USER_ID" ) != sql_vars.end() )
+        user_depend = true;
+    };
+    if (!user_depend)
+    {
+      FindVariables(RefreshSQL, false, sql_vars);
+      if ( find( sql_vars.begin(), sql_vars.end(), "SYS_USER_ID" ) != sql_vars.end() )
+        user_depend = true;
+    };
+    NewTextChild( dataNode, "user_depend", (int)user_depend );
+
     if(pr_irefresh)
         XMLInterface(dataNode);
     if(pr_drefresh)
@@ -1062,7 +1078,7 @@ void CacheInterface::LoadCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1081,7 +1097,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
   showMessage( "Изменения успешно сохранены" );
-  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 
 void CacheInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

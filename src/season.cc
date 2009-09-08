@@ -2444,7 +2444,7 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
   string crafts, craft_format;
   vector<TDest> vecportsFrom, vecportsTo;
   int i=0;
-  ProgTrace( TRACE5, "createAirporttrip trip_id=%d, trips.size()=%d", trip_id, (int)ds.trips.size() );
+//  ProgTrace( TRACE5, "createAirporttrip trip_id=%d, trips.size()=%d", trip_id, (int)ds.trips.size() );
   do {
     NDest = &ds.dests[ i ];
     craft_format = ElemIdToElemCtxt( ecDisp, etCraft, NDest->craft, NDest->craft_fmt );

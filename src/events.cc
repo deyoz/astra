@@ -21,7 +21,8 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
-    xmlNodePtr arx_date = ( GetNode( "arx_date", reqNode ) );
+    xmlNodePtr arx_date = GetNode( "arx_date", reqNode ); // old version 02.07.2009
+    xmlNodePtr node_part_key = GetNode( "part_key", reqNode );
     xmlNodePtr etNode = GetNode( "EventsTypes", reqNode );
     vector<string> eventsTypes;
     if ( etNode ) {
@@ -37,31 +38,39 @@ void EventsInterface::GetEvents(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     int move_id = NoExists;
     TDateTime part_key = NoExists;
     if ( find( eventsTypes.begin(), eventsTypes.end(), EncodeEventType(ASTRA::evtDisp) ) != eventsTypes.end() ) {
-    	if ( arx_date ) {
-        Qry.SQLText=
-         "SELECT move_id, part_key FROM arx_points "
-         " WHERE part_key>=:arx_date AND part_key<=:arx_date+:arx_trip_date_range AND "
-         "       point_id=:point_id AND pr_del>=0";
-  	    modf( (double)NodeAsDateTime( arx_date ), &f );
-  	    f=f-2;
-        Qry.CreateVariable( "arx_date", otDate, f );
-        Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
+    	if ( node_part_key ) {
+    		tst();
+    		Qry.SQLText=
+    		  "SELECT move_id, part_key FROM arx_points "
+    		  " WHERE part_key=:part_key AND point_id=:point_id AND pr_del>=0";
+    	  Qry.CreateVariable( "part_key", otDate, NodeAsDateTime( node_part_key ) );
     	}
-    	else {
-        Qry.SQLText="SELECT move_id FROM points WHERE point_id=:point_id AND pr_del>=0";
-    	}
+    	else
+    	  if ( arx_date ) {// old version 02.07.2009
+          Qry.SQLText=
+           "SELECT move_id, part_key FROM arx_points "
+           " WHERE part_key>=:arx_date AND part_key<=:arx_date+:arx_trip_date_range AND "
+           "       point_id=:point_id AND pr_del>=0";
+  	      modf( (double)NodeAsDateTime( arx_date ), &f );
+  	      f=f-2;
+          Qry.CreateVariable( "arx_date", otDate, f );
+          Qry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range);
+      	}
+    	  else {
+          Qry.SQLText="SELECT move_id FROM points WHERE point_id=:point_id AND pr_del>=0";
+    	  }
       Qry.CreateVariable( "point_id", otInteger, point_id );
       Qry.Execute();
       if ( Qry.RowCount() )
       {
       	move_id = Qry.FieldAsInteger( "move_id" );
-      	if ( arx_date )
+      	if ( arx_date || node_part_key )
       	  part_key = Qry.FieldAsDateTime( "part_key" );
       };
     }
 
     Qry.Clear();
-    if ( arx_date ) {
+    if ( part_key > NoExists ) {
       Qry.SQLText =
           "SELECT arx_events.type type, msg, time, id2 AS point_id, "
           "       DECODE(type,:evtPax,id2,:evtPay,id2,-1) AS reg_no, "

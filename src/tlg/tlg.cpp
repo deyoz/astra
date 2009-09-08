@@ -320,9 +320,9 @@ void sendCmd(const char* receiver, const char* cmd)
 bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
 {
   if (receiver==NULL || *receiver==0)
-    throw EXCEPTIONS::Exception( "sendCmd: receiver not defined");
+    throw EXCEPTIONS::Exception( "waitCmd: receiver not defined");
   if (buf==NULL || buflen <= 1 )
-    throw EXCEPTIONS::Exception( "sendCmd: buf not defined");
+    throw EXCEPTIONS::Exception( "waitCmd: buf not defined");
   static map<string,int> sockfds;
 
   int sockfd;
@@ -332,6 +332,7 @@ bool waitCmd(const char* receiver, int secs, const char* buf, int buflen)
       throw EXCEPTIONS::Exception("waitCmd: 'socket' error %d: %s",errno,strerror(errno));
     try
     {
+      ProgTrace(TRACE5, "waitCmd: receiver=%s sockfd=%d",receiver,sockfd);
       struct sockaddr_un sock_addr;
       memset(&sock_addr,0,sizeof(sock_addr));
       sock_addr.sun_family=AF_UNIX;
