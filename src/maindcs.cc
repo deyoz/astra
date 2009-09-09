@@ -436,7 +436,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
       SetProp( pNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
-      if (reqInfo->desk.version==UNKNOWN_VERSION)
+      if (reqInfo->desk.version.empty() ||
+          reqInfo->desk.version==UNKNOWN_VERSION)
         NewTextChild( newoperNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
 
       SessParamsQry.SetVariable("dev_model",dev_model);
