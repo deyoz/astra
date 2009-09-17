@@ -306,10 +306,6 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.first_point ";
 
   vector<int> &rights=info.user.access.rights;
-  if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
-       info.user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end()) // система информирования
-    sql+=",start_time ";
 
   sql+=
     "FROM " + p.sqlfrom;
@@ -673,13 +669,21 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   {
     NewTextChild( node, "craft_stage", tripStages.getStage( stCraft ) );
   };
-  vector<int> &rights=reqInfo->user.access.rights;
-  if ((reqInfo->screen.name == "BRDBUS.EXE" || reqInfo->screen.name == "AIR.EXE") &&
-       reqInfo->user.user_type==utAirport &&
-       find(rights.begin(),rights.end(),335)==rights.end()) { // система информирования
-    NewTextChild( node, "start_check_info", (int)!Qry.FieldIsNULL( "start_time" ) );
-  }
 
+  if (reqInfo->screen.name == "AIR.EXE" && reqInfo->desk.airp == "ВНК")
+  {
+    TQuery Qryh( &OraSession );
+    Qryh.Clear();
+    Qryh.SQLText=
+      "SELECT start_time FROM trip_stations "
+      "WHERE point_id=:point_id AND desk=:desk AND work_mode=:work_mode";
+    Qryh.CreateVariable( "point_id", otInteger, point_id );
+    Qryh.CreateVariable( "desk", otString, reqInfo->desk.code );
+    Qryh.CreateVariable( "work_mode", otString, "Р" );
+    Qryh.Execute();
+    if (!Qryh.Eof)
+      NewTextChild( node, "start_check_info", (int)!Qryh.FieldIsNULL( "start_time" ) );
+  };
 
   if (reqInfo->screen.name == "AIR.EXE" ||
       reqInfo->screen.name == "BRDBUS.EXE" ||
