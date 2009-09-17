@@ -133,7 +133,7 @@ class TUser {
 class TDesk {
   public:
     std::string code;
-    std::string city;
+    std::string city,airp,airline;
     std::string tz_region;
     std::string lang;
     std::string version;
@@ -148,6 +148,8 @@ class TDesk {
     {
       code.clear();
       city.clear();
+      airp.clear();
+      airline.clear();
       tz_region.clear();
       lang.clear();
       version.clear();
