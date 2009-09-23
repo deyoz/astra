@@ -305,8 +305,8 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
 
     string airline_name;
     if(airline.size()) {
-      airline = base_tables.get("AIRLINES").get_row("code",airline).AsString("code",pr_lat);
       TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
+      airline = airlineRow.AsString("code",pr_lat);
       airline_name = airlineRow.AsString("name", pr_lat);
     }
 
