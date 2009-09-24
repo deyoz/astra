@@ -44,10 +44,14 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
           ) {
             if(cache.FieldOldValue("version", row) == "0")
                 throw UserException("Редактирование версии 0 запрещено.");
-            if(cache.FieldOldValue("read_only", row) == cache.FieldValue("read_only", row) and
-                    cache.FieldOldValue("read_only", row) == "0")
-                throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
+            int tst = 0;
+            if(row.status == usModified)
+                if(cache.FieldOldValue("read_only", row) == cache.FieldValue("read_only", row) and
+                        cache.FieldOldValue("read_only", row) == "0")
+                    throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
             if(row.status == usDeleted) {
+                if(cache.FieldOldValue("read_only", row) == "0")
+                    throw UserException("Редактирование версии " + cache.FieldOldValue("version", row) + " запрещено.");
                 TQuery Qry(&OraSession);
                 Qry.SQLText =
                     "select * from bp_models where id = :id and version = :version";
