@@ -53,8 +53,6 @@ void TPrnParams::get_prn_params(xmlNodePtr reqNode)
             top = NodeAsIntegerFast("top", currNode);
             if(pr_lat == NoExists)
                 pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
-        } else {
-            encoding = NodeAsString("encoding", reqNode);
         }
     }
 }
