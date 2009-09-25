@@ -2,10 +2,11 @@
 #define _DEV_UTILS_H_
 
 #include "dev_consts.h"
+#include <string>
 
-ASTRA::TDevOperType DecodeDevOperType(const char *s);
-ASTRA::TDevFmtType DecodeDevFmtType(const char *s);
-char* EncodeDevOperType(ASTRA::TDevOperType s);
-char* EncodeDevFmtType(ASTRA::TDevFmtType s);
+ASTRA::TDevOperType DecodeDevOperType(std::string s);
+ASTRA::TDevFmtType DecodeDevFmtType(std::string s);
+std::string EncodeDevOperType(ASTRA::TDevOperType s);
+std::string EncodeDevFmtType(ASTRA::TDevFmtType s);
 
 #endif
