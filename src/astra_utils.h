@@ -49,6 +49,7 @@ enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
 //  fmt=4 код ISO
 std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_deleted=false);
 std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
+std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
                               int &fmt, bool hard_verify, bool with_deleted=false);

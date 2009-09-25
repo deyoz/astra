@@ -2655,13 +2655,14 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    ProgTrace(TRACE5, "CHECK!!!");
     NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt) +
+            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
             IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt)
+            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt));
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -3062,12 +3063,12 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
     NewTextChild(variablesNode, "flt",
-            ElemIdToElem(etAirline, airline, airline_fmt) +
+            ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
             IntToString(flt_no) +
-            ElemIdToElem(etSuffix, suffix, suffix_fmt)
+            ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt));
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
@@ -3159,7 +3160,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
         "SELECT point_dep AS point_id, "
         "       reg_no, "
         "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
-        "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
+        "       pers_types.code pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bagAmount, "
         "       ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bagWeight, "
