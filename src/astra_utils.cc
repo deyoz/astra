@@ -173,11 +173,11 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     if (!checkUserLogon )
      	return;
     else
-      throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
+      throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
   };
   if ( !vopr.empty() )
     if ( vopr != Qry.FieldAsString( "login" ) )
-      throw UserException( "Пользователю необходимо войти в систему с данного пульта. Используйте главный модуль." );
+      throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
   	throw UserException( "Пользователь удален из системы" );
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
@@ -1487,6 +1487,15 @@ string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
     else if(fmt == 1)
         result = code_lat;
     return result;
+}
+
+string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_deleted)
+{
+    if(only_lat) {
+        if(fmt == 0) fmt = 1;
+        if(fmt == 2) fmt = 3;
+    }
+    return ElemIdToElem(type, id, fmt, with_deleted);
 }
 
 string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
