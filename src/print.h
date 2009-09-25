@@ -59,7 +59,7 @@ typedef enum {
 } TPrnType;
 
 namespace to_esc {
-    void convert(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
+    void convert(std::string &mso_form, TPrnType prn_type);
     void convert_dmx(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
 }
 
