@@ -31,6 +31,34 @@ const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
+struct TPrnParams {
+    string encoding;
+    int offset, top, pr_lat;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+};
+
+void TPrnParams::get_prn_params(xmlNodePtr reqNode)
+{
+    encoding = "CP866";
+    offset = 20;
+    top = 0;
+    xmlNodePtr currNode = reqNode->children;
+    pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
+    if(reqNode) {
+        xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
+        if(prnParamsNode) {
+            currNode = prnParamsNode->children;
+            encoding = NodeAsStringFast("encoding", currNode);
+            offset = NodeAsIntegerFast("offset", currNode);
+            top = NodeAsIntegerFast("top", currNode);
+            if(pr_lat == NoExists)
+                pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
+        } else {
+            encoding = NodeAsString("encoding", reqNode);
+        }
+    }
+}
+
 namespace to_esc {
     struct TConvertParams {
         private:
@@ -42,9 +70,7 @@ namespace to_esc {
             string AsString(string name);
         public:
             double x_modif, y_modif;
-            string encoding;
-            int offset, top;
-            TConvertParams(): Qry(&OraSession), x_modif(0), y_modif(0), offset(NoExists), top(NoExists)
+            TConvertParams(): Qry(&OraSession), x_modif(0), y_modif(0)
             {
                 Qry.SQLText =
                     "select "
@@ -64,8 +90,14 @@ namespace to_esc {
                 Qry.DeclareVariable("param_name", otString);
                 Qry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
             };
-            void init(TPrnType t, xmlNodePtr reqNode); // !!! Старый терминал
+            void init(TPrnType t); // Старый терминал
             void init(string dev_model);
+            void dump()
+            {
+                ProgTrace(TRACE5, "TConvertParams::dump()");
+                ProgTrace(TRACE5, "x_modif: %.2f", x_modif);
+                ProgTrace(TRACE5, "y_modif: %.2f", y_modif);
+            }
     };
 
     void TConvertParams::Exec(string name)
@@ -100,19 +132,10 @@ namespace to_esc {
         ProgTrace(TRACE5, "TConvertParams::init");
         this->dev_model = dev_model;
         x_modif = AsFloat("x_modif");
-        x_modif = AsFloat("y_modif");
-        encoding = AsString("encoding");
-        offset = AsInteger("offset");
-        top = AsInteger("top");
+        y_modif = AsFloat("y_modif");
     }
 
-    struct TPrnParams { // !!!  Старый терминал
-        string encoding;
-        int offset, top;
-        void get_prn_params(xmlNodePtr prnParamsNode);
-    };
-
-    void TConvertParams::init(TPrnType prn_type, xmlNodePtr reqNode)
+    void TConvertParams::init(TPrnType prn_type)
     {
         switch(prn_type) {
             case ptOLIVETTI:
@@ -130,28 +153,6 @@ namespace to_esc {
                 break;
             default:
                 throw Exception("to_esc::TConvertParams::init: unknown prn_type " + IntToString(prn_type));
-        }
-        TPrnParams prnParams;
-        prnParams.get_prn_params(reqNode);
-        encoding = prnParams.encoding;
-        offset = prnParams.offset;
-        top = prnParams.top;
-    }
-
-    void TPrnParams::get_prn_params(xmlNodePtr reqNode)
-    {
-        encoding = "CP866";
-        offset = 20;
-        top = 0;
-        if(reqNode) {
-            xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
-            if(prnParamsNode) {
-                encoding = NodeAsString("encoding", prnParamsNode);
-                offset = NodeAsInteger("offset", prnParamsNode);
-                top = NodeAsInteger("top", prnParamsNode);
-            } else {
-                encoding = NodeAsString("encoding", reqNode);
-            }
         }
     }
 
@@ -381,7 +382,7 @@ namespace to_esc {
         }
     }
 
-    void convert(string &mso_form, const TConvertParams &ConvertParams)
+    void convert(string &mso_form, const TConvertParams &ConvertParams, const TPrnParams &prnParams)
     {
         char Mode = 'S';
         TFields fields;
@@ -389,14 +390,14 @@ namespace to_esc {
         int x, y, font, prnParamsOffset, prnParamsTop;
 
         try {
-            mso_form = ConvertCodepage( mso_form, "CP866", ConvertParams.encoding );
+            mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
         } catch(EConvertError &E) {
             ProgError(STDLOG, E.what());
-            throw UserException("Ошибка конвертации в %s", ConvertParams.encoding.c_str());
+            throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
         }
 
-        prnParamsOffset = 20 - ConvertParams.offset;
-        prnParamsTop = ConvertParams.top;
+        prnParamsOffset = 20 - prnParams.offset;
+        prnParamsTop = prnParams.top;
         if(prnParamsOffset < 0)
             prnParamsOffset = 0;
         TField field;
@@ -3515,9 +3516,11 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
     string dev_model = NodeAsStringFast("dev_model", currNode, "");
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
-    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
     if(prn_type == NoExists and dev_model.empty())
         previewDeviceSets(false, "Не выбрано устройство для печати");
+
+    TPrnParams prnParams;
+    prnParams.get_prn_params(reqNode);
 
     TQuery Qry(&OraSession);
     if(dev_model.empty()) {
@@ -3571,10 +3574,10 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     mso_form = parser.parse(mso_form);
     to_esc::TConvertParams ConvertParams;
     if ( dev_model.empty() )
-        ConvertParams.init(TPrnType(prn_type), reqNode); // !!! Старый терминал
+        ConvertParams.init(TPrnType(prn_type)); // !!! Старый терминал
     else
         ConvertParams.init(dev_model);
-    to_esc::convert(mso_form, ConvertParams);
+    to_esc::convert(mso_form, ConvertParams, prnParams);
     Print = b64_encode(mso_form.c_str(), mso_form.size());
 }
 
@@ -3708,7 +3711,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
     string dev_model = NodeAsStringFast("dev_model", currNode, "");
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
-    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
+    TPrnParams prnParams;
+    prnParams.get_prn_params(reqNode);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
     if(prn_type == NoExists and dev_model.empty())
       previewDeviceSets(false, "Не выбрано устройство для печати");
@@ -3872,7 +3876,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
-        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, pr_lat), clientDataNode );
+        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, prnParams.pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id) {
@@ -3884,10 +3888,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(DecodeDevFmtType(fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             if ( dev_model.empty() )
-                ConvertParams.init(TPrnType(prn_type), NULL); // !!! Старый терминал
+                ConvertParams.init(TPrnType(prn_type)); // !!! Старый терминал
             else
                 ConvertParams.init(dev_model);
-            to_esc::convert(prn_form, ConvertParams);
+            to_esc::convert(prn_form, ConvertParams, prnParams);
             prn_form = b64_encode(prn_form.c_str(), prn_form.size());
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {

@@ -58,11 +58,6 @@ typedef enum {
     ptDATAMAXCOM
 } TPrnType;
 
-namespace to_esc {
-    void convert(std::string &mso_form, TPrnType prn_type);
-    void convert_dmx(std::string &mso_form, TPrnType prn_type, xmlNodePtr reqNode = NULL);
-}
-
 //////////////////////////////// CLASS PrintDataParser ///////////////////////////////////
 
 class PrintDataParser {
