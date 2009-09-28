@@ -807,14 +807,16 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Clear();
     string qry1, qry2;
     int move_id = 0;
+    string airline;
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from points where point_id = :point_id";
+            Qry.SQLText = "select move_id, airline from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
             move_id = Qry.FieldAsInteger("move_id");
+            airline = Qry.FieldAsString("airline");
         }
         ProgTrace(TRACE5, "FltLogRun: work base qry");
         qry1 =
@@ -843,13 +845,14 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         {
             TQuery Qry(&OraSession);
             Qry.SQLText =
-              "select move_id from arx_points "
+              "select move_id, airline from arx_points "
               "where part_key = :part_key and point_id = :point_id and pr_del>=0";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс не найден");
             move_id = Qry.FieldAsInteger("move_id");
+            airline = Qry.FieldAsString("airline");
         }
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
         qry1 =
@@ -877,7 +880,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "      arx_events.type IN (:evtDisp) AND "
             "      arx_events.id1=:move_id  ";
     }
-
+    NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
     tm.Init();
@@ -1041,7 +1044,10 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SetProp(colNode, "align", taLeftJustify);
 
     Qry.Clear();
+    TQuery AirlineQry(&OraSession);
+    AirlineQry.CreateVariable("point_id", otInteger, point_id);
     if (part_key == NoExists) {
+        AirlineQry.SQLText = "select airline from points where point_id = :point_id";
         ProgTrace(TRACE5, "LogRun: work base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -1053,6 +1059,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
     } else {
+        AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
+        AirlineQry.CreateVariable("part_key", otDate, part_key);
         ProgTrace(TRACE5, "LogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -1092,6 +1100,11 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         if(Qry.Eof)
             throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
     }
+
+    AirlineQry.Execute();
+    if(AirlineQry.Eof)
+        throw Exception("Cannot fetch airline");
+    NewTextChild(resNode, "airline", AirlineQry.FieldAsString("airline"));
 
     if(!Qry.Eof) {
         int col_point_id=Qry.FieldIndex("point_id");
