@@ -2466,6 +2466,32 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
     };
 }
 
+struct TPrintAirline {
+    private:
+        string val;
+        bool multi_airlines;
+    public:
+        TPrintAirline(): multi_airlines(false) {};
+        void check(string val);
+        string get();
+};
+
+string TPrintAirline::get()
+{
+    if(multi_airlines)
+        return "";
+    else
+        return val;
+}
+
+void TPrintAirline::check(string val)
+{
+    if(this->val.empty())
+        this->val = val;
+    else if(this->val != val)
+        multi_airlines = true;
+}
+
 void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -2485,6 +2511,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statTrferFull,params,i!=0).c_str();
@@ -2514,9 +2541,11 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if(!params.ap.empty()) {
                     key.col1 = Qry.FieldAsString(col_airp);
                     key.col2 = Qry.FieldAsString(col_airline);
+                    airline.check(key.col2);
                 } else {
                     key.col1 = Qry.FieldAsString(col_airline);
                     key.col2 = Qry.FieldAsString(col_airp);
+                    airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
@@ -2547,6 +2576,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!FullStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -2706,6 +2736,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
@@ -2735,9 +2766,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if(!params.ap.empty()) {
                     key.col1 = Qry.FieldAsString(col_airp);
                     key.col2 = Qry.FieldAsString(col_airline);
+                    airline.check(key.col2);
                 } else {
                     key.col1 = Qry.FieldAsString(col_airline);
                     key.col2 = Qry.FieldAsString(col_airp);
+                    airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
@@ -2768,6 +2801,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!FullStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -2953,6 +2987,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     TStatParams params;
     params.get(Qry, reqNode);
+    TPrintAirline airline;
 
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
@@ -2962,12 +2997,14 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statShort,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TShortStatKey key;
             key.seance = Qry.FieldAsString(0);
             key.col1 = Qry.FieldAsString(1);
+            if(params.ap.empty())
+                airline.check(key.col1);
             TShortStatRow &row = ShortStat[key];
             if(row.flt_amount == NoExists) {
                 row.flt_amount = Qry.FieldAsInteger("flt_amount");
@@ -2979,6 +3016,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
     }
     if(!ShortStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -3059,6 +3097,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
     TDetailStat DetailStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statDetail,params,i!=0).c_str();
@@ -3072,9 +3111,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             if(!params.ap.empty()) {
                 key.col1 = Qry.FieldAsString("airp");
                 key.col2 = Qry.FieldAsString("airline");
+                airline.check(key.col2);
             } else {
                 key.col1 = Qry.FieldAsString("airline");
                 key.col2 = Qry.FieldAsString("airp");
+                airline.check(key.col1);
             }
             TShortStatRow &row = DetailStat[key];
             if(row.flt_amount == NoExists) {
@@ -3088,6 +3129,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!DetailStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
