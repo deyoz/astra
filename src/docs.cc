@@ -2209,7 +2209,11 @@ void get_report_form(const string name, xmlNodePtr node)
 {
     string form;
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select form from fr_forms where name = :name";
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        Qry.SQLText = "select form from fr_forms2 where name = :name";
+    else
+        Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
     if(Qry.Eof) {
