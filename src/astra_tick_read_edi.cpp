@@ -434,11 +434,6 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
 
     unsigned numTKT=0;
     numTKT = GetNumSegGr(pMes, 4, "INV_TUCKNUM");
-    if(numTKT>4){ // с учетом раздвоения
-        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum",
-                               numTKT);
-        throw Exception("Invalid number of conjunction tickets, 4 maximum");
-    }
     for(unsigned short itick=0; itick<numTKT; itick++){
         SetEdiPointToSegGrG(pMes, 4, itick, "PROG_ERR");
 
@@ -454,34 +449,30 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
             throw Exception("Invalid document type");
         }
         //Общее кол-во билетов на пассажира (до 4х)
-        unsigned Nbooklets = GetDBNumCast <unsigned> (EdiDigitCast<unsigned>("INV_COUPON"), pMes, 7240);
-        if(!Nbooklets)
-            Nbooklets = numTKT;
-        if(Nbooklets!=numTKT){
-            //Странное кол-во купонов
-            ProgError(STDLOG,"Invalid number of booklets in TKT (%d). "
-                    "Different from total number of conjunction tickets (%d)",
-                    Nbooklets, numTKT);
-            throw Exception("Invalid number of booklets in TKT");
-        }
         TickStatAction::TickStatAction_t tick_act_code =
                 GetDBNumCast<TickStatAction::TickStatAction_t>
                 (EdiCast::TickActCast("INV_TICK_ACT"), pMes, 9988);
         PopEdiPointG(pMes);
+        if(tick_act_code == TickStatAction::newtick)
+        {
+            // Далее пошли по внутренностям...
 
-        // Далее пошли по внутренностям...
+            std::list<Coupon> lCpn;
+            Data.setTickNum( make_pair(ticknum, tick_act_code) );
+            cpnRead(Data, lCpn);
 
-        std::list<Coupon> lCpn;
-        Data.setTickNum( make_pair(ticknum, tick_act_code) );
-        cpnRead(Data, lCpn);
-
-        ltick.push_back(Ticket(ticknum, tick_act_code, itick+1, lCpn));
+            ltick.push_back(Ticket(ticknum, tick_act_code, itick+1, lCpn));
+        }
         PopEdiPoint_wdG(pMes);
     }
 
-    ResetEdiPointG(pMes);
-    //CheckNumberOfUnits(pMes, ltick);
+    if(ltick.size() > 4 || ltick.size() == 0)
+    {
+        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum", ltick.size());
+        throw Exception("Invalid number of conjunction tickets, 4 maximum");
+    }
 
+    ResetEdiPointG(pMes);
     PopEdiPointG(pMes);
 }
 
