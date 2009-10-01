@@ -3290,7 +3290,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
-            if(tag_key.fmt_type == "DATAMAX") {
+            if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
                 to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
                   reqInfo->desk.version==UNKNOWN_VERSION)
@@ -3304,7 +3304,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
-            if(tag_key.fmt_type == "DATAMAX") {
+            if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
                 to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
                   reqInfo->desk.version==UNKNOWN_VERSION)
@@ -3804,7 +3804,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data")||
-            Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB")
+            Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
       )
         previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
     string form = Qry.FieldAsString("form");

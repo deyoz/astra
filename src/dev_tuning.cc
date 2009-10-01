@@ -10,6 +10,7 @@
 #include "print.h"
 #include "cache.h"
 #include "jxtlib/xml_stuff.h"
+#include "dev_utils.h"
 
 #define NICKNAME "DEN"
 #include "serverlib/test.h"
@@ -44,7 +45,6 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
           ) {
             if(cache.FieldOldValue("version", row) == "0")
                 throw UserException("Редактирование версии 0 запрещено.");
-            int tst = 0;
             if(row.status == usModified)
                 if(cache.FieldOldValue("read_only", row) == cache.FieldValue("read_only", row) and
                         cache.FieldOldValue("read_only", row) == "0")
@@ -1376,14 +1376,19 @@ void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     string op_type = NodeAsString("op_type", reqNode);
     TFormTypes *form_types = NULL;
     try {
-        if(op_type == "PRINT_BP") {
-            form_types = new TBPTypes;
-        } else if(op_type == "PRINT_BT") {
-            form_types = new TTagTypes;
-        } else if(op_type == "PRINT_BR") {
-            form_types = new TBRTypes;
-        } else
-            throw Exception("Unknown type: %s", op_type.c_str());
+        switch(DecodeDevOperType(op_type)) {
+            case dotPrnBP:
+                form_types = new TBPTypes;
+                break;
+            case dotPrnBT:
+                form_types = new TTagTypes;
+                break;
+            case dotPrnBR:
+                form_types = new TBRTypes;
+                break;
+            default:
+                throw Exception("Unknown type: %s", op_type.c_str());
+        }
         xmlNodePtr currNode = NodeAsNode("types", reqNode);
         currNode = currNode->children;
         for(; currNode; currNode = currNode->next)
@@ -1404,14 +1409,19 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     string op_type = NodeAsString("op_type", reqNode);
     TFormTypes *form_types = NULL;
     try {
-        if(op_type == "PRINT_BP") {
-            form_types = new TBPTypes;
-        } else if(op_type == "PRINT_BT") {
-            form_types = new TTagTypes;
-        } else if(op_type == "PRINT_BR") {
-            form_types = new TBRTypes;
-        } else
-            throw Exception("Unknown type: %s", op_type.c_str());
+        switch(DecodeDevOperType(op_type)) {
+            case dotPrnBP:
+                form_types = new TBPTypes;
+                break;
+            case dotPrnBT:
+                form_types = new TTagTypes;
+                break;
+            case dotPrnBR:
+                form_types = new TBRTypes;
+                break;
+            default:
+                throw Exception("Unknown type: %s", op_type.c_str());
+        }
         form_types->add(reqNode);
         form_types->PrnFormsToBase();
         xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
