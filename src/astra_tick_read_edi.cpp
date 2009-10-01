@@ -453,7 +453,7 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
                 GetDBNumCast<TickStatAction::TickStatAction_t>
                 (EdiCast::TickActCast("INV_TICK_ACT"), pMes, 9988);
         PopEdiPointG(pMes);
-        if(tick_act_code == newtick)
+        if(tick_act_code == TickStatAction::newtick)
         {
             // Далее пошли по внутренностям...
 
@@ -465,11 +465,11 @@ void TicketEdiR::operator () (ReaderData &RData, list<Ticket> &ltick,
         }
         PopEdiPoint_wdG(pMes);
     }
-    
+
     if(ltick.size() > 4 || ltick.size() == 0)
     {
-        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum", ltick);                                           
-        throw Exception("Invalid number of conjunction tickets, 4 maximum");      
+        ProgError(STDLOG, "Invalid number of conjunction tickets (%d), 4 maximum", ltick.size());
+        throw Exception("Invalid number of conjunction tickets, 4 maximum");
     }
 
     ResetEdiPointG(pMes);
