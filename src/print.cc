@@ -3327,7 +3327,12 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
+    if(tag_key.pr_lat == NoExists) {
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+        tag_key.pr_lat = prnParams.pr_lat;
+    }
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
@@ -3344,7 +3349,12 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
+    if(tag_key.pr_lat == NoExists) {
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+        tag_key.pr_lat = prnParams.pr_lat;
+    }
     if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
       previewDeviceSets(false, "Не выбрано устройство для печати");
     GetPrintDataBT(dataNode, tag_key);
