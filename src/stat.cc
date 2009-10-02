@@ -755,6 +755,10 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 650 ) == reqInfo->user.access.rights.end())
+        throw UserException("Нет прав для просмотра журнала операций рейса");
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     TDateTime part_key;
@@ -771,7 +775,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
-    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     int count = 0;
 
@@ -845,8 +848,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         {
             TQuery Qry(&OraSession);
             Qry.SQLText =
-              "select move_id, airline from arx_points "
-              "where part_key = :part_key and point_id = :point_id and pr_del>=0";
+                "select move_id, airline from arx_points "
+                "where part_key = :part_key and point_id = :point_id and pr_del>=0";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
@@ -1163,6 +1166,10 @@ typedef struct {
 
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
+        throw UserException("Нет прав для просмотра операций в системе");
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_report_form("ArxPaxLog", resNode);
@@ -1171,7 +1178,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
-    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.SQLText = "select exe from screen where name = :module";
     Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
@@ -1477,6 +1483,9 @@ void THalls::Init()
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if(find( info.user.access.rights.begin(),
+                info.user.access.rights.end(), 630 ) == info.user.access.rights.end())
+        throw UserException("Нет прав для просмотра списка пассажиров");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Не найдено ни одного пассажира");
@@ -2139,12 +2148,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
 {
     TReqInfo &info = *(TReqInfo::Instance());
 
-    bool right_615 = find( info.user.access.rights.begin(),
+    bool all_seances = find( info.user.access.rights.begin(),
             info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
     bool pr_all_seances =
         info.user.user_type == utSupport or
-        info.user.user_type == utAirport and right_615 or
-        info.user.user_type == utAirline and right_615;
+        info.user.user_type == utAirport and all_seances or
+        info.user.user_type == utAirline and all_seances;
 
     if (!pr_arx)
     {
@@ -3216,6 +3225,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if(find( info.user.access.rights.begin(),
+                info.user.access.rights.end(), 620 ) == info.user.access.rights.end())
+        throw UserException("Нет прав для поиска пассажиров");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Не найдено ни одного пассажира");
