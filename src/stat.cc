@@ -1461,25 +1461,6 @@ struct THallItem {
     string name;
 };
 
-class THalls: public vector<THallItem> {
-    public:
-        void Init();
-};
-
-void THalls::Init()
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT id,name FROM astra.halls2,astra.options WHERE halls2.airp=options.cod ORDER BY id";
-    Qry.Execute();
-    while(!Qry.Eof) {
-        THallItem hi;
-        hi.id = Qry.FieldAsInteger("id");
-        hi.name = Qry.FieldAsString("name");
-        this->push_back(hi);
-        Qry.Next();
-    }
-}
-
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -3301,10 +3282,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, cls_grp ";
+                "FROM  pax_grp,halls2,pax, points, cls_grp ";
             if(!tag_no.empty())
                 SQLText +=
                     " , bag_tags ";
@@ -3313,6 +3294,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id AND "
+                "   pax_grp.hall = halls2.id and "
                 "   pax_grp.class_grp = cls_grp.id ";
             if(!tag_no.empty())
                 SQLText +=
@@ -3372,10 +3354,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   arx_pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp ";
+                "FROM  arx_pax_grp,halls2,arx_pax, arx_points, cls_grp ";
             if(!tag_no.empty())
                 SQLText +=
                     " , arx_bag_tags ";
@@ -3387,6 +3369,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_pax_grp.class_grp = cls_grp.id and "
+                "   arx_pax_grp.hall = halls2.id and "
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
@@ -3506,7 +3489,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
+                NewTextChild(paxNode, "hall", Qry.FieldAsString(col_hall));
 
                 count++;
                 if(count >= MAX_STAT_ROWS) {
