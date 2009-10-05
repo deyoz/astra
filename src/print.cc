@@ -2145,19 +2145,10 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
       }
   }
 
-  Qry.Clear();
-  Qry.SQLText =
-      "select desk_grp.city from "
-      "  desk_grp, "
-      "  desks "
-      "where "
-      "  desks.code = :code and "
-      "  desks.grp_id = desk_grp.grp_id ";
-  Qry.CreateVariable("code", otString, rcpt.issue_desk);
-  Qry.Execute();
-  if(Qry.Eof)
+  string desk_city = DeskCity(rcpt.issue_desk, false);
+  if(desk_city.empty())
       throw Exception("fillMSOMap: issue_desk not found (code = %s)", rcpt.issue_desk.c_str());
-  TDateTime issue_date_local = UTCToLocal(rcpt.issue_date, CityTZRegion(Qry.FieldAsString("city")));
+  TDateTime issue_date_local = UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city));
   add_tag("issue_date", issue_date_local);
   add_tag("issue_date_str", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 0));
   add_tag("issue_date_str_lat", DateTimeToStr(issue_date_local, (string)"ddmmmyy", 1));
@@ -2743,7 +2734,7 @@ void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
 
 void previewDeviceSets(bool conditional, string msg)
 {
-  if (!TReqInfo::Instance()->desk.version.empty() &&
+ /* if (!TReqInfo::Instance()->desk.version.empty() &&
       TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
   {
     xmlNodePtr resNode=NodeAsNode("/term/answer",getXmlCtxt()->resDoc);
@@ -2753,7 +2744,7 @@ void previewDeviceSets(bool conditional, string msg)
       NewTextChild(resNode,"preview_device_sets");
     showErrorMessageAndRollback(msg);
   }
-  else
+  else*/
     throw UserException(msg);
 };
 
@@ -3221,7 +3212,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             string prn_form = parser.parse(prn_forms.back());
             if(tag_key.fmt_type == "DATAMAX") {
                 to_esc::parse_dmx(prn_form);
+              if (reqInfo->desk.version.empty() ||
+                  reqInfo->desk.version==UNKNOWN_VERSION)
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+              else
+              	StringToHex( string(prn_form), prn_form );
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3231,7 +3226,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
             if(tag_key.fmt_type == "DATAMAX") {
                 to_esc::parse_dmx(prn_form);
+              if (reqInfo->desk.version.empty() ||
+                  reqInfo->desk.version==UNKNOWN_VERSION)
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+              else
+              	StringToHex( string(prn_form), prn_form );
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3504,7 +3503,12 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
                     throw Exception(dev_model + " not supported by to_esc::convert");
     }
     to_esc::convert(mso_form, convert_prn_type, reqNode);
-    Print = b64_encode(mso_form.c_str(), mso_form.size());
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if (reqInfo->desk.version.empty() ||
+        reqInfo->desk.version==UNKNOWN_VERSION)
+      Print = b64_encode(mso_form.c_str(), mso_form.size());
+    else
+    	StringToHex( mso_form, Print );
 }
 
 
@@ -3588,7 +3592,10 @@ string get_validator(TBagReceipt &rcpt)
         validator << endl; // empty string for this type
     } else {
         // все валидаторы кроме ТКП у нас пока обрабатываются одинаково
-        validator << sale_point << " " << DateTimeToStr(rcpt.issue_date, "ddmmmyy") << endl;
+        string desk_city = DeskCity(rcpt.issue_desk, false);
+        if(desk_city.empty())
+            throw Exception("get_validator: issue_desk not found (code = %s)", rcpt.issue_desk.c_str());
+        validator << sale_point << " " << DateTimeToStr(UTCToLocal(rcpt.issue_date, CityTZRegion(desk_city)), "ddmmmyy") << endl;
         validator << agency_name.substr(0, 19) << endl;
         validator << sale_point_descr.substr(0, 19) << endl;
         validator << city.AsString("Name").substr(0, 16) << "/" << country.AsString("code") << endl;
@@ -3800,6 +3807,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     Qry.FieldAsInteger("reg_no") ) );
     }
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
+    TReqInfo *reqInfo = TReqInfo::Instance();
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
         PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
@@ -3827,7 +3835,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                             throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::convert(prn_form, convert_prn_type, NULL);
-            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            if (reqInfo->desk.version.empty() ||
+                reqInfo->desk.version==UNKNOWN_VERSION)
+              prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            else
+            	StringToHex( string(prn_form), prn_form );
         }
         if(fmt_type == "DATAMAX") {
             TPrnType convert_prn_type;
@@ -3840,7 +3852,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     throw Exception(dev_model + " not supported by to_esc::convert");
             }
             to_esc::parse_dmx(prn_form);
-            prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            if (reqInfo->desk.version.empty() ||
+                reqInfo->desk.version==UNKNOWN_VERSION)
+              prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+            else
+            	StringToHex( string(prn_form), prn_form );
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         NewTextChild(paxNode, "prn_form", prn_form);
