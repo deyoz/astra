@@ -7,7 +7,7 @@
 class AccessInterface : public JxtInterface
 {
 public:
-  AccessInterface() : JxtInterface("123","stat")
+  AccessInterface() : JxtInterface("123","access")
   {
      Handler *evHandle;
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::RoleRights);
