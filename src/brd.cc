@@ -368,6 +368,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 
+    if(strcmp((char *)reqNode->name, "PaxByScanData") == 0)
+      throw UserException("Произведено сканирование данных неизвестного формата");
+
+
     int point_id=NodeAsInteger("point_id",reqNode);
     int reg_no=-1;
     int hall=-1;
@@ -611,8 +615,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         showErrorMessage("Не указан зал посадки");
                     else
                         showErrorMessage("Не указан зал досмотра");
-                    readTripCounters(point_id,dataNode);
-                    return;
+                    continue;
                 };
 
                 bool pr_exam_with_brd=false;
@@ -717,7 +720,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                 else
                                     ReplaceTextChild(paxNode, "pr_exam", mark);
                                 ReplaceTextChild(paxNode, "tid", tid);
-                                ReplaceTextChild(dataNode,"updated");
+                                ReplaceTextChild(dataNode,"updated",pax_id);
                                 //pr_etl_only
                                 FltQry.SetVariable("point_id",point_id);
                                 FltQry.Execute();

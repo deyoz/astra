@@ -18,6 +18,7 @@ public:
      AddEvent("PaxByGrpId",evHandle);
      AddEvent("PaxByRegNo",evHandle);
      AddEvent("PaxByReceiptNo",evHandle);
+     AddEvent("PaxByScanData",evHandle);
      evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::SaveBag);
      AddEvent("SaveBag",evHandle);
      evHandle=JxtHandler<PaymentInterface>::CreateHandler(&PaymentInterface::UpdPrepay);
