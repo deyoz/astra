@@ -17,6 +17,7 @@ public:
      AddEvent("PaxList",evHandle);
      AddEvent("PaxByPaxId",evHandle);
      AddEvent("PaxByRegNo",evHandle);
+     AddEvent("PaxByScanData",evHandle);
 
      evHandle=JxtHandler<BrdInterface>::CreateHandler(&BrdInterface::DeplaneAll);
      AddEvent("DeplaneAll",evHandle);

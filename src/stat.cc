@@ -755,6 +755,10 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 650 ) == reqInfo->user.access.rights.end())
+        throw UserException("Нет прав для просмотра журнала операций рейса");
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     TDateTime part_key;
@@ -771,7 +775,6 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
-    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     int count = 0;
 
@@ -807,14 +810,16 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.Clear();
     string qry1, qry2;
     int move_id = 0;
+    string airline;
     if (part_key == NoExists) {
         {
             TQuery Qry(&OraSession);
-            Qry.SQLText = "select move_id from points where point_id = :point_id";
+            Qry.SQLText = "select move_id, airline from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
             move_id = Qry.FieldAsInteger("move_id");
+            airline = Qry.FieldAsString("airline");
         }
         ProgTrace(TRACE5, "FltLogRun: work base qry");
         qry1 =
@@ -843,13 +848,14 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         {
             TQuery Qry(&OraSession);
             Qry.SQLText =
-              "select move_id from arx_points "
-              "where part_key = :part_key and point_id = :point_id and pr_del>=0";
+                "select move_id, airline from arx_points "
+                "where part_key = :part_key and point_id = :point_id and pr_del>=0";
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof) throw UserException("Рейс не найден");
             move_id = Qry.FieldAsInteger("move_id");
+            airline = Qry.FieldAsString("airline");
         }
         ProgTrace(TRACE5, "FltLogRun: arx base qry");
         qry1 =
@@ -877,7 +883,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             "      arx_events.type IN (:evtDisp) AND "
             "      arx_events.id1=:move_id  ";
     }
-
+    NewTextChild(resNode, "airline", airline);
 
     TPerfTimer tm;
     tm.Init();
@@ -1041,7 +1047,10 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
     SetProp(colNode, "align", taLeftJustify);
 
     Qry.Clear();
+    TQuery AirlineQry(&OraSession);
+    AirlineQry.CreateVariable("point_id", otInteger, point_id);
     if (part_key == NoExists) {
+        AirlineQry.SQLText = "select airline from points where point_id = :point_id";
         ProgTrace(TRACE5, "LogRun: work base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -1053,6 +1062,8 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
             "      (id2 IS NULL OR id2=:reg_no) AND "
             "      (id3 IS NULL OR id3=:grp_id) ";
     } else {
+        AirlineQry.SQLText = "select airline from arx_points where point_id = :point_id and part_key = :part_key and pr_del >= 0";
+        AirlineQry.CreateVariable("part_key", otDate, part_key);
         ProgTrace(TRACE5, "LogRun: arx base qry");
         Qry.SQLText =
             "SELECT msg, time, id1 AS point_id, null as screen, id2 AS reg_no, id3 AS grp_id, "
@@ -1092,6 +1103,11 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         if(Qry.Eof)
             throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
     }
+
+    AirlineQry.Execute();
+    if(AirlineQry.Eof)
+        throw Exception("Cannot fetch airline");
+    NewTextChild(resNode, "airline", AirlineQry.FieldAsString("airline"));
 
     if(!Qry.Eof) {
         int col_point_id=Qry.FieldIndex("point_id");
@@ -1150,6 +1166,10 @@ typedef struct {
 
 void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    if(find( reqInfo->user.access.rights.begin(),
+                reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
+        throw UserException("Нет прав для просмотра операций в системе");
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_report_form("ArxPaxLog", resNode);
@@ -1158,7 +1178,6 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
-    TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.SQLText = "select exe from screen where name = :module";
     Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
@@ -1442,28 +1461,12 @@ struct THallItem {
     string name;
 };
 
-class THalls: public vector<THallItem> {
-    public:
-        void Init();
-};
-
-void THalls::Init()
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "SELECT id,name FROM astra.halls2,astra.options WHERE halls2.airp=options.cod ORDER BY id";
-    Qry.Execute();
-    while(!Qry.Eof) {
-        THallItem hi;
-        hi.id = Qry.FieldAsInteger("id");
-        hi.name = Qry.FieldAsString("name");
-        this->push_back(hi);
-        Qry.Next();
-    }
-}
-
 void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if(find( info.user.access.rights.begin(),
+                info.user.access.rights.end(), 630 ) == info.user.access.rights.end())
+        throw UserException("Нет прав для просмотра списка пассажиров");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Не найдено ни одного пассажира");
@@ -2126,12 +2129,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
 {
     TReqInfo &info = *(TReqInfo::Instance());
 
-    bool right_615 = find( info.user.access.rights.begin(),
+    bool all_seances = find( info.user.access.rights.begin(),
             info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
     bool pr_all_seances =
         info.user.user_type == utSupport or
-        info.user.user_type == utAirport and right_615 or
-        info.user.user_type == utAirline and right_615;
+        info.user.user_type == utAirport and all_seances or
+        info.user.user_type == utAirline and all_seances;
 
     if (!pr_arx)
     {
@@ -2453,6 +2456,32 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
     };
 }
 
+struct TPrintAirline {
+    private:
+        string val;
+        bool multi_airlines;
+    public:
+        TPrintAirline(): multi_airlines(false) {};
+        void check(string val);
+        string get();
+};
+
+string TPrintAirline::get()
+{
+    if(multi_airlines)
+        return "";
+    else
+        return val;
+}
+
+void TPrintAirline::check(string val)
+{
+    if(this->val.empty())
+        this->val = val;
+    else if(this->val != val)
+        multi_airlines = true;
+}
+
 void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
@@ -2472,6 +2501,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statTrferFull,params,i!=0).c_str();
@@ -2501,9 +2531,11 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if(!params.ap.empty()) {
                     key.col1 = Qry.FieldAsString(col_airp);
                     key.col2 = Qry.FieldAsString(col_airline);
+                    airline.check(key.col2);
                 } else {
                     key.col1 = Qry.FieldAsString(col_airline);
                     key.col2 = Qry.FieldAsString(col_airp);
+                    airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
@@ -2534,6 +2566,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!FullStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -2693,6 +2726,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
@@ -2722,9 +2756,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if(!params.ap.empty()) {
                     key.col1 = Qry.FieldAsString(col_airp);
                     key.col2 = Qry.FieldAsString(col_airline);
+                    airline.check(key.col2);
                 } else {
                     key.col1 = Qry.FieldAsString(col_airline);
                     key.col2 = Qry.FieldAsString(col_airp);
+                    airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
@@ -2755,6 +2791,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!FullStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -2940,6 +2977,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     TStatParams params;
     params.get(Qry, reqNode);
+    TPrintAirline airline;
 
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
@@ -2949,12 +2987,14 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statShort,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TShortStatKey key;
             key.seance = Qry.FieldAsString(0);
             key.col1 = Qry.FieldAsString(1);
+            if(params.ap.empty())
+                airline.check(key.col1);
             TShortStatRow &row = ShortStat[key];
             if(row.flt_amount == NoExists) {
                 row.flt_amount = Qry.FieldAsInteger("flt_amount");
@@ -2966,6 +3006,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
     }
     if(!ShortStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -3046,6 +3087,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
     TDetailStat DetailStat;
+    TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statDetail,params,i!=0).c_str();
@@ -3059,9 +3101,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             if(!params.ap.empty()) {
                 key.col1 = Qry.FieldAsString("airp");
                 key.col2 = Qry.FieldAsString("airline");
+                airline.check(key.col2);
             } else {
                 key.col1 = Qry.FieldAsString("airline");
                 key.col2 = Qry.FieldAsString("airp");
+                airline.check(key.col1);
             }
             TShortStatRow &row = DetailStat[key];
             if(row.flt_amount == NoExists) {
@@ -3075,6 +3119,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     }
 
     if(!DetailStat.empty()) {
+        NewTextChild(resNode, "airline", airline.get(), "");
         xmlNodePtr grdNode = NewTextChild(resNode, "grd");
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
@@ -3161,6 +3206,9 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
+    if(find( info.user.access.rights.begin(),
+                info.user.access.rights.end(), 620 ) == info.user.access.rights.end())
+        throw UserException("Нет прав для поиска пассажиров");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Не найдено ни одного пассажира");
@@ -3234,10 +3282,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
-                "FROM  pax_grp,pax, points, cls_grp ";
+                "FROM  pax_grp,halls2,pax, points, cls_grp ";
             if(!tag_no.empty())
                 SQLText +=
                     " , bag_tags ";
@@ -3246,6 +3294,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id AND "
+                "   pax_grp.hall = halls2.id and "
                 "   pax_grp.class_grp = cls_grp.id ";
             if(!tag_no.empty())
                 SQLText +=
@@ -3305,10 +3354,10 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   arx_pax_grp.hall hall, "
+                "   halls2.name hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
-                "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp ";
+                "FROM  arx_pax_grp,halls2,arx_pax, arx_points, cls_grp ";
             if(!tag_no.empty())
                 SQLText +=
                     " , arx_bag_tags ";
@@ -3320,6 +3369,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_pax_grp.class_grp = cls_grp.id and "
+                "   arx_pax_grp.hall = halls2.id and "
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
@@ -3439,7 +3489,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
-                NewTextChild(paxNode, "hall", Qry.FieldAsInteger(col_hall));
+                NewTextChild(paxNode, "hall", Qry.FieldAsString(col_hall));
 
                 count++;
                 if(count >= MAX_STAT_ROWS) {
