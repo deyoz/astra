@@ -4,6 +4,7 @@
 #include "xml_unit.h"
 #include "oralib.h"
 #include "astra_utils.h"
+#include "stl_utils.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
@@ -95,7 +96,13 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        if ( data == NULL )
          throw Exception( "Ошибка программы" );
        Qry->FieldAsLong( "image", data );
-       string res = StrUtils::b64_encode( (const char*)data, len );
+       string res;
+       TReqInfo *reqInfo = TReqInfo::Instance();
+	     if (reqInfo->desk.version.empty() ||
+           reqInfo->desk.version==UNKNOWN_VERSION)
+         res = StrUtils::b64_encode( (const char*)data, len );
+       else
+       	 StringToHex( string((char*)data, len), res );
        NewTextChild( imageNode, "image", res.c_str() );
      }
      Qry->Next();
@@ -138,12 +145,17 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
    if ( node != NULL ) {
      node = node->children;
      string StrDec;
+     TReqInfo *reqInfo = TReqInfo::Instance();
      while ( node ) {
        Qry->SetVariable( "code", NodeAsString( "code", node ) );
        Qry->SetVariable( "name", NodeAsString( "name", node ) );
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
-       StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
+       if (reqInfo->desk.version.empty() ||
+           reqInfo->desk.version==UNKNOWN_VERSION)
+         StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
+       else
+       	 HexToString( string(StrDec), StrDec );
        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
        Qry->Execute();
        node = node->next;
