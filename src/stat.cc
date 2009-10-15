@@ -84,7 +84,7 @@ void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
-enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
+enum TScreenState {None,Log,PaxList,FltLog,SystemLog,PaxSrc};
 typedef void (*TGetSQL)( TQuery &Qry );
 
 const int depends_len = 3;
@@ -103,46 +103,6 @@ struct TCategory {
 TCategory Category[] = {
     {},
     {},
-    {},
-    {},
-    {
-        DepStat,
-        {
-            {
-                NULL,
-                "Flt",
-                {"Dest", "Awk", "Class"}
-            },
-            {
-                NULL,
-                "Awk",
-                {"Flt",    "Dest", "Class"}
-            },
-            {
-                NULL,
-                "Dest",
-                {"Awk",    "Flt",  "Class"}
-            },
-            {
-                NULL,
-                "Class",
-                {"Awk",    "Flt",  "Dest"}
-            },
-            {
-                NULL,
-                "Rem",
-            },
-        }
-    },
-    {
-        BagTagStat,
-        {
-            {
-                NULL,
-                "Awk",
-            }
-        }
-    },
     {
         PaxList,
         {
@@ -178,24 +138,6 @@ TCategory Category[] = {
             }
         }
     },
-    {
-        PaxSrc,
-        {
-            {
-                NULL,
-                "Flt",
-            },
-            {
-                GetPaxSrcAwkSQL,
-                "Awk",
-            },
-            {
-                GetPaxSrcDestSQL,
-                "Dest",
-            }
-        }
-    },
-    {}
 };
 
 const int CategorySize = sizeof(Category)/sizeof(Category[0]);
