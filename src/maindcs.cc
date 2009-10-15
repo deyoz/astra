@@ -780,10 +780,17 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(node,"addr",devPort);
         if (dev_sess_type=="COM")
         {
+          str.clear();
           if (GetNodeFast("Check",node2)!=NULL)
             str=NodeAsStringFast("Check",node2);
           if (!str.empty() && str!="false")
-            throw EConvertError("wrong Check=%s",str.c_str());
+          {
+            str.clear();
+            if (GetNodeFast("Parity",node2)!=NULL)
+              str=NodeAsStringFast("Parity",node2);
+            if (!str.empty() && str!="None")
+              throw EConvertError("wrong Parity=%s Check=true",str.c_str());
+          };
 
           if (GetNodeFast("BaudRate",node2)!=NULL)
             NewTextChild(node,"baud_rate",NodeAsStringFast("BaudRate",node2));
@@ -813,6 +820,9 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
             StringToHex(b,str);
             NewTextChild(node,"suffix",str);
           };
+          if (GetNodeFast("RTS",node2)!=NULL &&
+              NodeAsStringFast("RTS",node2)!=(string)"Disable")
+            NewTextChild(node,"control_rts",NodeAsStringFast("RTS",node2));
         };
 
         node=NewTextChild(operNode,"fmt_params");
