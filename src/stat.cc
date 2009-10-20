@@ -76,342 +76,12 @@ const string AIRP_LIST =
 "  first_date<=periods.period_first_date AND  \n"
 "  (last_date IS NULL OR periods.period_first_date<last_date) ) \n";
 
-void GetPaxSrcDestSQL(TQuery &Qry);
-void GetPaxSrcAwkSQL(TQuery &Qry);
-void GetPaxListSQL(TQuery &Qry);
-void GetFltLogSQL(TQuery &Qry);
 void GetSystemLogAgentSQL(TQuery &Qry);
 void GetSystemLogStationSQL(TQuery &Qry);
 void GetSystemLogModuleSQL(TQuery &Qry);
 
-enum TScreenState {None,Stat,Pax,Log,DepStat,BagTagStat,PaxList,FltLog,SystemLog,PaxSrc,TlgArch};
-typedef void (*TGetSQL)( TQuery &Qry );
-
-const int depends_len = 3;
-struct TCBox {
-    TGetSQL GetSQL;
-    string cbox;
-    string depends[depends_len];
-};
-
-const int cboxes_len = 5;
-struct TCategory {
-    TScreenState scr;
-    TCBox cboxes[cboxes_len];
-};
-
-TCategory Category[] = {
-    {},
-    {},
-    {},
-    {},
-    {
-        DepStat,
-        {
-            {
-                NULL,
-                "Flt",
-                {"Dest", "Awk", "Class"}
-            },
-            {
-                NULL,
-                "Awk",
-                {"Flt",    "Dest", "Class"}
-            },
-            {
-                NULL,
-                "Dest",
-                {"Awk",    "Flt",  "Class"}
-            },
-            {
-                NULL,
-                "Class",
-                {"Awk",    "Flt",  "Dest"}
-            },
-            {
-                NULL,
-                "Rem",
-            },
-        }
-    },
-    {
-        BagTagStat,
-        {
-            {
-                NULL,
-                "Awk",
-            }
-        }
-    },
-    {
-        PaxList,
-        {
-            {
-                GetPaxListSQL,
-                "Flt",
-            }
-        }
-    },
-    {
-        FltLog,
-        {
-            {
-                GetFltLogSQL,
-                "Flt",
-            }
-        }
-    },
-    {
-        SystemLog,
-        {
-            {
-                GetSystemLogAgentSQL,
-                "Agent",
-            },
-            {
-                GetSystemLogStationSQL,
-                "Station",
-            },
-            {
-                GetSystemLogModuleSQL,
-                "Module",
-            }
-        }
-    },
-    {
-        PaxSrc,
-        {
-            {
-                NULL,
-                "Flt",
-            },
-            {
-                GetPaxSrcAwkSQL,
-                "Awk",
-            },
-            {
-                GetPaxSrcDestSQL,
-                "Dest",
-            }
-        }
-    },
-    {}
-};
-
-const int CategorySize = sizeof(Category)/sizeof(Category[0]);
-
-void GetFltLogSQL(TQuery &Qry)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    string res;
-    if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
-            info.user.access.airps.empty() && info.user.access.airps_permit)
-        res = "select * from dual where 0 = 1";
-    else {
-        res =
-            "SELECT "
-            "    points.point_id, "
-            "    points.airp, "
-            "    points.airline, "
-            "    points.flt_no, "
-            "    nvl(points.suffix, ' ') suffix, "
-            "    points.scd_out, "
-            "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
-            "    move_id, "
-            "    point_num "
-            "FROM "
-            "    points "
-            "WHERE "
-            "    points.pr_del >= 0 and "
-            "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-        if (!info.user.access.airps.empty()) {
-            if (info.user.access.airps_permit)
-                res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-            else
-                res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-        }
-        if (!info.user.access.airlines.empty()) {
-            if (info.user.access.airlines_permit)
-                res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-            else
-                res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-        }
-        res +=
-            "union "
-            "SELECT "
-            "    arx_points.point_id, "
-            "    arx_points.airp, "
-            "    arx_points.airline, "
-            "    arx_points.flt_no, "
-            "    nvl(arx_points.suffix, ' ') suffix, "
-            "    arx_points.scd_out, "
-            "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
-            "    move_id, "
-            "    point_num "
-            "FROM "
-            "    arx_points "
-            "WHERE "
-            "    arx_points.pr_del >= 0 and "
-            "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-            "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
-        Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        if (!info.user.access.airps.empty()) {
-            if (info.user.access.airps_permit)
-                res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-            else
-                res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-        }
-        if (!info.user.access.airlines.empty()) {
-            if (info.user.access.airlines_permit)
-                res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-            else
-                res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-        }
-        res +=
-            "ORDER BY "
-            "   real_out DESC, "
-            "   flt_no, "
-            "   airline, "
-            "   suffix, "
-            "   move_id, "
-            "   point_num ";
-    }
-    Qry.SQLText = res;
-}
-
-void GetPaxSrcDestSQL(TQuery &Qry)
-{
-
-}
-
-void GetPaxSrcAwkSQL(TQuery &Qry)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    string res =
-        "select "
-        "   airline "
-        "from "
-        "   points "
-        "where "
-        "    points.pr_del >= 0 and "
-        "    points.pr_reg <> 0 and "
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "union "
-        "select "
-        "   airline "
-        "from "
-        "   arx_points "
-        "where "
-        "    arx_points.pr_del >= 0 and "
-        "    arx_points.pr_reg <> 0 and "
-        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
-    Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "order by "
-        "   airline ";
-    Qry.SQLText = res;
-}
-
-void GetPaxListSQL(TQuery &Qry)
-{
-    TReqInfo &info = *(TReqInfo::Instance());
-    tst();
-    string res =
-        "SELECT "
-        "    points.point_id, "
-        "    points.airp, "
-        "    points.airline, "
-        "    points.flt_no, "
-        "    nvl(points.suffix, ' ') suffix, "
-        "    points.scd_out, "
-        "    NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
-        "    move_id, "
-        "    point_num "
-        "FROM "
-        "    points "
-        "WHERE "
-        "    points.pr_del >= 0 and "
-        "    points.pr_reg <> 0 and "
-        "    points.scd_out >= :FirstDate AND points.scd_out < :LastDate ";
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "union "
-        "SELECT "
-        "    arx_points.point_id, "
-        "    arx_points.airp, "
-        "    arx_points.airline, "
-        "    arx_points.flt_no, "
-        "    nvl(arx_points.suffix, ' ') suffix, "
-        "    arx_points.scd_out, "
-        "    NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
-        "    move_id, "
-        "    point_num "
-        "FROM "
-        "    arx_points "
-        "WHERE "
-        "    arx_points.pr_del >= 0 and "
-        "    arx_points.pr_reg <> 0 and "
-        "    arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate and "
-        "    arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range ";
-    Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-    if (!info.user.access.airps.empty()) {
-        if (info.user.access.airps_permit)
-            res += " AND arx_points.airp IN "+GetSQLEnum(info.user.access.airps);
-        else
-            res += " AND arx_points.airp NOT IN "+GetSQLEnum(info.user.access.airps);
-    }
-    if (!info.user.access.airlines.empty()) {
-        if (info.user.access.airlines_permit)
-            res += " AND arx_points.airline IN "+GetSQLEnum(info.user.access.airlines);
-        else
-            res += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
-    }
-    res +=
-        "ORDER BY "
-        "   flt_no, "
-        "   airline, "
-        "   suffix, "
-        "   move_id, "
-        "   point_num ";
-    Qry.SQLText = res;
-}
+enum TScreenState {None,Log,PaxList,FltLog,SystemLog,PaxSrc};
+enum TDROPScreenState {dssNone,dssStat,dssPax,dssLog,dssDepStat,dssBagTagStat,dssPaxList,dssFltLog,dssSystemLog,dssPaxSrc,dssTlgArch};
 
 void GetSystemLogAgentSQL(TQuery &Qry)
 {
@@ -486,7 +156,36 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr prDelNode = GetNode("pr_del", reqNode);
     if(prDelNode)
         pr_show_del = NodeAsInteger(prDelNode) == 1;
-    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
+    TScreenState scr = None;
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        scr = TScreenState(NodeAsInteger("scr", reqNode));
+    else {
+        TDROPScreenState drop_scr = TDROPScreenState(NodeAsInteger("scr", reqNode));
+        switch(drop_scr) {
+            case dssNone:
+                scr = None;
+                break;
+            case dssLog:
+                scr = Log;
+                break;
+            case dssPaxList:
+                scr = PaxList;
+                break;
+            case dssFltLog:
+                scr = FltLog;
+                break;
+            case dssSystemLog:
+                scr = SystemLog;
+                break;
+            case dssPaxSrc:
+                scr = PaxSrc;
+                break;
+            default:
+                throw Exception("StatInterface::FltCBoxDropDown: unexpected drop_scr: %d", drop_scr);
+        }
+    }
+    ProgTrace(TRACE5, "scr: %d", scr);
     TReqInfo &reqInfo = *(TReqInfo::Instance());
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
@@ -673,45 +372,16 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string cbox = NodeAsString("cbox", reqNode);
-
-    TScreenState scr = TScreenState(NodeAsInteger("scr", reqNode));
-    TCategory *Ctg = &Category[scr];
-    int i = 0;
-    for(; i < cboxes_len; i++)
-        if(Ctg->cboxes[i].cbox + "CBox" == cbox) break;
-    if(i == cboxes_len)throw Exception((string)"CommonCBoxDropDown: data not found for " + cbox);
-    TCBox *cbox_data = &Ctg->cboxes[i];
     TQuery Qry(&OraSession);
-    if(!cbox_data->GetSQL) throw Exception("GetSQL is NULL");
-    cbox_data->GetSQL(Qry);
-    ProgTrace(TRACE5, "%s", Qry.SQLText.SQLText());
-    TReqInfo *reqInfo = TReqInfo::Instance();
-    if(
-            cbox == "FltCBox" ||
-            cbox == "AwkCBox"
-            ) {
-        Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-        Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-    }
-    /*
-    Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo->desk.tz_region));
-    Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo->desk.tz_region));
-    if(scr == FltLog) {
-        Qry.CreateVariable("evtFlt", otString, EncodeEventType(evtFlt));
-        Qry.CreateVariable("evtGraph", otString, EncodeEventType(evtGraph));
-        Qry.CreateVariable("evtTlg", otString, EncodeEventType(evtTlg));
-        Qry.CreateVariable("evtPax", otString, EncodeEventType(evtPax));
-        Qry.CreateVariable("evtPay", otString, EncodeEventType(evtPay));
-    }
-    */
-    xmlNodePtr dependNode = GetNode("depends", reqNode);
-    if(dependNode) {
-        dependNode = dependNode->children;
-        while(dependNode) {
-            Qry.CreateVariable((char *)dependNode->name, otString, NodeAsString(dependNode));
-            dependNode = dependNode->next;
-        }
-    }
+    if(cbox == "AgentCBox")
+        GetSystemLogAgentSQL(Qry);
+    else if(cbox == "StationCBox")
+        GetSystemLogStationSQL(Qry);
+    else if(cbox == "ModuleCBox")
+        GetSystemLogModuleSQL(Qry);
+    else
+        throw Exception("StatInterface::CommonCBoxDropDown: unknown cbox: %s", cbox.c_str());
+
     try {
         Qry.Execute();
     } catch (EOracleError E) {
@@ -721,36 +391,12 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             throw;
     }
     xmlNodePtr cboxNode = NewTextChild(resNode, "cbox");
-    if(cbox_data->cbox == "Flt") {
-        //если по компаниям и портам полномочий нет - пустой список рейсов
-        if (reqInfo->user.user_type==utAirport && reqInfo->user.access.airps.empty() ||
-                reqInfo->user.user_type==utAirline && reqInfo->user.access.airlines.empty() ) return;
-        while(!Qry.Eof) {
-            TTripInfo info(Qry);
-            string trip_name;
-            try
-            {
-                trip_name = GetTripName(info,false,true);
-            }
-            catch(UserException &E)
-            {
-                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
-                Qry.Next();
-                continue;
-            };
-            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-            NewTextChild(fNode, "key", Qry.FieldAsInteger("point_id"));
-            NewTextChild( fNode, "value", trip_name);
-
-            Qry.Next();
-        }
-    } else
-        while(!Qry.Eof) {
-            xmlNodePtr fNode = NewTextChild(cboxNode, "f");
-            NewTextChild(fNode, "key", 0);
-            NewTextChild(fNode, "value", Qry.FieldAsString(0));
-            Qry.Next();
-        }
+    while(!Qry.Eof) {
+        xmlNodePtr fNode = NewTextChild(cboxNode, "f");
+        NewTextChild(fNode, "key", 0);
+        NewTextChild(fNode, "value", Qry.FieldAsString(0));
+        Qry.Next();
+    }
 }
 
 void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
