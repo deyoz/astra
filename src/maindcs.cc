@@ -888,9 +888,37 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           {
             node2=scnParamNode->children;
             if (GetNodeFast("Prefix",node2)!=NULL)
-              NewTextChild(node,"prefix",NodeAsStringFast("Prefix",node2));
+            {
+              if (NodeIsNULL(scnNode))
+              {
+                //KBW
+                string str1,str2;
+                str1=NodeAsStringFast("Prefix",node2);
+                if (!HexToString(str1,str2))
+                  throw EConvertError("wrong Prefix=%s",str1.c_str());
+                str1=ConvertCodepage(str2,"CP1251","UTF-16LE");
+                StringToHex(str1,str2);
+                NewTextChild(node,"prefix",str2);
+              }
+              else
+                NewTextChild(node,"prefix",NodeAsStringFast("Prefix",node2));
+            };
             if (GetNodeFast("Postfix",node2)!=NULL)
-              NewTextChild(node,"postfix",NodeAsStringFast("Postfix",node2));
+            {
+              if (NodeIsNULL(scnNode))
+              {
+                //KBW
+                string str1,str2;
+                str1=NodeAsStringFast("Postfix",node2);
+                if (!HexToString(str1,str2))
+                  throw EConvertError("wrong Postfix=%s",str1.c_str());
+                str1=ConvertCodepage(str2,"CP1251","UTF-16LE");
+                StringToHex(str1,str2);
+                NewTextChild(node,"postfix",str2);
+              }
+              else
+                NewTextChild(node,"postfix",NodeAsStringFast("Postfix",node2));
+            }
             if (GetNodeFast("Interval",node2)!=NULL)
               NewTextChild(node,"interval",NodeAsStringFast("Interval",node2));
           };
