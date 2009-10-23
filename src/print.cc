@@ -1333,7 +1333,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   gtimer.get_stage_time(points.point_id,:brd_open_stage_id) brd_from, "
         "   gtimer.get_stage_time(points.point_id,:brd_close_stage_id) brd_to, "
         "   points.POINT_ID trip_id, "
-        "   points.SCD_OUT scd, "
+        "   NVL( points.act_out, NVL( points.est_out, points.scd_out ) ) scd, "
         "   points.EST_OUT est, "
         "   points.ACT_OUT act, "
         "   crafts.code craft, "
