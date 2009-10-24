@@ -22,7 +22,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
-using namespace StrUtils;
+//using namespace StrUtils;
 
 
 const string STX = "\x2";
@@ -1333,9 +1333,9 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   gtimer.get_stage_time(points.point_id,:brd_open_stage_id) brd_from, "
         "   gtimer.get_stage_time(points.point_id,:brd_close_stage_id) brd_to, "
         "   points.POINT_ID trip_id, "
-        "   NVL( points.act_out, NVL( points.est_out, points.scd_out ) ) scd, "
-        "   points.EST_OUT est, "
-        "   points.ACT_OUT act, "
+        "   points.scd_out scd, "
+        "   NVL( points.est_out, points.scd_out ) est, "
+        "   NVL( points.act_out, NVL( points.est_out, points.scd_out ) ) act, "
         "   crafts.code craft, "
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
