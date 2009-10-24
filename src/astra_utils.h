@@ -269,9 +269,9 @@ std::string DeskCity(std::string desk, bool with_exception=true);
 
 boost::local_time::tz_database &get_tz_database();
 BASIC::TDateTime UTCToLocal(BASIC::TDateTime d, std::string region);
-BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region);
+BASIC::TDateTime LocalToUTC(BASIC::TDateTime d, std::string region, int is_dst=ASTRA::NoExists);
 BASIC::TDateTime UTCToClient(BASIC::TDateTime d, std::string region);
-BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region);
+BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region, int is_dst=ASTRA::NoExists);
 
 bool is_dst(BASIC::TDateTime d, std::string region);
 

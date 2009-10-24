@@ -1450,6 +1450,30 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
   } // end for trip
 }
 
+TDateTime Approached_ClientUTC( TDateTime f, string tz_region, bool pr_max )
+{
+	TDateTime d1, d2, d;
+	try {
+	  d = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
+	  return d;
+	}
+  catch( boost::local_time::ambiguous_result ) {
+  	tst();
+  	d1 = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region, 0 );
+  	d2 = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region, 1 );
+  }
+  catch( boost::local_time::time_label_invalid ) {
+  	tst();
+  	d1 = ClientToUTC( f-1, TReqInfo::Instance()->desk.tz_region )+1;
+  	d2 = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region )-1;
+  }
+	if ( pr_max )
+	  return max(d1,d2);
+	else
+	  return min(d1,d2);
+}
+
+
 void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 
@@ -1483,8 +1507,10 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		first_date = f;
   	}
   	else*/
-  	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
-  	  next_date = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region );
+  	first_date = Approached_ClientUTC( f, TReqInfo::Instance()->desk.tz_region, false );
+  	next_date = Approached_ClientUTC( f+1, TReqInfo::Instance()->desk.tz_region, true );
+/*  	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
+  	  next_date = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region );*/
     if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
       first_date = f-1; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на
                         // сутки и клиент этот рейс отфильтрует
