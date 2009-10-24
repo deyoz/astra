@@ -1059,7 +1059,7 @@ TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
   }
   catch( boost::local_time::ambiguous_result ) {
   	if (is_dst == NoExists) throw;
-  	local_date_time ld(pt.date(),pt.time_of_day(),tz,is_dst);
+  	local_date_time ld(pt.date(),pt.time_of_day(),tz,(bool)is_dst);
   	return BoostToDateTime(ld.utc_time());
   }
 };
