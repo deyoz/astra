@@ -1046,15 +1046,22 @@ TDateTime UTCToLocal(TDateTime d, string region)
   return BoostToDateTime(ld.local_time());
 }
 
-TDateTime LocalToUTC(TDateTime d, string region)
+TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
 {
   if (region.empty()) throw Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
   if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
   ptime pt=DateTimeToBoost(d);
-  local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR );
-  return BoostToDateTime(ld.utc_time());
+  try {
+    local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR);
+    return BoostToDateTime(ld.utc_time());
+  }
+  catch( boost::local_time::ambiguous_result ) {
+  	if (is_dst == NoExists) throw;
+  	local_date_time ld(pt.date(),pt.time_of_day(),tz,is_dst);
+  	return BoostToDateTime(ld.utc_time());
+  }
 };
 
 TDateTime UTCToClient(TDateTime d, string region)
@@ -1073,7 +1080,7 @@ TDateTime UTCToClient(TDateTime d, string region)
   };
 };
 
-TDateTime ClientToUTC(TDateTime d, string region)
+TDateTime ClientToUTC(TDateTime d, string region, int is_dst)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   switch (reqInfo->user.sets.time)
@@ -1081,9 +1088,9 @@ TDateTime ClientToUTC(TDateTime d, string region)
     case ustTimeUTC:
       return d;
     case ustTimeLocalDesk:
-      return LocalToUTC(d,reqInfo->desk.tz_region);
+      return LocalToUTC(d,reqInfo->desk.tz_region,is_dst);
     case ustTimeLocalAirp:
-      return LocalToUTC(d,region);
+      return LocalToUTC(d,region,is_dst);
     default:
       throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
