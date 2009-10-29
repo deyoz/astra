@@ -942,7 +942,9 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
             if(
                     di->first == "BRD_FROM" ||
                     di->first == "BRD_TO" ||
-                    di->first == "SCD"
+                    di->first == "SCD" ||
+                    di->first == "EST" ||
+                    di->first == "ACT"
               ) {
                 PrintTime = UTCToLocal(PrintTime,
                         AirpTZRegion(data.find("AIRP_DEP")->second.StringVal));
