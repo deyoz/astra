@@ -65,6 +65,14 @@ const int ARX_DURATION()
   return VAR;
 };
 
+const int ARX_SLEEP()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("ARX_SLEEP",1,NoExists,60);
+  return VAR;
+};
+
 const int ARX_MAX_ROWS()
 {
   static int VAR=NoExists;
@@ -672,8 +680,11 @@ bool arx_daily(TDateTime utcdate)
 {
   modf(utcdate,&utcdate);
   static TDateTime prior_utcdate=NoExists;
+  static time_t prior_exec=0;
   static int step=1;
   static TArxMove* arxMove=NULL;
+
+  if (time(NULL)-prior_exec<ARX_SLEEP()) return false;
 
   time_t time_finish=time(NULL)+ARX_DURATION();
 
@@ -727,6 +738,7 @@ bool arx_daily(TDateTime utcdate)
   	    {
   	      ProgTrace(TRACE5,"arx_daily: %d iterations processed",arxMove->Processed());
   	      arxMove->AfterProc();
+  	      prior_exec=time(NULL);
   	      return false;
   	    };
       }
@@ -739,6 +751,7 @@ bool arx_daily(TDateTime utcdate)
     {
       ProgTrace(TRACE5,"arx_daily: %d iterations processed",arxMove->Processed());
       arxMove->AfterProc();
+      prior_exec=time(NULL);
       throw;
     };
 
@@ -749,6 +762,7 @@ bool arx_daily(TDateTime utcdate)
 	};
 
   ProgTrace(TRACE5,"arx_daily FINISH");
+  prior_exec=time(NULL);
   return true;
 };
 
