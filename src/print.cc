@@ -28,6 +28,7 @@ using namespace ASTRA;
 const string STX = "\x2";
 const string CR = "\xd";
 const string LF = "\xa";
+const string TAB = "\x9";
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
@@ -2694,74 +2695,77 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 string get_fmt_type(int prn_type);
 
-string delete_all_CR_LF(string data)
-{
-    string result;
-    for(string::iterator i = data.begin(); i != data.end(); i++) {
-        if(*i == CR[0] or *i == LF[0])
-            continue;
-        result += *i;
-    }
-    return result;
-}
-
-string place_CR_LF(string data)
-{
-    size_t pos = 0;
-    while(true) {
-        pos = data.find(LF, pos);
-        if(pos == string::npos)
-            break;
-        else {
-            if(pos == 0 or data[pos - 1] != CR[0]) {
-                data.replace(pos, 1, CR + LF);
-                pos += 2;
-            } else
-                pos += 1;
+    namespace AdjustCR_LF {
+        string delete_all_CR_LF(string data)
+        {
+            string result;
+            for(string::iterator i = data.begin(); i != data.end(); i++) {
+                if(*i == CR[0] or *i == LF[0])
+                    continue;
+                result += *i;
+            }
+            return TrimString(result);
         }
-    }
-    if(not data.empty()) {
-        while(true) { // удалим все пробелы и CR/LF из конца строки
-            size_t last_ch = data.size() - 1;
-            if(
-                    data[last_ch] == CR[0] or
-                    data[last_ch] == LF[0] or
-                    data[last_ch] == ' '
-              )
-                data.erase(last_ch);
-            else
-                break;
+
+        string place_CR_LF(string data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(LF, pos);
+                if(pos == string::npos)
+                    break;
+                else {
+                    if(pos == 0 or data[pos - 1] != CR[0]) {
+                        data.replace(pos, 1, CR + LF);
+                        pos += 2;
+                    } else
+                        pos += 1;
+                }
+            }
+            if(not data.empty()) {
+                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
+                    size_t last_ch = data.size() - 1;
+                    if(
+                            data[last_ch] == CR[0] or
+                            data[last_ch] == LF[0] or
+                            data[last_ch] == TAB[0] or
+                            data[last_ch] == ' '
+                      )
+                        data.erase(last_ch);
+                    else
+                        break;
+                }
+                //и добавим один CR/LF
+                data += CR + LF;
+            }
+            return data;
         }
-        //и добавим один CR/LF
-        data += CR + LF;
-    }
-    return data;
-}
 
-string AdjustCR_LF(TDevFmtType fmt_type, string data)
-{
-    string result;
-    switch(fmt_type) {
-        case dftATB:
-        case dftBTP:
-            result = delete_all_CR_LF(data);
-            break;
-        case dftEPL2:
-        case dftZPL2:
-        case dftDPL:
-        case dftEPSON:
-            result = place_CR_LF(data);
-            break;
-        case dftUnknown:
-            throw Exception("AdjustCR_LF: unknown fmt_type");
-    }
-    return result;
-}
+        string DoIt(TDevFmtType fmt_type, string data)
+        {
+            string result;
+            switch(fmt_type) {
+                case dftATB:
+                case dftBTP:
+                    result = delete_all_CR_LF(data);
+                    break;
+                case dftEPL2:
+                case dftZPL2:
+                case dftDPL:
+                case dftEPSON:
+                    result = place_CR_LF(data);
+                    break;
+                case dftUnknown:
+                    throw Exception("AdjustCR_LF: unknown fmt_type");
+            }
+            return result;
+        }
 
-string AdjustCR_LF(string fmt_type, string data)
-{
-    return AdjustCR_LF(DecodeDevFmtType(fmt_type), data);
-}
+        string DoIt(string fmt_type, string data)
+        {
+            return DoIt(DecodeDevFmtType(fmt_type), data);
+        }
+    };
 
 void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
 {
@@ -2787,7 +2791,7 @@ void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-      NewTextChild(formNode,"form",AdjustCR_LF(fmt_type, Qry.FieldAsString("form")));
+      NewTextChild(formNode,"form",AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form")));
 }
 
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
@@ -2823,7 +2827,7 @@ void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-        NewTextChild(formNode,"form",AdjustCR_LF(get_fmt_type(prn_type), Qry.FieldAsString("form")));
+        NewTextChild(formNode,"form",AdjustCR_LF::DoIt(get_fmt_type(prn_type), Qry.FieldAsString("form")));
 };
 
 void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
@@ -3595,7 +3599,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     if(Qry.Eof||Qry.FieldIsNULL("data"))
         previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
 
-    string mso_form = AdjustCR_LF(fmt_type, Qry.FieldAsString("data"));
+    string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
     to_esc::TConvertParams ConvertParams;
     if ( dev_model.empty() )
@@ -3835,8 +3839,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
       )
         previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
-    string form = AdjustCR_LF(fmt_type, Qry.FieldAsString("form"));
-    string data = AdjustCR_LF(fmt_type, Qry.FieldAsString("data"));
+    string form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form"));
+    string data = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", form);
