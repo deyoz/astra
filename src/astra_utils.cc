@@ -1004,7 +1004,10 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (reqNode==NULL) return;
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
-    ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+  {
+    if (strcmp((char*)node->name,"msg")==0)
+      ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+  };
 }
 
 tz_database &get_tz_database()
