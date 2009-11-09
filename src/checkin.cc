@@ -634,7 +634,8 @@ void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
 
 bool CheckTrferPermit(string airline_in, int flt_no_in,
                       string airp,
-                      string airline_out, int flt_no_out)
+                      string airline_out, int flt_no_out,
+                      bool outboard_trfer)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -654,7 +655,22 @@ bool CheckTrferPermit(string airline_in, int flt_no_in,
   Qry.CreateVariable("airline_out",otString,airline_out);
   Qry.CreateVariable("flt_no_out",otInteger,flt_no_out);
   Qry.Execute();
-  return (!Qry.Eof && Qry.FieldAsInteger("pr_permit")!=0);
+  if (Qry.Eof)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT id FROM trfer_set_airps "
+      "WHERE (airline_in=:airline_in AND airline_out=:airline_out OR "
+      "       airline_in=:airline_out AND airline_out=:airline_in) AND rownum<2";
+    Qry.CreateVariable("airline_in",otString,airline_in);
+    Qry.CreateVariable("airline_out",otString,airline_out);
+    Qry.Execute();
+    if (Qry.Eof)
+      return outboard_trfer;
+    else
+      return false;
+  };
+  return (Qry.FieldAsInteger("pr_permit")!=0);
 };
 
 class TCkinSetsInfo
@@ -846,6 +862,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
         string subclass;
 
         bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, tlgTripsFlt );
+        bool outboard_trfer=GetTripSets( tsOutboardTrfer, tlgTripsFlt );
 
 
         bool pr_permit=true;   //этот тэг потом удалить потому как он не будет реально отрабатывать
@@ -885,7 +902,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
           if (!without_trfer_set)
           {
             if (prior_transfer_num+1==TrferQry.FieldAsInteger("transfer_num") &&
-                !CheckTrferPermit(airline_in,flt_no_in,airp_out,airline_out,flt_no_out))
+                !CheckTrferPermit(airline_in,flt_no_in,airp_out,airline_out,flt_no_out,outboard_trfer))
             {
               trfer_permit=false;
               pr_permit=false;
@@ -1095,6 +1112,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   TPaxStatus pax_status = DecodePaxStatus(NodeAsString("pax_status",reqNode));
   string query= NodeAsString("query",reqNode);
   bool pr_unaccomp=query=="0";
+  bool charter_search=false;
 
   TInquiryGroup grp;
   TInquiryGroupSummary sum;
@@ -1128,6 +1146,15 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         if (fmt.infSeatsFmt!=0) fmt.infSeatsFmt=1;
       };
     };
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT airline,flt_no,suffix,airp,scd_out "
+      "FROM points WHERE point_id=:point_id AND pr_del>=0";
+    Qry.CreateVariable("point_id",otInteger,point_dep);
+    Qry.Execute();
+    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    TTripInfo fltInfo(Qry);
+    charter_search=GetTripSets(tsCharterSearch,fltInfo);
 
     GetInquiryInfo(grp,fmt,sum);
   };
@@ -1296,7 +1323,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
       "FROM crs_pnr,crs_pax,pax, ";
-    if (sum.nPax>1)
+    if (sum.nPax>1 && !charter_search)
       sql+=
           "  (SELECT DISTINCT crs_pnr.pnr_id ";
     else
@@ -1326,7 +1353,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     else
       sql+="  MINUS ";
 
-    if (sum.nPax>1)
+    if (sum.nPax>1 && !charter_search)
       sql+=
           "   SELECT DISTINCT crs_pnr.pnr_id ";
       else
@@ -1344,7 +1371,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           "         ("+surnames+")) ids  "
           "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
           "      crs_pax.pax_id=pax.pax_id(+) AND ";
-    if (sum.nPax>1)
+    if (sum.nPax>1 && !charter_search)
       sql+=
           "      ids.pnr_id=crs_pnr.pnr_id AND ";
     else
@@ -2665,10 +2692,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
             "         :document,:pr_exam,0,:subclass,tid__seq.currval); "
-            "  IF :seg_no IS NOT NULL THEN "
-            "    INSERT INTO tckin_pax(tckin_id,seg_no,pax_no,pax_id,pr_depend) "
-            "    VALUES(:tckin_id,:seg_no,:pax_no,:pax_id,DECODE(:seg_no,1,0,1)); "
-            "  END IF; "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("surname",otString);
@@ -2686,18 +2709,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           Qry.DeclareVariable("ticket_confirm",otInteger);
           Qry.DeclareVariable("document",otString);
           Qry.DeclareVariable("subclass",otString);
-          Qry.CreateVariable("tckin_id",otInteger,tckin_id);
-          if (only_one) //не сквозная регистрация
-            Qry.CreateVariable("seg_no",otInteger,FNull);
-          else
-            Qry.CreateVariable("seg_no",otInteger,seg_no);
-          Qry.DeclareVariable("pax_no",otInteger);
           int i=0;
           bool change_agent_seat_no = false;
           bool change_preseat_no = false;
           bool exists_preseats = false;
           bool invalid_seat_no = false;
-          int pax_no=1;
           for(int k=0;k<=1;k++)
           {
             node=NodeAsNode("passengers",segNode);
@@ -2732,7 +2748,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               else
                 Qry.SetVariable("wl_type",FNull);
               Qry.SetVariable("reg_no",reg_no);
-              Qry.SetVariable("pax_no",pax_no);
               Qry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
               if (!NodeIsNULLFast("coupon_no",node2))
                 Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
@@ -2911,7 +2926,6 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                       ". Баг.нормы"+(normMarkFlt.empty()?"":" ("+normMarkFlt+")")+": "+normStr;
               reqInfo->MsgToLog(msg);
               reg_no++;
-              pax_no++;
             };
             if (node!=NULL || paxNode!=NULL)
               throw Exception("SavePax: Wrong number of passengers in different segments");
@@ -4220,6 +4234,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
   addrInfo.pr_lat=true;
 
   bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
+  bool outboard_trfer=GetTripSets( tsOutboardTrfer, fltInfo );
 
   //проверка формирования трансфера в латинских телеграммах
   enum TCheckType {checkNone,checkFirstSeg,checkAllSeg};
@@ -4393,7 +4408,8 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
                             flt_no_in,
                             TrferQry.GetVariableAsString("airp_dep"),
                             TrferQry.GetVariableAsString("airline"),
-                            TrferQry.GetVariableAsInteger("flt_no")))
+                            TrferQry.GetVariableAsInteger("flt_no"),
+                            outboard_trfer))
         throw UserException("Запрещено оформление трансфера на стыковочный рейс %s",flt.str().c_str());
     };
     TrferQry.Execute();
@@ -5523,6 +5539,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   TTripInfo &fltInfo=segInfo.fltInfo;
 
   bool without_trfer_set=GetTripSets( tsIgnoreTrferSet, fltInfo );
+  bool outboard_trfer=GetTripSets( tsOutboardTrfer, fltInfo );
 
   string airline_in=fltInfo.airline;
   int flt_no_in=fltInfo.flt_no;
@@ -5681,7 +5698,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                           flt_no_in,
                           fltInfo.airp,
                           fltInfo.airline,
-                          fltInfo.flt_no))
+                          fltInfo.flt_no,
+                          outboard_trfer))
     {
       SetProp(NewTextChild(segNode,"trfer_permit","Нет"),"value",(int)false);
       if (tckin_route_confirm)

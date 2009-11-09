@@ -165,15 +165,26 @@ void DevTuningInterface::Load(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     int version = NodeAsInteger("version", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "select descr, form, data, read_only from prn_form_vers where "
-        "   id = :id and "
-        "   version = :version";
+        "select "
+        "   prn_forms.fmt_type, "
+        "   prn_form_vers.descr, "
+        "   prn_form_vers.form, "
+        "   prn_form_vers.data, "
+        "   prn_form_vers.read_only "
+        "from "
+        "   prn_form_vers, "
+        "   prn_forms "
+        "where "
+        "   prn_forms.id = :id and "
+        "   prn_form_vers.id = prn_forms.id and "
+        "   prn_form_vers.version = :version";
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     if(Qry.Eof)
         throw UserException(not_avail_err);
     xmlNodePtr prnFormNode = NewTextChild(resNode, "prn_form");
+    NewTextChild(prnFormNode, "fmt_type", Qry.FieldAsString("fmt_type"));
     NewTextChild(prnFormNode, "form", Qry.FieldAsString("form"));
     NewTextChild(prnFormNode, "data", Qry.FieldAsString("data"));
     NewTextChild(prnFormNode, "descr", Qry.FieldAsString("descr"));

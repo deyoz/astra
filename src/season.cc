@@ -1002,12 +1002,8 @@ void CreateSPP( BASIC::TDateTime localdate )
   for ( TSpp::iterator sp=spp.begin(); sp!=spp.end(); sp++ ) {
     tmapds &mapds = sp->second;
     for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
-      MIDQry.Execute();
-      int move_id = MIDQry.GetVariableAsInteger( "move_id" );
       TDests::iterator p = im->second.dests.end();
       int point_id,first_point;
-
-      PQry.SetVariable( "move_id", move_id );
 
       int fmt;
       /* проверка на не существование */
@@ -1033,8 +1029,15 @@ void CreateSPP( BASIC::TDateTime localdate )
       		break;
       	}
       }
-      if ( exists )
+      if ( exists ) {
+ 	      //!!! А строка уже вставлена в таблицу move_ref!!!
         continue;
+      }
+
+      MIDQry.Execute();
+      int move_id = MIDQry.GetVariableAsInteger( "move_id" );
+      PQry.SetVariable( "move_id", move_id );
+
 
       bool pr_tranzit;
       for ( TDests::iterator d=im->second.dests.begin(); d!=im->second.dests.end(); d++ ) {

@@ -520,6 +520,7 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     TReqInfo *reqinfo = TReqInfo::Instance();
     try
     {
+      throw 0; //никаких автологонов!
       if(reqinfo->user.login.empty()) throw 0;
 
       string airlines;

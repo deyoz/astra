@@ -27,6 +27,8 @@ using namespace ASTRA;
 
 const string STX = "\x2";
 const string CR = "\xd";
+const string LF = "\xa";
+const string TAB = "\x9";
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
@@ -307,7 +309,7 @@ namespace to_esc {
         prn_form = STX + prn_form;
         size_t pos = 0;
         while(true) {
-            pos = prn_form.find('\xa');
+            pos = prn_form.find(LF);
             if(pos == string::npos)
                 break;
             prn_form.replace(pos, 1, CR);
@@ -2526,8 +2528,12 @@ string PrintDataParser::parse(string &form)
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
-    if(form.substr(i, 2) == "1\xa") {
-        i += 2;
+    ProgTrace(TRACE5, "0: %d", form[0]);
+    ProgTrace(TRACE5, "1: %d", form[1]);
+    ProgTrace(TRACE5, "2: %d", form[2]);
+    ProgTrace(TRACE5, "3: %d", form[3]);
+    if(form.substr(i, 3) == "1" + CR + LF) {
+        i += 3;
         pectab_format = 1;
     }
     if(form.substr(i, 2) == "XX") {
@@ -2574,7 +2580,10 @@ string PrintDataParser::parse(string &form)
     }
 
     if(Mode != 'S')
+    {
+        ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - 10, 10).c_str(), form[i]);
         throw Exception("']' not found at " + IntToString(i + 1));
+    }
     return result;
 }
 
@@ -2684,6 +2693,80 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 //////////////////////////////// END CLASS PrintDataParser ///////////////////////////////////
 
+string get_fmt_type(int prn_type);
+
+    namespace AdjustCR_LF {
+        string delete_all_CR_LF(string data)
+        {
+            string result;
+            for(string::iterator i = data.begin(); i != data.end(); i++) {
+                if(*i == CR[0] or *i == LF[0])
+                    continue;
+                result += *i;
+            }
+            return TrimString(result);
+        }
+
+        string place_CR_LF(string data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(LF, pos);
+                if(pos == string::npos)
+                    break;
+                else {
+                    if(pos == 0 or data[pos - 1] != CR[0]) {
+                        data.replace(pos, 1, CR + LF);
+                        pos += 2;
+                    } else
+                        pos += 1;
+                }
+            }
+            if(not data.empty()) {
+                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
+                    size_t last_ch = data.size() - 1;
+                    if(
+                            data[last_ch] == CR[0] or
+                            data[last_ch] == LF[0] or
+                            data[last_ch] == TAB[0] or
+                            data[last_ch] == ' '
+                      )
+                        data.erase(last_ch);
+                    else
+                        break;
+                }
+                //и добавим один CR/LF
+                data += CR + LF;
+            }
+            return data;
+        }
+
+        string DoIt(TDevFmtType fmt_type, string data)
+        {
+            string result;
+            switch(fmt_type) {
+                case dftATB:
+                case dftBTP:
+                    result = delete_all_CR_LF(data);
+                    break;
+                case dftEPL2:
+                case dftZPL2:
+                case dftDPL:
+                case dftEPSON:
+                    result = place_CR_LF(data);
+                    break;
+                case dftUnknown:
+                    throw Exception("AdjustCR_LF: unknown fmt_type");
+            }
+            return result;
+        }
+
+        string DoIt(string fmt_type, string data)
+        {
+            return DoIt(DecodeDevFmtType(fmt_type), data);
+        }
+    };
+
 void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
@@ -2708,7 +2791,7 @@ void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+      NewTextChild(formNode,"form",AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form")));
 }
 
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
@@ -2744,7 +2827,7 @@ void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+        NewTextChild(formNode,"form",AdjustCR_LF::DoIt(get_fmt_type(prn_type), Qry.FieldAsString("form")));
 };
 
 void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
@@ -2829,70 +2912,6 @@ void previewDeviceSets(bool conditional, string msg)
   else*/
     throw UserException(msg);
 };
-
-void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select format from prn_types where code = :prn_type";
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
-    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
-    Qry.Clear();
-    Qry.SQLText = "select point_dep AS point_id, class from pax_grp where grp_id = :grp_id";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    int trip_id = Qry.FieldAsInteger("point_id");
-    string cl = Qry.FieldAsString("class");
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT bp_type FROM trip_bp "
-        "WHERE point_id=:point_id AND (class IS NULL OR class=:class) "
-        "ORDER BY class ";
-    Qry.CreateVariable("point_id", otInteger, trip_id);
-    Qry.CreateVariable("class", otString, cl);
-    Qry.Execute();
-    if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
-    string bp_type = Qry.FieldAsString("bp_type");
-
-    Qry.Clear();
-    Qry.SQLText =
-            "select  "
-            "   bp_forms.form,  "
-            "   bp_forms.data  "
-            "from  "
-            "   bp_forms, "
-            "   ( "
-            "    select "
-            "        bp_type, "
-            "        prn_type, "
-            "        max(version) version "
-            "    from "
-            "        bp_forms "
-            "    group by "
-            "        bp_type, "
-            "        prn_type "
-            "   ) a "
-            "where  "
-            "   a.bp_type = :bp_type and "
-            "   a.prn_type = :prn_type and "
-            "   a.bp_type = bp_forms.bp_type and "
-            "   a.prn_type = bp_forms.prn_type and "
-            "   a.version = bp_forms.version ";
-    Qry.CreateVariable("bp_type", otString, bp_type);
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-
-
-    if(Qry.Eof||Qry.FieldIsNULL("data")||
-    	 Qry.FieldIsNULL( "form" ) && (prn_format==pfBTP || prn_format==pfATB || prn_format==pfEPL2)
-    	)
-    	previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
-
-    Pectab = Qry.FieldAsString("form");
-    Print = Qry.FieldAsString("data");
-}
 
 void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
@@ -3557,6 +3576,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
             "   a.version = br_forms.version ";
         Qry.CreateVariable("form_type", otString, form_type);
         Qry.CreateVariable("prn_type", otInteger, prn_type);
+        fmt_type = get_fmt_type(prn_type);
     } else {
         Qry.SQLText =
             "select "
@@ -3579,7 +3599,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     if(Qry.Eof||Qry.FieldIsNULL("data"))
         previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
 
-    string mso_form = Qry.FieldAsString("data");
+    string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
     to_esc::TConvertParams ConvertParams;
     if ( dev_model.empty() )
@@ -3819,8 +3839,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
       )
         previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
-    string form = Qry.FieldAsString("form");
-    string data = Qry.FieldAsString("data");
+    string form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form"));
+    string data = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", form);

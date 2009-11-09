@@ -36,19 +36,6 @@ const string PARAM_NEXT_FILE = "NextFile";
 
 void CommitWork( int file_id );
 
-const char* OWN_POINT_ADDR()
-{
-  static string OWNADDR;
-  if ( OWNADDR.empty() ) {
-    char r[100];
-    r[0]=0;
-    if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
-    OWNADDR = r;
-  }
-  return OWNADDR.c_str();
-};
-
 bool deleteFile( int id )
 {
     TQuery Qry(&OraSession);

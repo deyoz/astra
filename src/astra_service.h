@@ -6,7 +6,6 @@
 #include <map>
 #include "JxtInterface.h"
 
-const char* OWN_POINT_ADDR();
 
 const std::string PARAM_WORK_DIR = "WORKDIR";
 	const std::string PARAM_LOAD_DIR = "LOADDIR";
