@@ -131,6 +131,7 @@ SALONS2::TSalons *CurrSalon;
 
 bool CanUseLayers; /* поиск по слою места */
 TCompLayerType PlaceLayer; /* сам слой */
+vector<TCompLayerType> SeatsLayers;
 bool CanUse_PS; /* можно ли использовать статус предвю рассадки для пассажиров с другими статусами */
 bool CanUseSmoke; /* поиск курящих мест */
 bool CanUseElem_Type; /* поиск мест по типу (табуретка) */
@@ -541,6 +542,23 @@ bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
   return res || no_subcls; // если есть запрещенная ремарка у пассажира или место с ремаркой SUBCLS, а у пассажира ее нет
 }
 
+bool VerifyUseLayer( TPlace *place )
+{
+	bool res = !CanUseLayers || PlaceLayer == cltUnknown && place->layers.empty();
+	if ( !res ) {
+		for (std::vector<TPlaceLayer>::iterator i=place->layers.begin(); i!=place->layers.end(); i++ ) {
+			if ( find( SeatsLayers.begin(), SeatsLayers.end(), i->layer_type ) == SeatsLayers.end() ) { // найден более приоритетный слой, которого нет в списке дозволенных слоев
+				break;
+		  }
+		  if ( i->layer_type == PlaceLayer ) { // найден нужный слой
+		  	res = true;
+		  	break;
+		  }
+	  }
+	}
+	return res;
+}
+
 /* поиск мест расположенных рядом последовательно
    возвращает кол-во найденных мест.
    FP - адрес места, с которого надо искать
@@ -567,7 +585,11 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
   while ( CurrSalon->placeIsFree( place ) && place->isplace && place->visible &&
           place->clname == Passengers.clname &&
           Result + foundCount < MAXPLACE() &&
-          ( !CanUseLayers || place->isLayer( PlaceLayer ) || PlaceLayer == cltUnknown && place->layers.empty() ) &&
+          VerifyUseLayer( place )
+          /* 11.11.09
+          ( !CanUseLayers ||
+            place->isLayer( PlaceLayer ) ||
+            PlaceLayer == cltUnknown && place->layers.empty() )*/ &&
           ( !CanUseSmoke || place->isLayer( cltSmoke ) ) &&
           ( !CanUseElem_Type || place->elem_type == PlaceElem_Type ) ) {
 
@@ -1998,7 +2020,6 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   SeatPlaces.grp_status = passengers.Get( 0 ).grp_status;
   ProgTrace( TRACE5, "SeatPlaces.grp_status=%s,counters.p_Count_3( sDown )=%d", EncodeCompLayerType(SeatPlaces.grp_status), passengers.counters.p_Count_3( sDown ) );
   CurrSalon = Salons;
-  vector<TCompLayerType> Layers;
   CanUseLayers = true;
 	CanUse_PS = FUse_PS;
   CanUseSmoke = false; /* пока не будем работать с курящими местами */
@@ -2114,9 +2135,9 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
             }
 
             /* задаем массив статусов мест */
-            SetLayers( Layers, passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
+            SetLayers( SeatsLayers, passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
             /* пробег по статусом */
-            for ( vector<TCompLayerType>::iterator l=Layers.begin(); l!=Layers.end(); l++ ) {
+            for ( vector<TCompLayerType>::iterator l=SeatsLayers.begin(); l!=SeatsLayers.end(); l++ ) {
               PlaceLayer = *l;
               /* учет режима рассадки в одном ряду */
               for ( int FCanUseOneRow=getCanUseOneRow(); FCanUseOneRow>=0; FCanUseOneRow-- ) {
@@ -2142,7 +2163,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
                       continue; ???*/
 
                     CanUseSmoke = FCanUseSmoke;
-                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyStatus=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
+                    ProgTrace( TRACE5, "seats with:SeatAlg=%d,FCanUseRems=%s,FCanUseAlone=%d,KeyLayer=%d,FCanUseTube=%d,FCanUseSmoke=%d,PlaceStatus=%s, MAXPLACE=%d,canUseOneRow=%d, CanUseSUBCLS=%d, SUBCLS_REM=%s",
                                (int)SeatAlg,DecodeCanUseRems( CanUseRems ).c_str(),FCanUseAlone,KeyLayers,FCanUseTube,FCanUseSmoke,EncodeCompLayerType(PlaceLayer),MAXPLACE(),canUseOneRow,canUseSUBCLS,SUBCLS_REM.c_str());
                     switch( (int)SeatAlg ) {
                       case sSeatGrpOnBasePlace:
