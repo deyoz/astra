@@ -1,4 +1,5 @@
 #include <fstream>
+#include <set>
 #include "print.h"
 #include "oralib.h"
 #include "xml_unit.h"
@@ -37,6 +38,7 @@ struct TPrnParams {
     string encoding;
     int offset, top, pr_lat;
     void get_prn_params(xmlNodePtr prnParamsNode);
+    TPrnParams(): encoding("CP866"), offset(20), top(0), pr_lat(0) {};
 };
 
 void TPrnParams::get_prn_params(xmlNodePtr reqNode)
@@ -316,72 +318,6 @@ namespace to_esc {
         }
     }
 
-    void parse(TFields &fields, string &mso_form)
-    {
-        string num;
-        int x, y, font;
-        char Mode = 'S';
-        TField field;
-        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
-            char curr_char = *si;
-            switch(Mode) {
-                case 'S':
-                    if(IsDigit(curr_char)) {
-                        num += curr_char;
-                        Mode = 'X';
-                    } else
-                        throw Exception("to_esc: x must start from digit");
-                    break;
-                case 'X':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        x = ToInt(num);
-                        num.erase();
-                        Mode = 'Y';
-                    } else
-                        throw Exception("to_esc: x must be num");
-                    break;
-                case 'Y':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        y = ToInt(num);
-                        num.erase();
-                        Mode = 'B';
-                    } else
-                        throw Exception("to_esc: y must be num");
-                    break;
-                case 'A':
-                    if(curr_char == 10) {
-                        field.x = x;
-                        field.y = y;
-                        field.font = font;
-                        field.data = num;
-                        field.parse_data();
-                        if(field.font == 'B' && field.data.size() != 10)
-                            throw Exception("barcode data len must be 10");
-                        fields.push_back(field);
-                        num.erase();
-                        Mode = 'S';
-                    } else
-                        num += curr_char;
-                    break;
-                case 'B':
-                    if(IsDigit(curr_char) || curr_char == 'B')
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        if(num.size() != 1) throw Exception("font fild must by 1 char");
-                        font = num[0];
-                        num.erase();
-                        Mode = 'A';
-                    } else
-                        throw Exception("to_esc: font must be num or 'B'");
-                    break;
-            }
-        }
-    }
-
     void convert(string &mso_form, const TConvertParams &ConvertParams, const TPrnParams &prnParams)
     {
         char Mode = 'S';
@@ -403,6 +339,7 @@ namespace to_esc {
         TField field;
         for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
             char curr_char = *si;
+            ProgTrace(TRACE5, "CHAR: %d '%c'", curr_char, curr_char);
             switch(Mode) {
                 case 'S':
                     if(IsDigit(curr_char)) {
@@ -432,17 +369,17 @@ namespace to_esc {
                         throw Exception("to_esc: y must be num");
                     break;
                 case 'A':
-                    if(curr_char == 10) {
+                    if(curr_char == CR[0]) {
                         field.x = x + prnParamsOffset;
                         field.y = y + prnParamsTop;
                         field.font = font;
                         field.data = num;
                         field.parse_data();
                         if(field.font == 'B' && field.data.size() != 10)
-                            throw Exception("barcode data len must be 10");
+                            throw Exception("barcode data len must be 10: %s", field.data.c_str());
                         fields.push_back(field);
                         num.erase();
-                        Mode = 'S';
+                        Mode = 'C';
                     } else
                         num += curr_char;
                     break;
@@ -457,6 +394,11 @@ namespace to_esc {
                     } else
                         throw Exception("to_esc: font must be num or 'B'");
                     break;
+                case 'C':
+                    if(curr_char == LF[0])
+                        Mode = 'S';
+                    else
+                        throw Exception("to_esc: LF not found where expected");
             }
         }
         {
@@ -863,6 +805,70 @@ void PrintDataParser::t_field_map::dump_data()
         ProgTrace(TRACE5, "------MAP DUMP------");
 }
 
+        // Еще некоторые теги
+void PrintDataParser::t_field_map::additional_tags()
+{
+    if(data["ETICKET_NO"].StringVal.empty())
+        add_tag("etkt", "");
+    else
+        add_tag("etkt", "ETKT" + data["ETICKET_NO"].StringVal);
+    TTagValue TagValue;
+    TagValue.pr_print = 0;
+    TagValue.null = true;
+    TagValue.type = otString;
+
+    TagValue.StringVal =
+        data["CITY_DEP_NAME"].StringVal.substr(0, 7) +
+        "(" + data["AIRP_DEP"].StringVal + ")";
+    data["PLACE_DEP"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_DEP_NAME_LAT"].StringVal.substr(0, 7) +
+        "(" + data["AIRP_DEP_LAT"].StringVal + ")";
+    data["PLACE_DEP_LAT"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_DEP_NAME"].StringVal +
+        " " + data["AIRP_DEP_NAME"].StringVal;
+    data["FULL_PLACE_DEP"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_DEP_NAME_LAT"].StringVal +
+        " " + data["AIRP_DEP_NAME_LAT"].StringVal;
+    data["FULL_PLACE_DEP_LAT"] = TagValue;
+
+
+
+
+
+    TagValue.StringVal =
+        data["CITY_ARV_NAME"].StringVal.substr(0, 7) +
+        "(" + data["AIRP_ARV"].StringVal + ")";
+    data["PLACE_ARV"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_ARV_NAME_LAT"].StringVal.substr(0, 7) +
+        "(" + data["AIRP_ARV_LAT"].StringVal + ")";
+    data["PLACE_ARV_LAT"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_ARV_NAME"].StringVal +
+        " " + data["AIRP_ARV_NAME"].StringVal;
+    data["FULL_PLACE_ARV"] = TagValue;
+
+    TagValue.StringVal =
+        data["CITY_ARV_NAME_LAT"].StringVal +
+        " " + data["AIRP_ARV_NAME_LAT"].StringVal;
+    data["FULL_PLACE_ARV_LAT"] = TagValue;
+
+    string test_server;
+    if(get_test_server())
+        for(int i = 0; i < 150; i++)
+            test_server += "ТЕСТ ";
+    add_tag("test_server", test_server);
+    test_server = transliter(test_server, 1);
+    add_tag("test_server_lat", test_server);
+}
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
     string result;
@@ -870,9 +876,11 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(result.size()) return result;
 
     if(Qrys.size() && !(*Qrys.begin())->FieldsCount()) {
+        ProgTrace(TRACE5, "RAW TAGS");
         for(TQrys::iterator ti = Qrys.begin(); ti != Qrys.end(); ti++) {
             (*ti)->Execute();
             for(int i = 0; i < (*ti)->FieldsCount(); i++) {
+                ProgTrace(TRACE5, "<%s>", (*ti)->FieldName(i));
                 if(data.find((*ti)->FieldName(i)) != data.end())
                     throw Exception((string)"Duplicate field found " + (*ti)->FieldName(i));
                 TTagValue TagValue;
@@ -902,69 +910,8 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 data[(*ti)->FieldName(i)] = TagValue;
             }
         }
-        // Еще некоторые теги
-        {
-            if(data["ETICKET_NO"].StringVal.empty())
-                add_tag("etkt", "");
-            else
-                add_tag("etkt", "ETKT" + data["ETICKET_NO"].StringVal);
-            TTagValue TagValue;
-            TagValue.pr_print = 0;
-            TagValue.null = true;
-            TagValue.type = otString;
-
-            TagValue.StringVal =
-                data["CITY_DEP_NAME"].StringVal.substr(0, 7) +
-                "(" + data["AIRP_DEP"].StringVal + ")";
-            data["PLACE_DEP"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_DEP_NAME_LAT"].StringVal.substr(0, 7) +
-                "(" + data["AIRP_DEP_LAT"].StringVal + ")";
-            data["PLACE_DEP_LAT"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_DEP_NAME"].StringVal +
-                " " + data["AIRP_DEP_NAME"].StringVal;
-            data["FULL_PLACE_DEP"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_DEP_NAME_LAT"].StringVal +
-                " " + data["AIRP_DEP_NAME_LAT"].StringVal;
-            data["FULL_PLACE_DEP_LAT"] = TagValue;
-
-
-
-
-
-            TagValue.StringVal =
-                data["CITY_ARV_NAME"].StringVal.substr(0, 7) +
-                "(" + data["AIRP_ARV"].StringVal + ")";
-            data["PLACE_ARV"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_ARV_NAME_LAT"].StringVal.substr(0, 7) +
-                "(" + data["AIRP_ARV_LAT"].StringVal + ")";
-            data["PLACE_ARV_LAT"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_ARV_NAME"].StringVal +
-                " " + data["AIRP_ARV_NAME"].StringVal;
-            data["FULL_PLACE_ARV"] = TagValue;
-
-            TagValue.StringVal =
-                data["CITY_ARV_NAME_LAT"].StringVal +
-                " " + data["AIRP_ARV_NAME_LAT"].StringVal;
-            data["FULL_PLACE_ARV_LAT"] = TagValue;
-
-            string test_server;
-            if(get_test_server())
-                for(int i = 0; i < 150; i++)
-                    test_server += "ТЕСТ ";
-            add_tag("test_server", test_server);
-            test_server = transliter(test_server, 1);
-            add_tag("test_server_lat", test_server);
-        }
+        ProgTrace(TRACE5, "END OF RAW TAGS");
+        additional_tags();
     }
 
     if(field_lat < 0) field_lat = pr_lat;
@@ -2256,6 +2203,40 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   dump_data();
 };
 
+PrintDataParser::t_field_map::t_field_map(int pr_lat)
+{
+    print_mode = 0;
+    this->pr_lat = pr_lat;
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select * from prn_test_tags";
+    Qry.Execute();
+    if(Qry.Eof)
+        throw Exception("prn_test_tags is empty");
+    for(; not Qry.Eof; Qry.Next()) {
+        string name = Qry.FieldAsString("name");
+        char type = Qry.FieldAsString("type")[0];
+        string value = Qry.FieldAsString("value");
+        string value_lat = Qry.FieldAsString("value_lat");
+        ProgTrace(TRACE5, "name: %s", name.c_str());
+        TDateTime date = 0;
+        switch(type) {
+            case 'D':
+                StrToDateTime(value.c_str(), ServerFormatDateTimeAsString, date);
+                add_tag(name, date);
+                break;
+            case 'S':
+                add_tag(name, value);
+                if(not value_lat.empty())
+                    add_tag(name + "_lat", value_lat);
+                break;
+            case 'I':
+                add_tag(name, ToInt(value));
+                break;
+        }
+    }
+    additional_tags();
+}
+
 PrintDataParser::t_field_map::t_field_map(TBagReceipt &rcpt)
 {
     print_mode = 0;
@@ -2745,6 +2726,9 @@ string get_fmt_type(int prn_type);
         {
             string result;
             switch(fmt_type) {
+                case dftFRX:
+                    result = data;
+                    break;
                 case dftATB:
                 case dftBTP:
                     result = delete_all_CR_LF(data);
@@ -3960,6 +3944,87 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
 }
 
+struct TPrnTestsKey {
+    string op_type, fmt_type, dev_model;
+};
+
+struct TPrnTestCmp {
+    bool operator() (const TPrnTestsKey &l, const TPrnTestsKey &r) const
+    {
+        if(l.op_type == r.op_type)
+            if(l.fmt_type == r.fmt_type)
+                return l.dev_model < r.dev_model;
+            else
+                return l.fmt_type < r.fmt_type;
+        else
+            return l.op_type < r.op_type;
+    }
+};
+
+typedef set<TPrnTestsKey, TPrnTestCmp> TPrnTests;
+
+void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    TReqInfo *reqInfo = TReqInfo::Instance();
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "  desk_grp_id, "
+        "  op_type, "
+        "  fmt_type, "
+        "  dev_model, "
+        "  form, "
+        "  data "
+        "from "
+        "  prn_tests "
+        "where "
+        "  desk_grp_id = :desk_grp_id or desk_grp_id is null "
+        "order by "
+        "  desk_grp_id nulls last, "
+        "  op_type, "
+        "  fmt_type, "
+        "  dev_model ";
+    Qry.CreateVariable("desk_grp_id", otInteger, reqInfo->desk.grp_id);
+    Qry.Execute();
+    if(!Qry.Eof) {
+        xmlNodePtr prnTestsNode = NewTextChild(resNode, "prn_tests");
+        PrintDataParser parser(0);
+        TPrnTests prn_tests;
+        TPrnParams prnParams;
+        for(; !Qry.Eof; Qry.Next()) {
+            TPrnTestsKey item;
+            item.op_type = Qry.FieldAsString("op_type");
+            item.fmt_type = Qry.FieldAsString("fmt_type");
+            item.dev_model = Qry.FieldAsString("dev_model");
+            if(prn_tests.find(item) == prn_tests.end()) {
+                prn_tests.insert(item);
+                string form = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("form"));
+                string data = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("data"));
+                data = parser.parse(data);
+                TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
+                if(dev_fmt_type == dftEPSON) {
+                    to_esc::TConvertParams ConvertParams;
+                    ConvertParams.init(item.dev_model);
+                    to_esc::convert(data, ConvertParams, prnParams);
+                    StringToHex( string(data), data );
+                }
+                if(dev_fmt_type == dftDPL) {
+                    to_esc::parse_dmx(data);
+                    StringToHex( string(data), data );
+                }
+                xmlNodePtr itemNode = NewTextChild(prnTestsNode, "item");
+                NewTextChild(itemNode, "fmt_type", item.fmt_type);
+                NewTextChild(itemNode, "file_name",
+                        item.op_type + "." +
+                        item.fmt_type + (item.dev_model.empty() ? "" : ".") +
+                        item.dev_model);
+                NewTextChild(itemNode, "form", form, "");
+                NewTextChild(itemNode, "data", data);
+            }
+        }
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+}
 
 void PrintInterface::Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
