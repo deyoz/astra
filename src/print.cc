@@ -223,89 +223,6 @@ namespace to_esc {
         out << data;
     }
 
-    void parse_dmx(TFields &fields, string &mso_form)
-    {
-        string num;
-        int x, y, font;
-        char Mode = 'S';
-        TField field;
-        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
-            char curr_char = *si;
-            switch(Mode) {
-                case 'S':
-                    if(IsDigit(curr_char)) {
-                        num += curr_char;
-                        Mode = 'X';
-                    } else
-                        throw Exception("to_esc: x must start from digit");
-                    break;
-                case 'X':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        x = ToInt(num);
-                        num.erase();
-                        Mode = 'Y';
-                    } else
-                        throw Exception("to_esc: x must be num");
-                    break;
-                case 'D':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        field.rotation = ToInt(num);
-                        num.erase();
-                        Mode = 'A';
-                    } else
-                        throw Exception("to_esc: rotation must be num");
-                    break;
-                case 'C':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        field.height = ToInt(num);
-                        num.erase();
-                        Mode = 'D';
-                    } else
-                        throw Exception("to_esc: height must be num");
-                    break;
-                case 'Y':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        y = ToInt(num);
-                        num.erase();
-                        Mode = 'B';
-                    } else
-                        throw Exception("to_esc: y must be num");
-                    break;
-                case 'A':
-                    if(curr_char == 10) {
-                        field.x = x;
-                        field.y = y;
-                        field.font = font;
-                        field.data = num;
-                        fields.push_back(field);
-                        num.erase();
-                        Mode = 'S';
-                    } else
-                        num += curr_char;
-                    break;
-                case 'B':
-                    if(IsDigit(curr_char) || curr_char == 'B')
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        if(num.size() != 1) throw Exception("font fild must by 1 char");
-                        font = num[0];
-                        num.erase();
-                        Mode = 'C';
-                    } else
-                        throw Exception("to_esc: font must be num or 'B'");
-                    break;
-            }
-        }
-    }
-
     void parse_dmx(string &prn_form)
     {
         prn_form = STX + prn_form;
@@ -314,7 +231,7 @@ namespace to_esc {
             pos = prn_form.find(LF);
             if(pos == string::npos)
                 break;
-            prn_form.replace(pos, 1, CR);
+            prn_form.erase(pos, 1);
         }
     }
 
@@ -3394,10 +3311,11 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
             throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+        string seat_no = PaxQry.FieldAsString("seat_no");
         string msg =
                 (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
                 ". Рег. номер: " + IntToString(PaxQry.FieldAsInteger("reg_no")) +
-                ". Место: " + PaxQry.FieldAsString("seat_no") + ".";
+                ". Место: " + (seat_no.empty() ? "нет" : seat_no) + ".";
         ProgTrace(TRACE5, "CONFIRM PRINT_BP LOG MSG: %s", msg.c_str());
         TReqInfo::Instance()->MsgToLog(
                 msg,
