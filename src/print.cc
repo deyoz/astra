@@ -256,7 +256,6 @@ namespace to_esc {
         TField field;
         for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
             char curr_char = *si;
-            ProgTrace(TRACE5, "CHAR: %d '%c'", curr_char, curr_char);
             switch(Mode) {
                 case 'S':
                     if(IsDigit(curr_char)) {
@@ -421,6 +420,11 @@ namespace to_esc {
         }
         mso_form += "\x0c\x1b@";
     }
+}
+
+bool PrintDataParser::exists(string tag)
+{
+    return field_map.form_tags.find(upperc(tag)) != field_map.form_tags.end();
 }
 
 bool PrintDataParser::t_field_map::printed(TData::iterator di)
@@ -788,6 +792,7 @@ void PrintDataParser::t_field_map::additional_tags()
 }
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
+    form_tags.insert(name);
     string result;
     if(name == "HUGE_CHAR") result.append(len, '8');
     if(result.size()) return result;
@@ -851,8 +856,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(di_lat != data.end()) di = di_lat;
     }
     if(di == data.end()) throw Exception("Tag not found " + name);
-    ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
-    ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
     if(name == "PNR")
         di->second.StringVal = convert_pnr_addr(di->second.StringVal, field_lat);
 
@@ -929,7 +932,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 if(name == "GATE") throw UserException("Не указан выход на посадку");
         }
     }
-    tst();
     return result;
 }
 
@@ -2075,17 +2077,17 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf
               << data["POINT_DEP_LAT"].StringVal << "-" << data["POINT_ARV_LAT"].StringVal << " ";
 
-          ostringstream airline_code, airline_code_lat;
+          ostringstream airline_code_lat;
           if(airline.code_lat.empty())
               throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
-          airline_code << airline.code;
+          airline_code_lat << airline.code_lat;
 
           if(rcpt.flt_no != -1)
-              airline_code
+              airline_code_lat
                   << " "
-                  << flt_no.str();
-          buf << airline_code.str();
-          add_tag("airline_code_lat", airline_code.str());
+                  << flt_no_lat.str();
+          buf << airline_code_lat.str();
+          add_tag("airline_code_lat", airline_code_lat.str());
           add_tag("to_lat", buf.str());
       } catch(Exception E) {
           add_err_tag("airline_code_lat", E.what());
@@ -2134,7 +2136,6 @@ PrintDataParser::t_field_map::t_field_map(int pr_lat)
         char type = Qry.FieldAsString("type")[0];
         string value = Qry.FieldAsString("value");
         string value_lat = Qry.FieldAsString("value_lat");
-        ProgTrace(TRACE5, "name: %s", name.c_str());
         TDateTime date = 0;
         switch(type) {
             case 'D':
@@ -2422,14 +2423,11 @@ string PrintDataParser::parse_field0(int offset, string field)
 
 string PrintDataParser::parse(string &form)
 {
+    field_map.form_tags.clear();
     string result;
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
-    ProgTrace(TRACE5, "0: %d", form[0]);
-    ProgTrace(TRACE5, "1: %d", form[1]);
-    ProgTrace(TRACE5, "2: %d", form[2]);
-    ProgTrace(TRACE5, "3: %d", form[3]);
     if(form.substr(i, 3) == "1" + CR + LF) {
         i += 3;
         pectab_format = 1;
@@ -3881,8 +3879,35 @@ struct TPrnTestCmp {
 
 typedef set<TPrnTestsKey, TPrnTestCmp> TPrnTests;
 
+struct TOpsItem {
+    string dev_model, fmt_type;
+    TPrnParams prnParams;
+};
+
+struct TOps {
+    map<TDevOperType, TOpsItem> items;
+    TOps(xmlNodePtr node);
+};
+
+TOps::TOps(xmlNodePtr node)
+{
+    xmlNodePtr currNode = NodeAsNode("ops", node)->children;
+    for(; currNode; currNode = currNode->next) {
+        TOpsItem opsItem;
+        opsItem.dev_model = NodeAsString("dev_model", currNode);
+        if(opsItem.dev_model.empty())
+            continue;
+        opsItem.fmt_type = NodeAsString("fmt_type", currNode);
+        opsItem.prnParams.get_prn_params(currNode);
+        items[DecodeDevOperType(NodeAsString("@type", currNode))] = opsItem;
+    }
+}
+
 void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TOps ops(reqNode);
+    const char *BCBP_M_2 = "bcbp_m_2";
+    const char *PAX_ID = "pax_id";
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3906,9 +3931,8 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.Execute();
     if(!Qry.Eof) {
         xmlNodePtr prnTestsNode = NewTextChild(resNode, "prn_tests");
-        PrintDataParser parser(0);
         TPrnTests prn_tests;
-        TPrnParams prnParams;
+        PrintDataParser parser;
         for(; !Qry.Eof; Qry.Next()) {
             TPrnTestsKey item;
             item.op_type = Qry.FieldAsString("op_type");
@@ -3918,7 +3942,15 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 prn_tests.insert(item);
                 string form = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("form"));
                 string data = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("data"));
-                data = parser.parse(data);
+                TPrnParams prnParams;
+                map<TDevOperType, TOpsItem>::iterator oi = ops.items.find(DecodeDevOperType(item.op_type));
+                if(
+                        oi != ops.items.end()and
+                        oi->second.dev_model == item.dev_model and
+                        oi->second.fmt_type == item.fmt_type
+                  )
+                    prnParams = oi->second.prnParams;
+                data = parser.parse(data, prnParams.pr_lat);
                 TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
                 if(dev_fmt_type == dftEPSON) {
                     to_esc::TConvertParams ConvertParams;
@@ -3938,6 +3970,12 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                         item.dev_model);
                 NewTextChild(itemNode, "form", form, "");
                 NewTextChild(itemNode, "data", data);
+                string barcode;
+                if(parser.exists(BCBP_M_2))
+                    barcode = parser.GetTagAsString(BCBP_M_2);
+                else if(parser.exists(PAX_ID))
+                    barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
+                NewTextChild(itemNode, "scan", barcode, "");
             }
         }
     }
