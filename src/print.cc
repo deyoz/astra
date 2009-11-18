@@ -3946,7 +3946,6 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 map<TDevOperType, TOpsItem>::iterator oi = ops.items.find(DecodeDevOperType(item.op_type));
                 if(
                         oi != ops.items.end()and
-                        oi->second.dev_model == item.dev_model and
                         oi->second.fmt_type == item.fmt_type
                   )
                     prnParams = oi->second.prnParams;
