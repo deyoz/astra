@@ -29,6 +29,8 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
+#define VERSION_WITH_BAG_POOLS "200912-0000000"
+
 class OverloadException: public EXCEPTIONS::UserException
 {
   public:
@@ -1594,11 +1596,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
     "  seats,wl_type,pers_type,document,ticket_rem, "
     "  ticket_no||DECODE(coupon_no,NULL,NULL,'/'||coupon_no) AS ticket_no, "
-    "  ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum) AS bag_amount, "
-    "  ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum) AS bag_weight, "
-    "  ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum) AS rk_weight, "
+    "  ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_amount, "
+    "  ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bag_weight, "
+    "  ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS rk_weight, "
     "  ckin.get_excess(pax.grp_id,pax.pax_id) AS excess, "
-    "  ckin.get_birks(pax.grp_id,pax.pax_id) AS tags, "
+    "  ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num) AS tags, "
     "  report.get_remarks(pax_id,0) AS rems, "
     "  market_flt.airline AS airline_mark, "
     "  market_flt.flt_no AS flt_no_mark, "
@@ -1785,11 +1787,11 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  pax_grp.airp_arv,pax_grp.status, "
     "  report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
     "  report.get_last_tckin_seg(pax_grp.grp_id) AS last_tckin_seg, "
-    "  ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
-    "  ckin.get_bagWeight(pax_grp.grp_id,NULL) AS bag_weight, "
-    "  ckin.get_rkWeight(pax_grp.grp_id,NULL) AS rk_weight, "
+    "  ckin.get_bagAmount2(pax_grp.grp_id,NULL,NULL) AS bag_amount, "
+    "  ckin.get_bagWeight2(pax_grp.grp_id,NULL,NULL) AS bag_weight, "
+    "  ckin.get_rkWeight2(pax_grp.grp_id,NULL,NULL) AS rk_weight, "
     "  ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-    "  ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
+    "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
     "  pax_grp.point_arv,pax_grp.user_id ";
@@ -2688,10 +2690,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             "  END IF; "
             "  INSERT INTO pax(pax_id,grp_id,surname,name,pers_type,seat_type,seats,pr_brd, "
             "                  wl_type,refuse,reg_no,ticket_no,coupon_no,ticket_rem,ticket_confirm, "
-            "                  document,pr_exam,doc_check,subclass,tid) "
+            "                  document,pr_exam,doc_check,subclass,bag_pool_num,tid) "
             "  VALUES(:pax_id,pax_grp__seq.currval,:surname,:name,:pers_type,:seat_type,:seats,:pr_brd, "
             "         :wl_type,NULL,:reg_no,:ticket_no,:coupon_no,:ticket_rem,:ticket_confirm, "
-            "         :document,:pr_exam,0,:subclass,tid__seq.currval); "
+            "         :document,:pr_exam,0,:subclass,:bag_pool_num,tid__seq.currval); "
             "END;";
           Qry.DeclareVariable("pax_id",otInteger);
           Qry.DeclareVariable("surname",otString);
@@ -2709,6 +2711,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           Qry.DeclareVariable("ticket_confirm",otInteger);
           Qry.DeclareVariable("document",otString);
           Qry.DeclareVariable("subclass",otString);
+          Qry.DeclareVariable("bag_pool_num",otInteger);
           int i=0;
           bool change_agent_seat_no = false;
           bool change_preseat_no = false;
@@ -2760,7 +2763,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                                 (int)(NodeAsIntegerFast("ticket_confirm",node2)!=0));
               }
               else
-              { //потом убрать 31.10.08
+              { //потом убрать 31.10.08 !!!
                 if (!NodeIsNULLFast("ticket_no",node2))
                 {
                   if (!NodeIsNULLFast("coupon_no",node2))
@@ -2782,6 +2785,17 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               };
               Qry.SetVariable("document",NodeAsStringFast("document",node2));
               Qry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+              if (!reqInfo->desk.version.empty() &&
+                  reqInfo->desk.version!=UNKNOWN_VERSION &&
+                  reqInfo->desk.version>=VERSION_WITH_BAG_POOLS)
+              {
+                if (!NodeIsNULLFast("bag_pool_num",node2))
+                  Qry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
+                else
+                  Qry.SetVariable("bag_pool_num",FNull);
+              }
+              else Qry.SetVariable("bag_pool_num",FNull);
+
               try
               {
                 Qry.Execute();
@@ -3031,6 +3045,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                          "    ticket_confirm=:ticket_confirm, "
                          "    document=:document, "
                          "    subclass=:subclass, "
+                         "    bag_pool_num=:bag_pool_num, "
                          "    pr_brd=DECODE(:refuse,NULL,pr_brd,NULL), "
                          "    pr_exam=DECODE(:refuse,NULL,pr_exam,0), "
                          "    tid=tid__seq.currval "
@@ -3047,6 +3062,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           PaxQry.DeclareVariable("ticket_confirm",otInteger);
           PaxQry.DeclareVariable("document",otString);
           PaxQry.DeclareVariable("subclass",otString);
+          PaxQry.DeclareVariable("bag_pool_num",otInteger);
 
           TQuery LayerQry(&OraSession);
           LayerQry.Clear();
@@ -3132,6 +3148,16 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 };
                 PaxQry.SetVariable("document",NodeAsStringFast("document",node2));
                 PaxQry.SetVariable("subclass",NodeAsStringFast("subclass",node2));
+                if (!reqInfo->desk.version.empty() &&
+                    reqInfo->desk.version!=UNKNOWN_VERSION &&
+                    reqInfo->desk.version>=VERSION_WITH_BAG_POOLS)
+                {
+                  if (!NodeIsNULLFast("bag_pool_num",node2))
+                    PaxQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
+                  else
+                    PaxQry.SetVariable("bag_pool_num",FNull);
+                }
+                else PaxQry.SetVariable("bag_pool_num",FNull);
                 PaxQry.Execute();
                 if (PaxQry.RowsProcessed()<=0)
                   throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
@@ -3229,8 +3255,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           "  INSERT INTO value_bag(grp_id,num,value,value_cur,tax_id,tax,tax_trfer) "
           "  SELECT :grp_id,num,value,value_cur,NULL,NULL,NULL "
           "  FROM value_bag WHERE grp_id=:first_grp_id; "
-          "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
-          "  SELECT :grp_id,num,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
+          "  INSERT INTO bag2(grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num) "
+          "  SELECT :grp_id,num,99,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num "
           "  FROM bag2 WHERE grp_id=:first_grp_id; "
           "  IF SQL%FOUND THEN "
           "    INSERT INTO paid_bag(grp_id,bag_type,weight,rate_id,rate_trfer) "
@@ -3244,6 +3270,32 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         Qry.CreateVariable("first_grp_id",otInteger,first_grp_id);
         Qry.CreateVariable("seg_no",otInteger,tckin_seg_no);
         Qry.Execute();
+      };
+      if (!(!reqInfo->desk.version.empty() &&
+            reqInfo->desk.version!=UNKNOWN_VERSION &&
+            reqInfo->desk.version>=VERSION_WITH_BAG_POOLS))
+      {
+        if (!pr_unaccomp)
+        {
+          Qry.Clear();
+          Qry.SQLText=
+            "DECLARE "
+            "  new_main_pax_id pax.pax_id%TYPE; "
+            "BEGIN "
+            "  UPDATE bag2 SET bag_pool_num=1 WHERE grp_id=:grp_id; "
+            "  IF SQL%FOUND THEN "
+            "    SELECT ckin.get_main_pax_id(:grp_id) INTO new_main_pax_id FROM dual; "
+            "  ELSE "
+            "    new_main_pax_id:=NULL; "
+            "  END IF; "
+            "  UPDATE pax "
+            "  SET bag_pool_num=DECODE(pax_id,new_main_pax_id,1,NULL), "
+            "      tid=DECODE(bag_pool_num,DECODE(pax_id,new_main_pax_id,1,NULL),tid,tid__seq.currval) "
+            "  WHERE grp_id=:grp_id; "
+            "END;";
+          Qry.CreateVariable("grp_id",otInteger,grp_id);
+          Qry.Execute();
+        };
       };
       SaveBagToLog(point_dep,grp_id,reqNode);
 
@@ -3667,7 +3719,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         "       pax.seat_type, "
         "       pax.seats,pax.refuse,pax.reg_no, "
         "       pax.ticket_no,pax.coupon_no,pax.ticket_rem,pax.ticket_confirm, "
-        "       pax.document,pax.subclass,pax.tid, "
+        "       pax.document,pax.subclass,pax.tid,pax.bag_pool_num, "
         "       crs_pax.pax_id AS crs_pax_id "
         "FROM pax,crs_pax "
         "WHERE pax.pax_id=crs_pax.pax_id(+) AND crs_pax.pr_del(+)=0 AND "
@@ -3713,6 +3765,12 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
         Qry.SetVariable("pax_id",pax_id);
         Qry.Execute();
         NewTextChild(paxNode,"pr_bp_print",(int)(!Qry.Eof));
+
+        if (!PaxQry.FieldIsNULL("bag_pool_num"))
+          NewTextChild(paxNode,"bag_pool_num",PaxQry.FieldAsInteger("bag_pool_num"));
+        else
+          NewTextChild(paxNode,"bag_pool_num");
+
         if (s==segs.begin())
           LoadPaxTransfer(pax_id,paxNode,resNode);
         LoadPaxRem(paxNode);
@@ -4750,71 +4808,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
             NewTextChild(node,"pr_print",(int)false);
           };
         };
-/*
-        Qry.Clear();
-        Qry.SQLText=
-          "DECLARE "
-          "  vairline airlines.code%TYPE; "
-          "  vaircode airlines.aircode%TYPE; "
-          "BEGIN "
-          "  BEGIN "
-          "    SELECT airline INTO vairline FROM points WHERE point_id=:point_id AND pr_del>=0; "
-          "    SELECT aircode INTO vaircode FROM airlines WHERE code=vairline; "
-          "  EXCEPTION "
-          "    WHEN OTHERS THEN vaircode:=NULL; "
-          "  END; "
-          "  ckin.get__tag_no(:desk,vaircode,:tag_count,:first_no,:last_no); "
-          "END;";
-        Qry.CreateVariable("point_id",otInteger,point_id);
-        Qry.CreateVariable("desk",otString,reqInfo->desk.code);
-        Qry.CreateVariable("tag_count",otInteger,bagAmount-tagCount);
-        Qry.DeclareVariable("first_no",otInteger);
-        Qry.DeclareVariable("last_no",otInteger);
-        Qry.Execute();
-        int first_no=Qry.GetVariableAsInteger("first_no");
-        int last_no=Qry.GetVariableAsInteger("last_no");
-        if (tagNode==NULL) tagNode=NewTextChild(bagtagNode,"tags");
-        if ((first_no/1000)==(last_no/1000))
-        {
-          //первый и последний номер из одного диапазона
-          for(int i=first_no;i<=last_no;i++,tagCount++)
-          {
-            node=NewTextChild(tagNode,"tag");
-            NewTextChild(node,"num",tagCount+1);
-            NewTextChild(node,"tag_type",tag_type);
-            NewTextChild(node,"no",i);
-            NewTextChild(node,"color");
-            NewTextChild(node,"bag_num");
-            NewTextChild(node,"pr_print",(int)false);
-          };
-        }
-        else
-        {
-          int j;
-          j=(first_no/1000)*1000+999;
-          for(int i=first_no;i<=j;i++,tagCount++)
-          {
-            node=NewTextChild(tagNode,"tag");
-            NewTextChild(node,"num",tagCount+1);
-            NewTextChild(node,"tag_type",tag_type);
-            NewTextChild(node,"no",i);
-            NewTextChild(node,"color");
-            NewTextChild(node,"bag_num");
-            NewTextChild(node,"pr_print",(int)false);
-          }
-          j=(last_no/1000)*1000;
-          if ((j%1000000)==0) j++;
-          for(int i=j;i<=last_no;i++,tagCount++)
-          {
-            node=NewTextChild(tagNode,"tag");
-            NewTextChild(node,"num",tagCount+1);
-            NewTextChild(node,"tag_type",tag_type);
-            NewTextChild(node,"no",i);
-            NewTextChild(node,"color");
-            NewTextChild(node,"bag_num");
-            NewTextChild(node,"pr_print",(int)false);
-          };
-        };*/
+
         xmlNodePtr bNode,tNode;
         int bag_num,bag_amount;
 
@@ -4900,8 +4894,8 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
     BagQry.CreateVariable("grp_id",otInteger,grp_id);
     BagQry.Execute();
     BagQry.SQLText=
-      "INSERT INTO bag2 (grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit) "
-      "VALUES (:grp_id,:num,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit)";
+      "INSERT INTO bag2 (grp_id,num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit,bag_pool_num) "
+      "VALUES (:grp_id,:num,:bag_type,:pr_cabin,:amount,:weight,:value_bag_num,:pr_liab_limit,:bag_pool_num)";
     BagQry.DeclareVariable("num",otInteger);
     BagQry.DeclareVariable("bag_type",otInteger);
     BagQry.DeclareVariable("pr_cabin",otInteger);
@@ -4909,6 +4903,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
     BagQry.DeclareVariable("weight",otInteger);
     BagQry.DeclareVariable("value_bag_num",otInteger);
     BagQry.DeclareVariable("pr_liab_limit",otInteger);
+    BagQry.DeclareVariable("bag_pool_num",otInteger);
     for(node=bagNode->children;node!=NULL;node=node->next)
     {
       node2=node->children;
@@ -4928,6 +4923,16 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
         BagQry.SetVariable("pr_liab_limit",NodeAsIntegerFast("pr_liab_limit",node2));
       else
         BagQry.SetVariable("pr_liab_limit",(int)0);
+      if (!reqInfo->desk.version.empty() &&
+          reqInfo->desk.version!=UNKNOWN_VERSION &&
+          reqInfo->desk.version>=VERSION_WITH_BAG_POOLS)
+      {
+        if (!NodeIsNULLFast("bag_pool_num",node2))
+          BagQry.SetVariable("bag_pool_num",NodeAsIntegerFast("bag_pool_num",node2));
+        else
+          BagQry.SetVariable("bag_pool_num",FNull);
+      }
+      else BagQry.SetVariable("bag_pool_num",FNull);
       BagQry.Execute();
     };
   };
@@ -5018,7 +5023,8 @@ void CheckInInterface::LoadBag(int grp_id, xmlNodePtr bagtagNode)
   };
   node=NewTextChild(bagtagNode,"bags");
   BagQry.Clear();
-  BagQry.SQLText="SELECT num,bag_type,pr_cabin,amount,weight,value_bag_num,pr_liab_limit "
+  BagQry.SQLText="SELECT num,bag_type,pr_cabin,amount,weight, "
+                 "       value_bag_num,pr_liab_limit,bag_pool_num "
                  "FROM bag2 WHERE grp_id=:grp_id ORDER BY num";
   BagQry.CreateVariable("grp_id",otInteger,grp_id);
   BagQry.Execute();
@@ -5038,6 +5044,10 @@ void CheckInInterface::LoadBag(int grp_id, xmlNodePtr bagtagNode)
     else
       NewTextChild(bagNode,"value_bag_num");
     NewTextChild(bagNode,"pr_liab_limit",(int)(BagQry.FieldAsInteger("pr_liab_limit")!=0));
+    if (!BagQry.FieldIsNULL("bag_pool_num"))
+      NewTextChild(bagNode,"bag_pool_num",BagQry.FieldAsInteger("bag_pool_num"));
+    else
+      NewTextChild(bagNode,"bag_pool_num");
   };
   node=NewTextChild(bagtagNode,"tags");
   BagQry.Clear();
