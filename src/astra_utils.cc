@@ -707,6 +707,31 @@ void showMessage(const std::string &message )
   ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
 };
 
+int getTCLParam(const char* name, int min, int max, int def)
+{
+  int res=NoExists;
+  char r[100];
+  r[0]=0;
+  try
+  {
+    if ( get_param( name, r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
+    if ( StrToInt(r,res)==EOF ||
+         min!=NoExists && res<min ||
+         max!=NoExists && res>max)
+      throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r );
+  }
+  catch(std::exception &e)
+  {
+    if (def==NoExists) throw;
+    res=def;
+    ProgError( STDLOG, e.what() );
+  };
+
+  ProgTrace( TRACE5, "TCL param %s=%d", name, res );
+  return res;
+};
+
 bool get_enable_unload_pectab()
 {
     bool result = true;
@@ -796,6 +821,14 @@ const char* SERVER_ID()
   return SERVERID.c_str();
 };
 
+const bool USE_SEANCES()
+{
+  static int VAR=NoExists;
+  if (VAR==NoExists)
+    VAR=getTCLParam("USE_SEANCES",NoExists,NoExists,1);
+  return VAR!=0;
+};
+
 
 void showBasicInfo(void)
 {
@@ -811,6 +844,7 @@ void showBasicInfo(void)
   resNode = NewTextChild(resNode,"basic_info");
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
   NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
+  NewTextChild(resNode, "use_seances", (int)USE_SEANCES());
 
   NewTextChild(resNode, "server_id", SERVER_ID() );
 

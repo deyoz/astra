@@ -1178,8 +1178,11 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-  if (Qry.FieldIsNULL("pr_airp_seance"))
-    throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+  if (USE_SEANCES())
+	{
+    if (Qry.FieldIsNULL("pr_airp_seance"))
+      throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+  };
 
   if (pax_status==psTransit)
   {
@@ -2175,8 +2178,11 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
       if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
-      if (Qry.FieldIsNULL("pr_airp_seance"))
-        throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+      if (USE_SEANCES())
+     	{
+        if (Qry.FieldIsNULL("pr_airp_seance"))
+          throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+      };
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
       bool pr_reg_with_tkn=Qry.FieldAsInteger("pr_reg_with_tkn")!=0;

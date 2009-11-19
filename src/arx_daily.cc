@@ -15,32 +15,6 @@ using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
-int getTCLParam(const char* name, int min, int max, int def)
-{
-  int res=NoExists;
-  char r[100];
-  r[0]=0;
-  try
-  {
-    if ( get_param( name, r, sizeof( r ) ) < 0 )
-      throw EXCEPTIONS::Exception( "Can't read TCL param %s", name );
-    if ( StrToInt(r,res)==EOF ||
-         min!=NoExists && res<min ||
-         max!=NoExists && res>max)
-      throw EXCEPTIONS::Exception( "Wrong TCL param %s=%s", name, r );
-  }
-  catch(std::exception &e)
-  {
-    if (def==NoExists) throw;
-    res=def;
-    ProgError( STDLOG, e.what() );
-  };
-
-  ProgTrace( TRACE5, "TCL param %s=%d", name, res );
-  return res;
-};
-
-
 const int ARX_MIN_DAYS()
 {
   static int VAR=NoExists;
