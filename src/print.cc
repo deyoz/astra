@@ -2838,10 +2838,10 @@ void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr
       previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
     while(!FormsQry.Eof)
     {
-        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
           previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
-        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
 }
@@ -2884,12 +2884,13 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     FormsQry.Execute();
     if(FormsQry.Eof)
       previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+    string fmt_type = get_fmt_type(prn_type);
     while(!FormsQry.Eof)
     {
-        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
           previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
-        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
 }
@@ -3211,12 +3212,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-                to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION)
+                  reqInfo->desk.version==UNKNOWN_VERSION) {
+                to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-              else
-              	StringToHex( string(prn_form), prn_form );
+              }
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3225,12 +3225,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-                to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION)
+                  reqInfo->desk.version==UNKNOWN_VERSION) {
+                to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-              else
-              	StringToHex( string(prn_form), prn_form );
+              }
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3837,12 +3836,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             	StringToHex( string(prn_form), prn_form );
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
-            to_esc::parse_dmx(prn_form);
             if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION)
+                reqInfo->desk.version==UNKNOWN_VERSION) {
+              to_esc::parse_dmx(prn_form);
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-            else
-            	StringToHex( string(prn_form), prn_form );
+            }
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         NewTextChild(paxNode, "prn_form", prn_form);
@@ -3955,10 +3953,6 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(item.dev_model);
                     to_esc::convert(data, ConvertParams, prnParams);
-                    StringToHex( string(data), data );
-                }
-                if(dev_fmt_type == dftDPL) {
-                    to_esc::parse_dmx(data);
                     StringToHex( string(data), data );
                 }
                 xmlNodePtr itemNode = NewTextChild(prnTestsNode, "item");
