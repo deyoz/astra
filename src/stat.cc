@@ -2226,7 +2226,10 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Нет данных");
-    get_report_form("TrferFullStat", resNode);
+    if(USE_SEANCES())
+        get_report_form("STrferFullStat", resNode);
+    else
+        get_report_form("TrferFullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2455,7 +2458,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Нет данных");
-    get_report_form("FullStat", resNode);
+    if(USE_SEANCES())
+        get_report_form("SFullStat", resNode);
+    else
+        get_report_form("FullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2718,7 +2724,10 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Нет данных");
-    get_report_form("ShortStat", resNode);
+    if(USE_SEANCES())
+        get_report_form("SShortStat", resNode);
+    else
+        get_report_form("ShortStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2828,7 +2837,10 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw UserException("Нет данных");
-    get_report_form("DetailStat", resNode);
+    if(USE_SEANCES())
+        get_report_form("SDetailStat", resNode);
+    else
+        get_report_form("DetailStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
