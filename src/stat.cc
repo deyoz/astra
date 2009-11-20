@@ -862,6 +862,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     SetProp(colNode, "align", taLeftJustify);
 
     map<int, string> TripItems;
+    xmlNodePtr rowsNode = NULL;
     for(int j = 0; j < 2; j++) {
         Qry.Clear();
         if (j==0) {
@@ -994,7 +995,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             int col_screen=Qry.FieldIndex("screen");
             int col_part_key=Qry.FieldIndex("part_key");
 
-            xmlNodePtr rowsNode = NewTextChild(paxLogNode, "rows");
+            if(not rowsNode)
+                rowsNode = NewTextChild(paxLogNode, "rows");
             for( ; !Qry.Eof; Qry.Next()) {
                 string ev_user = Qry.FieldAsString(col_ev_user);
                 string station = Qry.FieldAsString(col_station);
