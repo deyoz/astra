@@ -1498,10 +1498,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      "    pr_reg_with_tkn,pr_reg_with_doc) "
      "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, 0, "
      "         NULL, 0, 1, 0, 0, 0, 0, 0); "
-     " ckin.set_trip_sets(:point_id); "
+     " ckin.set_trip_sets(:point_id,:use_seances); "
      " gtimer.puttrip_stages(:point_id); "
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
+		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
 		err++;
 		Qry.Execute();

@@ -987,9 +987,10 @@ void CreateSPP( BASIC::TDateTime localdate )
    "    pr_reg_with_tkn,pr_reg_with_doc) "
    "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, 0, "
    "    NULL, 0, 1, 0, 0, 0, 0, 0); "
-   " ckin.set_trip_sets(:point_id); "
+   " ckin.set_trip_sets(:point_id,:use_seances); "
    " gtimer.puttrip_stages(:point_id); "
    "END;";
+  TQry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
   TQry.DeclareVariable( "point_id", otInteger );
   TQry.DeclareVariable( "f", otInteger );
   TQry.DeclareVariable( "c", otInteger );

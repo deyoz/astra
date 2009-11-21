@@ -825,7 +825,7 @@ const bool USE_SEANCES()
 {
   static int VAR=NoExists;
   if (VAR==NoExists)
-    VAR=getTCLParam("USE_SEANCES",NoExists,NoExists,1);
+    VAR=getTCLParam("USE_SEANCES",NoExists,NoExists,0);
   return VAR!=0;
 };
 
