@@ -223,89 +223,6 @@ namespace to_esc {
         out << data;
     }
 
-    void parse_dmx(TFields &fields, string &mso_form)
-    {
-        string num;
-        int x, y, font;
-        char Mode = 'S';
-        TField field;
-        for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
-            char curr_char = *si;
-            switch(Mode) {
-                case 'S':
-                    if(IsDigit(curr_char)) {
-                        num += curr_char;
-                        Mode = 'X';
-                    } else
-                        throw Exception("to_esc: x must start from digit");
-                    break;
-                case 'X':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        x = ToInt(num);
-                        num.erase();
-                        Mode = 'Y';
-                    } else
-                        throw Exception("to_esc: x must be num");
-                    break;
-                case 'D':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        field.rotation = ToInt(num);
-                        num.erase();
-                        Mode = 'A';
-                    } else
-                        throw Exception("to_esc: rotation must be num");
-                    break;
-                case 'C':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        field.height = ToInt(num);
-                        num.erase();
-                        Mode = 'D';
-                    } else
-                        throw Exception("to_esc: height must be num");
-                    break;
-                case 'Y':
-                    if(IsDigit(curr_char))
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        y = ToInt(num);
-                        num.erase();
-                        Mode = 'B';
-                    } else
-                        throw Exception("to_esc: y must be num");
-                    break;
-                case 'A':
-                    if(curr_char == 10) {
-                        field.x = x;
-                        field.y = y;
-                        field.font = font;
-                        field.data = num;
-                        fields.push_back(field);
-                        num.erase();
-                        Mode = 'S';
-                    } else
-                        num += curr_char;
-                    break;
-                case 'B':
-                    if(IsDigit(curr_char) || curr_char == 'B')
-                        num += curr_char;
-                    else if(curr_char == ',') {
-                        if(num.size() != 1) throw Exception("font fild must by 1 char");
-                        font = num[0];
-                        num.erase();
-                        Mode = 'C';
-                    } else
-                        throw Exception("to_esc: font must be num or 'B'");
-                    break;
-            }
-        }
-    }
-
     void parse_dmx(string &prn_form)
     {
         prn_form = STX + prn_form;
@@ -314,7 +231,7 @@ namespace to_esc {
             pos = prn_form.find(LF);
             if(pos == string::npos)
                 break;
-            prn_form.replace(pos, 1, CR);
+            prn_form.erase(pos, 1);
         }
     }
 
@@ -339,7 +256,6 @@ namespace to_esc {
         TField field;
         for(string::iterator si = mso_form.begin(); si != mso_form.end(); si++) {
             char curr_char = *si;
-            ProgTrace(TRACE5, "CHAR: %d '%c'", curr_char, curr_char);
             switch(Mode) {
                 case 'S':
                     if(IsDigit(curr_char)) {
@@ -504,6 +420,11 @@ namespace to_esc {
         }
         mso_form += "\x0c\x1b@";
     }
+}
+
+bool PrintDataParser::exists(string tag)
+{
+    return field_map.form_tags.find(upperc(tag)) != field_map.form_tags.end();
 }
 
 bool PrintDataParser::t_field_map::printed(TData::iterator di)
@@ -871,6 +792,7 @@ void PrintDataParser::t_field_map::additional_tags()
 }
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
 {
+    form_tags.insert(name);
     string result;
     if(name == "HUGE_CHAR") result.append(len, '8');
     if(result.size()) return result;
@@ -934,8 +856,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         if(di_lat != data.end()) di = di_lat;
     }
     if(di == data.end()) throw Exception("Tag not found " + name);
-    ProgTrace(TRACE5, "TAG: %s", di->first.c_str());
-    ProgTrace(TRACE5, "TAG err: %s", di->second.err_msg.c_str());
     if(name == "PNR")
         di->second.StringVal = convert_pnr_addr(di->second.StringVal, field_lat);
 
@@ -1012,7 +932,6 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
                 if(name == "GATE") throw UserException("Не указан выход на посадку");
         }
     }
-    tst();
     return result;
 }
 
@@ -2158,17 +2077,17 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           buf
               << data["POINT_DEP_LAT"].StringVal << "-" << data["POINT_ARV_LAT"].StringVal << " ";
 
-          ostringstream airline_code, airline_code_lat;
+          ostringstream airline_code_lat;
           if(airline.code_lat.empty())
               throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
-          airline_code << airline.code;
+          airline_code_lat << airline.code_lat;
 
           if(rcpt.flt_no != -1)
-              airline_code
+              airline_code_lat
                   << " "
-                  << flt_no.str();
-          buf << airline_code.str();
-          add_tag("airline_code_lat", airline_code.str());
+                  << flt_no_lat.str();
+          buf << airline_code_lat.str();
+          add_tag("airline_code_lat", airline_code_lat.str());
           add_tag("to_lat", buf.str());
       } catch(Exception E) {
           add_err_tag("airline_code_lat", E.what());
@@ -2217,7 +2136,6 @@ PrintDataParser::t_field_map::t_field_map(int pr_lat)
         char type = Qry.FieldAsString("type")[0];
         string value = Qry.FieldAsString("value");
         string value_lat = Qry.FieldAsString("value_lat");
-        ProgTrace(TRACE5, "name: %s", name.c_str());
         TDateTime date = 0;
         switch(type) {
             case 'D':
@@ -2505,14 +2423,11 @@ string PrintDataParser::parse_field0(int offset, string field)
 
 string PrintDataParser::parse(string &form)
 {
+    field_map.form_tags.clear();
     string result;
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
-    ProgTrace(TRACE5, "0: %d", form[0]);
-    ProgTrace(TRACE5, "1: %d", form[1]);
-    ProgTrace(TRACE5, "2: %d", form[2]);
-    ProgTrace(TRACE5, "3: %d", form[3]);
     if(form.substr(i, 3) == "1" + CR + LF) {
         i += 3;
         pectab_format = 1;
@@ -2923,10 +2838,10 @@ void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr
       previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
     while(!FormsQry.Eof)
     {
-        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
           previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
-        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
 }
@@ -2969,12 +2884,13 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     FormsQry.Execute();
     if(FormsQry.Eof)
       previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+    string fmt_type = get_fmt_type(prn_type);
     while(!FormsQry.Eof)
     {
-        NewTextChild(pectabsNode, "pectab", FormsQry.FieldAsString("form"));
+        NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
           previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
-        prn_forms.push_back(FormsQry.FieldAsString("data"));
+        prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
 }
@@ -3296,12 +3212,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-                to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION)
+                  reqInfo->desk.version==UNKNOWN_VERSION) {
+                to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-              else
-              	StringToHex( string(prn_form), prn_form );
+              }
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3310,12 +3225,11 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-                to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION)
+                  reqInfo->desk.version==UNKNOWN_VERSION) {
+                to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-              else
-              	StringToHex( string(prn_form), prn_form );
+              }
             }
             NewTextChild(tagNode, "prn_form", prn_form);
         }
@@ -3394,10 +3308,11 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
             throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+        string seat_no = PaxQry.FieldAsString("seat_no");
         string msg =
                 (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
                 ". Рег. номер: " + IntToString(PaxQry.FieldAsInteger("reg_no")) +
-                ". Место: " + PaxQry.FieldAsString("seat_no") + ".";
+                ". Место: " + (seat_no.empty() ? "нет" : seat_no) + ".";
         ProgTrace(TRACE5, "CONFIRM PRINT_BP LOG MSG: %s", msg.c_str());
         TReqInfo::Instance()->MsgToLog(
                 msg,
@@ -3921,12 +3836,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             	StringToHex( string(prn_form), prn_form );
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
-            to_esc::parse_dmx(prn_form);
             if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION)
+                reqInfo->desk.version==UNKNOWN_VERSION) {
+              to_esc::parse_dmx(prn_form);
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
-            else
-            	StringToHex( string(prn_form), prn_form );
+            }
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
         NewTextChild(paxNode, "prn_form", prn_form);
@@ -3963,8 +3877,35 @@ struct TPrnTestCmp {
 
 typedef set<TPrnTestsKey, TPrnTestCmp> TPrnTests;
 
+struct TOpsItem {
+    string dev_model, fmt_type;
+    TPrnParams prnParams;
+};
+
+struct TOps {
+    map<TDevOperType, TOpsItem> items;
+    TOps(xmlNodePtr node);
+};
+
+TOps::TOps(xmlNodePtr node)
+{
+    xmlNodePtr currNode = NodeAsNode("ops", node)->children;
+    for(; currNode; currNode = currNode->next) {
+        TOpsItem opsItem;
+        opsItem.dev_model = NodeAsString("dev_model", currNode);
+        if(opsItem.dev_model.empty())
+            continue;
+        opsItem.fmt_type = NodeAsString("fmt_type", currNode);
+        opsItem.prnParams.get_prn_params(currNode);
+        items[DecodeDevOperType(NodeAsString("@type", currNode))] = opsItem;
+    }
+}
+
 void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    TOps ops(reqNode);
+    const char *BCBP_M_2 = "bcbp_m_2";
+    const char *PAX_ID = "pax_id";
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3988,9 +3929,8 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.Execute();
     if(!Qry.Eof) {
         xmlNodePtr prnTestsNode = NewTextChild(resNode, "prn_tests");
-        PrintDataParser parser(0);
         TPrnTests prn_tests;
-        TPrnParams prnParams;
+        PrintDataParser parser;
         for(; !Qry.Eof; Qry.Next()) {
             TPrnTestsKey item;
             item.op_type = Qry.FieldAsString("op_type");
@@ -4000,16 +3940,19 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                 prn_tests.insert(item);
                 string form = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("form"));
                 string data = AdjustCR_LF::DoIt(item.fmt_type, Qry.FieldAsString("data"));
-                data = parser.parse(data);
+                TPrnParams prnParams;
+                map<TDevOperType, TOpsItem>::iterator oi = ops.items.find(DecodeDevOperType(item.op_type));
+                if(
+                        oi != ops.items.end()and
+                        oi->second.fmt_type == item.fmt_type
+                  )
+                    prnParams = oi->second.prnParams;
+                data = parser.parse(data, prnParams.pr_lat);
                 TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
                 if(dev_fmt_type == dftEPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(item.dev_model);
                     to_esc::convert(data, ConvertParams, prnParams);
-                    StringToHex( string(data), data );
-                }
-                if(dev_fmt_type == dftDPL) {
-                    to_esc::parse_dmx(data);
                     StringToHex( string(data), data );
                 }
                 xmlNodePtr itemNode = NewTextChild(prnTestsNode, "item");
@@ -4020,6 +3963,12 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                         item.dev_model);
                 NewTextChild(itemNode, "form", form, "");
                 NewTextChild(itemNode, "data", data);
+                string barcode;
+                if(parser.exists(BCBP_M_2))
+                    barcode = parser.GetTagAsString(BCBP_M_2);
+                else if(parser.exists(PAX_ID))
+                    barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
+                NewTextChild(itemNode, "scan", barcode, "");
             }
         }
     }

@@ -1498,10 +1498,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
      "    pr_reg_with_tkn,pr_reg_with_doc) "
      "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, 0, "
      "         NULL, 0, 1, 0, 0, 0, 0, 0); "
-     " ckin.set_trip_sets(:point_id); "
+     " ckin.set_trip_sets(:point_id,:use_seances); "
      " gtimer.puttrip_stages(:point_id); "
      "END;";
 		Qry.CreateVariable( "point_id", otInteger, point_id );
+		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
 		err++;
 		Qry.Execute();
@@ -1773,7 +1774,7 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 	Qry.DeclareVariable( "work_mode", otString );
 	Qry.DeclareVariable( "pr_change", otInteger );
 //rogTrace( TRACE5, "fl.terms.size()=%d, point_id=%d", fl.terms.size(), point_id );
-  string reg, brd;
+  string reg, reg_del, brd, brd_del;
   bool pr_change_reg = false, pr_change_brd = false;
 	for ( vector<AODB_Term>::iterator it=fl.terms.begin(); it!=fl.terms.end(); it++ ) {
 		Qry.SetVariable( "desk", it->name );
@@ -1787,15 +1788,29 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
 			pr_change_reg = pr_change_reg || Qry.GetVariableAsInteger( "pr_change" );
 		else
 			pr_change_brd = pr_change_brd || Qry.GetVariableAsInteger( "pr_change" );
-		if ( it->type == "Р" )
-			reg = reg + " " + it->name;
+		if ( it->pr_del )
+		  if ( it->type == "Р" )
+		  	reg_del = reg_del + " " + it->name;
+		  else
+		  	brd_del = brd_del + " " + it->name;
 		else
-			brd = brd + " " + it->name;
+		  if ( it->type == "Р" )
+		  	reg = reg + " " + it->name;
+		  else
+		  	brd = brd + " " + it->name;
 	}
-	if ( pr_change_reg )
-	  reqInfo->MsgToLog( string( "Назначение стоек регистрации" ) + reg, evtDisp, move_id, point_id );
-	if ( pr_change_brd )
-		reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
+	if ( pr_change_reg ) {
+		if ( !reg_del.empty() )
+	    reqInfo->MsgToLog( string( "Удаление стоек регистрации" ) + reg_del, evtDisp, move_id, point_id );
+		if ( !reg.empty() )
+	    reqInfo->MsgToLog( string( "Назначение стоек регистрации" ) + reg, evtDisp, move_id, point_id );
+	}
+	if ( pr_change_brd ) {
+		if ( !brd_del.empty() )
+		  reqInfo->MsgToLog( string( "Удаление выходов на посадку" ) + brd_del, evtDisp, move_id, point_id );
+		if ( !brd.empty() )
+		  reqInfo->MsgToLog( string( "Назначение выходов на посадку" ) + brd, evtDisp, move_id, point_id );
+	}
 }
 catch(...){
 	ProgError( STDLOG, "AODB error=%d", err );

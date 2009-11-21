@@ -5,6 +5,7 @@
 #include "jxtlib/JxtInterface.h"
 #include "basic.h"
 #include "oralib.h"
+#include <set>
 
 void check_CUTE_certified(int &prn_type, std::string &dev_model, std::string &fmt_type);
 
@@ -97,7 +98,6 @@ class PrintDataParser {
                 std::string class_checked;
                 int grp_id;
                 int pax_id;
-                int pr_lat;
                 typedef std::vector<TQuery*> TQrys;
                 TQrys Qrys;
                 TQuery *prnQry;
@@ -109,6 +109,8 @@ class PrintDataParser {
                 bool printed(TData::iterator di);
 
             public:
+                int pr_lat;
+                std::set<std::string> form_tags;
                 int print_mode;
                 t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 t_field_map(TBagReceipt &rcpt);
@@ -133,7 +135,7 @@ class PrintDataParser {
         bool IsDelim(char curr_char, char &Mode);
         std::string parse_tag(int offset, std::string tag);
     public:
-        PrintDataParser(int pr_lat): field_map(pr_lat)
+        PrintDataParser(int pr_lat = 0): field_map(pr_lat)
         {
             pectab_format = 0;
             this->pr_lat = pr_lat;
@@ -149,6 +151,12 @@ class PrintDataParser {
             pectab_format = 0;
             this->pr_lat = pr_lat;
         };
+        std::string parse(std::string &form, int pr_lat)
+        {
+            this->pr_lat = pr_lat;
+            field_map.pr_lat = pr_lat;
+            return parse(form);
+        }
         std::string parse(std::string &form);
         TQuery *get_prn_qry() { return field_map.get_prn_qry(); };
         void add_tag(std::string name, int val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
@@ -156,6 +164,7 @@ class PrintDataParser {
         void add_tag(std::string name, BASIC::TDateTime val, bool nullable = false) { return field_map.add_tag(name, val, nullable); };
         std::string GetTagAsString(std::string name) { return field_map.GetTagAsString(name); };
         int GetTagAsInteger(std::string name) { return field_map.GetTagAsInteger(name); };
+        bool exists(std::string tag);
 };
 
 // !!! Next generation
