@@ -1146,12 +1146,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   pax.reg_no, "
                 "   pax_grp.airp_arv, "
                 "   pax.surname||' '||pax.name full_name, "
-                "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum),0) bag_amount, "
-                "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum),0) bag_weight, "
-                "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum),0) rk_weight, "
+                "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, "
+                "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
+                "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
                 "   pax_grp.grp_id, "
-                "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
+                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
@@ -1329,11 +1329,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
                 "   pax_grp.airp_arv, "
                 "   report.get_last_trfer(pax_grp.grp_id) AS last_trfer, "
-                "   ckin.get_bagAmount(pax_grp.grp_id,NULL) AS bag_amount, "
-                "   ckin.get_bagWeight(pax_grp.grp_id,NULL) AS bag_weight, "
-                "   ckin.get_rkWeight(pax_grp.grp_id,NULL) AS rk_weight, "
+                "   ckin.get_bagAmount2(pax_grp.grp_id,NULL,null) AS bag_amount, "
+                "   ckin.get_bagWeight2(pax_grp.grp_id,NULL,null) AS bag_weight, "
+                "   ckin.get_rkWeight2(pax_grp.grp_id,NULL,null) AS rk_weight, "
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
-                "   ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
+                "   ckin.get_birks2(pax_grp.grp_id,NULL,null) AS tags, "
                 "   pax_grp.grp_id, "
                 "   halls2.name AS hall_id, "
                 "   pax_grp.point_arv,pax_grp.user_id "
@@ -1368,11 +1368,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
                 "  arx_pax_grp.airp_arv, "
                 "  report.get_last_trfer(arx_pax_grp.grp_id) AS last_trfer, "
-                "  ckin.get_bagAmount(arx_pax_grp.grp_id,NULL) AS bag_amount, "
-                "  ckin.get_bagWeight(arx_pax_grp.grp_id,NULL) AS bag_weight, "
-                "  ckin.get_rkWeight(arx_pax_grp.grp_id,NULL) AS rk_weight, "
-                "  ckin.get_excess(arx_pax_grp.grp_id,NULL) AS excess, "
-                "  ckin.get_birks(arx_pax_grp.grp_id,NULL) AS tags, "
+                "  arch.get_bagAmount(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS bag_amount, "
+                "  arch.get_bagWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS bag_weight, "
+                "  arch.get_rkWeight(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS rk_weight, "
+                "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
+                "  arch.get_birks(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS tags, "
                 "  arx_pax_grp.grp_id, "
                 "  halls2.name AS hall_id, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
@@ -1522,160 +1522,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         return;
     }
 }
-
-struct TTagQryParts {
-    string
-        select,
-        order_by,
-        astra_select,
-        arx_select,
-        astra_from,
-        arx_from,
-        where,
-        astra_group_by,
-        arx_group_by,
-        get_birks;
-    TTagQryParts(int state);
-    bool TagDetailCheck(int i);
-    bool checked[5];
-    private:
-    bool cscd, cflt, ctarget, ctarget_trfer, ccls;
-    string fgroup_by, fuselect;
-};
-
-bool TTagQryParts::TagDetailCheck(int i)
-{
-    if(i > 4 || i == 1)
-        return true;
-    else if(i == 2)
-        return checked[1];
-    else if(i == 3)
-        return checked[2] || checked[3];
-    else
-        return checked[i];
-}
-
-TTagQryParts::TTagQryParts(int state)
-{
-    cscd = state & 16;
-    cflt = state & 8;
-    ctarget = state & 4;
-    ctarget_trfer = state & 2;
-    ccls = state & 1;
-
-    checked[0] = cscd;
-    checked[1] = cflt;
-    checked[2] = ctarget;
-    checked[3] = ctarget_trfer;
-    checked[4] = ccls;
-
-    get_birks = "trip_company, ";
-    order_by = "trip_company, ";
-    fuselect = "trips.company   trip_company, ";
-    fgroup_by = "trips.company, ";
-
-    if(cflt) {
-        get_birks = get_birks +
-            "trip_flt_no, " +
-            "nvl(trip_suffix, ' '), ";
-        order_by = order_by +
-            "trip_flt_no, " +
-            "trip_suffix, ";
-        fuselect = fuselect +
-            "trips.flt_no    trip_flt_no, " +
-            "trips.suffix    trip_suffix, ";
-        fgroup_by = fgroup_by +
-            "trips.flt_no, " +
-            "trips.suffix, ";
-    } else
-        get_birks = get_birks +
-            "NULL, " +
-            "NULL, ";
-
-
-    if(cflt && ctarget_trfer) {
-        get_birks = get_birks +
-            "nvl(transfer_company, ' '), " +
-            "nvl(transfer_flt_no, -1), " +
-            "nvl(transfer_suffix, ' '), ";
-        order_by = order_by +
-            "transfer_company, " +
-            "transfer_flt_no, " +
-            "transfer_suffix, ";
-        fuselect = fuselect +
-            "lt.airline      transfer_company, " +
-            "lt.flt_no       transfer_flt_no, " +
-            "lt.suffix       transfer_suffix, ";
-        fgroup_by = fgroup_by +
-            "lt.airline, " +
-            "lt.flt_no, " +
-            "lt.suffix, ";
-    } else
-        get_birks = get_birks +
-            "NULL, " +
-            "NULL, " +
-            "NULL, ";
-
-    if(ctarget) {
-        get_birks = get_birks + "target, ";
-        order_by = order_by + "target, ";
-        fuselect = fuselect + "pax_grp.target  target, ";
-        fgroup_by = fgroup_by + "pax_grp.target, ";
-    } else
-        get_birks = get_birks + "NULL, ";
-
-    if(ctarget_trfer) {
-        get_birks = get_birks + "nvl(transfer_target, ' '), ";
-        order_by = order_by + "transfer_target, ";
-        fuselect = fuselect + "lt.airp_arv     transfer_target, ";
-        fgroup_by = fgroup_by + "lt.airp_arv, ";
-    } else
-        get_birks = get_birks + "NULL, ";
-
-    if(ccls) {
-        get_birks = get_birks + "cls, ";
-        order_by = order_by + "cls, ";
-        fuselect = fuselect + "pax_grp.class   cls, ";
-        fgroup_by = fgroup_by + "pax_grp.class, ";
-    } else
-        get_birks = get_birks + "NULL, ";
-
-    if(cscd) {
-        select = "scd, " + order_by;
-        astra_select =
-            "to_char(trips.scd, 'dd.mm.yy')   scd, " +
-            fuselect;
-        arx_select =
-            "to_char(trips.part_key, 'dd.mm.yy')   scd, " +
-            fuselect;
-        astra_group_by =
-            fgroup_by;
-        arx_group_by =
-            fgroup_by;
-    } else {
-        select = order_by;
-        astra_select = fuselect;
-        arx_select = fuselect;
-        astra_group_by = fgroup_by;
-        arx_group_by = fgroup_by;
-    }
-
-    if(ctarget_trfer) {
-        astra_from =
-            "( "
-            "  SELECT grp_id,airline,flt_no,suffix,airp_arv "
-            "  FROM trfer_trips,transfer "
-            "  WHERE transfer.point_id_trfer=trfer_trips.point_id AND pr_final<>0 "
-            ") lt, ";
-        arx_from =
-            "( "
-            "  пока не знаю как будет!!! "
-            ") lt, ";
-        where = "pax_grp.grp_id = lt.grp_id(+) and ";
-    }
-}
-
-const int BagTagColsSize = 8;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3040,12 +2886,12 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   pax.reg_no, "
                 "   pax_grp.airp_arv, "
                 "   pax.surname||' '||pax.name full_name, "
-                "   NVL(ckin.get_bagAmount(pax.grp_id,pax.pax_id,rownum),0) bag_amount, "
-                "   NVL(ckin.get_bagWeight(pax.grp_id,pax.pax_id,rownum),0) bag_weight, "
-                "   NVL(ckin.get_rkWeight(pax.grp_id,pax.pax_id,rownum),0) rk_weight, "
+                "   NVL(ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_amount, "
+                "   NVL(ckin.get_bagWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) bag_weight, "
+                "   NVL(ckin.get_rkWeight2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum),0) rk_weight, "
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
                 "   pax_grp.grp_id, "
-                "   ckin.get_birks(pax.grp_id,pax.pax_id,0) tags, "
+                "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,0) tags, "
                 "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
                 "   cls_grp.code class, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
