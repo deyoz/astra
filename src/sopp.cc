@@ -3348,28 +3348,39 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
   		  Qry.Clear();
   		  Qry.SQLText =
-  		   "UPDATE trip_stages SET est=scd+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0 ";
+  		   "BEGIN "
+  		   "  UPDATE trip_stages SET est=NVL(est,scd)+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0; "
+  		   "  SELECT est,scd INTO :vest,:vscd FROM trip_stages WHERE point_id=:point_id AND pr_manual=0 AND rownum<2; "
+  		   " EXCEPTION WHEN NO_DATA_FOUND THEN "
+  		   "  :vest := NULL;"
+         "  :vscd := NULL;"
+  		   "END; ";
   		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		  Qry.CreateVariable( "vscd", otDate, t1 );
   		  Qry.CreateVariable( "vest", otDate, t2 );
   		  Qry.Execute();
   		  string tolog;
   	    double f;
-  	    if ( t1 > t2 ) {
-  	    	modf( t1 - t2, &f );
-  			  tolog = "Опережение выполнения технологического графика на ";
-  		    if ( f )
-    		    tolog += IntToString( (int)f ) + " ";
-    		  tolog += DateTimeToStr( t1-t2, "hh:nn" );
-  	    }
-  	    else {
-  	    	modf( t2 - t1, &f );
-  		  	tolog = "Задержка выполнения технологического графика на ";
-  		  	if ( f )
-  		  		tolog += IntToString( (int)f ) + " ";
-  		  	tolog += DateTimeToStr( t2-t1, "hh:nn" );
-  	    }
-  	    reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
+  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
+  	      t1 = Qry.GetVariableAsDateTime( "vscd" );
+  	      t2 = Qry.GetVariableAsDateTime( "vest" );
+  	      t1 = t2-t1;
+  	      if ( t1 < 0 ) {
+  	      	modf( t1, &f );
+  		  	  tolog = "Опережение выполнения технологического графика на ";
+  		      if ( f )
+    	  	    tolog += IntToString( (int)f ) + " ";
+    	  	  tolog += DateTimeToStr( fabs(t1), "hh:nn" );
+  	      }
+  	      if ( t1 >= 0 ) {
+  	      	modf( t1, &f );
+  		    	tolog = "Задержка выполнения технологического графика на ";
+  		    	if ( f )
+  		    		tolog += IntToString( (int)f ) + " ";
+  		    	tolog += DateTimeToStr( t1, "hh:nn" );
+  	      }
+	        reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
+	      }
       }
     }
 
