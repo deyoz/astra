@@ -437,20 +437,22 @@ xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double conten
   return NewTextChild(parent, name, FloatToString(content).c_str());
 };
 
-void NewTextChild(xmlNodePtr parent, const char *name, const string content, const string nvl)
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const string content, const string nvl)
 {
     if(content != nvl)
-        NewTextChild(parent, name, content.c_str());
+      return NewTextChild(parent, name, content.c_str());
+    else
+      return NULL;
 };
 
-void NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl)
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl)
 {
-  NewTextChild(parent, name, IntToString(content), IntToString(nvl));
+  return NewTextChild(parent, name, IntToString(content), IntToString(nvl));
 };
 
-void NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl)
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl)
 {
-  NewTextChild(parent, name, FloatToString(content), FloatToString(nvl));
+  return NewTextChild(parent, name, FloatToString(content), FloatToString(nvl));
 };
 
 
