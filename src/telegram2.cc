@@ -1679,11 +1679,14 @@ struct TPPax {
     public:
         int seats, grp_id;
         int pax_id;
+        int bag_pool_num;
         TPerson pers_type;
         bool unaccomp;
         string surname, name;
         TExtraSeatName exst;
         string trfer_cls;
+        TWItem W;
+        TBTMTagList tags;
         TBTMOnwardList OList;
         void dump() {
             ProgTrace(TRACE5, "TPPax");
@@ -1706,6 +1709,7 @@ struct TPPax {
             seats(0),
             grp_id(NoExists),
             pax_id(NoExists),
+            bag_pool_num(NoExists),
             pers_type(NoPerson),
             unaccomp(false)
         {};
@@ -1743,18 +1747,12 @@ void TPList::dump_surnames()
 
 struct TBTMGrpListItem {
     int grp_id;
-    int main_pax_id;
-    TBTMTagList NList;
-    TWItem W;
     TPList PList;
-    TBTMGrpListItem(): grp_id(NoExists), main_pax_id(NoExists), PList(this) {};
-    TBTMGrpListItem(const TBTMGrpListItem &val): grp_id(NoExists), main_pax_id(NoExists), PList(this)
+    TBTMGrpListItem(): grp_id(NoExists), PList(this) {};
+    TBTMGrpListItem(const TBTMGrpListItem &val): grp_id(NoExists), PList(this)
     {
         // Конструктор копирования нужен, чтобы PList.grp содержал правильный указатель
         grp_id = val.grp_id;
-        main_pax_id = val.main_pax_id;
-        NList = val.NList;
-        W = val.W;
         PList = val.PList;
         PList.grp = this;
     }
@@ -1843,12 +1841,12 @@ struct TPLine {
             << " "
             << ElemIdToElem(etSubcls, FItem.trfer_cls, info.pr_lat)
             << " ";
-        if(print_bag)
+/*!!!        if(print_bag)
             result
                 << FItem.get_grp_list()->get_grp_item(grp_id).W.bagAmount;
         else
             result
-                << 0;
+                << 0;*/
         result
             << "B"
             << " "
@@ -2035,7 +2033,7 @@ void TPList::ToPTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 
 void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
 {
-    ProgTrace(TRACE5, "TPList::ToBTMTlg: grp_id: %d; main_pax_id: %d", grp->grp_id, grp->main_pax_id);
+    ProgTrace(TRACE5, "TPList::ToBTMTlg: grp_id: %d", grp->grp_id);
     dump_surnames();
     vector<TPLine> lines;
     // Это был сложный алгоритм объединения имен под одну фамилию и все такое
@@ -2047,7 +2045,7 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
         vector<TPPax>::iterator iv = pax_list.begin();
         while(
                 iv != pax_list.end() and
-                (iv->trfer_cls != FItem.trfer_cls or iv->pax_id != grp->main_pax_id)
+                (iv->trfer_cls != FItem.trfer_cls)
              )
             iv++;
         if(iv == pax_list.end())
@@ -2056,7 +2054,7 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
         line.surname = im->first;
         lines.push_back(line);
         while(iv != pax_list.end()) {
-            if(iv->trfer_cls != FItem.trfer_cls or iv->pax_id != grp->main_pax_id) {
+            if(iv->trfer_cls != FItem.trfer_cls) {
                 iv++;
                 continue;
             }
@@ -2081,6 +2079,8 @@ void TPList::ToBTMTlg(TTlgInfo &info, vector<string> &body, TFItem &FItem)
         throw Exception("TPList::ToBTMTlg: unexpected lines size for main_pax_id: %d", lines.size());
     if(lines.empty())
         return;
+    main_pax->tags.ToTlg(info, body);
+    main_pax->W.ToTlg(body);
     main_pax->OList.ToTlg(info, body);
 
     // В полученном векторе строк, обрезаем слишком длинные
@@ -2115,6 +2115,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
     Qry.SQLText =
         "select \n"
         "   pax.pax_id, \n"
+        "   pax.bag_pool_num, \n"
         "   pax.pr_brd, \n"
         "   pax.seats, \n"
         "   pax.surname, \n"
@@ -2139,12 +2140,19 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
     if(Qry.Eof) {
         TPPax item;
         item.grp_id = grp->grp_id;
-        item.seats = 1;
-        item.surname = "UNACCOMPANIED";
-        item.unaccomp = true;
-        surnames[item.surname].push_back(item);
+
+        item.tags.get(item.grp_id, item.pax_id, item.bag_pool_num);
+        if(not item.tags.items.empty()) {
+            item.W.get(item.grp_id, item.pax_id, item.bag_pool_num);
+
+            item.seats = 1;
+            item.surname = "UNACCOMPANIED";
+            item.unaccomp = true;
+            surnames[item.surname].push_back(item);
+        }
     } else {
         int col_pax_id = Qry.FieldIndex("pax_id");
+        int col_bag_pool_num = Qry.FieldIndex("bag_pool_num");
         int col_pr_brd = Qry.FieldIndex("pr_brd");
         int col_seats = Qry.FieldIndex("seats");
         int col_surname = Qry.FieldIndex("surname");
@@ -2156,7 +2164,15 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
                 continue;
             TPPax item;
             item.pax_id = Qry.FieldAsInteger(col_pax_id);
+            if(not Qry.FieldIsNULL(col_bag_pool_num))
+                item.bag_pool_num = Qry.FieldAsInteger(col_bag_pool_num);
             item.grp_id = grp->grp_id;
+
+            item.tags.get(item.grp_id, item.pax_id, item.bag_pool_num);
+            if(item.tags.items.empty())
+                continue;
+            item.W.get(item.grp_id, item.pax_id, item.bag_pool_num);
+
             item.seats = Qry.FieldAsInteger(col_seats);
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
@@ -2191,10 +2207,6 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
         iv->PList.ToBTMTlg(info, plist, AFItem);
         if(plist.empty())
             continue;
-        if(iv->NList.items.empty())
-            continue;
-        iv->NList.ToTlg(info, body);
-        iv->W.ToTlg(body);
         body.insert(body.end(), plist.begin(), plist.end());
     }
 }
@@ -2228,16 +2240,12 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
     Qry.Execute();
     if(!Qry.Eof) {
         int col_grp_id = Qry.FieldIndex("grp_id");
-        int col_main_pax_id = Qry.FieldIndex("main_pax_id");
         for(; !Qry.Eof; Qry.Next()) {
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
-            item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
-//!!!            item.NList.get(item.grp_id);
             item.PList.get(info, FItem.trfer_cls);
             if(item.PList.surnames.empty())
                 continue;
-//!!!            item.W.get(item.grp_id);
             items.push_back(item);
         }
     }
@@ -2283,7 +2291,7 @@ struct TPTMFItem:TFItem {
             int seats = 0;
             int baggage = 0;
             for(vector<TBTMGrpListItem>::iterator iv = grp_list.items.begin(); iv != grp_list.items.end(); iv++) {
-                baggage += iv->W.bagAmount;
+//!!!                baggage += iv->W.bagAmount;
                 map<string, vector<TPPax> > &surnames = iv->PList.surnames;
                 for(map<string, vector<TPPax> >::iterator im = surnames.begin(); im != surnames.end(); im++) {
                     vector<TPPax> &paxes = im->second;
