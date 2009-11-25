@@ -2641,6 +2641,7 @@ string get_fmt_type(int prn_type);
         {
             string result;
             switch(fmt_type) {
+                case dftTEXT:
                 case dftFRX:
                     result = data;
                     break;
@@ -3929,6 +3930,7 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     Qry.Execute();
     if(!Qry.Eof) {
         xmlNodePtr prnTestsNode = NewTextChild(resNode, "prn_tests");
+        xmlNodePtr node;
         TPrnTests prn_tests;
         PrintDataParser parser;
         for(; !Qry.Eof; Qry.Next()) {
@@ -3948,27 +3950,36 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                   )
                     prnParams = oi->second.prnParams;
                 data = parser.parse(data, prnParams.pr_lat);
+                TDevOperType dev_oper_type = DecodeDevOperType(item.op_type);
                 TDevFmtType dev_fmt_type = DecodeDevFmtType(item.fmt_type);
+                bool hex=false;
                 if(dev_fmt_type == dftEPSON) {
                     to_esc::TConvertParams ConvertParams;
                     ConvertParams.init(item.dev_model);
                     to_esc::convert(data, ConvertParams, prnParams);
                     StringToHex( string(data), data );
+                    hex=true;
                 }
                 xmlNodePtr itemNode = NewTextChild(prnTestsNode, "item");
+                NewTextChild(itemNode, "op_type", item.op_type);
                 NewTextChild(itemNode, "fmt_type", item.fmt_type);
-                NewTextChild(itemNode, "file_name",
-                        item.op_type + "." +
-                        item.fmt_type + (item.dev_model.empty() ? "" : ".") +
-                        item.dev_model);
-                NewTextChild(itemNode, "form", form, "");
-                NewTextChild(itemNode, "data", data);
-                string barcode;
-                if(parser.exists(BCBP_M_2))
-                    barcode = parser.GetTagAsString(BCBP_M_2);
-                else if(parser.exists(PAX_ID))
-                    barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
-                NewTextChild(itemNode, "scan", barcode, "");
+                NewTextChild(itemNode, "dev_model", item.dev_model, "");
+                node=NewTextChild(itemNode, "form", form, "");
+                if (node!=NULL) SetProp(node, "hex", (int)hex);
+                node=NewTextChild(itemNode, "data", data, "");
+                if (node!=NULL)
+                {
+                  SetProp(node, "hex", (int)hex);
+                  if (dev_oper_type == dotPrnBP) {
+                    string barcode;
+                    if(parser.exists(BCBP_M_2))
+                        barcode = parser.GetTagAsString(BCBP_M_2);
+                    else if(parser.exists(PAX_ID))
+                        barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
+                    node=NewTextChild(itemNode, "scan", barcode);
+                    if (node!=NULL) SetProp(node, "hex", (int)false);
+                  };
+                };
             }
         }
     }

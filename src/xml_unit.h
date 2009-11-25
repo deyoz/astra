@@ -60,9 +60,9 @@ double NodeAsFloat(char* expr, xmlNodePtr cur, double nvl);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, BASIC::TDateTime nvl);
 
 // Если content == nvl, узел не создается
-void NewTextChild(xmlNodePtr parent, const char *name, const std::string content, const std::string nvl);
-void NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl);
-void NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const std::string content, const std::string nvl);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const int content, const int nvl);
+xmlNodePtr NewTextChild(xmlNodePtr parent, const char *name, const double content, const double nvl);
 
 void NodeSetContent(xmlNodePtr cur, const char* content);
 void NodeSetContent(xmlNodePtr cur, const std::string content);
