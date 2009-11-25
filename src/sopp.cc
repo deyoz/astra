@@ -688,7 +688,17 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     DelaysQry.DeclareVariable( "point_id", otInteger );
   }
   PerfomTest( 666 );
-  PointsQry.Execute();
+
+  try {
+    PointsQry.Execute();
+  }
+  catch (EOracleError E) {
+    if ( arx && E.Code == 376 )
+      throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+    else
+      throw;
+  }
+
   if ( PointsQry.Eof ) return errcity;
   PerfomTest( 667 );
   TSOPPDests dests;

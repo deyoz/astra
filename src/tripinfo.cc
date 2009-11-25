@@ -651,17 +651,21 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (stage_time!=0)
     NewTextChild( node, "stage_time", DateTimeToStr(stage_time,"hh:nn") );
 
-  //признак назначенного салона
-  if ( reqInfo->screen.name == "CENT.EXE" ||
-       reqInfo->screen.name == "AIR.EXE" ||
-       reqInfo->screen.name == "PREPREG.EXE" )
+  if (reqInfo->desk.version.empty() ||
+      reqInfo->desk.version==UNKNOWN_VERSION)
   {
-    TQuery Qryh( &OraSession );
-    Qryh.Clear();
-    Qryh.SQLText="SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
-    Qryh.CreateVariable( "point_id", otInteger, point_id );
-    Qryh.Execute();
-    NewTextChild( node, "pr_saloninit", (int)(!Qryh.Eof) );
+    //признак назначенного салона
+    if ( reqInfo->screen.name == "CENT.EXE" ||
+         reqInfo->screen.name == "AIR.EXE" ||
+         reqInfo->screen.name == "PREPREG.EXE" )
+    {
+      TQuery Qryh( &OraSession );
+      Qryh.Clear();
+      Qryh.SQLText="SELECT point_id FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2";
+      Qryh.CreateVariable( "point_id", otInteger, point_id );
+      Qryh.Execute();
+      NewTextChild( node, "pr_saloninit", (int)(!Qryh.Eof) );
+    };
   };
 
   if (reqInfo->screen.name == "CENT.EXE" ||
@@ -811,43 +815,6 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
       NewTextChild( node, "alarms", stralarms );
     }
   }
-
-/*  if (reqInfo->screen.name == "CENT.EXE" ||
-  	  reqInfo->screen.name == "PREPREG.EXE" ||
-  	  reqInfo->screen.name == "AIR.EXE" ||
-      reqInfo->screen.name == "BRDBUS.EXE" ||
-      reqInfo->screen.name == "DOCS.EXE")
-  {
-  	string remark = NodeAsString(node,"remark");
-  	ProgTrace( TRACE5, "remark=%s", remark.c_str() )
-  	TQuery Qrya( &OraSession );
-  	Qrya.SQLText =
-      "SELECT overload_alarm,brd_alarm,waitlist_alarm,salon_alarm "
-      " FROM trip_sets, "
-      " ( SELECT COUNT(*) salon_alarm FROM trip_comp_elems WHERE point_id=:point_id AND rownum<2 ) a "
-      " WHERE trip_sets.point_id=:point_id";
-  	Qrya.CreateVariable( "point_id", otInteger, point_id );
-  	Qrya.Execute();
-  	if (reqInfo->screen.name == "CENT.EXE" ||
-  	    reqInfo->screen.name == "PREPREG.EXE" ||
-  	    reqInfo->screen.name == "AIR.EXE")
-  	{
-  		remark =
-  	}
-
-
-  	bool waitlist_alarm, brd_alarm, overload_alarm;
-  	if ( Qrya.Eof ) {
-  		waitlist_alarm = false;
-  		brd_alarm = false;
-  		overload_alarm = false;
-  	}
-  	else {
-  		waitlist_alarm = Qrya.FieldAsInteger( "waitlist_alarm" );
-  		brd_alarm = Qrya.FieldAsInteger( "brd_alarm" );
-  		overload_alarm = Qrya.FieldAsInteger( "overload_alarm" );
-  	}
-  };*/
 
   if (reqInfo->screen.name == "AIR.EXE")
     NewTextChild( node, "pr_mixed_norms", (int)GetTripSets(tsMixedNorms,info) );

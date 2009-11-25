@@ -12,6 +12,7 @@
 #include "payment.h"
 #include "exceptions.h"
 #include "astra_misc.h"
+#include "dev_utils.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DENIS"
@@ -26,31 +27,132 @@ using namespace ASTRA;
 
 const string STX = "\x2";
 const string CR = "\xd";
+const string LF = "\xa";
+const string TAB = "\x9";
 const string delim = "\xb";
 
 typedef enum {pfBTP, pfATB, pfEPL2, pfEPSON, pfZEBRA, pfDATAMAX} TPrnFormat;
 
+struct TPrnParams {
+    string encoding;
+    int offset, top, pr_lat;
+    void get_prn_params(xmlNodePtr prnParamsNode);
+};
+
+void TPrnParams::get_prn_params(xmlNodePtr reqNode)
+{
+    encoding = "CP866";
+    offset = 20;
+    top = 0;
+    xmlNodePtr currNode = reqNode->children;
+    pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
+    if(reqNode) {
+        xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
+        if(prnParamsNode) {
+            currNode = prnParamsNode->children;
+            encoding = NodeAsStringFast("encoding", currNode);
+            offset = NodeAsIntegerFast("offset", currNode);
+            top = NodeAsIntegerFast("top", currNode);
+            if(pr_lat == NoExists)
+                pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
+        }
+    }
+}
+
 namespace to_esc {
-    struct TPrnParams {
-        string encoding;
-        int offset, top;
-        void get_prn_params(xmlNodePtr prnParamsNode);
+    struct TConvertParams {
+        private:
+            string dev_model;
+            TQuery Qry;
+            void Exec(string name);
+            double AsFloat(string name);
+            int AsInteger(string name);
+            string AsString(string name);
+        public:
+            double x_modif, y_modif;
+            TConvertParams(): Qry(&OraSession), x_modif(0), y_modif(0)
+            {
+                Qry.SQLText =
+                    "select "
+                    "  param_value "
+                    "from "
+                    "  dev_model_fmt_params "
+                    "where "
+                    "  (dev_model = :dev_model or dev_model is null) and "
+                    "  fmt_type = :fmt_type and "
+                    "  param_name = :param_name and "
+                    "  (desk_grp_id = :desk_grp_id or desk_grp_id is null) "
+                    "order by "
+                    "  dev_model nulls last, "
+                    "  desk_grp_id nulls last ";
+                Qry.DeclareVariable("dev_model", otString);
+                Qry.CreateVariable("fmt_type", otString, EncodeDevFmtType(dftEPSON));
+                Qry.DeclareVariable("param_name", otString);
+                Qry.CreateVariable("desk_grp_id", otInteger, TReqInfo::Instance()->desk.grp_id);
+            };
+            void init(TPrnType t); // Старый терминал
+            void init(string dev_model);
+            void dump()
+            {
+                ProgTrace(TRACE5, "TConvertParams::dump()");
+                ProgTrace(TRACE5, "x_modif: %.2f", x_modif);
+                ProgTrace(TRACE5, "y_modif: %.2f", y_modif);
+            }
     };
 
-    void TPrnParams::get_prn_params(xmlNodePtr reqNode)
+    void TConvertParams::Exec(string name)
     {
-        encoding = "CP866";
-        offset = 20;
-        top = 0;
-        if(reqNode) {
-            xmlNodePtr prnParamsNode = GetNode("prnParams", reqNode);
-            if(prnParamsNode) {
-                encoding = NodeAsString("encoding", prnParamsNode);
-                offset = NodeAsInteger("offset", prnParamsNode);
-                top = NodeAsInteger("top", prnParamsNode);
-            } else {
-                encoding = NodeAsString("encoding", reqNode);
-            }
+        Qry.SetVariable("dev_model", dev_model);
+        Qry.SetVariable("param_name", name);
+        Qry.Execute();
+        if(Qry.Eof)
+            throw Exception("Параметр %s не найден для модели устройства %s.", name.c_str(), dev_model.c_str());
+    }
+
+    double TConvertParams::AsFloat(string name)
+    {
+        Exec(name);
+        return Qry.FieldAsFloat("param_value");
+    }
+
+    string TConvertParams::AsString(string name)
+    {
+        Exec(name);
+        return Qry.FieldAsString("param_value");
+    }
+
+    int TConvertParams::AsInteger(string name)
+    {
+        Exec(name);
+        return Qry.FieldAsInteger("param_value");
+    }
+
+    void TConvertParams::init(string dev_model)
+    {
+        ProgTrace(TRACE5, "TConvertParams::init");
+        this->dev_model = dev_model;
+        x_modif = AsFloat("x_modif");
+        y_modif = AsFloat("y_modif");
+    }
+
+    void TConvertParams::init(TPrnType prn_type)
+    {
+        switch(prn_type) {
+            case ptOLIVETTI:
+            case ptOLIVETTICOM:
+                x_modif = 4.76;
+                y_modif = 6.9;
+                break;
+            case ptOKIML390:
+                x_modif = 7;
+                y_modif = 7.1;
+                break;
+            case ptOKIML3310:
+                x_modif = 4.67;
+                y_modif = 8.66;
+                break;
+            default:
+                throw Exception("to_esc::TConvertParams::init: unknown prn_type " + IntToString(prn_type));
         }
     }
 
@@ -207,7 +309,7 @@ namespace to_esc {
         prn_form = STX + prn_form;
         size_t pos = 0;
         while(true) {
-            pos = prn_form.find('\xa');
+            pos = prn_form.find(LF);
             if(pos == string::npos)
                 break;
             prn_form.replace(pos, 1, CR);
@@ -280,33 +382,12 @@ namespace to_esc {
         }
     }
 
-    void convert(string &mso_form, TPrnType prn_type, xmlNodePtr reqNode)
+    void convert(string &mso_form, const TConvertParams &ConvertParams, const TPrnParams &prnParams)
     {
-        double y_modif, x_modif;
-        switch(prn_type) {
-            case ptOLIVETTI:
-            case ptOLIVETTICOM:
-                x_modif = 4.76;
-                y_modif = 6.9;
-                break;
-            case ptOKIML390:
-                x_modif = 7;
-                y_modif = 7.1;
-                break;
-            case ptOKIML3310:
-                x_modif = 4.67;
-                y_modif = 8.66;
-                break;
-            default:
-                throw Exception("to_esc::convert: unknown prn_type " + IntToString(prn_type));
-        }
         char Mode = 'S';
         TFields fields;
         string num;
         int x, y, font, prnParamsOffset, prnParamsTop;
-
-        TPrnParams prnParams;
-        prnParams.get_prn_params(reqNode);
 
         try {
             mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
@@ -431,7 +512,7 @@ namespace to_esc {
         for(TFields::iterator fi = fields.begin(); fi != fields.end(); fi++) {
             int delta_y = fi->y - curr_y;
             if(delta_y) {
-                int offset_y = int(delta_y * y_modif);
+                int offset_y = int(delta_y * ConvertParams.y_modif);
                 int y256 = offset_y / 256;
                 int y_reminder = offset_y % 256;
 
@@ -444,7 +525,7 @@ namespace to_esc {
             }
 
 
-            int offset_x = int(fi->x * x_modif);
+            int offset_x = int(fi->x * ConvertParams.x_modif);
             int x256 = offset_x / 256;
             int x_reminder = offset_x % 256;
 
@@ -2447,8 +2528,12 @@ string PrintDataParser::parse(string &form)
     char Mode = 'S';
     string::size_type VarPos = 0;
     string::size_type i = 0;
-    if(form.substr(i, 2) == "1\xa") {
-        i += 2;
+    ProgTrace(TRACE5, "0: %d", form[0]);
+    ProgTrace(TRACE5, "1: %d", form[1]);
+    ProgTrace(TRACE5, "2: %d", form[2]);
+    ProgTrace(TRACE5, "3: %d", form[3]);
+    if(form.substr(i, 3) == "1" + CR + LF) {
+        i += 3;
         pectab_format = 1;
     }
     if(form.substr(i, 2) == "XX") {
@@ -2495,7 +2580,10 @@ string PrintDataParser::parse(string &form)
     }
 
     if(Mode != 'S')
+    {
+        ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - 10, 10).c_str(), form[i]);
         throw Exception("']' not found at " + IntToString(i + 1));
+    }
     return result;
 }
 
@@ -2605,6 +2693,80 @@ string PrintDataParser::parse_tag(int offset, string tag)
 
 //////////////////////////////// END CLASS PrintDataParser ///////////////////////////////////
 
+string get_fmt_type(int prn_type);
+
+    namespace AdjustCR_LF {
+        string delete_all_CR_LF(string data)
+        {
+            string result;
+            for(string::iterator i = data.begin(); i != data.end(); i++) {
+                if(*i == CR[0] or *i == LF[0])
+                    continue;
+                result += *i;
+            }
+            return TrimString(result);
+        }
+
+        string place_CR_LF(string data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(LF, pos);
+                if(pos == string::npos)
+                    break;
+                else {
+                    if(pos == 0 or data[pos - 1] != CR[0]) {
+                        data.replace(pos, 1, CR + LF);
+                        pos += 2;
+                    } else
+                        pos += 1;
+                }
+            }
+            if(not data.empty()) {
+                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
+                    size_t last_ch = data.size() - 1;
+                    if(
+                            data[last_ch] == CR[0] or
+                            data[last_ch] == LF[0] or
+                            data[last_ch] == TAB[0] or
+                            data[last_ch] == ' '
+                      )
+                        data.erase(last_ch);
+                    else
+                        break;
+                }
+                //и добавим один CR/LF
+                data += CR + LF;
+            }
+            return data;
+        }
+
+        string DoIt(TDevFmtType fmt_type, string data)
+        {
+            string result;
+            switch(fmt_type) {
+                case dftATB:
+                case dftBTP:
+                    result = delete_all_CR_LF(data);
+                    break;
+                case dftEPL2:
+                case dftZPL2:
+                case dftDPL:
+                case dftEPSON:
+                    result = place_CR_LF(data);
+                    break;
+                case dftUnknown:
+                    throw Exception("AdjustCR_LF: unknown fmt_type");
+            }
+            return result;
+        }
+
+        string DoIt(string fmt_type, string data)
+        {
+            return DoIt(DecodeDevFmtType(fmt_type), data);
+        }
+    };
+
 void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
 {
     if (node==NULL) return;
@@ -2629,7 +2791,7 @@ void GetTripBPPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-      NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+      NewTextChild(formNode,"form",AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form")));
 }
 
 void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
@@ -2665,7 +2827,7 @@ void GetTripBPPectabs(int point_id, int prn_type, xmlNodePtr node)
     Qry.Execute();
     xmlNodePtr formNode=NewTextChild(node,"bp_forms");
     for(;!Qry.Eof;Qry.Next())
-        NewTextChild(formNode,"form",Qry.FieldAsString("form"));
+        NewTextChild(formNode,"form",AdjustCR_LF::DoIt(get_fmt_type(prn_type), Qry.FieldAsString("form")));
 };
 
 void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePtr node)
@@ -2750,70 +2912,6 @@ void previewDeviceSets(bool conditional, string msg)
   else*/
     throw UserException(msg);
 };
-
-void GetPrintData(int grp_id, int prn_type, string &Pectab, string &Print)
-{
-    TQuery Qry(&OraSession);
-    Qry.SQLText = "select format from prn_types where code = :prn_type";
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-    if(Qry.Eof) throw Exception("Unknown prn_type: " + IntToString(prn_type));
-    TPrnFormat  prn_format = (TPrnFormat)Qry.FieldAsInteger("format");
-    Qry.Clear();
-    Qry.SQLText = "select point_dep AS point_id, class from pax_grp where grp_id = :grp_id";
-    Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.Execute();
-    if(Qry.Eof) throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    int trip_id = Qry.FieldAsInteger("point_id");
-    string cl = Qry.FieldAsString("class");
-    Qry.Clear();
-    Qry.SQLText =
-        "SELECT bp_type FROM trip_bp "
-        "WHERE point_id=:point_id AND (class IS NULL OR class=:class) "
-        "ORDER BY class ";
-    Qry.CreateVariable("point_id", otInteger, trip_id);
-    Qry.CreateVariable("class", otString, cl);
-    Qry.Execute();
-    if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
-    string bp_type = Qry.FieldAsString("bp_type");
-
-    Qry.Clear();
-    Qry.SQLText =
-            "select  "
-            "   bp_forms.form,  "
-            "   bp_forms.data  "
-            "from  "
-            "   bp_forms, "
-            "   ( "
-            "    select "
-            "        bp_type, "
-            "        prn_type, "
-            "        max(version) version "
-            "    from "
-            "        bp_forms "
-            "    group by "
-            "        bp_type, "
-            "        prn_type "
-            "   ) a "
-            "where  "
-            "   a.bp_type = :bp_type and "
-            "   a.prn_type = :prn_type and "
-            "   a.bp_type = bp_forms.bp_type and "
-            "   a.prn_type = bp_forms.prn_type and "
-            "   a.version = bp_forms.version ";
-    Qry.CreateVariable("bp_type", otString, bp_type);
-    Qry.CreateVariable("prn_type", otInteger, prn_type);
-    Qry.Execute();
-
-
-    if(Qry.Eof||Qry.FieldIsNULL("data")||
-    	 Qry.FieldIsNULL( "form" ) && (prn_format==pfBTP || prn_format==pfATB || prn_format==pfEPL2)
-    	)
-    	previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
-
-    Pectab = Qry.FieldAsString("form");
-    Print = Qry.FieldAsString("data");
-}
 
 void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
 {
@@ -3213,7 +3311,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         for(int i = 0; i < BT_count; ++i) {
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
-            if(tag_key.fmt_type == "DATAMAX") {
+            if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
                 to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
                   reqInfo->desk.version==UNKNOWN_VERSION)
@@ -3227,7 +3325,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
         if(BT_reminder) {
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
-            if(tag_key.fmt_type == "DATAMAX") {
+            if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
                 to_esc::parse_dmx(prn_form);
               if (reqInfo->desk.version.empty() ||
                   reqInfo->desk.version==UNKNOWN_VERSION)
@@ -3250,7 +3348,12 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
+    if(tag_key.pr_lat == NoExists) {
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+        tag_key.pr_lat = prnParams.pr_lat;
+    }
     tag_key.type = NodeAsString("type", reqNode);
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
@@ -3267,7 +3370,12 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     tag_key.dev_model = NodeAsString("dev_model", reqNode, "");
     tag_key.fmt_type = NodeAsString("fmt_type", reqNode, "");
     tag_key.prn_type = NodeAsInteger("prn_type", reqNode, NoExists);
-    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode);
+    tag_key.pr_lat = NodeAsInteger("pr_lat", reqNode, NoExists);
+    if(tag_key.pr_lat == NoExists) {
+        TPrnParams prnParams;
+        prnParams.get_prn_params(reqNode);
+        tag_key.pr_lat = prnParams.pr_lat;
+    }
     if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
       previewDeviceSets(false, "Не выбрано устройство для печати");
     GetPrintDataBT(dataNode, tag_key);
@@ -3436,9 +3544,11 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
     string dev_model = NodeAsStringFast("dev_model", currNode, "");
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
-    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, 0);
     if(prn_type == NoExists and dev_model.empty())
-      previewDeviceSets(false, "Не выбрано устройство для печати");
+        previewDeviceSets(false, "Не выбрано устройство для печати");
+
+    TPrnParams prnParams;
+    prnParams.get_prn_params(reqNode);
 
     TQuery Qry(&OraSession);
     if(dev_model.empty()) {
@@ -3466,6 +3576,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
             "   a.version = br_forms.version ";
         Qry.CreateVariable("form_type", otString, form_type);
         Qry.CreateVariable("prn_type", otInteger, prn_type);
+        fmt_type = get_fmt_type(prn_type);
     } else {
         Qry.SQLText =
             "select "
@@ -3486,26 +3597,16 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data"))
-      previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
+        previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
 
-    string mso_form = Qry.FieldAsString("data");
+    string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
-    TPrnType convert_prn_type;
+    to_esc::TConvertParams ConvertParams;
     if ( dev_model.empty() )
-        convert_prn_type = TPrnType(prn_type);
-    else {
-        if ( dev_model == "OLIVETTI" )
-            convert_prn_type = ptOLIVETTI;
-        else
-            if ( dev_model == "ML390" )
-                convert_prn_type = ptOKIML390;
-            else
-                if ( dev_model == "ML3310" )
-                    convert_prn_type = ptOKIML3310;
-                else
-                    throw Exception(dev_model + " not supported by to_esc::convert");
-    }
-    to_esc::convert(mso_form, convert_prn_type, reqNode);
+        ConvertParams.init(TPrnType(prn_type)); // !!! Старый терминал
+    else
+        ConvertParams.init(dev_model);
+    to_esc::convert(mso_form, ConvertParams, prnParams);
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (reqInfo->desk.version.empty() ||
         reqInfo->desk.version==UNKNOWN_VERSION)
@@ -3647,7 +3748,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
     string dev_model = NodeAsStringFast("dev_model", currNode, "");
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
-    int pr_lat = NodeAsIntegerFast("pr_lat", currNode, NoExists);
+    TPrnParams prnParams;
+    prnParams.get_prn_params(reqNode);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
     if(prn_type == NoExists and dev_model.empty())
       previewDeviceSets(false, "Не выбрано устройство для печати");
@@ -3734,11 +3836,11 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data")||
-            Qry.FieldIsNULL( "form" ) && (fmt_type == "BTP" || fmt_type == "ATB")
+            Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
       )
         previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
-    string form = Qry.FieldAsString("form");
-    string data = Qry.FieldAsString("data");
+    string form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form"));
+    string data = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
     xmlNodePtr BPNode = NewTextChild(dataNode, "printBP");
     NewTextChild(BPNode, "pectab", form);
@@ -3812,7 +3914,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     xmlNodePtr passengersNode = NewTextChild(BPNode, "passengers");
     TReqInfo *reqInfo = TReqInfo::Instance();
     for (vector<TPaxPrint>::iterator iprint=paxs.begin(); iprint!=paxs.end(); iprint++ ) {
-        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, pr_lat), clientDataNode );
+        PrintDataParser parser( iprint->grp_id, iprint->pax_id, get_bp_pr_lat(iprint->grp_id, prnParams.pr_lat), clientDataNode );
         // если это нулевой сегмент, то тогда печатаем выход на посадку иначе не нечатаем
         //надо удалить выход на посадку из данных по пассажиру
         if(grp_id != iprint->grp_id) {
@@ -3821,39 +3923,20 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         }
 
         string prn_form = parser.parse(data);
-        if ( fmt_type == "EPSON" ) {
-            TPrnType convert_prn_type;
+        if(DecodeDevFmtType(fmt_type) == dftEPSON) {
+            to_esc::TConvertParams ConvertParams;
             if ( dev_model.empty() )
-                convert_prn_type = TPrnType(prn_type);
-            else {
-                if ( dev_model == "OLIVETTI" )
-                    convert_prn_type = ptOLIVETTI;
-                else
-                    if ( dev_model == "ML390" )
-                        convert_prn_type = ptOKIML390;
-                    else
-                        if ( dev_model == "ML3310" )
-                            convert_prn_type = ptOKIML3310;
-                        else
-                            throw Exception(dev_model + " not supported by to_esc::convert");
-            }
-            to_esc::convert(prn_form, convert_prn_type, NULL);
+                ConvertParams.init(TPrnType(prn_type)); // !!! Старый терминал
+            else
+                ConvertParams.init(dev_model);
+            to_esc::convert(prn_form, ConvertParams, prnParams);
             if (reqInfo->desk.version.empty() ||
                 reqInfo->desk.version==UNKNOWN_VERSION)
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             else
             	StringToHex( string(prn_form), prn_form );
         }
-        if(fmt_type == "DATAMAX") {
-            TPrnType convert_prn_type;
-            if ( dev_model.empty() )
-                convert_prn_type = TPrnType(prn_type);
-            else {
-                if ( dev_model == "CLP-521" )
-                    convert_prn_type = ptDATAMAX;
-                else
-                    throw Exception(dev_model + " not supported by to_esc::convert");
-            }
+        if(DecodeDevFmtType(fmt_type) == dftDPL) {
             to_esc::parse_dmx(prn_form);
             if (reqInfo->desk.version.empty() ||
                 reqInfo->desk.version==UNKNOWN_VERSION)

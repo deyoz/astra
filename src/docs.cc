@@ -2209,7 +2209,11 @@ void get_report_form(const string name, xmlNodePtr node)
 {
     string form;
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select form from fr_forms where name = :name";
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        Qry.SQLText = "select form from fr_forms2 where name = :name";
+    else
+        Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
     if(Qry.Eof) {
@@ -3412,27 +3416,35 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     string name = NodeAsString("name", reqNode);
 
     /*
-    if(
-            name == "BMTrfer" ||
-            name == "BM" ||
-            name == "PMTrfer" ||
-            name == "PM" ||
-            name == "notpres" ||
-            name == "ref" ||
-            name == "rem" ||
-            name == "crs" ||
-            name == "crsUnreg"
-            )
-        throw UserException("Запись " + name + " запрещена");
-        */
+       if(
+       name == "BMTrfer" ||
+       name == "BM" ||
+       name == "PMTrfer" ||
+       name == "PM" ||
+       name == "notpres" ||
+       name == "ref" ||
+       name == "rem" ||
+       name == "crs" ||
+       name == "crsUnreg"
+       )
+       throw UserException("Запись " + name + " запрещена");
+     */
 
     string form = NodeAsString("form", reqNode);
-    Qry.SQLText = "update fr_forms set form = :form where name = :name";
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        Qry.SQLText = "update fr_forms2 set form = :form where name = :name";
+    else
+        Qry.SQLText = "update fr_forms set form = :form where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.Execute();
     if(!Qry.RowsProcessed()) {
-        Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
+        if (!TReqInfo::Instance()->desk.version.empty() &&
+                TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+            Qry.SQLText = "insert into fr_forms2(id, name, form) values(id__seq.nextval, :name, :form)";
+        else
+            Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
         Qry.Execute();
     }
 }
@@ -3441,7 +3453,11 @@ void  DocsInterface::LoadForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 {
     int id = NodeAsInteger("id", reqNode);
     TQuery Qry(&OraSession);
-    Qry.SQLText = "select form from fr_forms where id = :id";
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        Qry.SQLText = "select form from fr_forms2 where id = :id";
+    else
+        Qry.SQLText = "select form from fr_forms where id = :id";
     Qry.CreateVariable("id", otInteger, id);
     Qry.Execute();
     if(Qry.Eof) throw Exception("form not found, id = " + IntToString(id));
@@ -3465,9 +3481,11 @@ void  DocsInterface::SaveForm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     ProgTrace(TRACE5, "%s", form.c_str());
     int id = NodeAsInteger("id", reqNode);
     TQuery Qry(&OraSession);
-    Qry.SQLText =
-//        "insert into fr_forms(id, form) values(id__seq.nextval, :form)";
-        "update fr_forms set form = :form where id = :id";
+    if (!TReqInfo::Instance()->desk.version.empty() &&
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+        Qry.SQLText = "update fr_forms2 set form = :form where id = :id";
+    else
+        Qry.SQLText = "update fr_forms set form = :form where id = :id";
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
     Qry.CreateVariable("id", otInteger, id);
     Qry.Execute();

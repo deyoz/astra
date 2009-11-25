@@ -165,12 +165,12 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Salons.ClName.clear();
   try {
     Salons.Read();
-    xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
-    Salons.Build( salonsNode );
   }
   catch( UserException ue ) {
     showErrorMessage( ue.what() );
   }
+  xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
+  Salons.Build( salonsNode );
   if ( pr_comps ) {
     SEATS2::TPassengers p;
     if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {

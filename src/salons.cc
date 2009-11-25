@@ -178,7 +178,7 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
     // что отобразить в help Ctrl+F4 - занято на клиенте
     layers_priority[ cltBlockCent ].name_view = layers_priority[ cltBlockCent ].name;
     if ( FilterLayers.isFlag( cltBlockCent ) )
-    	layers_priority[ cltBlockCent ].func_key = "Ctrl+F7";
+    	layers_priority[ cltBlockCent ].func_key = "Shift+F2";
     if ( FilterLayers.isFlag( cltTranzit ) ||
     	   FilterLayers.isFlag( cltSOMTrzt ) ||
     	   FilterLayers.isFlag( cltPRLTrzt ) ) {
@@ -187,23 +187,23 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
     layers_priority[ cltCheckin ].name_view = "Регистрация";
     if ( FilterLayers.isFlag( cltProtTrzt ) ) {
     	layers_priority[ cltProtTrzt ].name_view = layers_priority[ cltProtTrzt ].name;
-      layers_priority[ cltBlockTrzt ].func_key = "Ctrl+F8";
+      layers_priority[ cltProtTrzt ].func_key = "Shift+F3";
     }
     if ( FilterLayers.isFlag( cltBlockTrzt ) ) {
     	layers_priority[ cltBlockTrzt ].name_view = layers_priority[ cltBlockTrzt ].name;
-      layers_priority[ cltBlockTrzt ].func_key = "Ctrl+F8";
+      layers_priority[ cltBlockTrzt ].func_key = "Shift+F3";
     }
     layers_priority[ cltPNLCkin ].name_view = layers_priority[ cltPNLCkin ].name;
     layers_priority[ cltProtCkin ].name_view = layers_priority[ cltProtCkin ].name;
     layers_priority[ cltProtect ].name_view = layers_priority[ cltProtect ].name;
     if ( FilterLayers.isFlag( cltProtect ) )
-      layers_priority[ cltProtect ].func_key = "Ctrl+F5";
+      layers_priority[ cltProtect ].func_key = "Shift+F4";
     layers_priority[ cltUncomfort ].name_view = layers_priority[ cltUncomfort ].name;
     if ( FilterLayers.isFlag( cltUncomfort ) )
-    	layers_priority[ cltUncomfort ].func_key = "Ctrl+F11";
+    	layers_priority[ cltUncomfort ].func_key = "Shift+F5";
     layers_priority[ cltSmoke ].name_view = layers_priority[ cltSmoke ].name;
     if ( FilterLayers.isFlag( cltSmoke ) )
-    	layers_priority[ cltSmoke ].func_key = "Ctrl+F10";
+    	layers_priority[ cltSmoke ].func_key = "Shift+F6";
   }
 }
 
@@ -310,7 +310,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
  	SetProp( n, "priority", 10000 );
  	SetProp( n, "edit", 1 );
   SetProp( n, "name_view_help", "Очистить все статусы мест" );
-  SetProp( n, "func_key", "Ctrl+F4" );
+  SetProp( n, "func_key", "Shift+F8" );
 }
 
 void TSalons::Write()

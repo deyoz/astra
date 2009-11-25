@@ -770,6 +770,33 @@ bool get_enable_fr_design()
     return result;
 }
 
+const char* OWN_POINT_ADDR()
+{
+  static string OWNADDR;
+  if ( OWNADDR.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "OWN_POINT_ADDR", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param OWN_POINT_ADDR" );
+    OWNADDR = r;
+  }
+  return OWNADDR.c_str();
+};
+
+const char* SERVER_ID()
+{
+  static string SERVERID;
+  if ( SERVERID.empty() ) {
+    char r[100];
+    r[0]=0;
+    if ( get_param( "SERVER_ID", r, sizeof( r ) ) < 0 )
+      throw EXCEPTIONS::Exception( "Can't read param SERVER_ID" );
+    SERVERID = r;
+  }
+  return SERVERID.c_str();
+};
+
+
 void showBasicInfo(void)
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -784,6 +811,8 @@ void showBasicInfo(void)
   resNode = NewTextChild(resNode,"basic_info");
   NewTextChild(resNode, "enable_fr_design", get_enable_fr_design());
   NewTextChild(resNode, "enable_unload_pectab", get_enable_unload_pectab());
+
+  NewTextChild(resNode, "server_id", SERVER_ID() );
 
   TQuery Qry(&OraSession);
 
@@ -827,7 +856,7 @@ void showBasicInfo(void)
     NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     Qry.Clear();
-    Qry.SQLText="SELECT file_size,send_size,send_portion FROM desk_logging WHERE desk=:desk";
+    Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);
     Qry.Execute();
     if (!Qry.Eof)
@@ -836,6 +865,7 @@ void showBasicInfo(void)
       NewTextChild(loggingNode,"file_size",Qry.FieldAsInteger("file_size"));
       NewTextChild(loggingNode,"send_size",Qry.FieldAsInteger("send_size"));
       NewTextChild(loggingNode,"send_portion",Qry.FieldAsInteger("send_portion"));
+      NewTextChild(loggingNode,"backup_num",Qry.FieldAsInteger("backup_num"));
       xmlNodePtr rangesNode=NewTextChild(loggingNode,"trace_ranges");
       Qry.Clear();
       Qry.SQLText="SELECT first_trace,last_trace FROM desk_traces WHERE desk=:desk";
@@ -974,7 +1004,10 @@ void SysReqInterface::ErrorToLog(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (reqNode==NULL) return;
   xmlNodePtr node=reqNode->children;
   for(;node!=NULL;node=node->next)
-    ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+  {
+    if (strcmp((char*)node->name,"msg")==0)
+      ProgError( STDLOG, "Client error: %s.", NodeAsString(node) ) ;
+  };
 }
 
 tz_database &get_tz_database()

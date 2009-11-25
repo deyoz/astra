@@ -81,7 +81,12 @@ class TTripInfo
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
 
 //настройки рейса
-enum TTripSetType { tsETLOnly=11, tsIgnoreTrferSet=12, tsMixedNorms=13, tsNoTicketCheck=15 };
+enum TTripSetType { tsOutboardTrfer=10,
+                    tsETLOnly=11,
+                    tsIgnoreTrferSet=12,
+                    tsMixedNorms=13,
+                    tsNoTicketCheck=15,
+                    tsCharterSearch=16 };
 bool GetTripSets( TTripSetType setType, TTripInfo &info );
 
 class TPnrAddrItem

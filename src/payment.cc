@@ -31,7 +31,10 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       if( strcmp((char *)reqNode->name, "PaxByRegNo") == 0) search_type=searchByRegNo;
       else
         if( strcmp((char *)reqNode->name, "PaxByReceiptNo") == 0) search_type=searchByReceiptNo;
-        else return;
+        else
+          if( strcmp((char *)reqNode->name, "PaxByScanData") == 0)
+            throw UserException("Произведено сканирование данных неизвестного формата");
+          else return;
 
   int point_id=NodeAsInteger("point_id",reqNode);
 
@@ -214,7 +217,7 @@ void PaymentInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
   NewTextChild(dataNode,"class",Qry.FieldAsString("class"));
   NewTextChild(dataNode,"pr_refuse",(int)(Qry.FieldAsInteger("bag_refuse")!=0));
-  NewTextChild(dataNode,"reg_no",Qry.FieldAsString("reg_no"));
+  NewTextChild(dataNode,"reg_no",Qry.FieldAsInteger("reg_no"));
   NewTextChild(dataNode,"pax_name",Qry.FieldAsString("pax_name"));
   NewTextChild(dataNode,"pax_doc",Qry.FieldAsString("pax_doc"));
   NewTextChild(dataNode,"tid",Qry.FieldAsInteger("tid"));

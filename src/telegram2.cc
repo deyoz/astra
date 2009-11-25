@@ -4530,9 +4530,9 @@ int FTL(TTlgInfo &info)
     string suffix = info.suffix;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline = info.mark_info.airline;
+        airline = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
         flt_no = info.mark_info.flt_no;
-        suffix = info.mark_info.suffix;
+        suffix = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
     }
     ostringstream heading;
     heading
@@ -5168,8 +5168,8 @@ void TPFSBody::get(TTlgInfo &info)
                         category = "INVOL";
                     else if(ckin_pax.target != ckin_pax.crs_pax.target)
                         category = "CHGSG";
-//!!!                    else if(not ckin_pax.PAXLST_cmp())
-//                        category = "PXLST";
+                    else if(not ckin_pax.PAXLST_cmp())
+                        category = "PXLST";
                 } else { // Не прошел посадку
                     if(ckin_pax.OK_status())
                         category = "OFFLK";
@@ -5223,9 +5223,9 @@ int PFS(TTlgInfo &info)
     string suffix = info.suffix;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline = info.mark_info.airline;
+        airline = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
         flt_no = info.mark_info.flt_no;
-        suffix = info.mark_info.suffix;
+        suffix = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
     }
     ostringstream heading;
     heading
@@ -5265,9 +5265,9 @@ int PRL(TTlgInfo &info)
     string suffix = info.suffix;
 
     if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
-        airline = info.mark_info.airline;
+        airline = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
         flt_no = info.mark_info.flt_no;
-        suffix = info.mark_info.suffix;
+        suffix = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
     }
     ostringstream heading;
     heading

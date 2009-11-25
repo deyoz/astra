@@ -520,6 +520,7 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     TReqInfo *reqinfo = TReqInfo::Instance();
     try
     {
+      throw 0; //никаких автологонов!
       if(reqinfo->user.login.empty()) throw 0;
 
       string airlines;
@@ -780,10 +781,17 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(node,"addr",devPort);
         if (dev_sess_type=="COM")
         {
+          str.clear();
           if (GetNodeFast("Check",node2)!=NULL)
             str=NodeAsStringFast("Check",node2);
           if (!str.empty() && str!="false")
-            throw EConvertError("wrong Check=%s",str.c_str());
+          {
+            str.clear();
+            if (GetNodeFast("Parity",node2)!=NULL)
+              str=NodeAsStringFast("Parity",node2);
+            if (!str.empty() && str!="None")
+              throw EConvertError("wrong Parity=%s Check=true",str.c_str());
+          };
 
           if (GetNodeFast("BaudRate",node2)!=NULL)
             NewTextChild(node,"baud_rate",NodeAsStringFast("BaudRate",node2));
@@ -813,6 +821,9 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
             StringToHex(b,str);
             NewTextChild(node,"suffix",str);
           };
+          if (GetNodeFast("RTS",node2)!=NULL &&
+              NodeAsStringFast("RTS",node2)!=(string)"Disable")
+            NewTextChild(node,"control_rts",NodeAsStringFast("RTS",node2));
         };
 
         node=NewTextChild(operNode,"fmt_params");
@@ -878,9 +889,37 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           {
             node2=scnParamNode->children;
             if (GetNodeFast("Prefix",node2)!=NULL)
-              NewTextChild(node,"prefix",NodeAsStringFast("Prefix",node2));
+            {
+              if (NodeIsNULL(scnNode))
+              {
+                //KBW
+                string str1,str2;
+                str1=NodeAsStringFast("Prefix",node2);
+                if (!HexToString(str1,str2))
+                  throw EConvertError("wrong Prefix=%s",str1.c_str());
+                str1=ConvertCodepage(str2,"CP1251","UTF-16LE");
+                StringToHex(str1,str2);
+                NewTextChild(node,"prefix",str2);
+              }
+              else
+                NewTextChild(node,"prefix",NodeAsStringFast("Prefix",node2));
+            };
             if (GetNodeFast("Postfix",node2)!=NULL)
-              NewTextChild(node,"postfix",NodeAsStringFast("Postfix",node2));
+            {
+              if (NodeIsNULL(scnNode))
+              {
+                //KBW
+                string str1,str2;
+                str1=NodeAsStringFast("Postfix",node2);
+                if (!HexToString(str1,str2))
+                  throw EConvertError("wrong Postfix=%s",str1.c_str());
+                str1=ConvertCodepage(str2,"CP1251","UTF-16LE");
+                StringToHex(str1,str2);
+                NewTextChild(node,"postfix",str2);
+              }
+              else
+                NewTextChild(node,"postfix",NodeAsStringFast("Postfix",node2));
+            }
             if (GetNodeFast("Interval",node2)!=NULL)
               NewTextChild(node,"interval",NodeAsStringFast("Interval",node2));
           };

@@ -211,6 +211,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             " FROM tlgs_in,tlg_source \n"
             " WHERE tlgs_in.id=tlg_source.tlg_id(+) AND tlg_source.tlg_id IS NULL \n";
         //            "       and time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
+        set_time_intervals(search_params, sql, Qry);
     } else {
         if (!info.user.access.airlines.empty()||
                 !info.user.access.airps.empty() ||
@@ -233,12 +234,12 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             "      tlg_source.point_id_tlg=tlg_binding.point_id_tlg(+) AND \n"
             "      tlg_binding.point_id_tlg IS NULL \n";
         //            "      time_receive>=TRUNC(system.UTCSYSDATE)-2 \n";
+        set_time_intervals(search_params, sql, Qry);
         if (!info.user.access.airlines.empty()||
                 !info.user.access.airps.empty() ||
                 is_trip_info
            )
         {
-            set_time_intervals(search_params, sql, Qry);
             sql+="ORDER BY tlgs_in.id) ids \n"
                 "WHERE ids.point_id_tlg=tlg_trips.point_id \n";
             if (!info.user.access.airlines.empty())
@@ -284,11 +285,6 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         };
     }
 
-    if (not(!info.user.access.airlines.empty()||
-                !info.user.access.airps.empty() ||
-                is_trip_info)
-       )
-        set_time_intervals(search_params, sql, Qry);
     /*
        if(not search_params.tlg_type.empty()) {
        sql +=
@@ -324,6 +320,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
             int col_time_receive = Qry.FieldIndex("time_receive");
             int col_body = Qry.FieldIndex("body");
 
+            int rowcount = 0;
             for(;!Qry.Eof;Qry.Next())
             {
                 string type = Qry.FieldAsString(col_type);
@@ -354,7 +351,10 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                 Qry.FieldAsLong("body",buf);
                 buf[len-1]=0;
                 NewTextChild( node, "body", buf);
+                rowcount++;
             };
+            if(rowcount >= 4000)
+                throw UserException("Слишком много данных. Уточните критерии поиска.");
             if (buf!=NULL) free(buf);
         }
     }

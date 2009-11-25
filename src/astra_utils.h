@@ -275,6 +275,9 @@ BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region, int is_dst=
 
 bool is_dst(BASIC::TDateTime d, std::string region);
 
+const char* OWN_POINT_ADDR();
+const char* SERVER_ID();
+
 class SysReqInterface : public JxtInterface
 {
 public:
