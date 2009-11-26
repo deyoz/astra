@@ -102,6 +102,7 @@ class PrintDataParser {
                 TQrys Qrys;
                 TQuery *prnQry;
 
+                void additional_tags();
                 void fillBTBPMap();
                 void fillMSOMap(TBagReceipt &rcpt);
                 void add_mso_point(std::string name, std::string airp, bool pr_lat);
@@ -111,6 +112,7 @@ class PrintDataParser {
                 int print_mode;
                 t_field_map(int grp_id, int pax_id, int pr_lat, xmlNodePtr tagsNode, TMapType map_type);
                 t_field_map(TBagReceipt &rcpt);
+                t_field_map(int pr_lat);
                 std::string get_field(std::string name, int len, std::string align, std::string date_format, int field_lat);
                 void add_tag(std::string name, int val, bool nullable = false);
                 void add_tag(std::string name, std::string val, bool nullable = false);
@@ -131,6 +133,11 @@ class PrintDataParser {
         bool IsDelim(char curr_char, char &Mode);
         std::string parse_tag(int offset, std::string tag);
     public:
+        PrintDataParser(int pr_lat): field_map(pr_lat)
+        {
+            pectab_format = 0;
+            this->pr_lat = pr_lat;
+        };
         PrintDataParser(TBagReceipt rcpt): field_map(rcpt)
         {
             pectab_format = 0;
@@ -182,8 +189,11 @@ class PrintInterface: public JxtInterface
             AddEvent("ConfirmPrintBP",evHandle);
             evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::GetPrinterList);
             AddEvent("GetPrinterList",evHandle);
+            evHandle=JxtHandler<PrintInterface>::CreateHandler(&PrintInterface::RefreshPrnTests);
+            AddEvent("refresh_prn_tests",evHandle);
         }
 
+        void RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
         void ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
