@@ -275,9 +275,6 @@ BASIC::TDateTime ClientToUTC(BASIC::TDateTime d, std::string region, int is_dst=
 
 bool is_dst(BASIC::TDateTime d, std::string region);
 
-const char* OWN_POINT_ADDR();
-const char* SERVER_ID();
-
 class SysReqInterface : public JxtInterface
 {
 public:
@@ -305,6 +302,11 @@ std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
 std::string transliter(const std::string &value, bool pr_lat);
 bool is_lat(const std::string &value);
+
+int getTCLParam(const char* name, int min, int max, int def);
+const char* OWN_POINT_ADDR();
+const char* SERVER_ID();
+const bool USE_SEANCES();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);

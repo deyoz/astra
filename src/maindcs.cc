@@ -994,7 +994,9 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "BEGIN "
       "  UPDATE users2 SET desk = NULL WHERE desk = :desk; "
       "  UPDATE users2 SET desk = :desk WHERE user_id = :user_id; "
-      "  UPDATE desks SET version = :version WHERE code = :desk; "
+      "  UPDATE desks "
+      "  SET version = :version, last_logon = system.UTCSYSDATE "
+      "  WHERE code = :desk; "
       "END;";
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);

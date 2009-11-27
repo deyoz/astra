@@ -2905,7 +2905,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   int first_point;
   bool insert_point;
   bool pr_begin = true;
-  bool change_est_out;
+  bool change_stages_out;
   bool pr_change_tripinfo;
   bool reSetCraft;
   for( TSOPPDests::iterator id=dests.begin(); id!=dests.end(); id++ ) {
@@ -2962,11 +2962,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     	point_num++;
     	continue;
     }
-  	change_est_out = false;
+  	change_stages_out = false;
   	reSetCraft = false;
   	pr_change_tripinfo = false;
     TSOPPDest old_dest;
-
 
     if ( insert_point ) {
     	ch_craft = false;
@@ -3048,7 +3047,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  old_dest.point_id = id->point_id;
   	  voldDests.push_back( old_dest );
 
-  	  change_est_out = id->est_out != old_dest.est_out;
+  	  change_stages_out = ( !insert_point && (id->est_out != old_dest.est_out || id->scd_out != old_dest.scd_out && old_dest.scd_out > NoExists) );
 
   	  if ( !old_dest.pr_reg && id->pr_reg && id->pr_del != -1 ) {
   	    Qry.Clear();
@@ -3145,6 +3144,16 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      if ( !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
        reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
      }
+ 	   if ( !insert_point && id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out > NoExists && id->scd_out != old_dest.scd_out ) {
+  	  	reqInfo->MsgToLog( string( "Изменение планового времени вылета на ") + DateTimeToStr( id->scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	 }
+ 	   if ( !insert_point && id->pr_del!=-1 && id->scd_out == NoExists && old_dest.scd_out > NoExists ) {
+  	  	reqInfo->MsgToLog( string( "Удаление планового времени вылета ") + DateTimeToStr( old_dest.scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	 }
+ 	   if ( !insert_point && id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out == NoExists ) {
+  	  	reqInfo->MsgToLog( string( "Вввод планового времени вылета ") + DateTimeToStr( id->scd_out, "hh:nn dd.mm.yy (UTC)" ) + " порт " + id->airp, evtDisp, move_id, id->point_id );
+  	 }
+
     	set_pr_del = ( !old_dest.pr_del && id->pr_del );
     	ProgTrace( TRACE5, "set_pr_del=%d", set_pr_del );
   	  set_act_out = ( !id->pr_del && old_dest.act_out == NoExists && id->act_out > NoExists );
@@ -3312,13 +3321,72 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
        "    pr_reg_with_tkn,pr_reg_with_doc) "
        "  VALUES(:point_id,0,0,0, NULL, 0, 0, 0, "
        "    NULL, 0, 1, 0, 0, 0, 0, 0); "
-       " ckin.set_trip_sets(:point_id); "
+       " ckin.set_trip_sets(:point_id,:use_seances); "
        " gtimer.puttrip_stages(:point_id); "
        "END;";
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
+  		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
   		Qry.Execute();
   	}
-  	if ( id->pr_del != -1 && id->pr_reg && id->est_out > NoExists && id->est_out != id->scd_out ) {
+
+  	if ( id->pr_del != -1 && id->pr_reg ) {
+  	  TDateTime t1 = NoExists, t2 = NoExists;
+  	   if ( !insert_point ) {
+    	  if ( old_dest.est_out > NoExists )
+       		t1 = old_dest.est_out;
+       	else
+     	  	t1 = old_dest.scd_out;
+     	 }
+     	if ( id->est_out > NoExists )
+     		t2 = id->est_out;
+     	else
+     		t2 = id->scd_out;
+     	if (  insert_point && id->est_out > NoExists && id->scd_out > NoExists ) {
+     		t1 = id->scd_out;
+     		t2 = id->est_out;
+     	}
+      if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
+  		  Qry.Clear();
+  		  Qry.SQLText =
+  		   "BEGIN "
+  		   "  UPDATE trip_stages SET est=NVL(est,scd)+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0; "
+  		   "  SELECT est,scd INTO :vest,:vscd FROM trip_stages WHERE point_id=:point_id AND pr_manual=0 AND rownum<2; "
+  		   " EXCEPTION WHEN NO_DATA_FOUND THEN "
+  		   "  :vest := NULL;"
+         "  :vscd := NULL;"
+  		   "END; ";
+  		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
+  		  Qry.CreateVariable( "vscd", otDate, t1 );
+  		  Qry.CreateVariable( "vest", otDate, t2 );
+  		  Qry.Execute();
+  		  string tolog;
+  	    double f;
+  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
+  	      t1 = Qry.GetVariableAsDateTime( "vscd" );
+  	      t2 = Qry.GetVariableAsDateTime( "vest" );
+  	      t1 = t2-t1;
+  	      if ( t1 < 0 ) {
+  	      	modf( t1, &f );
+  		  	  tolog = "Опережение выполнения технологического графика на ";
+  		      if ( f )
+    	  	    tolog += IntToString( (int)f ) + " ";
+    	  	  tolog += DateTimeToStr( fabs(t1), "hh:nn" );
+  	      }
+  	      if ( t1 >= 0 ) {
+  	      	modf( t1, &f );
+  		    	tolog = "Задержка выполнения технологического графика на ";
+  		    	if ( f )
+  		    		tolog += IntToString( (int)f ) + " ";
+  		    	tolog += DateTimeToStr( t1, "hh:nn" );
+  	      }
+	        reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
+	      }
+      }
+    }
+
+/*  	if ( id->pr_del != -1 && id->pr_reg &&
+  		   (id->est_out > NoExists && id->est_out != id->scd_out || !insert_point && old_dest.scd_out > NoExists && old_dest.scd_out != id->scd_out) ) {
+  		ProgTrace( TRACE5, "id->scd_out=%f, id->est_out=%f, old_dest.scd_out=%f, old_dest.est_out=%f",id->scd_out,id->est_out,old_dest.scd_out,old_dest.est_out);
   		Qry.Clear();
   		Qry.SQLText =
   		 "UPDATE trip_stages SET est=scd+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0 ";
@@ -3328,17 +3396,23 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Execute();
   		string tolog;
   	  double f;
-  	  if ( change_est_out ) {
-  		  if ( id->est_out > id->scd_out ) {
-  		  	modf( id->est_out - id->scd_out, &f );
+  	  if ( change_stages_out ) {
+  		  if ( id->est_out > id->scd_out || id->scd_out > old_dest.scd_out ) {
+  		  	if ( id->est_out > id->scd_out )
+  		  	  modf( id->est_out - id->scd_out, &f );
+  		  	else
+  		  		modf( id->scd_out - old_dest.scd_out, &f );
   		  	tolog = "Задержка выполнения технологического графика на ";
   		  	if ( f )
   		  		tolog += IntToString( (int)f ) + " ";
   		  	tolog += DateTimeToStr( id->est_out - id->scd_out, "hh:nn" );
 
-  		  }
-  		  else {
-  			  modf( id->scd_out - id->est_out, &f );
+  		  };
+  		  if ( id->est_out < id->scd_out || id->scd_out < old_dest.scd_out ) {
+  		  	if ( id->est_out < id->scd_out )
+  			    modf( id->scd_out - id->est_out, &f );
+  			  else
+  			  	modf( old_dest.scd_out - id->scd_out, &f );
   			  tolog = "Опережение выполнения технологического графика на ";
   		    if ( f )
     		    tolog += IntToString( (int)f ) + " ";
@@ -3347,7 +3421,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		 reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
   		 ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
   	  }
-  	}
+  	*/
     if ( set_act_out ) {
     	//!!! еще point_num не записан
        try
