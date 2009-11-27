@@ -824,11 +824,11 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
+    string module = NodeAsString("module", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText = "select exe from screen where name = :module";
-    Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
+    Qry.CreateVariable("module", otString, module);
     Qry.Execute();
-    string module;
     if(!Qry.Eof) module = Qry.FieldAsString("exe");
     int count = 0;
 
