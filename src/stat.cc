@@ -824,11 +824,11 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
     NewTextChild(variablesNode, "report_title", "Операции в системе");
+    string module = NodeAsString("module", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText = "select exe from screen where name = :module";
-    Qry.CreateVariable("module", otString, NodeAsString("module", reqNode));
+    Qry.CreateVariable("module", otString, module);
     Qry.Execute();
-    string module;
     if(!Qry.Eof) module = Qry.FieldAsString("exe");
     int count = 0;
 
@@ -2439,7 +2439,10 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_pax_amount);
         NewTextChild(rowNode, "col", total_adult);
         NewTextChild(rowNode, "col", total_child);
@@ -2669,7 +2672,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_pax_amount);
         NewTextChild(rowNode, "col", total_adult);
         NewTextChild(rowNode, "col", total_child);
@@ -2806,7 +2812,10 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", "Итого:");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
@@ -2939,7 +2948,10 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", "Итого:");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
