@@ -2285,7 +2285,10 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_pax_amount);
         NewTextChild(rowNode, "col", total_adult);
         NewTextChild(rowNode, "col", total_child);
@@ -2515,7 +2518,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_pax_amount);
         NewTextChild(rowNode, "col", total_adult);
         NewTextChild(rowNode, "col", total_child);
@@ -2652,7 +2658,10 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", "Итого:");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
@@ -2785,7 +2794,10 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", "Итого:");
         NewTextChild(rowNode, "col");
-        NewTextChild(rowNode, "col");
+        if (USE_SEANCES())
+        {
+          NewTextChild(rowNode, "col");
+        };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
