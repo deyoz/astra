@@ -2603,6 +2603,17 @@ string get_fmt_type(int prn_type);
             return TrimString(result);
         }
 
+        void delete_all_LF(string &data)
+        {
+            size_t pos = 0;
+            while(true) {
+                pos = data.find(LF);
+                if(pos == string::npos)
+                    break;
+                data.erase(pos, 1);
+            }
+        }
+
         string place_CR_LF(string data)
         {
             size_t pos = 0;
@@ -2619,18 +2630,7 @@ string get_fmt_type(int prn_type);
                 }
             }
             if(not data.empty()) {
-                while(true) { // удалим все пробелы, TAB и CR/LF из конца строки
-                    size_t last_ch = data.size() - 1;
-                    if(
-                            data[last_ch] == CR[0] or
-                            data[last_ch] == LF[0] or
-                            data[last_ch] == TAB[0] or
-                            data[last_ch] == ' '
-                      )
-                        data.erase(last_ch);
-                    else
-                        break;
-                }
+                RTrimString(data);
                 //и добавим один CR/LF
                 data += CR + LF;
             }
@@ -2650,10 +2650,13 @@ string get_fmt_type(int prn_type);
                     result = delete_all_CR_LF(data);
                     break;
                 case dftEPL2:
+                case dftZEBRA:
                 case dftZPL2:
                 case dftDPL:
                 case dftEPSON:
                     result = place_CR_LF(data);
+                    if(fmt_type == dftDPL)
+                        delete_all_LF(result);
                     break;
                 case dftUnknown:
                     throw Exception("AdjustCR_LF: unknown fmt_type");
