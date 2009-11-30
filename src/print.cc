@@ -2650,6 +2650,7 @@ string get_fmt_type(int prn_type);
                     result = delete_all_CR_LF(data);
                     break;
                 case dftEPL2:
+                case dftZEBRA:
                 case dftZPL2:
                 case dftDPL:
                 case dftEPSON:
