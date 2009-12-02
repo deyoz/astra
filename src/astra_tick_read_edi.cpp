@@ -131,13 +131,16 @@ ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
     for(unsigned i=0;i<Num;i++)
     {
         SetEdiPointToCompositeG(pMes, "C330",i, "PROG_ERR");
-        string Awk = GetDBNum(pMes, 9906,0, "INV_AIRLINE");
-        string recloc = GetDBNum(pMes, 9956,0, "NEED_RECLOC");
-        char typeChr=*GetDBNum(pMes, 9958);
-        if (!typeChr){
+        char typeChr = *GetDBNum(pMes, 9958);
+        if (!typeChr)
+        {
             typeChr='1';
         }
-    switch(typeChr){
+
+        string Awk = GetDBNum(pMes, 9906,0, typeChr == '1' ? "INV_AIRLINE" : "");
+        string recloc = GetDBNum(pMes, 9956,0, typeChr == '1' ? "NEED_RECLOC" : "");
+            
+        switch(typeChr){
         case '1':
             if(i==0 && Num>1){
                 CrsRecloc = recloc;
@@ -147,17 +150,8 @@ ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
                 OurAwk = Awk;
             }
             break;
-        case '2':
-            if(Recloc.size()){
-                ProgError(STDLOG, "Too many reclocs with type 2");
-                throw Exception("Too many reclocs with type 2");
-            }
-            Recloc = recloc;
-            break;
         default:
-            ProgError(STDLOG,
-                                   "Invalid reservation control type [%c]", typeChr);
-            throw Exception("Invalid reservation control type");
+            LogWarning(STDLOG) << "Invalid reservation control type [" << typeChr << "]";
     }
 
     PopEdiPoint_wdG(pMes);
