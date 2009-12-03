@@ -24,6 +24,8 @@ public:
      AddEvent("GetDeviceList",evHandle);
      evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::GetDeviceInfo);
      AddEvent("GetDeviceInfo",evHandle);
+     evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::DetermineScanParams);
+     AddEvent("DetermineScanParams",evHandle);
      evHandle=JxtHandler<MainDCSInterface>::CreateHandler(&MainDCSInterface::SaveDeskTraces);
      AddEvent("SaveDeskTraces",evHandle);
   };
@@ -37,6 +39,7 @@ public:
 
   void GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
+  void DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveDeskTraces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
 

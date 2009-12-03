@@ -8,6 +8,7 @@
 #include "base_tables.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include "misc.h"
 #include <fstream>
 #include "xml_unit.h"
 #include "print.h"
@@ -1147,6 +1148,193 @@ void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 {
 	//
   GetDevices( reqNode, resNode );
+};
+
+class TScanParams
+{
+  public:
+    string prefix,postfix;
+    unsigned int code_id_len;
+};
+
+
+bool ParseScanData(const string& data, TScanParams& params)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText="SELECT pax_id FROM pax WHERE pax_id=:pax_id";
+  Qry.DeclareVariable("pax_id",otInteger);
+
+  string str=data,c;
+  string::size_type p,ph=0,str_size=str.size(),i;
+  int pax_id,len_u,len_r;
+  bool init=false;
+  do
+  {
+    p=str.find_first_of("0123456789M",ph);
+    if (p==string::npos) break;
+    if (str_size<p+10) break;
+
+  /*  if (p<str_size)
+      ProgTrace(TRACE5,"ParseScanData: p=%d str=%s", p, str.substr(p).c_str());
+    else
+      ProgTrace(TRACE5,"ParseScanData: p=%d",p);*/
+
+    ph=p;
+    try
+    {
+      if (str[p]=='M')
+      {
+        //возможно это 2D
+        if (str_size<p+60) throw EConvertError("01");
+        if (!HexToString(str.substr(p+58,2),c) || c.size()<1) throw EConvertError("02");
+        i=(int)c[0]; //item number=6
+        p+=60;
+        if (str_size<p+i) throw EConvertError("03");
+        i+=p; //это должен быть конец pax_id
+        if (str_size<p+4) throw EConvertError("04");
+        if (!HexToString(str.substr(p+2,2),c) || c.size()<1) throw EConvertError("05");
+        len_u=(int)c[0]; //item number=10
+        p+=4;
+        if (str_size<p+len_u+2) throw EConvertError("06");
+        if (!HexToString(str.substr(p+len_u,2),c) || c.size()<1) throw EConvertError("07");
+        len_r=(int)c[0]; //item number=17
+        p+=len_u+2;
+        if (str_size<p+len_r) throw EConvertError("08");
+        p+=len_r;
+        if (i>p)
+          ProgTrace(TRACE5,"ParseScanData: airline use=%s",str.substr(p,i-p).c_str());
+        if (i-p!=10) throw EConvertError("09");
+      };
+
+      //возможно это обычный 2 из 5
+
+      if (str_size<p+10) throw EConvertError("10");
+
+      for(int j=0;j<10;j++)
+        if (!IsDigit(str[p+j])) throw EConvertError("11");
+
+      pax_id=ToInt(str.substr(p,10));
+      Qry.SetVariable("pax_id",pax_id);
+      Qry.Execute();
+      if (!Qry.Eof)
+      {
+        if (init) return false;
+        params.prefix=str.substr(0,ph);
+        params.postfix=str.substr(p+10);
+        params.code_id_len=0;
+        init=true;
+        ph=p+10;
+        continue;
+      };
+    }
+    catch(EConvertError &e)
+    {
+     /* if (p<str_size)
+        ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d str=%s", e.what(), p, str.substr(p).c_str());
+      else
+        ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d", e.what(), p);*/
+    };
+    ph++;
+  }
+  while (p!=string::npos);
+
+/*str:=parsedData.proc_value;
+  try
+    if Length(str)<60 then raise EConvertError.Create('');
+    i:=StrToInt('$'+Copy(str,59,2));
+    Delete(str,1,60);
+    if i>Length(str) then raise EConvertError.Create('');
+    str:=Copy(str,1,i);
+    if Length(str)<4 then raise EConvertError.Create('');
+    len_u:=StrToInt('$'+Copy(str,3,2));
+    Delete(str,1,4);
+    if len_u+2>Length(str) then raise EConvertError.Create('');
+    len_r:=StrToInt('$'+Copy(str,len_u+1,2));
+    Delete(str,1,len_u+2);
+    if len_r>Length(str) then raise EConvertError.Create('');
+    Delete(str,1,len_r);
+  except
+    on EConvertError do
+      str:=parsedData.proc_value;  //тючьюцэю ¤Єю 2/5
+  end;
+
+  if Length(str)=10 then
+  begin
+    i:=1;
+    for i:=i to Length(str) do
+      if not(IsDigit(str[i])) then break;
+    if i>Length(str) then
+    try
+      parsedData.pax_id:=StrToInt(str);
+      Result:=true;
+      Exit;
+    except
+      on EConvertError do ;
+    end;
+  end;*/
+  return init;
+};
+
+
+void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  try
+  {
+  	vector<TScanParams> ScanParams;
+  	TScanParams params;
+  	xmlNodePtr node;
+  	node=GetNode("operation/fmt_params/encoding",reqNode);
+  	if (node==NULL) throw EConvertError("Node 'encoding' not found");
+    string encoding = NodeAsString(node);
+    node=NodeAsNode("scan_data",reqNode);
+    for(node=node->children;node!=NULL;node=node->next)
+    {
+      string data;
+      if (!HexToString(NodeAsString(node),data)) throw EConvertError("HexToString error");
+      ProgTrace(TRACE5,"DetermineScanParams: data.size()=%d", data.size());
+      data=ConvertCodepage(data,encoding,"CP866"); //иногда возвращает EConvertError
+      ProgTrace(TRACE5,"DetermineScanParams: data=%s", data.c_str());
+
+      if (ParseScanData(data,params))
+        ScanParams.push_back(params);
+    };
+    if (ScanParams.empty()) throw EConvertError("ScanParams empty");
+    for(vector<TScanParams>::iterator i=ScanParams.begin();i!=ScanParams.end();i++)
+    {
+      if (i==ScanParams.begin())
+        params=*i;
+      else
+      {
+        if (params.prefix.size()!=i->prefix.size() ||
+            params.postfix!=i->postfix) throw EConvertError("Different prefix size or postfix");
+        //пробуем выделить изменяемую часть префикса - это codeID
+        string::iterator j1=params.prefix.begin();
+        string::iterator j2=i->prefix.begin();
+        int j=0;
+        for(;j1!=params.prefix.end() && j2!=i->prefix.end();j1++,j2++,j++)
+          if (*j1!=*j2) break;
+        if (params.prefix.size()-j>params.code_id_len) params.code_id_len=params.prefix.size()-j;
+      };
+    };
+    if (params.code_id_len<0 ||
+        params.code_id_len>9 ||
+        params.code_id_len>params.prefix.size())
+      throw EConvertError("Wrong params.code_id_len=%lu",params.code_id_len);
+    params.prefix.erase(params.prefix.size()-params.code_id_len);
+    node=NewTextChild(resNode,"fmt_params");
+    string data;
+    StringToHex(ConvertCodepage(params.prefix,"CP866",encoding),data);
+    NewTextChild(node,"prefix",data);
+    StringToHex(ConvertCodepage(params.postfix,"CP866",encoding),data);
+    NewTextChild(node,"postfix",data);
+    NewTextChild(node,"code_id_len",(int)params.code_id_len);
+  }
+  catch(EConvertError &e)
+  {
+    ProgTrace(TRACE0,"DetermineScanParams: %s", e.what());
+    throw UserException("Невозможно автоматически определить параметры устройства");
+  };
 };
 
 void MainDCSInterface::SaveDeskTraces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
