@@ -29,7 +29,7 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
-#define VERSION_WITH_BAG_POOLS "200912-0000000"
+#define VERSION_WITH_BAG_POOLS "201001-0000000"
 
 class OverloadException: public EXCEPTIONS::UserException
 {
