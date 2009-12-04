@@ -3973,11 +3973,11 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                   SetProp(node, "hex", (int)hex);
                   if (dev_oper_type == dotPrnBP) {
                     string barcode;
-                    if(parser.exists(BCBP_M_2))
-                        barcode = parser.GetTagAsString(BCBP_M_2);
-                    else if(parser.exists(PAX_ID))
+                    if(parser.exists(PAX_ID))
                         barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
-                    node=NewTextChild(itemNode, "scan", barcode);
+                    if(parser.exists(BCBP_M_2))
+                        barcode += CR + LF + parser.GetTagAsString(BCBP_M_2);
+                    node=NewTextChild(itemNode, "scan", barcode, "");
                     if (node!=NULL) SetProp(node, "hex", (int)false);
                   };
                 };
