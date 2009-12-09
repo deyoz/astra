@@ -17,6 +17,7 @@
 #include "checkin.h"
 #include "events.h"
 #include "docs.h"
+#include "access.h"
 #include "telegram.h"
 #include "design_blank.h"
 #include "astra_service.h"
@@ -70,6 +71,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new PaymentInterface();
     new PaymentOldInterface();
     new DevTuningInterface();
+    new AccessInterface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
@@ -92,7 +94,10 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
         GetNode( "ClientError", node ) == NULL &&
-        GetNode( "SaveDeskTraces", node ) == NULL;
+        GetNode( "SaveDeskTraces", node ) == NULL &&
+        GetNode( "GetCertificates", node ) == NULL &&
+        GetNode( "RequestCertificateData", node ) == NULL &&
+        GetNode( "PutRequestCertificate", node ) == NULL;
 
     try
     {
@@ -110,7 +115,11 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( reqInfo->screen.pr_logon && opr.empty() && (GetNode( "UserLogon", node ) == NULL))
+    if ( reqInfo->screen.pr_logon && opr.empty() &&
+    	   ( GetNode( "UserLogon", node ) == NULL &&
+           GetNode( "GetCertificates", node ) == NULL &&
+           GetNode( "RequestCertificateData", node ) == NULL &&
+           GetNode( "PutRequestCertificate", node ) == NULL) )
     { // оператор пришел пустой - отправляем инфу по оператору
         showBasicInfo();
     }
