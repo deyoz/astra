@@ -1162,8 +1162,13 @@ bool ParseScanData(const string& data, TScanParams& params)
 {
   TQuery Qry(&OraSession);
   Qry.Clear();
-  Qry.SQLText="SELECT pax_id FROM pax WHERE pax_id=:pax_id";
+  Qry.SQLText="SELECT pax_id FROM pax WHERE pax_id=:pax_id "
+              "UNION "
+              "SELECT TO_NUMBER(value) FROM prn_test_tags "
+              "WHERE name=:tag_name AND TO_NUMBER(value)=:pax_id";
   Qry.DeclareVariable("pax_id",otInteger);
+  Qry.CreateVariable("tag_name",otString,"pax_id");
+
 
   string str=data,c;
   string::size_type p,ph=0,str_size=str.size(),i;
@@ -1195,10 +1200,12 @@ bool ParseScanData(const string& data, TScanParams& params)
         if (str_size<p+4) throw EConvertError("04");
         if (!HexToString(str.substr(p+2,2),c) || c.size()<1) throw EConvertError("05");
         len_u=(int)c[0]; //item number=10
+        //ProgTrace(TRACE5,"ParseScanData: len_u=%d",len_u);
         p+=4;
         if (str_size<p+len_u+2) throw EConvertError("06");
         if (!HexToString(str.substr(p+len_u,2),c) || c.size()<1) throw EConvertError("07");
         len_r=(int)c[0]; //item number=17
+        //ProgTrace(TRACE5,"ParseScanData: len_r=%d",len_r);
         p+=len_u+2;
         if (str_size<p+len_r) throw EConvertError("08");
         p+=len_r;
@@ -1230,7 +1237,7 @@ bool ParseScanData(const string& data, TScanParams& params)
     }
     catch(EConvertError &e)
     {
-     /* if (p<str_size)
+      /*if (p<str_size)
         ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d str=%s", e.what(), p, str.substr(p).c_str());
       else
         ProgTrace(TRACE5,"ParseScanData: EConvertError %s: p=%d", e.what(), p);*/

@@ -229,7 +229,7 @@ void TTripRoute::GetRoute(int point_id,
 
   Qry.Clear();
   Qry.SQLText= sql.str().c_str();
-  if (!pr_tranzit)
+  if (!pr_tranzit && after_current)
     Qry.CreateVariable("first_point",otInteger,point_id);
   else
     Qry.CreateVariable("first_point",otInteger,first_point);

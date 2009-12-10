@@ -18,6 +18,8 @@
 #include "tripinfo.h"
 #include "aodb.h"
 #include "tlg/tlg_parser.h"
+#include "docs.h"
+#include "stat.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -1574,6 +1576,19 @@ bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alar
   return false;
 };
 
+void CheckInInterface::ArrivalPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int point_id=NodeAsInteger("point_id",reqNode); //это point_arv
+    TTripRoute route;
+    if (!route.GetRouteBefore(point_id,trtNotCurrent,trtNotCancelled))
+        throw UserException("Рейс не найден. Обновите данные");
+    if (route.empty())
+        throw UserException("Нет списков на прилет");
+    TTripRouteItem& routeItem=route.back();
+    ReplaceTextChild(reqNode,"point_id",routeItem.point_id);
+    PaxList(ctxt,reqNode,resNode);
+};
+
 void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -1588,6 +1603,8 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
   TTripInfo operFlt(Qry);
+
+  NewTextChild(resNode,"flight",GetTripName(operFlt,true,false));
 
   ostringstream sql;
   sql <<
@@ -1850,6 +1867,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   };
 
   Qry.Close();
+
+  if ( GetNode( "LoadForm", reqNode ) )
+      get_report_form("ArrivalPaxList", resNode);
+  STAT::set_variables(resNode);
 };
 
 bool GetUsePS()
@@ -2902,13 +2923,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   i++;
                 };
                 if ( invalid_seat_no )
-                  showErrorMessage("Пассажиры посажены на запрещенные места",true);
+                  showErrorMessage("Пассажиры посажены на запрещенные места");
                 else
               		if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
-             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места",true);
+             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
                 	else
                 	  if ( change_agent_seat_no || change_preseat_no )
-                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные",true);
+                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
               };
               if (seat_no_str.str().empty()) seat_no_str << " нет";
 
