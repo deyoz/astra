@@ -671,11 +671,12 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
-void showProgError(const std::string &message )
+void showProgError(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
+  SetProp(resNode, "code", code);
 };
 
 void showError(const std::string &message, int code)
@@ -686,25 +687,26 @@ void showError(const std::string &message, int code)
   SetProp(resNode, "code", code);
 };
 
-void showErrorMessage(const std::string &message, bool pr_dialog )
+void showErrorMessage(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  xmlNodePtr node = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
-  SetProp( node, "pr_dialog", (int)pr_dialog );
+  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
+  SetProp(resNode, "code", code);
 };
 
-void showErrorMessageAndRollback(const std::string &message )
+void showErrorMessageAndRollback(const std::string &message, int code )
 {
-  showErrorMessage(message);
+  showErrorMessage(message,code);
   throw UserException2();
 }
 
-void showMessage(const std::string &message )
+void showMessage(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
+  SetProp(resNode, "code", code);
 };
 
 int getTCLParam(const char* name, int min, int max, int def)

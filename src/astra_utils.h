@@ -249,11 +249,11 @@ char DecodeStatus(char* s);
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 
-void showProgError(const std::string &message );
+void showProgError(const std::string &message, int code = 0  );
 void showError(const std::string &message, int code = 0 );
-void showErrorMessage( const std::string &message, bool pr_dialog=false );
-void showMessage( const std::string &message );
-void showErrorMessageAndRollback(const std::string &message );
+void showErrorMessage( const std::string &message, int code = 0 );
+void showMessage( const std::string &message, int code = 0  );
+void showErrorMessageAndRollback(const std::string &message, int code = 0  );
 void showBasicInfo(void);
 
 
