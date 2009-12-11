@@ -10,6 +10,8 @@
 #include "serverlib/sirena_queue.h"
 #include "serverlib/daemon.h"
 #include "serverlib/ocilocal.h"
+#include "tclmon/mespro_crypt.h"
+#include "crypt.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -129,6 +131,17 @@ class AstraApplication : public ApplicationCallbacks
     {
         return help_nosir_user();
     }
+    virtual int form_crypt_error(char *res, char *head, int hlen, int error)
+    {
+      return ::form_crypt_error(res,head,hlen,error);
+    }
+#ifdef USE_MESPRO
+    virtual void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
+    {
+      return ::getMesProParams(head,hlen,error,params);
+    }
+#endif // USE_MESPRO
+
 
 };
 

@@ -1010,18 +1010,22 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       Qry.CreateVariable("version",otString,UNKNOWN_VERSION);
     Qry.Execute();
 
+    TReqInfoInitData reqInfoData;
+
     string airlines;
     if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines))
       throw UserException("Не найден код авиакомпании %s",airlines.c_str());
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
-    std::string screen = NodeAsString("@screen", node);
-    std::string opr = NodeAsString("@opr", node);
+    reqInfoData.screen = NodeAsString("@screen", node);
+    reqInfoData.pult = ctxt->pult;
+    reqInfoData.opr = NodeAsString("@opr", node);
     xmlNodePtr modeNode = GetNode("@mode", node);
-    std::string mode;
     if (modeNode!=NULL)
-      mode = NodeAsString(modeNode);
-    reqInfo->Initialize( screen, ctxt->pult, opr, mode, false );
+      reqInfoData.mode = NodeAsString(modeNode);
+    reqInfoData.checkUserLogon = false;
+    reqInfoData.checkCrypt = false;
+    reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
     GetModuleList(resNode);
@@ -1363,4 +1367,135 @@ void MainDCSInterface::SaveDeskTraces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     throw;
   };
 };
+
+void TCrypt::Init( const std::string &desk )
+{
+	Clear();
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id  "
+    "FROM desks,desk_grp,crypt_sets "
+    "WHERE desks.code = UPPER(:desk) AND "
+    "      desks.grp_id = desk_grp.grp_id AND "
+    "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
+    "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
+    "ORDER BY desk ASC ";
+  Qry.CreateVariable( "desk", otString, desk );
+  Qry.Execute();
+  if ( Qry.Eof || Qry.FieldAsInteger( "pr_crypt" ) == 0 ) {
+    	return;
+  }
+  int grp_id = Qry.FieldAsInteger( "grp_id" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT certificate,first_date,last_date,pr_ca FROM crypt_server "
+    " WHERE pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date"
+    " ORDER BY id DESC";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	if ( Qry.FieldAsInteger("pr_ca") && ca_cert.empty() )
+  		ca_cert = Qry.FieldAsString( "certificate" );
+    if ( !Qry.FieldAsInteger("pr_ca") && server_cert.empty() ) {
+  		server_cert = Qry.FieldAsString( "certificate" );
+  	}
+  	if ( !ca_cert.empty() && !server_cert.empty() )
+  		break;
+  	Qry.Next();
+  }
+  if ( ca_cert.empty() || server_cert.empty() )
+  	throw Exception("ca or server certificate not found");
+  Qry.Clear();
+  Qry.SQLText =
+      "SELECT certificate FROM crypt_term_cert "
+      " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) AND "
+      "       pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date"
+      " ORDER BY desk ASC, id DESC";
+  Qry.CreateVariable( "grp_id", otInteger, grp_id );
+  Qry.CreateVariable( "desk", otString, desk );
+  Qry.Execute();
+  if ( Qry.Eof || Qry.FieldIsNULL( "certificate" ) )
+  	throw Exception("client certificate not found");
+  client_cert = Qry.FieldAsString( "certificate" );
+};
+
+// это первый запрос с клиента или запрос после ошибки работы шифрования
+void MainDCSInterface::GetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  // проверка на то, что это сертификат (возможно это запрос на сертификат!!!)
+  TCrypt Crypt;
+  Crypt.Init( TReqInfo::Instance()->desk.code );
+  xmlNodePtr node = NewTextChild( resNode, "crypt" );
+  if ( Crypt.ca_cert.empty() || Crypt.server_cert.empty() || Crypt.client_cert.empty() )
+  	return;
+  NewTextChild( node, "server_id", SERVER_ID() );
+  NewTextChild( node, "server_sign", Crypt.server_sign );
+ 	NewTextChild( node, "client_sign", Crypt.client_sign );
+  if ( !Crypt.algo_sign.empty() )
+  	NewTextChild( node, "SignAlgo", Crypt.algo_sign );
+  if ( !Crypt.algo_cipher.empty() )
+  	NewTextChild( node, "CipherAlgo", Crypt.algo_cipher );
+  if ( Crypt.inputformat != 1 )
+  	NewTextChild( node, "InputFormat", Crypt.inputformat );
+  if ( Crypt.outputformat != 1 )
+  	NewTextChild( node, "OutputFormat", Crypt.outputformat );
+  node = NewTextChild( node, "certificates" );
+  NewTextChild( node, "ca", Crypt.ca_cert );
+  NewTextChild( node, "server", Crypt.server_cert );
+  NewTextChild( node, "client", Crypt.client_cert );
+}
+
+void MainDCSInterface::RequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT 1 FROM crypt_term_req WHERE desk=:desk AND rownum<2";
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.Execute();
+  if ( !Qry.Eof )
+  	throw UserException( "Запрос на сертификат был создан ранее. На данный момент не обработан" );
+  Qry.Clear();
+  Qry.SQLText = "SELECT system.UTCSYSDATE udate FROM dual";
+  Qry.Execute();
+  BASIC::TDateTime udate = Qry.FieldAsDateTime( "udate" );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT country,state,city,organization,organizational_unit,title,"
+    "       user_name,email,key_algo,keyslength "
+    " FROM crypt_req_data,desks "
+    " WHERE desks.code=:desk AND crypt_req_data.desk_grp_id=desks.grp_id AND crypt_req_data.pr_denial=0 ";
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.Execute();
+	xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
+	NewTextChild( node, "server_id", SERVER_ID() );
+	NewTextChild( node, "FileKey", "cert_req"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" ) );
+	if ( !Qry.Eof ) {
+		NewTextChild( node, "Country", Qry.FieldAsString( "country" ) );
+		if ( !Qry.FieldIsNULL( "key_algo" ) )
+		  NewTextChild( node, "Algo", Qry.FieldAsString( "key_algo" ) );
+		if ( !Qry.FieldIsNULL( "keyslength" ) )
+		  NewTextChild( node, "KeyLength", Qry.FieldAsString( "keyslength" ) );
+    if ( !Qry.FieldIsNULL( "state" ) )
+    	NewTextChild( node, "StateOrProvince", Qry.FieldAsString( "state" ) );
+    if ( !Qry.FieldIsNULL( "organization" ) )
+    	NewTextChild( node, "Organization", Qry.FieldAsString( "organization" ) );
+    if ( !Qry.FieldIsNULL( "organizational_unit" ) )
+    	NewTextChild( node, "OrganizationUnit", Qry.FieldAsString( "organizational_unit" ) );
+    if ( !Qry.FieldIsNULL( "title" ) )
+    	NewTextChild( node, "Title", Qry.FieldAsString( "title" ) );
+    if ( !Qry.FieldIsNULL( "user_name" ) )
+    	NewTextChild( node, "CommonName", Qry.FieldAsString( "user_name" ) );
+    if ( !Qry.FieldIsNULL( "email" ) )
+    	NewTextChild( node, "EmailAddress", Qry.FieldAsString( "email" ) );
+  }
+}
+
+void MainDCSInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "INSERT INTO crypt_term_req(id,desk,request) VALUES(id__seq.nextval,:desk,:request) ";
+  Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
+  Qry.CreateVariable( "request", otString, NodeAsString( "request_certificate", reqNode ) );
+  Qry.Execute();
+}
 
