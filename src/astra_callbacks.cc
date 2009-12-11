@@ -83,14 +83,16 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     OraSession.ClearQuerys();
     XMLRequestCtxt *xmlRC = getXmlCtxt();
     xmlNodePtr node=NodeAsNode("/term/query",xmlRC->reqDoc);
-    std::string screen = NodeAsString("@screen", node);
-    std::string opr = NodeAsString("@opr", node);
+    TReqInfoInitData reqInfoData;
+    reqInfoData.screen = NodeAsString("@screen", node);
+    reqInfoData.pult = xmlRC->pult;
+    reqInfoData.opr = NodeAsString("@opr", node);
     xmlNodePtr modeNode = GetNode("@mode", node);
     std::string mode;
     if (modeNode!=NULL)
-      mode = NodeAsString(modeNode);
+      reqInfoData.mode = NodeAsString(modeNode);
 
-    bool checkUserLogon =
+    reqInfoData.checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&
         GetNode( "UserLogon", node ) == NULL &&
         GetNode( "ClientError", node ) == NULL &&
@@ -99,9 +101,15 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL;
 
+    reqInfoData.checkCrypt =
+        GetNode( "GetCertificates", node ) == NULL &&
+        GetNode( "RequestCertificateData", node ) == NULL &&
+        GetNode( "PutRequestCertificate", node ) == NULL &&
+        !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT);
+
     try
     {
-      reqInfo->Initialize( screen, xmlRC->pult, opr, mode, checkUserLogon );
+      reqInfo->Initialize( reqInfoData );
     }
     catch(EXCEPTIONS::UserException)
     {
@@ -115,7 +123,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
       else
         throw;
     };
-    if ( reqInfo->screen.pr_logon && opr.empty() &&
+    if ( reqInfo->screen.pr_logon && reqInfoData.opr.empty() &&
     	   ( GetNode( "UserLogon", node ) == NULL &&
            GetNode( "GetCertificates", node ) == NULL &&
            GetNode( "RequestCertificateData", node ) == NULL &&
@@ -137,7 +145,7 @@ void AstraJxtCallbacks::UserAfter()
 }
 
 
-void AstraJxtCallbacks::HandleException(comtech::Exception *e)
+void AstraJxtCallbacks::HandleException(std::exception *e)
 {
     ProgTrace(TRACE3, "AstraJxtCallbacks::HandleException");
 

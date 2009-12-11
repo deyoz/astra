@@ -179,6 +179,19 @@ class TScreen {
     };
 };
 
+struct TReqInfoInitData {
+  std::string screen;
+  std::string pult;
+  std::string opr;
+  std::string mode;
+  bool checkUserLogon;
+  bool checkCrypt;
+  TReqInfoInitData() {
+  	checkUserLogon = false;
+  	checkCrypt = false;
+  }
+};
+
 class TReqInfo
 {
 	private:
@@ -196,8 +209,7 @@ class TReqInfo
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
     void Initialize( const std::string &city );
-    void Initialize( const std::string &vscreen, const std::string &vpult, const std::string &vopr,
-                     const std::string &vmode, bool checkUserLogon );
+    void Initialize( TReqInfoInitData &InitData );
     void MsgToLog(TLogMsg &msg);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3);
     void MsgToLog(std::string msg, ASTRA::TEventType ev_type) {
