@@ -1803,6 +1803,9 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       };
     };
   };
+  if ( GetNode( "LoadForm", reqNode ) )
+      get_report_form("SOPPTrfer", resNode);
+  STAT::set_variables(resNode);
 };
 
 void SoppInterface::GetPaxTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
