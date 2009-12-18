@@ -1008,7 +1008,7 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
     string TAG_AIRP_ARV = "AIRP_ARV";
     string TAG_SUFFIX = "SUFFIX";
     string TAG_CLASS = "CLASS";
-    string TAG_SEAT_NO = "SEAT_NO";
+    string TAG_ONE_SEAT_NO = "ONE_SEAT_NO";
 
     if(pr_lat) {
         char *lat_suffix = "_LAT";
@@ -1019,7 +1019,7 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
         TAG_AIRP_ARV += lat_suffix;
         TAG_SUFFIX += lat_suffix;
         TAG_CLASS += lat_suffix;
-        TAG_SEAT_NO += lat_suffix;
+        TAG_ONE_SEAT_NO += lat_suffix;
     }
 
     ostringstream result;
@@ -1088,7 +1088,7 @@ string PrintDataParser::t_field_map::BCBP_M_2(bool pr_lat)
     // Compartment Code
     result << data[TAG_CLASS].StringVal;
     // Seat Number
-    result << setw(4) << right << data[TAG_SEAT_NO].StringVal;
+    result << setw(4) << right << data[TAG_ONE_SEAT_NO].StringVal;
     // Check-In Sequence Number
     result
         << setw(4) <<  setfill('0') << data["REG_NO"].IntegerVal
@@ -1361,6 +1361,8 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
             "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,0) AS one_seat_no, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,1)) AS one_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,0) AS seat_no, "
             "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,1)) AS seat_no_lat, "
             "   pax.SEAT_TYPE, "
@@ -3973,11 +3975,11 @@ void PrintInterface::RefreshPrnTests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
                   SetProp(node, "hex", (int)hex);
                   if (dev_oper_type == dotPrnBP) {
                     string barcode;
-                    if(parser.exists(BCBP_M_2))
-                        barcode = parser.GetTagAsString(BCBP_M_2);
-                    else if(parser.exists(PAX_ID))
+                    if(parser.exists(PAX_ID))
                         barcode = IntToString(parser.GetTagAsInteger(PAX_ID));
-                    node=NewTextChild(itemNode, "scan", barcode);
+                    if(parser.exists(BCBP_M_2))
+                        barcode += CR + LF + parser.GetTagAsString(BCBP_M_2);
+                    node=NewTextChild(itemNode, "scan", barcode, "");
                     if (node!=NULL) SetProp(node, "hex", (int)false);
                   };
                 };

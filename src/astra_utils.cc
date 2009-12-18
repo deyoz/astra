@@ -95,17 +95,37 @@ void TReqInfo::Initialize( const std::string &city )
   user.access.airps_permit=false;
 };
 
-void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
-                           const std::string &vopr, const std::string &vmode, bool checkUserLogon )
+void TReqInfo::Initialize( TReqInfoInitData &InitData )
 {
 	if ( execute_time.is_not_a_date_time() )
 		setPerform();
   clear();
   TQuery Qry(&OraSession);
-  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|", vscreen.c_str(), vpult.c_str(), vopr.c_str() );
-  screen.name = upperc( vscreen );
-  desk.code = vpult;
-  desk.mode = DecodeOperMode(vmode);
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d", InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt );
+  screen.name = upperc( InitData.screen );
+  desk.code = InitData.pult;
+  desk.mode = DecodeOperMode(InitData.mode);
+  if ( InitData.checkCrypt ) { // проверка на то, что пользователь шифруется
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT pr_crypt "
+      "FROM desks,desk_grp,crypt_sets "
+      "WHERE desks.code = UPPER(:desk) AND "
+      "      desks.grp_id = desk_grp.grp_id AND "
+      "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
+      "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
+      "ORDER BY desk ASC ";
+    Qry.CreateVariable( "desk", otString, InitData.pult );
+    Qry.Execute();
+    if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
+      XMLRequestCtxt *xmlRC = getXmlCtxt();
+      xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+      showProgError( "Шифрованное соединение: ошибка режима шифрования. Повторите запрос" );
+      resNode = ReplaceTextChild( resNode, "clear_certificates" );
+      throw UserException2();
+    }
+  }
+
   string sql;
 
   Qry.Clear();
@@ -126,7 +146,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", vpult );
+  Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
@@ -166,17 +186,17 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
     "FROM users2 "
     "WHERE desk = UPPER(:pult) ";
   Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", vpult );
+  Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
   {
-    if (!checkUserLogon )
+    if (!InitData.checkUserLogon )
      	return;
     else
       throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
   };
-  if ( !vopr.empty() )
-    if ( vopr != Qry.FieldAsString( "login" ) )
+  if ( !InitData.opr.empty() )
+    if ( InitData.opr != Qry.FieldAsString( "login" ) )
       throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
   	throw UserException( "Пользователь удален из системы" );
@@ -248,7 +268,7 @@ void TReqInfo::Initialize( const std::string &vscreen, const std::string &vpult,
   Qry.SQLText=
     "SELECT airline,pr_denial FROM desk_owners "
     "WHERE desk=:desk ORDER BY DECODE(airline,NULL,0,1)";
-  Qry.CreateVariable("desk",otString,vpult);
+  Qry.CreateVariable("desk",otString,InitData.pult);
   Qry.Execute();
   bool pr_denial_all=true;
   if (!Qry.Eof && Qry.FieldIsNULL("airline"))
@@ -671,11 +691,12 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
-void showProgError(const std::string &message )
+void showProgError(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", message );
+  SetProp(resNode, "code", code);
 };
 
 void showError(const std::string &message, int code)
@@ -686,25 +707,26 @@ void showError(const std::string &message, int code)
   SetProp(resNode, "code", code);
 };
 
-void showErrorMessage(const std::string &message, bool pr_dialog )
+void showErrorMessage(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  xmlNodePtr node = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
-  SetProp( node, "pr_dialog", (int)pr_dialog );
+  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
+  SetProp(resNode, "code", code);
 };
 
-void showErrorMessageAndRollback(const std::string &message )
+void showErrorMessageAndRollback(const std::string &message, int code )
 {
-  showErrorMessage(message);
+  showErrorMessage(message,code);
   throw UserException2();
 }
 
-void showMessage(const std::string &message )
+void showMessage(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
+  SetProp(resNode, "code", code);
 };
 
 int getTCLParam(const char* name, int min, int max, int def)

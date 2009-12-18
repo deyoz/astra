@@ -1,3 +1,4 @@
+#include "basic.h"
 #include "stat.h"
 #include "docs.h"
 #include "brd.h"
@@ -15,6 +16,7 @@
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
 
+using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
 
@@ -456,10 +458,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           if (!FltQry.Eof)
           {
             TTripInfo info(FltQry);
-            throw UserException("Пассажир с рейса " + GetTripName(info));
+            throw UserException(100, "Пассажир с рейса " + GetTripName(info));
           }
           else
-            throw UserException("Пассажир с другого рейса");
+            throw UserException(100, "Пассажир с другого рейса");
         };
       };
     }
@@ -506,12 +508,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    NVL(pax_grp.excess,0) AS excess, "
         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
-        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment "
+        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+        "    tckin_id, seg_no "
         "FROM "
         "    pax_grp, "
-        "    pax "
+        "    pax, "
+        "    tckin_pax_grp "
         "WHERE "
-        "    pax_grp.grp_id=pax.grp_id " +
+        "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) "+
         condition +
         " ORDER BY reg_no ";
 
@@ -519,6 +524,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.Execute();
     if (reg_no!=-1 && Qry.Eof)
       throw UserException("Пассажир не зарегистрирован");
+
+    TQuery TCkinQry(&OraSession);
 
     xmlNodePtr listNode = NewTextChild(dataNode, "passengers");
     TPaxSeats priorSeats(point_id);
@@ -572,6 +579,55 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
 
+        if (!Qry.FieldIsNULL("tckin_id"))
+        {
+          TCkinQry.Clear();
+          TCkinQry.SQLText=
+            "SELECT pax_grp.point_arv, "
+            "       points.airline, "
+            "       points.flt_no, "
+            "       points.suffix, "
+            "       points.airp, "
+            "       points.scd_out "
+            "FROM points,pax_grp,tckin_pax_grp, "
+            "     (SELECT MAX(seg_no) AS seg_no FROM tckin_pax_grp "
+            "      WHERE tckin_id=:tckin_id AND seg_no<:seg_no) a "
+            "WHERE points.point_id=pax_grp.point_dep AND "
+            "      pax_grp.grp_id=tckin_pax_grp.grp_id AND "
+            "      tckin_pax_grp.tckin_id=:tckin_id AND "
+            "      tckin_pax_grp.seg_no=a.seg_no";
+          TCkinQry.CreateVariable("tckin_id",otInteger,Qry.FieldAsInteger("tckin_id"));
+          TCkinQry.CreateVariable("seg_no",otInteger,Qry.FieldAsInteger("seg_no"));
+          TCkinQry.Execute();
+          if (!TCkinQry.Eof)
+          {
+            TTripInfo info(TCkinQry);
+
+            TDateTime scd_out_local = UTCToLocal(info.scd_out,AirpTZRegion(info.airp));
+
+            ostringstream trip;
+            trip << info.airline
+                 << setw(3) << setfill('0') << info.flt_no
+                 << info.suffix
+                 << '/' << DateTimeToStr(scd_out_local,"dd");
+
+            NewTextChild(paxNode, "inbound_flt", trip.str());
+
+            int point_arv=TCkinQry.FieldAsInteger("point_arv");
+            TCkinQry.Clear();
+            TCkinQry.SQLText=
+              "SELECT scd_in, NVL(act_in,NVL(est_in,scd_in)) AS real_in "
+              "FROM points WHERE point_id=:point_id";
+            TCkinQry.CreateVariable("point_id",otInteger,point_arv);
+            TCkinQry.Execute();
+            if (!TCkinQry.Eof && !TCkinQry.FieldIsNULL("scd_in") && !TCkinQry.FieldIsNULL("real_in"))
+            {
+              if (TCkinQry.FieldAsDateTime("real_in")-TCkinQry.FieldAsDateTime("scd_in") >= 20.0/1440)  //задержка более 20 мин
+                NewTextChild(paxNode, "inbound_delay_alarm", 1);
+            };
+          };
+        };
+
         if (reg_no==Qry.FieldAsInteger("reg_no"))
         {
             int mark;
@@ -595,16 +651,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if (reqInfo->screen.name == "BRDBUS.EXE")
                 {
                     if (mark)
-                        showErrorMessage("Пассажир уже прошел посадку");
+                        showErrorMessage("Пассажир уже прошел посадку",120);
                     else
-                        showErrorMessage("Пассажир не прошел посадку");
+                        showErrorMessage("Пассажир не прошел посадку",120);
                 }
                 else
                 {
                     if (mark)
-                        showErrorMessage("Пассажир уже прошел досмотр");
+                        showErrorMessage("Пассажир уже прошел досмотр",120);
                     else
-                        showErrorMessage("Пассажир не прошел досмотр");
+                        showErrorMessage("Пассажир не прошел досмотр",120);
                 };
             }
             else
