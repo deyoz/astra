@@ -95,11 +95,12 @@ void handle_tlg(void)
     //внимание порядок объединения таблиц важен!
     TlgQry.Clear();
     TlgQry.SQLText=
-      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl\
-       FROM tlgs,tlg_queue\
-       WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND\
-             tlg_queue.type='INA' AND tlg_queue.status='PUT'\
-       ORDER BY tlg_queue.time,tlg_queue.id";
+      "SELECT tlg_queue.id,tlgs.tlg_text,tlg_queue.time,ttl, "
+      "       tlg_queue.tlg_num,tlg_queue.sender "
+      "FROM tlgs,tlg_queue "
+      "WHERE tlg_queue.id=tlgs.id AND tlg_queue.receiver=:receiver AND "
+      "      tlg_queue.type='INA' AND tlg_queue.status='PUT' "
+      "ORDER BY tlg_queue.time,tlg_queue.id";
     TlgQry.CreateVariable("receiver",otString,OWN_CANON_NAME());
   };
 
@@ -114,6 +115,9 @@ void handle_tlg(void)
       {
       	  tlg_id=TlgQry.FieldAsInteger("id");
           ProgTrace(TRACE1,"========= %d TLG: START HANDLE =============",tlg_id);
+          ProgTrace(TRACE1,"========= (sender=%s tlg_num=%d) =============",
+                    TlgQry.FieldAsString("sender"),
+                    TlgQry.FieldAsInteger("tlg_num"));
           try{
               int len = TlgQry.GetSizeLongField("tlg_text");
               boost::shared_ptr< char > tlg (new (char [len+1]));

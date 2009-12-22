@@ -4,6 +4,9 @@
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/xmllibcpp.h"
 #include "astra_utils.h"
+#include "astra_ticket.h"
+#include "astra_misc.h"
+#include "xml_unit.h"
 
 class ETSearchInterface : public JxtInterface
 {
@@ -22,6 +25,10 @@ public:
   void ETChangeStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 };
+
+enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
+typedef std::list<Ticketing::Ticket> TTicketList;
+typedef std::pair<TTicketList,XMLDoc> TTicketListCtxt;
 
 class ETStatusInterface : public JxtInterface
 {
@@ -44,10 +51,18 @@ public:
   void ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
+
+  static bool ETCheckStatus(int id,
+                            TETCheckStatusArea area,
+                            int check_point_id,
+                            bool check_connect,
+                            TTripInfo &fltInfo,
+                            std::map<int,TTicketListCtxt> &mtick);
+  static bool ETChangeStatus(const int reqCtxtId,
+                             const TTripInfo &fltInfo,
+                             const std::map<int,TTicketListCtxt> &mtick);
 };
 
-enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
-bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool check_connect=false);
 
 inline xmlNodePtr astra_iface(xmlNodePtr resNode, const std::string &iface_id)
 {

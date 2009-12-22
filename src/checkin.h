@@ -71,35 +71,36 @@ public:
 
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
-  bool CheckCkinFlight(const int point_dep,
-                       const std::string& airp_dep,
-                       const int point_arv,
-                       const std::string& airp_arv,
-                       bool lock,
-                       TSegInfo& segInfo);
+  static bool CheckCkinFlight(const int point_dep,
+                              const std::string& airp_dep,
+                              const int point_arv,
+                              const std::string& airp_arv,
+                              bool lock,
+                              TSegInfo& segInfo);
 
-  void SavePaxRem(xmlNodePtr paxNode);
-  void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);
-  std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp);
-  std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
-  std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
+  static void SavePaxRem(xmlNodePtr paxNode);
+  static void SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode, int seg_no);
+  static std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp);
+  static std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
+  static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
+  static void SavePax(xmlNodePtr reqNode, xmlNodePtr resNode, bool obrzap_call);
   static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 
-  void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
-  void SaveTagPacks(xmlNodePtr node);
+  static void SaveBagToLog(int point_id, int grp_id, xmlNodePtr bagtagNode);
+  static void SaveTagPacks(xmlNodePtr node);
 
-  void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
-  void LoadPaxRem(xmlNodePtr paxNode);
-  void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
-  void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
-  void LoadTransfer(int grp_id, xmlNodePtr transferNode);
+  static void LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version);
+  static void LoadPaxRem(xmlNodePtr paxNode);
+  static void LoadPaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePtr transferNode);
+  static void LoadPaxNorms(xmlNodePtr paxNode, bool pr_unaccomp);
+  static void LoadTransfer(int grp_id, xmlNodePtr transferNode);
   static void LoadBag(int grp_id, xmlNodePtr bagtagNode);
   static void LoadPaidBag(int grp_id, xmlNodePtr grpNode);
 
-  int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
+  static int CheckCounters(int point_dep, int point_arv, char* cl, ASTRA::TPaxStatus grp_status);
 
-  bool ParseFQTRem(TTlgParser &tlg,std::string &rem_text,TFQTItem &fqt);
+  static bool ParseFQTRem(TTlgParser &tlg,std::string &rem_text,TFQTItem &fqt);
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );

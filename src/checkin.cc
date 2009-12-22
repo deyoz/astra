@@ -6,6 +6,7 @@
 #include "xml_unit.h"
 #include "astra_consts.h"
 #include "astra_utils.h"
+#include "astra_context.h"
 #include "seats2.h"
 #include "seats.h"
 #include "stages.h"
@@ -20,6 +21,7 @@
 #include "tlg/tlg_parser.h"
 #include "docs.h"
 #include "stat.h"
+#include "etick.h"
 
 #define NICKNAME "VLAD"
 #define NICKTRACE SYSTEM_TRACE
@@ -2046,9 +2048,17 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  SavePax(reqNode, resNode, true);
+};
+
+void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr resNode, bool obrzap_call)
+{
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   map<int,TSegInfo> segs;
+  typedef pair<TTripInfo, map<int,TTicketListCtxt> > TETInfoItem;
+  vector< TETInfoItem > ETInfo;
+  bool et_processed=false;
 
   bool tckin_version=GetNode("segments",reqNode)!=NULL;
 
@@ -2064,9 +2074,21 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     segNode=reqNode;
     only_one=true;
   };
+  bool defer_etstatus=false;
+
   TQuery Qry(&OraSession);
+  if (obrzap_call)
+  {
+    Qry.Clear();
+    Qry.SQLText=
+      "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+    Qry.Execute();
+    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+      defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
+  };
+
   Qry.Clear();
-  //Qry.SQLText = "SELECT
   for(;segNode!=NULL;segNode=segNode->next)
   {
     TSegInfo segInfo;
@@ -2581,7 +2603,10 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
           "    VALUES(:tckin_id,:seg_no,:grp_id,DECODE(:seg_no,1,0,1)); "
           "  END IF; "
           "END;";
-        Qry.CreateVariable("grp_id",otInteger,FNull);
+        if (GetNode("generated_grp_id",segNode)!=NULL)
+          Qry.CreateVariable("grp_id",otInteger,NodeAsInteger("generated_grp_id",segNode));
+        else
+          Qry.CreateVariable("grp_id",otInteger,FNull);
         Qry.CreateVariable("point_dep",otInteger,point_dep);
         Qry.CreateVariable("point_arv",otInteger,point_arv);
         Qry.CreateVariable("airp_dep",otString,airp_dep);
@@ -2607,7 +2632,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         if (first_segment)
           tckin_id=Qry.GetVariableAsInteger("tckin_id");
 
-        ReplaceTextChild(segNode,"grp_id",grp_id);
+        //ReplaceTextChild(segNode,"grp_id",grp_id); !!!vlad
+        NewTextChild(segNode,"generated_grp_id",grp_id);
 
         if (!pr_unaccomp)
         {
@@ -2764,7 +2790,12 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
               if (!NodeIsNULLFast("pax_id",node2))
                 Qry.SetVariable("pax_id",NodeAsIntegerFast("pax_id",node2));
               else
-                Qry.SetVariable("pax_id",FNull);
+              {
+                if (GetNodeFast("generated_pax_id",node2)!=NULL)
+                  Qry.SetVariable("generated_pax_id",NodeAsIntegerFast("generated_pax_id",node2));
+                else
+                  Qry.SetVariable("pax_id",FNull);
+              };
               Qry.SetVariable("surname",surname);
               Qry.SetVariable("name",name);
               Qry.SetVariable("pers_type",pers_type);
@@ -2838,7 +2869,8 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                   throw;
               };
               int pax_id=Qry.GetVariableAsInteger("pax_id");
-              ReplaceTextChild(node,"pax_id",pax_id);
+              //ReplaceTextChild(node,"pax_id",pax_id); !!!vlad
+              NewTextChild(node,"generated_pax_id",pax_id);
 
               ostringstream seat_no_str;
 
@@ -3356,6 +3388,19 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         };
       };
 
+      //вот здесь ETCheckStatus::CheckGrpStatus
+      //обязательно до ckin.check_grp
+      if (obrzap_call && !defer_etstatus)
+      {
+        TTripInfo ETFlight;
+        map<int,TTicketListCtxt> ETList;
+        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,-1,false,ETFlight,ETList))
+        {
+          ETInfo.push_back(make_pair(ETFlight,ETList));
+          et_processed=true; //хотя бы один билет будет обрабатываться
+        };
+      };
+
       //обновление counters
       Qry.Clear();
       Qry.SQLText=
@@ -3566,10 +3611,25 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     if (!tckin_version) break; //старый терминал
   }; //цикл по сегментам
 
-  //пересчитать данные по группе и отправить на клиент
-  LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
-                               strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
-
+  if (et_processed)
+  {
+    OraSession.Rollback();  //откат
+    int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+    et_processed=false; //пересчитаем заново для подстраховки
+    for(vector<TETInfoItem>::iterator i=ETInfo.begin();i!=ETInfo.end();i++)
+    {
+      if (ETStatusInterface::ETChangeStatus(req_ctxt,i->first,i->second)) et_processed=true;
+    };
+    if (!et_processed)
+      throw Exception("CheckInInterface::SavePax: Wrong et_processed");
+    showProgError("Нет связи с сервером эл. билетов");
+  }
+  else
+  {
+    //пересчитать данные по группе и отправить на клиент
+    LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
+                                 strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
+  };
 };
 
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3834,7 +3894,7 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
 {
   if (paxNode==NULL) return;
   xmlNodePtr node2=paxNode->children;
-  int pax_id=NodeAsIntegerFast("pax_id",node2);
+  int pax_id=NodeAsIntegerFast("generated_pax_id",node2,NodeAsIntegerFast("pax_id",node2));
 
   xmlNodePtr remNode=GetNodeFast("rems",node2);
   if (remNode==NULL) return;
@@ -4076,7 +4136,7 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   NormQry.Clear();
   if (!pr_unaccomp)
   {
-    int pax_id=NodeAsIntegerFast("pax_id",node2);
+    int pax_id=NodeAsIntegerFast("generated_pax_id",node2,NodeAsIntegerFast("pax_id",node2));
     NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
     NormQry.CreateVariable("pax_id",otInteger,pax_id);
     NormQry.Execute();
@@ -4086,7 +4146,7 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   }
   else
   {
-    int grp_id=NodeAsIntegerFast("grp_id",node2);
+    int grp_id=NodeAsIntegerFast("generated_grp_id",node2,NodeAsIntegerFast("grp_id",node2));
     NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
     NormQry.CreateVariable("grp_id",otInteger,grp_id);
     NormQry.Execute();

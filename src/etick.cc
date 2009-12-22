@@ -209,7 +209,10 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       xmlNodePtr node=GetNode("check_point_id",segNode);
       int check_point_id=-1;
       if (node!=NULL) check_point_id=NodeAsInteger(node);
-      if (ETCheckStatus(id,area,check_point_id))
+      TTripInfo fltInfo;
+      map<int,TTicketListCtxt> mtick;
+      ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,fltInfo,mtick);
+      if (ETStatusInterface::ETChangeStatus(ASTRA::NoExists,fltInfo,mtick))
       {
         //если сюда попали, то записать ошибку связи в лог
         processed=true; //послана хотя бы одна телеграмма
@@ -270,14 +273,6 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
 void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeAreaStatus(csaPax,ctxt,reqNode,resNode);
-/*  xmlNodePtr node=GetNode("check_point_id",reqNode);
-  int check_point_id=-1;
-  if (node!=NULL) check_point_id=NodeAsInteger(node);
-  if (ETCheckStatus(NodeAsInteger("pax_id",reqNode),csaPax,check_point_id))
-  {
-    //если сюда попали, то записать ошибку связи в лог
-    showProgError("Нет связи с сервером эл. билетов");
-  };*/
 };
 
 void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -288,15 +283,6 @@ void ETStatusInterface::ChangeGrpStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
 void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
-
-  /*xmlNodePtr node=GetNode("check_point_id",reqNode);
-  int check_point_id=-1;
-  if (node!=NULL) check_point_id=NodeAsInteger(node);
-  if (ETCheckStatus(NodeAsInteger("point_id",reqNode),csaFlt,check_point_id))
-  {
-    //если сюда попали, то записать ошибку связи в лог
-    showProgError("Нет связи с сервером эл. билетов");
-  };*/
 };
 
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -311,15 +297,17 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
 };
 
-bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool check_connect)
+bool ETStatusInterface::ETCheckStatus(int id,
+                                      TETCheckStatusArea area,
+                                      int check_point_id,
+                                      bool check_connect,
+                                      TTripInfo &fltInfo,
+                                      map<int,TTicketListCtxt> &mtick)
 {
-  typedef list<Ticket> TTicketList;
-  typedef pair<TTicketList,XMLDoc> TTicketListCtxt;
+  bool result=false;
 
-  map<int,TTicketListCtxt> mtick;
-
-  string oper_carrier;
-  bool init_edi_addrs=false;
+  fltInfo.Clear();
+  mtick.clear();
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -358,9 +346,9 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
   {
     int point_id=Qry.FieldAsInteger("point_id");
 
-    TTripInfo info(Qry);
+    fltInfo.Init(Qry);
     if ((Qry.FieldAsInteger("pr_etstatus")>=0 || check_connect) &&
-        !GetTripSets(tsETLOnly,info))
+        !GetTripSets(tsETLOnly,fltInfo))
     {
       TDateTime act_out=ASTRA::NoExists;
       if (!Qry.FieldIsNULL("real_out")) act_out=Qry.FieldAsDateTime("real_out");
@@ -436,11 +424,6 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
             };
           };
 
-       /*   if (real_status->codeInt()==CouponStatus::Boarded &&
-              (ticket_no=="2981260007672" || ticket_no=="2981260007673"))
-            real_status=CouponStatus(CouponStatus::Checked);*/
-
-
           if (status!=real_status)
           {
             TTicketListCtxt &ltick=mtick[real_status->codeInt()];
@@ -455,12 +438,12 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
             ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
             Coupon_info ci (coupon_no,real_status);
 
-            TDateTime scd_local=UTCToLocal(info.scd_out,
-                                           AirpTZRegion(info.airp));
+            TDateTime scd_local=UTCToLocal(fltInfo.scd_out,
+                                           AirpTZRegion(fltInfo.airp));
             ptime scd(DateTimeToBoost(scd_local));
-            Itin itin(info.airline,                      //marketing carrier
+            Itin itin(fltInfo.airline,                      //marketing carrier
                     "",                                  //operating carrier
-                    info.flt_no,0,
+                    fltInfo.flt_no,0,
                     SubClass(),
                     scd.date(),
                     time_duration(not_a_date_time), // not a date time
@@ -473,10 +456,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
 
             Ticket tick(ticket_no, lcpn);
             ltick.first.push_back(tick);
-            if (oper_carrier.empty())
-              oper_carrier=info.airline;
-            if (!init_edi_addrs)
-              init_edi_addrs=set_edi_addrs(info.airline,info.flt_no);
+            result=true;
 
             xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
             NewTextChild(node,"ticket_no",ticket_no);
@@ -517,9 +497,9 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
     if (!Qry.Eof)
     {
       CouponStatus real_status=CouponStatus(CouponStatus::OriginalIssue);
-      TTripInfo info(Qry);
+      fltInfo.Init(Qry);
       if ((Qry.FieldAsInteger("pr_etstatus")>=0 || check_connect) &&
-          !GetTripSets(tsETLOnly,info))
+          !GetTripSets(tsETLOnly,fltInfo))
       {
         Qry.Clear();
         Qry.SQLText=
@@ -548,12 +528,12 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
           };
 
           Coupon_info ci (coupon_no,real_status);
-          TDateTime scd_local=UTCToLocal(info.scd_out,
-                                         AirpTZRegion(info.airp));
+          TDateTime scd_local=UTCToLocal(fltInfo.scd_out,
+                                         AirpTZRegion(fltInfo.airp));
           ptime scd(DateTimeToBoost(scd_local));
-          Itin itin(info.airline,                          //marketing carrier
+          Itin itin(fltInfo.airline,                          //marketing carrier
                       "",                                  //operating carrier
-                      info.flt_no,0,
+                      fltInfo.flt_no,0,
                       SubClass(),
                       scd.date(),
                       time_duration(not_a_date_time), // not a date time
@@ -564,10 +544,7 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
           lcpn.push_back(cpn);
           Ticket tick(ticket_no, lcpn);
           ltick.first.push_back(tick);
-          if (oper_carrier.empty())
-            oper_carrier=info.airline;
-          if (!init_edi_addrs)
-            init_edi_addrs=set_edi_addrs(info.airline,info.flt_no);
+          result=true;
 
           xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
           NewTextChild(node,"ticket_no",ticket_no);
@@ -584,12 +561,27 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
       };
     };
   };
+  return result;
+}
 
+bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
+                                       const TTripInfo &fltInfo,
+                                       const map<int,TTicketListCtxt> &mtick)
+{
   bool result=false;
-  for(map<int,TTicketListCtxt>::iterator i=mtick.begin();i!=mtick.end();i++)
+
+  string oper_carrier;
+  bool init_edi_addrs=false;
+
+  for(map<int,TTicketListCtxt>::const_iterator i=mtick.begin();i!=mtick.end();i++)
   {
-    TTicketList &ltick=i->second.first;
+    const TTicketList &ltick=i->second.first;
     if (ltick.empty()) continue;
+
+    if (oper_carrier.empty())
+      oper_carrier=fltInfo.airline;
+    if (!init_edi_addrs)
+      init_edi_addrs=set_edi_addrs(fltInfo.airline,fltInfo.flt_no);
 
     if (oper_carrier.empty())
       throw EXCEPTIONS::Exception("ETCheckStatus: unkown operation carrier");
@@ -606,6 +598,9 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
     ProgTrace(TRACE5,"ETCheckStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                      oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
+    if (reqCtxtId!=ASTRA::NoExists)
+      SetProp(NodeAsNode("/context",i->second.second.docPtr),"req_ctxt_id",reqCtxtId);
+
     string ediCtxt=XMLTreeToText(i->second.second.docPtr);
 
     TReqInfo& reqInfo = *(TReqInfo::Instance());
@@ -613,18 +608,18 @@ bool ETCheckStatus(int id, TETCheckStatusArea area, int check_point_id, bool che
     {
       //не запрос
       OrigOfRequest org(oper_carrier);
-      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt);
+      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
     }
     else
     {
       OrigOfRequest org(oper_carrier,reqInfo);
-      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt);
+      ChangeStatus::ETChangeStatus(org, ltick, ediCtxt, reqCtxtId);
     };
 
     result=true;
   };
   return result;
-}
+};
 
 
 

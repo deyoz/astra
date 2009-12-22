@@ -10,21 +10,29 @@
 namespace AstraContext
 {
 
-void SetContext(const std::string name,
-                const int id,
-                const std::string &value)
+int SetContext(const std::string name,
+               const int id,
+               const std::string &value)
 {
   if (name.empty())
     throw EXCEPTIONS::Exception("AstraContext::SetContext: empty context name");
   if (name.size()>20)
-    throw EXCEPTIONS::Exception("AstraContext::SetContext: context name too long");
+    throw EXCEPTIONS::Exception("AstraContext::SetContext: context name %s too long",name.c_str());
 
   TQuery Qry(&OraSession);
   Qry.SQLText=
-    "INSERT INTO context(name,id,page_no,time_create,value) "
-    "VALUES(:name,:id,:page_no,:time_create,:value) ";
+    "BEGIN "
+    "  IF :id IS NULL THEN "
+    "    SELECT id__seq.nextval INTO :id FROM dual; "
+    "  END IF; "
+    "  INSERT INTO context(name,id,page_no,time_create,value) "
+    "  VALUES(:name,:id,:page_no,:time_create,:value); "
+    "END IF;";
   Qry.CreateVariable("name",otString,name);
-  Qry.CreateVariable("id",otInteger,id);
+  if (id!=ASTRA::NoExists)
+    Qry.CreateVariable("id",otInteger,id);
+  else
+    Qry.CreateVariable("id",otInteger,FNull);
   Qry.DeclareVariable("page_no",otInteger);
   Qry.CreateVariable("time_create",otDate,BASIC::NowUTC());
   Qry.DeclareVariable("value",otString);
@@ -40,12 +48,16 @@ void SetContext(const std::string name,
     Qry.Execute();
     ib=ie;
   };
+  if (!Qry.VariableIsNULL("id"))
+    return Qry.GetVariableAsInteger("id");
+  else
+    return ASTRA::NoExists;
 };
 
 int SetContext(const std::string name,
-                const std::string &value)
+               const std::string &value)
 {
-  return -1;
+  return SetContext(name,ASTRA::NoExists,value);
 };
 
 BASIC::TDateTime GetContext(const std::string name,

@@ -62,6 +62,7 @@ namespace ChangeStatus
     void ETChangeStatus(const OrigOfRequest &org,
                         const std::list<Ticket> &lTick,
                         const std::string &ediSessCtxt,
+                        const int ediCtxtId,
                         Ticketing::Itin* itin=NULL);
 }
 }

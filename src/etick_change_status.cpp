@@ -24,6 +24,7 @@ namespace ChangeStatus
     void ETChangeStatus(const OrigOfRequest &org,
                         const std::list<Ticket> &lTick,
                         const std::string &ediSessCtxt,
+                        const int ediCtxtId,
                         Ticketing::Itin* itin)
     {
         ProgTrace(TRACE2,"request for change of status from:");
@@ -34,7 +35,7 @@ namespace ChangeStatus
             itin->Trace(TRACE2);
         }
 
-        ChngStatData chngData(org,lTick,ediSessCtxt,itin);
+        ChngStatData chngData(org,lTick,ediSessCtxt,ediCtxtId,itin);
         SendEdiTlgTKCREQ_ChangeStat(chngData);
     }
 
