@@ -397,17 +397,18 @@ void process_tlg(void)
         //по-хорошему надо бы if (is_edi) SendEdiTlgCONTRL
         return;
       };
-    }
-    else
-    {
-      tlg_out.num=htonl(tlg_in.num);
-      tlg_out.TTL=htons(0);
-      strncpy(tlg_out.Sender,tlg_in.Receiver,6);
-      strncpy(tlg_out.Receiver,tlg_in.Sender,6);
-      if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
-                 (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
-        throw Exception("'sendto' error %d: %s",errno,strerror(errno));
     };
+
+    tlg_out.num=htonl(tlg_in.num);
+    tlg_out.TTL=htons(0);
+    strncpy(tlg_out.Sender,tlg_in.Receiver,6);
+    strncpy(tlg_out.Receiver,tlg_in.Sender,6);
+    if (sendto(sockfd,(char*)&tlg_out,sizeof(tlg_out)-sizeof(tlg_out.body)+tlg_len,0,
+               (struct sockaddr*)&to_addr,sizeof(to_addr))==-1)
+      throw Exception("'sendto' error %d: %s",errno,strerror(errno));
+    /*ProgTrace(TRACE5,"'sendto': tlg_num=%d, type=%d, sender=%s, receiver=%s",
+                     ntohl(tlg_out.num),ntohs(tlg_out.type),tlg_out.Sender,tlg_out.Receiver);*/
+
     OraSession.Commit();
     if (is_edi) sendCmd("CMD_EDI_HANDLER","H");
   }
