@@ -23,6 +23,7 @@
 #include "astra_service.h"
 #include "payment.h"
 #include "payment2.h"
+#include "crypt.h"
 #include "dev_tuning.h"
 #include "astra_utils.h"
 #include "basic.h"
@@ -72,6 +73,7 @@ void AstraJxtCallbacks::InitInterfaces()
     new PaymentOldInterface();
     new DevTuningInterface();
     new AccessInterface();
+    new CryptInterface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
@@ -102,6 +104,7 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         GetNode( "PutRequestCertificate", node ) == NULL;
 
     reqInfoData.checkCrypt =
+        GetNode( "kick", node ) == NULL &&
         GetNode( "GetCertificates", node ) == NULL &&
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL &&
