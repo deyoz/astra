@@ -205,18 +205,24 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
     }
     Qry->Clear();
     Qry->SQLText =
-      "SELECT certificate FROM crypt_term_cert "
+      "SELECT certificate, pr_denial FROM crypt_term_cert "
       " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) AND "
-      "       pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date"
-      " ORDER BY desk ASC, id DESC";
+      "       SYSDATE BETWEEN first_date AND last_date"
+      " ORDER BY desk ASC, pr_denial ASC, id ASC";
     Qry->CreateVariable( "grp_id", otInteger, grp_id );
     Qry->CreateVariable( "desk", otString, desk );
     Qry->Execute();
-    if ( Qry->Eof || Qry->FieldIsNULL( "certificate" ) ) {
+    while ( !Qry->Eof ) {
+    	if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
+    		break;
+    	params.client_cert = Qry->FieldAsString( "certificate" );
+    	break;
+    }
+    if ( params.client_cert.empty() ) {
+    	tst();
   	  *error = UNKNOWN_CLIENT_CERTIFICATE;
   	  return;
     }
-    params.client_cert = Qry->FieldAsString( "certificate" );
   }
   catch(...) {
   	delete Qry;
@@ -266,16 +272,21 @@ void TCrypt::Init( const std::string &desk )
   	throw Exception("ca or server certificate not found");
   Qry.Clear();
   Qry.SQLText =
-      "SELECT certificate FROM crypt_term_cert "
+      "SELECT certificate, pr_denial FROM crypt_term_cert "
       " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) AND "
-      "       pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date"
-      " ORDER BY desk ASC, id DESC";
+      "       SYSDATE BETWEEN first_date AND last_date"
+      " ORDER BY desk ASC, pr_denial ASC, id ASC";
   Qry.CreateVariable( "grp_id", otInteger, grp_id );
   Qry.CreateVariable( "desk", otString, desk );
   Qry.Execute();
-  if ( Qry.Eof || Qry.FieldIsNULL( "certificate" ) )
+  while ( !Qry.Eof ) {
+  	if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
+  		break;
+  	client_cert = Qry.FieldAsString( "certificate" );
+  	break;
+  }
+  if ( client_cert.empty() )
   	throw Exception("client certificate not found");
-  client_cert = Qry.FieldAsString( "certificate" );
 };
 
 
@@ -336,16 +347,24 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Qry.Execute();
   BASIC::TDateTime udate = Qry.FieldAsDateTime( "udate" );
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT country,state,crypt_req_data.city,organization,organizational_unit,title,"
-    "       user_name,email,key_algo,keyslength "
-    " FROM crypt_req_data, desks, desk_grp "
-    " WHERE desks.code = :desk AND "
-    "       desks.grp_id = desk_grp.grp_id AND "
-    "       crypt_req_data.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_req_data.desk IS NULL OR crypt_req_data.desk=desks.code ) AND "
-    "      crypt_req_data.pr_denial=0 "
-    " ORDER BY desk ASC ";
+  if ( pr_grp )
+    Qry.SQLText =
+      "SELECT country,state,crypt_req_data.city,organization,organizational_unit,title,"
+      "       user_name,email,key_algo,keyslength "
+      " FROM crypt_req_data, desks, desk_grp "
+      " WHERE desks.code = :desk AND "
+      "       desks.grp_id = desk_grp.grp_id AND "
+      "       crypt_req_data.desk_grp_id=desk_grp.grp_id AND "
+      "       crypt_req_data.desk IS NULL AND "
+      "       crypt_req_data.pr_denial=0 "
+      " ORDER BY desk ASC ";
+  else
+    Qry.SQLText =
+      "SELECT country,state,crypt_req_data.city,organization,organizational_unit,title,"
+      "       user_name,email,key_algo,keyslength "
+      " FROM crypt_req_data "
+      " WHERE desk = :desk AND "
+      "       crypt_req_data.pr_denial=0 ";
   Qry.CreateVariable( "desk", otString, TReqInfo::Instance()->desk.code );
   Qry.Execute();
 	xmlNodePtr node = NewTextChild( resNode, "RequestCertificateData" );
@@ -403,13 +422,14 @@ void CryptInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqN
 	IntPutRequestCertificate(ctxt, reqNode, resNode);
 }
 
-struct TRequestSearch {
+struct TSearchData {
 	int id;
 	string desk;
 	string grp;
 	string data;
 	TDateTime first_date;
 	TDateTime last_date;
+	int pr_denial;
 };
 
 void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -430,11 +450,11 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.Execute();
   if ( Qry.Eof )
   	throw UserException( "Нет запросов на сертификат" );
-  vector<TRequestSearch> reqs;
+  vector<TSearchData> reqs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
   while ( !Qry.Eof ) {
-  	TRequestSearch req_search;
+  	TSearchData req_search;
     req_search.id = Qry.FieldAsInteger( "id" );
  	  if ( !Qry.FieldIsNULL( "desk" ) ) {
  	  	if ( pr_search && !desksNode )
@@ -462,7 +482,7 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr req
   	Qry.Next();
   }
 
-  for( vector<TRequestSearch>::iterator i=reqs.begin(); i!=reqs.end(); i++ ) {
+  for( vector<TSearchData>::iterator i=reqs.begin(); i!=reqs.end(); i++ ) {
   	if ( pr_search ) {
   		xmlNodePtr dNode;
   		if ( !i->desk.empty() )
@@ -582,23 +602,23 @@ bool pr_search = GetNode( "search", reqNode );
   }
   else {
     Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date "
+      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date, crypt_term_cert.pr_denial "
       "  FROM crypt_term_cert, desk_grp "
-      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.pr_denial=0";
+      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.last_date>=SYSDATE";
   }
   Qry.Execute();
   if ( Qry.Eof )
   	throw UserException( "Нет сертификатов" );
-  vector<TRequestSearch> reqs;
+  vector<TSearchData> certs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
   while ( !Qry.Eof ) {
-  	TRequestSearch req_search;
-    req_search.id = Qry.FieldAsInteger( "id" );
+  	TSearchData cert_search;
+    cert_search.id = Qry.FieldAsInteger( "id" );
  	  if ( !Qry.FieldIsNULL( "desk" ) ) {
  	  	if ( pr_search && !desksNode )
  	  	  desksNode = NewTextChild( resNode, "desks" );
-    	req_search.desk = Qry.FieldAsString( "desk" );
+    	cert_search.desk = Qry.FieldAsString( "desk" );
     }
     if ( Qry.FieldIsNULL( "desk" ) ) {
     	if ( pr_search && !grpsNode )
@@ -614,16 +634,17 @@ bool pr_search = GetNode( "search", reqNode );
     		grp_name += Qry.FieldAsString( "airp" );
     		grp_name += ")";
     	}
-    	req_search.grp = grp_name;
+    	cert_search.grp = grp_name;
     }
-    req_search.data = Qry.FieldAsString( "certificate" );
-    req_search.first_date = Qry.FieldAsDateTime( "first_date" );
-    req_search.last_date = Qry.FieldAsDateTime( "last_date" );
-   	reqs.push_back( req_search );
+    cert_search.data = Qry.FieldAsString( "certificate" );
+    cert_search.first_date = Qry.FieldAsDateTime( "first_date" );
+    cert_search.last_date = Qry.FieldAsDateTime( "last_date" );
+    cert_search.pr_denial = Qry.FieldAsInteger( "pr_denial" );
+   	certs.push_back( cert_search );
   	Qry.Next();
   }
 
-  for( vector<TRequestSearch>::iterator i=reqs.begin(); i!=reqs.end(); i++ ) {
+  for( vector<TSearchData>::iterator i=certs.begin(); i!=certs.end(); i++ ) {
   	if ( pr_search ) {
   		xmlNodePtr dNode;
   		if ( !i->desk.empty() )
@@ -642,6 +663,7 @@ bool pr_search = GetNode( "search", reqNode );
   		NewTextChild( n, "data", i->data );
   		NewTextChild( n, "first_date", DateTimeToStr( i->first_date, ServerFormatDateTimeAsString ) );
   		NewTextChild( n, "last_date", DateTimeToStr( i->last_date, ServerFormatDateTimeAsString ) );
+  		NewTextChild( n, "pr_denial", i->pr_denial );
   	}
   }
 }
