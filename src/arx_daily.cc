@@ -207,7 +207,7 @@ bool TArxMoveFlt::GetPartKey(int move_id, TDateTime& part_key)
   else
   {
     //полностью удаленный рейс
-    if (max_time=NoExists || max_time<utcdate-ARX_MIN_DAYS())
+    if (max_time==NoExists || max_time<utcdate-ARX_MIN_DAYS())
     {
       //удалить
       part_key=NoExists;
