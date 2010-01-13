@@ -2193,8 +2193,8 @@ void CanChangeLayer( int point_id, int pax_id, int crs_pax_id, TCompLayerType Ne
   Qry1.DeclareVariable( "crs_pax_id", otInteger );
   Qry1.DeclareVariable( "pax_id", otInteger );
 
-  int new_pax_id;
-  int new_crs_pax_id;
+//  int new_pax_id;
+//  int new_crs_pax_id;
   bool find_layer;
   TSeatRange r;
   strcpy( r.first.line, first_xname.c_str() );

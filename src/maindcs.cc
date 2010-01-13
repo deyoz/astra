@@ -84,10 +84,10 @@ struct TDevParam {
   string subparam_name;
   string param_value;
   int editable;
-  TDevParam::TDevParam() {
+  TDevParam() {
   	editable = 0;
   }
-  TDevParam::TDevParam( string aparam_name,
+  TDevParam( string aparam_name,
   	                    string asubparam_name, string aparam_value, int aeditable ) {
   	param_name = lowerc(aparam_name);
   	subparam_name = lowerc(asubparam_name);
