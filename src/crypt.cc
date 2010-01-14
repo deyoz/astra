@@ -12,7 +12,9 @@
 #include "oralib.h"
 #include "exceptions.h"
 #include "xml_unit.h"
+#ifdef USE_MESPRO
 #include "mespro.h"
+#endif
 #include "stl_utils.h"
 
 
@@ -520,6 +522,7 @@ BASIC::TDateTime ConvertCertificateDate( char *certificate_date )
 
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+#ifdef USE_MESPRO
 	xmlNodePtr node = GetNode( "certificates", reqNode );
 	if ( !node )
 		return;
@@ -586,6 +589,7 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   	throw;
   }
   PKCS7Final();
+#endif /*USE MESPRO*/
 }
 
 
