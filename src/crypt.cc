@@ -599,7 +599,7 @@ bool pr_search = GetNode( "search", reqNode );
   TQuery Qry(&OraSession);
   if ( GetNode( "id", reqNode ) ) {
     Qry.SQLText =
-      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date "
+      "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date, crypt_term_cert.pr_denial "
       " FROM crypt_term_cert, desk_grp "
       " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.pr_denial=0 AND crypt_term_cert.id=:id";
     Qry.CreateVariable( "id", otInteger, NodeAsInteger( "id", reqNode ) );
