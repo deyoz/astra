@@ -211,8 +211,14 @@ PASS_12 		N	3
 void createFileParams( int point_id, map<string,string> &params )
 {
 	TQuery FlightQry( &OraSession );
-	FlightQry.SQLText = "SELECT airline,flt_no,suffix, gtimer.get_stage(:point_id, 1) as st FROM points WHERE point_id=:point_id";
+	FlightQry.SQLText =
+	  "SELECT airline,flt_no,suffix, gtimer.get_stage(:point_id, 1) as st "
+	  " FROM points,trip_final_stages "
+	  "  WHERE points.point_id=:point_id AND "
+	  "        trip_final_stages.point_id=points.point_id AND "
+	  "        trip_final_stages.stage_type=:ckin_stage_type";
 	FlightQry.CreateVariable( "point_id", otInteger, point_id );
+	FlightQry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
 	FlightQry.Execute();
 	if ( !FlightQry.RowCount() )
 		throw Exception( "Flight not found in createFileParams" );
