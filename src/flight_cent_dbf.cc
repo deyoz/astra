@@ -212,7 +212,7 @@ void createFileParams( int point_id, map<string,string> &params )
 {
 	TQuery FlightQry( &OraSession );
 	FlightQry.SQLText =
-	  "SELECT airline,flt_no,suffix, gtimer.get_stage(:point_id, 1) as st "
+	  "SELECT airline,flt_no,suffix, stage_id as st "
 	  " FROM points,trip_final_stages "
 	  "  WHERE points.point_id=:point_id AND "
 	  "        trip_final_stages.point_id=points.point_id AND "
