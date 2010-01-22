@@ -21,6 +21,7 @@
 #include "stat.h"
 #include "salons2.h"
 #include "seats.h"
+#include "term_version.h"
 
 #include "aodb.h"
 #include "serverlib/perfom.h"
@@ -137,9 +138,9 @@ const char* arx_regSQL =
 const char* resaSQL =
     "SELECT ckin.get_crs_ok(:point_id) as resa FROM dual ";
 const char *stagesSQL =
-    "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM trip_stages "
-    " WHERE point_id=:point_id "
-    " ORDER BY stage_id ";
+    "SELECT trip_stages.stage_id,scd,est,act,pr_auto,pr_manual"
+    " FROM trip_stages "
+    " WHERE trip_stages.point_id=:point_id";
 const char *arx_stagesSQL =
     "SELECT stage_id,scd,est,act,pr_auto,pr_manual FROM arx_trip_stages "
     " WHERE part_key=:part_key AND point_id=:point_id "
@@ -417,14 +418,17 @@ bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
 
 void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_id )
 {
+	TCkinClients ckin_clients;
 	stages.clear();
   TQuery StagesQry( &OraSession );
   if ( part_key > NoExists ) {
   	StagesQry.SQLText = arx_stagesSQL;
   	StagesQry.CreateVariable( "part_key", otDate, part_key );
   }
-  else
+  else { //надо набрать список клиентов
+  	TTripStages::ReadCkinClients( point_id, ckin_clients );
     StagesQry.SQLText = stagesSQL;
+  }
   StagesQry.CreateVariable( "point_id", otInteger, point_id );
   StagesQry.Execute();
   int col_stage_id = StagesQry.FieldIndex( "stage_id" );
@@ -450,16 +454,24 @@ void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_
       stage.act = StagesQry.FieldAsDateTime( col_act );
     stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
     stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
+    ProgTrace( TRACE5, "stage_id=%d, isclient=%d, canclientstage=%d",
+               stage.stage_id,
+               TStagesRules::Instance()->isClientStage( stage.stage_id ),
+               TStagesRules::Instance()->canClientStage( ckin_clients, stage.stage_id ) );
+    stage.pr_permit = !TStagesRules::Instance()->isClientStage( stage.stage_id ) ||
+    	                TStagesRules::Instance()->canClientStage( ckin_clients, stage.stage_id );
     stages.push_back( stage );
     StagesQry.Next();
   }
+  ProgTrace( TRACE5, "TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION )=%d", TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) );
 }
 
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode, bool pr_isg )
 {
   xmlNodePtr lNode = NULL;
   for ( tstages::const_iterator st=stages.begin(); st!=stages.end(); st++ ) {
-  	if ( pr_isg && st->stage_id != sRemovalGangWay )
+  	if ( pr_isg && st->stage_id != sRemovalGangWay ||
+  		   TStagesRules::Instance()->isClientStage( st->stage_id ) && !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
   		continue;
     if ( !lNode )
       lNode = NewTextChild( tripNode, "stages" );
@@ -484,6 +496,8 @@ void build_TripStages( const vector<TSoppStage> &stages, const string &region, x
       NewTextChild( stageNode, "act", DateTimeToStr( UTCToClient( st->act, region ), ServerFormatDateTimeAsString ) );
     NewTextChild( stageNode, "pr_auto", (int)st->pr_auto );
     NewTextChild( stageNode, "pr_manual", (int)st->pr_manual );
+    if ( !st->pr_permit )
+    	NewTextChild( stageNode, "pr_permit", 0 );
   }
 }
 
@@ -698,8 +712,10 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
     else
       throw;
   }
-
-  if ( PointsQry.Eof ) return errcity;
+  if ( PointsQry.Eof ) {
+  	ProgError(  STDLOG, "Invalid city errcity=%s", errcity.c_str() );
+  	return errcity;
+  }
   PerfomTest( 667 );
   TSOPPDests dests;
 //  TCRS_Displaces crsd;
@@ -3319,14 +3335,16 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Clear();
   		Qry.SQLText =
        "BEGIN "
-       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
+       " sopp.set_flight_sets(:point_id,:use_seances);"
+       "END;";
+/*       " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
        "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
        "    pr_reg_with_tkn,pr_reg_with_doc) "
        "  VALUES(:point_id,0,0,0, NULL, 0, 0, 0, "
        "    NULL, 0, 1, 0, 0, 0, 0, 0); "
        " ckin.set_trip_sets(:point_id,:use_seances); "
        " gtimer.puttrip_stages(:point_id); "
-       "END;";
+       "END;";*/
   		Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
   		Qry.Execute();

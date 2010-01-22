@@ -115,6 +115,7 @@ struct TSoppStage {
   BASIC::TDateTime act;
   bool pr_auto;
   bool pr_manual;
+  bool pr_permit;
 };
 
 struct TSOPPStation {
