@@ -116,7 +116,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     "  WHERE point_id=:point_id AND stage_id=:stage_id; "
     " IF SQL%NOTFOUND THEN "
     "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "
-    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)); "
+    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)) FROM dual; "
     " END IF; "
     "END; ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
