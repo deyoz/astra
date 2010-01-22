@@ -10,6 +10,7 @@
 #include "astra_consts.h"
 #include "serverlib/logger.h"
 
+
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
