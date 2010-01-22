@@ -3367,6 +3367,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
      		t2 = id->est_out;
      	}
       if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
+      	ProgTrace( TRACE5, "trip_stages delay=%s", DateTimeToStr(t2-t1).c_str() );
   		  Qry.Clear();
   		  Qry.SQLText =
   		   "DECLARE "
@@ -3376,48 +3377,49 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		   "curRow			cur%ROWTYPE;"
   		   "vpr_permit 	ckin_client_sets.pr_permit%TYPE;"
   		   "vpr_first		NUMBER:=1;"
-  		   " BEGIN "
+  		   "new_scd			points.scd_out%TYPE;"
+  		   "new_est			points.scd_out%TYPE;"
+  		   "BEGIN "
   		   "  FOR curRow IN cur LOOP "
   		   "   IF gtimer.IsClientStage(:point_id,curRow.stage_id,vpr_permit) = 0 THEN "
   		   "     vpr_permit := 1;"
+  		   "    ELSE "
+  		   "     IF vpr_permit!=0 THEN "
+  		   "       SELECT NVL(MAX(pr_upd_stage),0) INTO vpr_permit "
+  		   "        FROM trip_ckin_client,ckin_client_stages "
+  		   "       WHERE point_id=:point_id AND "
+  		   "             trip_ckin_client.client_type=ckin_client_stages.client_type AND "
+  		   "             stage_id=curRow.stage_id; "
+  		   "     END IF;"
   		   "   END IF;"
   		   "   IF vpr_permit!=0 THEN "
-  		   "    curRow.est := NVL(curRow.est,curRow.scd)+:vdelay;"
+  		   "    curRow.est := NVL(curRow.est,curRow.scd)+(:vest-:vscd);"
   		   "    IF vpr_first != 0 THEN "
   		   "      vpr_first := 0; "
-  		   "      :vdelay := curRow.est-curRow.scd; "
+  		   "      new_est := curRow.est; "
+  		   "      new_scd := curRow.scd; "
   		   "    END IF; "
   		   "    UPDATE trip_stages SET est=curRow.est WHERE point_id=:point_id AND stage_id=curRow.stage_id;"
   		   "   END IF;"
   		   "  END LOOP;"
   		   "  IF vpr_first != 0 THEN "
-  		   "   :vdelay := NULL;"
+  		   "   :vscd := NULL;"
+  		   "   :vest := NULL;"
+  		   "  ELSE "
+  		   "   :vscd := new_scd;"
+  		   "   :vest := new_est;"
   		   "  END IF;"
-  		   " END;"
   		   "END;";
-
-/*
-
-  		   "  UPDATE trip_stages SET est=NVL(est,scd)+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0; "
-  		   "  SELECT est,scd INTO :vest,:vscd FROM trip_stages WHERE point_id=:point_id AND pr_manual=0 AND rownum<2; "
-  		   " EXCEPTION WHEN NO_DATA_FOUND THEN "
-  		   "  :vest := NULL;"
-         "  :vscd := NULL;"
-  		   "END; ";
   		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		  Qry.CreateVariable( "vscd", otDate, t1 );
-  		  Qry.CreateVariable( "vest", otDate, t2 );*/
-  		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		  Qry.CreateVariable( "vdelay", otDate, t2-t1 );
+  		  Qry.CreateVariable( "vest", otDate, t2 );
   		  Qry.Execute();
   		  string tolog;
   	    double f;
-        if ( !Qry.VariableIsNULL( "vdelay" ) ) {
-/*  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
+  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
   	      t1 = Qry.GetVariableAsDateTime( "vscd" );
   	      t2 = Qry.GetVariableAsDateTime( "vest" );
-  	      t1 = t2-t1;*/
-  	      t1 = Qry.GetVariableAsDateTime( "vdelay" );
+  	      t1 = t2-t1;
   	      if ( t1 < 0 ) {
   	      	modf( t1, &f );
   		  	  tolog = "Опережение выполнения технологического графика на ";
@@ -3427,54 +3429,19 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	      }
   	      if ( t1 >= 0 ) {
   	      	modf( t1, &f );
-  		    	tolog = "Задержка выполнения технологического графика на ";
-  		    	if ( f )
-  		    		tolog += IntToString( (int)f ) + " ";
-  		    	tolog += DateTimeToStr( t1, "hh:nn" );
+  	      	if ( t1 ) {
+  		    	  tolog = "Задержка выполнения технологического графика на ";
+  		    	  if ( f )
+  		    	  	tolog += IntToString( (int)f ) + " ";
+  		    	  tolog += DateTimeToStr( t1, "hh:nn" );
+  		    	}
+  		    	else
+  		    		tolog = "Отмена задержка выполнения технологического графика";
   	      }
 	        reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
 	      }
       }
     }
-
-/*  	if ( id->pr_del != -1 && id->pr_reg &&
-  		   (id->est_out > NoExists && id->est_out != id->scd_out || !insert_point && old_dest.scd_out > NoExists && old_dest.scd_out != id->scd_out) ) {
-  		ProgTrace( TRACE5, "id->scd_out=%f, id->est_out=%f, old_dest.scd_out=%f, old_dest.est_out=%f",id->scd_out,id->est_out,old_dest.scd_out,old_dest.est_out);
-  		Qry.Clear();
-  		Qry.SQLText =
-  		 "UPDATE trip_stages SET est=scd+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0 ";
-  		Qry.CreateVariable( "point_id", otInteger, id->point_id );
-  		Qry.CreateVariable( "vscd", otDate, id->scd_out );
-  		Qry.CreateVariable( "vest", otDate, id->est_out );
-  		Qry.Execute();
-  		string tolog;
-  	  double f;
-  	  if ( change_stages_out ) {
-  		  if ( id->est_out > id->scd_out || id->scd_out > old_dest.scd_out ) {
-  		  	if ( id->est_out > id->scd_out )
-  		  	  modf( id->est_out - id->scd_out, &f );
-  		  	else
-  		  		modf( id->scd_out - old_dest.scd_out, &f );
-  		  	tolog = "Задержка выполнения технологического графика на ";
-  		  	if ( f )
-  		  		tolog += IntToString( (int)f ) + " ";
-  		  	tolog += DateTimeToStr( id->est_out - id->scd_out, "hh:nn" );
-
-  		  };
-  		  if ( id->est_out < id->scd_out || id->scd_out < old_dest.scd_out ) {
-  		  	if ( id->est_out < id->scd_out )
-  			    modf( id->scd_out - id->est_out, &f );
-  			  else
-  			  	modf( old_dest.scd_out - id->scd_out, &f );
-  			  tolog = "Опережение выполнения технологического графика на ";
-  		    if ( f )
-    		    tolog += IntToString( (int)f ) + " ";
-    		  tolog += DateTimeToStr( id->scd_out - id->est_out, "hh:nn" );
-  	  	}
-  		 reqInfo->MsgToLog( tolog + " порт " + id->airp, evtFlt, id->point_id );
-  		 ProgTrace( TRACE5, "point_id=%d,time=%s", id->point_id,DateTimeToStr( id->est_out - id->scd_out, "dd.hh:nn" ).c_str() );
-  	  }
-  	*/
     if ( set_act_out ) {
     	//!!! еще point_num не записан
        try
