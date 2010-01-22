@@ -11,8 +11,12 @@
 #include "exceptions.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
+#include "astra_context.h"
 #include "base_tables.h"
+#include "checkin.h"
+#include "term_version.h"
 #include "jxtlib/jxt_cont.h"
+#include "jxtlib/xml_stuff.h"
 #include "serverlib/query_runner.h"
 
 #define NICKNAME "VLAD"
@@ -28,7 +32,6 @@ using namespace Ticketing::TickMng;
 using namespace Ticketing::ChangeStatus;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
-using namespace JxtContext;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -67,34 +70,53 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 
   OrigOfRequest org(oper_carrier,*TReqInfo::Instance());
 
-  XMLDoc xmlCtxt;
-  xmlCtxt.docPtr=CreateXMLDoc("UTF-8","context");
-  if (xmlCtxt.docPtr==NULL)
+  int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+
+  XMLDoc xmlCtxt("UTF-8","context");
+  if (xmlCtxt.docPtr()==NULL)
     throw EXCEPTIONS::Exception("SearchETByTickNo: CreateXMLDoc failed");
-  NewTextChild(NodeAsNode("/context",xmlCtxt.docPtr),"point_id",point_id);
+  xmlNodePtr rootNode=NodeAsNode("/context",xmlCtxt.docPtr());
+  NewTextChild(rootNode,"point_id",point_id);
+  SetProp(rootNode,"req_ctxt_id",req_ctxt);
 
-  string ediCtxt=XMLTreeToText(xmlCtxt.docPtr);
-
-  TickDispByNum tickDisp(org, tick_no, ediCtxt);
+  TickDispByNum tickDisp(org, XMLTreeToText(xmlCtxt.docPtr()), req_ctxt, tick_no);
   SendEdiTlgTKCREQ_Disp( tickDisp );
   //в лог отсутствие связи
-  if( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0)
-    NewTextChild(resNode,"connect_error");
+  if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
+  {
+    xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
+    SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
+    NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
+  }
   else
-    showProgError("Нет связи с сервером эл. билетов");
+  {
+    if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
+      NewTextChild(resNode,"connect_error");
+    else
+      showProgError("Нет связи с сервером эл. билетов");
+  };
 };
 
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ProgTrace(TRACE3,"KickHandler ...");
     ServerFramework::getQueryRunner().getEdiHelpManager().Answer();
-    JxtCont *sysCont = getJxtContHandler()->sysContext();
-    const char *edi_tlg = sysCont->readC("ETDisplayTlg");
-    if(!edi_tlg)
-      throw EXCEPTIONS::Exception("Can't read context 'ETDisplayTlg'");
-    int ret = ReadEdiMessage(edi_tlg);
-    sysCont->remove("ETDisplayTlg");
+
+    string context;
+    int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+
+    AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
+
+    AstraContext::GetContext("EDI_RESPONSE",
+                             req_ctxt_id,
+                             context);
+    AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
+
+    XMLDoc ediResCtxt;
+    if (context.empty())
+      throw EXCEPTIONS::Exception("ETSearchInterface::KickHandler: context EDI_RESPONSE empty");
+
+    int ret = ReadEdiMessage(context.c_str());
     if(ret == EDI_MES_STRUCT_ERR){
       throw EXCEPTIONS::Exception("Error in message structure: %s",EdiErrGetString());
     } else if( ret == EDI_MES_NOT_FND){
@@ -187,6 +209,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     only_one=true;
   };
   bool processed=false;
+  int req_ctxt=ASTRA::NoExists;
   for(;segNode!=NULL;segNode=segNode->next)
   {
     int id;
@@ -211,11 +234,15 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       if (node!=NULL) check_point_id=NodeAsInteger(node);
       TTripInfo fltInfo;
       map<int,TTicketListCtxt> mtick;
-      ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,fltInfo,mtick);
-      if (ETStatusInterface::ETChangeStatus(ASTRA::NoExists,fltInfo,mtick))
+      if (ETStatusInterface::ETCheckStatus(id,area,check_point_id,false,fltInfo,mtick))
       {
-        //если сюда попали, то записать ошибку связи в лог
-        processed=true; //послана хотя бы одна телеграмма
+        if (req_ctxt==ASTRA::NoExists)
+          req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+        if (ETStatusInterface::ETChangeStatus(req_ctxt,fltInfo,mtick))
+        {
+          //если сюда попали, то записать ошибку связи в лог
+          processed=true; //послана хотя бы одна телеграмма
+        };
       };
     }
     catch(UserException &e)
@@ -267,7 +294,17 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     if (!tckin_version) break; //старый терминал
   };
 
-  if (processed) showProgError("Нет связи с сервером эл. билетов");
+  if (processed)
+  {
+    if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
+    {
+      xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
+      SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
+      NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
+    }
+    else
+      showProgError("Нет связи с сервером эл. билетов");
+  };
 };
 
 void ETStatusInterface::ChangePaxStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -285,16 +322,156 @@ void ETStatusInterface::ChangeFltStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   ChangeAreaStatus(csaFlt,ctxt,reqNode,resNode);
 };
 
+struct TETErrorFlight
+{
+  vector<string> global_errors;
+  vector<string> errors;
+};
+
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     ServerFramework::getQueryRunner().getEdiHelpManager().Answer();
-    ProgTrace(TRACE3,"Kick on change of status request");
-    JxtCont *sysCont = getJxtContHandler()->sysContext();
-    string glob_err = sysCont->read("ChangeOfStatusError");
-    sysCont->remove("ChangeOfStatusError");
-    if (!glob_err.empty())
-      showErrorMessage(string("Ошибка СЭБ: ")+glob_err);
 
+    string context;
+    if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
+    {
+      int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
+      AstraContext::GetContext("TERM_REQUEST",
+                               req_ctxt_id,
+                               context);
+      AstraContext::ClearContext("TERM_REQUEST", req_ctxt_id);
+      XMLDoc termReqCtxt;
+      if (context.empty())
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST empty");
+
+      context=ConvertCodepage(context,"CP866","UTF-8");
+      termReqCtxt.set(context);
+      if (termReqCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST wrong XML format");;
+
+      xml_decode_nodelist(termReqCtxt.docPtr()->children);
+
+      AstraContext::GetContext("EDI_RESPONSE",
+                               req_ctxt_id,
+                               context);
+      AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
+      XMLDoc ediResCtxt;
+      if (context.empty())
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE empty");
+
+      context=ConvertCodepage(context,"CP866","UTF-8");
+      ediResCtxt.set(context);
+      if (ediResCtxt.docPtr()==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context EDI_RESPONSE wrong XML format");;
+
+      xml_decode_nodelist(ediResCtxt.docPtr()->children);
+
+      xmlNodePtr termReqNode=NodeAsNode("/term/query",termReqCtxt.docPtr())->children;
+      if (termReqNode==NULL)
+        throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
+      string termReqName=(char*)(termReqNode->name);
+      bool defer_etstatus=(termReqName=="ChangePaxStatus" ||
+                           termReqName=="ChangeGrpStatus" ||
+                           termReqName=="ChangeFltStatus");
+
+      xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
+
+      //flight,вектор global_error, вектор пар pax+ticket/coupon_error
+      map<string, pair< vector<string>, vector< pair<string,string> > > > errors;
+      xmlNodePtr ticketNode=NodeAsNode("tickets",ediResNode)->children;
+      for(;ticketNode!=NULL;ticketNode=ticketNode->next)
+      {
+        string flight=NodeAsString("flight",ticketNode);
+        string pax;
+        if (GetNode("pax",ticketNode)!=NULL) pax=NodeAsString("pax",ticketNode);
+        bool tick_event=false;
+        for(xmlNodePtr node=ticketNode->children;node!=NULL;node=node->next)
+        {
+          if (strcmp((const char*)node->name,"coupon_status")==0) tick_event=true;
+
+          if (!(strcmp((const char*)node->name,"global_error")==0 ||
+                strcmp((const char*)node->name,"ticket_error")==0 ||
+                strcmp((const char*)node->name,"coupon_error")==0)) continue;
+
+          tick_event=true;
+
+          pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
+
+          if (strcmp((const char*)node->name,"global_error")==0)
+          {
+            if (find(err.first.begin(),err.first.end(),NodeAsString(node))==err.first.end())
+              err.first.push_back(NodeAsString(node));
+          }
+          else
+          {
+            err.second.push_back(make_pair(pax,NodeAsString(node)));
+          };
+        };
+        if (!tick_event)
+        {
+          ostringstream msg;
+          msg << "Результат обращения к СЭБ для эл. билета "
+              << NodeAsString("ticket_no",ticketNode) << "/"
+              << NodeAsInteger("coupon_no",ticketNode)
+              << " не определен. ";
+          pair< vector<string>, vector< pair<string,string> > > &err=errors[flight];
+          err.second.push_back(make_pair(pax,msg.str()));
+        };
+      };
+
+      if (!errors.empty())
+      {
+        TReqInfo *reqInfo = TReqInfo::Instance();
+
+        bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
+                         NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
+        map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
+        if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus)
+        {
+          ostringstream msg;
+          for(i=errors.begin();i!=errors.end();i++)
+          {
+            if (use_flight)
+              msg << "Рейс " << i->first << ":" << std::endl;
+            for(vector<string>::iterator j=i->second.first.begin(); j!=i->second.first.end(); j++)
+            {
+              if (use_flight) msg << "     ";
+              msg << *j << std::endl;
+            };
+            for(vector< pair<string,string> >::iterator j=i->second.second.begin(); j!=i->second.second.end(); j++)
+            {
+              if (use_flight) msg << "     ";
+              if (!(j->first.empty()))
+              {
+                msg << j->first << ":" << std::endl
+                    << "     ";
+                if (use_flight) msg << "     ";
+              };
+              msg << j->second << std::endl;
+            };
+          };
+          NewTextChild(resNode,"ets_error",msg.str());
+          return;
+        }
+        else
+        {
+          for(i=errors.begin();i!=errors.end();i++)
+            if (!i->second.first.empty())
+              throw EXCEPTIONS::UserException("%s",i->second.first.begin()->c_str());
+          for(i=errors.begin();i!=errors.end();i++)
+            if (!i->second.second.empty())
+              throw EXCEPTIONS::UserException("%s",(i->second.second.begin())->second.c_str());
+        };
+      };
+
+      if (termReqName=="SavePax" ||
+          termReqName=="SaveUnaccompBag" ||
+          termReqName=="TCkinSavePax" ||
+          termReqName=="TCkinSaveUnaccompBag")
+      {
+        CheckInInterface::SavePax(termReqNode, ediResNode, resNode);
+      };
+    };
 };
 
 bool ETStatusInterface::ETCheckStatus(int id,
@@ -302,7 +479,8 @@ bool ETStatusInterface::ETCheckStatus(int id,
                                       int check_point_id,
                                       bool check_connect,
                                       TTripInfo &fltInfo,
-                                      map<int,TTicketListCtxt> &mtick)
+                                      map<int,TTicketListCtxt> &mtick,
+                                      bool before_checkin)
 {
   bool result=false;
 
@@ -401,7 +579,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
 
           CouponStatus status;
           if (Qry.FieldIsNULL("coupon_status"))
-            status=CouponStatus(CouponStatus::Notification); //???
+            status=CouponStatus(CouponStatus::OriginalIssue);//CouponStatus::Notification ???
           else
             status=CouponStatus::fromDispCode(Qry.FieldAsString("coupon_status"));
 
@@ -427,12 +605,12 @@ bool ETStatusInterface::ETCheckStatus(int id,
           if (status!=real_status)
           {
             TTicketListCtxt &ltick=mtick[real_status->codeInt()];
-            if (ltick.second.docPtr==NULL)
+            if (ltick.second.docPtr()==NULL)
             {
-              ltick.second.docPtr=CreateXMLDoc("UTF-8","context");
-              if (ltick.second.docPtr==NULL)
+              ltick.second.set("UTF-8","context");
+              if (ltick.second.docPtr()==NULL)
                 throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
-              NewTextChild(NodeAsNode("/context",ltick.second.docPtr),"tickets");
+              NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
             };
 
             ProgTrace(TRACE5,"status=%s real_status=%s",status->dispCode(),real_status->dispCode());
@@ -458,18 +636,22 @@ bool ETStatusInterface::ETCheckStatus(int id,
             ltick.first.push_back(tick);
             result=true;
 
-            xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
+            xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
             NewTextChild(node,"ticket_no",ticket_no);
             NewTextChild(node,"coupon_no",coupon_no);
             NewTextChild(node,"point_id",point_id);
             NewTextChild(node,"airp_dep",airp_dep);
             NewTextChild(node,"airp_arv",airp_arv);
+            NewTextChild(node,"flight",GetTripName(fltInfo,true,false));
             NewTextChild(node,"grp_id",Qry.FieldAsInteger("grp_id"));
             NewTextChild(node,"pax_id",Qry.FieldAsInteger("pax_id"));
-            NewTextChild(node,"reg_no",Qry.FieldAsInteger("reg_no"));
-            NewTextChild(node,"surname",Qry.FieldAsString("surname"));
-            NewTextChild(node,"name",Qry.FieldAsString("name"));
-            NewTextChild(node,"pers_type",Qry.FieldAsString("pers_type"));
+            if (!before_checkin)
+              NewTextChild(node,"reg_no",Qry.FieldAsInteger("reg_no"));
+            ostringstream pax;
+            pax << "Пассажир " << Qry.FieldAsString("surname")
+                << (Qry.FieldIsNULL("name")?"":" ") << Qry.FieldAsString("name")
+                << " (" << Qry.FieldAsString("pers_type") << ")";
+            NewTextChild(node,"pax",pax.str());
 
             ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                              ticket_no.c_str(),
@@ -519,12 +701,12 @@ bool ETStatusInterface::ETCheckStatus(int id,
           int coupon_no=Qry.FieldAsInteger("coupon_no");
 
           TTicketListCtxt &ltick=mtick[real_status->codeInt()];
-          if (ltick.second.docPtr==NULL)
+          if (ltick.second.docPtr()==NULL)
           {
-            ltick.second.docPtr=CreateXMLDoc("UTF-8","context");
-            if (ltick.second.docPtr==NULL)
+            ltick.second.set("UTF-8","context");
+            if (ltick.second.docPtr()==NULL)
               throw EXCEPTIONS::Exception("ETCheckStatus: CreateXMLDoc failed");
-            NewTextChild(NodeAsNode("/context",ltick.second.docPtr),"tickets");
+            NewTextChild(NodeAsNode("/context",ltick.second.docPtr()),"tickets");
           };
 
           Coupon_info ci (coupon_no,real_status);
@@ -546,12 +728,13 @@ bool ETStatusInterface::ETCheckStatus(int id,
           ltick.first.push_back(tick);
           result=true;
 
-          xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr),"ticket");
+          xmlNodePtr node=NewTextChild(NodeAsNode("/context/tickets",ltick.second.docPtr()),"ticket");
           NewTextChild(node,"ticket_no",ticket_no);
           NewTextChild(node,"coupon_no",coupon_no);
           NewTextChild(node,"point_id",check_point_id);
           NewTextChild(node,"airp_dep",Qry.FieldAsString("airp_dep"));
           NewTextChild(node,"airp_arv",Qry.FieldAsString("airp_arv"));
+          NewTextChild(node,"flight",GetTripName(fltInfo,true,false));
 
           ProgTrace(TRACE5,"ETCheckStatus %s/%d->%s",
                            ticket_no.c_str(),
@@ -586,7 +769,12 @@ bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
     if (oper_carrier.empty())
       throw EXCEPTIONS::Exception("ETCheckStatus: unkown operation carrier");
     if (!init_edi_addrs)
-      throw EXCEPTIONS::Exception("ETCheckStatus: edifact UNB-adresses not defined ");
+    {
+      ProgError(STDLOG,
+                "ETCheckStatus: edifact UNB-adresses not defined (airline=%s, flt_no=%d)",
+                fltInfo.airline.c_str(),fltInfo.flt_no);
+      throw UserException("Для рейса не задан адрес СЭБ");
+    };
 
     try
     {
@@ -598,12 +786,17 @@ bool ETStatusInterface::ETChangeStatus(const int reqCtxtId,
     ProgTrace(TRACE5,"ETCheckStatus: oper_carrier=%s edi_addr=%s edi_own_addr=%s",
                      oper_carrier.c_str(),get_edi_addr().c_str(),get_edi_own_addr().c_str());
 
-    if (reqCtxtId!=ASTRA::NoExists)
-      SetProp(NodeAsNode("/context",i->second.second.docPtr),"req_ctxt_id",reqCtxtId);
-
-    string ediCtxt=XMLTreeToText(i->second.second.docPtr);
-
     TReqInfo& reqInfo = *(TReqInfo::Instance());
+    xmlNodePtr rootNode=NodeAsNode("/context",i->second.second.docPtr());
+
+    if (reqCtxtId!=ASTRA::NoExists)
+      SetProp(rootNode,"req_ctxt_id",reqCtxtId);
+    SetProp(rootNode,"desk",reqInfo.desk.code);
+    SetProp(rootNode,"user",reqInfo.user.descr);
+    SetProp(rootNode,"screen",reqInfo.screen.name);
+
+    string ediCtxt=XMLTreeToText(i->second.second.docPtr());
+
     if (reqInfo.desk.code.empty())
     {
       //не запрос

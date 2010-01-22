@@ -14,6 +14,7 @@
 #include "exceptions.h"
 #include "astra_misc.h"
 #include "dev_utils.h"
+#include "term_version.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DENIS"
@@ -2787,8 +2788,7 @@ void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
 
 void previewDeviceSets(bool conditional, string msg)
 {
- /* if (!TReqInfo::Instance()->desk.version.empty() &&
-      TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+ /* if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
   {
     xmlNodePtr resNode=NodeAsNode("/term/answer",getXmlCtxt()->resDoc);
     if (conditional)
@@ -3201,8 +3201,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-              if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION) {
+              if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
@@ -3214,8 +3213,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-              if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION) {
+              if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
@@ -3496,8 +3494,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
         ConvertParams.init(dev_model);
     to_esc::convert(mso_form, ConvertParams, prnParams);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if (reqInfo->desk.version.empty() ||
-        reqInfo->desk.version==UNKNOWN_VERSION)
+    if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
       Print = b64_encode(mso_form.c_str(), mso_form.size());
     else
     	StringToHex( mso_form, Print );
@@ -3818,15 +3815,13 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             else
                 ConvertParams.init(dev_model);
             to_esc::convert(prn_form, ConvertParams, prnParams);
-            if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION)
+            if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             else
             	StringToHex( string(prn_form), prn_form );
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
-            if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION) {
+            if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
               to_esc::parse_dmx(prn_form);
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             }

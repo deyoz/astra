@@ -11,6 +11,7 @@
 #include "timer.h"
 #include "astra_utils.h"
 #include "astra_misc.h"
+#include "term_version.h"
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -157,8 +158,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(prDelNode)
         pr_show_del = NodeAsInteger(prDelNode) == 1;
     TScreenState scr = None;
-    if (!TReqInfo::Instance()->desk.version.empty() &&
-            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
         scr = TScreenState(NodeAsInteger("scr", reqNode));
     else {
         TDROPScreenState drop_scr = TDROPScreenState(NodeAsInteger("scr", reqNode));

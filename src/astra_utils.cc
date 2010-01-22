@@ -9,9 +9,11 @@
 #include "xml_unit.h"
 #include "misc.h"
 #include "base_tables.h"
+#include "term_version.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/cfgproc.h"
+#include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -49,6 +51,26 @@ string AlignString(string str, int len, string align)
         result += buf;
     }
     return result;
+};
+
+bool TDesk::compatible(std::string ver)
+{
+  //проверим правильность указанной версии
+  int i=0;
+  string::iterator c=ver.begin();
+  for(;c!=ver.end();c++,i++)
+  {
+    if (i>=0 && i<=5 && IsDigit(*c)) continue;
+    if (i==6 && *c=='-') continue;
+    if (i>=7 && i<=13 && IsDigit(*c)) continue;
+    break;
+  };
+  if (c!=ver.end() || i!=14)
+    throw Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
+
+  return (!version.empty() &&
+          version!=UNKNOWN_VERSION &&
+          version>=ver);
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -485,9 +507,12 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
-        "       SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+        "BEGIN "
+        "  INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
+        "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+        "         SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) "
+        "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
+        "END;";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("msg", otString);
     Qry.DeclareVariable("screen", otString);
@@ -496,6 +521,8 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     Qry.DeclareVariable("id1", otInteger);
     Qry.DeclareVariable("id2", otInteger);
     Qry.DeclareVariable("id3", otInteger);
+    Qry.CreateVariable("ev_time", otDate, FNull);
+    Qry.CreateVariable("ev_order", otInteger, FNull);
     Qry.SetVariable("type", EncodeEventType(msg.ev_type));
     Qry.SetVariable("msg", msg.msg);
     Qry.SetVariable("screen", screen);
@@ -514,6 +541,14 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     else
         Qry.SetVariable("id3", FNull);
     Qry.Execute();
+    if (!Qry.VariableIsNULL("ev_time"))
+      msg.ev_time=Qry.GetVariableAsDateTime("ev_time");
+    else
+      msg.ev_time=ASTRA::NoExists;
+    if (!Qry.VariableIsNULL("ev_order"))
+      msg.ev_order=Qry.GetVariableAsInteger("ev_order");
+    else
+      msg.ev_order=ASTRA::NoExists;
 };
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3)
@@ -1875,7 +1910,13 @@ string& EOracleError2UserException(string& msg)
   return msg;
 };
 
-
+string get_internal_msgid_hex()
+{
+  string str_msg_id((const char*)get_internal_msgid(),sizeof(int)*3);
+  string hex_msg_id;
+  StringToHex(str_msg_id,hex_msg_id);
+  return hex_msg_id;
+};
 
 
 

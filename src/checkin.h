@@ -83,7 +83,7 @@ public:
   static std::string SavePaxNorms(xmlNodePtr paxNode, std::map<int,std::string> &norms, bool pr_unaccomp);
   static std::string SaveTransfer(int grp_id, xmlNodePtr transferNode, bool pr_unaccomp, int seg_no);
   static std::string SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const std::map<int,TSegInfo> &segs, int seg_no);
-  static void SavePax(xmlNodePtr reqNode, xmlNodePtr resNode, bool obrzap_call);
+  static void SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode);
   static void SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode);
   static void SavePaidBag(int grp_id, xmlNodePtr paidbagNode);
 

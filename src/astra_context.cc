@@ -23,11 +23,11 @@ int SetContext(const std::string name,
   Qry.SQLText=
     "BEGIN "
     "  IF :id IS NULL THEN "
-    "    SELECT id__seq.nextval INTO :id FROM dual; "
+    "    SELECT context__seq.nextval INTO :id FROM dual; "
     "  END IF; "
     "  INSERT INTO context(name,id,page_no,time_create,value) "
     "  VALUES(:name,:id,:page_no,:time_create,:value); "
-    "END IF;";
+    "END;";
   Qry.CreateVariable("name",otString,name);
   if (id!=ASTRA::NoExists)
     Qry.CreateVariable("id",otInteger,id);

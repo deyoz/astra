@@ -5,6 +5,7 @@
 #include "oralib.h"
 #include "astra_utils.h"
 #include "stl_utils.h"
+#include "term_version.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DJEK"
@@ -98,8 +99,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        Qry->FieldAsLong( "image", data );
        string res;
        TReqInfo *reqInfo = TReqInfo::Instance();
-	     if (reqInfo->desk.version.empty() ||
-           reqInfo->desk.version==UNKNOWN_VERSION)
+	     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
          res = StrUtils::b64_encode( (const char*)data, len );
        else
        	 StringToHex( string((char*)data, len), res );
@@ -151,8 +151,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
        Qry->SetVariable( "name", NodeAsString( "name", node ) );
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
-       if (reqInfo->desk.version.empty() ||
-           reqInfo->desk.version==UNKNOWN_VERSION)
+       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
          StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
        else
        	 HexToString( string(StrDec), StrDec );

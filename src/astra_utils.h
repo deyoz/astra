@@ -16,19 +16,24 @@
 std::string AlignString(std::string str, int len, std::string align);
 
 struct TLogMsg {
-  std::string msg;
-  ASTRA::TEventType ev_type;
-  int id1,id2,id3;
-  TLogMsg() {
-    Clear();
-  };
-  void Clear() {
-    ev_type = ASTRA::evtUnknown;
-    msg = "";
-    id1 = 0;
-    id2 = 0;
-    id3 = 0;
-  };
+  public:
+    BASIC::TDateTime ev_time;
+    int ev_order;
+    std::string msg;
+    ASTRA::TEventType ev_type;
+    int id1,id2,id3;
+    TLogMsg() {
+      Clear();
+    };
+    void Clear() {
+      ev_time = ASTRA::NoExists;
+      ev_order = ASTRA::NoExists;
+      ev_type = ASTRA::evtUnknown;
+      msg = "";
+      id1 = 0;
+      id2 = 0;
+      id3 = 0;
+    };
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
@@ -158,6 +163,7 @@ class TDesk {
       mode = ASTRA::omSTAND;
       grp_id = -1;
     };
+    bool compatible(std::string ver);
 };
 
 class TScreen {
@@ -322,5 +328,7 @@ const bool USE_SEANCES();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);
+
+std::string get_internal_msgid_hex();
 
 #endif /*_ASTRA_UTILS_H_*/

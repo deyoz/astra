@@ -57,7 +57,8 @@ public:
                             int check_point_id,
                             bool check_connect,
                             TTripInfo &fltInfo,
-                            std::map<int,TTicketListCtxt> &mtick);
+                            std::map<int,TTicketListCtxt> &mtick,
+                            bool before_checkin=false);
   static bool ETChangeStatus(const int reqCtxtId,
                              const TTripInfo &fltInfo,
                              const std::map<int,TTicketListCtxt> &mtick);

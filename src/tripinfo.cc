@@ -20,6 +20,7 @@
 #include "print.h"
 #include "convert.h"
 #include "astra_misc.h"
+#include "term_version.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -651,8 +652,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (stage_time!=0)
     NewTextChild( node, "stage_time", DateTimeToStr(stage_time,"hh:nn") );
 
-  if (reqInfo->desk.version.empty() ||
-      reqInfo->desk.version==UNKNOWN_VERSION)
+  if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
   {
     //признак назначенного салона
     if ( reqInfo->screen.name == "CENT.EXE" ||
