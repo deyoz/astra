@@ -158,6 +158,10 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
                              TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
                              airp.c_str() );
       }
+    if ( i->second.old_act > NoExists && i->second.act == NoExists )
+       Qry.SetVariable( "pr_auto", 0 );
+     else
+       Qry.SetVariable( "pr_auto", -1 );
     int pr_manual;
     if ( i->second.est == i->second.old_est )
       pr_manual = -1;
