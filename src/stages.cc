@@ -12,6 +12,7 @@
 #include "timer.h"
 #include "salons2.h"
 #include "tripinfo.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
@@ -100,123 +101,106 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 	TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery Qry( &OraSession );
   Qry.SQLText =
-   "SELECT airp FROM points WHERE points.point_id=:point_id";
+   "SELECT airp FROM points WHERE points.point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   string region, airp;
   airp = Qry.FieldAsString( "airp" );
 	if ( reqInfo->user.sets.time == ustTimeLocalAirp )
  	  region = AirpTZRegion( airp );
-  Qry.Clear();
+  TQuery UpdQry( &OraSession );
   Qry.SQLText =
-   "BEGIN "\
-   " UPDATE points SET point_id = :point_id WHERE point_id = :point_id; "\
-   "  SELECT point_id INTO :point_id FROM trip_stages WHERE point_id = :point_id AND stage_id = :stage_id; "\
-   " EXCEPTION WHEN NO_DATA_FOUND THEN "\
-   "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "\
-   "   VALUES(:point_id,:stage_id,NVL(:act,:est),NULL,:act,:pr_auto,DECODE(:pr_manual,-1,0,:pr_manual)); "\
-   "END; ";
-   Qry.CreateVariable( "point_id", otInteger, point_id );
-   Qry.DeclareVariable( "stage_id", otInteger );
-   Qry.DeclareVariable( "est", otDate );
-   Qry.DeclareVariable( "act", otDate );
-   Qry.CreateVariable( "pr_auto", otInteger, 0 );
-   Qry.DeclareVariable( "pr_manual", otInteger );
+    "BEGIN "
+    " UPDATE trip_stages SET est=:est,act=:act,pr_auto=DECODE(:pr_auto,-1,pr_auto,:pr_auto), "
+    "                        pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "
+    "  WHERE point_id=:point_id AND stage_id=:stage_id; "
+    " IF SQL%NOTFOUND THEN "
+    "  INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "
+    "   SELECT :point_id,:stage_id,NVL(:act,:est),:est,:act,0,DECODE(:pr_manual,-1,0,:pr_manual)); "
+    " END IF; "
+    "END; ";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.DeclareVariable( "stage_id", otInteger );
+  Qry.DeclareVariable( "est", otDate );
+  Qry.DeclareVariable( "act", otDate );
+  Qry.DeclareVariable( "pr_auto", otInteger );
+  Qry.DeclareVariable( "pr_manual", otInteger );
 
-   TQuery UpdQry( &OraSession );
-   UpdQry.SQLText =
-    "UPDATE trip_stages SET est=:est,act=:act,pr_auto=DECODE(:pr_auto,-1,pr_auto,:pr_auto), "
-    "                       pr_manual=DECODE(:pr_manual,-1,pr_manual,:pr_manual) "\
-    "  WHERE point_id=:point_id AND stage_id=:stage_id";
-   UpdQry.CreateVariable( "point_id", otInteger, point_id );
-   UpdQry.DeclareVariable( "stage_id", otInteger );
-   UpdQry.DeclareVariable( "est", otDate );
-   UpdQry.DeclareVariable( "act", otDate );
-   UpdQry.DeclareVariable( "pr_auto", otInteger );
-   UpdQry.DeclareVariable( "pr_manual", otInteger );
+  TStagesRules *sr = TStagesRules::Instance();
+  TCkinClients CkinClients;
+  TTripStages::ReadCkinClients( point_id, CkinClients );
 
-   for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
-   	 Qry.SetVariable( "stage_id", (int)i->first );
-     if ( i->second.est == NoExists )
+  for ( TMapTripStages::iterator i=ts.begin(); i!=ts.end(); i++ ) {
+
+    if ( sr->isClientStage( (int)i->first ) && !sr->canClientStage( CkinClients, (int)i->first ) )
+      continue;
+
+   	Qry.SetVariable( "stage_id", (int)i->first );
+    if ( i->second.est == NoExists )
        Qry.SetVariable( "est", FNull );
-     else
-   		try {
+    else
+   	 try {
     	  Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
-    	}
-      catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Расчетное время выполнения шага '%s' в пункте %s не определено однозначно",
-                             TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
-                             airp.c_str() );
+     }
+     catch( boost::local_time::ambiguous_result ) {
+       throw UserException( "Расчетное время выполнения шага '%s' в пункте %s не определено однозначно",
+                            TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
+                            airp.c_str() );
+     }
+    if ( i->second.act == NoExists )
+      Qry.SetVariable( "act", FNull );
+    else
+    	try {
+        Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
       }
-     if ( i->second.act == NoExists )
-       Qry.SetVariable( "act", FNull );
-     else
-     	 try {
-         Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
-       }
       catch( boost::local_time::ambiguous_result ) {
         throw UserException( "Фактическое время выполнения шага '%s' в пункте %s не определено однозначно",
                              TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
                              airp.c_str() );
       }
-     int pr_manual;
-     if ( i->second.est == i->second.old_est )
-       pr_manual = -1;
-     else
-       if ( i->second.est == NoExists )
-         pr_manual = 0;
-       else
-      	  pr_manual = 1;
-     Qry.SetVariable( "pr_manual", pr_manual );
-     Qry.Execute( );
-     if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
-       try
-       {
+    int pr_manual;
+    if ( i->second.est == i->second.old_est )
+      pr_manual = -1;
+    else
+      if ( i->second.est == NoExists )
+        pr_manual = 0;
+      else
+     	  pr_manual = 1;
+    Qry.SetVariable( "pr_manual", pr_manual );
+    Qry.Execute( );
+
+
+    if ( i->second.old_act == NoExists && i->second.act > NoExists ) { // вызов функции обработки шага
+      try {
          exec_stage( point_id, (int)i->first );
-       }
-       catch( std::exception &E ) {
-         ProgError( STDLOG, "Exception: %s", E.what() );
-       }
-       catch( ... ) {
-         ProgError( STDLOG, "Unknown error" );
-       };
-     }
-   	 UpdQry.SetVariable( "stage_id", (int)i->first );
-     if ( i->second.est == NoExists )
-       UpdQry.SetVariable( "est", FNull );
-     else
-   	   UpdQry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
-     if ( i->second.act == NoExists )
-       UpdQry.SetVariable( "act", FNull );
-     else
-       UpdQry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
-     if ( i->second.old_act > NoExists && i->second.act == NoExists )
-     	UpdQry.SetVariable( "pr_auto", 0 );
-     else
-     	UpdQry.SetVariable( "pr_auto", -1 );
-     UpdQry.SetVariable( "pr_manual", pr_manual );
-     UpdQry.Execute(); // после выполнения UpdQry, иначе не сработает!
+      }
+      catch( std::exception &E ) {
+        ProgError( STDLOG, "Exception: %s", E.what() );
+      }
+      catch( ... ) {
+        ProgError( STDLOG, "Unknown error" );
+      };
+    }
 
- 	 	 check_brd_alarm( point_id );
+ 	  check_brd_alarm( point_id );
 
-     TStagesRules *r = TStagesRules::Instance();
-     string tolog = string( "Этап '" ) + r->stage_name( i->first, airp ) + "'";
-     if ( i->second.old_act == NoExists && i->second.act > NoExists )
-       tolog += " выполнен";
-     if ( i->second.old_act > NoExists && i->second.act == NoExists )
-       tolog += " отменен";
-     tolog += ": расч. время";
-     if ( i->second.est > NoExists )
-       tolog += DateTimeToStr( ClientToUTC( i->second.est, region ), "=hh:nn dd.mm.yy (UTC)" );
-     else
+    string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp ) + "'";
+    if ( i->second.old_act == NoExists && i->second.act > NoExists )
+      tolog += " выполнен";
+    if ( i->second.old_act > NoExists && i->second.act == NoExists )
+      tolog += " отменен";
+    tolog += ": расч. время";
+    if ( i->second.est > NoExists )
+      tolog += DateTimeToStr( ClientToUTC( i->second.est, region ), "=hh:nn dd.mm.yy (UTC)" );
+    else
+      tolog += " не задано";
+    tolog += ", факт. время";
+    if ( i->second.act > NoExists )
+      tolog += DateTimeToStr( ClientToUTC( i->second.act, region ), "=hh:nn dd.mm.yy (UTC)" );
+    else
        tolog += " не задано";
-     tolog += ", факт. время";
-     if ( i->second.act > NoExists )
-       tolog += DateTimeToStr( ClientToUTC( i->second.act, region ), "=hh:nn dd.mm.yy (UTC)" );
-     else
-        tolog += " не задано";
-     reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
-   }
+    reqInfo->MsgToLog( tolog, evtGraph, point_id, (int)i->first );
+  }
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -247,8 +231,26 @@ TDateTime TTripStages::time( TStage stage )
       return tripStage.scd;
 }
 
+void TTripStages::ReadCkinClients( int point_id, TCkinClients &ckin_clients )
+{
+	ckin_clients.clear();
+	TQuery Qry(&OraSession);
+  Qry.SQLText =
+    "SELECT client_type FROM trip_ckin_client "
+  	" WHERE point_id=:point_id AND pr_permit!=0";
+  Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	ProgTrace( TRACE5, "client_type=%s", Qry.FieldAsString( "client_type" ) );
+  	ckin_clients.push_back( Qry.FieldAsString( "client_type" ) );
+  	Qry.Next();
+  }
+}
+
 TStage TTripStages::getStage( TStage_Type stage_type )
 {
+	if ( CkinClients.empty() )
+		TTripStages::ReadCkinClients( point_id, CkinClients );
   TStagesRules *sr = TStagesRules::Instance();
   int level = 0;
   int p_level = 0;
@@ -256,6 +258,10 @@ TStage TTripStages::getStage( TStage_Type stage_type )
   for ( TGraph_Level::iterator l=sr->GrphLvl.begin(); l!=sr->GrphLvl.end(); l++ ) {
     if ( p_level > 0 && p_level < l->level ) /* пока не перешли на след. ветку */
       continue;
+
+    if ( sr->isClientStage( l->stage ) && !sr->canClientStage( CkinClients, l->stage ) )
+    	continue;
+
     if ( tripstages[ l->stage ].act == NoExists ) { /* надо отсечь все низшие вершины */
       p_level = l->level;
       continue;
@@ -290,6 +296,7 @@ TStagesRules::TStagesRules()
 void TStagesRules::UpdateGraph_Stages( )
 {
 	Graph_Stages.clear();
+	ClientStages.clear();
 	TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT stage_id, name, NULL airp FROM graph_stages "
@@ -306,6 +313,15 @@ void TStagesRules::UpdateGraph_Stages( )
   	Graph_Stages.push_back( n );
     Qry.Next();
   }
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT client_type, stage_id FROM ckin_client_stages ORDER BY stage_id, client_type";
+  Qry.Execute();
+  while ( !Qry.Eof ) {
+  	ClientStages[ Qry.FieldAsInteger( "stage_id" ) ].push_back( Qry.FieldAsString( "client_type" ) );
+  	Qry.Next();
+  }
+
 }
 
 void TStagesRules::Update()
@@ -343,7 +359,7 @@ void TStagesRules::Update()
    Qry.Next();
  }
 
-  Qry.Clear();
+ Qry.Clear();
  Qry.SQLText = "SELECT target_stage, level "\
                " FROM "\
                "( SELECT target_stage, cond_stage "\
@@ -368,10 +384,12 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
   	SetProp( node, "airp", airp );
   for ( vector<TStage_name>::iterator i=Graph_Stages.begin(); i!=Graph_Stages.end(); i++ ) {
   	if ( airp.empty() || airp == i->airp ) {
-      snode = NewTextChild( node, "stage" );
-      NewTextChild( snode, "stage_id", (int)i->stage );
-      NewTextChild( snode, "name", i->name );
-      NewTextChild( snode, "airp", i->airp );
+      if ( !isClientStage( i->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+        snode = NewTextChild( node, "stage" );
+        NewTextChild( snode, "stage_id", (int)i->stage );
+        NewTextChild( snode, "name", i->name );
+        NewTextChild( snode, "airp", i->airp );
+      }
     }
   }
 }
@@ -387,24 +405,31 @@ void TStagesRules::Build( xmlNodePtr dataNode )
     else
       SetProp( snode, "step", "stNext" );
     for ( map<TStage,vecRules>::iterator r=st->second.begin(); r!=st->second.end(); r++ ) {
-      xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules" );
-      SetProp( stagerulesNode, "stage", r->first );
-      for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
-        xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
-        NewTextChild( ruleNode, "num", v->num );
-        NewTextChild( ruleNode, "cond_stage", v->cond_stage );
+    	if ( !isClientStage( r->first ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+        xmlNodePtr stagerulesNode = NewTextChild( snode, "stagerules" );
+        SetProp( stagerulesNode, "stage", r->first );
+        for ( vecRules::iterator v=r->second.begin(); v!=r->second.end(); v++ ) {
+        	if ( !isClientStage( v->cond_stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+            xmlNodePtr ruleNode = NewTextChild( stagerulesNode, "rule" );
+            NewTextChild( ruleNode, "num", v->num );
+            NewTextChild( ruleNode, "cond_stage", v->cond_stage );
+          }
+        }
       }
     }
   }
   node = NewTextChild( dataNode, "StageStatuses" );
   for ( TMapStatuses::iterator m=StageStatuses.begin(); m!=StageStatuses.end(); m++ ) {
+  	if ( m->first == stWEB && !TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )
+  		continue;
     snode = NewTextChild( node, "stage_type" );
     SetProp( snode, "type", m->first );
     for ( TStage_Statuses::iterator s=m->second.begin(); s!=m->second.end(); s++ ) {
-      xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
-      NewTextChild( stagestatusNode, "stage", (int)s->stage );
-      NewTextChild( stagestatusNode, "status", s->status );
-//      NewTextChild( stagestatusNode, "lvl", s->lvl );
+      if ( !isClientStage( s->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+        xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
+        NewTextChild( stagestatusNode, "stage", (int)s->stage );
+        NewTextChild( stagestatusNode, "status", s->status );
+      }
     }
   }
 
@@ -412,9 +437,11 @@ void TStagesRules::Build( xmlNodePtr dataNode )
 
   node = NewTextChild( dataNode, "GrphLvl" );
   for ( TGraph_Level::iterator l=GrphLvl.begin(); l!=GrphLvl.end(); l++ ) {
-    snode = NewTextChild( node, "stage_level" );
-    NewTextChild( snode, "stage", (int)l->stage );
-    NewTextChild( snode, "level", (int)l->level );
+    if ( !isClientStage( l->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
+ 	    snode = NewTextChild( node, "stage_level" );
+      NewTextChild( snode, "stage", (int)l->stage );
+      NewTextChild( snode, "level", (int)l->level );
+    }
   }
 }
 
@@ -454,6 +481,24 @@ string TStagesRules::stage_name( TStage stage, std::string airp )
 	else
 		return res;
 }
+
+bool TStagesRules::canClientStage( const TCkinClients &ckin_clients, int stage_id )
+{
+	for ( TCkinClients::const_iterator i=ckin_clients.begin(); i!=ckin_clients.end(); i++ ) {
+	 ProgTrace( TRACE5, "stage_id=%d, TCkinClients::const_iterator i=%s, clientstages.size()=%d", stage_id, (*i).c_str(), ClientStages[ stage_id ].size() );
+	 if ( find( ClientStages[ stage_id ].begin(), ClientStages[ stage_id ].end(), *i ) !=  ClientStages[ stage_id ].end() ) {
+	 	 tst();
+	 	 return true;
+	 }
+	}
+	return false;
+}
+
+bool TStagesRules::isClientStage( int stage_id )
+{
+	return !ClientStages[ stage_id ].empty();
+}
+
 
 
 TStageTimes::TStageTimes( TStage istage )
@@ -524,10 +569,16 @@ void exec_stage( int point_id, int stage_id )
            /*Открытие регистрации*/
            OpenCheckIn( point_id );
            break;
+  	case sOpenWEBCheckIn:
+           /*открытие WEB-регистрации*/
+  	     break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
            CloseCheckIn( point_id );
            break;
+  	case sCloseWEBCheckIn:
+           /*закрытие WEB-регистрации*/
+  	     break;
     case sOpenBoarding:
            /*Начало посадки*/
            break;
@@ -560,29 +611,18 @@ void astra_timer( TDateTime utcdate )
    "      NVL( trip_stages.est, trip_stages.scd ) <= :now "\
    " ORDER BY trip_stages.point_id, trip_stages.stage_id ";
   Qry.CreateVariable( "now", otDate, utcdate );
-  TQuery QCanStage(&OraSession);
-  QCanStage.SQLText =
-   "DECLARE msg VARCHAR2(255); "
+  TQuery QExecStage(&OraSession);
+  QExecStage.SQLText =
    "BEGIN "
-   " :canstage := gtimer.CanStage(:point_id,:stage_id); "
-   " IF :canstage != 0 THEN "
-   "  UPDATE points SET point_id = point_id WHERE point_id = :point_id; "
-   "  BEGIN "
-   "   UPDATE trip_stages SET act = TRUNC( :now, 'MI' ) "
-   "    WHERE point_id = :point_id AND stage_id = :stage_id; "
-   "   EXCEPTION WHEN NO_DATA_FOUND THEN "
-   "    INSERT INTO trip_stages(point_id,stage_id,scd,est,act,pr_auto,pr_manual) "
-   "     VALUES(:point_id,:stage_id,:now,NULL,:now,0,1); "
-   "  END; "
-   "  gtimer.sync_trip_final_stages(:point_id); "
-   " END IF; "
-   "END; ";
-  QCanStage.DeclareVariable( "point_id", otInteger );
-  QCanStage.DeclareVariable( "stage_id", otInteger );
-  QCanStage.DeclareVariable( "canstage", otInteger );
-  QCanStage.CreateVariable( "now", otDate, utcdate );
+   " :exec_stage := gtimer.ExecStage(:point_id,:stage_id,:act);"
+   "END;";
+  QExecStage.DeclareVariable( "point_id", otInteger );
+  QExecStage.DeclareVariable( "stage_id", otInteger );
+  QExecStage.DeclareVariable( "exec_stage", otInteger );
+  QExecStage.DeclareVariable( "act", otDate );
   bool pr_exit = false;
   int count=0;
+
   TDateTime execTime0 = NowUTC();
   while ( !pr_exit ) {
   	pr_exit = true;
@@ -596,21 +636,22 @@ void astra_timer( TDateTime utcdate )
   		int point_id = Qry.FieldAsInteger( "point_id" );
   		int stage_id = Qry.FieldAsInteger( "stage_id" );
   		string airp = Qry.FieldAsString( "airp" );
-  		QCanStage.SetVariable( "point_id", point_id );
-  		QCanStage.SetVariable( "stage_id", stage_id );
+  		QExecStage.SetVariable( "point_id", point_id );
+  		QExecStage.SetVariable( "stage_id", stage_id );
   	  TDateTime execTime2 = NowUTC();
-  	  bool canstage = false;
+  	  bool pr_exec_stage = false;
   	  try {
-  		  QCanStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
+  		  QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
   		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
     		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-  		  canstage = QCanStage.GetVariableAsInteger( "canstage" );
-  		  if ( canstage ) {
+  		  pr_exec_stage = QExecStage.GetVariableAsInteger( "canstage" );
+  		  TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
+  		  if ( pr_exec_stage ) {
     		  // запись в лог о выполнении шага
           TStagesRules *r = TStagesRules::Instance();
           string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
           tolog += " выполнен: факт. время=";
-          tolog += DateTimeToStr( utcdate, "hh:nn dd.mm.yy (UTC)" );
+          tolog += DateTimeToStr( act_stage, "hh:nn dd.mm.yy (UTC)" );
           TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );
   		  }
   		}
@@ -626,7 +667,7 @@ void astra_timer( TDateTime utcdate )
 				ProgError( STDLOG, "unknown timer error" );
  			}
  			OraSession.Commit(); // запоминание факта выполнения шага + лога в БД
-  		if ( canstage ) { // выполняем действия связанные с этим шагом
+  		if ( pr_exec_stage ) { // выполняем действия связанные с этим шагом
 				pr_exit = false; // признак того, что надо бы проверить следующие шаги графика на то, что их можно и пора выполнить
   			TDateTime execStep = NowUTC();
   			try {
@@ -811,7 +852,6 @@ void Takeoff( int point_id )
     ProgTrace(TRACE5,"Attention! create_czech_police_file execute time: %ld secs, point_id=%d",
                      time_end-time_start,point_id);
 }
-
 
 
 
