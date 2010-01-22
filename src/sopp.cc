@@ -3369,7 +3369,35 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( t1 > NoExists && t2 > NoExists && t1 != t2 ) {
   		  Qry.Clear();
   		  Qry.SQLText =
-  		   "BEGIN "
+  		   "DECLARE "
+  		   "  CURSOR cur IS "
+  		   "   SELECT stage_id,scd,est FROM trip_stages "
+  		   "    WHERE point_id=:point_id AND pr_manual=0; "
+  		   "curRow			cur%ROWTYPE;"
+  		   "vpr_permit 	ckin_client_sets.pr_permit%TYPE;"
+  		   "vpr_first		NUMBER:=1;"
+  		   " BEGIN "
+  		   "  FOR curRow IN cur LOOP "
+  		   "   IF gtimer.IsClientStage(:point_id,curRow.stage_id,vpr_permit) = 0 THEN "
+  		   "     vpr_permit := 1;"
+  		   "   END IF;"
+  		   "   IF vpr_permit!=0 THEN "
+  		   "    curRow.est := NVL(curRow.est,curRow.scd)+:vdelay;"
+  		   "    IF vpr_first != 0 THEN "
+  		   "      vpr_first := 0; "
+  		   "      :vdelay := curRow.est-curRow.scd; "
+  		   "    END IF; "
+  		   "    UPDATE trip_stages SET est=curRow.est WHERE point_id=:point_id AND stage_id=curRow.stage_id;"
+  		   "   END IF;"
+  		   "  END LOOP;"
+  		   "  IF vpr_first != 0 THEN "
+  		   "   :vdelay := NULL;"
+  		   "  END IF;"
+  		   " END;"
+  		   "END;";
+
+/*
+
   		   "  UPDATE trip_stages SET est=NVL(est,scd)+(:vest-:vscd) WHERE point_id=:point_id AND pr_manual=0; "
   		   "  SELECT est,scd INTO :vest,:vscd FROM trip_stages WHERE point_id=:point_id AND pr_manual=0 AND rownum<2; "
   		   " EXCEPTION WHEN NO_DATA_FOUND THEN "
@@ -3378,14 +3406,18 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		   "END; ";
   		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
   		  Qry.CreateVariable( "vscd", otDate, t1 );
-  		  Qry.CreateVariable( "vest", otDate, t2 );
+  		  Qry.CreateVariable( "vest", otDate, t2 );*/
+  		  Qry.CreateVariable( "point_id", otInteger, id->point_id );
+  		  Qry.CreateVariable( "vdelay", otDate, t2-t1 );
   		  Qry.Execute();
   		  string tolog;
   	    double f;
-  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
+        if ( !Qry.VariableIsNULL( "vdelay" ) ) {
+/*  	    if ( !Qry.VariableIsNULL( "vscd" ) ) {
   	      t1 = Qry.GetVariableAsDateTime( "vscd" );
   	      t2 = Qry.GetVariableAsDateTime( "vest" );
-  	      t1 = t2-t1;
+  	      t1 = t2-t1;*/
+  	      t1 = Qry.GetVariableAsDateTime( "vdelay" );
   	      if ( t1 < 0 ) {
   	      	modf( t1, &f );
   		  	  tolog = "Опережение выполнения технологического графика на ";
