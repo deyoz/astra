@@ -178,6 +178,18 @@ class TSeatPlaces {
     void PlacesToPassengers();
 };
 
+struct TSublsRem {
+	std::string subclass;
+	std::string rem;
+};
+
+struct TSublsRems {
+	std::string airline;
+	std::vector<TSublsRem> rems;
+	TSublsRems( const std::string &airline );
+	bool IsSubClsRem( const std::string &subclass, std::string &rem );
+};
+
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, int SeatAlgo );
@@ -188,6 +200,7 @@ void SaveTripSeatRanges( int point_id, ASTRA::TCompLayerType layer_type, std::ve
 	                       int pax_id, int point_dep, int point_arv );
 bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists=false );
 int GetSeatAlgo(TQuery &Qry, std::string airline, int flt_no, std::string airp_dep);
+bool IsSubClsRem( const std::string &airline, const std::string &subclass, std::string &rem );
 extern TPassengers Passengers;
 } // end namespace SEATS2
 

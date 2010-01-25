@@ -29,7 +29,7 @@ namespace SEATS2
 {
 
 
-const char* TSubcls_Remarks[4] = {"MCLS","SCLS","YCLS","LCLS"};
+//const char* TSubcls_Remarks[4] = {"MCLS","SCLS","YCLS","LCLS"};
 
 const int PR_N_PLACE = 9;
 const int PR_REMPLACE = 8;
@@ -505,6 +505,11 @@ int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int fo
   return Result;
 }
 
+bool isREM_SUBCLS( string rem )
+{
+	return ( rem.size() == 4 && rem.substr(1,3) == "CLS" &&
+		       *(rem.c_str()) >= 'A' && *(rem.c_str()) <= 'Z' );
+}
 
 /* ф-ция для определения возможности рассадки для мест у которых есть запрещенные ремарки */
 bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
@@ -512,13 +517,22 @@ bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 	bool res = false; // признак того, что у пассажира есть ремарка, которая запрещена на выбранном месте
 	bool pr_passsubcls = false;
 	// определяем есть ли у пассажира ремарка подкласса
-	unsigned int i=0;
-	for ( ; i<sizeof(TSubcls_Remarks)/sizeof(const char*); i++ ) {
+	//unsigned int i=0;
+	vector<string>::iterator yrem=Remarks.begin();
+	for (; yrem!=Remarks.end(); yrem++ ) {
+		ProgTrace( TRACE5, "yrem.substr(1,3)=%s, *yrem->c_str()=%c", yrem->substr(1,3).c_str(), *yrem->c_str() );
+		if ( isREM_SUBCLS( *yrem ) ) {
+			pr_passsubcls = true;
+			break;
+		}
+	}
+
+/* old version	for ( ; i<sizeof(TSubcls_Remarks)/sizeof(const char*); i++ ) {
 		if ( find( Remarks.begin(), Remarks.end(), string(TSubcls_Remarks[i]) ) != Remarks.end() ) { // у пассажира SUBCLS
 			pr_passsubcls = true;
 			break;
 	  }
-	}
+	}*/
 
 	bool no_subcls = false;
 	// определяем есть ли запрещенная ремарка на месте, кот. заданы у пассажира
@@ -532,13 +546,19 @@ bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 	}
 	// пробег по ремаркам места, если есть ремарка подкласса
   for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
+	  if ( !prem->pr_denial && isREM_SUBCLS( prem->rem ) && (!pr_passsubcls || *yrem != prem->rem ) ) {
+	  	  no_subcls = true;
+	  	  break;
+	  }
+	}
+/*  for( vector<SALONS2::TRem>::const_iterator prem=rems.begin(); prem!=rems.end(); prem++ ) {
     for ( unsigned int j=0; j<sizeof(TSubcls_Remarks)/sizeof(const char*); j++ ) {
   	  if ( !prem->pr_denial && prem->rem == TSubcls_Remarks[j] && (!pr_passsubcls || TSubcls_Remarks[j] != TSubcls_Remarks[i]) ) {
 	  	  no_subcls = true;
 	  	  break;
 	  	}
 	  }
-	}
+	}*/
   return res || no_subcls; // если есть запрещенная ремарка у пассажира или место с ремаркой SUBCLS, а у пассажира ее нет
 }
 
@@ -1542,17 +1562,48 @@ void TPassenger::set_seat_no()
   }
 }
 
+TSublsRems::TSublsRems( const std::string &vairline )
+{
+	airline = vairline;
+	TQuery Qry(&OraSession );
+	Qry.SQLText =
+	 "SELECT subclass,rem FROM comp_subcls_sets "
+	 " WHERE airline=:airline ";
+	Qry.CreateVariable( "airline", otString, vairline );
+	Qry.Execute();
+	while ( !Qry.Eof ) {
+		TSublsRem r;
+		r.subclass = Qry.FieldAsString( "subclass" );
+		r.rem = Qry.FieldAsString( "rem" );
+		rems.push_back( r );
+		Qry.Next();
+	}
+}
+
+
+bool TSublsRems::IsSubClsRem( const string &subclass, string &vrem )
+{
+	vrem.clear();
+	for ( vector<TSublsRem>::iterator i=rems.begin(); i!=rems.end(); i++ ) {
+		if ( i->subclass == subclass ) {
+			vrem = i->rem;
+			break;
+		}
+	}
+  return !vrem.empty();
+}
+
 void TPassenger::add_rem( std::string code )
 {
-	ProgTrace( TRACE5, "code=%s", code.c_str() );
-	bool pr_subcls=false;
+	ProgTrace( TRACE5, "code=%s, isREM_SUBCLS=%d", code.c_str(), isREM_SUBCLS(code) );
+/*	bool pr_subcls=false;
 	for ( unsigned int i=0; i<sizeof(TSubcls_Remarks)/sizeof(const char*); i++ ) {
 		if ( string(TSubcls_Remarks[ i ] ) == code ) {
 			pr_subcls = true;
 			break;
 		}
-	}
-	if ( pr_subcls )
+	}*/
+	if ( isREM_SUBCLS( code ) )
 		SUBCLS_REM = code;
 	rems.push_back( code );
 }
@@ -2031,12 +2082,11 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   FindSUBCLS = false;
   canUseSUBCLS = false;
   SUBCLS_REM = "";
-  bool pr_SUBCLS = false;
 
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
   /* определение есть ли в группе пассажир с предварительной рассадкой */
-  bool Status_seat_no_BR=false, pr_all_pass_SCLS=true, pr_SCLS=false;
+  bool Status_seat_no_BR=false, pr_all_pass_SUBCLS=true, pr_SUBCLS=false;
   for ( int i=0; i<passengers.getCount(); i++ ) {
   	TPassenger &pass = passengers.Get( i );
   	if ( pass.layer == cltProtCkin ) { // !!!
@@ -2044,13 +2094,16 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   	}
   	if ( !pass.SUBCLS_REM.empty() ) {
   		pr_SUBCLS = true;
+  		if ( !SUBCLS_REM.empty() && SUBCLS_REM != pass.SUBCLS_REM )
+  			pr_all_pass_SUBCLS = false;
   		SUBCLS_REM = pass.SUBCLS_REM;
     }
-    if ( pass.SUBCLS_REM != "SCLS" )
-  		pr_all_pass_SCLS = false;
-  	else
-  		pr_SCLS = true;
+    else
+    	pr_all_pass_SUBCLS = false;
+
   }
+
+  ProgTrace( TRACE5, "pr_SUBCLS=%d,pr_all_pass_SUBCLS=%d, SUBCLS_REM=%s", pr_SUBCLS, pr_all_pass_SUBCLS, SUBCLS_REM.c_str() );
 
   /*!!!*/
   bool SeatOnlyBasePlace=true;
@@ -2073,10 +2126,10 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
      SeatAlg = (TSeatAlg)FSeatAlg;
      /* если есть в группе предварительная рассадка, то тогда сажаем всех отдельно */
      /* если есть в группе подкласс С и он не у всех пассажиров, то тогда сажаем всех отдельно */
-     if ( ( Status_preseat || Status_seat_no_BR || SeatOnlyBasePlace || canUseSUBCLS && pr_SCLS && !pr_all_pass_SCLS )
+     if ( ( Status_preseat || Status_seat_no_BR || SeatOnlyBasePlace || canUseSUBCLS && pr_SUBCLS && !pr_all_pass_SUBCLS )
      	   &&
      	   SeatAlg != sSeatPassengers ) {
-     	 ProgTrace( TRACE5, "continue: SeatAlg=%d, pr_SCLS=%d, pr_all_pass_SCLS=%d", SeatAlg, pr_SCLS, pr_all_pass_SCLS );
+     	 ProgTrace( TRACE5, "continue: SeatAlg=%d, pr_SUBCLS=%d, pr_all_pass_SUBCLS=%d", SeatAlg, pr_SUBCLS, pr_all_pass_SUBCLS );
      	 continue;
      }
      for ( int FCanUseRems=0; FCanUseRems<useremLength; FCanUseRems++ ) {
@@ -2301,6 +2354,8 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   if ( pr_exists ) {
   	return !Qry.Eof;
   }
+  TSublsRems subcls_rems(airline);
+
   RemsQry.Execute();
   while ( !Qry.Eof ) {
     TPassenger pass;
@@ -2343,39 +2398,9 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     	}
       RemsQry.Next();
     }
-    if (
-  	     airline == string( "ЮТ" ) && string( "М" ) == Qry.FieldAsString( "subclass" ) ||
-  	     airline == string( "ПО" ) && string( "Ю" ) == Qry.FieldAsString( "subclass" )
-  	   ) {
-  	  pass.add_rem( "MCLS" );
-    }
-    if ( airline == string( "ЮТ" ) && string( "С" ) == Qry.FieldAsString( "subclass" ) ) {
-  	  pass.add_rem( "SCLS" );
-    }
-    if ( airline == string( "УН" ) &&
-         (string( "Э" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Ц" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "М" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Я" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Ж" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "К" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "О" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Р" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Е" ) == Qry.FieldAsString( "subclass" ) ) ) {
-  	  pass.add_rem( "YCLS" );
-    }
-    if ( airline == string( "УН" ) &&
-         (string( "Л" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "В" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Х" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Т" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Н" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Ы" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Ю" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "Г" ) == Qry.FieldAsString( "subclass" ) ||
-          string( "У" ) == Qry.FieldAsString( "subclass" ) ) ) {
-  	  pass.add_rem( "LCLS" );
-    }
+    string pass_rem;
+    if ( subcls_rems.IsSubClsRem( Qry.FieldAsString( "subclass" ), pass_rem ) )
+      pass.add_rem( pass_rem );
     if ( pass.grp_status == cltTCheckin ) {
     	ProgTrace( TRACE5, "grp_id=%d", pass.grpId );
     	QryTCkinTrip.SetVariable( "grp_id", pass.grpId );
@@ -3054,7 +3079,7 @@ TPassengers Passengers;
 } // end namespace SEATS2
 
 
-//seats with:SeatAlg=2,FCanUseRems=sIgnoreUse,FCanUseAlone=0,KeyStatus=1,FCanUseTube=0,FCanUseSmoke=0,PlaceStatus=, MAXPLACE=3,canUseOneRow=0, CanUseSUBCLS=1, SUBCLS_REM=SCLS
+//seats with:SeatAlg=2,FCanUseRems=sIgnoreUse,FCanUseAlone=0,KeyStatus=1,FCanUseTube=0,FCanUseSmoke=0,PlaceStatus=, MAXPLACE=3,canUseOneRow=0, CanUseSUBCLS=1, SUBCLS_REM=SUBCLS
 //seats with:SeatAlg=2,FCanUseRems=sNotUse_NotUseDenial,FCanUseAlone=1,KeyStatus=1,FCanUseTube=0,FCanUseS
 
 

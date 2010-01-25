@@ -2205,14 +2205,30 @@ void RunTest1(xmlNodePtr formDataNode)
     NewTextChild(variablesNode, "hello", "Hello world!!!");
 }
 
+string get_report_version(string name)
+{
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select version from fr_forms2 where name = :name and version <= :version order by version desc";
+    Qry.CreateVariable("name", otString, name);
+    Qry.CreateVariable("version", otString, TReqInfo::Instance()->desk.version);
+    Qry.Execute();
+    string result;
+    if(!Qry.Eof)
+        result = Qry.FieldAsString("version");
+    return result;
+}
+
 void get_report_form(const string name, xmlNodePtr node)
 {
     string form;
+    string version;
     TQuery Qry(&OraSession);
     if (!TReqInfo::Instance()->desk.version.empty() &&
-            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
-        Qry.SQLText = "select form from fr_forms2 where name = :name";
-    else
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION) {
+        Qry.SQLText = "select form from fr_forms2 where name = :name and version = :version ";
+        version = get_report_version(name);
+        Qry.CreateVariable("version", otString, version);
+    } else
         Qry.SQLText = "select form from fr_forms where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.Execute();
@@ -2234,7 +2250,9 @@ void get_report_form(const string name, xmlNodePtr node)
         free(data);
     }
     free(data);
-    SetProp(ReplaceTextChild(node, "form", form), "name", name);
+    xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
+    SetProp(formNode, "name", name);
+    SetProp(formNode, "version", version);
 }
 
 void RunRpt(string name, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3414,6 +3432,10 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     if(NodeIsNULL("name", reqNode))
         throw UserException("Form name can't be null");
     string name = NodeAsString("name", reqNode);
+    string version = NodeAsString("version", reqNode, "");
+    ProgTrace(TRACE5, "VER. %s", version.c_str());
+    if(version == "")
+        version = get_report_version(name);
 
     /*
        if(
@@ -3432,9 +3454,10 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 
     string form = NodeAsString("form", reqNode);
     if (!TReqInfo::Instance()->desk.version.empty() &&
-            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
-        Qry.SQLText = "update fr_forms2 set form = :form where name = :name";
-    else
+            TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION) {
+        Qry.SQLText = "update fr_forms2 set form = :form where name = :name and version = :version";
+        Qry.CreateVariable("version", otString, version);
+    } else
         Qry.SQLText = "update fr_forms set form = :form where name = :name";
     Qry.CreateVariable("name", otString, name);
     Qry.CreateLongVariable("form", otLong, (void *)form.c_str(), form.size());
@@ -3442,7 +3465,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     if(!Qry.RowsProcessed()) {
         if (!TReqInfo::Instance()->desk.version.empty() &&
                 TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
-            Qry.SQLText = "insert into fr_forms2(id, name, form) values(id__seq.nextval, :name, :form)";
+            Qry.SQLText = "insert into fr_forms2(name, version, form) values(:name, '000000-0000000', :form)";
         else
             Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
         Qry.Execute();

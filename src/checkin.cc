@@ -2372,6 +2372,9 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             #else
             SEATS::Passengers.Clear();
             #endif
+
+            SEATS2::TSublsRems subcls_rems( fltInfo.airline );
+
             //заполним массив для рассадки
             for(node=node->children;node!=NULL;node=node->next)
             {
@@ -2437,13 +2440,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 pas.countPlace=NodeAsIntegerFast("seats",node2);
                 pas.placeRem=NodeAsStringFast("seat_type",node2);
                 remNode=GetNodeFast("rems",node2);
-                bool flagMCLS=false,
+                /*bool flagMCLS=false,
                      flagSCLS=false,
                      flagYCLS=false,
-                     flagLCLS=false;
+                     flagLCLS=false;*/
                 pas.pers_type = NodeAsStringFast("pers_type",node2);
                 bool flagCHIN=pas.pers_type != "ВЗ";
-                if (remNode!=NULL)
+/*                if (remNode!=NULL)
                 {
                   for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
                   {
@@ -2454,6 +2457,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"SCLS")==0) flagSCLS=true;
                     if (fltInfo.airline=="УН" && strcmp(rem_code,"YCLS")==0) flagYCLS=true;
                     if (fltInfo.airline=="УН" && strcmp(rem_code,"LCLS")==0) flagLCLS=true;
+                    if (fltInfo.airline=="ЛА" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
 
                     if ( strcmp(rem_code,"BLND")==0 ||
                     	   strcmp(rem_code,"STCR")==0 ||
@@ -2470,56 +2474,15 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                     pas.rems.push_back(rem_code);
                     #endif
                   };
-                };
-                if (!flagMCLS && //??? возможно имеет смысл этот алгоритм перенести в seats.cc, т.к. там есть похожее
-                    (fltInfo.airline=="ЮТ" && strcmp(subclass,"М")==0 ||
-                     fltInfo.airline=="ПО" && strcmp(subclass,"Ю")==0 ))
-                  #ifdef NEWSEATS
-                  pas.add_rem("MCLS");
-                  #else
-                  pas.rems.push_back("MCLS");
-                  #endif
-                if (!flagSCLS &&
-                    (fltInfo.airline=="ЮТ" && strcmp(subclass,"С")==0))
-                  #ifdef NEWSEATS
-                  pas.add_rem("SCLS");
-                  #else
-                  pas.rems.push_back("SCLS");
-                  #endif
+                };*/
 
-                if (!flagYCLS &&
-                    (fltInfo.airline=="УН" &&
-                     (strcmp(subclass,"Э")==0 ||
-                      strcmp(subclass,"Ц")==0 ||
-                      strcmp(subclass,"М")==0 ||
-                      strcmp(subclass,"Я")==0 ||
-                      strcmp(subclass,"Ж")==0 ||
-                      strcmp(subclass,"К")==0 ||
-                      strcmp(subclass,"О")==0 ||
-                      strcmp(subclass,"Р")==0 ||
-                      strcmp(subclass,"Е")==0)))
-                  #ifdef NEWSEATS
-                  pas.add_rem("YCLS");
-                  #else
-                  pas.rems.push_back("YCLS");
-                  #endif
-
-                if (!flagLCLS &&
-                    (fltInfo.airline=="УН" &&
-                     (strcmp(subclass,"Л")==0 ||
-                      strcmp(subclass,"В")==0 ||
-                      strcmp(subclass,"Х")==0 ||
-                      strcmp(subclass,"Т")==0 ||
-                      strcmp(subclass,"Н")==0 ||
-                      strcmp(subclass,"Ы")==0 ||
-                      strcmp(subclass,"Ю")==0 ||
-                      strcmp(subclass,"Г")==0 ||
-                      strcmp(subclass,"У")==0)))
-                  #ifdef NEWSEATS
-                  pas.add_rem("LCLS");
-                  #else
-                  pas.rems.push_back("LCLS");
-                  #endif
+                string pass_rem;
+                if ( subcls_rems.IsSubClsRem( subclass, pass_rem ) )
+                #ifdef NEWSEATS
+                  pas.add_rem(pass_rem);
+                #else
+                  pas.rems.push_back(pass_rem);
+                #endif
 
                 if ( flagCHIN || adultwithbaby ) {
                 	tst();

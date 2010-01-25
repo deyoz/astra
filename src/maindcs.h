@@ -5,35 +5,6 @@
 #include <string>
 #include "jxtlib/JxtInterface.h"
 
-class TCrypt {
-	public:
-		bool server_sign;
-		bool client_sign;
-		std::string algo_sign;
-		std::string algo_cipher;
-		int inputformat;
-		int outputformat;
-		std::string ca_cert;
-		std::string server_cert;
-		std::string client_cert;
-		void Clear() {
-			server_sign = false;
-			client_sign = false;
-			algo_sign.clear();
-			algo_cipher.clear();
-			inputformat = 1; //FORMAT_ASN1 = 1 - по умолчанию
-			outputformat = 1;//FORMAT_ASN1 = 1 - по умолчанию
-			ca_cert.clear();
-			server_cert.clear();
-			client_cert.clear();
-		}
-		TCrypt() {
-			Clear();
-	  }
-	  void Init( const std::string &desk );
-};
-
-
 
 class MainDCSInterface : public JxtInterface
 {
