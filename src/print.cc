@@ -2465,8 +2465,14 @@ string PrintDataParser::parse(string &form)
 
     if(Mode != 'S')
     {
-        ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - 10, 10).c_str(), form[i]);
-        throw Exception("']' not found at " + IntToString(i + 1));
+        if(Mode == 'R') {
+            --i;
+            result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
+        } else {
+            int piece_len = form.size() < 10 ? form.size() : 10;
+            ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - piece_len, piece_len).c_str(), form[i]);
+            throw Exception("']' not found at " + IntToString(i + 1));
+        }
     }
     return result;
 }
