@@ -2468,8 +2468,6 @@ string PrintDataParser::parse(string &form)
     {
         if(Mode == 'R') {
                 --i;
-                if(form[i] != ']')
-                    throw Exception("']' not found at " + IntToString(i + 1));
                 result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
         } else {
             int piece_len = form.size() < 10 ? form.size() : 10;
