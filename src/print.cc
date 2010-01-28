@@ -1345,6 +1345,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,1) AS list_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
             "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,0) AS one_seat_no, "
@@ -2466,12 +2467,13 @@ string PrintDataParser::parse(string &form)
     if(Mode != 'S')
     {
         if(Mode == 'R') {
-            --i;
-            result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
+                --i;
+                if(form[i] != ']')
+                    throw Exception("']' not found at " + IntToString(i + 1));
+                result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
         } else {
             int piece_len = form.size() < 10 ? form.size() : 10;
-            ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - piece_len, piece_len).c_str(), form[i]);
-            throw Exception("']' not found at " + IntToString(i + 1));
+            throw Exception("Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - piece_len, piece_len).c_str(), form[i]);
         }
     }
     return result;
