@@ -123,7 +123,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 		setPerform();
   clear();
   TQuery Qry(&OraSession);
-  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d", InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt );
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
+            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
+  pr_web = InitData.pr_web;
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
@@ -203,12 +205,21 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   if ( !screen.pr_logon )
   	return;
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT user_id, login, descr, type, pr_denial "
-    "FROM users2 "
-    "WHERE desk = UPPER(:pult) ";
-  Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", InitData.pult );
+  if ( InitData.pr_web ) {
+    Qry.SQLText =
+      "SELECT user_id, login, descr, type, pr_denial "
+      "FROM users2 "
+      "WHERE login = :login ";
+    Qry.CreateVariable( "login", otString, InitData.opr );
+  }
+  else {
+    Qry.SQLText =
+      "SELECT user_id, login, descr, type, pr_denial "
+      "FROM users2 "
+      "WHERE desk = UPPER(:pult) ";
+    Qry.CreateVariable( "pult", otString, InitData.pult );
+  }
+
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
   {
@@ -228,6 +239,19 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
   user.login = Qry.FieldAsString( "login" );
+
+
+  if (!InitData.pr_web) {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT id FROM web_clients "
+      "WHERE desk=UPPER(:desk) OR user_id=:user_id";
+    Qry.CreateVariable( "desk", otString, InitData.pult );
+    Qry.CreateVariable( "user_id", otInteger, user.user_id );
+    Qry.Execute();
+    if (!Qry.Eof)
+    	throw UserException( "Пользователю отказано в доступе" );
+  }
 
   //если служащий порта - проверим пульт с которого он заходит
   /*if (user.user_type==utAirport)
@@ -251,13 +275,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     "FROM user_roles,role_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      user_roles.user_id=:user_id ";
-  /*  "SELECT DISTINCT screen_rights.right_id "
-    "FROM user_roles,role_rights,screen_rights "
-    "WHERE user_roles.role_id=role_rights.role_id AND "
-    "      role_rights.right_id=screen_rights.right_id AND "
-    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";*/
-  //Qry.DeclareVariable( "screen_id", otInteger );
-  //Qry.SetVariable( "screen_id", screen.id );
   Qry.DeclareVariable( "user_id",otInteger );
   Qry.SetVariable( "user_id", user.user_id );
   Qry.Execute();
@@ -367,6 +384,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
     };
   };
+  if ( InitData.pr_web ) { //web
+  	user.sets.time=ustTimeLocalAirp;
+  }
 }
 
 bool TReqInfo::CheckAirline(const string &airline)
@@ -744,6 +764,8 @@ void showError(const std::string &message, int code)
 
 void showErrorMessage(const std::string &message, int code )
 {
+	if ( TReqInfo::Instance()->pr_web )
+		throw Exception( "Invalid use showErrorMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
@@ -758,6 +780,8 @@ void showErrorMessageAndRollback(const std::string &message, int code )
 
 void showMessage(const std::string &message, int code )
 {
+	if ( TReqInfo::Instance()->pr_web )
+		throw Exception( "Invalid use showMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
