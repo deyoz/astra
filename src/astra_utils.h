@@ -192,9 +192,11 @@ struct TReqInfoInitData {
   std::string mode;
   bool checkUserLogon;
   bool checkCrypt;
+  bool pr_web;
   TReqInfoInitData() {
   	checkUserLogon = false;
   	checkCrypt = false;
+  	pr_web = false;
   }
 };
 
@@ -206,11 +208,13 @@ class TReqInfo
     TUser user;
     TDesk desk;
     TScreen screen;
+    bool pr_web;
     void clear()
     {
       desk.clear();
       user.clear();
       screen.clear();
+      pr_web = false;
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
