@@ -648,7 +648,7 @@ void astra_timer( TDateTime utcdate )
   		  QExecStage.Execute(); // признак того должен ли выполниться шаг + отметка о выполнении шага тех. графика
   		  if ( NowUTC() - execTime2 > 1.0/(1440.0*60) )
     		  ProgTrace( TRACE5, "Attention execute QCanStage time > 1 sec !!!, time=%s, count=%d", DateTimeToStr( NowUTC() - execTime2, "nn:ss" ).c_str(), count );
-  		  pr_exec_stage = QExecStage.GetVariableAsInteger( "canstage" );
+  		  pr_exec_stage = QExecStage.GetVariableAsInteger( "exec_stage" );
   		  TDateTime act_stage = QExecStage.GetVariableAsDateTime( "act" );
   		  if ( pr_exec_stage ) {
     		  // запись в лог о выполнении шага
