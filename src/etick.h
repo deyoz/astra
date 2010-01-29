@@ -30,6 +30,24 @@ enum TETCheckStatusArea {csaFlt,csaGrp,csaPax};
 typedef std::list<Ticketing::Ticket> TTicketList;
 typedef std::pair<TTicketList,XMLDoc> TTicketListCtxt;
 
+class TTicketListKey
+{
+  public:
+    std::string airline_oper;
+    std::pair<std::string, std::string> addrs;
+    int coupon_status;
+    bool operator < (const TTicketListKey &key) const
+    {
+      if (airline_oper!=key.airline_oper)
+        return airline_oper<key.airline_oper;
+      if (addrs.first!=key.addrs.first)
+        return addrs.first<key.addrs.first;
+      if (addrs.second!=key.addrs.second)
+        return addrs.second<key.addrs.second;
+      return coupon_status<key.coupon_status;
+    };
+};
+
 class ETStatusInterface : public JxtInterface
 {
 public:
@@ -52,16 +70,20 @@ public:
   void KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
+  static bool ETCheckStatus(int point_id,
+                            xmlDocPtr ediResDocPtr,
+                            bool check_connect,
+                            std::map<TTicketListKey,TTicketListCtxt> &mtick);
   static bool ETCheckStatus(int id,
                             TETCheckStatusArea area,
                             int check_point_id,
                             bool check_connect,
-                            TTripInfo &fltInfo,
-                            std::map<int,TTicketListCtxt> &mtick,
+                            std::map<TTicketListKey, TTicketListCtxt> &mtick,
                             bool before_checkin=false);
+  static void ETRollbackStatus(xmlDocPtr ediResDocPtr,
+                               bool check_connect);
   static bool ETChangeStatus(const int reqCtxtId,
-                             const TTripInfo &fltInfo,
-                             const std::map<int,TTicketListCtxt> &mtick);
+                             const std::map<TTicketListKey, TTicketListCtxt> &mtick);
 };
 
 

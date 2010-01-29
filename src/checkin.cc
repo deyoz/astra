@@ -2050,13 +2050,13 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SavePax(reqNode, NULL, resNode);
 };
 
-void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
+//процедура должна возвращать true только в том случае если пройдена до конца
+bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   map<int,TSegInfo> segs;
-  typedef pair<TTripInfo, map<int,TTicketListCtxt> > TETInfoItem;
-  vector< TETInfoItem > ETInfo;
+  map<TTicketListKey,TTicketListCtxt> ETInfo;
   bool et_processed=false;
 
   bool tckin_version=GetNode("segments",reqNode)!=NULL;
@@ -2078,13 +2078,17 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   TQuery Qry(&OraSession);
   if (ediResNode==NULL)
   {
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-      defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
+    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    {
+      Qry.Clear();
+      Qry.SQLText=
+        "SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+        defer_etstatus=Qry.FieldAsInteger("defer_etstatus")!=0;
+    }
+    else defer_etstatus=true;
   };
 
   Qry.Clear();
@@ -3393,11 +3397,8 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //обязательно до ckin.check_grp
       if (ediResNode==NULL && !defer_etstatus)
       {
-        TTripInfo ETFlight;
-        map<int,TTicketListCtxt> ETList;
-        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,-1,false,ETFlight,ETList,true))
+        if (ETStatusInterface::ETCheckStatus(grp_id,csaGrp,-1,false,ETInfo,true))
         {
-          ETInfo.push_back(make_pair(ETFlight,ETList));
           et_processed=true; //хотя бы один билет будет обрабатываться
         };
       };
@@ -3460,7 +3461,7 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             showErrorMessage(E.what());
             Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки ??? - ведь пассажир не зарегистрирован, а значит нет перегрузки
             Set_AODB_overload_alarm( point_dep, true );
-            return;
+            return false;
           };
 
           Qry.Clear();
@@ -3579,7 +3580,7 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           showErrorMessage(E.what());
           Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки
           Set_AODB_overload_alarm( point_dep, true );
-          return;
+          return false;
         };
       };
 
@@ -3615,14 +3616,10 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   if (et_processed)
   {
     OraSession.Rollback();  //откат
+
     int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
-    et_processed=false; //пересчитаем заново для подстраховки
-    for(vector<TETInfoItem>::iterator i=ETInfo.begin();i!=ETInfo.end();i++)
-    {
-      if (ETStatusInterface::ETChangeStatus(req_ctxt,i->first,i->second)) et_processed=true;
-    };
-    if (!et_processed)
-      throw Exception("CheckInInterface::SavePax: Wrong et_processed");
+    if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
+      throw Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
     showProgError("Нет связи с сервером эл. билетов");
   }
   else
@@ -3631,6 +3628,7 @@ void CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
                                  strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
   };
+  return true;
 };
 
 void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

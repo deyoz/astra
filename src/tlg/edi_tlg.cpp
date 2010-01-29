@@ -32,8 +32,10 @@ using namespace jxtlib;
 
 static std::string edi_addr,edi_own_addr;
 
-bool set_edi_addrs(string airline,int flt_no)
+bool get_et_addr_set( string airline, int flt_no, pair<string,string> &addrs )
 {
+  addrs.first.clear();
+  addrs.second.clear();
   TQuery Qry(&OraSession);
   Qry.SQLText=
     "SELECT edi_addr,edi_own_addr, "
@@ -49,15 +51,19 @@ bool set_edi_addrs(string airline,int flt_no)
   else
     Qry.CreateVariable("flt_no",otInteger,FNull);
   Qry.Execute();
-  if (Qry.Eof)
+  if (!Qry.Eof)
   {
-    edi_addr="";
-    edi_own_addr="";
-    return false;
+    addrs.first=Qry.FieldAsString("edi_addr");
+    addrs.second=Qry.FieldAsString("edi_own_addr");
+    return true;
   };
-  edi_addr=Qry.FieldAsString("edi_addr");
-  edi_own_addr=Qry.FieldAsString("edi_own_addr");
-  return true;
+  return false;
+};
+
+void set_edi_addrs( const pair<string,string> &addrs )
+{
+  edi_addr=addrs.first;
+  edi_own_addr=addrs.second;
 };
 
 std::string get_edi_addr()
@@ -239,10 +245,11 @@ void confirm_notify_levb(const int edi_sess_id)
   ProgTrace(TRACE2,"confirm_notify_levb: called with edi_sess_id=%d",edi_sess_id);
 
   string hex_msg_id;
-  AstraContext::GetContext("EDI_HELP_INTMSGID", edi_sess_id, hex_msg_id);
+  if (AstraContext::GetContext("EDI_HELP_INTMSGID", edi_sess_id, hex_msg_id)==ASTRA::NoExists)
+    return; //контекст не существует, значит и подвешивания запроса не было
   AstraContext::ClearContext("EDI_HELP_INTMSGID", edi_sess_id);
   if (hex_msg_id.empty())
-    throw EXCEPTIONS::Exception("confirm_notify_levb: context EDI_HELP_INTMSGID not found for edi_sess_id=%d", edi_sess_id);
+    throw EXCEPTIONS::Exception("confirm_notify_levb: context EDI_HELP_INTMSGID empty for edi_sess_id=%d", edi_sess_id);
   ProgTrace(TRACE2,"confirm_notify_levb: edi_sess_id=%d, intmsgid=%s", edi_sess_id, hex_msg_id.c_str());
 
   TQuery Qry(&OraSession);
@@ -341,7 +348,7 @@ int init_edifact()
 // Обработка EDIFACT
 void proc_edifact(const std::string &tlg)
 {
-    edi_udata_rd udata(new edifact::AstraEdiSessRD(), tlg);
+    edi_udata_rd udata(new AstraEdiSessRD(), tlg);
     int err=0, ret;
 
     try{
@@ -395,7 +402,7 @@ const message_funcs_type &EdiMesFuncs::GetEdiFunc(
 void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
 {
     int err=0;
-    edi_udata_wr ud(new edifact::AstraEdiSessWR(TChange.org().pult()), EdiMess::ChangeStat);
+    edi_udata_wr ud(new AstraEdiSessWR(TChange.org().pult()), EdiMess::ChangeStat);
 
     tst();
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TChange, &err);
@@ -408,7 +415,7 @@ void SendEdiTlgTKCREQ_ChangeStat(ChngStatData &TChange)
 void SendEdiTlgTKCREQ_Disp(TickDisp &TDisp)
 {
     int err=0;
-    edi_udata_wr ud(new edifact::AstraEdiSessWR(TDisp.org().pult()), EdiMess::Display);
+    edi_udata_wr ud(new AstraEdiSessWR(TDisp.org().pult()), EdiMess::Display);
 
     tst();
     int ret = SendEdiMessage(TKCREQ, ud.sessData()->edih(), &ud, &TDisp, &err);
@@ -539,8 +546,7 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
                              udata.sessData()->ediSession()->ida(),
                              TickD.context());
 
-    TReqInfo& reqInfo = *(TReqInfo::Instance());
-    if (!reqInfo.desk.code.empty())
+    if (TickD.req_ctxt_id()!=ASTRA::NoExists)
     {
         AstraContext::SetContext("EDI_HELP_INTMSGID",
                                  udata.sessData()->ediSession()->ida(),
@@ -644,58 +650,80 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
       };
     };
 
+    TQuery UpdQry(&OraSession);
+    UpdQry.SQLText=
+      "BEGIN "
+      "  BEGIN "
+      "    SELECT error,coupon_status "
+      "    INTO :prior_error,:prior_status FROM etickets "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "  EXCEPTION "
+      "    WHEN NO_DATA_FOUND THEN NULL; "
+      "  END; "
+      "  IF :error IS NULL AND :coupon_status IS NULL THEN "
+      "    DELETE FROM etickets "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "  ELSE "
+      "    UPDATE etickets "
+      "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
+      "        coupon_status=:coupon_status, error=:error "
+      "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
+      "    IF SQL%NOTFOUND THEN "
+      "      INSERT INTO etickets(ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status,error) "
+      "      VALUES(:ticket_no,:coupon_no,:point_id,:airp_dep,:airp_arv,:coupon_status,:error); "
+      "    END IF; "
+      "  END IF; "
+      "END;";
+    UpdQry.DeclareVariable("ticket_no",otString);
+    UpdQry.DeclareVariable("coupon_no",otInteger);
+    UpdQry.DeclareVariable("point_id",otInteger);
+    UpdQry.DeclareVariable("airp_dep",otString);
+    UpdQry.DeclareVariable("airp_arv",otString);
+    UpdQry.DeclareVariable("coupon_status",otString);
+    UpdQry.DeclareVariable("error",otString);
+    UpdQry.DeclareVariable("prior_status",otString);
+    UpdQry.DeclareVariable("prior_error",otString);
+
     ChngStatAnswer chngStatAns = ChngStatAnswer::readEdiTlg(GetEdiMesStruct());
     chngStatAns.Trace(TRACE2);
     if (chngStatAns.isGlobErr())
     {
-        ostringstream msgh;
+        string err;
         if (chngStatAns.globErr().second.empty())
-          msgh << "СЭБ: ОШИБКА " << chngStatAns.globErr().first;
+          err="ОШИБКА " + chngStatAns.globErr().first;
         else
-          msgh << "СЭБ: " << chngStatAns.globErr().second;
+          err=chngStatAns.globErr().second;
+
         for(xmlNodePtr node=ticketNode;node!=NULL;node=node->next)
         {
-          xmlNodePtr errNode=NewTextChild(node,"global_error",msgh.str());
-          ChangeStatusToLog(errNode, false, msgh.str(), screen, user, desk);
+          xmlNodePtr node2=node->children;
+
+          ostringstream msgh;
+          msgh << "Эл. билет "
+               << NodeAsStringFast("ticket_no",node2) << "/"
+               << NodeAsIntegerFast("coupon_no",node2)
+               << ": " << err << ". ";
+          xmlNodePtr errNode=NewTextChild(node,"global_error","СЭБ: "+err);
+          if (err.size()>100) err.erase(100);
+
+          UpdQry.SetVariable("ticket_no",NodeAsStringFast("ticket_no",node2));
+          UpdQry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
+          UpdQry.SetVariable("point_id",NodeAsIntegerFast("point_id",node2));
+          UpdQry.SetVariable("airp_dep",NodeAsStringFast("airp_dep",node2));
+          UpdQry.SetVariable("airp_arv",NodeAsStringFast("airp_arv",node2));
+          UpdQry.SetVariable("coupon_status",FNull);
+          UpdQry.SetVariable("error",err);
+          UpdQry.SetVariable("prior_status",FNull);
+          UpdQry.SetVariable("prior_error",FNull);
+          UpdQry.Execute();
+          bool repeated=!UpdQry.VariableIsNULL("prior_error") &&
+                        UpdQry.GetVariableAsString("prior_error")==err;
+          ChangeStatusToLog(errNode, repeated, msgh.str(), screen, user, desk);
         };
     }
     else
     {
       std::list<Ticket>::const_iterator currTick;
-
-      TQuery UpdQry(&OraSession);
-      UpdQry.SQLText=
-        "BEGIN "
-        "  BEGIN "
-        "    SELECT error,coupon_status "
-        "    INTO :prior_error,:prior_status FROM etickets "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  EXCEPTION "
-        "    WHEN NO_DATA_FOUND THEN NULL; "
-        "  END; "
-        "  IF :error IS NULL AND :coupon_status IS NULL THEN "
-        "    DELETE FROM etickets "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "  ELSE "
-        "    UPDATE etickets "
-        "    SET point_id=:point_id, airp_dep=:airp_dep, airp_arv=:airp_arv, "
-        "        coupon_status=:coupon_status, error=:error "
-        "    WHERE ticket_no=:ticket_no AND coupon_no=:coupon_no; "
-        "    IF SQL%NOTFOUND THEN "
-        "      INSERT INTO etickets(ticket_no,coupon_no,point_id,airp_dep,airp_arv,coupon_status,error) "
-        "      VALUES(:ticket_no,:coupon_no,:point_id,:airp_dep,:airp_arv,:coupon_status,:error); "
-        "    END IF; "
-        "  END IF; "
-        "END;";
-      UpdQry.DeclareVariable("ticket_no",otString);
-      UpdQry.DeclareVariable("coupon_no",otInteger);
-      UpdQry.DeclareVariable("point_id",otInteger);
-      UpdQry.DeclareVariable("airp_dep",otString);
-      UpdQry.DeclareVariable("airp_arv",otString);
-      UpdQry.DeclareVariable("coupon_status",otString);
-      UpdQry.DeclareVariable("error",otString);
-      UpdQry.DeclareVariable("prior_status",otString);
-      UpdQry.DeclareVariable("prior_error",otString);
 
       for(currTick=chngStatAns.ltick().begin();currTick!=chngStatAns.ltick().end();currTick++)
       {
@@ -915,8 +943,7 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
                              udata.sessData()->ediSession()->ida(),
                              TickD.context());
 
-    TReqInfo& reqInfo = *(TReqInfo::Instance());
-    if (!reqInfo.desk.code.empty())
+    if (TickD.req_ctxt_id()!=ASTRA::NoExists)
     {
       AstraContext::SetContext("EDI_HELP_INTMSGID",
                                  udata.sessData()->ediSession()->ida(),
@@ -1022,7 +1049,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         // Из второй запись в БД
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
-        ed->sessDataWr()->SetEdiSessMesAttr();
+        ed->sessDataWr()->SetEdiSessMesAttrOnly();
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {

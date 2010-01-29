@@ -5,9 +5,11 @@
 #include "astra_ticket.h"
 #include "serverlib/monitor_ctl.h"
 #include "libtlg/hth.h"
-#include "EdiSessionAstra.h"
 
-bool set_edi_addrs(std::string airline,int flt_no=-1);
+bool get_et_addr_set( std::string airline, int flt_no, std::pair<std::string,std::string> &addrs );
+void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
+std::string get_edi_addr();
+std::string get_edi_own_addr();
 
 std::string get_last_session_ref();
 
@@ -15,6 +17,83 @@ struct EdiMess
 {
     static const std::string Display;
     static const std::string ChangeStat;
+};
+
+class AstraEdiSessWR : public edilib::EdiSess::EdiSessWrData
+{
+    edilib::EdiSess::EdiSession EdiSess;
+    edi_mes_head EdiHead;
+    std::string Pult;
+public:
+    AstraEdiSessWR(const std::string &pult)
+    : Pult(pult)
+    {
+        memset(&EdiHead, 0, sizeof(EdiHead));
+    }
+
+    virtual edilib::EdiSess::EdiSession *ediSession() { return &EdiSess; }
+
+    virtual edilib::EdiSess::H2host *h2h() { return 0; };
+    virtual std::string sndrH2hAddr() const { return ""; };
+    virtual std::string rcvrH2hAddr() const { return ""; };
+    virtual std::string H2hTpr() const { return ""; };
+
+    // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
+    // Идентификатор сессии
+    virtual std::string baseOurrefName() const
+    {
+        return "ASTRA";
+    }
+    virtual edi_mes_head *edih()
+    {
+        return &EdiHead;
+    }
+    // Внешняя ссылка на сессию
+    // virtual int externalIda() const { return 0; }
+    // Пульт
+    virtual std::string pult() const { return Pult; };
+
+    // Аттрибуты сообщения
+/*    virtual std::string syntax() const { return "IATA"; }
+    virtual unsigned syntaxVer() const { return 1; }
+    virtual std::string ctrlAgency() const { return "IA"; }
+    virtual std::string version() const { return "96"; }
+    virtual std::string subVersion() const { return "2"; }*/
+    virtual std::string ourUnbAddr() const { return get_edi_own_addr(); }
+    virtual std::string unbAddr() const { return get_edi_addr(); }
+};
+
+class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
+{
+    edi_mes_head *Head;
+    //H2host H2H;
+    bool isH2H;
+    std::string rcvr;
+    std::string sndr;
+    public:
+        AstraEdiSessRD():
+        isH2H(false)
+        {
+        }
+
+        virtual edilib::EdiSess::H2host *h2h() { return 0; };
+        virtual std::string sndrH2hAddr() const { return ""; };
+        virtual std::string rcvrH2hAddr() const { return ""; };
+        virtual std::string H2hTpr() const { return ""; };
+
+        virtual std::string baseOurrefName() const
+        {
+            return "ASTRA";
+        }
+
+        void setMesHead(edi_mes_head &head)
+        {
+            Head = &head;
+        }
+        virtual edi_mes_head *edih()
+        {
+            return Head;
+        }
 };
 
 class edi_udata
@@ -35,12 +114,12 @@ class edi_udata_wr : public edi_udata
 {
     std::string MsgId;
 public:
-    edi_udata_wr(edifact::AstraEdiSessWR *sd, const std::string &msg_id)
+    edi_udata_wr(AstraEdiSessWR *sd, const std::string &msg_id)
     : edi_udata(sd), MsgId(msg_id){}
 
-    edifact::AstraEdiSessWR *sessDataWr()
+    AstraEdiSessWR *sessDataWr()
     {
-        return &dynamic_cast<edifact::AstraEdiSessWR &>(*sessData());
+        return &dynamic_cast<AstraEdiSessWR &>(*sessData());
     }
     const std::string &msgId() const { return MsgId; }
 };
@@ -49,12 +128,12 @@ class edi_udata_rd : public edi_udata
 {
     const std::string &TlgText;
 public:
-    edi_udata_rd(edifact::AstraEdiSessRD *sd, const std::string &tlg)
+    edi_udata_rd(AstraEdiSessRD *sd, const std::string &tlg)
     : edi_udata(sd), TlgText(tlg){}
 
-    edifact::AstraEdiSessRD *sessDataRd()
+    AstraEdiSessRD *sessDataRd()
     {
-        return &dynamic_cast<edifact::AstraEdiSessRD &>(*sessData());
+        return &dynamic_cast<AstraEdiSessRD &>(*sessData());
     }
 
     const std::string tlgText() const { return TlgText; }
