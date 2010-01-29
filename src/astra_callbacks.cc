@@ -31,6 +31,7 @@
 #include "oralib.h"
 #include "xml_unit.h"
 #include "base_tables.h"
+#include "web_main.h"
 #include "jxtlib/jxtlib.h"
 #include "serverlib/query_runner.h"
 #include "serverlib/ocilocal.h"
@@ -74,6 +75,8 @@ void AstraJxtCallbacks::InitInterfaces()
     new DevTuningInterface();
     new AccessInterface();
     new CryptInterface();
+
+    new AstraWeb::WebRequestsIface();
 };
 
 void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
@@ -109,6 +112,8 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
         GetNode( "RequestCertificateData", node ) == NULL &&
         GetNode( "PutRequestCertificate", node ) == NULL &&
         !((head)[getGrp3ParamsByte()+1]&MSG_MESPRO_CRYPT);
+
+    reqInfoData.pr_web = (head[0]==2);
 
     try
     {
