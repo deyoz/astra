@@ -12,6 +12,7 @@
 #include "serverlib/ocilocal.h"
 #include "tclmon/mespro_crypt.h"
 #include "crypt.h"
+#include "web_main.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -97,6 +98,12 @@ class AstraApplication : public ApplicationCallbacks
         ServerFramework::QueryRunner query_runner (ServerFramework::AstraQueryRunner());
       return jxtlib::JXTLib::Instance()->GetCallbacks()->Main(body,blen,head,hlen,res,len);
     }
+    virtual int internet_proc(const char *body, int blen,
+                              const char *head, int hlen, char **res, int len)
+    {
+      return AstraWeb::internet_main(body,blen,head,hlen,res,len);
+    }
+
     virtual int message_control(int type /* 0 - request, 1 - answer */,
                                 const char *head, int hlen,
                                 const char *body, int blen)
