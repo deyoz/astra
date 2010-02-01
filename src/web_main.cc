@@ -872,6 +872,8 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       if ( pax_id > NoExists )
       	NewTextChild( placeNode, "pax_id", pax_id );
     }
+    SetProp( placeListNode, "xcount", xcount + 1 );
+    SetProp( placeListNode, "ycount", ycount + 1 );
   }
 }
 
