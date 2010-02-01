@@ -726,7 +726,7 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			if ( !i->crs_seat_no.empty() )
   			  NewTextChild( paxNode, "seat_no", i->crs_seat_no );
     NewTextChild( paxNode, "seats", i->seats );
-   	NewTextChild( paxNode, "checked", i->pax_id > NoExists );
+   	NewTextChild( paxNode, "checkin_status", i->checkin_status );
    	xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
    	NewTextChild( tidsNode, "crs_pnr_tid", i->crs_pnr_tid );
    	NewTextChild( tidsNode, "crs_pax_tid", i->crs_pax_tid );
