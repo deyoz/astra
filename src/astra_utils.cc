@@ -972,14 +972,18 @@ void showBasicInfo(void)
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
     //настройки пользователя
     xmlNodePtr setsNode = NewTextChild(node, "settings");
-    Qry.Clear();
-    Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
-    Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
-    Qry.Execute();
-    if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
-      NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
-    else
-      NewTextChild(setsNode,"defer_etstatus",(int)false);
+    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    {
+      Qry.Clear();
+      Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+        NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
+      else
+        NewTextChild(setsNode,"defer_etstatus",(int)false);
+    }
+    else NewTextChild(setsNode,"defer_etstatus",(int)true);
 
     Qry.Clear();
     Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";

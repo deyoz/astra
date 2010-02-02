@@ -21,6 +21,7 @@
 #include "astra_misc.h"
 #include "print.h"
 #include "web_main.h"
+#include "checkin.h"
 
 namespace AstraWeb
 {
@@ -132,11 +133,13 @@ struct TSearchPnrData {
 	string airline;
 	int flt_no;
 	string suffix;
-	TDateTime scd_out;
+	TDateTime scd_out, scd_out_local;
 	string craft;
 	string airp_dep;
 	string city_dep;
 	map<TStage, TDateTime> stages;
+
+	int airline_fmt,suffix_fmt,airp_dep_fmt,craft_fmt;
 
   int point_arv;
 	TDateTime scd_in;
@@ -203,14 +206,23 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	TBaseTable &baseairps = base_tables.get( "airps" );
 	TBaseTable &basecities = base_tables.get( "cities" );
 
-	SearchPnrData.airline = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ), Qry.FieldAsInteger( "airline_fmt" ) );
+	//SearchPnrData.airline = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ), Qry.FieldAsInteger( "airline_fmt" ) ); //!!!djek
+	SearchPnrData.airline = Qry.FieldAsString( "airline" );
+	SearchPnrData.airline_fmt = Qry.FieldAsInteger( "airline_fmt" );
 	SearchPnrData.flt_no = Qry.FieldAsInteger( "flt_no" );
-	SearchPnrData.suffix = ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ), Qry.FieldAsInteger( "suffix_fmt" ) );
-	SearchPnrData.airp_dep = ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), Qry.FieldAsInteger( "airp_fmt" ) );
+	//SearchPnrData.suffix = ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ), Qry.FieldAsInteger( "suffix_fmt" ) );
+	SearchPnrData.suffix = Qry.FieldAsString( "suffix" );
+	SearchPnrData.suffix_fmt = Qry.FieldAsInteger( "suffix_fmt" );
+	//SearchPnrData.airp_dep = ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), Qry.FieldAsInteger( "airp_fmt" ) );
+	SearchPnrData.airp_dep = Qry.FieldAsString( "airp" );
+	SearchPnrData.airp_dep_fmt = Qry.FieldAsInteger( "airp_fmt" );
 	SearchPnrData.city_dep = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" ), true )).city;
 	string region = ((TCitiesRow&)basecities.get_row( "code", SearchPnrData.city_dep, true )).region;
-	SearchPnrData.scd_out = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
-	SearchPnrData.craft = ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" ) );
+	SearchPnrData.scd_out = Qry.FieldAsDateTime( "scd_out" );
+	SearchPnrData.scd_out_local = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
+	//SearchPnrData.craft = ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" ) );
+	SearchPnrData.craft = Qry.FieldAsString( "craft" );
+	SearchPnrData.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
 	SearchPnrData.stages.clear();
 	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
@@ -246,7 +258,7 @@ void VerifyPNR( int point_id, int pnr_id )
 	Qry.CreateVariable( "pnr_id", otInteger, pnr_id );
 	Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Информация по пассажирам не найдена" );
+  	throw UserException( "Информация по пассажирам не найдена" ); //!!!vlad
 }
 
 bool findPnr( const string &surname, const string &pnr_addr,
@@ -440,7 +452,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( str_scd_out.empty() )
 		throw UserException( "Не задано плановое время вылета рейса" );
 	else
-		if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn:ss", SearchPnrData.scd_out ) == EOF )
+		if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn:ss", SearchPnrData.scd_out_local ) == EOF )
 			throw UserException( "Неправильно задано плановое время вылета рейса, значение=%s", str_scd_out.c_str() );
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
@@ -456,7 +468,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 	else
 		Qry.CreateVariable( "suffix", otString, SearchPnrData.suffix );
   double sd, sd1;
-  modf( SearchPnrData.scd_out, &sd );
+  modf( SearchPnrData.scd_out_local, &sd );
 	Qry.CreateVariable( "first_date", otDate, sd-1 );
 	Qry.CreateVariable( "last_date", otDate, sd+1 );
 	Qry.Execute();
@@ -494,7 +506,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if ( !SearchPnrData.suffix.empty() )
     NewTextChild( node, "suffix", SearchPnrData.suffix );
   NewTextChild( node, "craft", SearchPnrData.craft );
-  NewTextChild( node, "scd_out", DateTimeToStr( SearchPnrData.scd_out, ServerFormatDateTimeAsString ) );
+  NewTextChild( node, "scd_out", DateTimeToStr( SearchPnrData.scd_out_local, ServerFormatDateTimeAsString ) );
   NewTextChild( node, "airp_dep", SearchPnrData.airp_dep );
   NewTextChild( node, "city_dep", SearchPnrData.city_dep );
   NewTextChild( node, "scd_in", DateTimeToStr( SearchPnrData.scd_in, ServerFormatDateTimeAsString ) );
@@ -877,11 +889,231 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
+void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
+{
+  if (emulReqDoc==NULL)
+    throw Exception("VerifyPax: emulReqDoc=NULL");
+  xmlNodePtr emulReqNode=NodeAsNode("/term",emulReqDoc);
+  emulReqNode=NewTextChild(NewTextChild(emulReqNode,"query"),"TCkinSavePax");
+
+  int point_id=NodeAsInteger("point_id",reqNode);
+  TSearchPnrData PnrData;
+	getTripData( point_id, PnrData, true );
+	TTripInfo operFlt;
+	operFlt.airline=PnrData.airline;
+	operFlt.flt_no=PnrData.flt_no;
+	operFlt.suffix=PnrData.suffix;
+	operFlt.airp=PnrData.airp_dep;
+	operFlt.scd_out=PnrData.scd_out;
+
+	NewTextChild(emulReqNode,"transfer"); //пустой тег - трансфера нет
+	xmlNodePtr segNode=NewTextChild(NewTextChild(emulReqNode,"segments"),"segment");
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+      "SELECT tlg_trips.airline,tlg_trips.flt_no,tlg_trips.suffix, "
+      "       tlg_trips.scd AS scd_out,tlg_trips.airp_dep AS airp, "
+      "       crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
+      "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
+      "       crs_pax.seat_type, "
+      "       crs_pax.seats, "
+      "       crs_pnr.pnr_id, "
+      "       report.get_PSPT(crs_pax.pax_id) AS document, "
+      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
+      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket, "
+      "       crs_pnr.tid AS crs_pnr_tid, "
+      "       crs_pax.tid AS crs_pax_tid "
+      "FROM tlg_trips,crs_pnr,crs_pax "
+      "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=:crs_pax_id AND "
+      "      crs_pax.pr_del=0 ";
+  Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
+  Qry.DeclareVariable("crs_pax_id",otInteger);
+
+  TQuery RemQry(&OraSession);
+  RemQry.SQLText =
+    "SELECT rem_code,rem FROM crs_pax_rem WHERE pax_id=:pax_id";
+  RemQry.DeclareVariable("pax_id",otInteger);
+
+  xmlNodePtr node,reqPaxNode=NodeAsNode("passengers/pax",reqNode);
+
+  PnrData.pnr_id=ASTRA::NoExists;
+  int adult_count=0, without_seat_count=0;
+  xmlNodePtr paxsNode;
+  for(;reqPaxNode!=NULL;reqPaxNode=reqPaxNode->next)
+  {
+    Qry.SetVariable("crs_pax_id",NodeAsInteger("crs_pax_id",reqPaxNode));
+    Qry.Execute();
+    if (Qry.Eof)
+      throw UserException("Пассажир не найден. Обновите информацию");
+    if (NodeAsInteger("tids/crs_pnr_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
+        NodeAsInteger("tids/crs_pax_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pax_tid"))
+      throw UserException("Данные пассажира изменены. Обновите информацию");
+
+    if (PnrData.pnr_id==ASTRA::NoExists)
+    {
+      //первый пассажир
+      PnrData.pnr_id=Qry.FieldAsInteger("pnr_id");
+      //проверим, что данное PNR привязано к рейсу
+      VerifyPNR(point_id,PnrData.pnr_id);
+      //найдем пункт посдки PNR
+      TTripRoute route;
+      route.GetRouteAfter( PnrData.point_id,
+                           PnrData.point_num,
+                           PnrData.first_point,
+                           PnrData.pr_tranzit,
+                           trtNotCurrent,
+                           trtNotCancelled );
+      vector<TTripRouteItem>::iterator i=route.begin();
+      for ( ; i!=route.end(); i++ )
+        if (i->airp == Qry.FieldAsString( "target" )) break;
+      if (i==route.end())
+        throw UserException("Рейс изменен. Обновите данные");
+      NewTextChild(segNode,"point_dep",PnrData.point_id);
+      NewTextChild(segNode,"point_arv",i->point_id);
+      NewTextChild(segNode,"airp_dep",PnrData.airp_dep);
+      NewTextChild(segNode,"airp_arv",i->airp);
+      NewTextChild(segNode,"class",Qry.FieldAsString("class"));
+      NewTextChild(segNode,"status","K");
+      NewTextChild(segNode,"wl_type");
+      //коммерческий рейс PNR
+      TMktFlight mktFlt;
+      mktFlt.getByPnrId(PnrData.pnr_id);
+      if (mktFlt.IsNULL()) throw Exception("VerifyPax: empty TMktFlight");
+
+      TTripInfo pnrMarkFlt;
+      pnrMarkFlt.airline=mktFlt.airline;
+      pnrMarkFlt.flt_no=mktFlt.flt_no;
+      pnrMarkFlt.suffix=mktFlt.suffix;
+      pnrMarkFlt.airp=mktFlt.airp_dep;
+      pnrMarkFlt.scd_out=DayToDate(mktFlt.scd,Qry.FieldAsDateTime("scd_out"),true); //локальная дата
+
+      node=NewTextChild(segNode,"mark_flight");
+      NewTextChild(node,"airline",pnrMarkFlt.airline);
+      NewTextChild(node,"flt_no",pnrMarkFlt.flt_no);
+      NewTextChild(node,"suffix",pnrMarkFlt.suffix);
+      NewTextChild(node,"scd",pnrMarkFlt.scd_out);  //локальная дата
+      NewTextChild(node,"airp_dep",pnrMarkFlt.airp);
+
+      if (pnrMarkFlt.airline!=operFlt.airline ||
+          pnrMarkFlt.flt_no!=operFlt.flt_no ||
+          pnrMarkFlt.suffix!=operFlt.suffix ||
+          pnrMarkFlt.airp!=operFlt.airp ||
+          pnrMarkFlt.scd_out!=PnrData.scd_out_local) //локальная дата
+      {
+        //фактический не совпадает с коммерческим
+        TCodeShareSets codeshareSets;
+        codeshareSets.get(operFlt,pnrMarkFlt);
+        NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
+      }
+      else
+        NewTextChild(node,"pr_mark_norms",(int)false);
+      paxsNode=NewTextChild(segNode,"passengers");
+    }
+    else
+    {
+      if (Qry.FieldAsInteger("pnr_id")!=PnrData.pnr_id)
+        throw Exception("VerifyPax: passengers from different PNR");
+    };
+
+    xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+    NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
+    NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
+    NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
+    NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
+    if (!NodeIsNULL("seat_no",reqPaxNode))
+      NewTextChild(paxNode,"seat_no",NodeAsString("seat_no",reqPaxNode));
+    else
+      NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));
+    NewTextChild(paxNode,"preseat_no",Qry.FieldAsString("preseat_no"));
+    NewTextChild(paxNode,"seat_type",Qry.FieldAsString("seat_type"));
+    NewTextChild(paxNode,"seats",Qry.FieldAsInteger("seats"));
+    //обработка билетов
+    string ticket_no;
+    if (!Qry.FieldIsNULL("eticket"))
+    {
+      //билет TKNE
+      ticket_no=Qry.FieldAsString("eticket");
+
+      int coupon_no=0;
+      string::size_type pos=ticket_no.find_last_of('/');
+      if (pos!=string::npos)
+      {
+        if (StrToInt(ticket_no.substr(pos+1).c_str(),coupon_no)!=EOF &&
+            coupon_no>=1 && coupon_no<=4)
+          ticket_no.erase(pos);
+        else
+          coupon_no=0;
+      };
+
+      if (ticket_no.empty())
+        throw UserException("Не указан номер эл. билета");
+      NewTextChild(paxNode,"ticket_no",ticket_no);
+      if (coupon_no<=0)
+        throw UserException("Не указан купон эл. билета %s", ticket_no.c_str());
+      NewTextChild(paxNode,"coupon_no",coupon_no);
+      NewTextChild(paxNode,"ticket_rem","TKNE");
+      NewTextChild(paxNode,"ticket_confirm",(int)false);
+    }
+    else
+    {
+      ticket_no=Qry.FieldAsString("ticket");
+
+      NewTextChild(paxNode,"ticket_no",ticket_no);
+      NewTextChild(paxNode,"coupon_no");
+      if (!ticket_no.empty())
+        NewTextChild(paxNode,"ticket_rem","TKNA");
+      else
+        NewTextChild(paxNode,"ticket_rem");
+      NewTextChild(paxNode,"ticket_confirm",(int)false);
+    };
+    NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
+    NewTextChild(paxNode,"subclass",Qry.FieldAsString("subclass"));
+    NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
+    //ремарки
+    RemQry.SetVariable("pax_id",Qry.FieldAsInteger("pax_id"));
+    RemQry.Execute();
+    xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
+    for(;!RemQry.Eof;RemQry.Next())
+    {
+      xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+      NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
+      NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+    };
+    NewTextChild(paxNode,"norms"); //пустой тег - норм нет
+
+    TPerson p=DecodePerson(Qry.FieldAsString("pers_type"));
+    int seats=Qry.FieldAsInteger("seats");
+    if (p==ASTRA::adult) adult_count++;
+    if (p==ASTRA::baby && seats==0) without_seat_count++;
+  };
+
+  NewTextChild(emulReqNode,"excess",(int)0);
+  NewTextChild(emulReqNode,"hall"); //зал пустой!
+
+  if (without_seat_count>adult_count)
+    throw UserException("Кол-во РМ без мест в группе превышает кол-во ВЗ");
+};
+
 void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	ProgTrace(TRACE1,"WebRequestsIface::SavePax");
-}
+	XMLDoc emulReqDoc("UTF-8","term");
+  if (emulReqDoc.docPtr()==NULL)
+    throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CreateXMLDoc failed");
+  CopyNode(NodeAsNode("/term",emulReqDoc.docPtr()),
+           NodeAsNode("/term/query",reqNode->doc)); //копируем полностью тег query
+  VerifyPax(reqNode, emulReqDoc.docPtr());
 
+  xmlNodePtr emulReqNode=NodeAsNode("/term/query/",emulReqDoc.docPtr())->children;
+  if (emulReqNode==NULL)
+    throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
+  CheckInInterface::SavePax(emulReqNode, NULL, resNode);
+};
 
 class BPTags {
 	private:
@@ -1031,3 +1263,4 @@ void WebRequestsIface::GetBPTags(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 }
 
 } //end namespace AstraWeb
+
