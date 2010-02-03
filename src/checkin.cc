@@ -744,7 +744,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 
   FltQry.Clear();
   FltQry.SQLText=
-    "SELECT airline,flt_no,suffix,airp_dep AS airp,scd AS scd_out "
+    "SELECT airline,flt_no,suffix,airp_dep AS airp,TRUNC(scd) AS scd_out "
     "FROM tlg_trips WHERE point_id=:point_id";
   FltQry.DeclareVariable("point_id",otInteger);
 
@@ -801,6 +801,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       NewTextChild(node,"airp_dep",tlgTripsFlt.airp);
 
       TDateTime local_scd=UTCToLocal(operFlt.scd_out,AirpTZRegion(operFlt.airp));
+      modf(local_scd,&local_scd); //обрубаем часы
       if (operFlt.airline!=tlgTripsFlt.airline ||
           operFlt.flt_no!=tlgTripsFlt.flt_no ||
           operFlt.suffix!=tlgTripsFlt.suffix ||
@@ -829,7 +830,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
         pnrMarkFlt.flt_no=mktFlt.flt_no;
         pnrMarkFlt.suffix=mktFlt.suffix;
         pnrMarkFlt.airp=mktFlt.airp_dep;
-        pnrMarkFlt.scd_out=DayToDate(mktFlt.scd,tlgTripsFlt.scd_out,true);
+        pnrMarkFlt.scd_out=mktFlt.scd_date_local;
 
         if (pnrMarkFlt.airline!=tlgTripsFlt.airline ||
             pnrMarkFlt.flt_no!=tlgTripsFlt.flt_no ||
@@ -2076,7 +2077,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   bool defer_etstatus=false;
 
   TQuery Qry(&OraSession);
-  if (ediResNode==NULL)
+  if (ediResNode==NULL && !reqInfo->pr_web) //для web-регистрации нераздельное подтверждение ЭБ
   {
     if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
     {
@@ -2151,7 +2152,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   int seg_no=1,tckin_seg_no=1;
   for(;segNode!=NULL;segNode=segNode->next,seg_no++,tckin_seg_no++,first_segment=false)
   {
-    int point_dep,point_arv,grp_id,hall;
+    int point_dep,point_arv,grp_id,hall=ASTRA::NoExists;
     string cl,airp_dep,airp_arv;
 
     map<int,TSegInfo>::iterator s=segs.find(NodeAsInteger("point_dep",segNode));
@@ -2262,16 +2263,19 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       {
         cl=NodeAsString("class",segNode);
 
-        hall=NodeAsInteger("hall",reqNode);
         bool addVIP=false;
-        if (first_segment)
+        if (!reqInfo->pr_web)
         {
-          Qry.Clear();
-          Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
-          Qry.CreateVariable("hall",otInteger,hall);
-          Qry.Execute();
-          if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
-          addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+          hall=NodeAsInteger("hall",reqNode);
+          if (first_segment)
+          {
+            Qry.Clear();
+            Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
+            Qry.CreateVariable("hall",otInteger,hall);
+            Qry.Execute();
+            if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
+            addVIP=Qry.FieldAsInteger("pr_vip")!=0;
+          };
         };
 
         //новая регистрация
@@ -2284,7 +2288,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
             throw UserException("Перерегистрация транзита на данный рейс не производится");
         }
         else
-          grp_status=psTCheckin;
+          grp_status=psTCheckin; //!!!vlad при web-регистрации непонятно какой статус на послед. сегменты
 
         string wl_type;
         if (GetNode("pr_waitlist",segNode)!=NULL) //!!! старый терминал 15.03.09
@@ -2550,7 +2554,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           Qry.CreateVariable("excess",otInteger,NodeAsInteger("excess",reqNode));
         else
           Qry.CreateVariable("excess",otInteger,(int)0);
-        Qry.CreateVariable("hall",otInteger,hall);
+        if (hall!=ASTRA::NoExists)
+          Qry.CreateVariable("hall",otInteger,hall);
+        else
+          Qry.CreateVariable("hall",otInteger,FNull);
         Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
         if (first_segment)
           Qry.CreateVariable("tckin_id",otInteger,FNull);
@@ -2565,7 +2572,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         if (first_segment)
           tckin_id=Qry.GetVariableAsInteger("tckin_id");
 
-        //ReplaceTextChild(segNode,"grp_id",grp_id); !!!vlad
         ReplaceTextChild(segNode,"generated_grp_id",grp_id);
 
         if (!pr_unaccomp)
@@ -2650,9 +2656,10 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           Qry.Execute();
           int reg_no = Qry.FieldAsInteger("reg_no");
           bool pr_brd_with_reg=false,pr_exam_with_brd=false;
-          if (first_segment)
+          if (first_segment && !reqInfo->pr_web)
           {
             //при сквозной регистрации совместная регистрация с посадкой м.б. только на первом рейса
+            //при web-регистрации посадка строго раздельная
             Qry.Clear();
             Qry.SQLText=
               "SELECT pr_misc FROM trip_hall "
@@ -2800,7 +2807,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
                   throw;
               };
               int pax_id=Qry.GetVariableAsInteger("pax_id");
-              //ReplaceTextChild(node,"pax_id",pax_id); !!!vlad
               ReplaceTextChild(node,"generated_pax_id",pax_id);
 
               ostringstream seat_no_str;
@@ -2884,7 +2890,6 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
                   #else
                   SEATS::SaveTripSeatRanges( point_dep, layer_type, ranges, pax_id, point_dep, point_arv );
                   #endif
-                  //seat_no=pas.seat_no.begin()->
                   i++;
                 };
                 if ( invalid_seat_no )
@@ -4503,7 +4508,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     i=NodeAsIntegerFast("local_date",node2);
     try
     {
-      local_scd=DayToDate(i,base_date);
+      local_scd=DayToDate(i,base_date,false);
     }
     catch(EConvertError &E)
     {
@@ -5739,7 +5744,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     local_date=NodeAsIntegerFast("local_date",node2);
     try
     {
-      fltInfo.scd_out=DayToDate(local_date,base_date); //локальная дата вылета
+      fltInfo.scd_out=DayToDate(local_date,base_date,false); //локальная дата вылета
     }
     catch(EConvertError &E)
     {

@@ -35,7 +35,7 @@ bool TTlgInfo::operator == (const TMktFlight &s) const
         flt_no == s.flt_no and
         ElemToElemId(etSuffix, suffix, fmt) == s.suffix and
         ElemToElemId(etAirp, airp_dep, fmt)  == s.airp_dep and
-        local_day == s.scd;
+        local_day == s.scd_day_local;
 }
 
 
@@ -347,7 +347,7 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
     } else if(info.mark_info.pr_mark_header) {
         if(
                 info.airp_dep == encoded_m_airp_dep and
-                info.local_day == m_flight.scd
+                info.local_day == m_flight.scd_day_local
           )
             return;
     }
@@ -358,7 +358,7 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
         << setw(3) << setfill('0') << m_flight.flt_no
         << ElemIdToElem(etSuffix, m_flight.suffix, info.pr_lat)
         << ElemIdToElem(etSubcls, m_flight.subcls, info.pr_lat)
-        << setw(2) << setfill('0') << m_flight.scd
+        << setw(2) << setfill('0') << m_flight.scd_day_local
         << encoded_m_airp_dep
         << ElemIdToElem(etAirp, m_flight.airp_arv, info.pr_lat);
     body.push_back(result.str());
@@ -2873,7 +2873,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
         }
         if(inf_count > 0)
             buf2 << " " << inf_count << "INF" << buf.str();
-            
+
         iv->name.ToTlg(info, body, buf2.str());
     }
 }

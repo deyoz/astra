@@ -355,7 +355,8 @@ void TMktFlight::dump()
     ProgTrace(TRACE5, "flt_no: %d", flt_no);
     ProgTrace(TRACE5, "suffix: %s", suffix.c_str());
     ProgTrace(TRACE5, "subcls: %s", subcls.c_str());
-    ProgTrace(TRACE5, "scd: %d", scd);
+    ProgTrace(TRACE5, "scd_day_local: %d", scd_day_local);
+    ProgTrace(TRACE5, "scd_date_local: %s", DateTimeToStr(scd_date_local).c_str());
     ProgTrace(TRACE5, "airp_dep: %s", airp_dep.c_str());
     ProgTrace(TRACE5, "airp_arv: %s", airp_arv.c_str());
     ProgTrace(TRACE5, "---END OF TMktFlight::dump()---");
@@ -368,7 +369,8 @@ void TMktFlight::clear()
   flt_no = NoExists;
   suffix.clear();
   subcls.clear();
-  scd = NoExists;
+  scd_day_local = NoExists;
+  scd_date_local = NoExists;
   airp_dep.clear();
   airp_arv.clear();
 };
@@ -379,7 +381,8 @@ bool TMktFlight::IsNULL()
         airline.empty() or
         flt_no == NoExists or
         subcls.empty() or
-        scd == NoExists or
+        scd_day_local == NoExists or
+        scd_date_local == NoExists or
         airp_dep.empty() or
         airp_arv.empty();
 }
@@ -389,18 +392,19 @@ void TMktFlight::get(TQuery &Qry, int id)
     clear();
     Qry.CreateVariable("id",otInteger,id);
     Qry.Execute();
-    if(!Qry.Eof) {
+    if(!Qry.Eof)
+    {
+
         if(Qry.FieldIsNULL("pax_airline")) {
             airline = Qry.FieldAsString("tlg_airline");
             flt_no = Qry.FieldAsInteger("tlg_flt_no");
             suffix = Qry.FieldAsString("tlg_suffix");
             subcls = Qry.FieldAsString("tlg_subcls");
-
             TDateTime tmp_scd = Qry.FieldAsDateTime("tlg_scd");
             int Year, Month, Day;
             DecodeDate(tmp_scd, Year, Month, Day);
-
-            scd = Day;
+            scd_day_local = Day;
+            EncodeDate(Year, Month, Day, scd_date_local);
             airp_dep = Qry.FieldAsString("tlg_airp_dep");
             airp_arv = Qry.FieldAsString("tlg_airp_arv");
         } else {
@@ -408,7 +412,8 @@ void TMktFlight::get(TQuery &Qry, int id)
             flt_no = Qry.FieldAsInteger("pax_flt_no");
             suffix = Qry.FieldAsString("pax_suffix");
             subcls = Qry.FieldAsString("pax_subcls");
-            scd = Qry.FieldAsInteger("pax_scd");
+            scd_day_local = Qry.FieldAsInteger("pax_scd");
+            scd_date_local = DayToDate(scd_day_local,Qry.FieldAsDateTime("tlg_scd"),true);
             airp_dep = Qry.FieldAsString("pax_airp_dep");
             airp_arv = Qry.FieldAsString("pax_airp_arv");
         }
@@ -421,20 +426,20 @@ void TMktFlight::getByPaxId(int pax_id)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
-        "    points.airline tlg_airline, "
-        "    points.flt_no tlg_flt_no, "
-        "    points.suffix tlg_suffix, "
-        "    NVL(pax.subclass,pax_grp.class) tlg_subcls, "
-        "    points.scd_out tlg_scd, "
-        "    points.airp tlg_airp_dep, "
-        "    pax_grp.airp_arv tlg_airp_arv, "
-        "    market_flt.airline pax_airline, "
-        "    market_flt.flt_no pax_flt_no, "
-        "    market_flt.suffix pax_suffix, "
-        "    NVL(pax.subclass,pax_grp.class) pax_subcls, "
-        "    market_flt.scd pax_scd, "
-        "    market_flt.airp_dep pax_airp_dep, "
-        "    pax_grp.airp_arv pax_airp_arv "
+        "    points.airline oper_airline, "
+        "    points.flt_no oper_flt_no, "
+        "    points.suffix oper_suffix, "
+        "    NVL(pax.subclass,pax_grp.class) oper_subcls, "
+        "    points.scd_out oper_scd, "
+        "    points.airp oper_airp_dep, "
+        "    pax_grp.airp_arv oper_airp_arv, "
+        "    market_flt.airline mark_airline, "
+        "    market_flt.flt_no mark_flt_no, "
+        "    market_flt.suffix mark_suffix, "
+        "    NVL(pax.subclass,pax_grp.class) mark_subcls, "
+        "    market_flt.scd mark_scd, "
+        "    market_flt.airp_dep mark_airp_dep, "
+        "    pax_grp.airp_arv mark_airp_arv "
         "from "
         "   pax, "
         "   pax_grp, "
@@ -449,29 +454,30 @@ void TMktFlight::getByPaxId(int pax_id)
     Qry.CreateVariable("id",otInteger,pax_id);
     Qry.Execute();
     if(!Qry.Eof) {
-        if(Qry.FieldIsNULL("pax_airline")) {
-            airline = Qry.FieldAsString("tlg_airline");
-            flt_no = Qry.FieldAsInteger("tlg_flt_no");
-            suffix = Qry.FieldAsString("tlg_suffix");
-            subcls = Qry.FieldAsString("tlg_subcls");
-            airp_dep = Qry.FieldAsString("tlg_airp_dep");
-            airp_arv = Qry.FieldAsString("tlg_airp_arv");
-            TDateTime tmp_scd = UTCToLocal(Qry.FieldAsDateTime("tlg_scd"), AirpTZRegion(airp_dep));
+        if(Qry.FieldIsNULL("mark_airline")) {
+            airline = Qry.FieldAsString("oper_airline");
+            flt_no = Qry.FieldAsInteger("oper_flt_no");
+            suffix = Qry.FieldAsString("oper_suffix");
+            subcls = Qry.FieldAsString("oper_subcls");
+            airp_dep = Qry.FieldAsString("oper_airp_dep");
+            airp_arv = Qry.FieldAsString("oper_airp_arv");
+            TDateTime tmp_scd = UTCToLocal(Qry.FieldAsDateTime("oper_scd"), AirpTZRegion(airp_dep));
             int Year, Month, Day;
             DecodeDate(tmp_scd, Year, Month, Day);
-            scd = Day;
+            scd_day_local = Day;
+            EncodeDate(Year, Month, Day, scd_date_local);
         } else {
-            airline = Qry.FieldAsString("pax_airline");
-            flt_no = Qry.FieldAsInteger("pax_flt_no");
-            suffix = Qry.FieldAsString("pax_suffix");
-            subcls = Qry.FieldAsString("pax_subcls");
-            scd = Qry.FieldAsInteger("pax_scd");
-            TDateTime tmp_scd = Qry.FieldAsDateTime("pax_scd");
+            airline = Qry.FieldAsString("mark_airline");
+            flt_no = Qry.FieldAsInteger("mark_flt_no");
+            suffix = Qry.FieldAsString("mark_suffix");
+            subcls = Qry.FieldAsString("mark_subcls");
+            TDateTime tmp_scd = Qry.FieldAsDateTime("mark_scd");
             int Year, Month, Day;
             DecodeDate(tmp_scd, Year, Month, Day);
-            scd = Day;
-            airp_dep = Qry.FieldAsString("pax_airp_dep");
-            airp_arv = Qry.FieldAsString("pax_airp_arv");
+            scd_day_local = Day;
+            EncodeDate(Year, Month, Day, scd_date_local);
+            airp_dep = Qry.FieldAsString("mark_airp_dep");
+            airp_arv = Qry.FieldAsString("mark_airp_arv");
         }
     }
 }
@@ -485,7 +491,7 @@ void TMktFlight::getByCrsPaxId(int pax_id)
         "    tlg_trips.flt_no tlg_flt_no, "
         "    tlg_trips.suffix tlg_suffix, "
         "    crs_pnr.subclass tlg_subcls, "
-        "    tlg_trips.scd tlg_scd, "
+        "    tlg_trips.scd) tlg_scd, "
         "    tlg_trips.airp_dep tlg_airp_dep, "
         "    crs_pnr.target tlg_airp_arv, "
         "    pnr_market_flt.airline pax_airline, "
