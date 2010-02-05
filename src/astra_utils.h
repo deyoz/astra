@@ -264,6 +264,8 @@ ASTRA::TPaxStatus DecodePaxStatus(const char* s);
 char* EncodePaxStatus(ASTRA::TPaxStatus s);
 ASTRA::TCompLayerType DecodeCompLayerType(const char* s);
 char* EncodeCompLayerType(ASTRA::TCompLayerType s);
+ASTRA::TBagNormType DecodeBagNormType(const char* s);
+char* EncodeBagNormType(ASTRA::TBagNormType s);
 
 char DecodeStatus(char* s);
 

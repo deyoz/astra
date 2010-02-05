@@ -727,6 +727,21 @@ char* EncodeCompLayerType(TCompLayerType s)
   return (char*)CompLayerTypeS[s];
 };
 
+TBagNormType DecodeBagNormType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(BagNormTypeS)/sizeof(BagNormTypeS[0]);i+=1) if (strcmp(s,BagNormTypeS[i])==0) break;
+  if (i<sizeof(BagNormTypeS)/sizeof(BagNormTypeS[0]))
+    return (TBagNormType)i;
+  else
+    return bntUnknown;
+};
+
+char* EncodeBagNormType(TBagNormType s)
+{
+  return (char*)BagNormTypeS[s];
+};
+
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
 {
   int Day, Hour;

@@ -294,6 +294,151 @@ void GetPNRCodeshare(const TSearchPnrData &pnrData,
   codeshareSets.get(operFlt,pnrMarkFlt);
 };
 
+class TBagNormInfo
+{
+  public:
+    int bag_type;
+    TBagNormType norm_type;
+    int norm_id;
+    int amount;
+    int weight;
+    int per_unit;
+    bool norm_trfer;
+    void clear()
+    {
+      bag_type=ASTRA::NoExists;
+      norm_type=bntUnknown;
+      norm_id=ASTRA::NoExists;
+      amount=ASTRA::NoExists;
+      weight=ASTRA::NoExists;
+      per_unit=ASTRA::NoExists;
+      norm_trfer=false;
+    };
+    TBagNormInfo()
+    {
+      clear();
+    };
+};
+
+class TPaxInfo
+{
+  public:
+    string pax_cat;
+    string target;
+    string final_target;
+    string subcl;
+    string cl;
+};
+
+class TBagNormFields
+{
+  public:
+    //string name;
+    int amount;
+    bool filtered;
+    int fieldIdx;
+    otFieldType fieldType;
+    string value;
+    TBagNormFields(/*string pname,*/ int pamount, bool pfiltered):
+                   /*name(pname),*/amount(pamount),filtered(pfiltered)
+    {};
+};
+
+void GetPaxBagNorm(TQuery &Qry, const bool use_mixed_norms, const TPaxInfo &pax,
+                   TBagNormInfo &norm, bool onlyCategory)
+{
+  static map<string,TBagNormFields> BagNormFields;
+  if (BagNormFields.empty())
+  {
+    BagNormFields.insert(make_pair("city_arv",TBagNormFields(  1, false)));
+    BagNormFields.insert(make_pair("pax_cat", TBagNormFields(100, false)));
+    BagNormFields.insert(make_pair("subclass",TBagNormFields( 50, false)));
+    BagNormFields.insert(make_pair("class",   TBagNormFields(  1, false)));
+    BagNormFields.insert(make_pair("flt_no",  TBagNormFields(  1, true)));
+    BagNormFields.insert(make_pair("craft",   TBagNormFields(  1, true)));
+  };
+
+  map<string,TBagNormFields>::iterator i;
+
+  for(i=BagNormFields.begin();i!=BagNormFields.end();i++)
+  {
+    i->second.fieldIdx=Qry.FieldIndex(i->first);
+    i->second.fieldType=Qry.FieldType(i->second.fieldIdx);
+    i->second.value.clear();
+  };
+
+  if ((i=BagNormFields.find("pax_cat"))!=BagNormFields.end())
+    i->second.value=pax.pax_cat;
+  if ((i=BagNormFields.find("subclass"))!=BagNormFields.end())
+    i->second.value=pax.subcl;
+  if ((i=BagNormFields.find("class"))!=BagNormFields.end())
+    i->second.value=pax.cl;
+
+  bool pr_basic=(!Qry.Eof && Qry.FieldIsNULL("airline"));
+  int max_amount=ASTRA::NoExists;
+  int curr_amount=ASTRA::NoExists;
+  TBagNormInfo max_norm,curr_norm;
+
+  int pr_trfer=(int)(!pax.final_target.empty());
+  for(;pr_trfer>=0;pr_trfer--)
+  {
+    if ((i=BagNormFields.find("pax_cat"))!=BagNormFields.end())
+    {
+      i->second.value.clear();
+      if (pr_trfer!=0)
+        i->second.value=pax.final_target;
+      else
+        i->second.value=pax.target;
+    };
+
+    for(;!Qry.Eof;Qry.Next())
+    {
+      curr_norm.clear();
+
+      if (Qry.FieldIsNULL("airline") && !pr_basic) continue;
+      if (!Qry.FieldIsNULL("pr_trfer") && (Qry.FieldAsInteger("pr_trfer")!=0)!=(pr_trfer!=0)) continue;
+      if (!Qry.FieldIsNULL("bag_type"))
+        curr_norm.bag_type=Qry.FieldAsInteger("bag_type");
+      if (curr_norm.bag_type!=norm.bag_type) continue;
+      if (onlyCategory && Qry.FieldAsString("pax_cat")!=pax.pax_cat) continue;
+
+      curr_norm.norm_type=DecodeBagNormType(Qry.FieldAsString("norm_type"));
+      curr_norm.norm_id=Qry.FieldAsInteger("id");
+      if (!Qry.FieldIsNULL("amount"))
+        curr_norm.amount=Qry.FieldAsInteger("amount");
+      if (!Qry.FieldIsNULL("weight"))
+        curr_norm.weight=Qry.FieldAsInteger("weight");
+      if (!Qry.FieldIsNULL("per_unit"))
+        curr_norm.per_unit=(int)(Qry.FieldAsInteger("per_unit")!=0);
+      curr_norm.norm_trfer=pr_trfer!=0;
+
+      curr_amount=0;
+      i=BagNormFields.begin();
+      for(;i!=BagNormFields.end();i++)
+      {
+        if (Qry.FieldIsNULL(i->second.fieldIdx)) continue;
+        if (i->second.filtered)
+          curr_amount+=i->second.amount;
+        else
+          if (!i->second.value.empty())
+          {
+            if (i->second.value==Qry.FieldAsString(i->second.fieldIdx))
+              curr_amount+=i->second.amount;
+            else
+              break;
+          }
+          else break;
+      };
+      if (i==BagNormFields.end())
+      {
+        if (max_amount==ASTRA::NoExists || curr_amount>max_amount) max_norm=curr_norm;
+      };
+    };
+    if (pr_trfer!=0 && max_amount!=ASTRA::NoExists || !use_mixed_norms) break;
+  };
+  norm=max_norm;
+};
+
 bool findPnr( const string &surname, const string &pnr_addr,
               const string &ticket_no, const string &document,
               TSearchPnrData &SearchPnrData )
@@ -423,9 +568,6 @@ bool findPnr( const string &surname, const string &pnr_addr,
       SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
 
       //определение багажной нормы (с учетом возможного кодшера)
-
-      SearchPnrData.bag_norm = 20;
-
       TTripInfo operFlt,pnrMarkFlt;
       TCodeShareSets codeshareSets;
       GetPNRCodeshare(SearchPnrData, operFlt, pnrMarkFlt, codeshareSets);
@@ -458,12 +600,28 @@ bool findPnr( const string &surname, const string &pnr_addr,
        "      (bag_norms.craft IS NULL OR bag_norms.craft=p.craft) AND "
        "      (bag_norms.trip_type IS NULL OR bag_norms.trip_type=p.trip_type) AND "
        "      first_date<=scd AND (last_date IS NULL OR last_date>scd) AND "
-       "      bag_norms.pr_del=0 "
+       "      bag_norms.pr_del=0 AND "
+       "      bag_norms.norm_type=:norm_type "
        "ORDER BY airline,DECODE(pr_trfer,0,0,NULL,0,1),id";
       BagNormsQry.CreateVariable("use_mark_flt",otInteger,codeshareSets.pr_mark_norms);
       BagNormsQry.CreateVariable("airline_mark",otString,pnrMarkFlt.airline);
       BagNormsQry.CreateVariable("flt_no_mark",otInteger,pnrMarkFlt.flt_no);
       BagNormsQry.CreateVariable("point_id",otInteger,SearchPnrData.point_id);
+      BagNormsQry.CreateVariable("norm_type",otString,EncodeBagNormType(bntFreeExcess));
+      BagNormsQry.Execute();
+
+      bool use_mixed_norms=GetTripSets(tsMixedNorms,operFlt);
+      TPaxInfo pax;
+      pax.pax_cat="";
+      pax.target=SearchPnrData.city_arv;
+      pax.final_target=""; //трансфер пока не анализируем
+      pax.subcl=SearchPnrData.subcls;
+      pax.cl=SearchPnrData.cls;
+      TBagNormInfo norm;
+
+      GetPaxBagNorm(BagNormsQry, use_mixed_norms, pax, norm, false);
+
+      SearchPnrData.bag_norm = norm.weight; //!!!vlad пусто передавать в XML если bag_norm=ASTRA::NoExists
 
 
   		fcount++;

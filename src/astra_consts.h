@@ -52,6 +52,13 @@ enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoSh
 	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
+enum TBagNormType { bntFree, bntOrdinary, bntPaid,
+                    bntFreeExcess, bntFreeOrdinary, bntFreePaid, bntOrdinaryPaid,
+                    bntUnknown, bntTypeNum };
+
+extern const char* BagNormTypeS[bntTypeNum];
+
+
 const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
 
 };
