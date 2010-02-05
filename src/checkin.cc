@@ -2077,7 +2077,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   bool defer_etstatus=false;
 
   TQuery Qry(&OraSession);
-  if (ediResNode==NULL && !reqInfo->pr_web) //для web-регистрации нераздельное подтверждение ЭБ
+  if (ediResNode==NULL && reqInfo->client_type == ctTerm) //для web-регистрации нераздельное подтверждение ЭБ
   {
     if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
     {
@@ -2264,7 +2264,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         cl=NodeAsString("class",segNode);
 
         bool addVIP=false;
-        if (!reqInfo->pr_web)
+        if (reqInfo->client_type == ctTerm)
         {
           hall=NodeAsInteger("hall",reqNode);
           if (first_segment)
@@ -2531,9 +2531,9 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           "BEGIN "
           "  SELECT pax_grp__seq.nextval INTO :grp_id FROM dual; "
           "  INSERT INTO pax_grp(grp_id,point_dep,point_arv,airp_dep,airp_arv,class, "
-          "                      status,excess,hall,bag_refuse,user_id,tid) "
+          "                      status,excess,hall,bag_refuse,user_id,client_type,tid) "
           "  VALUES(:grp_id,:point_dep,:point_arv,:airp_dep,:airp_arv,:class, "
-          "         :status,:excess,:hall,0,:user_id,tid__seq.nextval); "
+          "         :status,:excess,:hall,0,:user_id,:client_type,tid__seq.nextval); "
           "  IF :seg_no IS NOT NULL THEN "
           "    IF :seg_no=1 THEN :tckin_id:=:grp_id; END IF; "
           "    INSERT INTO tckin_pax_grp(tckin_id,seg_no,grp_id,pr_depend) "
@@ -2559,6 +2559,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
         else
           Qry.CreateVariable("hall",otInteger,FNull);
         Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
+       	Qry.CreateVariable("client_type",otString,EncodeClientType(reqInfo->client_type));
         if (first_segment)
           Qry.CreateVariable("tckin_id",otInteger,FNull);
         else
@@ -2656,7 +2657,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
           Qry.Execute();
           int reg_no = Qry.FieldAsInteger("reg_no");
           bool pr_brd_with_reg=false,pr_exam_with_brd=false;
-          if (first_segment && !reqInfo->pr_web)
+          if (first_segment && reqInfo->client_type == ctTerm)
           {
             //при сквозной регистрации совместная регистрация с посадкой м.б. только на первом рейса
             //при web-регистрации посадка строго раздельная

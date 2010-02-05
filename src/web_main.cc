@@ -138,6 +138,8 @@ struct TSearchPnrData {
 	string airp_dep;
 	string city_dep;
 	map<TStage, TDateTime> stages;
+	TStage web_stage;
+	TDateTime act_out;
 
 	int airline_fmt,suffix_fmt,airp_dep_fmt,craft_fmt;
 
@@ -188,21 +190,24 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 		else
 			return false;
 	tst();
-	if ( !Qry.FieldIsNULL( "act_out" ) )
+	if ( Qry.FieldIsNULL( "act_out" ) )
+		SearchPnrData.act_out = NoExists;
+	else
+		SearchPnrData.act_out = Qry.FieldAsDateTime( "act_out" );
+/*!!!
 		if ( pr_throw )
 		  throw UserException( "Рейс вылетел" );
 		else
-			return false;
+			return false;*/
 	tst();
 	TTripStages tripStages( point_id );
-	TStage stage = tripStages.getStage( stWEB );
-	ProgTrace( TRACE5, "stage=%d", (int)stage );
-	if ( stage != sOpenWEBCheckIn )
+	SearchPnrData.web_stage = tripStages.getStage( stWEB );
+	ProgTrace( TRACE5, "web_stage=%d", (int)SearchPnrData.web_stage );
+/*!!!	if ( stage != sOpenWEBCheckIn )
 		if ( pr_throw )
 		  throw UserException( "Регистрация не открыта" );
 		else
-			return false;
-  tst();
+			return false;*/
 	TBaseTable &baseairps = base_tables.get( "airps" );
 	TBaseTable &basecities = base_tables.get( "cities" );
 
@@ -234,7 +239,6 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	SearchPnrData.point_num = Qry.FieldAsInteger("point_num");
 	SearchPnrData.first_point = Qry.FieldAsInteger("first_point");
 	SearchPnrData.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
-	tst();
 	return true;
 }
 
@@ -382,7 +386,7 @@ void GetPaxBagNorm(TQuery &Qry, const bool use_mixed_norms, const TPaxInfo &pax,
   int pr_trfer=(int)(!pax.final_target.empty());
   for(;pr_trfer>=0;pr_trfer--)
   {
-    if ((i=BagNormFields.find("pax_cat"))!=BagNormFields.end())
+    if ((i=BagNormFields.find("city_arv"))!=BagNormFields.end())
     {
       i->second.value.clear();
       if (pr_trfer!=0)
@@ -506,7 +510,7 @@ bool findPnr( const string &surname, const string &pnr_addr,
     if ( pr_find && !document.empty() ) { // если пред. проверка удовл. и если задан документ, то делаем проверку
     	QryDoc.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
     	QryDoc.Execute();
-    	pr_find = ( QryDoc.Eof );
+    	pr_find = ( !QryDoc.Eof );
     }
     ProgTrace( TRACE5, "after search document, pr_find=%d", pr_find );
     if ( pr_find ) { // если пред. проверки удовл.
@@ -748,6 +752,25 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild( node, "airp_arv", SearchPnrData.airp_arv );
   NewTextChild( node, "city_arv", SearchPnrData.city_arv );
   xmlNodePtr stagesNode = NewTextChild( node, "stages" );
+  if ( SearchPnrData.act_out > NoExists )
+  	SetProp( stagesNode, "status", "sTakeoff" );
+  else
+    switch ( SearchPnrData.web_stage ) {
+    	case sNoActive:
+    		SetProp( stagesNode, "status", "sNoActive" );
+    		break;
+    	case sOpenWEBCheckIn:
+    		SetProp( stagesNode, "status", "sOpenWEBCheckIn" );
+    		break;
+    	case sCloseWEBCheckIn:
+    		SetProp( stagesNode, "status", "sCloseWEBCheckIn" );
+    		break;
+    	case sTakeoff:
+    		SetProp( stagesNode, "status", "sTakeoff" );
+    		break;
+ 	  	default:;
+    };
+
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) ),
            "type", "sOpenWEBCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) ),
@@ -1028,14 +1051,17 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   VerifyPNR( point_id, pnr_id );
   getPnr( pnr_id, pnr );
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
-  	if ( i->pax_id > NoExists )
-  		continue;
-  	crs_class = i->pass_class;
-  	crs_subclass = i->pass_subclass;
-  	break;
+/*  	if ( i->pax_id > NoExists )
+  		continue;*/ //???
+  	if ( !i->pass_class.empty() )
+  	  crs_class = i->pass_class;
+  	if ( !i->pass_subclass.empty() )
+  	  crs_subclass = i->pass_subclass;
+  	if ( !crs_class.empty() && i->pass_subclass.empty() )
+  	  break;
   }
   if ( crs_class.empty() )
-  	throw UserException( "не задан класс обслуживания" );
+  	throw UserException( "Не задан класс обслуживания" );
   map<string,bool> ispl;
   ImagesInterface::GetisPlaceMap( ispl );
   TQuery Qry(&OraSession);
@@ -1207,7 +1233,7 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
       NewTextChild(segNode,"airp_dep",PnrData.airp_dep);
       NewTextChild(segNode,"airp_arv",i->airp);
       NewTextChild(segNode,"class",Qry.FieldAsString("class"));
-      NewTextChild(segNode,"status","K"); //!!!vlad что делать со статусом? Новый специальный?
+      NewTextChild(segNode,"status","K");
       NewTextChild(segNode,"wl_type");
 
       TTripInfo operFlt,pnrMarkFlt;
@@ -1303,7 +1329,7 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
   };
 
   NewTextChild(emulReqNode,"excess",(int)0);
-  NewTextChild(emulReqNode,"hall"); //!!!vlad что делать с ид зала
+  NewTextChild(emulReqNode,"hall");
 
   if (without_seat_count>adult_count)
     throw UserException("Кол-во РМ без мест в группе превышает кол-во ВЗ");

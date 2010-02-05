@@ -208,13 +208,13 @@ class TReqInfo
     TUser user;
     TDesk desk;
     TScreen screen;
-    bool pr_web;
+    ASTRA::TClientType client_type;
     void clear()
     {
       desk.clear();
       user.clear();
       screen.clear();
-      pr_web = false;
+      client_type = ASTRA::ctTerm;
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
@@ -253,6 +253,7 @@ void MsgToLog(std::string msg,
               int id3 = 0);
 
 char* EncodeClientType(ASTRA::TClientType s); //DecodeClientType не нужен! Если нужен вдруг, обсудить с Владом
+ASTRA::TClientType DecodeClientType( const std::string &client_type );
 
 ASTRA::TDocType DecodeDocType(const char* s);
 char* EncodeDocType(ASTRA::TDocType doc);

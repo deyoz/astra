@@ -125,7 +125,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
             InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
-  pr_web = InitData.pr_web;
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
@@ -241,17 +240,23 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.login = Qry.FieldAsString( "login" );
 
 
-  if (!InitData.pr_web) {
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT id FROM web_clients "
-      "WHERE desk=UPPER(:desk) OR user_id=:user_id";
-    Qry.CreateVariable( "desk", otString, InitData.pult );
-    Qry.CreateVariable( "user_id", otInteger, user.user_id );
-    Qry.Execute();
-    if (!Qry.Eof)
+//  if (!InitData.pr_web) {
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT client_type FROM web_clients "
+    "WHERE desk=UPPER(:desk) OR user_id=:user_id";
+  Qry.CreateVariable( "desk", otString, InitData.pult );
+  Qry.CreateVariable( "user_id", otInteger, user.user_id );
+  Qry.Execute();
+  if ( !Qry.Eof && !InitData.pr_web ||
+  	   Qry.Eof && InitData.pr_web ) //???
     	throw UserException( "Пользователю отказано в доступе" );
-  }
+
+  if ( InitData.pr_web )
+  	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
+  else
+    client_type = ctTerm;
+//  }
 
   //если служащий порта - проверим пульт с которого он заходит
   /*if (user.user_type==utAirport)
@@ -606,6 +611,15 @@ char* EncodeClientType(TClientType s)
   return (char*)ClientTypeS[s];
 };
 
+ASTRA::TClientType DecodeClientType( const std::string &client_type )
+{
+  for ( int i=0; i<(int)ctTypeNum; i++ ) {
+  	if ( client_type == ClientTypeS[ i ] )
+  		return (TClientType)i;
+  }
+  throw Exception( "Invalid client type" );
+}
+
 TOperMode DecodeOperMode( const string mode )
 {
   int i;
@@ -784,7 +798,7 @@ void showError(const std::string &message, int code)
 
 void showErrorMessage(const std::string &message, int code )
 {
-	if ( TReqInfo::Instance()->pr_web )
+	if ( TReqInfo::Instance()->client_type != ctTerm )
 		throw Exception( "Invalid use showErrorMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
@@ -800,7 +814,7 @@ void showErrorMessageAndRollback(const std::string &message, int code )
 
 void showMessage(const std::string &message, int code )
 {
-	if ( TReqInfo::Instance()->pr_web )
+	if ( TReqInfo::Instance()->client_type != ctTerm )
 		throw Exception( "Invalid use showMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);

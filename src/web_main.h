@@ -21,7 +21,7 @@ int internet_main(const char *body, int blen, const char *head,
 class WebRequestsIface : public JxtInterface
 {
 public:
-  WebRequestsIface() : JxtInterface("","WEBC")
+  WebRequestsIface() : JxtInterface("","WEB")
   {
      Handler *evHandle;
      // Информация о рейсе
