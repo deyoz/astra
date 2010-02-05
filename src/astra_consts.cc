@@ -3,6 +3,9 @@
 namespace ASTRA
 {
 
+const char * ClientTypeS[ ctTypeNum ] =
+    {"TERM", "WEB", "KIOSK"};
+
 const char * OperModeS[ omTypeNum ] =
     {"CUSE", "CUTE", "MUSE", "STAND"};
 

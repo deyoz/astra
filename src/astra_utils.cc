@@ -601,6 +601,11 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
 
 /***************************************************************************************/
 
+char* EncodeClientType(TClientType s)
+{
+  return (char*)ClientTypeS[s];
+};
+
 TOperMode DecodeOperMode( const string mode )
 {
   int i;
