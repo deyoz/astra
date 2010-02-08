@@ -855,7 +855,7 @@ void verifyPaxTids( int pax_id, int crs_pnr_tid, int crs_pax_tid, int pax_grp_ti
   	   crs_pnr_tid != Qry.FieldAsInteger( "crs_pnr_tid" ) ||
   	   crs_pax_tid != Qry.FieldAsInteger( "crs_pax_tid" ) ||
   	   pax_grp_tid != Qry.FieldAsInteger( "pax_grp_tid" ) ||
-  	   pax_tid != Qry.FieldAsInteger( "pax_grp_tid" ) )
+  	   pax_tid != Qry.FieldAsInteger( "pax_tid" ) )
   	throw UserException( "Изменения в группе производились со стойки регистрации. Обновите данные" ); //!!!vlad это неправильно!
 }
 
