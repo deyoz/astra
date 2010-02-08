@@ -1184,7 +1184,6 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
 	  throw UserException( "Регистрация не открыта" );
 
 	NewTextChild(emulReqNode,"transfer"); //пустой тег - трансфера нет
-	xmlNodePtr segNode=NewTextChild(NewTextChild(emulReqNode,"segments"),"segment");
 
   TQuery Qry(&OraSession);
   Qry.Clear();
@@ -1202,10 +1201,14 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
       "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
       "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket, "
       "       crs_pnr.tid AS crs_pnr_tid, "
-      "       crs_pax.tid AS crs_pax_tid "
-      "FROM tlg_trips,crs_pnr,crs_pax "
+      "       crs_pax.tid AS crs_pax_tid, "
+      "       pax_grp.tid AS pax_grp_tid, "
+      "       pax.tid AS pax_tid "
+      "FROM tlg_trips,crs_pnr,crs_pax,pax,pax_grp "
       "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
       "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+      "      crs_pax.pax_id=pax.pax_id(+) AND "
+      "      pax.grp_id=pax_grp.grp_id(+) AND "
       "      crs_pax.pax_id=:crs_pax_id AND "
       "      crs_pax.pr_del=0 ";
   Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
@@ -1227,6 +1230,7 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
     Qry.Execute();
     if (Qry.Eof)
       throw UserException("Пассажир не найден. Обновите информацию");
+
     if (NodeAsInteger("tids/crs_pnr_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
         NodeAsInteger("tids/crs_pax_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pax_tid"))
       throw UserException("Данные пассажира изменены. Обновите информацию");
@@ -1237,40 +1241,6 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
       PnrData.pnr_id=Qry.FieldAsInteger("pnr_id");
       //проверим, что данное PNR привязано к рейсу
       VerifyPNR(point_id,PnrData.pnr_id);
-      //найдем пункт посдки PNR
-      TTripRoute route;
-      route.GetRouteAfter( PnrData.point_id,
-                           PnrData.point_num,
-                           PnrData.first_point,
-                           PnrData.pr_tranzit,
-                           trtNotCurrent,
-                           trtNotCancelled );
-      vector<TTripRouteItem>::iterator i=route.begin();
-      for ( ; i!=route.end(); i++ )
-        if (i->airp == Qry.FieldAsString( "target" )) break;
-      if (i==route.end())
-        throw UserException("Рейс изменен. Обновите данные");
-      NewTextChild(segNode,"point_dep",PnrData.point_id);
-      NewTextChild(segNode,"point_arv",i->point_id);
-      NewTextChild(segNode,"airp_dep",PnrData.airp_dep);
-      NewTextChild(segNode,"airp_arv",i->airp);
-      NewTextChild(segNode,"class",Qry.FieldAsString("class"));
-      NewTextChild(segNode,"status","K");
-      NewTextChild(segNode,"wl_type");
-
-      TTripInfo operFlt,pnrMarkFlt;
-      TCodeShareSets codeshareSets;
-      GetPNRCodeshare(PnrData, operFlt, pnrMarkFlt, codeshareSets);
-
-      node=NewTextChild(segNode,"mark_flight");
-      NewTextChild(node,"airline",pnrMarkFlt.airline);
-      NewTextChild(node,"flt_no",pnrMarkFlt.flt_no);
-      NewTextChild(node,"suffix",pnrMarkFlt.suffix);
-      NewTextChild(node,"scd",DateTimeToStr(pnrMarkFlt.scd_out));  //локальная дата
-      NewTextChild(node,"airp_dep",pnrMarkFlt.airp);
-      NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
-
-      paxsNode=NewTextChild(segNode,"passengers");
     }
     else
     {
@@ -1278,76 +1248,137 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
         throw Exception("VerifyPax: passengers from different PNR");
     };
 
-    xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
-    NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
-    NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
-    NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
-    NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
-    if (!NodeIsNULL("seat_no",reqPaxNode))
-      NewTextChild(paxNode,"seat_no",NodeAsString("seat_no",reqPaxNode));
-    else
-      NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));
-    NewTextChild(paxNode,"preseat_no",Qry.FieldAsString("preseat_no"));
-    NewTextChild(paxNode,"seat_type",Qry.FieldAsString("seat_type"));
-    NewTextChild(paxNode,"seats",Qry.FieldAsInteger("seats"));
-    //обработка билетов
-    string ticket_no;
-    if (!Qry.FieldIsNULL("eticket"))
+    if (!Qry.FieldIsNULL("pax_tid"))
     {
-      //билет TKNE
-      ticket_no=Qry.FieldAsString("eticket");
+      //пассажир зарегистрирован
+      if (GetNode("tids/pax_grp_tid",reqPaxNode)==NULL||
+          GetNode("tids/pax_tid",reqPaxNode)==NULL)
+        throw UserException("Пассажир уже зарегистрирован. Обновите информацию");
 
-      int coupon_no=0;
-      string::size_type pos=ticket_no.find_last_of('/');
-      if (pos!=string::npos)
+      if (NodeAsInteger("tids/pax_grp_tid",reqPaxNode)!=Qry.FieldAsInteger("pax_grp_tid") ||
+          NodeAsInteger("tids/pax_tid",reqPaxNode)!=Qry.FieldAsInteger("pax_tid"))
+        throw UserException("Данные пассажира изменены. Обновите информацию");
+
+      if (!NodeIsNULL("seat_no",reqPaxNode)) //!!!vlad может ли быть место пустым?
       {
-        if (StrToInt(ticket_no.substr(pos+1).c_str(),coupon_no)!=EOF &&
-            coupon_no>=1 && coupon_no<=4)
-          ticket_no.erase(pos);
-        else
-          coupon_no=0;
       };
-
-      if (ticket_no.empty())
-        throw UserException("Не указан номер эл. билета");
-      NewTextChild(paxNode,"ticket_no",ticket_no);
-      if (coupon_no<=0)
-        throw UserException("Не указан купон эл. билета %s", ticket_no.c_str());
-      NewTextChild(paxNode,"coupon_no",coupon_no);
-      NewTextChild(paxNode,"ticket_rem","TKNE");
-      NewTextChild(paxNode,"ticket_confirm",(int)false);
+      continue;
     }
     else
     {
-      ticket_no=Qry.FieldAsString("ticket");
+      //пассажир не зарегистрирован
+      if (GetNode("segments",emulReqNode)==NULL)
+      {
+        //найдем пункт посдки PNR
+        TTripRoute route;
+        route.GetRouteAfter( PnrData.point_id,
+                             PnrData.point_num,
+                             PnrData.first_point,
+                             PnrData.pr_tranzit,
+                             trtNotCurrent,
+                             trtNotCancelled );
+        vector<TTripRouteItem>::iterator i=route.begin();
+        for ( ; i!=route.end(); i++ )
+          if (i->airp == Qry.FieldAsString( "target" )) break;
+        if (i==route.end())
+          throw UserException("Рейс изменен. Обновите данные");
 
-      NewTextChild(paxNode,"ticket_no",ticket_no);
-      NewTextChild(paxNode,"coupon_no");
-      if (!ticket_no.empty())
-        NewTextChild(paxNode,"ticket_rem","TKNA");
+        xmlNodePtr segNode=NewTextChild(NewTextChild(emulReqNode,"segments"),"segment");
+
+        NewTextChild(segNode,"point_dep",PnrData.point_id);
+        NewTextChild(segNode,"point_arv",i->point_id);
+        NewTextChild(segNode,"airp_dep",PnrData.airp_dep);
+        NewTextChild(segNode,"airp_arv",i->airp);
+        NewTextChild(segNode,"class",Qry.FieldAsString("class"));
+        NewTextChild(segNode,"status","K");
+        NewTextChild(segNode,"wl_type");
+
+        TTripInfo operFlt,pnrMarkFlt;
+        TCodeShareSets codeshareSets;
+        GetPNRCodeshare(PnrData, operFlt, pnrMarkFlt, codeshareSets);
+
+        node=NewTextChild(segNode,"mark_flight");
+        NewTextChild(node,"airline",pnrMarkFlt.airline);
+        NewTextChild(node,"flt_no",pnrMarkFlt.flt_no);
+        NewTextChild(node,"suffix",pnrMarkFlt.suffix);
+        NewTextChild(node,"scd",DateTimeToStr(pnrMarkFlt.scd_out));  //локальная дата
+        NewTextChild(node,"airp_dep",pnrMarkFlt.airp);
+        NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
+
+        paxsNode=NewTextChild(segNode,"passengers");
+      };
+
+      xmlNodePtr paxNode=NewTextChild(paxsNode,"pax");
+      NewTextChild(paxNode,"pax_id",Qry.FieldAsInteger("pax_id"));
+      NewTextChild(paxNode,"surname",Qry.FieldAsString("surname"));
+      NewTextChild(paxNode,"name",Qry.FieldAsString("name"));
+      NewTextChild(paxNode,"pers_type",Qry.FieldAsString("pers_type"));
+      if (!NodeIsNULL("seat_no",reqPaxNode))
+        NewTextChild(paxNode,"seat_no",NodeAsString("seat_no",reqPaxNode));
       else
-        NewTextChild(paxNode,"ticket_rem");
-      NewTextChild(paxNode,"ticket_confirm",(int)false);
-    };
-    NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
-    NewTextChild(paxNode,"subclass",Qry.FieldAsString("subclass"));
-    NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
-    //ремарки
-    RemQry.SetVariable("pax_id",Qry.FieldAsInteger("pax_id"));
-    RemQry.Execute();
-    xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
-    for(;!RemQry.Eof;RemQry.Next())
-    {
-      xmlNodePtr remNode=NewTextChild(remsNode,"rem");
-      NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
-      NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
-    };
-    NewTextChild(paxNode,"norms"); //пустой тег - норм нет
+        NewTextChild(paxNode,"seat_no",Qry.FieldAsString("seat_no"));
+      NewTextChild(paxNode,"preseat_no",Qry.FieldAsString("preseat_no"));
+      NewTextChild(paxNode,"seat_type",Qry.FieldAsString("seat_type"));
+      NewTextChild(paxNode,"seats",Qry.FieldAsInteger("seats"));
+      //обработка билетов
+      string ticket_no;
+      if (!Qry.FieldIsNULL("eticket"))
+      {
+        //билет TKNE
+        ticket_no=Qry.FieldAsString("eticket");
 
-    TPerson p=DecodePerson(Qry.FieldAsString("pers_type"));
-    int seats=Qry.FieldAsInteger("seats");
-    if (p==ASTRA::adult) adult_count++;
-    if (p==ASTRA::baby && seats==0) without_seat_count++;
+        int coupon_no=0;
+        string::size_type pos=ticket_no.find_last_of('/');
+        if (pos!=string::npos)
+        {
+          if (StrToInt(ticket_no.substr(pos+1).c_str(),coupon_no)!=EOF &&
+              coupon_no>=1 && coupon_no<=4)
+            ticket_no.erase(pos);
+          else
+            coupon_no=0;
+        };
+
+        if (ticket_no.empty())
+          throw UserException("Не указан номер эл. билета");
+        NewTextChild(paxNode,"ticket_no",ticket_no);
+        if (coupon_no<=0)
+          throw UserException("Не указан купон эл. билета %s", ticket_no.c_str());
+        NewTextChild(paxNode,"coupon_no",coupon_no);
+        NewTextChild(paxNode,"ticket_rem","TKNE");
+        NewTextChild(paxNode,"ticket_confirm",(int)false);
+      }
+      else
+      {
+        ticket_no=Qry.FieldAsString("ticket");
+
+        NewTextChild(paxNode,"ticket_no",ticket_no);
+        NewTextChild(paxNode,"coupon_no");
+        if (!ticket_no.empty())
+          NewTextChild(paxNode,"ticket_rem","TKNA");
+        else
+          NewTextChild(paxNode,"ticket_rem");
+        NewTextChild(paxNode,"ticket_confirm",(int)false);
+      };
+      NewTextChild(paxNode,"document",Qry.FieldAsString("document"));
+      NewTextChild(paxNode,"subclass",Qry.FieldAsString("subclass"));
+      NewTextChild(paxNode,"transfer"); //пустой тег - трансфера нет
+      //ремарки
+      RemQry.SetVariable("pax_id",Qry.FieldAsInteger("pax_id"));
+      RemQry.Execute();
+      xmlNodePtr remsNode=NewTextChild(paxNode,"rems");
+      for(;!RemQry.Eof;RemQry.Next())
+      {
+        xmlNodePtr remNode=NewTextChild(remsNode,"rem");
+        NewTextChild(remNode,"rem_code",RemQry.FieldAsString("rem_code"));
+        NewTextChild(remNode,"rem_text",RemQry.FieldAsString("rem"));
+      };
+      NewTextChild(paxNode,"norms"); //пустой тег - норм нет
+
+      TPerson p=DecodePerson(Qry.FieldAsString("pers_type"));
+      int seats=Qry.FieldAsInteger("seats");
+      if (p==ASTRA::adult) adult_count++;
+      if (p==ASTRA::baby && seats==0) without_seat_count++;
+    };
   };
 
   NewTextChild(emulReqNode,"excess",(int)0);
@@ -1379,13 +1410,14 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   xmlUnlinkNode(node);
   xmlFreeNode(node);
 
-  //ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
   VerifyPax(reqNode, emulReqDoc.docPtr(), pnr_id);
-  ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
+//  ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
 
   xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
   if (emulReqNode==NULL)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
+
+  if (GetNode("segments",emulReqNode)==NULL) return true; //была только пересадка зарег. пассажиров
 
   bool result=CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode); //!!!vlad возвращает false при перегрузке
   	                                                                                //при этом используется showErrorMessage
