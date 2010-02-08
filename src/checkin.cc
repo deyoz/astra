@@ -3596,7 +3596,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
       //BSM
       if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
-      if (first_segment)
+      if (first_segment && reqInfo->client_type==ctTerm) //!!!vlad
       {
         //отправить на клиент счетчики
         readTripCounters(point_dep,resNode);
@@ -3630,9 +3630,12 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   }
   else
   {
-    //пересчитать данные по группе и отправить на клиент
-    LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
-                                 strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
+  	if (reqInfo->client_type==ctTerm)
+  	{
+      //пересчитать данные по группе и отправить на клиент
+      LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
+                                   strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
+    };
   };
   return true;
 };

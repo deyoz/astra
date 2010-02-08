@@ -751,26 +751,26 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild( node, "scd_in", DateTimeToStr( SearchPnrData.scd_in, ServerFormatDateTimeAsString ) );
   NewTextChild( node, "airp_arv", SearchPnrData.airp_arv );
   NewTextChild( node, "city_arv", SearchPnrData.city_arv );
-  xmlNodePtr stagesNode = NewTextChild( node, "stages" );
   if ( SearchPnrData.act_out > NoExists )
-  	SetProp( stagesNode, "status", "sTakeoff" );
+  	NewTextChild( node, "status", "sTakeoff" );
   else
     switch ( SearchPnrData.web_stage ) {
     	case sNoActive:
-    		SetProp( stagesNode, "status", "sNoActive" );
+    		NewTextChild( node, "status", "sNoActive" );
     		break;
     	case sOpenWEBCheckIn:
-    		SetProp( stagesNode, "status", "sOpenWEBCheckIn" );
+    		NewTextChild( node, "status", "sOpenWEBCheckIn" );
     		break;
     	case sCloseWEBCheckIn:
-    		SetProp( stagesNode, "status", "sCloseWEBCheckIn" );
+    		NewTextChild( node, "status", "sCloseWEBCheckIn" );
     		break;
     	case sTakeoff:
-    		SetProp( stagesNode, "status", "sTakeoff" );
+    		NewTextChild( node, "status", "sTakeoff" );
     		break;
  	  	default:;
     };
 
+  xmlNodePtr stagesNode = NewTextChild( node, "stages" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) ),
            "type", "sOpenWEBCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) ),
@@ -976,18 +976,14 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
   ProgTrace( TRACE5, "pass count=%d", pnr.size() );
 }
 
-void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr resNode )
 {
-  ProgTrace(TRACE1,"WebRequestsIface::SearchPnr");
-  int point_id = NodeAsInteger( "point_id", reqNode );
-  int pnr_id = NodeAsInteger( "pnr_id", reqNode );
 	ProgTrace( TRACE5, "point_id=%d, pnr_id=%d", point_id, pnr_id );
   getTripData( point_id, true );
   VerifyPNR( point_id, pnr_id );
   vector<TWebPax> pnr;
   getPnr( pnr_id, pnr );
-  xmlNodePtr node = NewTextChild( resNode, "LoadPnr" );
-  node = NewTextChild( node, "passengers" );
+  xmlNodePtr node = NewTextChild( resNode, "passengers" );
   for ( vector<TWebPax>::iterator i=pnr.begin(); i!=pnr.end(); i++ ) {
   	xmlNodePtr paxNode = NewTextChild( node, "pax" );
   	NewTextChild( paxNode, "crs_pax_id", i->crs_pax_id );
@@ -1016,6 +1012,14 @@ void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
    	if ( i->pax_tid > NoExists )
    		NewTextChild( tidsNode, "pax_tid", i->pax_tid );
   }
+}
+
+void WebRequestsIface::LoadPnr(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  ProgTrace(TRACE1,"WebRequestsIface::SearchPnr");
+  int point_id = NodeAsInteger( "point_id", reqNode );
+  int pnr_id = NodeAsInteger( "pnr_id", reqNode );
+  IntLoadPnr( point_id, pnr_id, NewTextChild( resNode, "LoadPnr" ) );
 }
 
 bool isOwnerFreePlace( int pax_id, const vector<TWebPax> &pnr )
@@ -1161,12 +1165,13 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   }
 }
 
-void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
+void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
 {
+	pnr_id=ASTRA::NoExists;
   if (emulReqDoc==NULL)
     throw Exception("VerifyPax: emulReqDoc=NULL");
-  xmlNodePtr emulReqNode=NodeAsNode("/term",emulReqDoc);
-  emulReqNode=NewTextChild(NewTextChild(emulReqNode,"query"),"TCkinSavePax");
+  xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc);
+  emulReqNode=NewTextChild(emulReqNode,"TCkinSavePax");
 
   int point_id=NodeAsInteger("point_id",reqNode);
   TSearchPnrData PnrData;
@@ -1260,7 +1265,7 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
       NewTextChild(node,"airline",pnrMarkFlt.airline);
       NewTextChild(node,"flt_no",pnrMarkFlt.flt_no);
       NewTextChild(node,"suffix",pnrMarkFlt.suffix);
-      NewTextChild(node,"scd",pnrMarkFlt.scd_out);  //локальная дата
+      NewTextChild(node,"scd",DateTimeToStr(pnrMarkFlt.scd_out));  //локальная дата
       NewTextChild(node,"airp_dep",pnrMarkFlt.airp);
       NewTextChild(node,"pr_mark_norms",(int)codeshareSets.pr_mark_norms);
 
@@ -1349,23 +1354,36 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
 
   if (without_seat_count>adult_count)
     throw UserException("Кол-во РМ без мест в группе превышает кол-во ВЗ");
+
+  pnr_id=PnrData.pnr_id;
 };
 
 void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
 	ProgTrace(TRACE1,"WebRequestsIface::SavePax");
+	int point_id = NodeAsInteger( "point_id", reqNode );
+	int pnr_id;
 	XMLDoc emulReqDoc("UTF-8","term");
   if (emulReqDoc.docPtr()==NULL)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CreateXMLDoc failed");
   CopyNode(NodeAsNode("/term",emulReqDoc.docPtr()),
-           NodeAsNode("/term/query",reqNode->doc)); //копируем полностью тег query
-  //ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
-  VerifyPax(reqNode, emulReqDoc.docPtr());
+           NodeAsNode("/term/query",reqNode->doc), true); //копируем полностью тег query
+  xmlNodePtr node=NodeAsNode("/term/query/SavePax",emulReqDoc.docPtr());
+  xmlUnlinkNode(node);
+  xmlFreeNode(node);
 
-  xmlNodePtr emulReqNode=NodeAsNode("/term/query/",emulReqDoc.docPtr())->children;
+  //ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
+  VerifyPax(reqNode, emulReqDoc.docPtr(), pnr_id);
+  ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
+
+  xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
   if (emulReqNode==NULL)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
+  tst();
   CheckInInterface::SavePax(emulReqNode, NULL, resNode);
+  	tst();
+  IntLoadPnr( point_id, pnr_id, NewTextChild( resNode, "SavePax" ) );
+  tst();
 };
 
 class BPTags {
