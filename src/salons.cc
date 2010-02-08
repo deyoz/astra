@@ -823,7 +823,6 @@ void TSalons::Read( )
     TPlace place;
     point_p.x = Qry.FieldAsInteger( col_x );
     point_p.y = Qry.FieldAsInteger( col_y );
-    ProgTrace( TRACE5, "point_p=(%d,%d)", point_p.x, point_p.y );
     if ( readStyle != rTripSalons || Qry.FieldIsNULL( "pax_id" ) )
     	pax_id = -1;
     else
@@ -881,7 +880,7 @@ void TSalons::Read( )
    		  PlaceLayer.point_arv = Qry.FieldAsInteger( "point_arv" );
    		PlaceLayer.time_create = Qry.FieldAsDateTime( "time_create" );
       if ( FilterLayers.CanUseLayer( PlaceLayer.layer_type, Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
-      	ProgTrace( TRACE5, "seat_no=%s, pax_id=%d", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str(), pax_id );
+//      	ProgTrace( TRACE5, "seat_no=%s, pax_id=%d", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str(), pax_id );
       	if ( PlaceLayer.layer_type != cltUnknown ) { // слои сортированы по приоритету, первый - самый приоритетный слой в векторе
       		tst();
           place.AddLayerToPlace( PlaceLayer.layer_type, PlaceLayer.time_create, pax_id,

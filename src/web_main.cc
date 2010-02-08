@@ -863,7 +863,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
 	pnr.clear();
 	TQuery StatusQry(&OraSession);
 	StatusQry.SQLText =
-	  "SELECT DECODE(client_type, 'WEBC','web_checked','agent_checked') AS checkin_status "
+	  "SELECT client_type "
     "FROM web_clients "
     "WHERE web_clients.user_id=:user_id";
   StatusQry.DeclareVariable( "user_id", otInteger );
@@ -931,13 +931,24 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
   		if ( Qry.FieldIsNULL( "pax_grp_user_id" ) )
   			pax.checkin_status = "agent_checked";
   		else { // определение
-/*!!!для отладки  			StatusQry.SetVariable( "user_id", Qry.FieldAsInteger( "pax_grp_user_id" ) );
+  			StatusQry.SetVariable( "user_id", Qry.FieldAsInteger( "pax_grp_user_id" ) );
   			StatusQry.Execute();
   			if ( StatusQry.Eof )
   		    pax.checkin_status = "agent_checked";
   		  else
-  		  	pax.checkin_status = StatusQry.FieldAsString( "checkin_status" );*/
-  		  pax.checkin_status = "web_checked";
+  		  	switch( DecodeClientType( StatusQry.FieldAsString( "client_type" ) ) ) {
+  		  		case ctTerm:
+  		  			pax.checkin_status = "agent_checked";
+  		  			break;
+  		  		case ctWeb:
+  		  			pax.checkin_status = "web_checked";
+  		  			break;
+  		  		case ctKiosk:
+  		  			pax.checkin_status = "kiosk_checked";
+  		  			break;
+  		  		default:
+  		  			break;
+  		  	};
   		}
   		pax.pax_id = Qry.FieldAsInteger( "pax_id" );
    		PaxBirthQry.SetVariable( "pax_id", pax.pax_id );
@@ -1161,6 +1172,11 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc)
   TSearchPnrData PnrData;
 	getTripData( point_id, PnrData, true );
 
+	if ( PnrData.act_out != NoExists )
+		throw UserException( "Рейс вылетел" );
+	if ( PnrData.web_stage != sOpenWEBCheckIn )
+	  throw UserException( "Регистрация не открыта" );
+
 	NewTextChild(emulReqNode,"transfer"); //пустой тег - трансфера нет
 	xmlNodePtr segNode=NewTextChild(NewTextChild(emulReqNode,"segments"),"segment");
 
@@ -1343,6 +1359,7 @@ void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CreateXMLDoc failed");
   CopyNode(NodeAsNode("/term",emulReqDoc.docPtr()),
            NodeAsNode("/term/query",reqNode->doc)); //копируем полностью тег query
+  //ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
   VerifyPax(reqNode, emulReqDoc.docPtr());
 
   xmlNodePtr emulReqNode=NodeAsNode("/term/query/",emulReqDoc.docPtr())->children;
