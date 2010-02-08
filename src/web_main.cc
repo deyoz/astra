@@ -1231,8 +1231,9 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
     if (Qry.Eof)
       throw UserException("Пассажир не найден. Обновите информацию");
 
-    if (NodeAsInteger("tids/crs_pnr_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
-        NodeAsInteger("tids/crs_pax_tid",reqPaxNode)!=Qry.FieldAsInteger("crs_pax_tid"))
+    xmlNodePtr tidsNode=NodeAsNode("tids",reqPaxNode)->children;
+    if (NodeAsIntegerFast("crs_pnr_tid",tidsNode)!=Qry.FieldAsInteger("crs_pnr_tid") ||
+        NodeAsIntegerFast("crs_pax_tid",tidsNode)!=Qry.FieldAsInteger("crs_pax_tid"))
       throw UserException("Данные пассажира изменены. Обновите информацию");
 
     if (PnrData.pnr_id==ASTRA::NoExists)
@@ -1251,12 +1252,12 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
     if (!Qry.FieldIsNULL("pax_tid"))
     {
       //пассажир зарегистрирован
-      if (GetNode("tids/pax_grp_tid",reqPaxNode)==NULL||
-          GetNode("tids/pax_tid",reqPaxNode)==NULL)
+      if (NodeIsNULLFast("pax_grp_tid",tidsNode,true) ||
+          NodeIsNULLFast("pax_tid",tidsNode,true))
         throw UserException("Пассажир уже зарегистрирован. Обновите информацию");
 
-      if (NodeAsInteger("tids/pax_grp_tid",reqPaxNode)!=Qry.FieldAsInteger("pax_grp_tid") ||
-          NodeAsInteger("tids/pax_tid",reqPaxNode)!=Qry.FieldAsInteger("pax_tid"))
+      if (NodeAsIntegerFast("pax_grp_tid",tidsNode)!=Qry.FieldAsInteger("pax_grp_tid") ||
+          NodeAsIntegerFast("pax_tid",tidsNode)!=Qry.FieldAsInteger("pax_tid"))
         throw UserException("Данные пассажира изменены. Обновите информацию");
 
       if (!NodeIsNULL("seat_no",reqPaxNode)) //!!!vlad может ли быть место пустым?
@@ -1411,17 +1412,21 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   xmlFreeNode(node);
 
   VerifyPax(reqNode, emulReqDoc.docPtr(), pnr_id);
+  if (pnr_id==ASTRA::NoExists)
+    throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: pnr_id not defined");
+
 //  ProgTrace( TRACE5, "XMLTreeToText=%s", XMLTreeToText(emulReqDoc.docPtr()).c_str() );
 
   xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
   if (emulReqNode==NULL)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
 
-  if (GetNode("segments",emulReqNode)==NULL) return true; //была только пересадка зарег. пассажиров
+  bool result=true;
 
-  bool result=CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode); //!!!vlad возвращает false при перегрузке
+  if (GetNode("segments",emulReqNode)!=NULL) //не только пересадка, но и регистрация
+    result=CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode); //!!!vlad возвращает false при перегрузке
   	                                                                                //при этом используется showErrorMessage
-  if (ediResNode!=NULL)
+  if (result)
     IntLoadPnr( point_id, pnr_id, NewTextChild( resNode, "SavePax" ) );
   return result;
 };

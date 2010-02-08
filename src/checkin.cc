@@ -2051,7 +2051,7 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SavePax(reqNode, reqNode, NULL, resNode);
 };
 
-//процедура должна возвращать true только в том случае если пройдена до конца
+//процедура должна возвращать true только в том случае если произведена реальная регистрация
 bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
@@ -3627,15 +3627,14 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
       throw Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
     showProgError("Нет связи с сервером эл. билетов");
-  }
-  else
-  {
-  	if (reqInfo->client_type==ctTerm)
-  	{
-      //пересчитать данные по группе и отправить на клиент
-      LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
-                                   strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
-    };
+    return false;
+  };
+
+  if (reqInfo->client_type==ctTerm)
+	{
+    //пересчитать данные по группе и отправить на клиент
+    LoadPax(first_grp_id,resNode,strcmp((char *)reqNode->name, "SavePax") != 0 &&
+                                 strcmp((char *)reqNode->name, "SaveUnaccompBag") != 0);
   };
   return true;
 };
