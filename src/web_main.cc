@@ -83,7 +83,8 @@ int internet_main(const char *body, int blen, const char *head,
     string::size_type pos=new_body.find(sss);
     if(pos!=string::npos)
     {
-      new_body=new_body.substr(0,pos+sss.size())+" id='"+client.client_type+"' screen='AIR.EXE' opr='"+CP866toUTF8(client.opr)+"'"+new_body.substr(pos+sss.size());
+    	if ( new_body.find("<kick") == string::npos )
+        new_body=new_body.substr(0,pos+sss.size())+" id='"+client.client_type+"' screen='AIR.EXE' opr='"+CP866toUTF8(client.opr)+"'"+new_body.substr(pos+sss.size());
     }
     else
       ProgTrace(TRACE1,"Unable to find <query> tag!");
@@ -1360,6 +1361,12 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
 
 void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+	SavePax(reqNode, NULL, resNode);
+};
+
+bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
+
+{
 	ProgTrace(TRACE1,"WebRequestsIface::SavePax");
 	int point_id = NodeAsInteger( "point_id", reqNode );
 	int pnr_id;
@@ -1379,11 +1386,12 @@ void WebRequestsIface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   xmlNodePtr emulReqNode=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
   if (emulReqNode==NULL)
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: emulReqNode=NULL");
-  tst();
-  CheckInInterface::SavePax(emulReqNode, NULL, resNode);
-  	tst();
-  IntLoadPnr( point_id, pnr_id, NewTextChild( resNode, "SavePax" ) );
-  tst();
+
+  bool result=CheckInInterface::SavePax(reqNode, emulReqNode, ediResNode, resNode); //!!!vlad возвращает false при перегрузке
+  	                                                                                //при этом используется showErrorMessage
+  if (ediResNode!=NULL)
+    IntLoadPnr( point_id, pnr_id, NewTextChild( resNode, "SavePax" ) );
+  return result;
 };
 
 class BPTags {

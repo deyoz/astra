@@ -2048,11 +2048,11 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
 
 void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  SavePax(reqNode, NULL, resNode);
+  SavePax(reqNode, reqNode, NULL, resNode);
 };
 
 //процедура должна возвращать true только в том случае если пройдена до конца
-bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
+bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNodePtr resNode)
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -3623,7 +3623,7 @@ bool CheckInInterface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
   {
     OraSession.Rollback();  //откат
 
-    int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(reqNode->doc));
+    int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc));
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
       throw Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
     showProgError("Нет связи с сервером эл. билетов");

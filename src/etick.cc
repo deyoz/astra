@@ -14,6 +14,7 @@
 #include "astra_context.h"
 #include "base_tables.h"
 #include "checkin.h"
+#include "web_main.h"
 #include "term_version.h"
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/jxt_cont.h"
@@ -420,10 +421,9 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         };
       };
 
+      TReqInfo *reqInfo = TReqInfo::Instance();
       if (!errors.empty())
       {
-        TReqInfo *reqInfo = TReqInfo::Instance();
-
         bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
                          NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
         map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
@@ -472,16 +472,32 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
       try
       {
-        if (termReqName=="SavePax" ||
-            termReqName=="SaveUnaccompBag" ||
-            termReqName=="TCkinSavePax" ||
-            termReqName=="TCkinSaveUnaccompBag")
-        {
-          if (!CheckInInterface::SavePax(termReqNode, ediResNode, resNode))
+      	if (reqInfo->client_type==ctTerm)
+      	{
+          if (termReqName=="SavePax" ||
+              termReqName=="SaveUnaccompBag" ||
+              termReqName=="TCkinSavePax" ||
+              termReqName=="TCkinSaveUnaccompBag")
           {
-            //откатываем статусы так как запись группы так и не прошла
-            ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
-            return;
+            if (!CheckInInterface::SavePax(termReqNode, termReqNode, ediResNode, resNode))
+            {
+              //откатываем статусы так как запись группы так и не прошла
+              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+              return;
+            };
+          };
+        };
+
+        if (reqInfo->client_type==ctWeb)
+      	{
+          if (termReqName=="SavePax")
+          {
+            if (!AstraWeb::WebRequestsIface::SavePax(termReqNode, ediResNode, resNode))
+            {
+              //откатываем статусы так как запись группы так и не прошла
+              ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
+              return;
+            };
           };
         };
       }
