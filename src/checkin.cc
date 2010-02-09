@@ -1790,7 +1790,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger(col_grp_id));
     NewTextChild(paxNode,"cl_grp_id",Qry.FieldAsInteger(col_cl_grp_id));
-    NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
+    if (!Qry.FieldIsNULL(col_hall_id))
+      NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
+    else
+      NewTextChild(paxNode,"hall_id",-1);
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
     NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString(col_client_type)));
@@ -1864,7 +1867,10 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     };
     //идентификаторы
     NewTextChild(paxNode,"grp_id",Qry.FieldAsInteger("grp_id"));
-    NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
+    if (!Qry.FieldIsNULL("hall_id"))
+      NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
+    else
+      NewTextChild(paxNode,"hall_id",-1);
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
     NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
