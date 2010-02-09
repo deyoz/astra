@@ -252,9 +252,8 @@ void MsgToLog(std::string msg,
               int id2 = 0,
               int id3 = 0);
 
-char* EncodeClientType(ASTRA::TClientType s); //DecodeClientType не нужен! Если нужен вдруг, обсудить с Владом
-ASTRA::TClientType DecodeClientType( const std::string &client_type );
-
+ASTRA::TClientType DecodeClientType(const char* s);
+char* EncodeClientType(ASTRA::TClientType s);
 ASTRA::TDocType DecodeDocType(const char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
 ASTRA::TClass DecodeClass(const char* s);

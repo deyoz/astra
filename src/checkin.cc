@@ -1632,7 +1632,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  pax.grp_id, "
     "  pax.pax_id, "
     "  pax_grp.class_grp AS cl_grp_id,pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id ";
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type ";
 
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     sql <<
@@ -1693,6 +1693,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   int col_hall_id=Qry.FieldIndex("hall_id");
   int col_point_arv=Qry.FieldIndex("point_arv");
   int col_user_id=Qry.FieldIndex("user_id");
+  int col_client_type=Qry.FieldIndex("client_type");
   int col_receipts=-1;
   int col_pr_payment=-1;
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
@@ -1792,6 +1793,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger(col_hall_id));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger(col_point_arv));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger(col_user_id));
+    NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString(col_client_type)));
     NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString(col_status)));
   };
   if(!v_rcpt_complete.empty()) {
@@ -1816,7 +1818,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "  ckin.get_birks2(pax_grp.grp_id,NULL,NULL) AS tags, "
     "  pax_grp.grp_id, "
     "  pax_grp.hall AS hall_id, "
-    "  pax_grp.point_arv,pax_grp.user_id ";
+    "  pax_grp.point_arv,pax_grp.user_id,pax_grp.client_type ";
   if (strcmp((char *)reqNode->name, "BagPaxList")==0)
     sql <<
     " ,ckin.get_receipts(pax_grp.grp_id,NULL) AS receipts, "
@@ -1865,6 +1867,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     NewTextChild(paxNode,"hall_id",Qry.FieldAsInteger("hall_id"));
     NewTextChild(paxNode,"point_arv",Qry.FieldAsInteger("point_arv"));
     NewTextChild(paxNode,"user_id",Qry.FieldAsInteger("user_id"));
+    NewTextChild(paxNode,"client_type_id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
     NewTextChild(paxNode,"status_id",(int)DecodePaxStatus(Qry.FieldAsString("status")));
   };
 
@@ -3901,7 +3904,11 @@ void CheckInInterface::SavePaxRem(xmlNodePtr paxNode)
 {
   if (paxNode==NULL) return;
   xmlNodePtr node2=paxNode->children;
-  int pax_id=NodeAsIntegerFast("generated_pax_id",node2,NodeAsIntegerFast("pax_id",node2));
+  int pax_id;
+  if (GetNodeFast("generated_pax_id",node2)!=NULL)
+    pax_id=NodeAsIntegerFast("generated_pax_id",node2);
+  else
+    pax_id=NodeAsIntegerFast("pax_id",node2);
 
   xmlNodePtr remNode=GetNodeFast("rems",node2);
   if (remNode==NULL) return;
@@ -4143,7 +4150,11 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   NormQry.Clear();
   if (!pr_unaccomp)
   {
-    int pax_id=NodeAsIntegerFast("generated_pax_id",node2,NodeAsIntegerFast("pax_id",node2));
+    int pax_id;
+    if (GetNodeFast("generated_pax_id",node2)!=NULL)
+      pax_id=NodeAsIntegerFast("generated_pax_id",node2);
+    else
+      pax_id=NodeAsIntegerFast("pax_id",node2);
     NormQry.SQLText="DELETE FROM pax_norms WHERE pax_id=:pax_id";
     NormQry.CreateVariable("pax_id",otInteger,pax_id);
     NormQry.Execute();
@@ -4153,7 +4164,11 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
   }
   else
   {
-    int grp_id=NodeAsIntegerFast("generated_grp_id",node2,NodeAsIntegerFast("grp_id",node2));
+    int grp_id;
+    if (GetNodeFast("generated_grp_id",node2)!=NULL)
+      grp_id=NodeAsIntegerFast("generated_grp_id",node2);
+    else
+      grp_id=NodeAsIntegerFast("grp_id",node2);
     NormQry.SQLText="DELETE FROM grp_norms WHERE grp_id=:grp_id";
     NormQry.CreateVariable("grp_id",otInteger,grp_id);
     NormQry.Execute();

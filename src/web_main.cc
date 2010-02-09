@@ -1407,9 +1407,12 @@ bool WebRequestsIface::SavePax(xmlNodePtr reqNode, xmlNodePtr ediResNode, xmlNod
     throw EXCEPTIONS::Exception("WebRequestsIface::SavePax: CreateXMLDoc failed");
   CopyNode(NodeAsNode("/term",emulReqDoc.docPtr()),
            NodeAsNode("/term/query",reqNode->doc), true); //копируем полностью тег query
-  xmlNodePtr node=NodeAsNode("/term/query/SavePax",emulReqDoc.docPtr());
-  xmlUnlinkNode(node);
-  xmlFreeNode(node);
+  xmlNodePtr node=NodeAsNode("/term/query",emulReqDoc.docPtr())->children;
+  if (node!=NULL)
+  {
+    xmlUnlinkNode(node);
+    xmlFreeNode(node);
+  };
 
   VerifyPax(reqNode, emulReqDoc.docPtr(), pnr_id);
   if (pnr_id==ASTRA::NoExists)

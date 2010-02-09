@@ -606,19 +606,20 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
 
 /***************************************************************************************/
 
+TClientType DecodeClientType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(ClientTypeS)/sizeof(ClientTypeS[0]);i+=1) if (strcmp(s,ClientTypeS[i])==0) break;
+  if (i<sizeof(ClientTypeS)/sizeof(ClientTypeS[0]))
+    return (TClientType)i;
+  else
+    throw Exception( "DecodeClientType: Invalid client type %s", s );
+};
+
 char* EncodeClientType(TClientType s)
 {
   return (char*)ClientTypeS[s];
 };
-
-ASTRA::TClientType DecodeClientType( const std::string &client_type )
-{
-  for ( int i=0; i<(int)ctTypeNum; i++ ) {
-  	if ( client_type == ClientTypeS[ i ] )
-  		return (TClientType)i;
-  }
-  throw Exception( "Invalid client type" );
-}
 
 TOperMode DecodeOperMode( const string mode )
 {
