@@ -862,12 +862,6 @@ void verifyPaxTids( int pax_id, int crs_pnr_tid, int crs_pax_tid, int pax_grp_ti
 void getPnr( int pnr_id, vector<TWebPax> &pnr )
 {
 	pnr.clear();
-	TQuery StatusQry(&OraSession);
-	StatusQry.SQLText =
-	  "SELECT client_type "
-    "FROM web_clients "
-    "WHERE web_clients.user_id=:user_id";
-  StatusQry.DeclareVariable( "user_id", otInteger );
 	TQuery PaxBirthQry(&OraSession);
 	PaxBirthQry.SQLText =
 	 "SELECT birth_date "
@@ -901,8 +895,9 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
     "       pax_grp.tid AS pax_grp_tid, "
     "       pax.tid AS pax_tid, "
     "       pax.pax_id, "
-    "       pax_grp.user_id pax_grp_user_id"
-    " FROM crs_pnr,crs_pax,pax,pax_grp,crs_inf "
+    "       pax_grp.client_type, "
+    "       pax.refuse "
+    "FROM crs_pnr,crs_pax,pax,pax_grp,crs_inf "
     "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "      crs_pax.pax_id=pax.pax_id(+) AND "
     "      pax.grp_id=pax_grp.grp_id(+) AND "
@@ -928,29 +923,23 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
   	pax.seats = Qry.FieldAsInteger( "seats" );
   	pax.pass_class = Qry.FieldAsString( "class" );
   	pax.pass_subclass = Qry.FieldAsString( "subclass" );
-  	if ( !Qry.FieldIsNULL( "pax_id" ) ) {
-  		if ( Qry.FieldIsNULL( "pax_grp_user_id" ) )
-  			pax.checkin_status = "agent_checked";
-  		else { // определение
-  			StatusQry.SetVariable( "user_id", Qry.FieldAsInteger( "pax_grp_user_id" ) );
-  			StatusQry.Execute();
-  			if ( StatusQry.Eof )
-  		    pax.checkin_status = "agent_checked";
-  		  else
-  		  	switch( DecodeClientType( StatusQry.FieldAsString( "client_type" ) ) ) {
-  		  		case ctTerm:
-  		  			pax.checkin_status = "agent_checked";
-  		  			break;
-  		  		case ctWeb:
-  		  			pax.checkin_status = "web_checked";
-  		  			break;
-  		  		case ctKiosk:
-  		  			pax.checkin_status = "kiosk_checked";
-  		  			break;
-  		  		default:
-  		  			break;
-  		  	};
-  		}
+  	if ( !Qry.FieldIsNULL( "pax_id" ) )
+  	{
+  	  //пассажир зарегистрирован
+  	  if ( !Qry.FieldIsNULL( "refuse" ) )
+  	    pax.checkin_status = "refused";
+  	  else
+  	  {
+  	    pax.checkin_status = "agent_checked";
+
+    	  switch(DecodeClientType(Qry.FieldAsString( "client_type" )))
+    	  {
+    	    case ctWeb:
+  		    	pax.checkin_status = "web_checked";
+  		  		break;
+  		  	default: ;
+    	  };
+  	  };
   		pax.pax_id = Qry.FieldAsInteger( "pax_id" );
    		PaxBirthQry.SetVariable( "pax_id", pax.pax_id );
    		PaxBirthQry.Execute();

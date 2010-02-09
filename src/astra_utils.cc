@@ -613,7 +613,7 @@ TClientType DecodeClientType(const char* s)
   if (i<sizeof(ClientTypeS)/sizeof(ClientTypeS[0]))
     return (TClientType)i;
   else
-    throw Exception( "DecodeClientType: Invalid client type %s", s );
+    return ctTerm;
 };
 
 char* EncodeClientType(TClientType s)
