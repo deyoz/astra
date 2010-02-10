@@ -29,8 +29,6 @@ namespace SEATS2
 {
 
 
-//const char* TSubcls_Remarks[4] = {"MCLS","SCLS","YCLS","LCLS"};
-
 const int PR_N_PLACE = 9;
 const int PR_REMPLACE = 8;
 const int PR_SMOKE = 7;
@@ -130,6 +128,7 @@ TLines lines;
 SALONS2::TSalons *CurrSalon;
 
 bool CanUseLayers; /* поиск по слою места */
+bool CanUseMutiLayer; /* поиск по группе слоев */
 TCompLayerType PlaceLayer; /* сам слой */
 vector<TCompLayerType> SeatsLayers;
 bool CanUse_PS; /* можно ли использовать статус предвю рассадки для пассажиров с другими статусами */
@@ -520,7 +519,6 @@ bool DoNotRemsSeats( const vector<SALONS2::TRem> &rems )
 	//unsigned int i=0;
 	vector<string>::iterator yrem=Remarks.begin();
 	for (; yrem!=Remarks.end(); yrem++ ) {
-		ProgTrace( TRACE5, "yrem.substr(1,3)=%s, *yrem->c_str()=%c", yrem->substr(1,3).c_str(), *yrem->c_str() );
 		if ( isREM_SUBCLS( *yrem ) ) {
 			pr_passsubcls = true;
 			break;
@@ -570,7 +568,7 @@ bool VerifyUseLayer( TPlace *place )
 			if ( find( SeatsLayers.begin(), SeatsLayers.end(), i->layer_type ) == SeatsLayers.end() ) { // найден более приоритетный слой, которого нет в списке дозволенных слоев
 				break;
 		  }
-		  if ( i->layer_type == PlaceLayer ) { // найден нужный слой
+		  if ( CanUseMutiLayer || i->layer_type == PlaceLayer ) { // найден нужный слой
 		  	res = true;
 		  	break;
 		  }
@@ -622,6 +620,17 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
       	   !FindSUBCLS && prem != place->rems.end() ) //  не смогли посадить на класс SUBCLS
      	  break;
     }
+    if ( SUBCLS_REM.empty() || !canUseSUBCLS ) {
+    	bool pr_find=false;
+    	for ( prem = place->rems.begin(); prem != place->rems.end(); prem++ ) {
+    	  if ( !prem->pr_denial && isREM_SUBCLS( prem->rem ) ) {
+    	  	pr_find=true;
+    	  	break;
+    	  }
+    	}
+     if ( pr_find )
+     	break;
+    }
     switch( (int)CanUseRems ) {
       case sOnlyUse:
          if ( place->rems.empty() || Remarks.empty() ) // найдем хотя бы одну совпадающую
@@ -655,13 +664,13 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
       	if ( DoNotRemsSeats( place->rems ) ) {
       		return Result;
       	}
-      	if ( sNotUseDenial ) break;
+      	if ( CanUseRems == sNotUseDenial ) break;
       case sNotUse:
 //      	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d", Result, FP.x, FP.y );
   	     for( vector<SALONS2::TRem>::const_iterator prem=place->rems.begin(); prem!=place->rems.end(); prem++ ) {
-  //	     	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
+  	     	 ProgTrace( TRACE5, "sNotUse: Result=%d, FP.x=%d, FP.y=%d, rem=%s", Result, FP.x, FP.y, prem->rem.c_str() );
 		       if ( !prem->pr_denial ) {
-		//       	 tst();
+		       	 tst();
 		       	 return Result;
 		       }
   	     }
@@ -685,6 +694,7 @@ int TSeatPlaces::FindPlaces_From( SALONS2::TPoint FP, int foundCount, TSeatStep 
     if ( !placeList->ValidPlace( EP ) )
       break;
     place = placeList->place( EP );
+
   } /* end while */
   return Result;
 }
@@ -893,7 +903,6 @@ bool TSeatPlaces::SeatSubGrp_On( SALONS2::TPoint FP, TSeatStep Step, int Wanted 
        counters.p_Count( Step ) == Passengers.counters.p_Count( Step ) ) {
     return true;
   }
-  tst();
   int lines = placeList->GetXsCount(), visible=0;
   for ( int line=0; line<lines; line++ ) {
   	SALONS2::TPoint f=FP;
@@ -1794,8 +1803,7 @@ void TPassengers::Add( TPassenger &pass )
     switch( pass.countPlace ) {
       case 2: counters.Add_p_Count_2( 1, sDown );
               break;
-      case 3: tst();
-      	      counters.Add_p_Count_3( 1, sDown );
+      case 3: counters.Add_p_Count_3( 1, sDown );
     }
     Pr_PLC = true;
   }
@@ -1931,66 +1939,71 @@ void GET_LINE_ARRAY( )
 }
 
 // !!! вычисляем на основе данных из БД
-void SetLayers( vector<TCompLayerType> &Layers, TCompLayerType layer, bool First, bool use_PS )
+void SetLayers( vector<TCompLayerType> &Layers, bool &CanUseMutiLayer, TCompLayerType layer, int Step, bool use_PS )
 {
   Layers.clear();
-  if ( layer == cltTranzit || layer == cltProtTrzt )
-    if ( First ) {
+  CanUseMutiLayer = ( Step == -1 );
+  if ( layer == cltTranzit || layer == cltProtTrzt ) {
+    if ( Step != 0 ) {
       Layers.push_back( cltProtTrzt );
       Layers.push_back( cltUnknown );
       Layers.push_back( cltUncomfort );
-    }
-    else {
+    };
+    if ( Step != 1 ) {
       Layers.push_back( cltProtect );
       Layers.push_back( cltPNLCkin );
     	if ( use_PS )
         Layers.push_back( cltProtCkin );
     }
+  }
   else
-    if ( layer == cltProtect )
-      if ( First ) {
+    if ( layer == cltProtect ) {
+      if ( Step != 0 ) {
         Layers.push_back( cltProtect );
         Layers.push_back( cltUnknown );
-      }
-      else {
+      };
+      if ( Step != 1 ) {
         Layers.push_back( cltUncomfort );
         Layers.push_back( cltPNLCkin );
         if ( use_PS )
           Layers.push_back( cltProtCkin );
       }
+    }
     else
-      if ( layer == cltUnknown )
-        if ( First ) {
+      if ( layer == cltUnknown ) {
+        if ( Step != 0 ) {
           Layers.push_back( cltUnknown );
           Layers.push_back( cltUncomfort );
-        }
-        else {
+        };
+        if ( Step != 1 ) {
           Layers.push_back( cltProtect );
           Layers.push_back( cltPNLCkin );
           if ( use_PS )
             Layers.push_back( cltProtCkin );
-        }
+        };
+      }
       else
-        if ( layer == cltPNLCkin )
-          if ( First ) {
+        if ( layer == cltPNLCkin ) {
+          if ( Step != 0 ) {
           	Layers.push_back( cltPNLCkin );
             Layers.push_back( cltUnknown );
             Layers.push_back( cltUncomfort );
-          }
-          else {
+          };
+          if ( Step != 1 ) {
             Layers.push_back( cltProtect );
             if ( use_PS )
               Layers.push_back( cltProtCkin );
-          }
+          };
+        }
         else
         	if ( layer == cltProtCkin ) {
-        		if ( First ) {
+        		if ( Step != 0 ) {
         			if ( use_PS )
           	    Layers.push_back( cltProtCkin );
               Layers.push_back( cltUnknown );
               Layers.push_back( cltUncomfort );
-        		}
-        		else {
+        		};
+        		if ( Step != 1 ) {
         			Layers.push_back( cltProtect );
         			Layers.push_back( cltPNLCkin );
         		}
@@ -2082,6 +2095,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
   FindSUBCLS = false;
   canUseSUBCLS = false;
   SUBCLS_REM = "";
+  CanUseMutiLayer = false;
 
   /* не сделано!!! если у всех пассажиров есть места, то тогда рассадка по местам, без учета группы */
 
@@ -2177,7 +2191,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
             continue;
           }
           /* использование статусов мест */
-          for ( int KeyLayers=1; KeyLayers>=0; KeyLayers-- ) {
+          for ( int KeyLayers=1; KeyLayers>=-1; KeyLayers-- ) {
             if ( !KeyLayers && CanUseAlone == uFalse3 ) {
             	ProgTrace( TRACE5, "continue: SeatAlg=%d, CanUseRems=%s, CanUseAlone=%d, KeyLayers=%d", SeatAlg, DecodeCanUseRems( CanUseRems ).c_str(), CanUseAlone, KeyLayers );
               continue;
@@ -2188,7 +2202,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
             }
 
             /* задаем массив статусов мест */
-            SetLayers( SeatsLayers, passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
+            SetLayers( SeatsLayers, CanUseMutiLayer, passengers.Get( 0 ).layer, KeyLayers, Status_preseat );
             /* пробег по статусом */
             for ( vector<TCompLayerType>::iterator l=SeatsLayers.begin(); l!=SeatsLayers.end(); l++ ) {
               PlaceLayer = *l;
