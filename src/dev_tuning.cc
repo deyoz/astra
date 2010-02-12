@@ -663,6 +663,24 @@ struct TBRTypes:TFormTypes {
 
 void TBRTypes::get_pectabs(vector<TPectabItem> &pectabs)
 {
+    for(vector<TBRModelsItem>::iterator iv = br_models.items.begin(); iv != br_models.items.end(); iv++) {
+        TPectabItem pectab;
+        pectab.form_type = iv->form_type;
+        pectab.dev_model = iv->dev_model;
+        pectab.fmt_type = iv->fmt_type;
+        TPrnFormVersKey vers_k;
+        vers_k.id = iv->id;
+        vers_k.version = iv->version;
+        map<TPrnFormVersKey, TPrnFormVersRow, TPrnFormVersCmp>::iterator im = br_models.prn_form_vers.items.find(vers_k);
+        if(im != br_models.prn_form_vers.items.end()) {
+            map<int, TPrnFormsItem>::iterator prn_forms_i = br_models.prn_forms.items.find(iv->id);
+            if(prn_forms_i == br_models.prn_forms.items.end()) throw Exception("TBRTypes::get_pectabs: prn_form not found %d", iv->id);
+            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.form = im->second.form;
+            pectab.data = im->second.data;
+            pectabs.push_back(pectab);
+        }
+    }
 }
 
 void TBRTypes::PrnFormsToBase()
@@ -1117,6 +1135,25 @@ struct TTagTypes:TFormTypes {
 
 void TTagTypes::get_pectabs(vector<TPectabItem> &pectabs)
 {
+    for(vector<TBTModelsItem>::iterator iv = bt_models.items.begin(); iv != bt_models.items.end(); iv++) {
+        TPectabItem pectab;
+        pectab.form_type = iv->form_type;
+        pectab.dev_model = iv->dev_model;
+        pectab.fmt_type = iv->fmt_type;
+        TPrnFormVersKey vers_k;
+        vers_k.id = iv->id;
+        vers_k.version = iv->version;
+        map<TPrnFormVersKey, TPrnFormVersRow, TPrnFormVersCmp>::iterator im = bt_models.prn_form_vers.items.find(vers_k);
+        if(im != bt_models.prn_form_vers.items.end()) {
+            map<int, TPrnFormsItem>::iterator prn_forms_i = bt_models.prn_forms.items.find(iv->id);
+            if(prn_forms_i == bt_models.prn_forms.items.end()) throw Exception("TBTTypes::get_pectabs: prn_form not found %d", iv->id);
+            pectab.op_type = DecodeDevOperType(prn_forms_i->second.op_type);
+            pectab.form = im->second.form;
+            pectab.data = im->second.data;
+            pectab.num = iv->num;
+            pectabs.push_back(pectab);
+        }
+    }
 }
 
 void TTagTypes::PrnFormsToBase()
@@ -1476,8 +1513,8 @@ struct TVersionType {
     void delete_dst_vers();
     string find_form(TVersionType &vers);
     void delete_blanks(TVersionType &vers);
-    TVersionType *get_forms_vers();
-    void get_form_list(vector<TFormType *> form_list);
+    TVersionType *get_forms_vers(bool pr_dst = false);
+    void get_form_list(vector<TFormType *> &form_list);
     TVersionType(): action(vaNone), op_type(dotUnknown), id(0), version(0) {};
     ~TVersionType();
 };
@@ -1511,7 +1548,7 @@ void TVersionType::insert()
         "  loop "
         "    select count(*) into names_count from prn_forms where name = new_name; "
         "    if names_count = 0 then exit; end if; "
-        "    new_name := :name || '' копия '' || copy_num; "
+        "    new_name := :name || ' копия ' || copy_num; "
         "    copy_num := copy_num + 1; "
         "  end loop; "
         "  :name := new_name; "
@@ -1519,7 +1556,7 @@ void TVersionType::insert()
         "    values(id__seq.nextval, :op_type, :fmt_type, :name) "
         "  returning id into :id; "
         "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
-        "    values(:id, 0, ''Inserted by prnc'', :form, :data, 1); "
+        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
         "end; ";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
@@ -1568,7 +1605,7 @@ void TVersionType::update()
             "  loop "
             "    select count(*) into names_count from prn_forms where name = new_name and id <> :id; "
             "    if names_count = 0 then exit; end if; "
-            "    new_name := :name || '' копия '' || copy_num; "
+            "    new_name := :name || ' копия ' || copy_num; "
             "    copy_num := copy_num + 1; "
             "  end loop; "
             "  :name := new_name; "
@@ -1593,6 +1630,9 @@ void TVersionType::update()
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
     }
+    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+        if(i_form->second->dest_version == NULL)
+            i_form->second->insert(*dst_vers);
 }
 
 void TVersionType::del()
@@ -1600,9 +1640,14 @@ void TVersionType::del()
     ProgTrace(TRACE5, "delete version");
     TQuery Qry(&OraSession);
     Qry.SQLText =
+        "declare "
+        "  vers_count integer; "
         "begin"
         "  delete from prn_form_vers where id = :id and version = :version; "
-        "  delete from prn_forms where id = :id; "
+        "  select count(*) into vers_count from prn_form_vers where id = :id; "
+        "  if vers_count = 0 then "
+        "    delete from prn_forms where id = :id; "
+        "  end if; "
         "end; ";
     Qry.CreateVariable("id", otInteger, id);
     Qry.CreateVariable("version", otInteger, version);
@@ -1615,10 +1660,12 @@ void TVersionType::del()
 
 void TVersionType::delete_blank(TFormType &form)
 {
+    ProgTrace(TRACE5, "delete_blank: %s", form.str().c_str());
     if(forms.find(form.str()) != forms.end()) {
         forms[form.str()]->del();
         delete forms[form.str()];
         forms.erase(form.str());
+        ProgTrace(TRACE5, "delete_blank: deleted");
     }
 }
 
@@ -1656,13 +1703,18 @@ string TVersionType::find_form(TVersionType &vers)
     return result;
 }
 
-TVersionType *TVersionType::get_forms_vers()
+TVersionType *TVersionType::get_forms_vers(bool pr_dst)
 {
     TVersionType *result = NULL;
     for(map<string, TFormType *>::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
         TFormType &form = *i_forms->second;
-        if(form.dest_version == NULL)
-            continue;
+        if(form.dest_version == NULL) {
+            if(pr_dst) {
+                result = NULL;
+                break;
+            } else
+                continue;
+        }
         if(result == NULL)
             result = form.dest_version;
         else if(result != form.dest_version) {
@@ -1850,7 +1902,7 @@ void TBTFormType::del()
     }
 }
 
-void TVersionType::get_form_list(vector<TFormType *> form_list)
+void TVersionType::get_form_list(vector<TFormType *> &form_list)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1938,6 +1990,7 @@ TFormType *TBRFormType::Copy()
 
 void TBRFormType::get_version(TVersionType &ver)
 {
+    ProgTrace(TRACE5, "TBRFormType::get_version starting");
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select "
@@ -1972,6 +2025,42 @@ void TBRFormType::get_version(TVersionType &ver)
 
 void TBPFormType::get_version(TVersionType &ver)
 {
+    ProgTrace(TRACE5, "TBPFormType::get_version starting");
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "select "
+        "  bp_models.id, "
+        "  bp_models.version, "
+        "  prn_forms.name, "
+        "  prn_form_vers.form, "
+        "  prn_form_vers.data "
+        "from "
+        "  bp_models, "
+        "  prn_forms, "
+        "  prn_form_vers "
+        "where "
+        "  form_type = :form_type and "
+        "  dev_model = :dev_model and "
+        "  bp_models.fmt_type = :fmt_type and "
+        "  prn_forms.id = prn_form_vers.id and "
+        "  bp_models.id = prn_form_vers.id and "
+        "  bp_models.version = prn_form_vers.version ";
+    Qry.CreateVariable("form_type", otString, form_type);
+    Qry.CreateVariable("dev_model", otString, dev_model);
+    Qry.CreateVariable("fmt_type", otString, fmt_type);
+    Qry.Execute();
+    if(not Qry.Eof) {
+        ver.id = Qry.FieldAsInteger("id");
+        ver.version = Qry.FieldAsInteger("version");
+        ver.name = Qry.FieldAsString("name");
+        ver.form = Qry.FieldAsString("form");
+        ver.data = Qry.FieldAsString("data");
+    }
+}
+
+void TBTFormType::get_version(TVersionType &ver)
+{
+    ProgTrace(TRACE5, "TBTFormType::get_version starting");
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  "
@@ -2006,10 +2095,6 @@ void TBPFormType::get_version(TVersionType &ver)
     }
 }
 
-void TBTFormType::get_version(TVersionType &ver)
-{
-}
-
 string TBTFormType::str()
 {
     return form_type + "." + dev_model + "." + IntToString(num) + "." + fmt_type;
@@ -2022,8 +2107,13 @@ string TFormType::str()
 
 TVersionType::~TVersionType()
 {
-    for(map<string, TFormType * >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++)
+    for(map<string, TFormType * >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
+        if(forms_i->second == NULL)
+            ProgTrace(TRACE5, "forms_i->second is NULL");
+        else
+            ProgTrace(TRACE5, "deleting %s", forms_i->second->str().c_str());
         delete forms_i->second;
+    }
 }
 
 string TVersionType::str()
@@ -2037,6 +2127,7 @@ struct TVersList {
     map<string, TVersionType> items;
     string add_new(TPectabItem &pectab);
     string  add_to_vers(string vers_i, TPectabItem &pectab);
+    TVersionType *find_same(TVersionType &vers);
     void update();
     void insert();
     void cleanup();
@@ -2044,6 +2135,17 @@ struct TVersList {
     void fill_dest_list(TVersList &dst_vers_list);
     void dump();
 };
+
+TVersionType *TVersList::find_same(TVersionType &vers)
+{
+    TVersionType *result = NULL;
+    for(map<string, TVersionType>::iterator vers_i = items.begin(); vers_i != items.end(); vers_i++)
+        if(vers_i->second.form == vers.form and vers_i->second.data == vers.data) {
+            result = &vers_i->second;
+            break;
+        }
+    return result;
+}
 
 void TVersList::update()
 {
@@ -2064,9 +2166,11 @@ void TVersList::insert()
 void TVersList::cleanup()
 {
     for(map<string, TVersionType>::iterator vers_i = items.begin(); vers_i != items.end(); vers_i++) {
-        TVersionType vers = vers_i->second;
-        if(vers.forms.empty())
+        TVersionType &vers = vers_i->second;
+        if(vers.forms.empty()) {
+            ProgTrace(TRACE5, "before delete version %s %s", vers.name.c_str(), vers.str().c_str());
             vers.del();
+        }
     }
 }
 
@@ -2076,7 +2180,7 @@ void TVersList::fix()
         TVersionType &vers = i_vers->second;
         TVersionType *single_dst_vers = vers.get_forms_vers();
         if(single_dst_vers != NULL) {
-            TVersionType *single_src_vers = single_dst_vers->get_forms_vers();
+            TVersionType *single_src_vers = single_dst_vers->get_forms_vers(true);
             if(single_src_vers != NULL) {
                 ProgTrace(TRACE5, "simple update of current version");
                 vers.action = vaUpdate;
@@ -2121,8 +2225,26 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
         TVersionType &version = i_vers->second;
         vector<TFormType *> form_list;
         version.get_form_list(form_list);
+        ProgTrace(TRACE5, "version: %s; form_list.count: %d", version.name.c_str(), form_list.size());
+        TVersionType *same_src_vers = find_same(version);
         for(vector<TFormType *>::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
             if(version.forms.find((*i_list)->str()) == version.forms.end()) {
+                // в списке бланков цели обнаружен бланк, которого нет в
+                // соответствующем списке бланков исходника
+                // Если исходная и целевая версия совпадают по пектабам (form == form and data == data)
+                // то забываем про этот бланк (или можно вставить в него ссылку на исходник)
+                // если не совпадают, то ищем в списке исходных версий совпадение
+                // в случае если такая версия найдена, то пристраиваем этот бланк туда
+                // ( добавляем его в список бланков найденной исходной версии)
+                // Если соответствия не найдено, то придется ему отпочковываться в отдельную версию.
+                if(same_src_vers != NULL) {
+                    if(same_src_vers->forms.find((*i_list)->str()) != same_src_vers->forms.end())
+                        throw Exception("TVersList::fill_dest_list: unexpected form find %s", (*i_list)->str().c_str());
+                    TFormType *src_form = (*i_list)->Copy();
+                    src_form->dest_version = &version;
+                    same_src_vers->forms[src_form->str()] = src_form;
+                }
+                (*i_list)->dest_version = same_src_vers;
                 version.forms[(*i_list)->str()] = *i_list;
                 *i_list = NULL;
             }
@@ -2232,10 +2354,15 @@ void process(vector<TPectabItem> &pectabs)
     src_vers_list.fill_dest_list(dst_vers_list);
     src_vers_list.dump();
     dst_vers_list.dump();
+    tst();
     src_vers_list.fix();
+    tst();
     dst_vers_list.cleanup();
+    tst();
     src_vers_list.update();
+    tst();
     src_vers_list.insert();
+    tst();
 }
 
 void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
