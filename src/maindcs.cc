@@ -75,6 +75,8 @@ void GetDeviceAirlines(xmlNodePtr node)
         int aircode;
         if (BASIC::StrToInt(row.aircode.c_str(),aircode)!=EOF && row.aircode.size()==3)
           NewTextChild(airlineNode,"aircode",row.aircode,"");
+        else
+          NewTextChild(airlineNode,"aircode",954);
       }
       catch(EBaseTableError) {}
     };
