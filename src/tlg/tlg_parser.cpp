@@ -3473,6 +3473,8 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
   res=sscanf(tlg.lex,"%5[A-Z€-Ÿð0-9]%c",doc.rem_code,&c);
   if (c!=0||res!=1) return false;
 
+  TDateTime now=NowUTC();
+
   if (strcmp(doc.rem_code,"DOCS")==0)
   {
     for(k=0;k<=11;k++)
@@ -3510,8 +3512,8 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             if (c!=0||res!=1) throw ETlgError("Wrong format");
             break;
           case 5:
-            if (StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,true)==EOF &&
-                StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,false)==EOF)
+            if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,false)==EOF)
               throw ETlgError("Wrong format");
             break;
           case 6:
@@ -3621,8 +3623,8 @@ bool ParseDOCSRem(TTlgParser &tlg,string &rem_text,TDocItem &doc)
             GetNsiCode(lexh,ntCountries,doc.issue_country);
             break;
           case 3:
-            if (StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,true)==EOF &&
-                StrToDateTime(tlg.lex,"ddmmmyy",doc.birth_date,false)==EOF)
+            if (StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,true)==EOF &&
+                StrToDateTime(tlg.lex,"ddmmmyy",now,doc.birth_date,false)==EOF)
               throw ETlgError("Wrong format");
             break;
           case 4:
