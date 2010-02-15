@@ -2446,36 +2446,22 @@ void CheckInInterface::SavePax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                      flagLCLS=false;*/
                 pas.pers_type = NodeAsStringFast("pers_type",node2);
                 bool flagCHIN=pas.pers_type != "ВЗ";
-/*                if (remNode!=NULL)
-                {
-                  for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
-                  {
-                    node2=remNode->children;
+                if (remNode!=NULL) {
+                	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
+               		  node2=remNode->children;
                     const char *rem_code=NodeAsStringFast("rem_code",node2);
-                    if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"MCLS")==0 ||
-                        fltInfo.airline=="ПО" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
-                    if (fltInfo.airline=="ЮТ" && strcmp(rem_code,"SCLS")==0) flagSCLS=true;
-                    if (fltInfo.airline=="УН" && strcmp(rem_code,"YCLS")==0) flagYCLS=true;
-                    if (fltInfo.airline=="УН" && strcmp(rem_code,"LCLS")==0) flagLCLS=true;
-                    if (fltInfo.airline=="ЛА" && strcmp(rem_code,"MCLS")==0) flagMCLS=true;
-
                     if ( strcmp(rem_code,"BLND")==0 ||
-                    	   strcmp(rem_code,"STCR")==0 ||
-                    	   strcmp(rem_code,"UMNR")==0 ||
-                    	   strcmp(rem_code,"WCHS")==0 ||
-                    	   strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
-                    if (strcmp(rem_code,"MCLS")==0 ||
-                    	  strcmp(rem_code,"SCLS")==0 ||
-                    	  strcmp(rem_code,"YCLS")==0 ||
-                    	  strcmp(rem_code,"LCLS")==0) continue; //добавим ремарку MCLS, SCLS, YCLS, LCLS позже
+                         strcmp(rem_code,"STCR")==0 ||
+                         strcmp(rem_code,"UMNR")==0 ||
+                         strcmp(rem_code,"WCHS")==0 ||
+                         strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
                     #ifdef NEWSEATS
-                    pas.add_rem(rem_code);
+                     pas.add_rem(rem_code);
                     #else
-                    pas.rems.push_back(rem_code);
+                     pas.rems.push_back(rem_code);
                     #endif
-                  };
-                };*/
-
+                	}
+                }
                 string pass_rem;
                 if ( subcls_rems.IsSubClsRem( subclass, pass_rem ) )
                 #ifdef NEWSEATS
