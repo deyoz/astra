@@ -2482,7 +2482,22 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 remNode=GetNodeFast("rems",node2);
                 pas.pers_type = NodeAsStringFast("pers_type",node2);
                 bool flagCHIN=pas.pers_type != "‚‡";
-
+                if (remNode!=NULL) {
+                	for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next) {
+               		  node2=remNode->children;
+                    const char *rem_code=NodeAsStringFast("rem_code",node2);
+                    if ( strcmp(rem_code,"BLND")==0 ||
+                         strcmp(rem_code,"STCR")==0 ||
+                         strcmp(rem_code,"UMNR")==0 ||
+                         strcmp(rem_code,"WCHS")==0 ||
+                         strcmp(rem_code,"MEDA")==0 ) flagCHIN=true;
+                    #ifdef NEWSEATS
+                     pas.add_rem(rem_code);
+                    #else
+                     pas.rems.push_back(rem_code);
+                    #endif
+                	}
+                }
                 string pass_rem;
                 if ( subcls_rems.IsSubClsRem( subclass, pass_rem ) )
                 #ifdef NEWSEATS
