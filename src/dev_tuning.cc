@@ -19,6 +19,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace boost;
 
 void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, const TCacheQueryType qryType)
 {
@@ -1464,33 +1465,27 @@ void TBTModels::add(string type)
 void DevTuningInterface::Export(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     string op_type = NodeAsString("op_type", reqNode);
-    TFormTypes *form_types = NULL;
-    try {
-        switch(DecodeDevOperType(op_type)) {
-            case dotPrnBP:
-                form_types = new TBPTypes;
-                break;
-            case dotPrnBT:
-                form_types = new TTagTypes;
-                break;
-            case dotPrnBR:
-                form_types = new TBRTypes;
-                break;
-            default:
-                throw Exception("Unknown type: %s", op_type.c_str());
-        }
-        xmlNodePtr currNode = NodeAsNode("types", reqNode);
-        currNode = currNode->children;
-        for(; currNode; currNode = currNode->next)
-            form_types->add(NodeAsString(currNode));
-        form_types->ToXML(resNode);
-        NewTextChild(resNode, "op_type", op_type);
-        ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
-        delete form_types;
-    } catch(...) {
-        delete form_types;
-        throw;
+    shared_ptr<TFormTypes> form_types;
+    switch(DecodeDevOperType(op_type)) {
+        case dotPrnBP:
+            form_types = shared_ptr<TBPTypes>(new TBPTypes);
+            break;
+        case dotPrnBT:
+            form_types = shared_ptr<TTagTypes>(new TTagTypes);
+            break;
+        case dotPrnBR:
+            form_types = shared_ptr<TBRTypes>(new TBRTypes);
+            break;
+        default:
+            throw Exception("Unknown type: %s", op_type.c_str());
     }
+    xmlNodePtr currNode = NodeAsNode("types", reqNode);
+    currNode = currNode->children;
+    for(; currNode; currNode = currNode->next)
+        form_types->add(NodeAsString(currNode));
+    form_types->ToXML(resNode);
+    NewTextChild(resNode, "op_type", op_type);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 //////////// new import classes ////////////
@@ -1504,7 +1499,7 @@ struct TVersionType {
     string form, data, fmt_type, name;
     TDevOperType op_type;
     int id, version;
-    map<string, TFormType * > forms;
+    map<string, shared_ptr<TFormType> > forms;
     string str();
     void insert();
     void update();
@@ -1514,9 +1509,8 @@ struct TVersionType {
     string find_form(TVersionType &vers);
     void delete_blanks(TVersionType &vers);
     TVersionType *get_forms_vers(bool pr_dst = false);
-    void get_form_list(vector<TFormType *> &form_list);
+    void get_form_list(vector<shared_ptr<TFormType> > &form_list);
     TVersionType(): action(vaNone), op_type(dotUnknown), id(0), version(0) {};
-    ~TVersionType();
 };
 
 struct TVersList;
@@ -1543,7 +1537,7 @@ struct TFormType {
     virtual void insert(TVersionType &vers) = 0;
     virtual void del() = 0;
     virtual void get_version(TVersionType &ver) = 0;
-    virtual TFormType *Copy() = 0;
+    virtual shared_ptr<TFormType> Copy() = 0;
     TFormType(): num(0) {};
     virtual ~TFormType() {};
 };
@@ -1586,14 +1580,14 @@ void TVersionType::insert()
     }
     id = Qry.GetVariableAsInteger("id");
     version = 0;
-    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
         i_form->second->insert(*this);
 }
 
 void TVersionType::update()
 {
     TVersionType *dst_vers = NULL;
-    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         if(i_form->second->dest_version.list != NULL) {
             dst_vers = i_form->second->dest_version.get_vers();
             break;
@@ -1645,7 +1639,7 @@ void TVersionType::update()
             throw Exception("Не могу сапдейтить версию %s: %s", name.c_str(), E.what());
         }
     }
-    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
         if(i_form->second->dest_version.list == NULL)
             i_form->second->insert(*dst_vers);
 }
@@ -1678,7 +1672,6 @@ void TVersionType::delete_blank(TFormType &form)
     ProgTrace(TRACE5, "delete_blank: %s", form.str().c_str());
     if(forms.find(form.str()) != forms.end()) {
         forms[form.str()]->del();
-        delete forms[form.str()];
         forms.erase(form.str());
         ProgTrace(TRACE5, "delete_blank: deleted");
     }
@@ -1686,7 +1679,7 @@ void TVersionType::delete_blank(TFormType &form)
 
 void TVersionType::delete_dst_vers()
 {
-    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         if(i_form->second->dest_version.list != NULL) {
             i_form->second->dest_version.get_vers()->delete_blank(*i_form->second);
             i_form->second->dest_version.list = NULL;
@@ -1701,20 +1694,15 @@ void TVersionType::delete_blanks(TVersionType &vers)
     while(not i_form.empty()) {
         ProgTrace(TRACE5, "delete form %s", i_form.c_str());
         forms[i_form]->del();
-        tst();
-        delete forms[i_form];
-        tst();
         forms.erase(i_form);
-        tst();
         i_form = find_form(vers);
-        tst();
     }
 }
 
 string TVersionType::find_form(TVersionType &vers)
 {
     string result;
-    for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         TFormType &form = *i_form->second;
         if(form.dest_version.get_vers() == &vers) {
             result = form.str();
@@ -1727,7 +1715,7 @@ string TVersionType::find_form(TVersionType &vers)
 TVersionType *TVersionType::get_forms_vers(bool pr_dst)
 {
     TVersionType *result = NULL;
-    for(map<string, TFormType *>::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
+    for(map<string, shared_ptr<TFormType> >::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
         TFormType &form = *i_forms->second;
         if(form.dest_version.list == NULL) {
             if(pr_dst) {
@@ -1759,14 +1747,14 @@ struct TBRFormType:TFormType {
     void insert(TVersionType &vers);
     void del();
     void get_version(TVersionType &ver);
-    TFormType *Copy();
+    shared_ptr<TFormType> Copy();
 };
 
 struct TBPFormType:TFormType {
     void insert(TVersionType &vers);
     void del();
     void get_version(TVersionType &ver);
-    TFormType *Copy();
+    shared_ptr<TFormType> Copy();
 };
 
 struct TBTFormType:TFormType {
@@ -1774,7 +1762,7 @@ struct TBTFormType:TFormType {
     string str();
     void del();
     void get_version(TVersionType &ver);
-    TFormType *Copy();
+    shared_ptr<TFormType> Copy();
 };
 
 void TBPFormType::insert(TVersionType &vers)
@@ -1931,7 +1919,7 @@ void TBTFormType::del()
     }
 }
 
-void TVersionType::get_form_list(vector<TFormType *> &form_list)
+void TVersionType::get_form_list(vector<shared_ptr<TFormType> > &form_list)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -1948,7 +1936,7 @@ void TVersionType::get_form_list(vector<TFormType *> &form_list)
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        TFormType *form = new TBPFormType;
+        shared_ptr<TFormType> form = shared_ptr<TBPFormType>(new TBPFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -1967,7 +1955,7 @@ void TVersionType::get_form_list(vector<TFormType *> &form_list)
         "  version = :version ";
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        TFormType *form = new TBTFormType;
+        shared_ptr<TFormType> form = shared_ptr<TBTFormType>(new TBTFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -1988,7 +1976,7 @@ void TVersionType::get_form_list(vector<TFormType *> &form_list)
     Qry.CreateVariable("version", otInteger, version);
     Qry.Execute();
     for(; not Qry.Eof; Qry.Next()) {
-        TFormType *form = new TBRFormType;
+        shared_ptr<TFormType> form = shared_ptr<TBRFormType>(new TBRFormType);
         form->form_type = Qry.FieldAsString("form_type");
         form->dev_model = Qry.FieldAsString("dev_model");
         form->fmt_type = Qry.FieldAsString("fmt_type");
@@ -1996,23 +1984,23 @@ void TVersionType::get_form_list(vector<TFormType *> &form_list)
     }
 }
 
-TFormType *TBTFormType::Copy()
+shared_ptr<TFormType> TBTFormType::Copy()
 {
-    TFormType *result = new TBTFormType;
+    shared_ptr<TFormType> result = shared_ptr<TBTFormType>(new TBTFormType);
     result->init(this);
     return result;
 }
 
-TFormType *TBPFormType::Copy()
+shared_ptr<TFormType> TBPFormType::Copy()
 {
-    TFormType *result = new TBPFormType;
+    shared_ptr<TFormType> result = shared_ptr<TBPFormType>(new TBPFormType);
     result->init(this);
     return result;
 }
 
-TFormType *TBRFormType::Copy()
+shared_ptr<TFormType> TBRFormType::Copy()
 {
-    TFormType *result = new TBRFormType;
+    shared_ptr<TFormType> result = shared_ptr<TBRFormType>(new TBRFormType);
     result->init(this);
     return result;
 }
@@ -2134,17 +2122,6 @@ string TFormType::str()
     return form_type + "." + dev_model + "." + fmt_type;
 }
 
-TVersionType::~TVersionType()
-{
-    for(map<string, TFormType * >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
-        if(forms_i->second == NULL)
-            ProgTrace(TRACE5, "forms_i->second is NULL");
-        else
-            ProgTrace(TRACE5, "deleting %s", forms_i->second->str().c_str());
-        delete forms_i->second;
-    }
-}
-
 string TVersionType::str()
 {
     ostringstream buf;
@@ -2239,7 +2216,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
 {
     for(map<string, TVersionType>::iterator i_vers = items.begin(); i_vers != items.end(); i_vers++) {
         TVersionType &version = i_vers->second;
-        for(map<string, TFormType *>::iterator i_forms = version.forms.begin(); i_forms != version.forms.end(); i_forms++) {
+        for(map<string, shared_ptr<TFormType> >::iterator i_forms = version.forms.begin(); i_forms != version.forms.end(); i_forms++) {
             TFormType &form_type = *i_forms->second;
             TVersionType dst_vers;
             form_type.get_version(dst_vers);
@@ -2249,7 +2226,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                 dst_vers.fmt_type = form_type.fmt_type;
                 dst_vers_list.items[dst_vers.str()] = dst_vers;
             }
-            TFormType *dest_form_type = form_type.Copy();
+            shared_ptr<TFormType> dest_form_type = form_type.Copy();
             dest_form_type->dest_version.assign(this, version.str()); // ссылка на версию исходника
             form_type.dest_version.assign(&dst_vers_list, dst_vers.str()); // ссылка на версию цели
             dst_vers_list.items[dst_vers.str()].forms[dest_form_type->str()] = dest_form_type;
@@ -2260,11 +2237,11 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
     // в случае надобности.
     for(map<string, TVersionType>::iterator i_vers = dst_vers_list.items.begin(); i_vers != dst_vers_list.items.end(); i_vers++) {
         TVersionType &version = i_vers->second;
-        vector<TFormType *> form_list;
+        vector<shared_ptr<TFormType> > form_list;
         version.get_form_list(form_list);
         ProgTrace(TRACE5, "version: %s; form_list.count: %d", version.name.c_str(), form_list.size());
         TVersionType *same_src_vers = find_same(version);
-        for(vector<TFormType *>::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
+        for(vector<shared_ptr<TFormType> >::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
             ProgTrace(TRACE5, "    form: %s", (*i_list)->str().c_str());
             if(version.forms.find((*i_list)->str()) == version.forms.end()) {
                 // в списке бланков цели обнаружен бланк, которого нет в
@@ -2279,7 +2256,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                     ProgTrace(TRACE5, "    adding form to src vers");
                     if(same_src_vers->forms.find((*i_list)->str()) != same_src_vers->forms.end())
                         throw Exception("TVersList::fill_dest_list: unexpected form find %s", (*i_list)->str().c_str());
-                    TFormType *src_form = (*i_list)->Copy();
+                    shared_ptr<TFormType> src_form = (*i_list)->Copy();
                     tst();
                     src_form->dest_version.assign(&dst_vers_list, version.str());
                     tst();
@@ -2287,11 +2264,8 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                     (*i_list)->dest_version.assign(this, same_src_vers->str());
                 }
                 version.forms[(*i_list)->str()] = *i_list;
-                *i_list = NULL;
             }
         }
-        for(vector<TFormType *>::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++)
-            delete *i_list;
     }
     tst();
 }
@@ -2301,8 +2275,8 @@ void TVersList::dump()
     ProgTrace(TRACE5, "-----------TVersList::dump()-----------");
     for(map<string, TVersionType>::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
         ProgTrace(TRACE5, "%s %s", i_items->second.name.c_str(), i_items->second.str().c_str());
-        map<string, TFormType * > &forms = i_items->second.forms;
-        for(map<string, TFormType * >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
+        map<string, shared_ptr<TFormType>  > &forms = i_items->second.forms;
+        for(map<string, shared_ptr<TFormType>  >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
             string buf;
             if(forms_i->second->dest_version.list != NULL)
                 buf = forms_i->second->dest_version.get_vers()->name + " " + forms_i->second->dest_version.get_vers()->str();
@@ -2314,16 +2288,16 @@ void TVersList::dump()
 
 string TVersList::add_to_vers(string vers_i, TPectabItem &pectab)
 {
-    TFormType *form;
+    shared_ptr<TFormType> form;
     switch(pectab.op_type) {
         case dotPrnBP:
-            form = new TBPFormType;
+            form = shared_ptr<TBPFormType>(new TBPFormType);
             break;
         case dotPrnBT:
-            form = new TBTFormType;
+            form = shared_ptr<TBTFormType>(new TBTFormType);
             break;
         case dotPrnBR:
-            form = new TBRFormType;
+            form = shared_ptr<TBRFormType>(new TBRFormType);
             break;
         default:
             throw Exception("TVersList::add_to_vers: unknown op_type %d", pectab.op_type);
@@ -2332,11 +2306,8 @@ string TVersList::add_to_vers(string vers_i, TPectabItem &pectab)
     form->dev_model = pectab.dev_model;
     form->fmt_type = pectab.fmt_type;
     form->num = pectab.num;
-    if(items[vers_i].forms.find(form->str()) != items[vers_i].forms.end()) {
-        string buf = form->str();
-        delete form;
-        throw Exception("TVersList::add_to_vers: duplicate form found: %s", buf.c_str());
-    }
+    if(items[vers_i].forms.find(form->str()) != items[vers_i].forms.end())
+        throw Exception("TVersList::add_to_vers: duplicate form found: %s", form->str().c_str());
     items[vers_i].forms[form->str()] = form;
     items[vers_i].fmt_type = form->fmt_type;
     return form->str();
