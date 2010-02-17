@@ -1519,17 +1519,32 @@ struct TVersionType {
     ~TVersionType();
 };
 
+struct TVersList;
+
+struct TVersionRef {
+    TVersList *list;
+    string vers_idx;
+    TVersionType *get_vers();
+    void assign(TVersList *vlist, string idx);
+    TVersionRef(): list(NULL) {};
+};
+
+void TVersionRef::assign(TVersList *vlist, string idx)
+{
+    list = vlist;
+    vers_idx = idx;
+}
 struct TFormType {
     string form_type, dev_model, fmt_type;
     int num;
-    TVersionType *dest_version;
+    TVersionRef dest_version;
     void init(TFormType *val);
     virtual string str();
     virtual void insert(TVersionType &vers) = 0;
     virtual void del() = 0;
     virtual void get_version(TVersionType &ver) = 0;
     virtual TFormType *Copy() = 0;
-    TFormType(): num(0), dest_version(NULL) {};
+    TFormType(): num(0) {};
     virtual ~TFormType() {};
 };
 
@@ -1579,8 +1594,8 @@ void TVersionType::update()
 {
     TVersionType *dst_vers = NULL;
     for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
-        if(i_form->second->dest_version != NULL) {
-            dst_vers = i_form->second->dest_version;
+        if(i_form->second->dest_version.list != NULL) {
+            dst_vers = i_form->second->dest_version.get_vers();
             break;
         }
     }
@@ -1631,7 +1646,7 @@ void TVersionType::update()
         }
     }
     for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
-        if(i_form->second->dest_version == NULL)
+        if(i_form->second->dest_version.list == NULL)
             i_form->second->insert(*dst_vers);
 }
 
@@ -1672,21 +1687,27 @@ void TVersionType::delete_blank(TFormType &form)
 void TVersionType::delete_dst_vers()
 {
     for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
-        if(i_form->second->dest_version != NULL) {
-            i_form->second->dest_version->delete_blank(*i_form->second);
-            i_form->second->dest_version = NULL;
+        if(i_form->second->dest_version.list != NULL) {
+            i_form->second->dest_version.get_vers()->delete_blank(*i_form->second);
+            i_form->second->dest_version.list = NULL;
         }
     }
 }
 
 void TVersionType::delete_blanks(TVersionType &vers)
 {
+    ProgTrace(TRACE5, "forms.size(): %d", forms.size());
     string i_form = find_form(vers);
     while(not i_form.empty()) {
+        ProgTrace(TRACE5, "delete form %s", i_form.c_str());
         forms[i_form]->del();
+        tst();
         delete forms[i_form];
+        tst();
         forms.erase(i_form);
+        tst();
         i_form = find_form(vers);
+        tst();
     }
 }
 
@@ -1695,7 +1716,7 @@ string TVersionType::find_form(TVersionType &vers)
     string result;
     for(map<string, TFormType *>::iterator i_form = forms.begin(); i_form != forms.end(); i_form++) {
         TFormType &form = *i_form->second;
-        if(form.dest_version == &vers) {
+        if(form.dest_version.get_vers() == &vers) {
             result = form.str();
             break;
         }
@@ -1708,7 +1729,7 @@ TVersionType *TVersionType::get_forms_vers(bool pr_dst)
     TVersionType *result = NULL;
     for(map<string, TFormType *>::iterator i_forms = forms.begin(); i_forms != forms.end(); i_forms++) {
         TFormType &form = *i_forms->second;
-        if(form.dest_version == NULL) {
+        if(form.dest_version.list == NULL) {
             if(pr_dst) {
                 result = NULL;
                 break;
@@ -1716,8 +1737,8 @@ TVersionType *TVersionType::get_forms_vers(bool pr_dst)
                 continue;
         }
         if(result == NULL)
-            result = form.dest_version;
-        else if(result != form.dest_version) {
+            result = form.dest_version.get_vers();
+        else if(result != form.dest_version.get_vers()) {
             result = NULL;
             break;
         }
@@ -1848,17 +1869,25 @@ void TBTFormType::insert(TVersionType &vers)
 
 void TBPFormType::del()
 {
+    ProgTrace(TRACE5, "TBPFormType::del entrance");
     TQuery Qry(&OraSession);
+    tst();
     Qry.SQLText =
         "delete from bp_models where "
         "  form_type = :form_type and "
         "  dev_model = :dev_model and "
         "  fmt_type = :fmt_type ";
+    tst();
     Qry.CreateVariable("form_type", otString, form_type);
+    tst();
     Qry.CreateVariable("dev_model", otString, dev_model);
+    tst();
     Qry.CreateVariable("fmt_type", otString, fmt_type);
+    tst();
     try {
+        tst();
         Qry.Execute();
+        tst();
     } catch(Exception E) {
         throw Exception("Не могу удалить бланк пос. талона %s: %s", str().c_str(), E.what());
     }
@@ -2136,6 +2165,14 @@ struct TVersList {
     void dump();
 };
 
+TVersionType *TVersionRef::get_vers()
+{
+    if(list == NULL) return NULL;
+    if(list->items.find(vers_idx) == list->items.end())
+        throw Exception("TVersionRef::get_vers: version not found %s", vers_idx.c_str());
+    return &list->items[vers_idx];
+}
+
 TVersionType *TVersList::find_same(TVersionType &vers)
 {
     TVersionType *result = NULL;
@@ -2213,8 +2250,8 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                 dst_vers_list.items[dst_vers.str()] = dst_vers;
             }
             TFormType *dest_form_type = form_type.Copy();
-            dest_form_type->dest_version = &version; // ссылка на версию исходника
-            form_type.dest_version = &(dst_vers_list.items[dst_vers.str()]); // ссылка на версию цели
+            dest_form_type->dest_version.assign(this, version.str()); // ссылка на версию исходника
+            form_type.dest_version.assign(&dst_vers_list, dst_vers.str()); // ссылка на версию цели
             dst_vers_list.items[dst_vers.str()].forms[dest_form_type->str()] = dest_form_type;
 
         }
@@ -2228,6 +2265,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
         ProgTrace(TRACE5, "version: %s; form_list.count: %d", version.name.c_str(), form_list.size());
         TVersionType *same_src_vers = find_same(version);
         for(vector<TFormType *>::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++) {
+            ProgTrace(TRACE5, "    form: %s", (*i_list)->str().c_str());
             if(version.forms.find((*i_list)->str()) == version.forms.end()) {
                 // в списке бланков цели обнаружен бланк, которого нет в
                 // соответствующем списке бланков исходника
@@ -2238,13 +2276,16 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
                 // ( добавляем его в список бланков найденной исходной версии)
                 // Если соответствия не найдено, то придется ему отпочковываться в отдельную версию.
                 if(same_src_vers != NULL) {
+                    ProgTrace(TRACE5, "    adding form to src vers");
                     if(same_src_vers->forms.find((*i_list)->str()) != same_src_vers->forms.end())
                         throw Exception("TVersList::fill_dest_list: unexpected form find %s", (*i_list)->str().c_str());
                     TFormType *src_form = (*i_list)->Copy();
-                    src_form->dest_version = &version;
+                    tst();
+                    src_form->dest_version.assign(&dst_vers_list, version.str());
+                    tst();
                     same_src_vers->forms[src_form->str()] = src_form;
+                    (*i_list)->dest_version.assign(this, same_src_vers->str());
                 }
-                (*i_list)->dest_version = same_src_vers;
                 version.forms[(*i_list)->str()] = *i_list;
                 *i_list = NULL;
             }
@@ -2252,6 +2293,7 @@ void TVersList::fill_dest_list(TVersList &dst_vers_list)
         for(vector<TFormType *>::iterator i_list = form_list.begin(); i_list != form_list.end(); i_list++)
             delete *i_list;
     }
+    tst();
 }
 
 void TVersList::dump()
@@ -2262,8 +2304,8 @@ void TVersList::dump()
         map<string, TFormType * > &forms = i_items->second.forms;
         for(map<string, TFormType * >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++) {
             string buf;
-            if(forms_i->second->dest_version != NULL)
-                buf = forms_i->second->dest_version->name + " " + forms_i->second->dest_version->str();
+            if(forms_i->second->dest_version.list != NULL)
+                buf = forms_i->second->dest_version.get_vers()->name + " " + forms_i->second->dest_version.get_vers()->str();
             ProgTrace(TRACE5, "        %s %s", forms_i->second->str().c_str(), buf.c_str());
         }
     }
@@ -2369,46 +2411,40 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
 {
     ProgTrace(TRACE5, "%s", GetXMLDocText(reqNode->doc).c_str());
     string op_type = NodeAsString("op_type", reqNode);
-    TFormTypes *form_types = NULL;
-    try {
-        switch(DecodeDevOperType(op_type)) {
-            case dotPrnBP:
-                form_types = new TBPTypes;
-                break;
-            case dotPrnBT:
-                form_types = new TTagTypes;
-                break;
-            case dotPrnBR:
-                form_types = new TBRTypes;
-                break;
-            default:
-                throw Exception("Unknown type: %s", op_type.c_str());
-        }
-        form_types->add(reqNode);
-        vector<TPectabItem> pectabs;
-        form_types->get_pectabs(pectabs);
-        ProgTrace(TRACE5, "pectabs.size(): %d", pectabs.size());
-        process(pectabs);
-
-
-        /*
-        form_types->PrnFormsToBase();
-        xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
-        for(; cfgNode; cfgNode = cfgNode->next) {
-            xmlNodePtr fastNode = cfgNode->children;
-            string src = NodeAsStringFast("src", fastNode);
-            ProgTrace(TRACE5, "src: %s", src.c_str());
-            xmlNodePtr destsNode = NodeAsNodeFast("dests", fastNode)->children;
-            for(; destsNode; destsNode = destsNode->next) {
-                string dest = NodeAsString(destsNode);
-                ProgTrace(TRACE5, "    dest: %s", dest.c_str());
-                form_types->copy(src, dest);
-            }
-        }
-        */
-        delete form_types;
-    } catch(...) {
-        delete form_types;
-        throw;
+    auto_ptr<TFormTypes> form_types;
+    switch(DecodeDevOperType(op_type)) {
+        case dotPrnBP:
+            form_types = auto_ptr<TBPTypes> (new TBPTypes);
+            break;
+        case dotPrnBT:
+            form_types = auto_ptr<TTagTypes> (new TTagTypes);
+            break;
+        case dotPrnBR:
+            form_types = auto_ptr<TBRTypes> (new TBRTypes);
+            break;
+        default:
+            throw Exception("Unknown type: %s", op_type.c_str());
     }
+    form_types->add(reqNode);
+    vector<TPectabItem> pectabs;
+    form_types->get_pectabs(pectabs);
+    ProgTrace(TRACE5, "pectabs.size(): %d", pectabs.size());
+    process(pectabs);
+
+
+    /*
+       form_types->PrnFormsToBase();
+       xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
+       for(; cfgNode; cfgNode = cfgNode->next) {
+       xmlNodePtr fastNode = cfgNode->children;
+       string src = NodeAsStringFast("src", fastNode);
+       ProgTrace(TRACE5, "src: %s", src.c_str());
+       xmlNodePtr destsNode = NodeAsNodeFast("dests", fastNode)->children;
+       for(; destsNode; destsNode = destsNode->next) {
+       string dest = NodeAsString(destsNode);
+       ProgTrace(TRACE5, "    dest: %s", dest.c_str());
+       form_types->copy(src, dest);
+       }
+       }
+     */
 }
