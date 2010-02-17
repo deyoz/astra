@@ -13,6 +13,7 @@
 #include "term_version.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/str_utils.h"
+#include <boost/shared_array.hpp>
 
 #define NICKNAME "DENIS"
 #include "serverlib/test.h"
@@ -21,6 +22,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace boost;
 
 const string ALL_CKIN_ZONES = " ";
 
@@ -772,7 +774,7 @@ void get_report_form(const string name, xmlNodePtr node)
     }
     // положим в ответ шаблон отчета
     int len = Qry.GetSizeLongField("form");
-    auto_ptr<char> data (new char[len]);
+    shared_array<char> data (new char[len]);
     Qry.FieldAsLong("form", data.get());
     form.clear();
     form.append(data.get(), len);
