@@ -772,17 +772,11 @@ void get_report_form(const string name, xmlNodePtr node)
     }
     // положим в ответ шаблон отчета
     int len = Qry.GetSizeLongField("form");
-    void *data = malloc(len);
-    if ( data == NULL )
-        throw Exception("DocsInterface::RunReport malloc failed");
-    try {
-        Qry.FieldAsLong("form", data);
-        form.clear();
-        form.append((char *)data, len);
-    } catch(...) {
-        free(data);
-    }
-    free(data);
+    auto_ptr<char> data (new char[len]);
+    Qry.FieldAsLong("form", data.get());
+    form.clear();
+    form.append(data.get(), len);
+
     xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
