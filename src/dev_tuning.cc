@@ -1500,12 +1500,15 @@ struct TVersionType {
     TDevOperType op_type;
     int id, version;
     map<string, shared_ptr<TFormType> > forms;
+    void get_typed_forms(string form_type, vector<shared_ptr<TFormType> > &typed_forms);
+    void duplicate_forms(string dst_type, vector<shared_ptr<TFormType> > &typed_forms, bool pr_dup);
     string str();
     void insert();
     void update();
     void del();
     void delete_blank(TFormType &form);
     void delete_dst_vers();
+    shared_ptr<TVersionType> find_dst_vers();
     string find_form(TVersionType &vers);
     void delete_blanks(TVersionType &vers);
     TVersionType *get_forms_vers(bool pr_dst = false);
@@ -1542,46 +1545,59 @@ struct TFormType {
     virtual ~TFormType() {};
 };
 
-void TVersionType::insert()
+shared_ptr<TVersionType> TVersionType::find_dst_vers()
 {
-    ProgTrace(TRACE5, "insert version");
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "declare "
-        "  new_name prn_forms.name%type; "
-        "  copy_num number; "
-        "  names_count number; "
-        "begin "
-        "  new_name := :name; "
-        "  copy_num := 1; "
-        "  loop "
-        "    select count(*) into names_count from prn_forms where name = new_name; "
-        "    if names_count = 0 then exit; end if; "
-        "    new_name := :name || ' копия ' || copy_num; "
-        "    copy_num := copy_num + 1; "
-        "  end loop; "
-        "  :name := new_name; "
-        "  insert into prn_forms( id, op_type, fmt_type, name) "
-        "    values(id__seq.nextval, :op_type, :fmt_type, :name) "
-        "  returning id into :id; "
-        "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
-        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
-        "end; ";
+        "select "
+        "  prn_form_vers.id, "
+        "  prn_form_vers.version "
+        "from "
+        "  prn_forms, "
+        "  prn_form_vers "
+        "where "
+        "  prn_forms.id = prn_form_vers.id and "
+        "  prn_forms.op_type = :op_type and "
+        "  prn_forms.fmt_type = :fmt_type and "
+        "  prn_form_vers.form = :form and "
+        "  prn_form_vers.data = :data ";
     Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
     Qry.CreateVariable("fmt_type", otString, fmt_type);
-    Qry.CreateVariable("name", otString, name);
     Qry.CreateVariable("form", otString, form);
     Qry.CreateVariable("data", otString, data);
-    Qry.DeclareVariable("id", otInteger);
-    try {
-        Qry.Execute();
-    } catch(Exception E) {
-        throw Exception("Не могу вставить версию %s: %s", name.c_str(), E.what());
+    Qry.Execute();
+    shared_ptr<TVersionType> result;
+    if(not Qry.Eof) {
+        result = shared_ptr<TVersionType>(new TVersionType);
+        result->form = form;
+        result->data = data;
+        result->fmt_type = fmt_type;
+        result->name = name;
+        result->id = Qry.FieldAsInteger("id");
+        result->version = Qry.FieldAsInteger("version");
     }
-    id = Qry.GetVariableAsInteger("id");
-    version = 0;
-    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
-        i_form->second->insert(*this);
+    return result;
+}
+
+void TVersionType::duplicate_forms(string dst_type, vector<shared_ptr<TFormType> > &typed_forms, bool pr_dup)
+{
+    for(vector<shared_ptr<TFormType> >::iterator tf_i = typed_forms.begin(); tf_i != typed_forms.end(); tf_i++) {
+        if(pr_dup) {
+            shared_ptr<TFormType> new_form = (*tf_i)->Copy();
+            new_form->form_type = dst_type;
+            if(forms.find(new_form->str()) != forms.end())
+                throw Exception("TVersionType::duplicate_forms: form %s already exists for vers %s", new_form->str().c_str(), name.c_str());
+            forms[new_form->str()] = new_form;
+        } else
+            (*tf_i)->form_type = dst_type;
+    }
+}
+
+void TVersionType::get_typed_forms(string form_type, vector<shared_ptr<TFormType> > &typed_forms)
+{
+    for(map<string, shared_ptr<TFormType> >::iterator forms_i = forms.begin(); forms_i != forms.end(); forms_i++)
+        if(forms_i->second->form_type == form_type)
+            typed_forms.push_back(forms_i->second);
 }
 
 void TVersionType::update()
@@ -2134,6 +2150,7 @@ struct TVersList {
     string add_new(TPectabItem &pectab);
     string  add_to_vers(string vers_i, TPectabItem &pectab);
     TVersionType *find_same(TVersionType &vers);
+    void apply_mapping(map<string, set<string> > &mapping);
     void update();
     void insert();
     void cleanup();
@@ -2141,6 +2158,80 @@ struct TVersList {
     void fill_dest_list(TVersList &dst_vers_list);
     void dump();
 };
+
+void TVersionType::insert()
+{
+    shared_ptr<TVersionType> dst_vers = find_dst_vers();
+    if(dst_vers != NULL) {
+        // добавим в список форм исходника фальшивую форму для связи с целью
+        // чтобы прошел апдейт
+        TVersList tmp_vers_list;
+        tmp_vers_list.items[dst_vers->str()] = *dst_vers;
+        shared_ptr<TFormType> fake_form = forms.begin()->second->Copy();
+        fake_form->dest_version.assign(&tmp_vers_list, dst_vers->str());
+        fake_form->form_type.erase();
+        forms[fake_form->str()] = fake_form;
+        update();
+        return;
+    }
+    ProgTrace(TRACE5, "insert version");
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "declare "
+        "  new_name prn_forms.name%type; "
+        "  copy_num number; "
+        "  names_count number; "
+        "begin "
+        "  new_name := :name; "
+        "  copy_num := 1; "
+        "  loop "
+        "    select count(*) into names_count from prn_forms where name = new_name; "
+        "    if names_count = 0 then exit; end if; "
+        "    new_name := :name || ' копия ' || copy_num; "
+        "    copy_num := copy_num + 1; "
+        "  end loop; "
+        "  :name := new_name; "
+        "  insert into prn_forms( id, op_type, fmt_type, name) "
+        "    values(id__seq.nextval, :op_type, :fmt_type, :name) "
+        "  returning id into :id; "
+        "  insert into prn_form_vers(id, version, descr, form, data, read_only) "
+        "    values(:id, 0, 'Inserted by prnc', :form, :data, 1); "
+        "end; ";
+    Qry.CreateVariable("op_type", otString, EncodeDevOperType(op_type));
+    Qry.CreateVariable("fmt_type", otString, fmt_type);
+    Qry.CreateVariable("name", otString, name);
+    Qry.CreateVariable("form", otString, form);
+    Qry.CreateVariable("data", otString, data);
+    Qry.DeclareVariable("id", otInteger);
+    try {
+        Qry.Execute();
+    } catch(Exception E) {
+        throw Exception("Не могу вставить версию %s: %s", name.c_str(), E.what());
+    }
+    id = Qry.GetVariableAsInteger("id");
+    version = 0;
+    for(map<string, shared_ptr<TFormType> >::iterator i_form = forms.begin(); i_form != forms.end(); i_form++)
+        i_form->second->insert(*this);
+}
+
+void TVersList::apply_mapping(map<string, set<string> > &mapping)
+{
+    for( map<string, TVersionType>::iterator i_items = items.begin(); i_items != items.end(); i_items++) {
+        TVersionType &vers = i_items->second;
+        for(map<string, set<string> >::iterator i_mapping = mapping.begin(); i_mapping != mapping.end(); i_mapping++) {
+            vector<shared_ptr<TFormType> > typed_forms;
+            vers.get_typed_forms(i_mapping->first, typed_forms);
+
+            // признак того, что тип бланка из исходника копируется в себя в целевую базу.
+            bool oneByOne = i_mapping->second.find(i_mapping->first) != i_mapping->second.end();
+
+            for(set<string>::iterator dst_i = i_mapping->second.begin(); dst_i != i_mapping->second.end(); dst_i++) {
+                if(*dst_i == i_mapping->first) continue;
+                vers.duplicate_forms(*dst_i, typed_forms, not (not oneByOne and dst_i == i_mapping->second.begin()));
+            }
+        }
+    }
+}
 
 TVersionType *TVersionRef::get_vers()
 {
@@ -2328,7 +2419,7 @@ string TVersList::add_new(TPectabItem &pectab)
     return vers.str();
 }
 
-void process(vector<TPectabItem> &pectabs)
+void process(vector<TPectabItem> &pectabs, map<string, set<string> > &mapping)
 {
     if(pectabs.empty()) return;
     TVersList src_vers_list;
@@ -2359,6 +2450,8 @@ void process(vector<TPectabItem> &pectabs)
         if(not pectab.form_type.empty())
             src_vers_list.add_new(pectab);
     }
+    // Изменяем структуру версий в зав-ти от структуры отображения, которую задал юзер при импорте.
+    src_vers_list.apply_mapping(mapping);
     // Теперь нужно сформировать список версий целевой базы
     // Для этого нужно пробежать по всем типам бланков источника
     // и выяснить какие версии (id, version) им соответствуют в
@@ -2400,7 +2493,20 @@ void DevTuningInterface::Import(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     vector<TPectabItem> pectabs;
     form_types->get_pectabs(pectabs);
     ProgTrace(TRACE5, "pectabs.size(): %d", pectabs.size());
-    process(pectabs);
+    map<string, set<string> > mapping;
+    xmlNodePtr cfgNode = NodeAsNode("cfg", reqNode)->children;
+    for(; cfgNode; cfgNode = cfgNode->next) {
+        xmlNodePtr fastNode = cfgNode->children;
+        string src = NodeAsStringFast("src", fastNode);
+        ProgTrace(TRACE5, "src: %s", src.c_str());
+        xmlNodePtr destsNode = NodeAsNodeFast("dests", fastNode)->children;
+        for(; destsNode; destsNode = destsNode->next) {
+            string dest = NodeAsString(destsNode);
+            ProgTrace(TRACE5, "    dest: %s", dest.c_str());
+            mapping[src].insert(dest);
+        }
+    }
+    process(pectabs, mapping);
 
 
     /*
