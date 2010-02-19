@@ -237,6 +237,13 @@ void DevTuningInterface::UpdateCopy(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.RowsProcessed() == 0)
         throw UserException(not_avail_err);
+    ostringstream msg;
+    if(*(char*)reqNode->name == 'U') // Update
+        msg << "Изменены данные пектаба.";
+    else // Copy
+        msg << "Скопированы данные пектаба.";
+    msg << " id = " << id << "; vers = " << vers;
+    TReqInfo::Instance()->MsgToLog( msg.str(), evtSystem);
 }
 
 ///////////////////////////////////// Export stuff /////////////////////////////

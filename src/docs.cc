@@ -1926,6 +1926,7 @@ void  DocsInterface::SaveReport(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             Qry.SQLText = "insert into fr_forms(id, name, form) values(id__seq.nextval, :name, :form)";
         Qry.Execute();
     }
+    TReqInfo::Instance()->MsgToLog( (string)"Обновлен шаблон отчета " + name, evtSystem);
 }
 
 vector<string> get_grp_zone_list(int point_id)
