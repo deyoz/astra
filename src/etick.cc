@@ -101,7 +101,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
       NewTextChild(resNode,"connect_error");
     else
-      AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
+      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
   };
 };
 
@@ -354,7 +354,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
     }
     else
-      AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
+      AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
   };
 };
 
@@ -504,7 +504,6 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           if ( reqInfo->client_type == ctWeb )
             AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR" );
           NewTextChild(resNode,"ets_error",msg.str());
-          //!!!vlad выдавать ошиПку в command, если WEB
           //откат всех подтвержденных статусов
           ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
           return;

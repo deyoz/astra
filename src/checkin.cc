@@ -2130,14 +2130,17 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                          s->second.point_arv,
                          s->second.airp_arv, true, s->second))
     {
-    	//!!!vlad pr_del!
-      if (!only_one && !s->second.fltInfo.airline.empty())
-        throw UserException("MSG.FLIGHT.CHANGED_NAME.REFRESH_DATA", //WEB
-                            LParams()<<LParam("flight", GetTripName(s->second.fltInfo,true,false)));
-      else
-        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+    	if (s->second.fltInfo.pr_del==0)
+    	{
+        if (!only_one && !s->second.fltInfo.airline.empty())
+          throw UserException("MSG.FLIGHT.CHANGED_NAME.REFRESH_DATA", //WEB
+                              LParams()<<LParam("flight", GetTripName(s->second.fltInfo,true,false)));
+        else
+          throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
+      };
     };
-    if (s->second.fltInfo.pr_del!=0)
+    if (s->second.fltInfo.pr_del==ASTRA::NoExists ||
+        s->second.fltInfo.pr_del!=0)
     {
       if (!only_one && !s->second.fltInfo.airline.empty())
         throw UserException("MSG.FLIGHT.CANCELED_NAME.REFRESH_DATA", //WEB
@@ -3630,7 +3633,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       //BSM
       if (BSMsend) TelegramInterface::SendBSM(point_dep,grp_id,BSMContentBefore,BSMaddrs);
 
-      if (first_segment && reqInfo->client_type==ctTerm) //!!!vlad
+      if (first_segment && reqInfo->client_type==ctTerm)
       {
         //отправить на клиент счетчики
         readTripCounters(point_dep,resNode);
@@ -3660,7 +3663,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc));
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
       throw EXCEPTIONS::Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
-    AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
+    AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
     return false;
   };
 
@@ -5703,8 +5706,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   TSegInfo segInfo;
 
   if (!CheckCkinFlight(point_dep, airp_dep, point_arv, airp_arv, false, segInfo))
-    throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-  if (segInfo.fltInfo.pr_del!=0)
+  {
+    if (segInfo.fltInfo.pr_del==0)
+      throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  };
+  if (segInfo.fltInfo.pr_del==ASTRA::NoExists ||
+      segInfo.fltInfo.pr_del!=0)
     throw UserException("MSG.FLIGHT.CANCELED.REFRESH_DATA");
 
   TTripInfo &fltInfo=segInfo.fltInfo;
