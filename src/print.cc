@@ -2737,7 +2737,7 @@ void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
         "   bt_models, "
         "   prn_form_vers "
         "where "
-        "   bt_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bt_models.form_type IN (SELECT DISTINCT tag_type FROM trip_bt WHERE point_id=:point_id) and "
         "   bt_models.dev_model = :dev_model and "
         "   bt_models.fmt_type = :fmt_type and "
         "   bt_models.id = prn_form_vers.id and "
