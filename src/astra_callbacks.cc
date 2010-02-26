@@ -1,3 +1,5 @@
+#include <string>
+#include <vector>
 #include "astra_callbacks.h"
 #include "maindcs.h"
 #include "adm.h"
@@ -28,6 +30,7 @@
 #include "astra_utils.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "oralib.h"
 #include "xml_unit.h"
 #include "base_tables.h"
@@ -143,6 +146,41 @@ void AstraJxtCallbacks::UserBefore(const char *body, int blen, const char *head,
     ServerFramework::getQueryRunner().setPult(xmlRC->pult);
 }
 
+void RevertWebResDoc( const char* answer_tag, xmlNodePtr resNode )
+{
+	// если есть тег <error> || <user_error>, то все остальное удаляем их из xml дерева
+	std::vector<xmlNodePtr> vnodes;
+	xmlNodePtr ne;
+	ne = GetNode( "command/error", resNode );
+	if ( ne == NULL )
+	  ne = GetNode( "command/user_error", resNode );
+	if ( ne != NULL ) {
+		std::string error_message = NodeAsString( ne );
+		std::string error_code = NodeAsString( "@code", ne, "0" );
+		std::string lexema_id = NodeAsString( "@lexema_id", ne, "" );
+		xmlNodePtr n = resNode->children;
+    while ( n != NULL ) {
+   		vnodes.push_back( n );
+     	n = n->next;
+    }
+    resNode = NewTextChild( resNode, answer_tag ); // command tag
+    //NewTextChild( resNode, "error_code", error_code );
+    NewTextChild( resNode, "error_code", lexema_id );
+    NewTextChild( resNode, "error_message", error_message );
+	}
+	else { // если есть тег <message> || <user_error_message>, то удаляем их из xml дерева
+		if ( GetNode( "command/user_error_message", resNode ) != NULL ||
+			   GetNode( "command/message", resNode ) != NULL ) {
+     	vnodes.push_back( GetNode( "command", resNode ) );
+		}
+	}
+  for ( std::vector<xmlNodePtr>::iterator i=vnodes.begin(); i!=vnodes.end(); i++ ) {
+   	xmlUnlinkNode( *i );
+   	xmlFreeNode( *i );
+  }
+}
+
+
 void AstraJxtCallbacks::UserAfter()
 {
     base_tables.Invalidate();
@@ -150,6 +188,8 @@ void AstraJxtCallbacks::UserAfter()
 	  XMLRequestCtxt *xmlRC = getXmlCtxt();
 	  xmlNodePtr node=NodeAsNode("/term/answer",xmlRC->resDoc);
 	  SetProp(node, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
+	  if ( TReqInfo::Instance()->client_type == ctWeb )
+	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 }
 
 
@@ -161,50 +201,64 @@ void AstraJxtCallbacks::HandleException(std::exception *e)
     xmlNodePtr resNode = ctxt->resDoc->children->children;
     xmlNodePtr node = resNode->children;
 
-    UserException2 *ue2 = dynamic_cast<UserException2*>(e);
-    if (ue2) return;
+    try {
 
-    xmlNodePtr node2;
-    while(node!=NULL)
-    {
-        if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0)
-        {
-            node2=node;
-            node=node->next;
-            xmlUnlinkNode(node2);
-            xmlFreeNode(node2);
-        }
-        else node=node->next;
-    };
+      UserException2 *ue2 = dynamic_cast<UserException2*>(e);
+      if (ue2) {
+      	throw 1;
+      }
 
-    EOracleError *orae = dynamic_cast<EOracleError*>(e);
-    if (orae)
-    {
-        switch( orae->Code ) {
-        	case 4061:
-        	case 4068:
-        		showError("Версия системы была обновлена. Повторите действие");
-        		break;
-        	default:
-        	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
-        	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
-            showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
-        }
-        return;
-    };
-    EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
-    if (ue)
-    {
-        ProgTrace( TRACE5, "UserException: %s", ue->what() );
-        showError(ue->what(), ue->Code());
-        return;
+      xmlNodePtr node2;
+      while(node!=NULL)
+      {
+          if (strcmp((char*)node->name,"basic_info")!=0&&strcmp((char*)node->name,"command")!=0)
+          {
+              node2=node;
+              node=node->next;
+              xmlUnlinkNode(node2);
+              xmlFreeNode(node2);
+          }
+          else node=node->next;
+      };
+
+      EOracleError *orae = dynamic_cast<EOracleError*>(e);
+      if (orae)
+      {
+          switch( orae->Code ) {
+          	case 4061:
+          	case 4068:
+          		showError("Версия системы была обновлена. Повторите действие");
+          		break;
+          	default:
+          	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
+          	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
+              showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+          }
+          throw 1;
+      };
+      AstraLocale::UserException *lue = dynamic_cast<AstraLocale::UserException*>(e);
+      if (lue)
+      {
+          AstraLocale::showError( lue->getLexemaData(), lue->Code() );
+          throw 1;
+      }
+      EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
+      if (ue)
+      {
+          ProgTrace( TRACE5, "UserException: %s", ue->what() );
+          showError(ue->what(), ue->Code());
+          throw 1;
+      }
+      std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
+      if (exp)
+          ProgError(STDLOG,"std::logic_error: %s",exp->what());
+      else
+          ProgError(STDLOG,"std::exception: %s",e->what());
+
+      showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+      throw 1;
     }
-    std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
-    if (exp)
-        ProgError(STDLOG,"std::logic_error: %s",exp->what());
-    else
-        ProgError(STDLOG,"std::exception: %s",e->what());
-
-    showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
-    return;
+    catch( int ) {
+    	UserAfter();
+    }
 }

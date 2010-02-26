@@ -1,6 +1,7 @@
 #include "checkin.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "oralib.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
@@ -32,9 +33,9 @@
 using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
-using namespace EXCEPTIONS;
+using namespace AstraLocale;
 
-class OverloadException: public EXCEPTIONS::UserException
+class OverloadException: public AstraLocale::UserException
 {
   public:
     OverloadException(const std::string &msg):UserException(msg) {};
@@ -398,7 +399,7 @@ void ParseInquiryStr(string query, TInquiryGroup &grp)
   }
   catch(int pos)
   {
-    throw UserException(pos+100,"Ошибка в запросе");
+    throw UserException(pos+100,"MSG.ERROR_IN_REQUEST");
   };
 
 };
@@ -464,7 +465,7 @@ struct TInquiryFormat
 void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummary &sum)
 {
   sum.Clear();
-  if (grp.fams.empty()) throw UserException(100,"Неверный запрос");
+  if (grp.fams.empty()) throw UserException(100,"MSG.REQUEST.INVALID");
   vector<TInquiryFamily>::iterator i;
   if (!grp.large)
   {
@@ -487,7 +488,7 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     TInquiryFamilySummary info;
 
     if (i->surname.size()>64 || i->name.size()>64 )
-      throw UserException(100,"Фамилия или имя пассажира в запросе слишком большой длины");
+      throw UserException(100,"MSG.PASSENGER.NAME_MORE_LENGTH");
 
     if (!grp.large)
     {
@@ -531,7 +532,7 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
           if (i->seats_prefix=='-')
           {
             if (info.n[baby]<i->seats)
-              throw UserException(100,"Кол-во РМ без мест превышает общее кол-во РМ для одной из указанных фамилий");
+              throw UserException(100,"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY_FOR_SURNAME");
             info.nPaxWithPlace=info.n[adult]+info.n[child]+info.n[baby]-i->seats;
           };
           if (i->seats_prefix=='+')
@@ -545,7 +546,7 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
           if (i->seats_prefix=='-')
           {
             if (info.n[baby]<i->seats)
-              throw UserException(100,"Кол-во РМ с местами превышает общее кол-во РМ для одной из указанных фамилий");
+              throw UserException(100,"MSG.CHECKIN.BABY_WITH_SEATS_MORE_COUNT_BABY_FOR_SURNAME");
             info.nPaxWithPlace=info.n[adult]+info.n[child]+i->seats;
           };
           if (i->seats_prefix=='+')
@@ -567,9 +568,9 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
       else
         info.nPaxWithPlace=i->seats;
       if (info.nPax<info.nPaxWithPlace)
-        throw UserException(100,"Кол-во пассажиров с местами превышает суммарное кол-во пассажиров по типам");
+        throw UserException(100,"MSG.CHECKIN.PASSENGERS_WITH_SEATS_MORE_TYPE_PASSENGERS");
       if (info.n[baby]<info.nPax-info.nPaxWithPlace)
-        throw UserException(100,"Кол-во РМ без мест превышает общее кол-во РМ");
+        throw UserException(100,"MSG.CHECKIN.BABY_WO_SEATS_MORE_BABY");
     };
     for(int p=0;p<NoPerson;p++)
       sum.n[p]+=info.n[p];
@@ -579,17 +580,17 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
   };
   if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
   if (sum.nPaxWithPlace==0)
-    throw UserException(100,"Кол-во пассажиров с местами должно быть больше нуля");
+    throw UserException(100,"MSG.CHECKIN.PASSENGERS_WITH_SEATS_MORE_ZERO");
   if (sum.nPax<sum.nPaxWithPlace)
-    throw UserException(100,"Кол-во пассажиров с местами превышает суммарное кол-во пассажиров по типам");
+    throw UserException(100,"MSG.CHECKIN.PASSENGERS_WITH_SEATS_MORE_TYPE_PASSENGERS");
   if (sum.nPax-sum.nPaxWithPlace>sum.n[adult])
-    throw UserException(100,"Кол-во РМ без мест в группе превышает кол-во ВЗ");
+    throw UserException(100,"MSG.CHECKIN.BABY_WO_SEATS_MORE_ADULT_FOR_GRP");
 
   if (sum.persCountFmt==1 && sum.nPax<(int)sum.fams.size())
-    throw UserException(100,"Кол-во фамилий превышает кол-во пассажиров в группе");
+    throw UserException(100,"MSG.CHECKIN.SURNAME_MORE_PASSENGERS_FOR_GRP");
 
   if (grp.prefix=='+')
-    throw UserException(100,"Используйте выбор статуса 'Подсадка' вместо знака '+' в начале запроса");
+    throw UserException(100,"MSG.REQUEST_ERROR.USE_STATUS_CHOICE");
 };
 
 void CreateNoRecResponse(TInquiryGroupSummary &sum, xmlNodePtr resNode)
@@ -739,7 +740,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
     "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
   FltQry.CreateVariable("point_id",otInteger,point_dep);
   FltQry.Execute();
-  if (FltQry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (FltQry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo operFlt(FltQry);
 
   FltQry.Clear();
@@ -790,7 +791,7 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       FltQry.SetVariable("point_id",point_id);
       FltQry.Execute();
       if (FltQry.Eof)
-        throw Exception("Flight not found in tlg_trips (point_id=%d)",point_id);
+        throw EXCEPTIONS::Exception("Flight not found in tlg_trips (point_id=%d)",point_id);
       tlgTripsFlt.Init(FltQry);
 
       NewTextChild(node,"point_id",point_id);
@@ -1158,7 +1159,7 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "FROM points WHERE point_id=:point_id AND pr_del>=0";
     Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     TTripInfo fltInfo(Qry);
     charter_search=GetTripSets(tsCharterSearch,fltInfo);
 
@@ -1181,17 +1182,17 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   Qry.SQLText="SELECT pr_tranz_reg,pr_airp_seance FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   if (USE_SEANCES())
 	{
     if (Qry.FieldIsNULL("pr_airp_seance"))
-      throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+      throw UserException("MSG.FLIGHT.SET_CHECKIN_MODE_IN_SEANCE");
   };
 
   if (pax_status==psTransit)
   {
     if (Qry.FieldIsNULL("pr_tranz_reg")||Qry.FieldAsInteger("pr_tranz_reg")==0)
-      throw UserException("Перерегистрация транзита на данный рейс не производится");
+      throw UserException("MSG.CHECKIN.NOT_RECHECKIN_MODE_FOR_TRANZIT");
   };
 
   if (pr_unaccomp)
@@ -1562,7 +1563,7 @@ bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alar
     "SELECT pr_check_load,pr_overload_reg FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
-  if (Qry.Eof) throw Exception("Flight not found in trip_sets (point_id=%d)",point_id);
+  if (Qry.Eof) throw EXCEPTIONS::Exception("Flight not found in trip_sets (point_id=%d)",point_id);
   bool pr_check_load=Qry.FieldAsInteger("pr_check_load")!=0;
   bool pr_overload_reg=Qry.FieldAsInteger("pr_overload_reg")!=0;
 
@@ -1570,11 +1571,11 @@ bool CheckFltOverload(int point_id, const TTripInfo &fltInfo, bool overload_alar
 
   if (pr_overload_reg)
   {
-    showErrorMessage("Превышение максимальной коммерческой загрузки на рейс");
+    AstraLocale::showErrorMessage("MSG.FLIGHT.MAX_COMMERCE");
     return true;
   }
   else
-    throw OverloadException("Превышение максимальной коммерческой загрузки на рейс");
+    throw OverloadException("MSG.FLIGHT.MAX_COMMERCE");
   return false;
 };
 
@@ -1583,9 +1584,9 @@ void CheckInInterface::ArrivalPaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     int point_id=NodeAsInteger("point_id",reqNode); //это point_arv
     TTripRoute route;
     if (!route.GetRouteBefore(point_id,trtNotCurrent,trtNotCancelled))
-        throw UserException("Рейс не найден. Обновите данные");
+        throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     if (route.empty())
-        throw UserException("Нет списков на прилет");
+        throw UserException("MSG.NOT_ARRIVAL_PASSENGERS_LIST");
     TTripRouteItem& routeItem=route.back();
     ReplaceTextChild(reqNode,"point_id",routeItem.point_id);
     PaxList(ctxt,reqNode,resNode);
@@ -1603,7 +1604,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   TTripInfo operFlt(Qry);
 
   NewTextChild(resNode,"flight",GetTripName(operFlt,true,false));
@@ -1986,7 +1987,8 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
         if (!(IsUpperLetter(*i) ||
               IsDigit(*i) ||
               *i>0 && *i<=' ' ||
-              *i=='/')) throw UserException("недопустимый символ '%c'",*i);
+              *i=='/')) throw UserException("MSG.INVALID_SYMBOL",
+                                            LParams()<<LParam("symbol",string(1,*i))); //WEB
 
       for(k=0;k<=1;k++)
       try
@@ -1995,9 +1997,9 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
         if (p==NULL)
         {
           if (k==0)
-            throw UserException("отсутствует код а/к");
+            throw UserException("MSG.AIRLINE.CODE_NOT_SET"); //WEB
           else
-            throw UserException("отсутствует идентификатор пассажира");
+            throw UserException("MSG.PASSENGER.NO_IDENTIFIER"); //WEB
         };
 
         c=0;
@@ -2010,7 +2012,8 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
               c=0;
               res=sscanf(tlg.lex,"%2[A-ZА-ЯЁ0-9]%c",fqt.airline,&c);
               if (c!=0||res!=1)
-                throw UserException("неверно указан код а/к %s",tlg.lex);
+                throw UserException("MSG.AIRLINE.INVALID_SET",
+                                    LParams()<<LParam("airline", string(tlg.lex))); //WEB
             };
 
             try
@@ -2020,13 +2023,15 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
             }
             catch (EBaseTableError)
             {
-              throw UserException("неверно указан код а/к %s",fqt.airline);
+              throw UserException("MSG.AIRLINE.INVALID_SET",
+                                  LParams()<<LParam("airline", string(fqt.airline))); //WEB
             };
             break;
           case 1:
             res=sscanf(tlg.lex,"%25[A-ZА-ЯЁ0-9]%c",fqt.no,&c);
             if (c!=0||res!=1||strlen(fqt.no)<2)
-              throw UserException("неверно указан идентификатор пассажира %s",tlg.lex);
+              throw UserException("MSG.PASSENGER.INVALID_IDENTIFIER",
+                                   LParams()<<LParam("ident", string(tlg.lex))); //WEB
             for(;*p!=0;p++)
               if (IsDigitIsLetter(*p)) break;
             fqt.extra=trim(p);
@@ -2048,7 +2053,9 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
     }
     catch(UserException &E)
     {
-      throw UserException("Ошибка ремарки %s: %s",fqt.rem_code,E.what());
+      throw UserException("WRAP.REMARK_ERROR",
+                          LParams()<<LParam("rem_code", string(fqt.rem_code))
+                                   <<LParam("text", E.getLexemaData( ) )); //WEB
     };
     return true;
   };
@@ -2110,7 +2117,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     segInfo.point_arv=NodeAsInteger("point_arv",segNode);
     segInfo.airp_arv=NodeAsString("airp_arv",segNode);
     if (segs.find(segInfo.point_dep)!=segs.end())
-      throw UserException("Рейс дублируется в сквозном маршруте");
+      throw UserException("MSG.CHECKIN.DUPLICATED_FLIGHT_IN_ROUTE"); //WEB
     segs[segInfo.point_dep]=segInfo;
     if (!tckin_version) break; //старый терминал
   };
@@ -2123,19 +2130,20 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                          s->second.point_arv,
                          s->second.airp_arv, true, s->second))
     {
+    	//!!!vlad pr_del!
       if (!only_one && !s->second.fltInfo.airline.empty())
-        throw UserException("Рейс %s изменен. Обновите данные",
-                            GetTripName(s->second.fltInfo,true,false).c_str());
+        throw UserException("MSG.FLIGHT.CHANGED_NAME.REFRESH_DATA", //WEB
+                            LParams()<<LParam("flight", GetTripName(s->second.fltInfo,true,false)));
       else
-        throw UserException("Рейс изменен. Обновите данные");
+        throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
     };
     if (s->second.fltInfo.pr_del!=0)
     {
       if (!only_one && !s->second.fltInfo.airline.empty())
-        throw UserException("Рейс %s отменен. Обновите данные",
-                            GetTripName(s->second.fltInfo,true,false).c_str());
+        throw UserException("MSG.FLIGHT.CANCELED_NAME.REFRESH_DATA", //WEB
+                            LParams()<<LParam("flight",GetTripName(s->second.fltInfo,true,false)));
       else
-        throw UserException("Рейс отменен. Обновите данные");
+        throw UserException("MSG.FLIGHT.CANCELED.REFRESH_DATA"); //WEB
     };
   };
 
@@ -2166,7 +2174,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
     map<int,TSegInfo>::iterator s=segs.find(NodeAsInteger("point_dep",segNode));
     if (s==segs.end())
-      throw Exception("CheckInInterface::SavePax: point_id not found in map segs");
+      throw EXCEPTIONS::Exception("CheckInInterface::SavePax: point_id not found in map segs");
 
     point_dep=s->second.point_dep;
     airp_dep=s->second.airp_dep;
@@ -2235,11 +2243,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         "FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
-      if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+      if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA"); //WEB
       if (USE_SEANCES())
      	{
         if (Qry.FieldIsNULL("pr_airp_seance"))
-          throw UserException("Для рейса необходимо установить режим регистрации в сеансе а/к или а/п");
+          throw UserException("MSG.FLIGHT.SET_CHECKIN_MODE_IN_SEANCE"); //WEB
       };
 
       bool pr_tranz_reg=!Qry.FieldIsNULL("pr_tranz_reg")&&Qry.FieldAsInteger("pr_tranz_reg")!=0;
@@ -2260,9 +2268,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           if (NodeAsStringFast("pers_type",node2)=="РМ") continue;
 
           if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
-            throw UserException("При регистрации необходимо указывать номера билетов пассажиров");
+            throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
           if (pr_reg_with_doc&&NodeIsNULLFast("document",node2,true))
-            throw UserException("При регистрации необходимо указывать документы пассажиров");
+            throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
         };
       };
 
@@ -2282,7 +2290,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             Qry.SQLText="SELECT pr_vip FROM halls2 WHERE id=:hall";
             Qry.CreateVariable("hall",otInteger,hall);
             Qry.Execute();
-            if (Qry.Eof) throw UserException("Неверно указан зал регистрации");
+            if (Qry.Eof) throw UserException("MSG.CHECKIN.INVALID_HALL");
             addVIP=Qry.FieldAsInteger("pr_vip")!=0;
           };
         };
@@ -2294,10 +2302,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           grp_status=DecodePaxStatus(NodeAsString("status",segNode));
           if (grp_status==psTransit && !pr_tranz_reg)
-            throw UserException("Перерегистрация транзита на данный рейс не производится");
+            throw UserException("MSG.CHECKIN.NOT_RECHECKIN_MODE_FOR_TRANZIT");
         }
         else
-          grp_status=psTCheckin; //!!!vlad при web-регистрации непонятно какой статус на послед. сегменты
+          grp_status=psTCheckin;
 
         string wl_type;
         if (GetNode("pr_waitlist",segNode)!=NULL) //!!! старый терминал 15.03.09
@@ -2404,7 +2412,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               place_status="FP";
 
             if (free<seats_sum)
-              throw UserException("Доступных мест осталось %d",free);
+              throw UserException("MSG.CHECKIN.AVAILABLE_SEATS",
+                                  LParams()<<LParam("count",free)); //WEB
 
             node=NodeAsNode("passengers",segNode);
             #ifdef NEWSEATS
@@ -2535,7 +2544,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             catch( UserException E ) {
             	if ( segs.size() <= 1 )
             		throw;
-              throw UserException( string(E.what()) + " в аэропорту " + fltInfo.airp ); //!!!
+              throw UserException( "WRAP.SEATS.ERROR_AUTO_SEATS",
+                                   LParams()<<LParam("text", E.getLexemaData( ))
+                                            <<LParam("airp",fltInfo.airp) ); //WEB
             }
             /*!!! иногда True - возможна рассажка на забронированные места, когда */
             /* есть право на регистрацию, статус рейса окончание, есть право сажать на чужие заброн. места */
@@ -2632,23 +2643,26 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
             str=ElemToElemId(etAirline,markFltInfo.airline,fmt);
             if (!(fmt==0 || fmt==1))
-              throw UserException("Неизвестный код а/к %s коммерческого рейса %s",
-                                  markFltInfo.airline.c_str(),flt.str().c_str());
+              throw UserException("MSG.COMMERCIAL_FLIGHT.AIRLINE.UNKNOWN_CODE",
+                                  LParams()<<LParam("airline",markFltInfo.airline)
+                                           <<LParam("flight", flt.str()));  //WEB
             markFltInfo.airline=str;
 
             if (!markFltInfo.suffix.empty())
             {
               str=ElemToElemId(etSuffix,markFltInfo.suffix,fmt);
               if (!(fmt==0 || fmt==1))
-                throw UserException("Неверно указан суффикс %s коммерческого рейса %s",
-                                    markFltInfo.suffix.c_str(),flt.str().c_str());
+                throw UserException("MSG.COMMERCIAL_FLIGHT.SUFFIX.INVALID",
+                                    LParams()<<LParam("suffix",markFltInfo.suffix)
+                                             <<LParam("flight",flt.str())); //WEB
               markFltInfo.suffix=str;
             };
 
             str=ElemToElemId(etAirp,markFltInfo.airp,fmt);
             if (!(fmt==0 || fmt==1))
-              throw UserException("Неизвестный код а/п вылета %s коммерческого рейса %s",
-                                  markFltInfo.airp.c_str(),flt.str().c_str());
+              throw UserException("MSG.COMMERCIAL_FLIGHT.UNKNOWN_AIRP",
+                                  LParams()<<LParam("airp",markFltInfo.airp)
+                                           <<LParam("flight",flt.str())); //WEB
             markFltInfo.airp=str;
 
             if (markFltInfo.airline!=fltInfo.airline ||
@@ -2826,8 +2840,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               catch(EOracleError E)
               {
                 if (E.Code==1)
-                  throw UserException((string)"Пассажир "+surname+(*name!=0?" ":"")+name+
-                                              " уже зарегистрирован с другой стойки");
+                  throw UserException("MSG.PASSENGER.CHECKED.ALREADY_OTHER_DESK",
+                                      LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
                 else
                   throw;
               };
@@ -2851,7 +2865,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   SEATS::TPassenger pas = SEATS::Passengers.Get(i);
                   #endif
 
-                  if (pas.seat_no.empty()) throw Exception("SeatsPassengers: empty seat_no");
+                  if (pas.seat_no.empty()) throw EXCEPTIONS::Exception("SeatsPassengers: empty seat_no");
                   	string pas_seat_no;
                   	bool pr_found_agent_seat_no = false, pr_found_preseat_no = false;
                   	for( std::vector<TSeat>::iterator iseat=pas.seat_no.begin(); iseat!=pas.seat_no.end(); iseat++ ) {
@@ -2871,17 +2885,6 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                     	change_agent_seat_no = true;
                     if ( !pas.preseat.empty() && !pr_found_preseat_no ) // есть предварительное место и оно изменилось
                     	change_preseat_no = true;
-
-                /*  if (!pas.agent_seat.empty() && pas.agent_seat != pas.placeName) //было из crs или введено агентом, но оно не рассадилось
-                  {
-                  	if (!pas.preseat.empty() && pas.preseat == pas.placeName) //если была предв рассадка и она сработала при рассадке
-                  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
-                  	else
-                      showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
-                  }
-                  else
-                  	if ( !pas.isValidPlace )
-                  		showErrorMessage("Пассажиры посажены на запрещенные места");  !!!*/
 
                   vector<TSeatRange> ranges;
                   for(vector<TSeat>::iterator iSeat=pas.seat_no.begin();iSeat!=pas.seat_no.end();iSeat++)
@@ -2918,13 +2921,13 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                   i++;
                 };
                 if ( invalid_seat_no )
-                  showErrorMessage("Пассажиры посажены на запрещенные места");
+                    AstraLocale::showErrorMessage("MSG.SEATS.PASSENGERS_FORBIDDEN_PLACES");
                 else
               		if ( change_agent_seat_no && exists_preseats && !change_preseat_no )
-             	  		showErrorMessage("Пассажиры посажены на предварительно назначенные места");
+             	  		AstraLocale::showErrorMessage("MSG.SEATS.PASSENGERS_PRESEAT_PLACES");
                 	else
                 	  if ( change_agent_seat_no || change_preseat_no )
-                  		showErrorMessage("Часть запрашиваемых мест недоступны. Пассажиры посажены на свободные");
+                  		  AstraLocale::showErrorMessage("MSG.SEATS.PART_REQUIRED_PLACES_NOT_AVAIL");
               };
               if (seat_no_str.str().empty()) seat_no_str << " нет";
 
@@ -2964,7 +2967,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
               reg_no++;
             };
             if (node!=NULL || paxNode!=NULL)
-              throw Exception("SavePax: Wrong number of passengers in different segments");
+              throw EXCEPTIONS::Exception("SavePax: Wrong number of passengers in different segments");
           };
         }
         else
@@ -3034,7 +3037,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
         Qry.Execute();
         if (Qry.RowsProcessed()<=0)
-          throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+          throw UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //WEB
 
         //BSM
         if (BSMsend)
@@ -3180,8 +3183,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 else PaxQry.SetVariable("bag_pool_num",FNull);
                 PaxQry.Execute();
                 if (PaxQry.RowsProcessed()<=0)
-                  throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
-                                              " производились с другой стойки. Обновите данные");
+                  throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                      LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
 
                 //запись информации по пассажиру в лог
                 if (old_refuse!=refuse)
@@ -3211,8 +3214,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 Qry.CreateVariable("tid",otInteger,NodeAsIntegerFast("tid",node2));
                 Qry.Execute();
                 if (Qry.RowsProcessed()<=0)
-                  throw UserException((string)"Изменения по пассажиру "+surname+(*name!=0?" ":"")+name+
-                                              " производились с другой стойки. Обновите данные");
+                  throw UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                                      LParams()<<LParam("surname",string(surname)+(*name!=0?" ":"")+name)); //WEB
               };
               CrsQry.SetVariable("pax_id",pax_id);
               CrsQry.Execute();
@@ -3340,9 +3343,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           Qry.SetVariable("coupon_no",NodeAsIntegerFast("coupon_no",node2));
           Qry.Execute();
           if (!Qry.Eof)
-            throw UserException("Эл. билет №%s/%s дублируется",
-                                NodeAsStringFast("ticket_no",node2),
-                                NodeAsStringFast("coupon_no",node2));
+            throw UserException("MSG.CHECKIN.DOUPLICATED_ETICKET",
+                                LParams()<<LParam("eticket",NodeAsStringFast("ticket_no",node2))
+                                         <<LParam("coupon",NodeAsStringFast("coupon_no",node2))); //WEB
         };
         if (ediResNode!=NULL)
         {
@@ -3488,7 +3491,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             //при сквозной регистрации будет зажжена тревога на первом перегруженном рейсе
             Qry.SetVariable("rollback",1);
             Qry.Execute();
-            showErrorMessage(E.what());
+
+            if ( reqInfo->client_type == ctTerm )
+              showErrorMessage(E.getLexemaData( ));
+            else
+            	showError( E.getLexemaData( ) ); //WEB
             Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки ??? - ведь пассажир не зарегистрирован, а значит нет перегрузки
             Set_AODB_overload_alarm( point_dep, true );
             return false;
@@ -3508,7 +3515,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
           if (Qry.Eof||Qry.FieldIsNULL("priority"))
           {
             ProgError(STDLOG,"Class group not found (airline=%s, airp=%s)",fltInfo.airline.c_str(),fltInfo.airp.c_str());
-            throw UserException("На данный рейс регистрация ни в одном из классов не производится");
+            throw UserException("MSG.CHECKIN.NOT_MADE_IN_ONE_CLASSES"); //WEB
 
           };
           int priority=Qry.FieldAsInteger("priority");
@@ -3540,11 +3547,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
                 else
                   if (class_grp!=Qry.FieldAsInteger("id"))
-                    throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+                    throw UserException("MSG.CHECKIN.INPOSSIBLE_SUBCLASS_IN_GROUP");
                 Qry.Next();
                 if (!Qry.Eof)
-                  throw Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
-                                  fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("subclass"));
+                  throw EXCEPTIONS::Exception("More than one class group found (airline=%s, airp=%s, subclass=%s)",
+                                              fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("subclass"));
                 continue;
               };
             };
@@ -3566,20 +3573,20 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             if (Qry.Eof)
             {
               if (!PaxQry.FieldIsNULL("subclass"))
-                throw UserException("На данный рейс регистрация в подклассе %s не производится",
-                                    PaxQry.FieldAsString("subclass"));
+                throw UserException("MSG.CHECKIN.NOT_MADE_IN_SUBCLASS",
+                                    LParams()<<LParam("subclass",PaxQry.FieldAsString("subclass")));
               else
-                throw UserException("На данный рейс регистрация в классе %s не производится",
-                                    PaxQry.FieldAsString("class"));
+                throw UserException("MSG.CHECKIN.NOT_MADE_IN_CLASS",
+                                    LParams()<<LParam("subclass",PaxQry.FieldAsString("class")));
             };
             if (class_grp==-1) class_grp=Qry.FieldAsInteger("id");
             else
               if (class_grp!=Qry.FieldAsInteger("id"))
-                throw UserException("Невозможно зарегистрировать пассажиров с указанными подклассами одной группой");
+                throw UserException("MSG.CHECKIN.INPOSSIBLE_SUBCLASS_IN_GROUP");
             Qry.Next();
             if (!Qry.Eof)
-              throw Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
-                              fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("class"));
+              throw EXCEPTIONS::Exception("More than one class group found (airline=%s, airp=%s, class=%s)",
+                                          fltInfo.airline.c_str(),fltInfo.airp.c_str(),PaxQry.FieldAsString("class"));
           };
           Qry.Clear();
           Qry.SQLText="UPDATE pax_grp SET class_grp=:class_grp WHERE grp_id=:grp_id";
@@ -3607,7 +3614,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           Qry.SetVariable("rollback",1);
           Qry.Execute();
-          showErrorMessage(E.what());
+          if ( reqInfo->client_type == ctTerm )
+            showErrorMessage(E.getLexemaData( ));
+          else
+          	showError(E.getLexemaData( ));
           Set_overload_alarm( point_dep, overload_alarm ); // установили признак перегрузки
           Set_AODB_overload_alarm( point_dep, true );
           return false;
@@ -3633,9 +3643,9 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
     catch(UserException &e)
     {
       if (!only_one)
-        throw UserException("Рейс %s: %s",
-                            GetTripName(fltInfo,true,false).c_str(),
-                            e.what());
+        throw UserException("WRAP.FLIGHT",
+                            LParams()<<LParam("flight",GetTripName(fltInfo,true,false))
+                                     <<LParam("text",e.getLexemaData( )));//WEB
       else
         throw;
     };
@@ -3649,8 +3659,8 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
 
     int req_ctxt=AstraContext::SetContext("TERM_REQUEST",XMLTreeToText(termReqNode->doc));
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,ETInfo))
-      throw Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
-    showProgError("Нет связи с сервером эл. билетов");
+      throw EXCEPTIONS::Exception("CheckInInterface::SavePax: Wrong variable 'et_processed'");
+    AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
     return false;
   };
 
@@ -3684,10 +3694,10 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.CreateVariable("point_id",otInteger,point_id);
       Qry.CreateVariable("reg_no",otInteger,reg_no);
       Qry.Execute();
-      if (Qry.Eof) throw UserException(1,"Регистрационный номер не найден");
+      if (Qry.Eof) throw UserException(1,"MSG.CHECKIN.REG_NO_NOT_FOUND");
       grp_id=Qry.FieldAsInteger("grp_id");
       Qry.Next();
-      if (!Qry.Eof) throw Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
+      if (!Qry.Eof) throw EXCEPTIONS::Exception("Duplicate reg_no (point_id=%d reg_no=%d)",point_id,reg_no);
     }
     else
     {
@@ -3699,9 +3709,9 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       Qry.CreateVariable("pax_id",otInteger,pax_id);
       Qry.Execute();
       if (Qry.Eof)
-        throw UserException("Пассажир не зарегистрирован");
+        throw UserException("MSG.PASSENGER.NOT_CHECKIN");
       if (Qry.FieldAsInteger("point_dep")!=point_id)
-        throw UserException("Пассажир с другого рейса");
+        throw UserException("MSG.PASSENGER.OTHER_FLIGHT");
       grp_id=Qry.FieldAsInteger("grp_id");
     };
   }
@@ -3915,7 +3925,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
     Qry.CreateVariable("point_id",otInteger,point_dep);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+    if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
     NewTextChild( segNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
     NewTextChild( segNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
   };
@@ -4051,7 +4061,9 @@ void CheckInInterface::SavePaxTransfer(int pax_id, xmlNodePtr paxNode, xmlNodePt
     strh=NodeAsStringFast("subclass",node2);
     str=ElemToElemId(etSubcls,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код подкласса %s стыковочного cегмента N%d",strh.c_str(),num);
+      throw UserException("MSG.TRANSFER_LEG.UNKNOWN_SUBCLASS",
+                          LParams()<<LParam("subclass",strh)
+                                   <<LParam("leg",num));
    /* if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
@@ -4213,7 +4225,7 @@ string CheckInInterface::SavePaxNorms(xmlNodePtr paxNode, map<int,string> &norms
         Qry.SQLText="SELECT norm_type,amount,weight,per_unit FROM bag_norms WHERE id=:norm_id";
         Qry.CreateVariable("norm_id",otInteger,norm_id);
         Qry.Execute();
-        if (Qry.Eof) throw Exception("Baggage norm not found (norm_id=%d)",norm_id);
+        if (Qry.Eof) throw EXCEPTIONS::Exception("Baggage norm not found (norm_id=%d)",norm_id);
         string normStr=lowerc(Qry.FieldAsString("norm_type"));
         if (!Qry.FieldIsNULL("weight"))
         {
@@ -4343,7 +4355,7 @@ string CheckInInterface::SaveTCkinSegs(int grp_id, xmlNodePtr segsNode, const ma
   {
     map<int,TSegInfo>::const_iterator s=segs.find(NodeAsInteger("point_dep",segNode));
     if (s==segs.end())
-      throw Exception("CheckInInterface::SaveTCkinSegs: point_id not found in map segs");
+      throw EXCEPTIONS::Exception("CheckInInterface::SaveTCkinSegs: point_id not found in map segs");
 
     const TTripInfo &fltInfo=s->second.fltInfo;
     TDateTime local_scd=UTCToLocal(fltInfo.scd_out,AirpTZRegion(fltInfo.airp));
@@ -4406,7 +4418,7 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     "WHERE points.point_id=pax_grp.point_dep AND grp_id=:grp_id AND points.pr_del>=0";
   TrferQry.CreateVariable("grp_id",otInteger,grp_id);
   TrferQry.Execute();
-  if (TrferQry.Eof) throw Exception("Passenger group not found (grp_id=%d)",grp_id);
+  if (TrferQry.Eof) throw EXCEPTIONS::Exception("Passenger group not found (grp_id=%d)",grp_id);
 
   string airline_in=TrferQry.FieldAsString("airline");
   int flt_no_in=TrferQry.FieldAsInteger("flt_no");
@@ -4510,13 +4522,17 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     strh=NodeAsStringFast("airline",node2);
     str=ElemToElemId(etAirline,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/к %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
+                          LParams()<<LParam("airline",strh)
+                                   <<LParam("flight",flt.str()));
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
       TAirlinesRow& row=(TAirlinesRow&)base_tables.get("airlines").get_row("code",str);
       if (row.code_lat.empty())
-        throw UserException("Не найден лат. код а/к %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRLINE_NOT_FOUND",
+                            LParams()<<LParam("airline",str)
+                                     <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airline",str);
     TrferQry.SetVariable("airline_fmt",fmt);
@@ -4531,7 +4547,9 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
       strh=NodeAsStringFast("suffix",node2);
       str=ElemToElemId(etSuffix,strh,fmt);
       if (!(fmt==0 || fmt==1))
-        throw UserException("Неверно указан суффикс %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
+                            LParams()<<LParam("suffix",strh)
+                                     <<LParam("flight",flt.str()));
       TrferQry.SetVariable("suffix",str);
       TrferQry.SetVariable("suffix_fmt",fmt);
     }
@@ -4549,9 +4567,10 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     {
       local_scd=DayToDate(i,base_date,false);
     }
-    catch(EConvertError &E)
+    catch(EXCEPTIONS::EConvertError &E)
     {
-      throw UserException("Неверно указана локальная дата вылета стыковочного рейса %s",flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
+                          LParams()<<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("scd",local_scd);
     base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
@@ -4561,13 +4580,17 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
     str=ElemToElemId(etAirp,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
+                          LParams()<<LParam("airp",strh)
+                                   <<LParam("flight",flt.str()));
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
       TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
       if (row.code_lat.empty())
-        throw UserException("Не найден лат. код а/п вылета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_DEP_NOT_FOUND",
+                            LParams()<<LParam("airp",str)
+                                     <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airp_dep",str);
     TrferQry.SetVariable("airp_dep_fmt",fmt);
@@ -4577,13 +4600,17 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
     airp_arv=NodeAsStringFast("airp_arv",node2);
     str=ElemToElemId(etAirp,airp_arv,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",airp_arv.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                          LParams()<<LParam("airp",airp_arv)
+                                   <<LParam("flight",flt.str()));
     if (checkType==checkAllSeg ||
         checkType==checkFirstSeg && i==1)
     {
       TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",str);
       if (row.code_lat.empty())
-        throw UserException("Не найден лат. код а/п прилета %s стыковочного рейса %s",str.c_str(),flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.LAT_AIRP_ARR_NOT_FOUND",
+                            LParams()<<LParam("airp",str)
+                                     <<LParam("flight",flt.str()));
     };
     TrferQry.SetVariable("airp_arv",str);
     TrferQry.SetVariable("airp_arv_fmt",fmt);
@@ -4600,7 +4627,8 @@ string CheckInInterface::SaveTransfer(int grp_id, xmlNodePtr transferNode, bool 
                             TrferQry.GetVariableAsString("airline"),
                             TrferQry.GetVariableAsInteger("flt_no"),
                             outboard_trfer))
-        throw UserException("Запрещено оформление трансфера на стыковочный рейс %s",flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.NOT_MADE_TRANSFER",
+                            LParams()<<LParam("flight",flt.str()));
     };
     TrferQry.Execute();
 
@@ -4682,7 +4710,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
     "      pax_grp.grp_id=:grp_id";
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
-  if (Qry.Eof) throw Exception("CheckInInterface::GetNextTagNo: group not found (grp_id=%d)",grp_id);
+  if (Qry.Eof) throw EXCEPTIONS::Exception("CheckInInterface::GetNextTagNo: group not found (grp_id=%d)",grp_id);
 
   int point_id=Qry.FieldAsInteger("point_dep");
   string airp_dep=Qry.FieldAsString("airp_dep");
@@ -4692,10 +4720,10 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
   try
   {
     aircode=ToInt(base_tables.get("airlines").get_row("code",Qry.FieldAsString("airline")).AsString("aircode"));
-    if (aircode<=0 || aircode>999) throw EConvertError("");
+    if (aircode<=0 || aircode>999) throw EXCEPTIONS::EConvertError("");
   }
   catch(EBaseTableError) { aircode=-1; }
-  catch(EConvertError)   { aircode=-1; };
+  catch(EXCEPTIONS::EConvertError)   { aircode=-1; };
 
   if (aircode==-1) aircode=954;
 
@@ -4815,7 +4843,7 @@ void GetNextTagNo(int grp_id, int tag_count, vector< pair<int,int> >& tag_ranges
 
 
       if (range==last_range)
-        throw Exception("CheckInInterface::GetNextTagNo: free range not found (aircode=%d)",aircode);
+        throw EXCEPTIONS::Exception("CheckInInterface::GetNextTagNo: free range not found (aircode=%d)",aircode);
 
       Qry.Clear();
       Qry.SQLText="SELECT range FROM tag_ranges2 WHERE aircode=:aircode AND range=:range";
@@ -4922,7 +4950,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
           "SELECT tag_type FROM trip_bt WHERE point_id=:point_id";
         Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
-        if (Qry.Eof) throw UserException("На рейс не назначен бланк печатаемой багажной бирки");
+        if (Qry.Eof) throw UserException("MSG.CHECKIN.LUGGAGE_BLANK_NOT_SET");
         string tag_type = Qry.FieldAsString("tag_type");
         //получим номера печатаемых бирок
         vector< pair<int,int> > tag_ranges;
@@ -4978,7 +5006,7 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
           };
         };
       }
-      else throw UserException(1,"Кол-во бирок и мест багажа не совпадает");
+      else throw UserException(1,"MSG.CHECKIN.COUNT_BIRKS_NOT_EQUAL_PLACES");
     };
   };
 
@@ -5112,7 +5140,10 @@ void CheckInInterface::SaveBag(int point_id, int grp_id, xmlNodePtr bagtagNode)
       catch(EOracleError E)
       {
         if (E.Code==1)
-          throw UserException("Бирка %s %s%010.f уже зарегистрирована.",tag_type,color,no);
+          throw UserException("MSG.CHECKIN.BIRK_ALREADY_CHECKED",
+                              LParams()<<LParam("tag_type",tag_type)
+                                       <<LParam("color",color)
+                                       <<LParam("no",no));
         else
           throw;
       };
@@ -5443,7 +5474,7 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     catch(std::logic_error e)
     {
-      showErrorMessage(e.what());
+      ASTRA::showErrorMessage(e.what());
     };
   };
 
@@ -5458,7 +5489,7 @@ void CheckInInterface::TestDateTime(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     }
     catch(std::logic_error e)
     {
-      showErrorMessage(e.what());
+      ASTRA::showErrorMessage(e.what());
     };
   };
 };
@@ -5510,7 +5541,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   TTripInfo fltInfo(Qry);
   TTripRoute route;
@@ -5672,9 +5703,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   TSegInfo segInfo;
 
   if (!CheckCkinFlight(point_dep, airp_dep, point_arv, airp_arv, false, segInfo))
-    throw UserException("Рейс изменен. Обновите данные");
+    throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   if (segInfo.fltInfo.pr_del!=0)
-    throw UserException("Рейс отменен. Обновите данные");
+    throw UserException("MSG.FLIGHT.CANCELED.REFRESH_DATA");
 
   TTripInfo &fltInfo=segInfo.fltInfo;
 
@@ -5768,7 +5799,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     strh=NodeAsStringFast("airline",node2);
     fltInfo.airline=ElemToElemId(etAirline,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/к %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRLINE",
+                          LParams()<<LParam("airline",strh)
+                                   <<LParam("flight",flt.str()));
 
     fltInfo.flt_no=NodeAsIntegerFast("flt_no",node2);
 
@@ -5777,7 +5810,9 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       strh=NodeAsStringFast("suffix",node2);
       fltInfo.suffix=ElemToElemId(etSuffix,strh,fmt);
       if (!(fmt==0 || fmt==1))
-        throw UserException("Неверно указан суффикс %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+        throw UserException("MSG.TRANSFER_FLIGHT.INVALID_SUFFIX",
+                            LParams()<<LParam("suffix",strh)
+                                     <<LParam("flight",flt.str()));
     };
 
     local_date=NodeAsIntegerFast("local_date",node2);
@@ -5785,9 +5820,10 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     {
       fltInfo.scd_out=DayToDate(local_date,base_date,false); //локальная дата вылета
     }
-    catch(EConvertError &E)
+    catch(EXCEPTIONS::EConvertError &E)
     {
-      throw UserException("Неверно указана локальная дата вылета стыковочного рейса %s",flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.INVALID_LOCAL_DATE_DEP",
+                          LParams()<<LParam("flight",flt.str()));
     };
     base_date=local_scd-1; //патамушта можем из Японии лететь в Америку во вчерашний день
 
@@ -5795,13 +5831,17 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     strh=NodeAsStringFast("airp_dep",node2,(char*)airp_arv.c_str());
     fltInfo.airp=ElemToElemId(etAirp,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п вылета %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_DEP",
+                          LParams()<<LParam("airp",strh)
+                                   <<LParam("flight",flt.str()));
 
     //аэропорт прилета
     strh=NodeAsStringFast("airp_arv",node2);
     airp_arv=ElemToElemId(etAirp,strh,fmt);
     if (!(fmt==0 || fmt==1))
-      throw UserException("Неизвестный код а/п прилета %s стыковочного рейса %s",airp_arv.c_str(),flt.str().c_str());
+      throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                          LParams()<<LParam("airp",airp_arv)
+                                   <<LParam("flight",flt.str()));
 
 
     if (NodeAsIntegerFast("conf_status",node2,0)==0) tckin_route_confirm=false;
@@ -6026,11 +6066,14 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 strh=NodeAsString("subclass",paxTrferNode);
                 paxInfo.subclass=ElemToElemId(etSubcls,strh,fmt);
                 if (!(fmt==0 || fmt==1))
-                  throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+                  throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                                      LParams()<<LParam("subclass",strh)
+                                               <<LParam("flight",flt.str()));
               };
             };
             if (paxInfo.subclass.empty())
-              throw UserException("Не определен код подкласса стыковочного рейса %s",flt.str().c_str());
+              throw UserException("MSG.TRANSFER_FLIGHT.SUBCLASS_NOT_SET",
+                                  LParams()<<LParam("flight",flt.str()));
 
             for(iPax=pax.begin();iPax!=pax.end();iPax++)
             {
@@ -6175,11 +6218,14 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                   strh=NodeAsString("subclass",paxTrferNode);
                   paxInfo.subclass=ElemToElemId(etSubcls,strh,fmt);
                   if (!(fmt==0 || fmt==1))
-                    throw UserException("Неизвестный код подкласса %s стыковочного рейса %s",strh.c_str(),flt.str().c_str());
+                    throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
+                                        LParams()<<LParam("subclass",strh)
+                                                 <<LParam("flight",flt.str()));
                 };
               };
               if (paxInfo.subclass.empty())
-                throw UserException("Не определен код подкласса стыковочного рейса %s",flt.str().c_str());
+                throw UserException("MSG.TRANSFER_FLIGHT.SUBCLASS_NOT_SET",
+                                    LParams()<<LParam("flight",flt.str()));
 
               for(iPax=pax.begin();iPax!=pax.end();iPax++)
               {
@@ -6342,7 +6388,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
       Qry.CreateVariable("point_id",otInteger,point_dep);
       Qry.Execute();
-      if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+      if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
       NewTextChild( seg2Node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
       NewTextChild( seg2Node, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
     };

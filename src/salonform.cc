@@ -2,6 +2,7 @@
 #include "salonform.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
@@ -23,7 +24,7 @@ const char CurrName[] = " (ТЕК.)";
 
 using namespace std;
 using namespace BASIC;
-using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 bool filterCompons( const string &airline, const string &airp )
@@ -80,7 +81,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
     if ( !Qry.RowCount() )
-    	throw UserException( "Рейс не найден" );
+    	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
     string trip_airline = Qry.FieldAsString( "airline" );
     Qry.Clear();
     Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
@@ -154,7 +155,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
      Qry.Next();
     }
     if ( !compsNode ) {
-    	showErrorMessage( "Нет компоновок по данному типу ВС" );
+    	ASTRA::showErrorMessage( "Нет компоновок по данному типу ВС" );
     	return;
     }
   }
@@ -167,14 +168,14 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     Salons.Read();
   }
   catch( UserException ue ) {
-    showErrorMessage( ue.what() );
+    ASTRA::showErrorMessage( ue.what() );
   }
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );
   if ( pr_comps ) {
     SEATS2::TPassengers p;
     if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-    	showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+    	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
     	NewTextChild( dataNode, "passengers" );
     }
  	}
@@ -267,7 +268,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.Build( salonsNode );
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-  	showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+  	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
   	NewTextChild( dataNode, "passengers" );
   }
   else
@@ -317,7 +318,7 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
   SQry.CreateVariable( "pax_id", otInteger, pax_id );
   SQry.Execute();
   if ( SQry.Eof )
-  	throw UserException( "Пассажир не найден" );
+  	throw UserException( "MSG.PASSENGER.NOT_FOUND" );
   tid = SQry.FieldAsInteger( "tid" );
   int point_dep = SQry.FieldAsInteger( "point_dep" );
   string xname = SQry.FieldAsString( "seat_xname" );
@@ -373,37 +374,37 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 	}
 };
 
-void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
+void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yname,
+                     SEATS2::TSeatsType seat_type,
+                     TCompLayerType layer_type,
+                     bool pr_waitlist, bool pr_question_reseat,
+                     xmlNodePtr resNode )
 {
-  int point_id = NodeAsInteger( "trip_id", reqNode );
-  int pax_id = NodeAsInteger( "pax_id", reqNode );
-  int tid = NodeAsInteger( "tid", reqNode );
-  bool pr_waitlist = GetNode( "waitlist", reqNode );
-  string xname, yname;
   TQuery Qry( &OraSession );
   Qry.SQLText =
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
   if ( seat_type != SEATS2::stDropseat ) {
-    xname = norm_iata_line( NodeAsString( "xname", reqNode ) );
-    yname = norm_iata_row( NodeAsString( "yname", reqNode ) );
+    xname = norm_iata_line( xname );
+    yname = norm_iata_row( yname );
   }
-  TCompLayerType layer_type;
   Qry.Clear();
   Qry.SQLText =
    "SELECT layer_type FROM grp_status_types, pax, pax_grp "
    " WHERE pax_id=:pax_id AND pax.grp_id=pax_grp.grp_id AND pax_grp.status=grp_status_types.code ";
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
+//  TCompLayerType layer_type;
   if ( !Qry.Eof ) {
   	layer_type = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
   }
   else {
-  	layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode ) );
+//  	throw UserException( "MSG.PASSENGER.NOT_FOUND" );!!!
+  //	layer_type = DecodeCompLayerType( NodeAsString( "layer", reqNode ) );
   }
 
   ProgTrace(TRACE5, "SalonsInterface::Reseat, point_id=%d, pax_id=%d, tid=%d, layer=%s", point_id, pax_id, tid, EncodeCompLayerType( layer_type ) );
@@ -412,7 +413,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   Salons.Read();
 
   // если место у пассажира имеет предварительную рассадку для этого пассажира, и мы еще не спрашивали, то спросить!!!
-  if ( seat_type != SEATS2::stDropseat && !pr_waitlist && GetNode( "question_reseat", reqNode ) ) {
+  if ( seat_type != SEATS2::stDropseat && !pr_waitlist && pr_question_reseat ) {
     Qry.Clear();
     Qry.SQLText =
       "SELECT seat_no1,seat_no2 FROM "
@@ -437,6 +438,8 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
 
   try {
   	SEATS2::ChangeLayer( layer_type, point_id, pax_id, tid, xname, yname, seat_type, pr_lat_seat );
+  	if ( TReqInfo::Instance()->client_type != ctTerm )
+  		return; // web-регистрация
   	SALONS2::getSalonChanges( Salons, seats );
   	ProgTrace( TRACE5, "salon changes seats.size()=%d", seats.size() );
   	string seat_no, slayer_type;
@@ -444,6 +447,7 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
   	  getSeat_no( pax_id, true, string("seats"), seat_no, slayer_type, tid );
     else
     	getSeat_no( pax_id, false, string("one"), seat_no, slayer_type, tid );
+
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
@@ -455,11 +459,13 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     if ( pr_waitlist ) {
     	SEATS2::TPassengers p;
     	if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-      	showErrorMessage( "Рассадка пассажиров завершена" );
+      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
       p.Build( dataNode );
     }
   }
   catch( UserException ue ) {
+  	if ( TReqInfo::Instance()->client_type != ctTerm )
+  		throw;
     xmlNodePtr dataNode = GetNode( "data", resNode );
     if ( !dataNode )
     	dataNode = NewTextChild( resNode, "data" );
@@ -468,12 +474,30 @@ void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType sea
     Salons.Build( salonsNode );
     if ( pr_waitlist ) {
       SEATS2::TPassengers p;
-    	if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-      	showErrorMessage( "Рассадка пассажиров завершена" );
+    	SEATS2::GetPassengersForWaitList( point_id, p );
       p.Build( dataNode );
     }
-  	showErrorMessageAndRollback( ue.what() );
+  	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
+}
+
+void ChangeSeats( xmlNodePtr reqNode, xmlNodePtr resNode, SEATS2::TSeatsType seat_type )
+{
+  int point_id = NodeAsInteger( "trip_id", reqNode );
+  int pax_id = NodeAsInteger( "pax_id", reqNode );
+  int tid = NodeAsInteger( "tid", reqNode );
+  string xname;
+  string yname;
+  if ( seat_type != SEATS2::stDropseat ) {
+    xname = NodeAsString( "xname", reqNode );
+    yname = NodeAsString( "yname", reqNode );
+  }
+  IntChangeSeats( point_id, pax_id, tid, xname, yname,
+                  seat_type,
+                  DecodeCompLayerType( NodeAsString( "layer", reqNode, "" ) ),
+                  GetNode( "waitlist", reqNode ),
+                  GetNode( "question_reseat", reqNode ), resNode );
+
 };
 
 void SalonFormInterface::DropSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -499,7 +523,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
 	ProgTrace(TRACE5, "SalonsInterface::DeleteProtCkinSeat, point_id=%d, pax_id=%d, tid=%d, pr_update_salons=%d",
@@ -526,6 +550,8 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
    	  SALONS2::BuildSalonChanges( dataNode, seats );
   }
   catch( UserException ue ) {
+  	if ( TReqInfo::Instance()->client_type != ctTerm )
+  		throw; // web-регистрация
   	if ( pr_update_salons ) {
       xmlNodePtr dataNode = GetNode( "data", resNode );
       if ( !dataNode )
@@ -534,7 +560,7 @@ void SalonFormInterface::DeleteProtCkinSeat(XMLRequestCtxt *ctxt, xmlNodePtr req
       SALONS2::GetTripParams( point_id, dataNode );
       Salons.Build( salonsNode );
     }
-  	showErrorMessageAndRollback( ue.what() );
+  	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
 }
 
@@ -579,13 +605,13 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     "SELECT airline, flt_no, airp FROM points WHERE point_id=:point_id FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   string airline = Qry.FieldAsString( "airline" );
   int flt_no = Qry.FieldAsInteger( "flt_no" );
   string airp = Qry.FieldAsString( "airp" );
   SEATS2::TPassengers p;
   if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-  	throw UserException( "Все пассажиры рассажены" );
+  	throw UserException( "MSG.SEATS.ALL_PASSENGERS_SEATS" );
   SALONS2::TSalons Salons( point_id, SALONS2::rTripSalons );
   vector<SALONS2::TSalonSeat> seats;
   Salons.Read();
@@ -599,26 +625,28 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( pr_waitlist ) {
     	p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
       else
-      	showErrorMessage( "Рассадка пассажиров завершена" );
+      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
       p.Build( dataNode );
     }
   }
   catch( UserException ue ) {
   	tst();
+  	if ( TReqInfo::Instance()->client_type != ctTerm )
+  		throw; // web-регистрация
     xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
     SALONS2::GetTripParams( point_id, dataNode );
     Salons.Build( salonsNode );
     if ( pr_waitlist ) {
       p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
       else
-      	showErrorMessage( "Рассадка пассажиров завершена" );
+      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
       p.Build( dataNode );
     }
-  	showErrorMessageAndRollback( ue.what() );
+  	showErrorMessageAndRollback( ue.getLexemaData( ) );
   }
 }
 

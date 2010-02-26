@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
@@ -275,12 +276,25 @@ char DecodeStatus(char* s);
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 
+namespace ASTRA {
 void showProgError(const std::string &message, int code = 0  );
 void showError(const std::string &message, int code = 0 );
 void showErrorMessage( const std::string &message, int code = 0 );
 void showMessage( const std::string &message, int code = 0  );
 void showErrorMessageAndRollback(const std::string &message, int code = 0  );
+}
 void showBasicInfo(void);
+
+namespace AstraLocale {
+void showError(LexemaData lexemaData, int code = 0);
+void showError(const std::string &lexema_id, int code = 0);
+void showErrorMessage(LexemaData lexemaData, int code = 0);
+void showErrorMessage(const std::string &lexema_id, int code = 0);
+void showProgError(LexemaData lexemaData, int code = 0);
+void showProgError(const std::string &lexema_id, int code = 0);
+void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0 );
+void showErrorMessageAndRollback(LexemaData lexemaData, int code = 0 );
+} // end namespace astraLocale
 
 
 

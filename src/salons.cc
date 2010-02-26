@@ -11,13 +11,14 @@
 #include "images.h"
 #include "convert.h"
 #include "tripinfo.h"
+#include "astra_locale.h"
 //#include "seats.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 
@@ -698,7 +699,7 @@ void TSalons::Read( )
      "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
     Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
-    if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+    if ( Qry.Eof ) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
   }
   else {
@@ -706,7 +707,7 @@ void TSalons::Read( )
      "SELECT pr_lat_seat FROM comps WHERE comp_id=:comp_id";
     Qry.CreateVariable( "comp_id", otInteger, comp_id );
     Qry.Execute();
-    if ( Qry.Eof ) throw UserException("Компоновка не найдена. Обновите данные");
+    if ( Qry.Eof ) throw UserException("MSG.SALONS.NOT_FOUND.REFRESH_DATA");
     pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
   }
   Qry.Clear();
@@ -755,9 +756,9 @@ void TSalons::Read( )
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
     if ( readStyle == rTripSalons )
-      throw UserException( "На рейс не назначен салон" );
+      throw UserException( "MSG.SALONS.NOT_SET" );
     else
-      throw UserException( "Не найдена компоновка" );
+      throw UserException( "MSG.SALONS.NOT_FOUND" );
   tst();
   int col_num = Qry.FieldIndex( "num" );
   int col_x = Qry.FieldIndex( "x" );
@@ -863,9 +864,7 @@ void TSalons::Read( )
         ClName += Qry.FieldAsString(col_class );
     }
     else { // это место проинициализировано - это новый слой
-    	tst();
     	place = *placeList->place( point_p );
-    	tst();
     }
     PlaceLayer.pax_id = -1;
     if ( readStyle == rTripSalons ) { // здесь работа со всеми слоями для удаления менее приоритетных слоев по пассажирам
@@ -882,7 +881,6 @@ void TSalons::Read( )
       if ( FilterLayers.CanUseLayer( PlaceLayer.layer_type, Qry.FieldAsInteger( "point_dep" ) ) ) { // этот слой используем
 //      	ProgTrace( TRACE5, "seat_no=%s, pax_id=%d", string(string(Qry.FieldAsString("yname"))+Qry.FieldAsString("xname")).c_str(), pax_id );
       	if ( PlaceLayer.layer_type != cltUnknown ) { // слои сортированы по приоритету, первый - самый приоритетный слой в векторе
-      		tst();
           place.AddLayerToPlace( PlaceLayer.layer_type, PlaceLayer.time_create, pax_id,
                                  PlaceLayer.point_dep, PlaceLayer.point_arv, layers_priority[ PlaceLayer.layer_type ].priority ); // может быть повторение слоев
           PlaceLayer.pax_id = pax_id;
@@ -1133,7 +1131,8 @@ void TSalons::verifyValidRem( std::string rem_name, std::string class_name )
        continue;
       for ( vector<TRem>::iterator irem=place->rems.begin(); irem!=place->rems.end(); irem++ ) {
       	if ( irem->rem == rem_name )
-      		throw UserException( string( "Ремарка " ) + rem_name + " не может быть задана в классе " + place->clname );
+      		throw UserException( "MSG.SALONS.REMARK_NOT_SET_IN_CLASS",
+      		                     LParams()<<LParam("remark", rem_name )<<LParam("class", place->clname) );
       }
     }
   }
@@ -1152,7 +1151,7 @@ int TPlaceList::GetYsCount()
 TPlace *TPlaceList::place( int idx )
 {
   if ( idx < 0 || idx >= (int)places.size() )
-    throw Exception( "place index out of range" );
+    throw EXCEPTIONS::Exception( "place index out of range" );
   return &places[ idx ];
 }
 
@@ -1179,14 +1178,14 @@ bool TPlaceList::ValidPlace( TPoint &p )
 string TPlaceList::GetPlaceName( TPoint &p )
 {
   if ( !ValidPlace( p ) )
-    throw Exception( "Неправильные координаты места" );
+    throw EXCEPTIONS::Exception( "Неправильные координаты места" );
   return ys[ p.y ] + xs[ p.x ];
 }
 
 string TPlaceList::GetXsName( int x )
 {
   if ( x < 0 || x >= GetXsCount() ) {
-    throw Exception( "Неправильные x координата места" );
+    throw EXCEPTIONS::Exception( "Неправильные x координата места" );
   }
   return xs[ x ];
 }
@@ -1194,7 +1193,7 @@ string TPlaceList::GetXsName( int x )
 string TPlaceList::GetYsName( int y )
 {
   if ( y < 0 || y >= GetYsCount() )
-    throw Exception( "Неправильные y координата места" );
+    throw EXCEPTIONS::Exception( "Неправильные y координата места" );
   return ys[ y ];
 }
 
@@ -1272,7 +1271,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   TTripInfo info;
   info.airline=Qry.FieldAsString("airline");
@@ -1298,7 +1297,7 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
                 " WHERE trip_sets.point_id = :point_id AND trip_sets.comp_id = comp.comp_id(+) ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   /* comp_id>0 - базовый; comp_id=-1 - измененный; comp_id=-2 - не задан */
   NewTextChild( dataNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
@@ -1493,7 +1492,7 @@ int AutoSetCraft( int point_id, std::string &craft, int comp_id )
     }
     return 0; // не требуется назначение компоновки
   }
-  catch( Exception &e ) {
+  catch( EXCEPTIONS::Exception &e ) {
   	ProgError( STDLOG, "AutoSetCraft: Exception %s, point_id=%d", e.what(), point_id );
   }
   catch( ... ) {
@@ -1827,7 +1826,7 @@ void getSalonChanges( TSalons &OldSalons, vector<TSalonSeat> &seats )
 	TSalons Salons( OldSalons.trip_id, rTripSalons );
 	Salons.Read();
 	if ( !getSalonChanges( OldSalons, Salons, seats ) )
-		throw UserException( "Изменена компоновка рейса. Обновите данные" );
+		throw UserException( "MSG.SALONS.COMPON_CHANGED.REFRESH_DATA" );
 }
 
 void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
@@ -1865,6 +1864,27 @@ void BuildSalonChanges( xmlNodePtr dataNode, const vector<TSalonSeat> &seats )
       	NewTextChild( remNode, "layer_type", EncodeCompLayerType( l->layer_type ) );
       }
     }
+	}
+}
+
+void getXYName( int point_id, std::string seat_no, std::string &xname, std::string &yname )
+{
+	xname.clear();
+	yname.clear();
+	//!!! работа не по индексам!!!
+	TQuery Qry(&OraSession);
+	Qry.SQLText =
+	  "SELECT xname, yname FROM trip_comp_elems "
+	  " WHERE point_id=:point_id AND "
+	  "       (salons.denormalize_yname(yname)||salons.denormalize_xname(xname,0)=:seat_no OR "
+	  "        salons.denormalize_yname(yname)||salons.denormalize_xname(xname,1)=:seat_no)";
+	Qry.CreateVariable( "point_id", otInteger, point_id );
+	Qry.CreateVariable( "seat_no", otString, seat_no );
+	Qry.Execute();
+	if ( !Qry.Eof ) {
+		tst();
+		xname = Qry.FieldAsString( "xname" );
+		yname = Qry.FieldAsString( "yname" );
 	}
 }
 

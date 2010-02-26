@@ -27,7 +27,7 @@ astra_SOURCES = \
 	obrnosir.c		 convert.cc      dev_tuning.cc            astra_context.cc \
 	salons2.cc		 salonform2.cc	 seats2.cc		  seats_utils.cc \
 	empty_proc.cc            dev_consts.cc   dev_utils.cc             access.cc \
-	arx_daily.cc		 crypt.cc        web_main.cc
+	arx_daily.cc		 crypt.cc        web_main.cc		  astra_locale.cc
 
 astra_LDADD = $(all_libraries) \
 	tlg/libtlg.a \
@@ -60,7 +60,7 @@ noinst_HEADERS = \
 	dev_tuning.h           czech_police_edi_file.h                    astra_context.h \
 	salons2.h	       salonform2.h	      seats2.h		  seats_utils.h \
 	empty_proc.h           dev_consts.h           dev_utils.h         access.h \
-	arx_daily.h	       crypt.h                web_main.h
+	arx_daily.h	       crypt.h                web_main.h	  astra_locale.h
 
 
 

@@ -9,6 +9,7 @@
 #include "astra_tick_read_edi.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "astra_consts.h"
 #include "astra_misc.h"
 #include "astra_context.h"
@@ -35,6 +36,7 @@ using namespace Ticketing::ChangeStatus;
 using namespace boost::gregorian;
 using namespace boost::posix_time;
 using namespace ASTRA;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 
@@ -48,17 +50,17 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo info;
   info.airline=Qry.FieldAsString("airline");
   info.flt_no=Qry.FieldAsInteger("flt_no");
   info.airp=Qry.FieldAsString("airp");
   if (GetTripSets(tsETLOnly,info))
-    throw UserException("Работа с сервером эл. билетов в интерактивном режиме запрещена");
+    throw EXCEPTIONS::UserException("Работа с сервером эл. билетов в интерактивном режиме запрещена");
 
   pair<string,string> edi_addrs;
   if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
-    throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",info.airline.c_str(),info.flt_no);
+    throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",info.airline.c_str(),info.flt_no);
 
   set_edi_addrs(edi_addrs);
 
@@ -99,7 +101,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
     if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
       NewTextChild(resNode,"connect_error");
     else
-      showProgError("Нет связи с сервером эл. билетов");
+      AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
   };
 };
 
@@ -118,7 +120,8 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                              context);
     AstraContext::ClearContext("EDI_RESPONSE", req_ctxt_id);
 
-    XMLDoc ediResCtxt;
+    XMLDoc ediResCtxt
+    ;
     if (context.empty())
       throw EXCEPTIONS::Exception("ETSearchInterface::KickHandler: context EDI_RESPONSE empty");
 
@@ -182,7 +185,7 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
   int old_pr_etstatus=sign(Qry.FieldAsInteger("pr_etstatus"));
   if (old_pr_etstatus==0 && new_pr_etstatus<0)
@@ -193,9 +196,9 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }
   else
     if (old_pr_etstatus==new_pr_etstatus)
-      throw UserException("Рейс уже переведен в данный режим");
+      throw EXCEPTIONS::UserException("Рейс уже переведен в данный режим");
     else
-      throw UserException("Рейс не может быть переведен в данный режим");
+      throw EXCEPTIONS::UserException("Рейс не может быть переведен в данный режим");
 };
 
 void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -243,7 +246,7 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
         processed=true;
       };
     }
-    catch(UserException &e)
+    catch(AstraLocale::UserException &e)
     {
       if (!only_one)
       {
@@ -279,9 +282,54 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
         if (!Qry.Eof)
         {
           TTripInfo fltInfo(Qry);
-          throw UserException("Рейс %s: %s",
-                              GetTripName(fltInfo,true,false).c_str(),
-                              e.what());
+          throw AstraLocale::UserException("WRAP.FLIGHT",
+                                           LParams()<<LParam("flight",GetTripName(fltInfo,true,false))
+                                                    <<LParam("text",e.getLexemaData( )));
+        }
+        else
+          throw;
+      }
+      else
+        throw;
+    }
+    catch(EXCEPTIONS::UserException &e) //!!!djek убрать после перевода под locale
+    {
+      if (!only_one)
+      {
+        TQuery Qry(&OraSession);
+        Qry.Clear();
+        switch (area)
+        {
+          case csaFlt:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points "
+              "WHERE point_id=:id";
+            break;
+          case csaGrp:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points,pax_grp "
+              "WHERE points.point_id=pax_grp.point_dep AND "
+              "      grp_id=:id";
+            break;
+          case csaPax:
+            Qry.SQLText=
+              "SELECT airline,flt_no,suffix,airp,scd_out "
+              "FROM points,pax_grp,pax "
+              "WHERE points.point_id=pax_grp.point_dep AND "
+              "      pax_grp.grp_id=pax.grp_id AND "
+              "      pax_id=:id";
+            break;
+          default: throw;
+        };
+        Qry.CreateVariable("id",otInteger,id);
+        Qry.Execute();
+        if (!Qry.Eof)
+        {
+          TTripInfo fltInfo(Qry);
+          throw EXCEPTIONS::UserException("Рейс %s: %s",GetTripName(fltInfo,true,false).c_str(),
+                                                         e.what());
         }
         else
           throw;
@@ -298,14 +346,15 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
     if (!ETStatusInterface::ETChangeStatus(req_ctxt,mtick))
       throw EXCEPTIONS::Exception("ChangeAreaStatus: Wrong variable 'processed'");
 
-    if (TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
+    if (TReqInfo::Instance()->client_type==ctTerm &&
+    	  TReqInfo::Instance()->desk.compatible(DEFER_ETSTATUS_VERSION))
     {
       xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
       SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
       NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
     }
     else
-      showProgError("Нет связи с сервером эл. билетов");
+      AstraLocale::showProgError("MSG.CEB_NO_COMMUNICATION");
   };
 };
 
@@ -427,7 +476,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         bool use_flight=(GetNode("segments",termReqNode)!=NULL &&
                          NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
         map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
-        if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus)
+        if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus ||
+        	  reqInfo->client_type == ctWeb)
         {
           ostringstream msg;
           for(i=errors.begin();i!=errors.end();i++)
@@ -451,7 +501,10 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               msg << j->second << std::endl;
             };
           };
+          if ( reqInfo->client_type == ctWeb )
+            AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR" );
           NewTextChild(resNode,"ets_error",msg.str());
+          //!!!vlad выдавать ошиПку в command, если WEB
           //откат всех подтвержденных статусов
           ETStatusInterface::ETRollbackStatus(ediResCtxt.docPtr(),false);
           return;
@@ -613,7 +666,7 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         {
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-            throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
+            throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
                                 fltInfo.airline.c_str(),fltInfo.flt_no);
           init_edi_addrs=true;
         };
@@ -824,7 +877,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
             {
               key.airline_oper=fltInfo.airline;
               if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-                throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
+                throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
                                     fltInfo.airline.c_str(),fltInfo.flt_no);
               init_edi_addrs=true;
             };
@@ -934,7 +987,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
           TTicketListKey key;
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-            throw UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
+            throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
                                 fltInfo.airline.c_str(),fltInfo.flt_no);
           key.coupon_status=real_status->codeInt();
 

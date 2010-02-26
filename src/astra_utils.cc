@@ -5,6 +5,7 @@
 #include "basic.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "misc.h"
@@ -781,6 +782,7 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
+namespace ASTRA {
 void showProgError(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -799,8 +801,6 @@ void showError(const std::string &message, int code)
 
 void showErrorMessage(const std::string &message, int code )
 {
-	if ( TReqInfo::Instance()->client_type != ctTerm )
-		throw Exception( "Invalid use showErrorMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", message );
@@ -815,13 +815,101 @@ void showErrorMessageAndRollback(const std::string &message, int code )
 
 void showMessage(const std::string &message, int code )
 {
-	if ( TReqInfo::Instance()->client_type != ctTerm )
-		throw Exception( "Invalid use showMessage in web mode!!!" );
   XMLRequestCtxt *xmlRC = getXmlCtxt();
   xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
   resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
   SetProp(resNode, "code", code);
 };
+} // end namespace ASTRA
+
+namespace AstraLocale {
+
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id )
+{
+  text.clear();
+  master_lexema_id.clear();
+  try {
+	  buildMsg( TReqInfo::Instance()->desk.lang, lexemaData, text, master_lexema_id );
+	}
+  catch( std::exception &e ) {
+   	text = lexemaData.lexema_id;
+   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+  }
+  catch( ... ) {
+   	text = lexemaData.lexema_id;
+   	ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
+  }
+}
+
+void showErrorMessage(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showErrorMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showErrorMessage( lexemaData, code );
+}
+
+void showError(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showError(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showError( lexemaData, code );
+}
+
+void showProgError(LexemaData lexemaData, int code )
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showProgError(const std::string &lexema_id, int code )
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showProgError( lexemaData, code );
+}
+
+void showErrorMessageAndRollback(const std::string &lexema_id, int code )
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showErrorMessageAndRollback( lexemaData, code );
+}
+
+void showErrorMessageAndRollback(LexemaData lexemaData, int code )
+{
+  showErrorMessage(lexemaData,code);
+  throw UserException2();
+}
+
+} // end namespace AstraLocale
 
 int getTCLParam(const char* name, int min, int max, int def)
 {
