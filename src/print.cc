@@ -3677,6 +3677,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
     string form_type = Qry.FieldAsString("bp_type");
+    ProgTrace(TRACE5, "bp_type: %s", form_type.c_str());
     Qry.Clear();
 
     if(dev_model.empty()) {
