@@ -384,6 +384,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ServerFramework::getQueryRunner().getEdiHelpManager().Answer();
 
     string context;
+    TReqInfo *reqInfo = TReqInfo::Instance();
     if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
     {
       int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
@@ -421,9 +422,19 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       if (termReqNode==NULL)
         throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
       string termReqName=(char*)(termReqNode->name);
+
+      if (reqInfo->client_type==ctWeb) {
+      	xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
+      	xmlUnlinkNode( reqNode );
+      	xmlFreeNode( reqNode );
+      	reqNode = NewTextChild( node, termReqName.c_str() );
+      }
+
+
       bool defer_etstatus=(termReqName=="ChangePaxStatus" ||
                            termReqName=="ChangeGrpStatus" ||
                            termReqName=="ChangeFltStatus");
+      ProgTrace( TRACE5, "termReqName=%s", termReqName.c_str() );
 
       xmlNodePtr ediResNode=NodeAsNode("/context",ediResCtxt.docPtr());
 
@@ -470,7 +481,6 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         };
       };
 
-      TReqInfo *reqInfo = TReqInfo::Instance();
       if (!errors.empty())
       {
         bool use_flight=(GetNode("segments",termReqNode)!=NULL &&

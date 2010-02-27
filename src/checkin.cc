@@ -6073,7 +6073,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
                 strh=NodeAsString("subclass",paxTrferNode);
                 paxInfo.subclass=ElemToElemId(etSubcls,strh,fmt);
                 if (!(fmt==0 || fmt==1))
-                  throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_AIRP_ARR",
+                  throw UserException("MSG.TRANSFER_FLIGHT.UNKNOWN_SUBCLASS",
                                       LParams()<<LParam("subclass",strh)
                                                <<LParam("flight",flt.str()));
               };
