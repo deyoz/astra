@@ -2740,7 +2740,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     string airp = Qry.FieldAsString(0);
     bag_names.init(airp);
     vector<TBagTagRow> bag_tags;
-    map<int, vector<TBagTagRow *> > grps;
+    map<int, vector<int> > grps;
     Qry.Clear();
     string SQLText =
         "select ";
@@ -2893,15 +2893,15 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
                     bag_tags.back().color = tagsQry.FieldAsString("color");
                     bag_tags.back().no = tagsQry.FieldAsFloat("no");
                     // запоминаем список ссылок на непривязанные бирки для данной группы
-                    grps[cur_grp_id].push_back(&bag_tags.back());
+                    grps[cur_grp_id].push_back(bag_tags.size() - 1);
                 }
             } else if(grps[cur_grp_id].size()) {
                 // если встретилась группа со списком непривязанных бирок
                 // привязываем текущий багаж к одной из бирок и удаляем ее
                 // (на самом деле в базе она не привязана, просто чтоб багажка правильно выводилась)
-                grps[cur_grp_id].back()->bag_num = bag_tag_row.bag_num;
-                grps[cur_grp_id].back()->amount = bag_tag_row.amount;
-                grps[cur_grp_id].back()->weight = bag_tag_row.weight;
+                bag_tags[grps[cur_grp_id].back()].bag_num = bag_tag_row.bag_num;
+                bag_tags[grps[cur_grp_id].back()].amount = bag_tag_row.amount;
+                bag_tags[grps[cur_grp_id].back()].weight = bag_tag_row.weight;
                 grps[cur_grp_id].pop_back();
             }
         }
