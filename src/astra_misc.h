@@ -17,7 +17,8 @@ struct TMktFlight {
     int flt_no;
     std::string suffix;
     std::string subcls;
-    int scd;
+    int scd_day_local;
+    BASIC::TDateTime scd_date_local;
     std::string airp_dep;
     std::string airp_arv;
 
@@ -29,7 +30,8 @@ struct TMktFlight {
     void dump();
     TMktFlight():
         flt_no(ASTRA::NoExists),
-        scd(ASTRA::NoExists)
+        scd_day_local(ASTRA::NoExists),
+        scd_date_local(ASTRA::NoExists)
     {
     };
 };
@@ -107,7 +109,7 @@ std::string GetPaxPnrAddr(int pax_id, std::vector<TPnrAddrItem> &pnrs, std::stri
 //процедура перевода отдельного дня (без месяца и года) в полноценный TDateTime
 //ищет ближайшую или совпадающую дату по отношению к base_date
 //параметр back - направление поиска (true - в прошлое от base_date, false - в будущее)
-BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back=false);
+BASIC::TDateTime DayToDate(int day, BASIC::TDateTime base_date, bool back);
 
 struct TTripRouteItem
 {

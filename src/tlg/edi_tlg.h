@@ -6,7 +6,10 @@
 #include "serverlib/monitor_ctl.h"
 #include "libtlg/hth.h"
 
-bool set_edi_addrs(std::string airline,int flt_no=-1);
+bool get_et_addr_set( std::string airline, int flt_no, std::pair<std::string,std::string> &addrs );
+void set_edi_addrs( const std::pair<std::string,std::string> &addrs );
+std::string get_edi_addr();
+std::string get_edi_own_addr();
 std::string get_edi_addr();
 std::string get_edi_own_addr();
 
@@ -142,12 +145,19 @@ public:
 class edi_common_data
 {
     Ticketing::OrigOfRequest Org;
+    std::string ediSessCtxt;
+    int reqCtxtId;
 public:
-    edi_common_data(const Ticketing::OrigOfRequest &org)
-        :Org(org)
+    edi_common_data(const Ticketing::OrigOfRequest &org,
+                    const std::string &ctxt,
+                    const int req_ctxt_id)
+        :Org(org), ediSessCtxt(ctxt)
     {
+      reqCtxtId = req_ctxt_id;
     }
     const Ticketing::OrigOfRequest &org() const { return Org; }
+    const std::string & context() const { return ediSessCtxt; }
+    const int req_ctxt_id() const { return reqCtxtId; }
     virtual ~edi_common_data(){}
 };
 
@@ -158,22 +168,27 @@ enum TickDispType_t {
 class TickDisp : public edi_common_data
 {
     TickDispType_t DispType;
-    std::string ediSessCtxt;
+    int reqCtxtId;
 public:
-    TickDisp(const Ticketing::OrigOfRequest &org, TickDispType_t dt, const std::string &ctxt)
-    :edi_common_data(org), DispType(dt), ediSessCtxt(ctxt)
+    TickDisp(const Ticketing::OrigOfRequest &org,
+             const std::string &ctxt,
+             const int req_ctxt_id,
+             TickDispType_t dt)
+    :edi_common_data(org, ctxt, req_ctxt_id), DispType(dt)
     {
     }
     TickDispType_t dispType() { return DispType; }
-    const std::string & context() const { return ediSessCtxt; }
 };
 
 class TickDispByNum : public TickDisp
 {
     std::string TickNum;
 public:
-    TickDispByNum(const Ticketing::OrigOfRequest &org, const std::string &ticknum, const std::string &ctxt)
-    :   TickDisp(org, TickDispByTickNo, ctxt),
+    TickDispByNum(const Ticketing::OrigOfRequest &org,
+                  const std::string &ctxt,
+                  const int req_ctxt_id,
+                  const std::string &ticknum)
+    :   TickDisp(org, ctxt, req_ctxt_id, TickDispByTickNo),
         TickNum(ticknum)
     {
     }
@@ -184,21 +199,20 @@ public:
 class ChngStatData : public edi_common_data
 {
     std::list<Ticketing::Ticket> lTick;
-    std::string ediSessCtxt;
     Ticketing::Itin::SharedPtr Itin_;
 public:
     ChngStatData(const Ticketing::OrigOfRequest &org,
-                 const std::list<Ticketing::Ticket> &lt,
                  const std::string &ctxt,
+                 const int req_ctxt_id,
+                 const std::list<Ticketing::Ticket> &lt,
                  const Ticketing::Itin *itin_ = NULL)
-    :edi_common_data(org), lTick(lt), ediSessCtxt(ctxt)
+    :edi_common_data(org, ctxt, req_ctxt_id), lTick(lt)
     {
         if(itin_){
             Itin_ = Ticketing::Itin::SharedPtr(new Ticketing::Itin(*itin_));
         }
     }
     const std::list<Ticketing::Ticket> & ltick() const { return lTick; }
-    const std::string & context() const { return ediSessCtxt; }
     bool isGlobItin() const
     {
         return Itin_;

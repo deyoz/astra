@@ -7,12 +7,12 @@
 namespace AstraContext
 {
 
-void SetContext(const std::string name,
-                const int id,
-                const std::string &value);
+int SetContext(const std::string name,
+               const int id,
+               const std::string &value);
 
 int SetContext(const std::string name,
-                const std::string &value);
+               const std::string &value);
 
 BASIC::TDateTime GetContext(const std::string name,
                             const int id,

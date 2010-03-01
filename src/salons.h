@@ -209,6 +209,8 @@ class TFilterLayers:public BitSet<ASTRA::TCompLayerType> {
 
 //typedef std::map<TPlace*, std::vector<TPlaceLayer> > TPlacePaxs; // сортировка по приоритетам слоев
 
+void getXYName( int point_id, std::string seat_no, std::string &xname, std::string &yname );
+
 class TSalons {
   private:
   	TReadStyle readStyle;

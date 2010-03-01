@@ -12,8 +12,9 @@
 #include <fstream>
 #include "xml_unit.h"
 #include "print.h"
-#include "jxtlib/jxt_cont.h"
 #include "crypt.h"
+#include "term_version.h"
+#include "jxtlib/jxt_cont.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -91,7 +92,7 @@ struct TDevParam {
   	editable = 0;
   }
   TDevParam( string aparam_name,
-  	                    string asubparam_name, string aparam_value, int aeditable ) {
+             string asubparam_name, string aparam_value, int aeditable ) {
   	param_name = lowerc(aparam_name);
   	subparam_name = lowerc(asubparam_name);
   	param_value = aparam_value;
@@ -440,8 +441,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
       SetProp( pNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
-      if (reqInfo->desk.version.empty() ||
-          reqInfo->desk.version==UNKNOWN_VERSION)
+      if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
         NewTextChild( newoperNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
 
       SessParamsQry.SetVariable("dev_model",dev_model);
@@ -611,22 +611,20 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
           throw EConvertError("operation %s not found",devOper.c_str());
 
         {
-          XMLDoc reqDoc,resDoc;
-          reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
-          node=NodeAsNode("/request",reqDoc.docPtr);
+          XMLDoc reqDoc("UTF-8","request"),resDoc("UTF-8","response");
+          if (reqDoc.docPtr()==NULL || resDoc.docPtr()==NULL)
+            throw EConvertError("can't create reqDoc or resDoc");
+          node=NodeAsNode("/request",reqDoc.docPtr());
           NewTextChild(node, "doc_type", devOper);
 
 
-          resDoc.docPtr=CreateXMLDoc("UTF-8","response");
-          if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
-            throw EConvertError("can't create reqDoc or resDoc");
           JxtInterfaceMng::Instance()->
             GetInterface("print")->
               OnEvent("GetPrinterList",  ctxt,
-                                         NodeAsNode("/request",reqDoc.docPtr),
-                                         NodeAsNode("/response",resDoc.docPtr));
+                                         NodeAsNode("/request",reqDoc.docPtr()),
+                                         NodeAsNode("/response",resDoc.docPtr()));
 
-          node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr);
+          node = NodeAsNode("/response/printers/*[1]", resDoc.docPtr());
 
 
 
@@ -723,22 +721,19 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
 
         {
-          XMLDoc reqDoc,resDoc;
-          reqDoc.docPtr=CreateXMLDoc("UTF-8","request");
-          node=NodeAsNode("/request",reqDoc.docPtr);
+          XMLDoc reqDoc("UTF-8","request"),resDoc("UTF-8","response");
+          if (reqDoc.docPtr()==NULL || resDoc.docPtr()==NULL)
+            throw EConvertError("can't create reqDoc or resDoc");
+          node=NodeAsNode("/request",reqDoc.docPtr());
           NewTextChild(node,"operation",docTypes[docIdx].newDoc);
 
-
-          resDoc.docPtr=CreateXMLDoc("UTF-8","response");
-          if (reqDoc.docPtr==NULL || resDoc.docPtr==NULL)
-            throw EConvertError("can't create reqDoc or resDoc");
           JxtInterfaceMng::Instance()->
             GetInterface("MainDCS")->
               OnEvent("GetDeviceList",   ctxt,
-                                         NodeAsNode("/request",reqDoc.docPtr),
-                                         NodeAsNode("/response",resDoc.docPtr));
+                                         NodeAsNode("/request",reqDoc.docPtr()),
+                                         NodeAsNode("/response",resDoc.docPtr()));
 
-          node=NodeAsNode("/response/operations",resDoc.docPtr)->children;
+          node=NodeAsNode("/response/operations",resDoc.docPtr())->children;
           xmlNodePtr devNode=NULL;
           while (node!=NULL)
           {
@@ -1385,3 +1380,4 @@ void MainDCSInterface::PutRequestCertificate(XMLRequestCtxt *ctxt, xmlNodePtr re
 {
 	IntPutRequestCertificate(ctxt, reqNode, resNode);
 }
+

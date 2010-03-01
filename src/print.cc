@@ -14,6 +14,7 @@
 #include "exceptions.h"
 #include "astra_misc.h"
 #include "dev_utils.h"
+#include "term_version.h"
 #include "serverlib/str_utils.h"
 
 #define NICKNAME "DENIS"
@@ -1224,21 +1225,6 @@ void PrintDataParser::t_field_map::fillBTBPMap()
     Qrys.push_back(Qry);
 
     {
-        TQuery Qry(&OraSession);
-        Qry.SQLText = "select amount, weight from bag2 where grp_id = :grp_id ";
-        Qry.CreateVariable("grp_id", otInteger, grp_id);
-        Qry.Execute();
-        string amount = "0";
-        string weight = "0";
-        if(!Qry.Eof) {
-            amount = Qry.FieldAsString("amount");
-            weight = Qry.FieldAsString("weight");
-        }
-        add_tag("bt_amount", amount);
-        add_tag("bt_weight", weight);
-    }
-
-    {
 
         string airline;
         string airline_lat;
@@ -1359,6 +1345,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
+            "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,1) AS list_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
             "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,0) AS one_seat_no, "
@@ -2479,8 +2466,13 @@ string PrintDataParser::parse(string &form)
 
     if(Mode != 'S')
     {
-        ProgTrace(TRACE5, "Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - 10, 10).c_str(), form[i]);
-        throw Exception("']' not found at " + IntToString(i + 1));
+        if(Mode == 'R') {
+                --i;
+                result += parse_tag(VarPos, form.substr(VarPos, i - VarPos));
+        } else {
+            int piece_len = form.size() < 10 ? form.size() : 10;
+            throw Exception("Mode: %c, ERR STR: %s, sym: '%c'", Mode, form.substr(i - piece_len, piece_len).c_str(), form[i]);
+        }
     }
     return result;
 }
@@ -2745,7 +2737,7 @@ void GetTripBTPectabs(int point_id, string dev_model, string fmt_type, xmlNodePt
         "   bt_models, "
         "   prn_form_vers "
         "where "
-        "   bt_models.form_type IN (SELECT DISTINCT bp_type FROM trip_bp WHERE point_id=:point_id) and "
+        "   bt_models.form_type IN (SELECT DISTINCT tag_type FROM trip_bt WHERE point_id=:point_id) and "
         "   bt_models.dev_model = :dev_model and "
         "   bt_models.fmt_type = :fmt_type and "
         "   bt_models.id = prn_form_vers.id and "
@@ -2802,8 +2794,7 @@ void GetTripBTPectabs(int point_id, int prn_type, xmlNodePtr node)
 
 void previewDeviceSets(bool conditional, string msg)
 {
- /* if (!TReqInfo::Instance()->desk.version.empty() &&
-      TReqInfo::Instance()->desk.version!=UNKNOWN_VERSION)
+ /* if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION))
   {
     xmlNodePtr resNode=NodeAsNode("/term/answer",getXmlCtxt()->resDoc);
     if (conditional)
@@ -3216,8 +3207,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, i * VIA_num, (i + 1) * VIA_num);
             string prn_form = parser.parse(prn_forms.back());
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-              if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION) {
+              if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
@@ -3229,8 +3219,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             set_via_fields(parser, route, route_size - BT_reminder, route_size);
             string prn_form = parser.parse(prn_forms[BT_reminder - 1]);
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
-              if (reqInfo->desk.version.empty() ||
-                  reqInfo->desk.version==UNKNOWN_VERSION) {
+              if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
@@ -3511,8 +3500,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
         ConvertParams.init(dev_model);
     to_esc::convert(mso_form, ConvertParams, prnParams);
     TReqInfo *reqInfo = TReqInfo::Instance();
-    if (reqInfo->desk.version.empty() ||
-        reqInfo->desk.version==UNKNOWN_VERSION)
+    if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
       Print = b64_encode(mso_form.c_str(), mso_form.size());
     else
     	StringToHex( mso_form, Print );
@@ -3689,6 +3677,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.Execute();
     if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
     string form_type = Qry.FieldAsString("bp_type");
+    ProgTrace(TRACE5, "bp_type: %s", form_type.c_str());
     Qry.Clear();
 
     if(dev_model.empty()) {
@@ -3833,15 +3822,13 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             else
                 ConvertParams.init(dev_model);
             to_esc::convert(prn_form, ConvertParams, prnParams);
-            if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION)
+            if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             else
             	StringToHex( string(prn_form), prn_form );
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
-            if (reqInfo->desk.version.empty() ||
-                reqInfo->desk.version==UNKNOWN_VERSION) {
+            if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
               to_esc::parse_dmx(prn_form);
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             }

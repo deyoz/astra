@@ -190,6 +190,8 @@ struct TSublsRems {
 	bool IsSubClsRem( const std::string &subclass, std::string &rem );
 };
 
+bool isREM_SUBCLS( std::string rem );
+
 /* тут описаны будут доступные ф-ции */
 /* автоматическая пересадка пассажиров при изменении компоновки */
 void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &passengers, int SeatAlgo );
