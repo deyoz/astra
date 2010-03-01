@@ -214,10 +214,13 @@ void ETCheckStatusFlt(void)
   {
     TDateTime now=NowUTC();
 
-    AstraContext::ClearContext("EDI_SESSION",now-1.0/24);
+    AstraContext::ClearContext("EDI_SESSION",now-1.0/48);
+    AstraContext::ClearContext("TERM_REQUEST",now-1.0/48);
+    AstraContext::ClearContext("EDI_HELP_INTMSGID",now-1.0/48);
+    AstraContext::ClearContext("EDI_RESPONSE",now-1.0/48);
 
     Qry.Clear();
-    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/24";
+    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/48";
     Qry.Execute();
     OraSession.Commit();
 
