@@ -3212,7 +3212,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
             }
-            NewTextChild(tagNode, "prn_form", prn_form);
+            SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
         }
 
         if(BT_reminder) {
@@ -3224,7 +3224,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
                 prn_form = b64_encode(prn_form.c_str(), prn_form.size());
               }
             }
-            NewTextChild(tagNode, "prn_form", prn_form);
+            SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
         }
         Qry.Next();
     }
@@ -3429,8 +3429,8 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
-void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, string &Print,
-        xmlNodePtr reqNode)
+void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
+        string &Print, bool &hex, xmlNodePtr reqNode)
 {
     xmlNodePtr currNode = reqNode->children;
     int prn_type = NodeAsIntegerFast("prn_type", currNode, NoExists);
@@ -3500,10 +3500,14 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser, 
         ConvertParams.init(dev_model);
     to_esc::convert(mso_form, ConvertParams, prnParams);
     TReqInfo *reqInfo = TReqInfo::Instance();
+    hex=false;
     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
       Print = b64_encode(mso_form.c_str(), mso_form.size());
     else
+    {
     	StringToHex( mso_form, Print );
+    	hex=true;
+    };
 }
 
 
@@ -3815,6 +3819,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         }
 
         string prn_form = parser.parse(data);
+        bool hex=false;
         if(DecodeDevFmtType(fmt_type) == dftEPSON) {
             to_esc::TConvertParams ConvertParams;
             if ( dev_model.empty() )
@@ -3825,7 +3830,10 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
               prn_form = b64_encode(prn_form.c_str(), prn_form.size());
             else
+            {
             	StringToHex( string(prn_form), prn_form );
+            	hex=true;
+            };
         }
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
             if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
@@ -3834,7 +3842,8 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             }
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");
-        NewTextChild(paxNode, "prn_form", prn_form);
+        SetProp(NewTextChild(paxNode, "prn_form", prn_form),"hex",(int)hex);
+
         {
             TQuery *Qry = parser.get_prn_qry();
             TDateTime time_print = NowUTC();
