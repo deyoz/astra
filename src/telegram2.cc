@@ -1610,8 +1610,14 @@ void TWItem::get(int grp_id, int pax_id, int bag_pool_num)
         "  NVL(ckin.get_rkWeight2(:grp_id,:pax_id,:bag_pool_num),0) rkWeight "
         "FROM dual ";
     Qry.CreateVariable("grp_id", otInteger, grp_id);
-    Qry.CreateVariable("pax_id", otInteger, pax_id);
-    Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
+    if(pax_id == NoExists)
+        Qry.CreateVariable("pax_id", otInteger, FNull);
+    else
+        Qry.CreateVariable("pax_id", otInteger, pax_id);
+    if(bag_pool_num == NoExists)
+        Qry.CreateVariable("bag_pool_num", otInteger, FNull);
+    else
+        Qry.CreateVariable("bag_pool_num", otInteger, bag_pool_num);
     Qry.Execute();
     bagAmount = Qry.FieldAsInteger("bagAmount");
     bagWeight = Qry.FieldAsInteger("bagWeight");
@@ -2266,9 +2272,11 @@ struct TBTMFItem:TFItem {
             << "/"
             << DateTimeToStr(scd, "ddmmm", info.pr_lat)
             << "/"
-            << ElemIdToElem(etAirp, airp_arv, info.pr_lat)
-            << "/"
-            << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
+            << ElemIdToElem(etAirp, airp_arv, info.pr_lat);
+        if(not trfer_cls.empty())
+            line
+                << "/"
+                << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
         body.push_back(line.str());
     }
 };
@@ -2349,6 +2357,16 @@ void TFList<T>::get(TTlgInfo &info)
         "       pax.pax_id = transfer_subcls.pax_id and \n"
         "       transfer_subcls.transfer_num = 1 and \n"
         "       transfer_subcls.subclass = subcls.code \n"
+        "     union \n"
+        "     select \n"
+        "       pax_grp.grp_id, \n"
+        "       null \n"
+        "     from \n"
+        "       pax_grp \n"
+        "     where \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax_grp.airp_arv = :airp and \n"
+        "       pax_grp.class is null \n"
         "    ) a \n"
         "where \n"
         "    transfer.grp_id = a.grp_id and \n"
