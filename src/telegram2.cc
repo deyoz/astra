@@ -3505,8 +3505,9 @@ void TTlgSeatList::get(TTlgInfo &info)
     }
 }
 
-int SOM(TTlgInfo &info)
+int SOM(TTlgInfo &info, bool &vcompleted)
 {
+    vcompleted = false;
     TTlgDraft tlg_draft;
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
@@ -3528,6 +3529,7 @@ int SOM(TTlgInfo &info)
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     TTlgSeatList SOMList;
     SOMList.get(info);
+    SOMList.items.push_back("SI");
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
@@ -4423,6 +4425,42 @@ void TMVTABody::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
+}
+
+int CPM(TTlgInfo &info, bool &vcompleted)
+{
+    TTlgDraft tlg_draft;
+    TTlgOutPartInfo tlg_row;
+    vcompleted = false;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream buf;
+    buf
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "CPM" << br;
+    tlg_row.heading = buf.str();
+    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
+    if(info.bort.empty())
+        vcompleted = 0;
+    buf.str("");
+    buf
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd, "dd", 1)
+        << "." << (info.bort.empty() ? "??" : info.bort)
+        << "." << info.airp_dep;
+    vector<string> body;
+    body.push_back(buf.str());
+    body.push_back("SI");
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
+        tlg_row.body += *iv + br;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
 }
 
 int MVT(TTlgInfo &info, bool &vcompleted)
@@ -5457,6 +5495,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
     else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
     else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
+    else if(vbasic_type == "CPM") vid = CPM(info, vcompleted);
     else if(vbasic_type == "BTM") vid = BTM(info);
     else if(vbasic_type == "PRL") vid = PRL(info);
     else if(vbasic_type == "TPM") vid = TPM(info);
@@ -5466,7 +5505,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "ETL") vid = ETL(info);
     else if(vbasic_type == "FTL") vid = FTL(info);
     else if(vbasic_type == "COM") vid = COM(info);
-    else if(vbasic_type == "SOM") vid = SOM(info);
+    else if(vbasic_type == "SOM") vid = SOM(info, vcompleted);
     else vid = Unknown(info, vcompleted);
 
     Qry.Clear();
