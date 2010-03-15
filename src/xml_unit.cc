@@ -501,6 +501,7 @@ xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value)
   return SetProp(node, name, IntToString(value).c_str());
 };
 
+//Внимание! Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
 xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src)
 {
   xmlNodePtr node,res;
@@ -646,6 +647,15 @@ void XMLDoc::set(const std::string &text)
     docPtrCoverPtr.reset(new xmlDocPtrCover(TextToXMLTree(text)));
   else
     docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
+};
+
+bool ValidXMLString( const std::string& str )
+{
+  for(string::const_iterator i=str.begin(); i!=str.end(); i++)
+  {
+    if (*i>=0x00 && *i<0x20 && *i!=0x09 && *i!=0x0A && *i!=0x0D) return false;
+  };
+  return true;
 };
 
 

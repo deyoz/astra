@@ -242,7 +242,7 @@ class TReqInfo
     bool CheckAirp(const std::string &airp);
 };
 
-std::string GetSQLEnum(std::vector<std::string> &values);
+std::string GetSQLEnum(const std::vector<std::string> &values);
 void MsgToLog(TLogMsg &msg,
               const std::string &screen,
               const std::string &user,
