@@ -197,13 +197,17 @@ bool getFlightData( int point_id, const string &point_addr,
 {
 	TQuery Qry(&OraSession);
 	Qry.SQLText =
-	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out FROM points, aodb_points "
+	 "SELECT aodb_point_id,airline||flt_no||suffix trip,scd_out "
+	 " FROM points, aodb_points, trip_final_stages "
 	 " WHERE points.point_id=:point_id AND "
+	 "       trip_final_stages.point_id=points.point_id AND "
+	 "       trip_final_stages.stage_type=:ckin_stage_type AND "
+	 "       trip_final_stages.stage_id BETWEEN :stage1 AND :stage2 AND "
 	 "       points.point_id=aodb_points.point_id(+) AND "
-	 "       :point_addr=aodb_points.point_addr(+) AND "
-	 "       gtimer.get_stage(points.point_id,1) BETWEEN :stage1 AND :stage2";
+	 "       :point_addr=aodb_points.point_addr(+)";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.CreateVariable( "point_addr", otString, point_addr );
+	Qry.CreateVariable( "ckin_stage_type", otInteger, stCheckIn );
 	Qry.CreateVariable( "stage1", otInteger, sOpenCheckIn );
 	Qry.CreateVariable( "stage2", otInteger, sCloseBoarding );
 	Qry.Execute();
@@ -1493,14 +1497,17 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
  		Qry.Clear();
  		Qry.SQLText =
      "BEGIN "
-     " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
+     " sopp.set_flight_sets(:point_id,:use_seances);"
+     " UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
+     "END;";
+/*     " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
      "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
      "    pr_reg_with_tkn,pr_reg_with_doc) "
      "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, 0, "
      "         NULL, 0, 1, 0, 0, 0, 0, 0); "
      " ckin.set_trip_sets(:point_id,:use_seances); "
      " gtimer.puttrip_stages(:point_id); "
-     "END;";
+     "END;";*/
 		Qry.CreateVariable( "point_id", otInteger, point_id );
 		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
 		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );

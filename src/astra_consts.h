@@ -11,6 +11,9 @@
 namespace ASTRA
 {
 
+enum TClientType { ctTerm, ctWeb, ctKiosk, ctTypeNum };
+extern const char* ClientTypeS[ctTypeNum];
+
 enum TOperMode { omCUSE, omCUTE, omMUSE, omSTAND, omTypeNum };
 extern const char* OperModeS[omTypeNum];
 
@@ -52,9 +55,14 @@ enum TCompLayerType { cltBlockCent, cltTranzit, cltCheckin, cltTCheckin, cltGoSh
 	                    cltProtTrzt, cltPNLCkin, cltProtCkin, cltProtect, cltUncomfort, cltSmoke, cltUnknown, cltTypeNum };
 extern const char* CompLayerTypeS[cltTypeNum];
 
-const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
+enum TBagNormType { bntFree, bntOrdinary, bntPaid,
+                    bntFreeExcess, bntFreeOrdinary, bntFreePaid, bntOrdinaryPaid,
+                    bntUnknown, bntTypeNum };
 
-#define UNKNOWN_VERSION "UNKNOWN"
+extern const char* BagNormTypeS[bntTypeNum];
+
+
+const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
 
 };
 

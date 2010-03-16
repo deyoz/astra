@@ -9,6 +9,7 @@
 #include "astra_consts.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "oralib.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_xml_cont.h"
@@ -16,19 +17,24 @@
 std::string AlignString(std::string str, int len, std::string align);
 
 struct TLogMsg {
-  std::string msg;
-  ASTRA::TEventType ev_type;
-  int id1,id2,id3;
-  TLogMsg() {
-    Clear();
-  };
-  void Clear() {
-    ev_type = ASTRA::evtUnknown;
-    msg = "";
-    id1 = 0;
-    id2 = 0;
-    id3 = 0;
-  };
+  public:
+    BASIC::TDateTime ev_time;
+    int ev_order;
+    std::string msg;
+    ASTRA::TEventType ev_type;
+    int id1,id2,id3;
+    TLogMsg() {
+      Clear();
+    };
+    void Clear() {
+      ev_time = ASTRA::NoExists;
+      ev_order = ASTRA::NoExists;
+      ev_type = ASTRA::evtUnknown;
+      msg = "";
+      id1 = 0;
+      id2 = 0;
+      id3 = 0;
+    };
 };
 
 enum TUserType { utSupport=0, utAirport=1, utAirline=2 };
@@ -158,6 +164,7 @@ class TDesk {
       mode = ASTRA::omSTAND;
       grp_id = -1;
     };
+    bool compatible(std::string ver);
 };
 
 class TScreen {
@@ -186,9 +193,11 @@ struct TReqInfoInitData {
   std::string mode;
   bool checkUserLogon;
   bool checkCrypt;
+  bool pr_web;
   TReqInfoInitData() {
   	checkUserLogon = false;
   	checkCrypt = false;
+  	pr_web = false;
   }
 };
 
@@ -200,11 +209,13 @@ class TReqInfo
     TUser user;
     TDesk desk;
     TScreen screen;
+    ASTRA::TClientType client_type;
     void clear()
     {
       desk.clear();
       user.clear();
       screen.clear();
+      client_type = ASTRA::ctTerm;
     };
     virtual ~TReqInfo() {}
     static TReqInfo *Instance();
@@ -242,6 +253,8 @@ void MsgToLog(std::string msg,
               int id2 = 0,
               int id3 = 0);
 
+ASTRA::TClientType DecodeClientType(const char* s);
+char* EncodeClientType(ASTRA::TClientType s);
 ASTRA::TDocType DecodeDocType(char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
 ASTRA::TClass DecodeClass(char* s);
@@ -254,6 +267,8 @@ ASTRA::TPaxStatus DecodePaxStatus(char* s);
 char* EncodePaxStatus(ASTRA::TPaxStatus s);
 ASTRA::TCompLayerType DecodeCompLayerType(char* s);
 char* EncodeCompLayerType(ASTRA::TCompLayerType s);
+ASTRA::TBagNormType DecodeBagNormType(const char* s);
+char* EncodeBagNormType(ASTRA::TBagNormType s);
 
 char DecodeStatus(char* s);
 
@@ -261,12 +276,25 @@ char DecodeStatus(char* s);
 BASIC::TDateTime DecodeTimeFromSignedWord( signed short int Value );
 signed short int EncodeTimeToSignedWord( BASIC::TDateTime Value );
 
+namespace ASTRA {
 void showProgError(const std::string &message, int code = 0  );
 void showError(const std::string &message, int code = 0 );
 void showErrorMessage( const std::string &message, int code = 0 );
 void showMessage( const std::string &message, int code = 0  );
 void showErrorMessageAndRollback(const std::string &message, int code = 0  );
+}
 void showBasicInfo(void);
+
+namespace AstraLocale {
+void showError(LexemaData lexemaData, int code = 0);
+void showError(const std::string &lexema_id, int code = 0);
+void showErrorMessage(LexemaData lexemaData, int code = 0);
+void showErrorMessage(const std::string &lexema_id, int code = 0);
+void showProgError(LexemaData lexemaData, int code = 0);
+void showProgError(const std::string &lexema_id, int code = 0);
+void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0 );
+void showErrorMessageAndRollback(LexemaData lexemaData, int code = 0 );
+} // end namespace astraLocale
 
 
 
@@ -322,5 +350,7 @@ const bool USE_SEANCES();
 bool get_test_server();
 
 std::string& EOracleError2UserException(std::string& msg);
+
+std::string get_internal_msgid_hex();
 
 #endif /*_ASTRA_UTILS_H_*/

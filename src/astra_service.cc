@@ -624,7 +624,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 	map<string,string> params;
 	xmlNodePtr n = NodeAsNode( "headers", reqNode );
 	if ( !n || !n->children ) {
-		showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+		ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
 		return;
 	}
   n = n->children;
@@ -638,7 +638,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 		string sfile_id = params[ PARAM_FILE_ID ];
 		int file_id;
 		if ( sfile_id.empty() || params[ "ANSWER" ].empty() || StrToInt( sfile_id.c_str(), file_id ) == EOF ) {
-			showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+			ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
 			return;
 		}
 		if ( params[ "ANSWER" ] == "COMMIT" )
@@ -903,9 +903,11 @@ void sync_aodb( void )
 	TQuery Qry( &OraSession );
 	Qry.SQLText =
 		 "SELECT DISTINCT points.point_id,points.airline,points.flt_no,points.airp "
-		 " FROM points, file_param_sets "
-		 " WHERE gtimer.is_final_stage( points.point_id, :ckin_stage_type, :prep_checkin_stage_id)=0 AND "
-     "       gtimer.is_final_stage( points.point_id, :ckin_stage_type, :no_active_stage_id)=0 AND "
+		 " FROM points, file_param_sets, trip_final_stages "
+		 " WHERE points.point_id = trip_final_stages.point_id AND "
+		 "       trip_final_stages.stage_type=:ckin_stage_type AND "
+		 "       trip_final_stages.stage_id != :prep_checkin_stage_id AND "
+		 "       trip_final_stages.stage_id != :no_active_stage_id AND "
 		 "       ( file_param_sets.airp IS NULL OR file_param_sets.airp=points.airp ) AND "
 		 "       ( file_param_sets.airline IS NULL OR file_param_sets.airline=points.airline ) AND "
 		 "       ( file_param_sets.flt_no IS NULL OR file_param_sets.flt_no=points.flt_no ) AND "

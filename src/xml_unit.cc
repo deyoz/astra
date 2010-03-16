@@ -593,3 +593,59 @@ void NodeSetContent(xmlNodePtr cur, const string content)
 {
     NodeSetContent(cur,content.c_str());
 }
+
+xmlDocPtrCover::xmlDocPtrCover(xmlDocPtr doc)
+{
+  docPtr=doc;
+  /*if (docPtr!=NULL)
+    ProgTrace(TRACE5,"xmlDocPtrCover: docPtr=%p",docPtr);*/
+};
+
+xmlDocPtrCover::~xmlDocPtrCover()
+{
+  if (docPtr!=NULL)
+  {
+    //ProgTrace(TRACE5,"xmlDocPtrCover: xmlFreeDoc(%p)",docPtr);
+    xmlFreeDoc(docPtr);
+  };
+};
+
+XMLDoc::XMLDoc()
+{
+  docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
+};
+
+XMLDoc::XMLDoc(const char *encoding, const char *root)
+{
+  set(encoding,root);
+};
+
+XMLDoc::XMLDoc(const std::string &text)
+{
+  set(text);
+};
+
+XMLDoc::~XMLDoc()
+{
+  //
+};
+
+xmlDocPtr XMLDoc::docPtr() const
+{
+  return docPtrCoverPtr->docPtr;
+};
+
+void XMLDoc::set(const char *encoding, const char *root)
+{
+  docPtrCoverPtr.reset(new xmlDocPtrCover(CreateXMLDoc(encoding,root)));
+};
+
+void XMLDoc::set(const std::string &text)
+{
+  if (!text.empty())
+    docPtrCoverPtr.reset(new xmlDocPtrCover(TextToXMLTree(text)));
+  else
+    docPtrCoverPtr.reset(new xmlDocPtrCover(NULL));
+};
+
+

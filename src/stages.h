@@ -11,14 +11,16 @@
 enum TStage { sNoActive = 0, /*не активен*/
               sPrepCheckIn = 10, /*Подготовка к регистрации*/
               sOpenCheckIn = 20, /*Открытие регистрации*/
+              sOpenWEBCheckIn = 25, /*Открытие WEB-регистрации*/
               sCloseCheckIn = 30, /*Закрытие регистрации*/
+              sCloseWEBCheckIn = 35, /*Закрытие WEB-регистрации*/
               sOpenBoarding = 40, /*Начало посадки*/
               sCloseBoarding = 50, /*Окончание посадки*/
 //              sRegDoc = 60, /*Оформление документации*/
               sRemovalGangWay = 70, /*Уборка трапа*/
               sTakeoff = 99 /*Вылетел*/ };
 
-enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3 };
+enum TStage_Type { stCheckIn = 1, stBoarding = 2, stCraft = 3, stWEB = 4 };
 enum TStageStep { stPrior, stNext };
 
 struct TTripStage {
@@ -39,17 +41,21 @@ struct TTripStage {
 };
 
 typedef std::map<TStage, TTripStage> TMapTripStages;
+typedef std::vector<std::string> TCkinClients;
+
 
 class TTripStages {
   private:
     int point_id;
     TMapTripStages tripstages;
+    TCkinClients CkinClients;
   public:
     TTripStages( int vpoint_id );
     void LoadStages( int vpoint_id );
     static void LoadStages( int vpoint_id, TMapTripStages &ts );
     static void ParseStages( xmlNodePtr tripNode, TMapTripStages &ts );
     static void WriteStages( int point_id, TMapTripStages &t );
+    static void ReadCkinClients( int point_id, TCkinClients &ckin_clients );
     BASIC::TDateTime time( TStage stage );
     TStage getStage( TStage_Type stage_type );
 };
@@ -76,17 +82,18 @@ typedef std::vector<TRule> vecRules; /* массив правил для одного stage*/
 typedef std::map<TStage, vecRules> TMapRules; /* массив stage с правилами */
 typedef std::vector<TStage_Status> TStage_Statuses;
 typedef std::map<TStage_Type,TStage_Statuses> TMapStatuses;
-	
+
 struct TStage_name {
 	TStage stage;
 	std::string name;
-	std::string airp;	
+	std::string airp;
 };
 
 class TStagesRules {
   private:
-    std::vector<TStage_name> Graph_Stages;  	    
-    void Update();    
+  	std::map<int,TCkinClients> ClientStages;
+    std::vector<TStage_name> Graph_Stages;
+    void Update();
   public:
     std::map<TStageStep,TMapRules> GrphRls;
     TGraph_Level GrphLvl;
@@ -96,8 +103,10 @@ class TStagesRules {
     std::string status( TStage_Type stage_type, TStage stage );
     std::string stage_name( TStage stage, std::string airp );
     void Build( xmlNodePtr dataNode );
-    void UpdateGraph_Stages( );    
+    void UpdateGraph_Stages( );
     void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );
+    bool canClientStage( const TCkinClients &ckin_clients, int stage_id );
+    bool isClientStage( int stage_id );
     static TStagesRules *Instance();
 };
 
@@ -111,15 +120,14 @@ struct TStageTime {
 
 class TStageTimes {
 	 private:
-	 	 TStage stage; 
+	 	 TStage stage;
 	 	 std::vector<TStageTime> times;
-     void GetStageTimes( );	 	 
+     void GetStageTimes( );
 	 public:
 	 	 TStageTimes( TStage istage );
-     BASIC::TDateTime GetTime( const std::string &airp, const std::string &craft, const std::string &triptype, 
-     	                         BASIC::TDateTime vtime );	 	 
+     BASIC::TDateTime GetTime( const std::string &airp, const std::string &craft, const std::string &triptype,
+     	                         BASIC::TDateTime vtime );
 };
-
 
 void astra_timer( BASIC::TDateTime utcdate );
 void exec_stage( int point_id, int stage_id );

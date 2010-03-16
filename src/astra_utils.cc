@@ -5,13 +5,16 @@
 #include "basic.h"
 #include "oralib.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "stl_utils.h"
 #include "xml_unit.h"
 #include "misc.h"
 #include "base_tables.h"
+#include "term_version.h"
 #include "tclmon/tcl_utils.h"
 #include "serverlib/monitor_ctl.h"
 #include "serverlib/cfgproc.h"
+#include "serverlib/sirena_queue.h"
 #include "jxtlib/JxtInterface.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -49,6 +52,26 @@ string AlignString(string str, int len, string align)
         result += buf;
     }
     return result;
+};
+
+bool TDesk::compatible(std::string ver)
+{
+  //проверим правильность указанной версии
+  int i=0;
+  string::iterator c=ver.begin();
+  for(;c!=ver.end();c++,i++)
+  {
+    if (i>=0 && i<=5 && IsDigit(*c)) continue;
+    if (i==6 && *c=='-') continue;
+    if (i>=7 && i<=13 && IsDigit(*c)) continue;
+    break;
+  };
+  if (c!=ver.end() || i!=14)
+    throw Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
+
+  return (!version.empty() &&
+          version!=UNKNOWN_VERSION &&
+          version>=ver);
 };
 
 TReqInfo *TReqInfo::Instance()
@@ -101,7 +124,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 		setPerform();
   clear();
   TQuery Qry(&OraSession);
-  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d", InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt );
+  ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
+            InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
@@ -181,12 +205,21 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   if ( !screen.pr_logon )
   	return;
   Qry.Clear();
-  Qry.SQLText =
-    "SELECT user_id, login, descr, type, pr_denial "
-    "FROM users2 "
-    "WHERE desk = UPPER(:pult) ";
-  Qry.DeclareVariable( "pult", otString );
-  Qry.SetVariable( "pult", InitData.pult );
+  if ( InitData.pr_web ) {
+    Qry.SQLText =
+      "SELECT user_id, login, descr, type, pr_denial "
+      "FROM users2 "
+      "WHERE login = :login ";
+    Qry.CreateVariable( "login", otString, InitData.opr );
+  }
+  else {
+    Qry.SQLText =
+      "SELECT user_id, login, descr, type, pr_denial "
+      "FROM users2 "
+      "WHERE desk = UPPER(:pult) ";
+    Qry.CreateVariable( "pult", otString, InitData.pult );
+  }
+
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
   {
@@ -206,6 +239,25 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
   user.login = Qry.FieldAsString( "login" );
+
+
+//  if (!InitData.pr_web) {
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT client_type FROM web_clients "
+    "WHERE desk=UPPER(:desk) OR user_id=:user_id";
+  Qry.CreateVariable( "desk", otString, InitData.pult );
+  Qry.CreateVariable( "user_id", otInteger, user.user_id );
+  Qry.Execute();
+  if ( !Qry.Eof && !InitData.pr_web ||
+  	   Qry.Eof && InitData.pr_web ) //???
+    	throw UserException( "Пользователю отказано в доступе" );
+
+  if ( InitData.pr_web )
+  	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
+  else
+    client_type = ctTerm;
+//  }
 
   //если служащий порта - проверим пульт с которого он заходит
   /*if (user.user_type==utAirport)
@@ -229,13 +281,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     "FROM user_roles,role_rights "
     "WHERE user_roles.role_id=role_rights.role_id AND "
     "      user_roles.user_id=:user_id ";
-  /*  "SELECT DISTINCT screen_rights.right_id "
-    "FROM user_roles,role_rights,screen_rights "
-    "WHERE user_roles.role_id=role_rights.role_id AND "
-    "      role_rights.right_id=screen_rights.right_id AND "
-    "      user_roles.user_id=:user_id AND screen_rights.screen_id=:screen_id ";*/
-  //Qry.DeclareVariable( "screen_id", otInteger );
-  //Qry.SetVariable( "screen_id", screen.id );
   Qry.DeclareVariable( "user_id",otInteger );
   Qry.SetVariable( "user_id", user.user_id );
   Qry.Execute();
@@ -345,6 +390,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 
     };
   };
+  if ( InitData.pr_web ) { //web
+  	user.sets.time=ustTimeLocalAirp;
+  }
 }
 
 bool TReqInfo::CheckAirline(const string &airline)
@@ -485,9 +533,12 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
-        "INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
-        "VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
-        "       SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) ";
+        "BEGIN "
+        "  INSERT INTO events(type,time,ev_order,msg,screen,ev_user,station,id1,id2,id3) "
+        "  VALUES(:type,system.UTCSYSDATE,events__seq.nextval,"
+        "         SUBSTR(:msg,1,250),:screen,:ev_user,:station,:id1,:id2,:id3) "
+        "  RETURNING time,ev_order INTO :ev_time,:ev_order; "
+        "END;";
     Qry.DeclareVariable("type", otString);
     Qry.DeclareVariable("msg", otString);
     Qry.DeclareVariable("screen", otString);
@@ -496,6 +547,8 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     Qry.DeclareVariable("id1", otInteger);
     Qry.DeclareVariable("id2", otInteger);
     Qry.DeclareVariable("id3", otInteger);
+    Qry.CreateVariable("ev_time", otDate, FNull);
+    Qry.CreateVariable("ev_order", otInteger, FNull);
     Qry.SetVariable("type", EncodeEventType(msg.ev_type));
     Qry.SetVariable("msg", msg.msg);
     Qry.SetVariable("screen", screen);
@@ -514,6 +567,14 @@ void MsgToLog(TLogMsg &msg, const string &screen, const string &user, const stri
     else
         Qry.SetVariable("id3", FNull);
     Qry.Execute();
+    if (!Qry.VariableIsNULL("ev_time"))
+      msg.ev_time=Qry.GetVariableAsDateTime("ev_time");
+    else
+      msg.ev_time=ASTRA::NoExists;
+    if (!Qry.VariableIsNULL("ev_order"))
+      msg.ev_order=Qry.GetVariableAsInteger("ev_order");
+    else
+      msg.ev_order=ASTRA::NoExists;
 };
 
 void MsgToLog(std::string msg, ASTRA::TEventType ev_type, int id1, int id2, int id3)
@@ -545,6 +606,21 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
 
 
 /***************************************************************************************/
+
+TClientType DecodeClientType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(ClientTypeS)/sizeof(ClientTypeS[0]);i+=1) if (strcmp(s,ClientTypeS[i])==0) break;
+  if (i<sizeof(ClientTypeS)/sizeof(ClientTypeS[0]))
+    return (TClientType)i;
+  else
+    return ctTerm;
+};
+
+char* EncodeClientType(TClientType s)
+{
+  return (char*)ClientTypeS[s];
+};
 
 TOperMode DecodeOperMode( const string mode )
 {
@@ -672,6 +748,21 @@ char* EncodeCompLayerType(TCompLayerType s)
   return (char*)CompLayerTypeS[s];
 };
 
+TBagNormType DecodeBagNormType(const char* s)
+{
+  unsigned int i;
+  for(i=0;i<sizeof(BagNormTypeS)/sizeof(BagNormTypeS[0]);i+=1) if (strcmp(s,BagNormTypeS[i])==0) break;
+  if (i<sizeof(BagNormTypeS)/sizeof(BagNormTypeS[0]))
+    return (TBagNormType)i;
+  else
+    return bntUnknown;
+};
+
+char* EncodeBagNormType(TBagNormType s)
+{
+  return (char*)BagNormTypeS[s];
+};
+
 TDateTime DecodeTimeFromSignedWord( signed short int Value )
 {
   int Day, Hour;
@@ -691,6 +782,7 @@ signed short int EncodeTimeToSignedWord( TDateTime Value )
   return ( (int)Value )*1440 + Hour*60 + Min;
 };
 
+namespace ASTRA {
 void showProgError(const std::string &message, int code )
 {
   XMLRequestCtxt *xmlRC = getXmlCtxt();
@@ -728,6 +820,96 @@ void showMessage(const std::string &message, int code )
   resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", message );
   SetProp(resNode, "code", code);
 };
+} // end namespace ASTRA
+
+namespace AstraLocale {
+
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id )
+{
+  text.clear();
+  master_lexema_id.clear();
+  try {
+	  buildMsg( TReqInfo::Instance()->desk.lang, lexemaData, text, master_lexema_id );
+	}
+  catch( std::exception &e ) {
+   	text = lexemaData.lexema_id;
+   	ProgError( STDLOG, "showError buildMsg e.what()=%s, id=%s, lang=%s",
+   	           e.what(), lexemaData.lexema_id.c_str(), TReqInfo::Instance()->desk.lang.c_str() );
+  }
+  catch( ... ) {
+   	text = lexemaData.lexema_id;
+   	ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
+  }
+}
+
+void showErrorMessage(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode =  ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error_message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showErrorMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showErrorMessage( lexemaData, code );
+}
+
+void showError(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "user_error", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showError(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showError( lexemaData, code );
+}
+
+void showProgError(LexemaData lexemaData, int code )
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "error", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+};
+
+void showProgError(const std::string &lexema_id, int code )
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showProgError( lexemaData, code );
+}
+
+void showErrorMessageAndRollback(const std::string &lexema_id, int code )
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showErrorMessageAndRollback( lexemaData, code );
+}
+
+void showErrorMessageAndRollback(LexemaData lexemaData, int code )
+{
+  showErrorMessage(lexemaData,code);
+  throw UserException2();
+}
+
+} // end namespace AstraLocale
 
 int getTCLParam(const char* name, int min, int max, int def)
 {
@@ -911,6 +1093,21 @@ void showBasicInfo(void)
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    //настройки пользователя
+    xmlNodePtr setsNode = NewTextChild(node, "settings");
+    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    {
+      Qry.Clear();
+      Qry.SQLText="SELECT defer_etstatus FROM desk_grp_sets WHERE grp_id=:grp_id";
+      Qry.CreateVariable("grp_id",otInteger,reqInfo->desk.grp_id);
+      Qry.Execute();
+      if (!Qry.Eof && !Qry.FieldIsNULL("defer_etstatus"))
+        NewTextChild(setsNode,"defer_etstatus",(int)(Qry.FieldAsInteger("defer_etstatus")!=0));
+      else
+        NewTextChild(setsNode,"defer_etstatus",(int)false);
+    }
+    else NewTextChild(setsNode,"defer_etstatus",(int)true);
+
     Qry.Clear();
     Qry.SQLText="SELECT file_size,send_size,send_portion,backup_num FROM desk_logging WHERE desk=:desk";
     Qry.CreateVariable("desk",otString,reqInfo->desk.code);
@@ -1864,7 +2061,13 @@ string& EOracleError2UserException(string& msg)
   return msg;
 };
 
-
+string get_internal_msgid_hex()
+{
+  string str_msg_id((const char*)get_internal_msgid(),sizeof(int)*3);
+  string hex_msg_id;
+  StringToHex(str_msg_id,hex_msg_id);
+  return hex_msg_id;
+};
 
 
 

@@ -3,6 +3,9 @@
 namespace ASTRA
 {
 
+const char * ClientTypeS[ ctTypeNum ] =
+    {"TERM", "WEB", "KIOSK"};
+
 const char * OperModeS[ omTypeNum ] =
     {"CUSE", "CUTE", "MUSE", "STAND"};
 
@@ -21,5 +24,7 @@ const char* TPaxStatusS[] = {"K","C","T","P"};
 
 const char* CompLayerTypeS[] = {"BLOCK_CENT","TRANZIT","CHECKIN","TCHECKIN","GOSHOW","BLOCK_TRZT","SOM_TRZT","PRL_TRZT",
 	                              "PROT_TRZT","PNL_CKIN","PROT_CKIN","PROTECT","UNCOMFORT","SMOKE",""};
+
+const char* BagNormTypeS[] = {"Åè", "éÅ", "èã", "Åè/ëç", "Åè/éÅ", "Åè/èã", "éÅ/èã", ""};
 
 };

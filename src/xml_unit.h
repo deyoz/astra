@@ -86,25 +86,26 @@ xmlDocPtr TextToXMLTree( const std::string& str );
 std::string XMLTreeToText( xmlDocPtr doc);
 std::string GetXMLDocText( xmlDocPtr doc);
 
-class XMLDoc
+class xmlDocPtrCover
 {
   public:
     xmlDocPtr docPtr;
-    XMLDoc()
-    {
-      docPtr=NULL;
-    };
-    XMLDoc(const std::string &text)
-    {
-      if (!text.empty())
-        docPtr=TextToXMLTree(text);
-      else
-        docPtr=NULL;
-    };
-    ~XMLDoc()
-    {
-      if (docPtr!=NULL) xmlFreeDoc(docPtr);
-    };
+    xmlDocPtrCover(xmlDocPtr doc);
+    ~xmlDocPtrCover();
+};
+
+class XMLDoc
+{
+  private:
+    boost::shared_ptr<xmlDocPtrCover> docPtrCoverPtr;
+  public:
+    XMLDoc();
+    XMLDoc(const char *encoding, const char *root);
+    XMLDoc(const std::string &text);
+    ~XMLDoc();
+    xmlDocPtr docPtr() const;
+    void set(const char *encoding, const char *root);
+    void set(const std::string &text);
 };
 
 

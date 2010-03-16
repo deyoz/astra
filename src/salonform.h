@@ -4,6 +4,8 @@
 #include <libxml/tree.h>
 #include <string>
 #include "jxtlib/JxtInterface.h"
+#include "seats.h"
+#include "astra_consts.h"
 
 
 class SalonFormInterface : public JxtInterface
@@ -36,6 +38,12 @@ public:
   void WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
 };
+
+void IntChangeSeats( int point_id, int pax_id, int tid, std::string xname, std::string yname,
+	                   SEATS2::TSeatsType seat_type,
+	                   ASTRA::TCompLayerType layer_type,
+                     bool pr_waitlist, bool pr_question_reseat,
+                     xmlNodePtr resNode );
 
 
 #endif /*_SALONFORM_H_*/

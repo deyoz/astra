@@ -214,10 +214,13 @@ void ETCheckStatusFlt(void)
   {
     TDateTime now=NowUTC();
 
-    AstraContext::ClearContext("EDI_SESSION",now-1.0/24);
+    AstraContext::ClearContext("EDI_SESSION",now-1.0/48);
+    AstraContext::ClearContext("TERM_REQUEST",now-1.0/48);
+    AstraContext::ClearContext("EDI_HELP_INTMSGID",now-1.0/48);
+    AstraContext::ClearContext("EDI_RESPONSE",now-1.0/48);
 
     Qry.Clear();
-    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/24";
+    Qry.SQLText="DELETE FROM edisession WHERE sessdatecr<SYSDATE-1/48";
     Qry.Execute();
     OraSession.Commit();
 
@@ -295,7 +298,9 @@ void ETCheckStatusFlt(void)
           try
           {
           	ProgTrace(TRACE5,"ETCheckStatusFlt.ETCheckStatus: point_id=%d",point_id);
-            if (!ETCheckStatus(point_id,csaFlt,point_id,true))
+            map<TTicketListKey,TTicketListCtxt> mtick;
+            ETStatusInterface::ETCheckStatus(point_id,csaFlt,point_id,true,mtick);
+            if (!ETStatusInterface::ETChangeStatus(ASTRA::NoExists,mtick))
             {
               if (pr_final)
               {

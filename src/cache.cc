@@ -597,7 +597,8 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
   if ( code == "TRIP_BP" ||
        code == "TRIP_BT" ||
        code == "TRIP_BRD_WITH_REG" ||
-       code == "TRIP_EXAM_WITH_BRD" ) {
+       code == "TRIP_EXAM_WITH_BRD" ||
+       code == "TRIP_WEB_CKIN") {
     ostringstream msg;
     message.ev_type = evtFlt;
     int point_id;
@@ -695,6 +696,38 @@ void OnLoggingF( TCacheTable &cache, const TRow &row, TCacheUpdateStatus UpdateS
         msg << ". ";
       };
     };
+    if ( code == "TRIP_WEB_CKIN" ) {
+      msg << "На рейсе";
+      if ( ToInt(cache.FieldValue( "pr_permit", row )) == 0 )
+        msg << " запрещена";
+      else
+        msg << " разрешена";
+      msg << " web-регистрация";
+      if ( ToInt(cache.FieldValue( "pr_permit", row )) == 0 )
+      {
+        if ( ToInt(cache.FieldOldValue( "pr_permit", row )) == 0 )
+          msg.str(""); //не записываем в лог
+      }
+      else
+      {
+        msg << " с параметрами: "
+            << "лист ожидания: ";
+        if ( ToInt(cache.FieldValue( "pr_waitlist", row )) == 0 )
+          msg << "нет";
+        else
+          msg << "да";
+        msg << ", сквоз. рег.: ";
+        if ( ToInt(cache.FieldValue( "pr_tckin", row )) == 0 )
+          msg << "нет";
+        else
+          msg << "да";
+        msg << ", перерасч. времен: ";
+        if ( ToInt(cache.FieldValue( "pr_upd_stage", row )) == 0 )
+          msg << "нет";
+        else
+          msg << "да";
+      };
+    };
     message.msg=msg.str();
     return;
   }
@@ -761,7 +794,8 @@ void TCacheTable::OnLogging( const TRow &row, TCacheUpdateStatus UpdateStatus )
   message.msg = str1;
   message.ev_type = EventType;
   OnLoggingF( *this, row, UpdateStatus, message );
-  TReqInfo::Instance()->MsgToLog( message );
+  if (!message.msg.empty())
+    TReqInfo::Instance()->MsgToLog( message );
 }
 
 void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)

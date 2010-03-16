@@ -20,6 +20,7 @@
 #include "print.h"
 #include "convert.h"
 #include "astra_misc.h"
+#include "term_version.h"
 
 #define NICKNAME "VLAD"
 #include "serverlib/test.h"
@@ -651,8 +652,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if (stage_time!=0)
     NewTextChild( node, "stage_time", DateTimeToStr(stage_time,"hh:nn") );
 
-  if (reqInfo->desk.version.empty() ||
-      reqInfo->desk.version==UNKNOWN_VERSION)
+  if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
   {
     //признак назначенного салона
     if ( reqInfo->screen.name == "CENT.EXE" ||
@@ -901,6 +901,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
        pr_airp_arv=false,
        pr_trfer=false,
        pr_user=false,
+       pr_client_type=false,
        pr_status=false,
        pr_ticket_rem=false,
        pr_rems=false;
@@ -938,6 +939,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       pr_user=true;
       order_by << ", users2.descr,a.user_id";
+    };
+    if (strcmp((char*)node->name,"client_type")==0)
+    {
+      pr_client_type=true;
+      order_by << ", client_types.priority";
     };
     if (strcmp((char*)node->name,"status")==0)
     {
@@ -1043,10 +1049,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream select;
   if (pr_class) select << ", NVL(class,' ') AS class";
   if (pr_cl_grp) select << ", NVL(class_grp,-1) AS class_grp";
-  if (pr_hall) select << ", hall";
+  if (pr_hall) select << ", NVL(hall,-1) AS hall";
   if (pr_airp_arv) select << ", point_arv";
   if (pr_trfer) select << ", NVL(last_trfer,' ') AS last_trfer";
   if (pr_user) select << ", user_id";
+  if (pr_client_type) select << ", client_type";
   if (pr_status) select << ", status";
   if (pr_ticket_rem) select << ", ticket_rem";
   if (pr_rems) select << ", rem_code";
@@ -1055,10 +1062,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   ostringstream group_by;
   if (pr_class) group_by << ", NVL(class,' ')";
   if (pr_cl_grp) group_by << ", NVL(class_grp,-1)";
-  if (pr_hall) group_by << ", hall";
+  if (pr_hall) group_by << ", NVL(hall,-1)";
   if (pr_airp_arv) group_by << ", point_arv";
   if (pr_trfer) group_by << ", NVL(last_trfer,' ')";
   if (pr_user) group_by << ", user_id";
+  if (pr_client_type) group_by << ", client_type";
   if (pr_status) group_by << ", status";
   if (pr_ticket_rem) group_by << ", ticket_rem";
   if (pr_rems) group_by << ", rem_code";
@@ -1072,24 +1080,25 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   {
       sql << ",b.bag_amount,b.bag_weight,b.rk_weight,e.excess" << endl;
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_client_type && !pr_status)
     {
       sql << ",c.crs_ok,c.crs_tranzit" << endl;
       if (!pr_airp_arv) sql << ",f.cfg" << endl;
     };
   };
 
-  if (pr_class)      sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
-  if (pr_cl_grp)     sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
-                            ",cls_grp.code AS cl_grp_code" << endl;
-  if (pr_hall)       sql << ",a.hall AS hall_id"
-                            ",halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')') AS hall_name" << endl;
-  if (pr_airp_arv)   sql << ",a.point_arv,points.airp AS airp_arv" << endl;
-  if (pr_trfer)      sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
-  if (pr_user)       sql << ",a.user_id,users2.descr AS user_descr" << endl;
-  if (pr_status)     sql << ",a.status,grp_status_types.name AS status_name" << endl;
-  if (pr_ticket_rem) sql << ",a.ticket_rem" << endl;
-  if (pr_rems)       sql << ",a.rem_code" << endl;
+  if (pr_class)       sql << ",DECODE(a.class,' ',NULL,a.class) AS class" << endl;
+  if (pr_cl_grp)      sql << ",DECODE(a.class_grp,-1,NULL,a.class_grp) AS cl_grp_id"
+                             ",cls_grp.code AS cl_grp_code" << endl;
+  if (pr_hall)        sql << ",DECODE(a.hall,-1,NULL,a.hall) AS hall_id"
+                             ",DECODE(a.hall,-1,NULL,halls2.name||DECODE(halls2.airp,:airp_dep,'','('||halls2.airp||')')) AS hall_name" << endl;
+  if (pr_airp_arv)    sql << ",a.point_arv,points.airp AS airp_arv" << endl;
+  if (pr_trfer)       sql << ",DECODE(a.last_trfer,' ',NULL,a.last_trfer) AS last_trfer" << endl;
+  if (pr_user)        sql << ",a.user_id,users2.descr AS user_descr" << endl;
+  if (pr_client_type) sql << ",a.client_type,client_types.short_name AS client_name" << endl;
+  if (pr_status)      sql << ",a.status,grp_status_types.name AS status_name" << endl;
+  if (pr_ticket_rem)  sql << ",a.ticket_rem" << endl;
+  if (pr_rems)        sql << ",a.rem_code" << endl;
 
   sql << "FROM" << endl
       << "(SELECT SUM(seats) AS seats, " << endl
@@ -1155,7 +1164,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     sql << "GROUP BY " << group_by.str().erase(0,1) << ") e" << endl;
 
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_client_type && !pr_status)
     {
       //запрос по брони
       sql << ",(SELECT SUM(crs_ok) AS crs_ok, " << endl
@@ -1176,34 +1185,37 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     };
   };
 
-  if (pr_class)    sql << ",classes";
-  if (pr_cl_grp)   sql << ",cls_grp";
-  if (pr_hall)     sql << ",halls2";
-  if (pr_airp_arv) sql << ",points";
-  if (pr_user)     sql << ",users2";
-  if (pr_status)   sql << ",grp_status_types";
+  if (pr_class)       sql << ",classes";
+  if (pr_cl_grp)      sql << ",cls_grp";
+  if (pr_hall)        sql << ",halls2";
+  if (pr_airp_arv)    sql << ",points";
+  if (pr_user)        sql << ",users2";
+  if (pr_client_type) sql << ",client_types";
+  if (pr_status)      sql << ",grp_status_types";
 
   sql << endl;
 
   ostringstream where;
-  if (pr_class)    where << " AND a.class=classes.code(+)" << endl;
-  if (pr_cl_grp)   where << " AND a.class_grp=cls_grp.id(+)" << endl;
-  if (pr_hall)     where << " AND a.hall=halls2.id" << endl;
-  if (pr_airp_arv) where << " AND a.point_arv=points.point_id" << endl;
-  if (pr_user)     where << " AND a.user_id=users2.user_id" << endl;
-  if (pr_status)   where << " AND a.status=grp_status_types.code" << endl;
+  if (pr_class)       where << " AND a.class=classes.code(+)" << endl;
+  if (pr_cl_grp)      where << " AND a.class_grp=cls_grp.id(+)" << endl;
+  if (pr_hall)        where << " AND a.hall=halls2.id(+)" << endl;
+  if (pr_airp_arv)    where << " AND a.point_arv=points.point_id" << endl;
+  if (pr_user)        where << " AND a.user_id=users2.user_id" << endl;
+  if (pr_client_type) where << " AND a.client_type=client_types.code" << endl;
+  if (pr_status)      where << " AND a.status=grp_status_types.code" << endl;
 
   if (!pr_ticket_rem && !pr_rems)
   {
-    if (pr_class)    where << " AND a.class=b.class(+) AND a.class=e.class(+)" << endl;
-    if (pr_cl_grp)   where << " AND a.class_grp=b.class_grp(+) AND a.class_grp=e.class_grp(+)" << endl;
-    if (pr_hall)     where << " AND a.hall=b.hall(+) AND a.hall=e.hall(+)" << endl;
-    if (pr_airp_arv) where << " AND a.point_arv=b.point_arv(+) AND a.point_arv=e.point_arv(+)" << endl;
-    if (pr_trfer)    where << " AND a.last_trfer=b.last_trfer(+) AND a.last_trfer=e.last_trfer(+)" << endl;
-    if (pr_user)     where << " AND a.user_id=b.user_id(+) AND a.user_id=e.user_id(+)" << endl;
-    if (pr_status)   where << " AND a.status=b.status(+) AND a.status=e.status(+)" << endl;
+    if (pr_class)       where << " AND a.class=b.class(+) AND a.class=e.class(+)" << endl;
+    if (pr_cl_grp)      where << " AND a.class_grp=b.class_grp(+) AND a.class_grp=e.class_grp(+)" << endl;
+    if (pr_hall)        where << " AND a.hall=b.hall(+) AND a.hall=e.hall(+)" << endl;
+    if (pr_airp_arv)    where << " AND a.point_arv=b.point_arv(+) AND a.point_arv=e.point_arv(+)" << endl;
+    if (pr_trfer)       where << " AND a.last_trfer=b.last_trfer(+) AND a.last_trfer=e.last_trfer(+)" << endl;
+    if (pr_user)        where << " AND a.user_id=b.user_id(+) AND a.user_id=e.user_id(+)" << endl;
+    if (pr_client_type) where << " AND a.client_type=b.client_type(+) AND a.client_type=e.client_type(+)" << endl;
+    if (pr_status)      where << " AND a.status=b.status(+) AND a.status=e.status(+)" << endl;
 
-    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
+    if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_client_type && !pr_status)
     {
       if (pr_class)    where << " AND a.class=c.class(+)" << endl;
       if (pr_airp_arv) where << " AND a.point_arv=c.point_arv(+)" << endl;
@@ -1247,7 +1259,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
       NewTextChild(rowNode,"rk_weight",Qry.FieldAsInteger("rk_weight"),0);
       NewTextChild(rowNode,"excess",Qry.FieldAsInteger("excess"),0);
 
-      if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_status)
+      if (!pr_cl_grp && !pr_hall && !pr_trfer && !pr_user && !pr_client_type && !pr_status)
       {
         NewTextChild(rowNode,"crs_ok",Qry.FieldAsInteger("crs_ok"),0);
         NewTextChild(rowNode,"crs_tranzit",Qry.FieldAsInteger("crs_tranzit"),0);
@@ -1272,7 +1284,10 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     if (pr_hall)
     {
       node=NewTextChild(rowNode,"hall",Qry.FieldAsString("hall_name"));
-      SetProp(node,"id",Qry.FieldAsInteger("hall_id"));
+      if (!Qry.FieldIsNULL("hall_id"))
+        SetProp(node,"id",Qry.FieldAsInteger("hall_id"));
+      else
+        SetProp(node,"id",-1);
     };
     if (pr_airp_arv)
     {
@@ -1288,6 +1303,11 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     {
       node=NewTextChild(rowNode,"user",Qry.FieldAsString("user_descr"));
       SetProp(node,"id",Qry.FieldAsInteger("user_id"));
+    };
+    if (pr_client_type)
+    {
+      node=NewTextChild(rowNode,"client_type",Qry.FieldAsString("client_name"));
+      SetProp(node,"id",(int)DecodeClientType(Qry.FieldAsString("client_type")));
     };
     if (pr_status)
     {

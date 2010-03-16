@@ -3,6 +3,7 @@
 #include "seats.h"
 #include "basic.h"
 #include "exceptions.h"
+#include "astra_locale.h"
 #include "xml_unit.h"
 #include "stl_utils.h"
 #include "astra_utils.h"
@@ -19,7 +20,7 @@
 #include "serverlib/test.h"
 
 using namespace std;
-using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 using namespace SALONS2;
@@ -291,7 +292,7 @@ void TSeatPlaces::RollBack( int Begin, int End )
               break;
       case 1: counters.Add_p_Count( -1, seatPlace.Step );
               break;
-      default: throw Exception( "Ошибка рассадки" );
+      default: throw EXCEPTIONS::Exception( "Ошибка рассадки" );
     }
     seatPlace.oldPlaces.clear();
   } /* end for */
@@ -460,7 +461,7 @@ int TSeatPlaces::Put_Find_Places( SALONS2::TPoint FP, SALONS2::TPoint EP, int fo
 //      ProgTrace( TRACE5, "placename=%s", string(pl->yname+pl->xname).c_str() );
       place.Assign( *pl );
       if ( !CurrSalon->placeIsFree( &place ) || !place.isplace )
-        throw Exception( "Рассадка выполнила недопустимую операцию: использование уже занятого места" );
+        throw EXCEPTIONS::Exception( "Рассадка выполнила недопустимую операцию: использование уже занятого места" );
       seatplace.oldPlaces.push_back( place );
       pl->AddLayerToPlace( grp_status, 0, 0, NoExists, NoExists, CurrSalon->getPriority( grp_status ) );
       switch( Step ) {
@@ -1213,7 +1214,7 @@ void TSeatPlaces::PlacesToPassengers()
     TPassenger &pass = Passengers.Get( i );
     TSeatPlace &seatPlace = GetEqualSeatPlace( pass );
     if ( seatPlace.Step == sLeft || seatPlace.Step == sUp )
-      throw Exception( "Недопустимое значение направления рассадки" );
+      throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
     pass.placeList = seatPlace.placeList;
     pass.Pos = seatPlace.Pos;
     pass.Step = seatPlace.Step;
@@ -1492,7 +1493,7 @@ bool TSeatPlaces::SeatsPassengers( bool pr_autoreseats )
                PlaceLayer != cltProtCkin ) &&
                SeatsGrp( ) ) { // тогда можно находить место по всему салону
           if ( seatplaces.begin()->Step == sLeft || seatplaces.begin()->Step == sUp )
-            throw Exception( "Недопустимое значение направления рассадки" );
+            throw EXCEPTIONS::Exception( "Недопустимое значение направления рассадки" );
           ipass->placeList = seatplaces.begin()->placeList;
           ipass->Pos = seatplaces.begin()->Pos;
           ipass->Step = seatplaces.begin()->Step;
@@ -1781,7 +1782,7 @@ void TPassengers::sortByIndex()
 void TPassengers::Add( TPassenger &pass )
 {
   if ( pass.countPlace > CONST_MAXPLACE || pass.countPlace <= 0 )
-   throw Exception( "Не допустимое кол-во мест для расадки" );
+   throw EXCEPTIONS::Exception( "Не допустимое кол-во мест для расадки" );
 
   size_t i = 0;
   for (; i < pass.agent_seat.size(); i++)
@@ -1850,7 +1851,7 @@ int TPassengers::getCount()
 TPassenger &TPassengers::Get( int Idx )
 {
   if ( Idx < 0 || Idx >= (int)FPassengers.size() )
-    throw Exception( "Passeneger index out of range" );
+    throw EXCEPTIONS::Exception( "Passeneger index out of range" );
   return FPassengers[ Idx ];
 }
 
@@ -2279,7 +2280,7 @@ void SeatsPassengers( SALONS2::TSalons *Salons, int SeatAlgo /* 0 - умолчание */
     return;
   }
   SeatPlaces.RollBack( );
-  throw UserException( "Автоматическая рассадка невозможна" );
+  throw UserException( "MSG.SEATS.NOT_AVAIL_AUTO_SEATS" );
 }
 
 bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
@@ -2310,7 +2311,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Рейс не найден" );
+  	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   string airline = Qry.FieldAsString( "airline" );
   map<string,TCompLayerType> statuses;
   if ( !pr_exists ) {
@@ -2571,14 +2572,14 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     	break;
     default:
     	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-    	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+    	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
   }
   Qry.CreateVariable( "pax_id", otInteger, pax_id );
   Qry.Execute();
   // пассажир не найден или изменеоизводились с другой стойки или при предв. рассадке пассажир уже зарегистрирован
   if ( !Qry.RowCount() ) {
     ProgTrace( TRACE5, "!!! Passenger not found in funct ChangeLayer" );
-    throw UserException( "Пассажир не найден. Обновите данные"	);
+    throw UserException( "MSG.PASSENGER.NOT_FOUND.REFRESH_DATA"	);
   }
 
   string strclass = Qry.FieldAsString( "class" );
@@ -2600,19 +2601,20 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
   string prior_seat = Qry.FieldAsString( "seat_no" );
   if ( !seats_count ) {
     ProgTrace( TRACE5, "!!! Passenger has count seats=0 in funct ChangeLayer" );
-    throw UserException( "Пересадка невозможна. Количество мест занимаемых пассажиром равно нулю" ); //!!!
+    throw UserException( "MSG.SEATS.NOT_RESEATS_SEATS_ZERO" ); //!!!
   }
 
   if ( Qry.FieldAsInteger( "tid" ) != tid  ) {
     ProgTrace( TRACE5, "!!! Passenger has changed in other term in funct ChangeLayer" );
-    throw UserException( string( "Изменения по пассажиру " ) + fullname + " производились с другой стойки. Обновите данные" ); //!!!
+    throw UserException( "MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA",
+                         LParams()<<LParam("surname", fullname ) );
   }
   if ( ( layer_type != cltGoShow &&
   	     layer_type != cltCheckin &&
   	     layer_type != cltTCheckin &&
   	     layer_type != cltTranzit ) && SALONS2::Checkin( pax_id ) ) { //???
   	ProgTrace( TRACE5, "!!! Passenger set layer=%s, but his was chekin in funct ChangeLayer", EncodeCompLayerType( layer_type ) );
-  	throw UserException( "Пассажир зарегистрирован. Обновите данные" );
+  	throw UserException( "MSG.PASSENGER.CHECKED.REFRESH_DATA" );
   }
   vector<TSeatRange> seats;
   if ( seat_type != stDropseat ) { // заполнение вектора мест + проверка
@@ -2633,31 +2635,31 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
     strcpy( r.first.row, first_yname.c_str() );
     r.second = r.first;
     if ( !getCurrSeat( Salons, r, p ) )
-    	throw UserException( "Указанное место недоступно для пассажира" );
+    	throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     vector<TPlaceList*>::iterator placeList = Salons.placelists.end();
     for( placeList = Salons.placelists.begin();placeList != Salons.placelists.end(); placeList++ ) {
     	if ( (*placeList)->num == p.num )
     		break;
     }
     if ( placeList == Salons.placelists.end() )
-    	throw UserException( "Указанное место недоступно для пассажира" );
+    	throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     for ( int i=0; i<seats_count; i++ ) { // пробег по кол-ву мест и по местам
     	SALONS2::TPoint coord( p.x, p.y );
     	place = (*placeList)->place( coord );
     	if ( !place->visible || !place->isplace || place->clname != strclass )
-    		throw UserException( "Указанное место недоступно для пассажира" );
+    		throw UserException( "MSG.SEATS.SEAT_NO.NOT_AVAIL" );
     	// проверка на то, что мы имеем право назначить слой на эти места по пассажиру
     	if ( !place->layers.empty() ) {
     		if ( place->layers.begin()->pax_id == pax_id &&
     			   place->layers.begin()->layer_type == layer_type )
-    			throw UserException( "Место принадлежит пассажиру" );
+    			throw UserException( "MSG.SEATS.SEAT_NO.PASSENGER_OWNER" );
 			  QrySeatRules.SetVariable( "old_layer", EncodeCompLayerType( place->layers.begin()->layer_type ) );
     	  ProgTrace( TRACE5, "old layer=%s", EncodeCompLayerType( place->layers.begin()->layer_type ) );
     	  QrySeatRules.Execute();
 		    if ( QrySeatRules.Eof )
-    			throw UserException( "Невозможно назначить заданное место" );
+    			throw UserException( "MSG.SEATS.SEAT_NO.NOT_USE" );
     		if ( QrySeatRules.FieldAsInteger( "pr_owner" ) && pax_id != place->layers.begin()->pax_id )
-    			throw UserException( "Место занято другим пассажиром" );
+    			throw UserException( "MSG.SEATS.SEAT_NO.OCCUPIED_OTHER_PASSENGER" );
     	}
 
     	strcpy( r.first.line, place->xname.c_str() );
@@ -2672,7 +2674,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
 
 	  if ( Qry.Eof ) {
 	  	ProgError( STDLOG, "CanChangeLayer: error xname=%s, yname=%s", first_xname.c_str(), first_yname.c_str() );
-	  	throw UserException( "Указанные места недоступны" );
+	  	throw UserException( "MSG.SEATS.SEAT_NO.SEATS_NOT_AVAIL" );
 	  }
   }
 
@@ -2712,7 +2714,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+      	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.CreateVariable( "layer_type", otString, EncodeCompLayerType( layer_type ) );
@@ -2748,7 +2750,7 @@ void ChangeLayer( TCompLayerType layer_type, int point_id, int pax_id, int &tid,
       	break;
       default:
       	ProgTrace( TRACE5, "!!! Unuseable layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+      	throw UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.CreateVariable( "tid", otInteger, tid );
@@ -2829,7 +2831,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
 {
 	// салон содержит все нормальные места (нет инвалидных мест, например с разрывами
   if ( Salons.placelists.empty() )
-    throw Exception( "Не задан салон для автоматической рассадки" );
+    throw EXCEPTIONS::Exception( "Не задан салон для автоматической рассадки" );
   FSeatAlgo = SeatAlgo;
   CurrSalon = &Salons;
   SeatAlg = sSeatPassengers;
@@ -2943,7 +2945,7 @@ void AutoReSeatsPassengers( SALONS2::TSalons &Salons, TPassengers &APass, int Se
      	QryPax.SetVariable( "pax_id", pass.pax_id );
       QryPax.Execute();
       if ( QryPax.Eof )
-      	throw UserException( "Не задано направление у пассажира" );
+      	throw UserException( "MSG.SEATS.SEATS_DIRECTION_NOT_SET" );
       int point_dep = QryPax.FieldAsInteger( "point_dep" );
       int point_arv = QryPax.FieldAsInteger( "point_arv" );
       string prev_seat_no = QryPax.FieldAsString( "seat_no" );
