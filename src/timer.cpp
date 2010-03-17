@@ -209,6 +209,9 @@ void createSPP( TDateTime utcdate )
 
 void ETCheckStatusFlt(void)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+  reqInfo->user.sets.time = ustTimeUTC;
+
   TQuery Qry(&OraSession);
   try
   {
