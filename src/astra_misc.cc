@@ -491,7 +491,7 @@ void TMktFlight::getByCrsPaxId(int pax_id)
         "    tlg_trips.flt_no tlg_flt_no, "
         "    tlg_trips.suffix tlg_suffix, "
         "    crs_pnr.subclass tlg_subcls, "
-        "    tlg_trips.scd) tlg_scd, "
+        "    tlg_trips.scd tlg_scd, "
         "    tlg_trips.airp_dep tlg_airp_dep, "
         "    crs_pnr.target tlg_airp_arv, "
         "    pnr_market_flt.airline pax_airline, "
