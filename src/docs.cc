@@ -957,7 +957,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and ";
+            "   nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL and ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     SQLText +=
@@ -1288,7 +1288,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     }
     if(rpt_params.ckin_zone != ALL_CKIN_ZONES) {
         SQLText +=
-            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') ";
+            "   and nvl(halls2.rpt_grp, ' ') = nvl(:zone, ' ') and pax_grp.hall IS NOT NULL ";
         Qry.CreateVariable("zone", otString, rpt_params.ckin_zone);
     }
     if(rpt_params.pr_trfer)
@@ -1966,7 +1966,7 @@ void DocsInterface::GetZoneList(int point_id, xmlNodePtr dataNode)
             NewTextChild(itemNode, "name", "Др. залы");
         } else if(*iv == " ") {
             NewTextChild(itemNode, "code", *iv);
-            NewTextChild(itemNode, "name", "Все залы");
+            NewTextChild(itemNode, "name");
         } else {
             NewTextChild(itemNode, "code", *iv);
             NewTextChild(itemNode, "name", *iv);
