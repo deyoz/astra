@@ -968,6 +968,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         Qry.CreateVariable("station", otString, NodeAsString("station", reqNode));
         Qry.CreateVariable("module", otString, module);
 
+        ProgTrace(TRACE5, "SQLText %d: %s", j, Qry.SQLText.SQLText());
+
         TPerfTimer tm;
         tm.Init();
         try {
@@ -2919,7 +2921,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.scd_out >= :FirstDate AND points.scd_out < :LastDate and "
                 "   points.point_id = pax_grp.point_dep and points.pr_del>=0 and "
                 "   pax_grp.grp_id=pax.grp_id AND "
-                "   pax_grp.hall = halls2.id and "
+                "   pax_grp.hall = halls2.id(+) and "
                 "   pax_grp.class_grp = cls_grp.id ";
             if(!tag_no.empty())
                 SQLText +=
@@ -2994,7 +2996,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_pax_grp.part_key = arx_pax.part_key and "
                 "   arx_pax_grp.grp_id=arx_pax.grp_id AND "
                 "   arx_pax_grp.class_grp = cls_grp.id and "
-                "   arx_pax_grp.hall = halls2.id and "
+                "   arx_pax_grp.hall = halls2.id(+) and "
                 "   arx_points.part_key >= :FirstDate and arx_points.part_key < :LastDate + :arx_trip_date_range and "
                 "   pr_brd IS NOT NULL ";
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);

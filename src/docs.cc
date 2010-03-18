@@ -943,7 +943,7 @@ void PTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "   pax_grp.point_arv = points.point_id and \n"
         "   pax_grp.grp_id=pax.grp_id AND \n"
         "   pax_grp.class_grp = classes.id AND \n"
-        "   pax_grp.hall = halls2.id and \n"
+        "   pax_grp.hall = halls2.id(+) and \n"
         "   pr_brd IS NOT NULL and \n"
         "   decode(:pr_brd_pax, 0, nvl2(pax.pr_brd, 0, -1), pax.pr_brd)  = :pr_brd_pax and \n";
     Qry.CreateVariable("pr_brd_pax", otInteger, rpt_params.pr_brd);
@@ -1281,7 +1281,7 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
         "    pax_grp.grp_id = bag2.grp_id and "
         "    pax_grp.bag_refuse = 0 and "
         "    bag2.pr_cabin = 0 and "
-        "    pax_grp.hall = halls2.id ";
+        "    pax_grp.hall = halls2.id(+) ";
     if(!rpt_params.airp_arv.empty()) {
         SQLText += " and pax_grp.airp_arv = :target ";
         Qry.CreateVariable("target", otString, rpt_params.airp_arv);
