@@ -160,30 +160,26 @@ void GetEventCmd( const vector<string> &event_names,
 
   TQuery Qry(&OraSession);
   Qry.Clear();
-
-  ostringstream sql;
-  sql << "SELECT DISTINCT dev_model,sess_type,fmt_type,event_name "
-         "FROM dev_event_cmd "
-         "WHERE fmt_type=:fmt_type AND ";
-  if (!event_names.empty())
-  {
-    if (exclude)
-      sql << "event_name NOT IN " << GetSQLEnum(event_names) << " AND ";
-    else
-      sql << "event_name IN " << GetSQLEnum(event_names) << " AND ";
-  }
-  else
-  {
-    if (exclude) return;
-  };
-  sql << "      (dev_model IS NULL OR dev_model=:dev_model) AND "
-         "      (sess_type IS NULL OR sess_type=:sess_type) "
-         "ORDER BY event_name, dev_model NULLS LAST, sess_type NULLS LAST";
-
+  Qry.SQLText=
+    "SELECT DISTINCT dev_model,sess_type,fmt_type,desk_grp_id,event_name "
+    "FROM dev_event_cmd "
+    "WHERE fmt_type=:fmt_type AND "
+    "      (dev_model IS NULL OR dev_model=:dev_model) AND "
+    "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+    "      (sess_type IS NULL OR sess_type=:sess_type) "
+    "ORDER BY dev_model NULLS LAST, desk_grp_id NULLS LAST, sess_type NULLS LAST, event_name";
   Qry.CreateVariable("dev_model",otString,dev_model);
   Qry.CreateVariable("sess_type",otString,sess_type);
   Qry.CreateVariable("fmt_type",otString,fmt_type);
-  Qry.SQLText=sql.str().c_str();
+  Qry.CreateVariable("desk_grp_id",otInteger,TReqInfo::Instance()->desk.grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  string first_dev_model=Qry.FieldAsString("dev_model");
+  string first_sess_type=Qry.FieldAsString("sess_type");
+  string first_fmt_type=Qry.FieldAsString("fmt_type");
+  int first_desk_grp_id=ASTRA::NoExists;
+  if (!Qry.FieldIsNULL("desk_grp_id"))
+    first_desk_grp_id=Qry.FieldAsInteger("desk_grp_id");
 
 
   TQuery CmdQry(&OraSession);
@@ -194,23 +190,37 @@ void GetEventCmd( const vector<string> &event_names,
     "FROM dev_event_cmd "
     "WHERE fmt_type=:fmt_type AND event_name=:event_name AND "
     "      (dev_model IS NULL AND :dev_model IS NULL OR dev_model=:dev_model) AND "
+    "      (desk_grp_id IS NULL AND :desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
     "      (sess_type IS NULL AND :sess_type IS NULL OR sess_type=:sess_type) "
     "ORDER BY cmd_order";
-  CmdQry.DeclareVariable("dev_model",otString);
-  CmdQry.DeclareVariable("sess_type",otString);
-  CmdQry.DeclareVariable("fmt_type",otString);
+  CmdQry.CreateVariable("dev_model",otString,first_dev_model);
+  CmdQry.CreateVariable("sess_type",otString,first_sess_type);
+  CmdQry.CreateVariable("fmt_type",otString,first_fmt_type);
+  if (first_desk_grp_id!=ASTRA::NoExists)
+    CmdQry.CreateVariable("desk_grp_id",otInteger,first_desk_grp_id);
+  else
+    CmdQry.CreateVariable("desk_grp_id",otInteger,FNull);
   CmdQry.DeclareVariable("event_name",otString);
 
-  string prior_event_name;
   Qry.Execute();
   for(;!Qry.Eof;Qry.Next())
   {
-    if (prior_event_name==Qry.FieldAsString("event_name")) continue;
-    prior_event_name=Qry.FieldAsString("event_name");
-    CmdQry.SetVariable("dev_model",Qry.FieldAsString("dev_model"));
-    CmdQry.SetVariable("sess_type",Qry.FieldAsString("sess_type"));
-    CmdQry.SetVariable("fmt_type",Qry.FieldAsString("fmt_type"));
-    CmdQry.SetVariable("event_name",Qry.FieldAsString("event_name"));
+    if (first_dev_model!=Qry.FieldAsString("dev_model") ||
+        first_sess_type!=Qry.FieldAsString("sess_type") ||
+        first_fmt_type!=Qry.FieldAsString("fmt_type") ||
+        !(first_desk_grp_id==ASTRA::NoExists && Qry.FieldIsNULL("desk_grp_id") ||
+          first_desk_grp_id==Qry.FieldAsInteger("desk_grp_id"))) break;
+
+    string event_name=Qry.FieldAsString("event_name");
+    bool event_found=find(event_names.begin(),event_names.end(),event_name)!=event_names.end();
+
+    ProgTrace(TRACE5,"event_name=%s event_found=%d",event_name.c_str(),(int)event_found);
+
+    //проверим exclude
+    if ( exclude &&  event_found ||
+        !exclude && !event_found ) continue;
+
+    CmdQry.SetVariable("event_name",event_name);
 
     XMLDoc cmdDoc("UTF-8","commands");
     xmlNodePtr cmdsNode=NodeAsNode("/commands",cmdDoc.docPtr());
@@ -221,6 +231,8 @@ void GetEventCmd( const vector<string> &event_names,
       string cmd_data,cmd_data_hex;
 
       cmd_data=CmdQry.FieldAsString("cmd_data");
+      ProgTrace(TRACE5,"cmd_data=%s",cmd_data.c_str());
+
       if (CmdQry.FieldAsInteger("cmd_fmt_file")!=0)
       {
         ifstream f;
@@ -267,7 +279,7 @@ void GetEventCmd( const vector<string> &event_names,
       SetProp(cmdNode,"error_log",      (int)(CmdQry.FieldAsInteger("error_log")!=0));
       SetProp(cmdNode,"error_abort",    (int)(CmdQry.FieldAsInteger("error_abort")!=0));
     };
-    serverParams.push_back( TDevParam("cmd_"+prior_event_name,"",
+    serverParams.push_back( TDevParam("cmd_"+event_name,"",
                                       XMLTreeToText(cmdDoc.docPtr()),
                                       (int)false) );
   };
@@ -629,7 +641,7 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   {
     node2=devNode->children;
     event_names.clear();
-    node=GetNode("events",devNode);
+    node=GetNodeFast("events",node2);
     if (node!=NULL)
     {
       for(node=node->children;node!=NULL;node=node->next)
@@ -640,6 +652,7 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
                      NodeAsStringFast("sess_type",node2),
                      NodeAsStringFast("fmt_type",node2),
                      params );
+      node=NodeAsNodeFast("events",node2);
       xmlUnlinkNode(node);
       xmlFreeNode(node);
     }
