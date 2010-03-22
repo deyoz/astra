@@ -149,6 +149,142 @@ void ParseParams( xmlNodePtr paramsNode, TCategoryDevParams &params )
   }
 }
 
+void GetEventCmd( const vector<string> &event_names,
+                  const bool exclude,
+                  const string &dev_model,
+                  const string &sess_type,
+                  const string &fmt_type,
+                  TCategoryDevParams &serverParams )
+{
+  serverParams.clear();
+
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT DISTINCT dev_model,sess_type,fmt_type,desk_grp_id,event_name "
+    "FROM dev_event_cmd "
+    "WHERE fmt_type=:fmt_type AND "
+    "      (dev_model IS NULL OR dev_model=:dev_model) AND "
+    "      (desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+    "      (sess_type IS NULL OR sess_type=:sess_type) "
+    "ORDER BY dev_model NULLS LAST, desk_grp_id NULLS LAST, sess_type NULLS LAST, event_name";
+  Qry.CreateVariable("dev_model",otString,dev_model);
+  Qry.CreateVariable("sess_type",otString,sess_type);
+  Qry.CreateVariable("fmt_type",otString,fmt_type);
+  Qry.CreateVariable("desk_grp_id",otInteger,TReqInfo::Instance()->desk.grp_id);
+  Qry.Execute();
+  if (Qry.Eof) return;
+  string first_dev_model=Qry.FieldAsString("dev_model");
+  string first_sess_type=Qry.FieldAsString("sess_type");
+  string first_fmt_type=Qry.FieldAsString("fmt_type");
+  int first_desk_grp_id=ASTRA::NoExists;
+  if (!Qry.FieldIsNULL("desk_grp_id"))
+    first_desk_grp_id=Qry.FieldAsInteger("desk_grp_id");
+
+
+  TQuery CmdQry(&OraSession);
+  CmdQry.Clear();
+  CmdQry.SQLText=
+    "SELECT cmd_data,cmd_order,wait_prior_cmd,cmd_fmt_hex,cmd_fmt_file, "
+    "       binary,posted,error_show,error_log,error_abort "
+    "FROM dev_event_cmd "
+    "WHERE fmt_type=:fmt_type AND event_name=:event_name AND "
+    "      (dev_model IS NULL AND :dev_model IS NULL OR dev_model=:dev_model) AND "
+    "      (desk_grp_id IS NULL AND :desk_grp_id IS NULL OR desk_grp_id=:desk_grp_id) AND "
+    "      (sess_type IS NULL AND :sess_type IS NULL OR sess_type=:sess_type) "
+    "ORDER BY cmd_order";
+  CmdQry.CreateVariable("dev_model",otString,first_dev_model);
+  CmdQry.CreateVariable("sess_type",otString,first_sess_type);
+  CmdQry.CreateVariable("fmt_type",otString,first_fmt_type);
+  if (first_desk_grp_id!=ASTRA::NoExists)
+    CmdQry.CreateVariable("desk_grp_id",otInteger,first_desk_grp_id);
+  else
+    CmdQry.CreateVariable("desk_grp_id",otInteger,FNull);
+  CmdQry.DeclareVariable("event_name",otString);
+
+  Qry.Execute();
+  for(;!Qry.Eof;Qry.Next())
+  {
+    if (first_dev_model!=Qry.FieldAsString("dev_model") ||
+        first_sess_type!=Qry.FieldAsString("sess_type") ||
+        first_fmt_type!=Qry.FieldAsString("fmt_type") ||
+        !(first_desk_grp_id==ASTRA::NoExists && Qry.FieldIsNULL("desk_grp_id") ||
+          first_desk_grp_id==Qry.FieldAsInteger("desk_grp_id"))) break;
+
+    string event_name=Qry.FieldAsString("event_name");
+    bool event_found=find(event_names.begin(),event_names.end(),event_name)!=event_names.end();
+
+    ProgTrace(TRACE5,"event_name=%s event_found=%d",event_name.c_str(),(int)event_found);
+
+    //проверим exclude
+    if ( exclude &&  event_found ||
+        !exclude && !event_found ) continue;
+
+    CmdQry.SetVariable("event_name",event_name);
+
+    XMLDoc cmdDoc("UTF-8","commands");
+    xmlNodePtr cmdsNode=NodeAsNode("/commands",cmdDoc.docPtr());
+    CmdQry.Execute();
+    for(;!CmdQry.Eof;CmdQry.Next())
+    {
+      xmlNodePtr cmdNode;
+      string cmd_data,cmd_data_hex;
+
+      cmd_data=CmdQry.FieldAsString("cmd_data");
+      ProgTrace(TRACE5,"cmd_data=%s",cmd_data.c_str());
+
+      if (CmdQry.FieldAsInteger("cmd_fmt_file")!=0)
+      {
+        ifstream f;
+        f.open(cmd_data.c_str());
+        if (!f.is_open()) throw Exception("Can't open file '%s'",cmd_data.c_str());
+        try
+        {
+          ostringstream cmd_data_stream;
+          cmd_data_stream << f.rdbuf();
+          cmd_data=cmd_data_stream.str();
+          f.close();
+        }
+        catch(...)
+        {
+          try { f.close(); } catch( ... ) { };
+          throw;
+        };
+      };
+
+      if (CmdQry.FieldAsInteger("cmd_fmt_hex")!=0)
+      {
+        //команда в шестнадцатиричном формате
+        cmd_data_hex=cmd_data;
+        if (!HexToString(cmd_data_hex,cmd_data))
+          throw Exception("GetEventCmd: not hexadecimal format (cmd_data=%s)",cmd_data_hex.c_str());
+
+      };
+
+      if (CmdQry.FieldAsInteger("binary")==0 &&
+          ValidXMLString(cmd_data))
+      {
+        cmdNode=NewTextChild(cmdsNode,"command",cmd_data);
+        SetProp(cmdNode,"hex",(int)false);
+      }
+      else
+      {
+        StringToHex(cmd_data,cmd_data_hex);
+        cmdNode=NewTextChild(cmdsNode,"command",cmd_data_hex);
+        SetProp(cmdNode,"hex",(int)true);
+      };
+      SetProp(cmdNode,"wait_prior_cmd", (int)(CmdQry.FieldAsInteger("wait_prior_cmd")!=0));
+      SetProp(cmdNode,"posted",         (int)(CmdQry.FieldAsInteger("posted")!=0));
+      SetProp(cmdNode,"error_show",     (int)(CmdQry.FieldAsInteger("error_show")!=0));
+      SetProp(cmdNode,"error_log",      (int)(CmdQry.FieldAsInteger("error_log")!=0));
+      SetProp(cmdNode,"error_abort",    (int)(CmdQry.FieldAsInteger("error_abort")!=0));
+    };
+    serverParams.push_back( TDevParam("cmd_"+event_name,"",
+                                      XMLTreeToText(cmdDoc.docPtr()),
+                                      (int)false) );
+  };
+}
+
 void GetParams( TQuery &Qry, TCategoryDevParams &serverParams )
 {
 	serverParams.clear();
@@ -173,8 +309,8 @@ void BuildParams( xmlNodePtr paramsNode, TCategoryDevParams &params, bool pr_edi
   string paramType;
   xmlNodePtr paramNode=NULL,subparamNode;
   for (TCategoryDevParams::iterator iparam=params.begin(); iparam!=params.end(); iparam++) {
-  	ProgTrace( TRACE5, "param_name=%s, subparam_name=%s, param_value=%s, editable=%d, pr_editable=%d",
-  	           iparam->param_name.c_str(), iparam->subparam_name.c_str(), iparam->param_value.c_str(), iparam->editable, pr_editable );
+//  	ProgTrace( TRACE5, "param_name=%s, subparam_name=%s, param_value=%s, editable=%d, pr_editable=%d",
+//  	           iparam->param_name.c_str(), iparam->subparam_name.c_str(), iparam->param_value.c_str(), iparam->editable, pr_editable );
     if ( paramNode==NULL || (const char*)paramNode->name!=iparam->param_name ) {
       if ( iparam->subparam_name.empty() ) {
         paramNode = NewTextChild( paramsNode, iparam->param_name.c_str(), iparam->param_value );
@@ -358,7 +494,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "      dev_model_sess_fmt.sess_type=dev_model_defaults.sess_type(+) AND "
       "      dev_model_sess_fmt.fmt_type=dev_model_defaults.fmt_type(+) ";
     DefQry.CreateVariable( "dev_model", otString, variant_model );
-    tst();
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
@@ -428,11 +563,11 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       Qry.Execute();
       ProgTrace( TRACE5, "dev_model=%s, sess_type=%s, fmt_type=%s", dev_model.c_str(), sess_type.c_str(), fmt_type.c_str() );
       if ( Qry.Eof ) continue; // данный ключ dev_model+sess_type+fmt_type не разрешен
-      tst();
+
       ModelQry.SetVariable( "dev_model", dev_model );
       ModelQry.Execute();
       if ( ModelQry.Eof ) continue; //       	модель не найдена
-      	tst();
+
       xmlNodePtr newoperNode=NewTextChild( resNode, "operation" );
       xmlNodePtr pNode;
       SetProp( newoperNode, "type", operation );
@@ -463,10 +598,25 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       GetParams( FmtParamsQry, params );
       if ( pr_parse_client_params )
         ParseParams( GetNode( "fmt_params", operNode ), params );
-      ProgTrace( TRACE5, "fmt_params count=%d", params.size() );
       pNode = NewTextChild( newoperNode, "fmt_params" );
       SetProp( pNode, "type", fmt_type );
       BuildParams( pNode, params, pr_editable );
+
+      //ищем параметр posted_events
+      vector<TDevParam>::iterator iParams=params.begin();
+      for(;iParams!=params.end();iParams++)
+        if (iParams->param_name=="posted_events") break;
+      bool posted_events=iParams!=params.end() && ToInt(iParams->param_value)!=0;
+
+      if (!posted_events)
+      {
+        vector<string> event_names;
+        event_names.push_back("magic_btn_click");
+        event_names.push_back("first_fmt_magic_btn_click");
+        ::GetEventCmd( event_names, true, dev_model, sess_type, fmt_type, params );
+        pNode = NewTextChild( newoperNode, "events" );
+        BuildParams( pNode, params, false );
+      };
 
       ModelParamsQry.SetVariable("dev_model",dev_model);
       ModelParamsQry.Execute();
@@ -480,6 +630,47 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
     }
   }
 }
+
+void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+  xmlNodePtr devsNode=NodeAsNode("devices",reqNode);
+  xmlNodePtr devNode,node,node2;
+  vector<string> event_names;
+  TCategoryDevParams params;
+  for(devNode=devsNode->children;devNode!=NULL;devNode=devNode->next)
+  {
+    node2=devNode->children;
+    event_names.clear();
+    node=GetNodeFast("events",node2);
+    if (node!=NULL)
+    {
+      for(node=node->children;node!=NULL;node=node->next)
+        event_names.push_back(NodeAsString(node));
+      ::GetEventCmd( event_names,
+                     false,
+                     NodeAsStringFast("dev_model",node2),
+                     NodeAsStringFast("sess_type",node2),
+                     NodeAsStringFast("fmt_type",node2),
+                     params );
+      node=NodeAsNodeFast("events",node2);
+      xmlUnlinkNode(node);
+      xmlFreeNode(node);
+    }
+    else
+    {
+      event_names.push_back("magic_btn_click");
+      event_names.push_back("first_fmt_magic_btn_click");
+      ::GetEventCmd( event_names,
+                     true,
+                     NodeAsStringFast("dev_model",node2),
+                     NodeAsStringFast("sess_type",node2),
+                     NodeAsStringFast("fmt_type",node2),
+                     params );
+    };
+    BuildParams( NewTextChild(devNode,"events"), params, false );
+  };
+  CopyNodeList(resNode,reqNode);
+};
 
 bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
 {
@@ -702,7 +893,7 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.CreateVariable("iface",otString,oldPrn.iface);
             Qry.Execute();
             if (Qry.Eof || Qry.FieldIsNULL("new_iface"))
-              throw EConvertError("iface code %d not found",oldPrn.iface.c_str());
+              throw EConvertError("iface code %s not found",oldPrn.iface.c_str());
 
             dev_sess_type=Qry.FieldAsString("new_iface");
 
@@ -712,7 +903,7 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.CreateVariable("fmt",otString,oldPrn.format);
             Qry.Execute();
             if (Qry.Eof || Qry.FieldIsNULL("new_fmt"))
-              throw EConvertError("format code %d not found",oldPrn.format.c_str());
+              throw EConvertError("format code %s not found",oldPrn.format.c_str());
 
             dev_fmt_type=Qry.FieldAsString("new_fmt");
 

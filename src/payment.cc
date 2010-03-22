@@ -1268,12 +1268,14 @@ void PaymentInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     //последовательность для принтера
     PrintDataParser parser(rcpt);
     string data;
+    bool hex;
     PrintInterface::GetPrintDataBR(
             rcpt.form_type,
             parser,
             data,
+            hex,
             reqNode
             ); //последовательность для принтера
-    NewTextChild(rcptNode, "form", data);
+    SetProp( NewTextChild(rcptNode, "form", data), "hex", (int)hex);
     reqInfo->MsgToLog(logmsg.str(),ASTRA::evtPay,point_dep,0,grp_id);
 };

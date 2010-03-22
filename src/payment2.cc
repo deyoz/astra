@@ -1087,13 +1087,15 @@ void PaymentOldInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
     PutReceiptFields(rcpt,parser,resNode); //образ квитанции
     tst();
     string data;
+    bool hex;
     PrintInterface::GetPrintDataBR(
             rcpt.form_type,
             parser,
             data,
+            hex,
             reqNode
             ); //последовательность для принтера
-    NewTextChild(resNode, "form", data);
+    SetProp( NewTextChild(resNode, "form", data), "hex", (int)hex);
     reqInfo->MsgToLog(logmsg,
             ASTRA::evtPay,point_dep,MainPaxRegNo(grp_id),grp_id);
 };
