@@ -3614,24 +3614,22 @@ struct TPaxPrint {
 	};
 };
 
+bool rus_airp(string airp)
+{
+    string city = base_tables.get("AIRPS").get_row("code", airp).AsString("city");
+    return base_tables.get("CITIES").get_row("code", city).AsString("country") == "РФ";
+}
+
 bool get_bp_pr_lat(int grp_id, bool pr_lat)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText=
-        "select airp_arv from pax_grp where grp_id = :grp_id";
+        "select airp_dep, airp_arv from pax_grp where grp_id = :grp_id";
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if(Qry.Eof)
         throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
-    string airp_arv = Qry.FieldAsString("airp_arv");
-
-    TBaseTable &airpsTable = base_tables.get("AIRPS");
-    TBaseTable &citiesTable = base_tables.get("CITIES");
-
-    TBaseTableRow &airpRow = airpsTable.get_row("code", airp_arv);
-    TBaseTableRow &citiesRow = citiesTable.get_row("code",airpRow.AsString("city"));
-
-    return pr_lat || citiesRow.AsString("country") != "РФ";
+    return pr_lat or not rus_airp(Qry.FieldAsString("airp_dep")) or not rus_airp(Qry.FieldAsString("airp_arv"));
 }
 
 void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
