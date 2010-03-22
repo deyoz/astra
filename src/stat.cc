@@ -1616,21 +1616,17 @@ typedef map<TFullStatKey, TFullStatRow, TFullCmp> TFullStat;
 
 enum TStatType { statTrferFull, statFull, statShort, statDetail };
 
+enum TSeanceType { seanceAirline, seanceAirport, seanceAll };
+
 struct TStatParams {
-    string ak, ap, seance;
+    string ak, ap;
+    TSeanceType seance;
     void get(TQuery &Qry, xmlNodePtr resNode);
 };
 
 string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_arx)
 {
     TReqInfo &info = *(TReqInfo::Instance());
-
-    bool all_seances = find( info.user.access.rights.begin(),
-            info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
-    bool pr_all_seances =
-        info.user.user_type == utSupport or
-        info.user.user_type == utAirport and all_seances or
-        info.user.user_type == utAirline and all_seances;
 
     if (!pr_arx)
     {
@@ -1715,20 +1711,17 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
           mainSQLText += ", trip_sets \n";
         else
         {
-          if(!params.ap.empty())
+          if(!params.ap.empty() && params.seance==seanceAirport)
               mainSQLText += ", " + AIRP_PERIODS;
-          else if(!params.ak.empty())
+          if(!params.ak.empty() && params.seance==seanceAirline)
               mainSQLText += ", " + AIRLINE_PERIODS;
         };
         mainSQLText +=
             "where \n";
         if (USE_SEANCES())
         {
-          if(pr_all_seances) {
-              if(not params.seance.empty())
-                  mainSQLText += "  trip_sets.pr_airp_seance = decode(:seance, '€', 1, 0) and \n";
-          } else
-              mainSQLText += "  trip_sets.pr_airp_seance = " + IntToString(info.user.user_type == utAirport) + " and \n";
+          if (params.seance!=seanceAll)
+            mainSQLText += "  trip_sets.pr_airp_seance = :pr_airp_seance and \n";
         };
 
         if (statType==statTrferFull)
@@ -1749,12 +1742,13 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
         }
         else
         {
-          if(params.ap.empty() and params.ak.empty())
-              mainSQLText +=
-                  "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
-          else
+          if (!params.ap.empty() && params.seance==seanceAirport ||
+              !params.ak.empty() && params.seance==seanceAirline)
               mainSQLText +=
                   "  points.scd_out >= periods.period_first_date AND points.scd_out < periods.period_last_date  \n";
+          else
+              mainSQLText +=
+                  "  points.scd_out >= :FirstDate AND points.scd_out < :LastDate \n";
         };
         if (!info.user.access.airps.empty()) {
             if (info.user.access.airps_permit)
@@ -1768,27 +1762,21 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             else
                 mainSQLText += " AND points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
         }
-        if (USE_SEANCES())
+        if(params.ap.size())
+            mainSQLText +=
+              " and points.airp = :ap \n";
+        if(params.ak.size())
+            mainSQLText +=
+              " and points.airline = :ak \n";
+
+        if (!USE_SEANCES())
         {
-          if(params.ap.size()) {
-              mainSQLText +=
-                  " and points.airp = :ap \n";
-          } else if(params.ak.size()) {
-              mainSQLText +=
-                  " and points.airline = :ak \n";
-          }
-        }
-        else
-        {
-          if(params.ap.size()) {
-              mainSQLText +=
-                  " and points.airp = :ap and \n"
-                  " points.airline not in " + AIRLINE_LIST;
-          } else if(params.ak.size()) {
-              mainSQLText +=
-                  " and points.airline = :ak and \n"
-                  " points.airp in " + AIRP_LIST;
-          }
+          if(!params.ap.empty() && params.seance==seanceAirport)
+            mainSQLText +=
+              " and points.airline not in " + AIRLINE_LIST + "\n";
+          if(!params.ak.empty() && params.seance==seanceAirline)
+            mainSQLText +=
+              " and points.airp in " + AIRP_LIST + "\n";
         };
 
         if (statType==statFull)
@@ -1915,40 +1903,41 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
           arxSQLText += ", arx_trip_sets \n";
         else
         {
-          if(!params.ap.empty())
+          if(!params.ap.empty() && params.seance==seanceAirport)
               arxSQLText += ", " + AIRP_PERIODS;
-          else if(!params.ak.empty())
+          if(!params.ak.empty() && params.seance==seanceAirline)
               arxSQLText += ", " + AIRLINE_PERIODS;
         };
         arxSQLText +=
             "where \n";
         if (USE_SEANCES())
         {
-          if(pr_all_seances) {
-              if(not params.seance.empty())
-                  arxSQLText += "  arx_trip_sets.pr_airp_seance = decode(:seance, '€', 1, 0) and \n";
-          } else
-              arxSQLText += "  arx_trip_sets.pr_airp_seance = " + IntToString(info.user.user_type == utAirport) + " and \n";
+          if (params.seance!=seanceAll)
+            arxSQLText += "  arx_trip_sets.pr_airp_seance = :pr_airp_seance and \n";
         };
+
         if (USE_SEANCES())
         {
           arxSQLText +=
-              "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND \n"
-              "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
+            "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND \n"
+            "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND \n";
           arxSQLText +=
             "  arx_points.part_key = arx_trip_sets.part_key AND \n"
             "  arx_points.point_id = arx_trip_sets.point_id AND \n";
         }
         else
         {
-          if(params.ap.empty() and params.ak.empty())
-              arxSQLText +=
-                  "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND "
-                  "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND ";
-          else
-              arxSQLText +=
+          if (!params.ap.empty() && params.seance==seanceAirport ||
+              !params.ak.empty() && params.seance==seanceAirline)
+            arxSQLText +=
               "  arx_points.part_key >= periods.period_first_date AND arx_points.part_key < periods.period_last_date + :arx_trip_date_range AND "
               "  arx_points.scd_out >= periods.period_first_date AND arx_points.scd_out < periods.period_last_date  AND ";
+
+          else
+            arxSQLText +=
+              "  arx_points.part_key >= :FirstDate AND arx_points.part_key < :LastDate + :arx_trip_date_range AND "
+              "  arx_points.scd_out >= :FirstDate AND arx_points.scd_out < :LastDate AND ";
+
         };
         arxSQLText +=
             "  arx_points.pr_del>=0 AND \n";
@@ -1976,27 +1965,21 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             else
                 arxSQLText += " AND arx_points.airline NOT IN "+GetSQLEnum(info.user.access.airlines);
         }
-        if (USE_SEANCES())
+        if(params.ap.size())
+            arxSQLText +=
+                " and arx_points.airp = :ap \n";
+        if(params.ak.size())
+            arxSQLText +=
+                " and arx_points.airline = :ak \n";
+
+        if (!USE_SEANCES())
         {
-          if(params.ap.size()) {
-              arxSQLText +=
-                  " and arx_points.airp = :ap \n";
-          } else if(params.ak.size()) {
-              arxSQLText +=
-                  " and arx_points.airline = :ak \n";
-          };
-        }
-        else
-        {
-          if(params.ap.size()) {
-              arxSQLText +=
-                  " and arx_points.airp = :ap and \n"
-                  " arx_points.airline not in " + AIRLINE_LIST;
-          } else if(params.ak.size()) {
-              arxSQLText +=
-                  " and arx_points.airline = :ak and \n"
-                  " arx_points.airp in " + AIRP_LIST;
-          };
+          if(!params.ap.empty() && params.seance==seanceAirport)
+            arxSQLText +=
+              " and arx_points.airline not in " + AIRLINE_LIST + "\n";
+          if(!params.ak.empty() && params.seance==seanceAirline)
+            arxSQLText +=
+              " and arx_points.airp in " + AIRP_LIST + "\n";
         };
         if (statType==statFull)
         {
@@ -2560,17 +2543,36 @@ typedef map<TShortStatKey, TShortStatRow, TShortCmp> TShortStat;
 void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
 {
     xmlNodePtr curNode = reqNode->children;
-    ak = trim(NodeAsStringFast("ak", curNode));
-    ap = trim(NodeAsStringFast("ap", curNode));
-    seance = NodeAsStringFast("seance", curNode, "");
-    if(ap.size()) {
-        Qry.CreateVariable("ap", otString, ap);
-    } else if(ak.size()) {
-        Qry.CreateVariable("ak", otString, ak);
-    }
-    if(not seance.empty())
-        Qry.CreateVariable("seance", otString, seance);
-}
+
+    ak = NodeAsStringFast("ak", curNode);
+    ap = NodeAsStringFast("ap", curNode);
+    if (!ap.empty()) Qry.CreateVariable("ap", otString, ap);
+    if (!ak.empty()) Qry.CreateVariable("ak", otString, ak);
+
+    //α¥ ­αλ (¤®£®Ά®ΰλ)
+    string seance_str = NodeAsStringFast("seance", curNode, "");
+    seance = seanceAll;
+    if (seance_str=="€") seance=seanceAirline;
+    if (seance_str=="€") seance=seanceAirport;
+
+    if (USE_SEANCES())
+    {
+      TReqInfo &info = *(TReqInfo::Instance());
+
+      bool all_seances = find( info.user.access.rights.begin(),
+              info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
+
+      if (info.user.user_type != utSupport && !all_seances)
+      {
+        if (info.user.user_type == utAirline)
+          seance=seanceAirline;
+        else
+          seance=seanceAirport;
+      };
+      if (seance!=seanceAll)
+        Qry.CreateVariable("pr_airp_seance", otInteger, (int)(seance==seanceAirport));
+    };
+};
 
 void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 {
