@@ -2709,10 +2709,10 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
     if (seance_str=="Ää") seance=seanceAirline;
     if (seance_str=="Äè") seance=seanceAirport;
 
+    TReqInfo &info = *(TReqInfo::Instance());
+
     if (USE_SEANCES())
     {
-      TReqInfo &info = *(TReqInfo::Instance());
-
       bool all_seances = find( info.user.access.rights.begin(),
               info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
 
@@ -2725,6 +2725,14 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
       };
       if (seance!=seanceAll)
         Qry.CreateVariable("pr_airp_seance", otInteger, (int)(seance==seanceAirport));
+    }
+    else
+    {
+      if (!info.desk.compatible(AIRL_AIRP_STAT_VERSION))
+      {
+        if (!ak.empty()) seance=seanceAirline;
+        if (!ap.empty()) seance=seanceAirport;
+      };
     };
 };
 
