@@ -54,68 +54,72 @@ bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 			  return false;
 };
 
-void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
+void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
 {
-	complayers.clear();
-  vector<ASTRA::TCompLayerType> layers;
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
-  	Qry.Next();
-  }
-  TTlgCompLayer comp_layer;
-  int next_point_arv = -1;
-
-  SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
-  Salons.Read();
-  for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
-    for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
-    	bool pr_break = false;
-    	for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
-    		for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
-    			if ( il->layer_type == *ilayer ) { // нашли нужный слой
-    				if ( il->point_dep == NoExists )
-    					comp_layer.point_dep = info.point_id;
-    				else
-              comp_layer.point_dep = il->point_dep;
-            if ( il->point_arv == NoExists )  {
-              if ( next_point_arv == -1 ) {
-                TTripRoute route;
-                TTripRouteItem next_airp;
-                route.GetNextAirp(info.point_id,
-                                  info.point_num,
-                                  info.first_point,
-                                  true,
-                                  trtNotCancelled,
-                                  next_airp);
-
-                if ( next_airp.point_id == NoExists )
-                  throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
-                else
-                  next_point_arv = next_airp.point_id;
-              }
-              comp_layer.point_arv = next_point_arv;
-            }
-            else
-            	comp_layer.point_arv = il->point_arv;
-            comp_layer.layer_type = il->layer_type;
-            comp_layer.xname = ip->xname;
-            comp_layer.yname = ip->yname;
-            comp_layer.pax_id = il->pax_id;
-            complayers.push_back( comp_layer );
-    				pr_break = true;
-    				break;
-    			}
-    		}
-    		if ( pr_break ) // закончили бежать по слоям места
-    			break;
-    	}
+    complayers.clear();
+    vector<ASTRA::TCompLayerType> layers;
+    if(pr_blocked)
+        layers.push_back(cltBlockCent);
+    else {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
+        Qry.Execute();
+        while ( !Qry.Eof ) {
+            layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
+            Qry.Next();
+        }
     }
-  }
-  // сортировка по yname, xname
-  sort( complayers.begin(), complayers.end(), CompareCompLayers );
+    TTlgCompLayer comp_layer;
+    int next_point_arv = -1;
+
+    SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
+    Salons.Read();
+    for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
+        for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
+            bool pr_break = false;
+            for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
+                for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
+                    if ( il->layer_type == *ilayer ) { // нашли нужный слой
+                        if ( il->point_dep == NoExists )
+                            comp_layer.point_dep = info.point_id;
+                        else
+                            comp_layer.point_dep = il->point_dep;
+                        if ( il->point_arv == NoExists )  {
+                            if ( next_point_arv == -1 ) {
+                                TTripRoute route;
+                                TTripRouteItem next_airp;
+                                route.GetNextAirp(info.point_id,
+                                        info.point_num,
+                                        info.first_point,
+                                        true,
+                                        trtNotCancelled,
+                                        next_airp);
+
+                                if ( next_airp.point_id == NoExists )
+                                    throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
+                                else
+                                    next_point_arv = next_airp.point_id;
+                            }
+                            comp_layer.point_arv = next_point_arv;
+                        }
+                        else
+                            comp_layer.point_arv = il->point_arv;
+                        comp_layer.layer_type = il->layer_type;
+                        comp_layer.xname = ip->xname;
+                        comp_layer.yname = ip->yname;
+                        comp_layer.pax_id = il->pax_id;
+                        complayers.push_back( comp_layer );
+                        pr_break = true;
+                        break;
+                    }
+                }
+                if ( pr_break ) // закончили бежать по слоям места
+                    break;
+            }
+        }
+    }
+    // сортировка по yname, xname
+    sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
 struct TTlgDraftPart {
@@ -3460,11 +3464,11 @@ void TTlgSeatList::dump_comp() const
         }
 }
 
-void TTlgSeatList::apply_comp(TTlgInfo &info)
+void TTlgSeatList::apply_comp(TTlgInfo &info, bool pr_blocked = false)
 {
 
   vector<TTlgCompLayer> complayers;
-  ReadSalons( info, complayers );
+  ReadSalons( info, complayers, pr_blocked );
   for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
     ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
     add_seat( il->point_arv, il->xname, il->yname );
@@ -3503,11 +3507,25 @@ void TTlgSeatList::get(TTlgInfo &info)
         }
         items.push_back(item);
     }
+
+    TTlgSeatList blocked_seats;
+    blocked_seats.apply_comp(info, true);
+    blocked_seats.get_seat_list(list, (info.pr_lat or info.pr_lat_seat));
+    if(not list.empty()) {
+        items.push_back("SI");
+        string item = "BLOCKED SEATS: ";
+        item += list.begin()->second;
+        while(item.size() + 1 > LINE_SIZE) {
+            size_t pos = item.rfind(' ', LINE_SIZE - 2);
+            items.push_back(item.substr(0, pos));
+            item = item.substr(pos + 1);
+        }
+        items.push_back(item);
+    }
 }
 
-int SOM(TTlgInfo &info, bool &vcompleted)
+int SOM(TTlgInfo &info)
 {
-    vcompleted = false;
     TTlgDraft tlg_draft;
     ProgTrace(TRACE5, "SOM started");
     TTlgOutPartInfo tlg_row;
@@ -3529,7 +3547,6 @@ int SOM(TTlgInfo &info, bool &vcompleted)
     size_t part_len = tlg_row.addr.size() + tlg_row.heading.size() + tlg_row.ending.size();
     TTlgSeatList SOMList;
     SOMList.get(info);
-    SOMList.items.push_back("SI");
     for(vector<string>::iterator iv = SOMList.items.begin(); iv != SOMList.items.end(); iv++) {
         part_len += iv->size() + br.size();
         if(part_len > PART_SIZE) {
@@ -5505,7 +5522,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "ETL") vid = ETL(info);
     else if(vbasic_type == "FTL") vid = FTL(info);
     else if(vbasic_type == "COM") vid = COM(info);
-    else if(vbasic_type == "SOM") vid = SOM(info, vcompleted);
+    else if(vbasic_type == "SOM") vid = SOM(info);
     else vid = Unknown(info, vcompleted);
 
     Qry.Clear();
