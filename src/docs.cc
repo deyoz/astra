@@ -1524,6 +1524,35 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "TotWeight", TotWeight);
     NewTextChild(variablesNode, "Tot", (pr_lat ? "" : vs_number(TotAmount)));
     NewTextChild(variablesNode, "pr_lat", pr_lat);
+    if(not rpt_params.pr_trfer) {
+        // Для нетрансферной багажки подбиваем итоги по трансферу
+        Qry.Clear();
+        Qry.SQLText =
+            "select "
+            "  sum(bag2.amount) amount, "
+            "  sum(bag2.weight) weight "
+            "from "
+            "  pax_grp, "
+            "  bag2, "
+            "  transfer "
+            "where "
+            "  pax_grp.point_dep = :point_id and "
+            "  pax_grp.grp_id = bag2.grp_id and "
+            "  pax_grp.grp_id = transfer.grp_id and "
+            "  transfer.pr_final <> 0 ";
+        Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
+        Qry.Execute();
+        int trfer_amount = 0;
+        int trfer_weight = 0;
+        if(not Qry.Eof) {
+            trfer_amount = Qry.FieldAsInteger("amount");
+            trfer_weight = Qry.FieldAsInteger("weight");
+        }
+        NewTextChild(variablesNode, "TotTrferPcs", trfer_amount);
+        NewTextChild(variablesNode, "TotTrferWeight", trfer_weight);
+    }
+
+
     Qry.Clear();
     Qry.SQLText =
         "select "
