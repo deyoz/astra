@@ -509,10 +509,10 @@ void TReqInfo::MergeAccess(vector<string> &a, bool &ap,
   };
 };
 
-string GetSQLEnum(vector<string> &values)
+string GetSQLEnum(const vector<string> &values)
 {
   string res;
-  for(vector<string>::iterator i=values.begin();i!=values.end();i++)
+  for(vector<string>::const_iterator i=values.begin();i!=values.end();i++)
   {
     if (i->empty()) continue;
     if (!res.empty()) res.append(",");

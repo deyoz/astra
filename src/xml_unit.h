@@ -78,7 +78,7 @@ int PropAsInteger(char* expr, xmlNodePtr cur);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const char *value = NULL);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const std::string value);
 xmlAttrPtr SetProp(xmlNodePtr node, const char *name, const int value);
-xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src);
+xmlNodePtr CopyNodeList(xmlNodePtr dest, xmlNodePtr src); //Функция с ошибкой libxml2! Не изменяет указатели xmlDocPtr
 xmlNodePtr CopyNode(xmlNodePtr dest, xmlNodePtr src, bool recursive=true);
 
 xmlDocPtr CreateXMLDoc(const char *encoding, const char *root);
@@ -108,5 +108,6 @@ class XMLDoc
     void set(const std::string &text);
 };
 
+bool ValidXMLString( const std::string& str );
 
 #endif
