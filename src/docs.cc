@@ -345,10 +345,11 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
-enum TRptType {rtPTM, rtBTM, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
+enum TRptType {rtPTM, rtBTM, rtWEB, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
 const char *RptTypeS[rtTypeNum] = {
     "PTM",
     "BTM",
+    "WEB",
     "REFUSE",
     "NOTPRES",
     "REM",
@@ -1853,7 +1854,8 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    get_report_form("exam", resNode);
+    bool pr_web = GetNode( "web", reqNode ) != NULL;
+    get_report_form(pr_web ? "web" : "exam", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
 
     BrdInterface::GetPax(reqNode, resNode);
@@ -1868,12 +1870,21 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
     xmlAddChild(formDataNode, dataNode);
     // Теперь переменные отчета
-    NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
+    if ( GetNode( "web", reqNode ) )
+        NewTextChild(variablesNode, "paxlist_type", "web-регистрация");
+    else
+        NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
     ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
+}
+
+void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    NewTextChild(reqNode, "web");
+    EXAM(rpt_params, reqNode, resNode);
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1900,6 +1911,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtBTM:
             BTM(rpt_params, resNode);
+            break;
+        case rtWEB:
+            WEB(rpt_params, reqNode, resNode);
             break;
         case rtREFUSE:
             REFUSE(rpt_params, resNode);
