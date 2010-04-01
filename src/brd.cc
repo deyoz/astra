@@ -78,8 +78,10 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_
             "    pax_grp.grp_id=pax.grp_id AND "
             "    point_dep=:point_id AND class=:class AND "
             "    pr_brd IS NOT NULL ";
-  if(pr_web)
-      sql += " and pax_grp.client_type = 'WEB' ";
+  if(pr_web) {
+      sql += " and pax_grp.client_type = :ctWeb ";
+      Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+  }
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.DeclareVariable( "class", otString );
@@ -143,8 +145,10 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_
           " pax_grp.grp_id=pax.grp_id AND "
           " point_dep = :point_id and "
           " pr_brd is not null ";
-      if(pr_web)
-          SQLText += " and pax_grp.client_type = 'WEB' ";
+      if(pr_web) {
+          SQLText += " and pax_grp.client_type = :ctWeb ";
+          Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+      }
       Qry.SQLText = SQLText;
       Qry.CreateVariable("point_id", otInteger, point_id);
       Qry.Execute();
@@ -477,8 +481,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     };
 
     condition+=" AND point_dep= :point_id AND pr_brd IS NOT NULL ";
-    if (pr_web)
-        condition += " and pax_grp.client_type = 'WEB' ";
+    if (pr_web) {
+        condition += " and pax_grp.client_type = :ctWeb ";
+        Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+    }
     Qry.CreateVariable("point_id",otInteger,point_id);
 
     string sqlText = (string)
