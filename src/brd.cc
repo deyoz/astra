@@ -491,7 +491,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    doc_check, "
         "    reg_no, "
         "    surname, "
-        "    name, "
+        "    pax.name, "
         "    pers_type, "
         "    class, "
         "    pax_grp.status, "
@@ -512,13 +512,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
         "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
         "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+        "    client_type, client_types.short_name AS client_name, "
         "    tckin_id, seg_no "
         "FROM "
         "    pax_grp, "
         "    pax, "
+        "    client_types, "
         "    tckin_pax_grp "
         "WHERE "
         "    pax_grp.grp_id=pax.grp_id AND "
+        "    pax_grp.client_type=client_types.code AND "
         "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) "+
         condition +
         " ORDER BY reg_no ";
@@ -581,6 +584,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"), 0);
         NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"), "");
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
+        if (DecodeClientType(Qry.FieldAsString("client_type"))!=ctTerm)
+          NewTextChild(paxNode, "client_name", Qry.FieldAsString("client_name"));
 
         if (!Qry.FieldIsNULL("tckin_id"))
         {
