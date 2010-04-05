@@ -129,7 +129,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
-  if ( InitData.checkCrypt ) { // проверка на то, что пользователь шифруется
+  if ( InitData.checkCrypt ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
     Qry.Clear();
     Qry.SQLText =
       "SELECT pr_crypt "
@@ -1093,6 +1093,7 @@ void showBasicInfo(void)
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пользователя
     xmlNodePtr setsNode = NewTextChild(node, "settings");
     if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
