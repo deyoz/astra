@@ -238,9 +238,19 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	SearchPnrData.craft = Qry.FieldAsString( "craft" );
 	SearchPnrData.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
 	SearchPnrData.stages.clear();
-	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
-	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
-	SearchPnrData.stages.insert( make_pair(sOpenCheckIn, UTCToLocal( tripStages.time(sOpenCheckIn), region ) ) );
+
+	TStagesRules *sr = TStagesRules::Instance();
+	TCkinClients ckin_clients;
+	TTripStages::ReadCkinClients( point_id, ckin_clients );
+  if ( sr->isClientStage( (int)sOpenWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sOpenWEBCheckIn ) )
+  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, NoExists) );
+  else
+  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
+  if ( sr->isClientStage( (int)sCloseWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sCloseWEBCheckIn ) )
+  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, NoExists) );
+  else
+  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
+  SearchPnrData.stages.insert( make_pair(sOpenCheckIn, UTCToLocal( tripStages.time(sOpenCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseCheckIn, UTCToLocal( tripStages.time(sCloseCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sOpenBoarding, UTCToLocal( tripStages.time(sOpenBoarding), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseBoarding, UTCToLocal( tripStages.time(sCloseBoarding), region ) ) );
@@ -782,10 +792,17 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     };
 
   xmlNodePtr stagesNode = NewTextChild( node, "stages" );
-  SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) ),
-           "type", "sOpenWEBCheckIn" );
-  SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) ),
-           "type", "sCloseWEBCheckIn" );
+  xmlNodePtr stageNode;
+  if ( SearchPnrData.stages[ sOpenWEBCheckIn ] != NoExists )
+  	stageNode = NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) );
+  else
+  	stageNode = NewTextChild( stagesNode, "stage" );
+  SetProp( stageNode, "type", "sOpenWEBCheckIn" );
+  if ( SearchPnrData.stages[ sCloseWEBCheckIn ] != NoExists )
+  	stageNode = NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) );
+  else
+  	stageNode = NewTextChild( stagesNode, "stage" );
+  SetProp( stageNode, "type", "sCloseWEBCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenCheckIn ], ServerFormatDateTimeAsString ) ),
            "type", "sOpenCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseCheckIn ], ServerFormatDateTimeAsString ) ),
