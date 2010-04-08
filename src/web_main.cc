@@ -524,6 +524,10 @@ bool findPnr( const string &surname, const string &pnr_addr,
   	if ( !ticket_no.empty() ) { // если задан поиск по билету, то делаем проверку
       QryTicket.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
       QryTicket.Execute();
+      if ( QryTicket.Eof && ticket_no.size() == 14 ) {
+      	QryTicket.SetVariable( "ticket_no", ticket_no.substr(0,13) );
+      	QryTicket.Execute();
+      }
       pr_find = ( !QryTicket.Eof );
     };
     ProgTrace( TRACE5, "after search ticket, pr_find=%d", pr_find );
