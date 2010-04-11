@@ -139,7 +139,7 @@ ResContrInfo ResContrInfoEdiR::operator() (ReaderData &RData) const
 
         string Awk = GetDBNum(pMes, 9906,0, typeChr == '1' ? "INV_AIRLINE" : "");
         string recloc = GetDBNum(pMes, 9956,0, typeChr == '1' ? "NEED_RECLOC" : "");
-            
+
         switch(typeChr){
         case '1':
             if(i==0 && Num>1){
@@ -956,7 +956,7 @@ void FrequentPassEdiR::operator () (ReaderData &RData, list<FrequentPass> &lFti)
 
         string comp = GetDBNum(pMes, 9906,0, "INV_FTI");
         string docnum = GetDBNum(pMes, 9948,0, "INV_FTI");
-        if(docnum.size() > 20 || docnum.size() < 5){
+        if(docnum.size() > 20 || docnum.size() < 1){
             ProgError(STDLOG, "Bad length of FQTV number len=%d, num=%s",
                                    docnum.size(), docnum.c_str());
             throw Exception("Bad length of FQTV number");
