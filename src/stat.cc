@@ -2590,7 +2590,7 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
                             else
                               seance=seanceAll;
                             break;
-            case utAirport: if (!ak.empty())
+            case utAirport: if (!ap.empty())
                               seance=seanceAirport;
                             else
                               seance=seanceAll;
