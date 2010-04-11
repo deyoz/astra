@@ -2268,12 +2268,28 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
         {
           node2=node->children;
           if (NodeIsNULLFast("pers_type",node2,true)) continue;
-          if (NodeAsStringFast("pers_type",node2)=="РМ") continue;
+          if (strcmp(NodeAsStringFast("pers_type",node2),EncodePerson(ASTRA::baby))==0) continue;
 
+          //билет
           if (pr_reg_with_tkn&&NodeIsNULLFast("ticket_no",node2,true))
             throw UserException("MSG.CHECKIN.PASSENGERS_TICKETS_NOT_SET"); //WEB
-          if (pr_reg_with_doc&&NodeIsNULLFast("document",node2,true))
-            throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+
+          if (pr_reg_with_doc)
+          {
+            //документ
+            bool flagCBBG=strcmp(NodeAsStringFast("name",node2),"CBBG")==0;
+            /*bool flagCBBG=false;
+            remNode=GetNodeFast("rems",node2);
+            if (remNode!=NULL)
+              for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
+                if (strcmp(NodeAsStringFast("rem_code",remNode),"CBBG")==0)
+                {
+                  flagCBBG=true;
+                  break;
+                };*/
+            if (!flagCBBG&&NodeIsNULLFast("document",node2,true))
+              throw UserException("MSG.CHECKIN.PASSENGERS_DOCUMENTS_NOT_SET"); //WEB
+          };
         };
       };
 
@@ -2342,7 +2358,10 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
             if ( !seats )
             	adultwithbaby = true;
             seats_sum+=seats;
-            bool flagVIP=false, flagSTCR=false, flagEXST=false;
+            bool flagVIP=false,
+                 flagSTCR=false,
+                 flagEXST=false,
+                 flagCBBG=false;
             remNode=GetNodeFast("rems",node2);
             if (remNode!=NULL)
               for(remNode=remNode->children;remNode!=NULL;remNode=remNode->next)
@@ -2353,6 +2372,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
                 if (rem_code=="VIP") flagVIP=true;
                 if (rem_code=="STCR") flagSTCR=true;
                 if (rem_code=="EXST") flagEXST=true;
+                if (rem_code=="CBBG") flagCBBG=true;
                 //проверим корректность ремарки FQT...
                 if (rem_code=="FQTV" ||
                     rem_code=="FQTU" ||

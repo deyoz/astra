@@ -129,7 +129,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   screen.name = upperc( InitData.screen );
   desk.code = InitData.pult;
   desk.mode = DecodeOperMode(InitData.mode);
-  if ( InitData.checkCrypt ) { // проверка на то, что пользователь шифруется
+  if ( InitData.checkCrypt ) { // пришло не зашифрованное сообщение - проверка на то, что пользователь шифруется
     Qry.Clear();
     Qry.SQLText =
       "SELECT pr_crypt "
@@ -658,7 +658,7 @@ string EncodeEventType(const TEventType ev_type )
   return s;
 }
 
-TDocType DecodeDocType(char* s)
+TDocType DecodeDocType(const char* s)
 {
   unsigned int i;
   for(i=0;i<sizeof(TDocTypeS)/sizeof(TDocTypeS[0]);i+=1) if (strcmp(s,TDocTypeS[i])==0) break;
@@ -673,7 +673,7 @@ char* EncodeDocType(TDocType doc)
   return (char*)TDocTypeS[doc];
 };
 
-TClass DecodeClass(char* s)
+TClass DecodeClass(const char* s)
 {
   unsigned int i;
   for(i=0;i<sizeof(TClassS)/sizeof(TClassS[0]);i+=1) if (strcmp(s,TClassS[i])==0) break;
@@ -688,7 +688,7 @@ char* EncodeClass(TClass cl)
   return (char*)TClassS[cl];
 };
 
-TPerson DecodePerson(char* s)
+TPerson DecodePerson(const char* s)
 {
   unsigned int i;
   for(i=0;i<sizeof(TPersonS)/sizeof(TPersonS[0]);i+=1) if (strcmp(s,TPersonS[i])==0) break;
@@ -718,7 +718,7 @@ int EncodeQueue(TQueue q)
   return (int)TQueueS[q];
 };
 
-TPaxStatus DecodePaxStatus(char* s)
+TPaxStatus DecodePaxStatus(const char* s)
 {
   unsigned int i;
   for(i=0;i<sizeof(TPaxStatusS)/sizeof(TPaxStatusS[0]);i+=1) if (strcmp(s,TPaxStatusS[i])==0) break;
@@ -733,7 +733,7 @@ char* EncodePaxStatus(TPaxStatus s)
   return (char*)TPaxStatusS[s];
 };
 
-TCompLayerType DecodeCompLayerType(char* s)
+TCompLayerType DecodeCompLayerType(const char* s)
 {
   unsigned int i;
   for(i=0;i<sizeof(CompLayerTypeS)/sizeof(CompLayerTypeS[0]);i+=1) if (strcmp(s,CompLayerTypeS[i])==0) break;
@@ -1093,6 +1093,7 @@ void showBasicInfo(void)
     NewTextChild(node,"city",reqInfo->desk.city);
     NewTextChild(node,"lang",reqInfo->desk.lang);
     NewTextChild(node,"time",DateTimeToStr( reqInfo->desk.time ) );
+    NewTextChild(node,"time_utc",DateTimeToStr(NowUTC()) );
     //настройки пользователя
     xmlNodePtr setsNode = NewTextChild(node, "settings");
     if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
