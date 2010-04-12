@@ -2641,11 +2641,11 @@ string get_fmt_type(int prn_type);
                     break;
                 case dftATB:
                 case dftBTP:
+                case dftZPL2:
                     result = delete_all_CR_LF(data);
                     break;
                 case dftEPL2:
                 case dftZEBRA:
-                case dftZPL2:
                 case dftDPL:
                 case dftEPSON:
                     result = place_CR_LF(data);
