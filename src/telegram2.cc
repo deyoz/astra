@@ -10,7 +10,6 @@
 #include "astra_consts.h"
 #include "serverlib/logger.h"
 
-
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
 #include "serverlib/test.h"
@@ -55,68 +54,72 @@ bool CompareCompLayers( TTlgCompLayer t1, TTlgCompLayer t2 )
 			  return false;
 };
 
-void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers )
+void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_blocked )
 {
-	complayers.clear();
-  vector<ASTRA::TCompLayerType> layers;
-  TQuery Qry(&OraSession);
-  Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
-  	Qry.Next();
-  }
-  TTlgCompLayer comp_layer;
-  int next_point_arv = -1;
-
-  SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
-  Salons.Read();
-  for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
-    for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
-    	bool pr_break = false;
-    	for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
-    		for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
-    			if ( il->layer_type == *ilayer ) { // нашли нужный слой
-    				if ( il->point_dep == NoExists )
-    					comp_layer.point_dep = info.point_id;
-    				else
-              comp_layer.point_dep = il->point_dep;
-            if ( il->point_arv == NoExists )  {
-              if ( next_point_arv == -1 ) {
-                TTripRoute route;
-                TTripRouteItem next_airp;
-                route.GetNextAirp(info.point_id,
-                                  info.point_num,
-                                  info.first_point,
-                                  true,
-                                  trtNotCancelled,
-                                  next_airp);
-
-                if ( next_airp.point_id == NoExists )
-                  throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
-                else
-                  next_point_arv = next_airp.point_id;
-              }
-              comp_layer.point_arv = next_point_arv;
-            }
-            else
-            	comp_layer.point_arv = il->point_arv;
-            comp_layer.layer_type = il->layer_type;
-            comp_layer.xname = ip->xname;
-            comp_layer.yname = ip->yname;
-            comp_layer.pax_id = il->pax_id;
-            complayers.push_back( comp_layer );
-    				pr_break = true;
-    				break;
-    			}
-    		}
-    		if ( pr_break ) // закончили бежать по слоям места
-    			break;
-    	}
+    complayers.clear();
+    vector<ASTRA::TCompLayerType> layers;
+    if(pr_blocked)
+        layers.push_back(cltBlockCent);
+    else {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "SELECT code FROM comp_layer_types WHERE PR_OCCUPY<>0";
+        Qry.Execute();
+        while ( !Qry.Eof ) {
+            layers.push_back( DecodeCompLayerType( Qry.FieldAsString( "code" ) ) );
+            Qry.Next();
+        }
     }
-  }
-  // сортировка по yname, xname
-  sort( complayers.begin(), complayers.end(), CompareCompLayers );
+    TTlgCompLayer comp_layer;
+    int next_point_arv = -1;
+
+    SALONS2::TSalons Salons( info.point_id, SALONS2::rTripSalons );
+    Salons.Read();
+    for ( vector<TPlaceList*>::iterator ipl=Salons.placelists.begin(); ipl!=Salons.placelists.end(); ipl++ ) { // пробег по салонам
+        for ( IPlace ip=(*ipl)->places.begin(); ip!=(*ipl)->places.end(); ip++ ) { // пробег по местам в салоне
+            bool pr_break = false;
+            for ( vector<ASTRA::TCompLayerType>::iterator ilayer=layers.begin(); ilayer!=layers.end(); ilayer++ ) { // пробег по слоям where pr_occupy<>0
+                for ( vector<TPlaceLayer>::iterator il=ip->layers.begin(); il!=ip->layers.end(); il++ ) { // пробег по слоям места
+                    if ( il->layer_type == *ilayer ) { // нашли нужный слой
+                        if ( il->point_dep == NoExists )
+                            comp_layer.point_dep = info.point_id;
+                        else
+                            comp_layer.point_dep = il->point_dep;
+                        if ( il->point_arv == NoExists )  {
+                            if ( next_point_arv == -1 ) {
+                                TTripRoute route;
+                                TTripRouteItem next_airp;
+                                route.GetNextAirp(info.point_id,
+                                        info.point_num,
+                                        info.first_point,
+                                        true,
+                                        trtNotCancelled,
+                                        next_airp);
+
+                                if ( next_airp.point_id == NoExists )
+                                    throw Exception( "ReadSalons: inext_airp.point_id not found, point_dep="+IntToString( info.point_id ) );
+                                else
+                                    next_point_arv = next_airp.point_id;
+                            }
+                            comp_layer.point_arv = next_point_arv;
+                        }
+                        else
+                            comp_layer.point_arv = il->point_arv;
+                        comp_layer.layer_type = il->layer_type;
+                        comp_layer.xname = ip->xname;
+                        comp_layer.yname = ip->yname;
+                        comp_layer.pax_id = il->pax_id;
+                        complayers.push_back( comp_layer );
+                        pr_break = true;
+                        break;
+                    }
+                }
+                if ( pr_break ) // закончили бежать по слоям места
+                    break;
+            }
+        }
+    }
+    // сортировка по yname, xname
+    sort( complayers.begin(), complayers.end(), CompareCompLayers );
 }
 
 struct TTlgDraftPart {
@@ -2142,6 +2145,7 @@ void TBTMGrpList::ToTlg(TTlgInfo &info, vector<string> &body, TFItem &AFItem)
     for(vector<TBTMGrpListItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         vector<string> plist;
         iv->PList.ToBTMTlg(info, plist, AFItem);
+        ProgTrace(TRACE5, "plist.size(): %d", plist.size());
         if(plist.empty())
             continue;
         if(iv->NList.items.empty())
@@ -2185,7 +2189,8 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
         for(; !Qry.Eof; Qry.Next()) {
             TBTMGrpListItem item;
             item.grp_id = Qry.FieldAsInteger(col_grp_id);
-            item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
+            if(not Qry.FieldIsNULL(col_main_pax_id))
+                item.main_pax_id = Qry.FieldAsInteger(col_main_pax_id);
             item.NList.get(item.grp_id);
             item.PList.get(info, FItem.trfer_cls);
             if(item.PList.surnames.empty())
@@ -2210,9 +2215,11 @@ struct TBTMFItem:TFItem {
             << "/"
             << DateTimeToStr(scd, "ddmmm", info.pr_lat)
             << "/"
-            << ElemIdToElem(etAirp, airp_arv, info.pr_lat)
-            << "/"
-            << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
+            << ElemIdToElem(etAirp, airp_arv, info.pr_lat);
+        if(not trfer_cls.empty())
+            line
+                << "/"
+                << ElemIdToElem(etClass, trfer_cls, info.pr_lat);
         body.push_back(line.str());
     }
 };
@@ -2235,13 +2242,21 @@ struct TPTMFItem:TFItem {
                 << " ";
             int seats = 0;
             int baggage = 0;
+            bool pr_unaccomp = false;
             for(vector<TBTMGrpListItem>::iterator iv = grp_list.items.begin(); iv != grp_list.items.end(); iv++) {
                 baggage += iv->W.bagAmount;
                 map<string, vector<TPPax> > &surnames = iv->PList.surnames;
                 for(map<string, vector<TPPax> >::iterator im = surnames.begin(); im != surnames.end(); im++) {
                     vector<TPPax> &paxes = im->second;
-                    for(vector<TPPax>::iterator i_paxes = paxes.begin(); i_paxes != paxes.end(); i_paxes++)
+                    for(vector<TPPax>::iterator i_paxes = paxes.begin(); i_paxes != paxes.end(); i_paxes++) {
+                        if(i_paxes->unaccomp) {
+                            pr_unaccomp = true;
+                            continue;
+                        }
+                        if(pr_unaccomp)
+                            throw Exception("TPTMFItem::ToTlg: real pax encountered with unaccompanied baggage");
                         seats += i_paxes->seats;
+                    }
                 }
             }
             result
@@ -2251,7 +2266,8 @@ struct TPTMFItem:TFItem {
                 << " "
                 << baggage
                 << "B";
-            body.push_back(result.str());
+            if(not pr_unaccomp)
+                body.push_back(result.str());
         }
     }
 };
@@ -2293,6 +2309,16 @@ void TFList<T>::get(TTlgInfo &info)
         "       pax.pax_id = transfer_subcls.pax_id and \n"
         "       transfer_subcls.transfer_num = 1 and \n"
         "       transfer_subcls.subclass = subcls.code \n"
+        "     union \n"
+        "     select \n"
+        "       pax_grp.grp_id, \n"
+        "       null \n"
+        "     from \n"
+        "       pax_grp \n"
+        "     where \n"
+        "       pax_grp.point_dep = :point_id and \n"
+        "       pax_grp.airp_arv = :airp and \n"
+        "       pax_grp.class is null \n"
         "    ) a \n"
         "where \n"
         "    transfer.grp_id = a.grp_id and \n"
@@ -2335,11 +2361,12 @@ void TFList<T>::get(TTlgInfo &info)
     template <class T>
 void TFList<T>::ToTlg(TTlgInfo &info, vector<string> &body)
 {
-    //    for(vector<T>::iterator iv = items.begin(); iv != items.end(); iv++) { // почему ошибка компиляции ???
     for(size_t i = 0; i < items.size(); i++) {
         vector<string> grp_list_body;
         items[i].grp_list.ToTlg(info, grp_list_body, items[i]);
-        if(grp_list_body.empty())
+        // все типы телеграмм кроме PTMN проверяют grp_list_body.
+        // для PTMN он всегда пустой.
+        if(info.tlg_type != "PTMN" and grp_list_body.empty())
             continue;
         items[i].ToTlg(info, body);
         body.insert(body.end(), grp_list_body.begin(), grp_list_body.end());
@@ -3437,11 +3464,11 @@ void TTlgSeatList::dump_comp() const
         }
 }
 
-void TTlgSeatList::apply_comp(TTlgInfo &info)
+void TTlgSeatList::apply_comp(TTlgInfo &info, bool pr_blocked = false)
 {
 
   vector<TTlgCompLayer> complayers;
-  ReadSalons( info, complayers );
+  ReadSalons( info, complayers, pr_blocked );
   for ( vector<TTlgCompLayer>::iterator il=complayers.begin(); il!=complayers.end(); il++ ) {
     ProgTrace( TRACE5, "yname=%s, xname=%s", il->yname.c_str(), il->xname.c_str() );
     add_seat( il->point_arv, il->xname, il->yname );
@@ -3477,6 +3504,21 @@ void TTlgSeatList::get(TTlgInfo &info)
                 items.push_back(item.substr(0, pos));
                 item = item.substr(pos + 1);
             }
+        }
+        items.push_back(item);
+    }
+
+    TTlgSeatList blocked_seats;
+    blocked_seats.apply_comp(info, true);
+    blocked_seats.get_seat_list(list, (info.pr_lat or info.pr_lat_seat));
+    if(not list.empty()) {
+        items.push_back("SI");
+        string item = "BLOCKED SEATS: ";
+        item += list.begin()->second;
+        while(item.size() + 1 > LINE_SIZE) {
+            size_t pos = item.rfind(' ', LINE_SIZE - 2);
+            items.push_back(item.substr(0, pos));
+            item = item.substr(pos + 1);
         }
         items.push_back(item);
     }
@@ -4400,6 +4442,42 @@ void TMVTABody::get(TTlgInfo &info)
             items.push_back(item);
         }
     }
+}
+
+int CPM(TTlgInfo &info, bool &vcompleted)
+{
+    TTlgDraft tlg_draft;
+    TTlgOutPartInfo tlg_row;
+    vcompleted = false;
+    tlg_row.num = 1;
+    tlg_row.tlg_type = info.tlg_type;
+    tlg_row.point_id = info.point_id;
+    tlg_row.pr_lat = info.pr_lat;
+    tlg_row.extra = info.extra;
+    tlg_row.addr = info.addrs;
+    tlg_row.time_create = NowUTC();
+    ostringstream buf;
+    buf
+        << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
+        << "CPM" << br;
+    tlg_row.heading = buf.str();
+    tlg_row.ending = "PART " + IntToString(tlg_row.num) + " END" + br;
+    if(info.bort.empty())
+        vcompleted = 0;
+    buf.str("");
+    buf
+        << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
+        << DateTimeToStr(info.scd, "dd", 1)
+        << "." << (info.bort.empty() ? "??" : info.bort)
+        << "." << info.airp_dep;
+    vector<string> body;
+    body.push_back(buf.str());
+    body.push_back("SI");
+    for(vector<string>::iterator iv = body.begin(); iv != body.end(); iv++)
+        tlg_row.body += *iv + br;
+    tlg_draft.Save(tlg_row);
+    tlg_draft.Commit(tlg_row);
+    return tlg_row.id;
 }
 
 int MVT(TTlgInfo &info, bool &vcompleted)
@@ -5434,6 +5512,7 @@ int TelegramInterface::create_tlg(
     else if(vbasic_type == "LDM") vid = LDM(info, vcompleted);
     else if(vbasic_type == "MVT") vid = MVT(info, vcompleted);
     else if(vbasic_type == "AHL") vid = AHL(info, vcompleted);
+    else if(vbasic_type == "CPM") vid = CPM(info, vcompleted);
     else if(vbasic_type == "BTM") vid = BTM(info);
     else if(vbasic_type == "PRL") vid = PRL(info);
     else if(vbasic_type == "TPM") vid = TPM(info);

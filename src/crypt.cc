@@ -22,6 +22,8 @@
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
+const int MIN_DAYS_CERT_WARRNING = 10;
+
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
@@ -53,7 +55,7 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
     	msg_error = "Шифрованное соединение: нужен ключ. Обратитесь к администратору";
       break;
     case EXPIRED_KEY:
-    	msg_error = "Шифрованное соединение: срок действия ключа истек. Обратитесь к администратору";
+    	msg_error = "Шифрованное соединение: сертификат клиента просрочен. Обратитесь к администратору";
       break;
     case WRONG_OUR_KEY:
     case WRONG_KEY:
@@ -70,6 +72,9 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
       break;*/
     case WRONG_TERM_CRYPT_MODE:
     	msg_error = "Шифрованное соединение: ошибка режима шифрования. Повторите запрос";
+    	break;
+    case UNKNOWN_CLIENT_CERTIFICATE:
+    	msg_error = "Шифрованное соединение: сертификат клиента не найден. Обратитесь к администратору";
     	break;
     case UNKNOWN_ERR:
     case CRYPT_ALLOC_ERR:
@@ -140,6 +145,76 @@ int form_crypt_error(char *res, char *head, int hlen, int error)
   return newlen+hlen;
 }
 
+bool GetClientCertificate( TQuery *Qry, int grp_id, const std::string &desk, std::string &certificate )
+{
+	certificate.clear();
+	Qry->Clear();
+  Qry->SQLText =
+    "SELECT desk, certificate, pr_denial, first_date, last_date, SYSDATE now FROM crypt_term_cert "
+    " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) "
+    " ORDER BY desk ASC, pr_denial ASC, first_date ASC, id ASC";
+  Qry->CreateVariable( "grp_id", otInteger, grp_id );
+  Qry->CreateVariable( "desk", otString, desk );
+  Qry->Execute();
+  bool pr_exists=false;
+  while ( !Qry->Eof ) {
+   if ( Qry->FieldAsInteger( "pr_denial" ) == 0 && // разрешен
+  	    Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "first_date" ) ) // начал выполняться
+  	  pr_exists = true; // значит сертификат есть, но возможно он просрочен
+   if ( Qry->FieldAsDateTime( "now" ) < Qry->FieldAsDateTime( "first_date" ) || // не начал выполняться
+  	    Qry->FieldAsDateTime( "now" ) > Qry->FieldAsDateTime( "last_date" ) ) { // закончил выполняться
+  	 Qry->Next();
+  	 continue;
+  }
+  // сертификат актуален. Сортировка по пульту. а потом по группе + признак отмены
+  if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
+   	break;
+   certificate = Qry->FieldAsString( "certificate" );
+   break;
+  }
+  return pr_exists;
+}
+
+bool GetCryptGrp( TQuery *Qry, const std::string &desk, int &grp_id )
+{
+	Qry->Clear();
+  Qry->SQLText =
+    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id "
+    "FROM desks,desk_grp,crypt_sets "
+    "WHERE desks.code = UPPER(:desk) AND "
+    "      desks.grp_id = desk_grp.grp_id AND "
+    "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
+    "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
+    "ORDER BY desk ASC ";
+  Qry->CreateVariable( "desk", otString, desk );
+  Qry->Execute();
+  if ( !Qry->Eof )
+  	 grp_id = Qry->FieldAsInteger( "grp_id" );
+  return ( !Qry->Eof && Qry->FieldAsInteger( "pr_crypt" ) != 0 ); //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+}
+
+void GetServerCertificate( TQuery *Qry, std::string &ca, std::string &pk, std::string &server )
+{
+	Qry->Clear();
+  Qry->SQLText =
+    "SELECT certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
+    " WHERE pr_denial=0 AND system.UTCSYSDATE BETWEEN first_date AND last_date "
+    " ORDER BY id DESC";
+  Qry->Execute();
+  while ( !Qry->Eof ) {
+	  if ( Qry->FieldAsInteger("pr_ca") && ca.empty() )
+  		ca = Qry->FieldAsString( "certificate" );
+    if ( !Qry->FieldAsInteger("pr_ca") && pk.empty() ) {
+  		pk = Qry->FieldAsString( "private_key" );
+  		server = Qry->FieldAsString( "certificate" );
+  	}
+  	if ( !ca.empty() && !pk.empty() )
+  	  break;
+  	Qry->Next();
+  }
+  return;
+}
+
 #ifdef USE_MESPRO
 void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &params)
 {
@@ -159,40 +234,14 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
   using namespace std;
   string desk = string(head+45,6);
   TQuery *Qry = new TQuery(&OraSession);
+  int grp_id;
   try {
-    Qry->SQLText =
-      "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id "
-      "FROM desks,desk_grp,crypt_sets "
-      "WHERE desks.code = UPPER(:desk) AND "
-      "      desks.grp_id = desk_grp.grp_id AND "
-      "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
-      "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
-      "ORDER BY desk ASC ";
-    Qry->CreateVariable( "desk", otString, desk );
-    Qry->Execute();
-    if ( Qry->Eof || Qry->FieldAsInteger( "pr_crypt" ) == 0 ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
+  	if ( !GetCryptGrp( Qry, desk, grp_id ) ) { //пульт не может работать в режиме шифрования, а пришло зашифрованное сообщение
       *error=WRONG_TERM_CRYPT_MODE;
       tst();
     	return;
     }
-    int grp_id = Qry->FieldAsInteger( "grp_id" );
-    Qry->Clear();
-    Qry->SQLText =
-      "SELECT certificate,private_key,first_date,last_date,pr_ca FROM crypt_server "
-      " WHERE pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date "
-      " ORDER BY id DESC";
-    Qry->Execute();
-    while ( !Qry->Eof ) {
-  	  if ( Qry->FieldAsInteger("pr_ca") && params.CA.empty() )
-  		  params.CA = Qry->FieldAsString( "certificate" );
-      if ( !Qry->FieldAsInteger("pr_ca") && params.PKey.empty() ) {
-  		  params.PKey = Qry->FieldAsString( "private_key" );
-  		  params.server_cert = Qry->FieldAsString( "certificate" );
-  	  }
-  	  if ( !params.CA.empty() && !params.PKey.empty() )
-  	  	break;
-  	  Qry->Next();
-    }
+    GetServerCertificate( Qry, params.CA, params.PKey, params.server_cert );
     if ( params.PKey.empty() ) {
     	*error = UNKNOWN_KEY;
     	return;
@@ -205,24 +254,13 @@ void getMesProParams(const char *head, int hlen, int *error, MPCryptParams &para
     	*error = UNKNOWN_SERVER_CERTIFICATE;
     	return;
     }
-    Qry->Clear();
-    Qry->SQLText =
-      "SELECT certificate, pr_denial FROM crypt_term_cert "
-      " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) AND "
-      "       SYSDATE BETWEEN first_date AND last_date"
-      " ORDER BY desk ASC, pr_denial ASC, id ASC";
-    Qry->CreateVariable( "grp_id", otInteger, grp_id );
-    Qry->CreateVariable( "desk", otString, desk );
-    Qry->Execute();
-    while ( !Qry->Eof ) {
-    	if ( Qry->FieldAsInteger( "pr_denial" ) != 0 )
-    		break;
-    	params.client_cert = Qry->FieldAsString( "certificate" );
-    	break;
-    }
+
+    bool pr_exists = GetClientCertificate( Qry, grp_id, desk, params.client_cert );
     if ( params.client_cert.empty() ) {
-    	tst();
-  	  *error = UNKNOWN_CLIENT_CERTIFICATE;
+    	if ( pr_exists )
+    		*error = EXPIRED_KEY;
+    	else
+ 	  	  *error = UNKNOWN_CLIENT_CERTIFICATE;
   	  return;
     }
   }
@@ -240,55 +278,23 @@ void TCrypt::Init( const std::string &desk )
 {
 	Clear();
   TQuery Qry(&OraSession);
-  Qry.SQLText =
-    "SELECT pr_crypt,crypt_sets.desk_grp_id grp_id  "
-    "FROM desks,desk_grp,crypt_sets "
-    "WHERE desks.code = UPPER(:desk) AND "
-    "      desks.grp_id = desk_grp.grp_id AND "
-    "      crypt_sets.desk_grp_id=desk_grp.grp_id AND "
-    "      ( crypt_sets.desk IS NULL OR crypt_sets.desk=desks.code ) "
-    "ORDER BY desk ASC ";
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  if ( Qry.Eof || Qry.FieldAsInteger( "pr_crypt" ) == 0 ) {
-    	return;
-  }
-  int grp_id = Qry.FieldAsInteger( "grp_id" );
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT certificate,first_date,last_date,pr_ca FROM crypt_server "
-    " WHERE pr_denial=0 AND SYSDATE BETWEEN first_date AND last_date"
-    " ORDER BY id DESC";
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	if ( Qry.FieldAsInteger("pr_ca") && ca_cert.empty() )
-  		ca_cert = Qry.FieldAsString( "certificate" );
-    if ( !Qry.FieldAsInteger("pr_ca") && server_cert.empty() ) {
-  		server_cert = Qry.FieldAsString( "certificate" );
-  	}
-  	if ( !ca_cert.empty() && !server_cert.empty() )
-  		break;
-  	Qry.Next();
-  }
+  int grp_id;
+  if ( !GetCryptGrp( &Qry, desk, grp_id ) )
+  	return;
+  ProgTrace( TRACE5, "grp_id=%d", grp_id );
+  string pk;
+  GetServerCertificate( &Qry, ca_cert, pk, server_cert );
   if ( ca_cert.empty() || server_cert.empty() )
   	throw Exception("ca or server certificate not found");
-  Qry.Clear();
-  Qry.SQLText =
-      "SELECT certificate, pr_denial FROM crypt_term_cert "
-      " WHERE desk_grp_id=:grp_id AND ( desk IS NULL OR desk=:desk ) AND "
-      "       SYSDATE BETWEEN first_date AND last_date"
-      " ORDER BY desk ASC, pr_denial ASC, id ASC";
-  Qry.CreateVariable( "grp_id", otInteger, grp_id );
-  Qry.CreateVariable( "desk", otString, desk );
-  Qry.Execute();
-  while ( !Qry.Eof ) {
-  	if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-  		break;
-  	client_cert = Qry.FieldAsString( "certificate" );
-  	break;
+
+  bool pr_exists = GetClientCertificate( &Qry, grp_id, desk, client_cert );
+  if ( client_cert.empty() ) {
+  	if ( !pr_exists )
+  	  showProgError("Шифрованное соединение: сертификат клиента не найден. Обратитесь к администратору");
+  	else
+  		showProgError("Шифрованное соединение: сертификат клиента просрочен. Обратитесь к администратору");
+  	throw UserException2();
   }
-  if ( client_cert.empty() )
-  	throw Exception("client certificate not found");
 };
 
 
@@ -315,6 +321,7 @@ void IntGetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr res
   NewTextChild( node, "ca", Crypt.ca_cert );
   NewTextChild( node, "server", Crypt.server_cert );
   NewTextChild( node, "client", Crypt.client_cert );
+  NewTextChild( node, "MIN_DAYS_CERT_WARRNING", MIN_DAYS_CERT_WARRNING );
 }
 
 // это первый запрос с клиента или запрос после ошибки работы шифрования
@@ -522,6 +529,7 @@ BASIC::TDateTime ConvertCertificateDate( char *certificate_date )
 
 void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+	tst();
 #ifdef USE_MESPRO
 	xmlNodePtr node = GetNode( "certificates", reqNode );
 	if ( !node )
@@ -541,6 +549,7 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   	requests.push_back( r );
   	Qry.Next();
   }
+  ProgTrace( TRACE5, "requests count=%d", requests.size() );
   Qry.Clear();
   Qry.SQLText =
     "BEGIN "
@@ -558,6 +567,7 @@ void CryptInterface::SetCertificates(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 	  node = GetNode( "certificate", node );
   	while ( node ) {
   		cert = NodeAsString( node );
+  		ProgTrace( TRACE5, "certificate=%s, requests count=%d", cert.c_str(), requests.size() );
   		for ( vector<TRequest>::iterator i=requests.begin(); i!=requests.end(); i++ ) {
   			err = CertAndRequestMatchBuffer( (char*)cert.data(), cert.size(), (char*)i->cert.data(), i->cert.size() );
   			if ( err ) {
@@ -608,7 +618,7 @@ bool pr_search = GetNode( "search", reqNode );
     Qry.SQLText =
       "SELECT id,desk,desk_grp_id,descr,city,airline,airp,certificate, first_date, last_date, crypt_term_cert.pr_denial "
       "  FROM crypt_term_cert, desk_grp "
-      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.last_date>=SYSDATE";
+      " WHERE crypt_term_cert.desk_grp_id = desk_grp.grp_id AND crypt_term_cert.last_date>=system.UTCSYSDATE";
   }
   Qry.Execute();
   if ( Qry.Eof )

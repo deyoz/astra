@@ -132,7 +132,7 @@ struct TSeatRectList: std::vector<TSeatRect> {
 struct TTlgSeatList {
     private:
         t_tlg_comp comp;
-        void apply_comp(TTlgInfo &info);
+        void apply_comp(TTlgInfo &info, bool pr_blocked);
         void dump_comp() const;
         void dump_list(std::map<int, std::string> &list);
         void dump_list(std::map<int, TSeatRectList> &list);
@@ -329,7 +329,7 @@ public:
 std::string fetch_addr(std::string &addr);
 std::string format_addr_line(std::string vaddrs);
 
-void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers );
+void ReadSalons( TTlgInfo &info, std::vector<TTlgCompLayer> &complayers, bool pr_blocked = false );
 
 
 #endif /*_TELEGRAM_H_*/

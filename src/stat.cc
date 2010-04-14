@@ -2233,7 +2233,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statTrferFull,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunTrferFullStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunTrferFullStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         if(!Qry.Eof) {
             int col_seance = Qry.FieldIndex("seance");
@@ -2468,7 +2468,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         if(!Qry.Eof) {
             int col_seance = Qry.FieldIndex("seance");
@@ -2711,11 +2711,10 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
 
     TReqInfo &info = *(TReqInfo::Instance());
 
+    bool all_seances = find( info.user.access.rights.begin(),
+                             info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
     if (USE_SEANCES())
     {
-      bool all_seances = find( info.user.access.rights.begin(),
-              info.user.access.rights.end(), 615 ) != info.user.access.rights.end();
-
       if (info.user.user_type != utSupport && !all_seances)
       {
         if (info.user.user_type == utAirline)
@@ -2732,6 +2731,26 @@ void TStatParams::get(TQuery &Qry, xmlNodePtr reqNode)
       {
         if (!ak.empty()) seance=seanceAirline;
         if (!ap.empty()) seance=seanceAirport;
+      }
+      else
+      {
+        if (!all_seances)
+        {
+          switch(info.user.user_type)
+          {
+            case utSupport: seance=seanceAll; break;
+            case utAirline: if (!ak.empty())
+                              seance=seanceAirline;
+                            else
+                              seance=seanceAll;
+                            break;
+            case utAirport: if (!ap.empty())
+                              seance=seanceAirport;
+                            else
+                              seance=seanceAll;
+                            break;
+          };
+        };
       };
     };
 };
@@ -2760,7 +2779,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statShort,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunShortStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TShortStatKey key;
@@ -2877,7 +2896,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         Qry.SQLText = GetStatSQLText(statDetail,params,i!=0).c_str();
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
-        //ProgTrace(TRACE5, "RunDetailStat: SQL=\n%s", Qry.SQLText.SQLText());
+        ProgTrace(TRACE5, "RunDetailStat: SQL=\n%s", Qry.SQLText.SQLText());
         Qry.Execute();
         for(; !Qry.Eof; Qry.Next()) {
             TDetailStatKey key;

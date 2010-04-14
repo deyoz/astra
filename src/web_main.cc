@@ -162,6 +162,8 @@ struct TSearchPnrData {
 
 bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
 	ProgTrace( TRACE5, "point_id=%d", point_id );
 	SearchPnrData.point_id = NoExists;
 	TQuery Qry(&OraSession);
@@ -177,25 +179,32 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 		  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
 		else
 			return false;
-	tst();
+
 	if ( Qry.FieldAsInteger( "pr_del" ) == -1 )
 		if ( pr_throw )
 		  throw UserException( "MSG.FLIGHT.DELETED" );
 		else
 			return false;
-	tst();
+
+  if ( !reqInfo->CheckAirline(Qry.FieldAsString("airline")) ||
+       !reqInfo->CheckAirp(Qry.FieldAsString("airp")) )
+    if ( pr_throw )
+      throw UserException( "MSG.FLIGHT.ACCESS_DENIED" );
+		else
+			return false;
+
 	if ( Qry.FieldAsInteger( "pr_del" ) == 1 )
 		if ( pr_throw )
 		  throw UserException( "MSG.FLIGHT.CANCELED" );
 		else
 			return false;
-	tst();
+
 	if ( Qry.FieldAsInteger( "pr_reg" ) == 0 )
 		if ( pr_throw )
 		  throw UserException( "MSG.FLIGHT.CHECKIN_CANCELED" );
 		else
 			return false;
-	tst();
+
 	if ( Qry.FieldIsNULL( "act_out" ) )
 		SearchPnrData.act_out = NoExists;
 	else
@@ -229,9 +238,19 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	SearchPnrData.craft = Qry.FieldAsString( "craft" );
 	SearchPnrData.craft_fmt = Qry.FieldAsInteger( "craft_fmt" );
 	SearchPnrData.stages.clear();
-	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
-	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
-	SearchPnrData.stages.insert( make_pair(sOpenCheckIn, UTCToLocal( tripStages.time(sOpenCheckIn), region ) ) );
+
+	TStagesRules *sr = TStagesRules::Instance();
+	TCkinClients ckin_clients;
+	TTripStages::ReadCkinClients( point_id, ckin_clients );
+  if ( sr->isClientStage( (int)sOpenWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sOpenWEBCheckIn ) )
+  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, NoExists) );
+  else
+  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
+  if ( sr->isClientStage( (int)sCloseWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sCloseWEBCheckIn ) )
+  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, NoExists) );
+  else
+  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
+  SearchPnrData.stages.insert( make_pair(sOpenCheckIn, UTCToLocal( tripStages.time(sOpenCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseCheckIn, UTCToLocal( tripStages.time(sCloseCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sOpenBoarding, UTCToLocal( tripStages.time(sOpenBoarding), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseBoarding, UTCToLocal( tripStages.time(sCloseBoarding), region ) ) );
@@ -505,6 +524,10 @@ bool findPnr( const string &surname, const string &pnr_addr,
   	if ( !ticket_no.empty() ) { // если задан поиск по билету, то делаем проверку
       QryTicket.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
       QryTicket.Execute();
+      if ( QryTicket.Eof && ticket_no.size() == 14 ) {
+      	QryTicket.SetVariable( "ticket_no", ticket_no.substr(0,13) );
+      	QryTicket.Execute();
+      }
       pr_find = ( !QryTicket.Eof );
     };
     ProgTrace( TRACE5, "after search ticket, pr_find=%d", pr_find );
@@ -773,10 +796,17 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     };
 
   xmlNodePtr stagesNode = NewTextChild( node, "stages" );
-  SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) ),
-           "type", "sOpenWEBCheckIn" );
-  SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) ),
-           "type", "sCloseWEBCheckIn" );
+  xmlNodePtr stageNode;
+  if ( SearchPnrData.stages[ sOpenWEBCheckIn ] != NoExists )
+  	stageNode = NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenWEBCheckIn ], ServerFormatDateTimeAsString ) );
+  else
+  	stageNode = NewTextChild( stagesNode, "stage" );
+  SetProp( stageNode, "type", "sOpenWEBCheckIn" );
+  if ( SearchPnrData.stages[ sCloseWEBCheckIn ] != NoExists )
+  	stageNode = NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseWEBCheckIn ], ServerFormatDateTimeAsString ) );
+  else
+  	stageNode = NewTextChild( stagesNode, "stage" );
+  SetProp( stageNode, "type", "sCloseWEBCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sOpenCheckIn ], ServerFormatDateTimeAsString ) ),
            "type", "sOpenCheckIn" );
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseCheckIn ], ServerFormatDateTimeAsString ) ),
@@ -816,7 +846,7 @@ struct TWebPax {
 	string surname;
 	string name;
 	TDateTime birth_date;
-	string pers_type;
+	string pers_type_extended; //может содержать БГ (CBBG)
 	string crs_seat_no;
 	string preseat_no;
   string seat_no;
@@ -877,6 +907,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    "WHERE pax_id=:pax_id AND "
    "      birth_date IS NOT NULL ";
   PaxBirthQry.DeclareVariable( "pax_id", otInteger );
+
 	TQuery CrsBirthQry(&OraSession);
 	CrsBirthQry.SQLText =
     "SELECT birth_date "
@@ -885,6 +916,13 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
     "      birth_date IS NOT NULL "
     "ORDER BY DECODE(type,'P',0,NULL,2,1),DECODE(rem_code,'DOCS',0,1),no";
   CrsBirthQry.DeclareVariable( "pax_id", otInteger );
+  /*
+  TQuery CrsPaxRemQry(&OraSession);
+  CrsPaxRemQry.SQLText=
+    "SELECT rem FROM crs_pax_rem WHERE pax_id=:pax_id AND rem_code=:rem_code";
+  CrsPaxRemQry.DeclareVariable( "pax_id", otInteger );
+  CrsPaxRemQry.DeclareVariable( "rem_code", otString );
+  */
   TQuery Qry(&OraSession);
 	Qry.SQLText =
 	  "SELECT crs_pax.pax_id AS crs_pax_id, "
@@ -924,7 +962,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
   		pax.crs_pax_id_parent = Qry.FieldAsInteger( "crs_pax_id_parent" );
   	pax.surname = Qry.FieldAsString( "surname" );
   	pax.name = Qry.FieldAsString( "name" );
-  	pax.pers_type = Qry.FieldAsString( "pers_type" );
+  	pax.pers_type_extended = Qry.FieldAsString( "pers_type" );
   	pax.seat_no = Qry.FieldAsString( "seat_no" );
   	pax.preseat_no = Qry.FieldAsString( "preseat_no" );
   	pax.crs_seat_no = Qry.FieldAsString( "crs_seat_no" );
@@ -961,6 +999,16 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    		CrsBirthQry.Execute();
    		if ( !CrsBirthQry.Eof )
    			pax.birth_date = CrsBirthQry.FieldAsDateTime( "birth_date" );
+   		//проверка CBBG (доп место багажа в салоне)
+   		/*CrsPaxRemQry.SetVariable( "pax_id", pax.pax_id );
+   		CrsPaxRemQry.SetVariable( "rem_code", "CBBG" );
+   		CrsPaxRemQry.Execute();
+   		if (!CrsPaxRemQry.Eof)*/
+   		if (pax.name=="CBBG")
+   		{
+   		  pax.pers_type_extended = "БГ"; //CBBG
+   		  //pax.checkin_status = "airp_checkin"; надо спросить у Сергиенко
+   		};
    	}
   	pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );
   	pax.crs_pax_tid = Qry.FieldAsInteger( "crs_pax_tid" );
@@ -991,7 +1039,7 @@ void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr resNode )
   	NewTextChild( paxNode, "name", i->name );
   	if ( i->birth_date > NoExists )
   		NewTextChild( paxNode, "birth_date", DateTimeToStr( i->birth_date, ServerFormatDateTimeAsString ) );
-  	NewTextChild( paxNode, "pers_type", i->pers_type );
+  	NewTextChild( paxNode, "pers_type", i->pers_type_extended );
   	if ( !i->seat_no.empty() )
   		NewTextChild( paxNode, "seat_no", i->seat_no );
   	else
@@ -1084,8 +1132,8 @@ void WebRequestsIface::ViewCraft(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   	  crs_class = i->pass_class;
   	if ( !i->pass_subclass.empty() )
   	  crs_subclass = i->pass_subclass;
-    if ( i->pers_type != "ВЗ" )
-    	pr_CHIN = true;
+  	TPerson p=DecodePerson(i->pers_type_extended.c_str());
+  	pr_CHIN=(p==ASTRA::child || p==ASTRA::baby); //среди типов может быть БГ (CBBG) который приравнивается к взрослому
   }
   if ( crs_class.empty() )
   	throw UserException( "MSG.CLASS.NOT_SET" );

@@ -255,17 +255,17 @@ void MsgToLog(std::string msg,
 
 ASTRA::TClientType DecodeClientType(const char* s);
 char* EncodeClientType(ASTRA::TClientType s);
-ASTRA::TDocType DecodeDocType(char* s);
+ASTRA::TDocType DecodeDocType(const char* s);
 char* EncodeDocType(ASTRA::TDocType doc);
-ASTRA::TClass DecodeClass(char* s);
+ASTRA::TClass DecodeClass(const char* s);
 char* EncodeClass(ASTRA::TClass cl);
-ASTRA::TPerson DecodePerson(char* s);
+ASTRA::TPerson DecodePerson(const char* s);
 char* EncodePerson(ASTRA::TPerson p);
 ASTRA::TQueue DecodeQueue(int q);
 int EncodeQueue(ASTRA::TQueue q);
-ASTRA::TPaxStatus DecodePaxStatus(char* s);
+ASTRA::TPaxStatus DecodePaxStatus(const char* s);
 char* EncodePaxStatus(ASTRA::TPaxStatus s);
-ASTRA::TCompLayerType DecodeCompLayerType(char* s);
+ASTRA::TCompLayerType DecodeCompLayerType(const char* s);
 char* EncodeCompLayerType(ASTRA::TCompLayerType s);
 ASTRA::TBagNormType DecodeBagNormType(const char* s);
 char* EncodeBagNormType(ASTRA::TBagNormType s);
