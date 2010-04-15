@@ -4469,7 +4469,7 @@ int CPM(TTlgInfo &info, bool &vcompleted)
         << info.airline << setw(3) << setfill('0') << info.flt_no << info.suffix << "/"
         << DateTimeToStr(info.scd, "dd", 1)
         << "." << (info.bort.empty() ? "??" : info.bort)
-        << "." << info.airp_dep;
+        << "." << info.airp_arv;
     vector<string> body;
     body.push_back(buf.str());
     body.push_back("SI");
@@ -5483,6 +5483,16 @@ int TelegramInterface::create_tlg(
         if (!info.airp.empty())
           extra << info.airp << " ";
     }
+    if (vbasic_type == "CPM")
+    {
+      TTripRoute route;
+      TTripRouteItem next_airp;
+      if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
+      {
+        info.airp = next_airp.airp;
+        info.airp_arv = TlgElemIdToElem(etAirp, next_airp.airp, info.pr_lat);
+      };
+    };
     if (vbasic_type == "PFS" or
         vbasic_type == "FTL" or
         vbasic_type == "PRL")
