@@ -2951,7 +2951,7 @@ struct TTagKey {
     TTagKey(): grp_id(0), prn_type(0), pr_lat(0), no(-1.0) {};
 };
 
-void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
+void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
 {
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3015,9 +3015,10 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route)
         RouteItem.airp_arv_lat = Qry.FieldAsString("airp_arv_lat");
         RouteItem.airp_arv_name = Qry.FieldAsString("airp_arv_name");
         RouteItem.airp_arv_name_lat = Qry.FieldAsString("airp_arv_name_lat");
-        RouteItem.fltdate = DateTimeToStr(Qry.FieldAsDateTime("scd"),(string)"ddmmm",0);
-        RouteItem.fltdate_lat = DateTimeToStr(Qry.FieldAsDateTime("scd"),(string)"ddmmm",1);
-        DecodeDate(Qry.FieldAsDateTime("scd"), Year, Month, RouteItem.local_date);
+        TDateTime PrintTime = UTCToLocal(Qry.FieldAsDateTime("scd"), AirpTZRegion(airp_dep));
+        RouteItem.fltdate = DateTimeToStr(PrintTime,(string)"ddmmm",0);
+        RouteItem.fltdate_lat = DateTimeToStr(PrintTime,(string)"ddmmm",1);
+        DecodeDate(PrintTime, Year, Month, RouteItem.local_date);
         route.push_back(RouteItem);
 
         TBaseTableRow &airpRow = airpsTable.get_row("code",RouteItem.airp_arv);
@@ -3067,7 +3068,6 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
 {
 //    check_CUTE_certified(tag_key.prn_type, tag_key.dev_model, tag_key.fmt_type);
     vector<TBTRouteItem> route;
-    get_route(tag_key, route);
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "SELECT airp_dep, class, ckin.get_main_pax_id(:grp_id,0) AS pax_id FROM pax_grp where grp_id = :grp_id";
@@ -3075,6 +3075,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     Qry.Execute();
     if (Qry.Eof)
       throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    get_route(tag_key, route, Qry.FieldAsString("airp_dep"));
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",Qry.FieldAsString("airp_dep"));
     TBaseTableRow &citiesRow = base_tables.get("CITIES").get_row("code",airpRow.AsString("city"));
     tag_key.pr_lat = tag_key.pr_lat || citiesRow.AsString("country") != "РФ";

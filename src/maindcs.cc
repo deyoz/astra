@@ -502,15 +502,19 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type "
-    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
+    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type, "
+    "       dev_sess_types.name sess_name, dev_fmt_types.name fmt_name "
+    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers,dev_sess_types,dev_fmt_types "
     "WHERE dev_model_sess_fmt.dev_model=:dev_model AND "
     "      dev_model_sess_fmt.sess_type=:sess_type AND "
     "      dev_model_sess_fmt.fmt_type=:fmt_type AND "
     "      dev_sess_modes.term_mode=:term_mode AND "
     "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
     "      dev_fmt_opers.op_type=:op_type AND "
-    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type ";
+    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
+    "      dev_sess_types.code=:sess_type AND "
+    "      dev_fmt_types.code=:fmt_type";
+
   Qry.DeclareVariable( "dev_model", otString );
   Qry.DeclareVariable( "sess_type", otString );
   Qry.DeclareVariable( "fmt_type", otString );
@@ -572,10 +576,13 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       xmlNodePtr pNode;
       SetProp( newoperNode, "type", operation );
       if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
-      	SetProp( newoperNode, "variant_name", string( string(DefQry.FieldAsString( "sess_name" )) + "/" + DefQry.FieldAsString( "fmt_name" ) ).c_str() );
+        SetProp( newoperNode, "variant_name", string( string(DefQry.FieldAsString( "sess_name" )) + "/" + DefQry.FieldAsString( "fmt_name" ) ).c_str() );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
       SetProp( pNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
+      if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
+      	SetProp( pNode, "sess_fmt_name", string(Qry.FieldAsString( "sess_name" )) + "/" + Qry.FieldAsString( "fmt_name" ) );
+      }
       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
         NewTextChild( newoperNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
 
