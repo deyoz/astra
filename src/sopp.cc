@@ -454,16 +454,11 @@ void read_TripStages( vector<TSoppStage> &stages, TDateTime part_key, int point_
       stage.act = StagesQry.FieldAsDateTime( col_act );
     stage.pr_manual = StagesQry.FieldAsInteger( col_pr_manual );
     stage.pr_auto = StagesQry.FieldAsInteger( col_pr_auto );
-    ProgTrace( TRACE5, "stage_id=%d, isclient=%d, canclientstage=%d",
-               stage.stage_id,
-               TStagesRules::Instance()->isClientStage( stage.stage_id ),
-               TStagesRules::Instance()->canClientStage( ckin_clients, stage.stage_id ) );
     stage.pr_permit = !TStagesRules::Instance()->isClientStage( stage.stage_id ) ||
     	                TStagesRules::Instance()->canClientStage( ckin_clients, stage.stage_id );
     stages.push_back( stage );
     StagesQry.Next();
   }
-  ProgTrace( TRACE5, "TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION )=%d", TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) );
 }
 
 void build_TripStages( const vector<TSoppStage> &stages, const string &region, xmlNodePtr tripNode, bool pr_isg )
@@ -963,7 +958,6 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         	ResaQry.Execute();
           if ( !ResaQry.Eof ) {
             tr->resa = ResaQry.FieldAsInteger( "resa" );
-            ProgTrace( TRACE5, "resa=%d", tr->resa );
           }
         }
         ////////////////////// trfer  ///////////////////////////////
@@ -1198,7 +1192,6 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     for ( int ialarm=0; ialarm<atLength; ialarm++ ) {
     	TTripAlarmsType alarm = (TTripAlarmsType)ialarm;
       if ( tr->Alarms.isFlag( alarm ) ) {
-      	ProgTrace( TRACE5, "tr->point_id=%d, alarm=%s", tr->point_id, TripAlarmString( alarm ).c_str() );
       	if ( !alarmsNode )
       		alarmsNode = NewTextChild( tripNode, "alarms" );
       	xmlNodePtr an;
