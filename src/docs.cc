@@ -1225,11 +1225,14 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   ostringstream s;
   //текстовый формат
   int page_width=80;
+  //специально вводим для кириллических символов, так как в терминале при экспорте проблемы
+  //максимальная длина строки при экспорте в байтах! не должна превышать ~147 (65 рус + 15 лат)
+  int max_symb_count=lat?page_width:65;
   NewTextChild(variablesNode, "page_width", page_width);
   NewTextChild(variablesNode, "test_server", get_test_server());
 
   s.str("");
-  for(int i=0;i<page_width/5;i++) s << (lat?"TEST ":"ТЕСТ ");
+  for(int i=0;i<page_width/6;i++) s << (lat?" TEST ":" ТЕСТ ");
   NewTextChild(variablesNode, "test_str", s.str());
 
   NewTextChild(variablesNode, "page_number_fmt", (lat?"Page %u of %u":"Стр. %u из %u"));
@@ -1245,15 +1248,15 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   s << setfill(' ')
     << str
     << right << setw(page_width-str.size())
-    << string(NodeAsString((lat?"own_airp_name_lat":"own_airp_name"),variablesNode)).substr(0,page_width-str.size());
+    << string(NodeAsString((lat?"own_airp_name_lat":"own_airp_name"),variablesNode)).substr(0,max_symb_count-str.size());
   NewTextChild(variablesNode, "page_header_top", s.str());
+
 
   s.str("");
   str.assign(lat?"Owner or Operator: ":"Владелец или Оператор: ");
   s << left
     << str
-    << setw(page_width-str.size())
-    << string(NodeAsString("airline_name",variablesNode)).substr(0,page_width-str.size()) << endl
+    << string(NodeAsString("airline_name",variablesNode)).substr(0,max_symb_count-str.size()) << endl
     << setw(10) << (lat?"Flight №":"№ рейса");
   if (lat)
     s << setw(19) << "Aircraft";
@@ -1289,14 +1292,14 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   str.append(NodeAsString((lat?"pr_brd_pax_lat":"pr_brd_pax"),variablesNode));
   if (!NodeIsNULL("zone",variablesNode))
   {
-    unsigned int zone_len=page_width-str.size()-1;
+    unsigned int zone_len=max_symb_count-str.size()-1;
     string zone;
     zone.assign(lat?"Checking zone: ":"Зал регистрации: ");
     zone.append(NodeAsString("zone",variablesNode));
     if (zone_len<zone.size())
-      s << str << right << setw(zone_len+1) << zone.substr(0,zone_len-3).append("...") << endl;
+      s << str << right << setw(page_width-str.size()) << zone.substr(0,zone_len-3).append("...") << endl;
     else
-      s << str << right << setw(zone_len+1) << zone << endl;
+      s << str << right << setw(page_width-str.size()) << zone << endl;
   }
   else
     s << str << endl;
@@ -1353,11 +1356,11 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   for(;rowNode!=NULL;rowNode=rowNode->next)
   {
     str=NodeAsString("airp_arv_name",rowNode);
-    ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,page_width));
+    ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,max_symb_count));
     if (!NodeIsNULL("last_target",rowNode))
     {
       str.assign(lat?"TO: ":"ДО: ").append(NodeAsString("last_target",rowNode));
-      ReplaceTextChild(rowNode,"last_target",str.substr(0,page_width));
+      ReplaceTextChild(rowNode,"last_target",str.substr(0,max_symb_count));
     };
 
     //рабиваем фамилию, бирки, ремарки
@@ -1904,7 +1907,7 @@ void BTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
 {
   BTM(rpt_params, resNode);
 
-  bool lat = GetRPEncoding(rpt_params)!=0;
+  //bool lat = GetRPEncoding(rpt_params)!=0;
 };
 
 void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
