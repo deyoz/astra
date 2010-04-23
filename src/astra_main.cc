@@ -25,7 +25,7 @@ extern "C" int main_nosir_user(int argc,char **argv);
 namespace ServerFramework{
 inline QueryRunner AstraQueryRunner()
 {
-    return QueryRunner ( EdiHelpManager::sharedPtr<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG,MSG_ANSW_ANSWER));
+    return QueryRunner ( EdiHelpManager::sharedPtr<EdiHelpManager>(MSG_ANSW_STORE_WAIT_SIG));
 }
 }
 

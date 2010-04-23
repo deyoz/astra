@@ -108,8 +108,6 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
 void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                     xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ServerFramework::getQueryRunner().getEdiHelpManager().Answer();
-
     string context;
     int req_ctxt_id=NodeAsInteger("@req_ctxt_id",reqNode);
 
@@ -381,8 +379,6 @@ struct TETErrorFlight
 
 void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    ServerFramework::getQueryRunner().getEdiHelpManager().Answer();
-
     string context;
     TReqInfo *reqInfo = TReqInfo::Instance();
     if (GetNode("@req_ctxt_id",reqNode)!=NULL)  //req_ctxt_id отсутствует, если телеграмма сформирована не от пульта
