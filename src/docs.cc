@@ -454,15 +454,16 @@ string get_hall_list(string airp, string zone, bool pr_lat)
 {
     TQuery Qry(&OraSession);
     string SQLText = (string)
-        "select " + (pr_lat ? "name_lat" : "name") + " name "
-        "from "
+        "SELECT DECODE(:pr_lat,0,name,NVL(name_lat,system.transliter(name,1))) name "
+        "FROM "
         "   halls2 "
-        "where "
-        "   airp = :airp and "
-        "   nvl(rpt_grp, ' ') = nvl(:rpt_grp, ' ') "
-        "order by "
+        "WHERE "
+        "   airp = :airp AND "
+        "   NVL(rpt_grp, ' ') = NVL(:rpt_grp, ' ') "
+        "ORDER BY "
         "   name ";
     Qry.SQLText = SQLText;
+    Qry.CreateVariable("pr_lat", otInteger, (int)pr_lat);
     Qry.CreateVariable("airp", otString, airp);
     Qry.CreateVariable("rpt_grp", otString, zone);
     Qry.Execute();
@@ -1215,6 +1216,8 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
 {
   PTM(rpt_params, resNode);
 
+  bool lat = GetRPEncoding(rpt_params)!=0;
+
   xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
   xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
 
@@ -1226,52 +1229,50 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   NewTextChild(variablesNode, "test_server", get_test_server());
 
   s.str("");
-  for(int i=0;i<page_width/5;i++) s << "ТЕСТ ";
+  for(int i=0;i<page_width/5;i++) s << (lat?"TEST ":"ТЕСТ ");
   NewTextChild(variablesNode, "test_str", s.str());
 
-  NewTextChild(variablesNode, "page_number_fmt", "Стр. %u из %u");
+  NewTextChild(variablesNode, "page_number_fmt", (lat?"Page %u of %u":"Стр. %u из %u"));
 
   s.str("");
-  s << "Всего в классе" << endl
+  s << (lat?"Total in class":"Всего в классе") << endl
     << "%-30s%4u %3u %3u %2u/%-4u%4u";
   NewTextChild(variablesNode, "total_in_class_fmt", s.str());
 
-//     if (!pr_lat)
-  {
-    str=string("ПАССАЖИРСКАЯ ВЕДОМОСТЬ ")+NodeAsString("et",variablesNode);
+  s.str("");
+  str.assign(lat?"PASSENGER MANIFEST ":"ПАССАЖИРСКАЯ ВЕДОМОСТЬ ");
+  str.append(NodeAsString((lat?"et_lat":"et"),variablesNode));
+  s << setfill(' ')
+    << str
+    << right << setw(page_width-str.size())
+    << string(NodeAsString((lat?"own_airp_name_lat":"own_airp_name"),variablesNode)).substr(0,page_width-str.size());
+  NewTextChild(variablesNode, "page_header_top", s.str());
 
-    s.str("");
-    s << setfill(' ')
-      << str
-      << right << setw(page_width-str.size()) << string(NodeAsString("own_airp_name",variablesNode)).substr(0,page_width-str.size());
-    NewTextChild(variablesNode, "page_header_top", s.str());
-
-    s.str("");
-    s << left
-      << "Владелец или Оператор" << setw(5) << "" << setw(page_width-26) << string(NodeAsString("airline_name",variablesNode)).substr(0,page_width-26) << endl
-      << setw(10) << "№ рейса"
-      << setw(9)  << "№ ВС"
+  s.str("");
+  str.assign(lat?"Owner or Operator: ":"Владелец или Оператор: ");
+  s << left
+    << str
+    << setw(page_width-str.size())
+    << string(NodeAsString("airline_name",variablesNode)).substr(0,page_width-str.size()) << endl
+    << setw(10) << (lat?"Flight №":"№ рейса");
+  if (lat)
+    s << setw(19) << "Aircraft";
+  else
+    s << setw(9)  << "№ ВС"
       << setw(10) << "ТипВС Ст. ";
 
-    if (!NodeIsNULL("airp_arv_name",variablesNode))
-      s << setw(20) << "А/п вылета"
-        << setw(20) << "А/п назначения";
-    else
-      s << setw(40) << "А/п вылета";
-    s << setw(6)  << "Дата"
-      << setw(5)  << "Время" << endl;
-  };
-/*  else
-  {
-
-
-  };  */
+  if (!NodeIsNULL("airp_arv_name",variablesNode))
+    s << setw(20) << (lat?"Embarkation":"А/п вылета")
+      << setw(20) << (lat?"Disembarkation":"А/п назначения");
+  else
+    s << setw(40) << (lat?"Embarkation":"А/п вылета");
+  s << setw(6)  << (lat?"Date":"Дата")
+    << setw(5)  << (lat?"Time":"Время") << endl;
 
   s << setw(10) << NodeAsString("flt",variablesNode)
     << setw(11) << NodeAsString("bort",variablesNode)
     << setw(4)  << NodeAsString("craft",variablesNode)
     << setw(4)  << NodeAsString("park",variablesNode);
-
 
   if (!NodeIsNULL("airp_arv_name",variablesNode))
     s << setw(20) << string(NodeAsString("airp_dep_name",variablesNode)).substr(0,20-1)
@@ -1284,12 +1285,14 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   NewTextChild(variablesNode, "page_header_center", s.str() );
 
   s.str("");
-  str.assign("ПАССАЖИРЫ ").append(NodeAsString("pr_brd_pax",variablesNode));
+  str.assign(lat?"PASSENGERS ":"ПАССАЖИРЫ ");
+  str.append(NodeAsString((lat?"pr_brd_pax_lat":"pr_brd_pax"),variablesNode));
   if (!NodeIsNULL("zone",variablesNode))
   {
     unsigned int zone_len=page_width-str.size()-1;
     string zone;
-    zone.assign("Зал регистрации: ").append(NodeAsString("zone",variablesNode));
+    zone.assign(lat?"Checking zone: ":"Зал регистрации: ");
+    zone.append(NodeAsString("zone",variablesNode));
     if (zone_len<zone.size())
       s << str << right << setw(zone_len+1) << zone.substr(0,zone_len-3).append("...") << endl;
     else
@@ -1299,45 +1302,45 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
     s << str << endl;
 
   s << left
-    << setw(4) << "Рег"
-    << setw(23) << "Фамилия, имя"
-    << setw(3) << "Кл"
-    << setw(5) << "№ м"
-    << setw(4) << "РБ"
-    << setw(4) << "РМ"
-    << setw(7) << "Багаж"
-    << setw(6) << "Р/кл"
-    << setw(15) << "№№ баг.бирок"
-    << setw(9) << "Ремарки";
+    << setw(4)  << (lat?"Sec":"Рег")
+    << setw(lat?22:23) << (lat?"Surname":"Фамилия, имя")
+    << setw(lat?4:3)   << (lat?"Cls":"Кл")
+    << setw(5)  << (lat?"Seat":"№ м")
+    << setw(4)  << (lat?"CHD":"РБ")
+    << setw(4)  << (lat?"INF":"РМ")
+    << setw(7)  << (lat?"Bag.":"Багаж")
+    << setw(6)  << (lat?"Cabin":"Р/кл")
+    << setw(15) << (lat?"Bag.Tag.No":"№№ баг.бирок")
+    << setw(9)  << (lat?"Remarks":"Ремарки");
 
   NewTextChild(variablesNode, "page_header_bottom", s.str() );
 
   s.str("");
   if (!NodeIsNULL("airp_arv_name",variablesNode))
   {
-    str=string(NodeAsString("airp_dep_name",variablesNode))+
-               "-"+
-               NodeAsString("airp_arv_name",variablesNode);
+    str.assign(NodeAsString("airp_dep_name",variablesNode)).append("-");
+    str.append(NodeAsString("airp_arv_name",variablesNode));
 
     s << left
-      << setw(6) << "Всего"
+      << setw(6) << (lat?"Total":"Всего")
       << setw(50) << str.substr(0,50-1)
-      << "Подпись" << endl;
+      << (lat?"Prepared by":"Подпись") << endl;
   }
   else
     s << left
-      << setw(56) << "Всего" << "Подпись" << endl;
+      << setw(56) << (lat?"Total":"Всего")
+      << (lat?"Prepared by":"Подпись") << endl;
 
-  s << setw(7) << "Кресел"
-    << setw(7) << "ВЗ/Ж"
-    << setw(7) << "РБ"
-    << setw(7) << "РМ"
-    << setw(7) << "Мест"
-    << setw(7) << "Вес"
-    << setw(7) << "Р/кл."
-    << setw(7) << "Плат." << endl
+  s << setw(7) << (lat?"SOC":"Кресел")
+    << setw(7) << (lat?"ADU/F":"ВЗ/Ж")
+    << setw(7) << (lat?"CHD":"РБ")
+    << setw(7) << (lat?"INF":"РМ")
+    << setw(7) << (lat?"Pcs":"Мест")
+    << setw(7) << (lat?"Weight":"Вес")
+    << setw(7) << (lat?"Cabin":"Р/кл.")
+    << setw(7) << (lat?"Ex.Bag.":"Плат.") << endl
     << "%-6u %-6u %-6u %-6u %-6u %-6u %-6u %-6u" << endl
-    << "Сформировано " << NodeAsString("date_issue",variablesNode);
+    << (lat?"Issue date ":"Сформировано ") << NodeAsString("date_issue",variablesNode);
 
   NewTextChild(variablesNode, "page_footer_top", s.str() );
 
@@ -1353,7 +1356,7 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
     ReplaceTextChild(rowNode,"airp_arv_name",str.substr(0,page_width));
     if (!NodeIsNULL("last_target",rowNode))
     {
-      str=string("ДО: ")+NodeAsString("last_target",rowNode);
+      str.assign(lat?"TO: ":"ДО: ").append(NodeAsString("last_target",rowNode));
       ReplaceTextChild(rowNode,"last_target",str.substr(0,page_width));
     };
 
@@ -1371,12 +1374,12 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
     do
     {
       if (row!=0) s << endl;
-      s << right << setw(3) << (string)(row==0?NodeAsString("reg_no",rowNode):"") << " "
-        << left << setw(22) << (string)(!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
-        << left <<  setw(3) << (string)(row==0?NodeAsString("class",rowNode):"")
-        << right << setw(4) << (string)(row==0?NodeAsString("seat_no",rowNode):"") << " "
-        << left << setw(4) << (string)(row==0&&pers_type=="CHD"?" X ":"")
-        << left << setw(4) << (string)(row==0&&pers_type=="INF"?" X ":"");
+      s << right << setw(3) << (row==0?NodeAsString("reg_no",rowNode):"") << " "
+        << left << setw(22) << (!fields["full_name"].empty()?*(fields["full_name"].begin()):"") << " "
+        << left <<  setw(3) << (row==0?NodeAsString("class",rowNode):"")
+        << right << setw(4) << (row==0?NodeAsString("seat_no",rowNode):"") << " "
+        << left <<  setw(4) << (row==0&&pers_type=="CHD"?" X ":"")
+        << left <<  setw(4) << (row==0&&pers_type=="INF"?" X ":"");
       if (row!=0 ||
           NodeAsInteger("bag_amount",rowNode)==0 &&
           NodeAsInteger("bag_weight",rowNode)==0)
@@ -1389,8 +1392,8 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
         s << setw(5) << "";
       else
         s << right << setw(4) << NodeAsInteger("rk_weight",rowNode) << " ";
-      s << left << setw(15) << (string)(!fields["tags"].empty()?*(fields["tags"].begin()):"") << " "
-        << left << setw(9) << (string)(!fields["remarks"].empty()?*(fields["remarks"].begin()):"") << " ";
+      s << left << setw(15) << (!fields["tags"].empty()?*(fields["tags"].begin()):"") << " "
+        << left << setw(9) << (!fields["remarks"].empty()?*(fields["remarks"].begin()):"") << " ";
 
       for(map< string, vector<string> >::iterator f=fields.begin();f!=fields.end();f++)
         if (!f->second.empty()) f->second.erase(f->second.begin());
@@ -1407,23 +1410,23 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   {
     s.str("");
     if (!rpt_params.pr_trfer)
-      s << setw(20) << "Всего багажа";
+      s << setw(20) << (lat?"Total luggage":"Всего багажа");
     else
     {
       if (k==0)
-        s << setw(24) << "Всего нетрансф. багажа";
+        s << setw(24) << (lat?"Total not transfer lug.":"Всего нетрансф. багажа");
       else
-        s << setw(24) << "Всего трансф. багажа";
+        s << setw(24) << (lat?"Total transfer luggage":"Всего трансф. багажа");
     };
 
-    s << setw(7) << "Кресел"
-      << setw(7) << "ВЗ/Ж"
-      << setw(7) << "РБ"
-      << setw(7) << "РМ"
-      << setw(7) << "Мест"
-      << setw(7) << "Вес"
-      << setw(7) << "Р/кл."
-      << setw(7) << "Плат.";
+    s << setw(7) << (lat?"SOC":"Кресел")
+      << setw(7) << (lat?"ADU/F":"ВЗ/Ж")
+      << setw(7) << (lat?"CHD":"РБ")
+      << setw(7) << (lat?"INF":"РМ")
+      << setw(7) << (lat?"Pcs":"Мест")
+      << setw(7) << (lat?"Weight":"Вес")
+      << setw(7) << (lat?"Cabin":"Р/кл.")
+      << setw(7) << (lat?"Ex.Bag.":"Плат.");
 
     if (!rpt_params.pr_trfer)
       NewTextChild(variablesNode, "subreport_header", s.str() );
@@ -1456,22 +1459,25 @@ void PTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   };
 };
 
-void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
+void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
 {
     TQuery Qry(&OraSession);
     int pr_lat = GetRPEncoding(rpt_params);
-
-    if(rpt_params.airp_arv.empty()) {
+    string rpt_name;
+    if(rpt_params.airp_arv.empty() ||
+       rpt_params.rpt_type==rtBTMTXT) {
         if(rpt_params.pr_trfer)
-            get_report_form("BMTrferTotal", resNode);
+            rpt_name="BMTrferTotal";
         else
-            get_report_form("BMTotal", resNode);
+            rpt_name="BMTotal";
     } else {
         if(rpt_params.pr_trfer)
-            get_report_form("BMTrfer", resNode);
+            rpt_name="BMTrfer";
         else
-            get_report_form("BM", resNode);
-    }
+            rpt_name="BM";
+    };
+    if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
+    get_report_form(rpt_name, resNode);
 
     t_rpt_bm_bag_name bag_names;
     Qry.Clear();
@@ -1892,8 +1898,14 @@ void BTM(TRptParams &rpt_params, xmlNodePtr resNode)
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     STAT::set_variables(resNode);
-    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
 }
+
+void BTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
+{
+  BTM(rpt_params, resNode);
+
+  bool lat = GetRPEncoding(rpt_params)!=0;
+};
 
 void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 {
@@ -2165,8 +2177,10 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             PTMTXT(rpt_params, resNode);
             break;
         case rtBTM:
-        case rtBTMTXT:
             BTM(rpt_params, resNode);
+            break;
+        case rtBTMTXT:
+            BTMTXT(rpt_params, resNode);
             break;
         case rtWEB:
             WEB(rpt_params, reqNode, resNode);
