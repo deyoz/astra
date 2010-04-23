@@ -13,18 +13,18 @@ class EXMLError: public EXCEPTIONS::Exception
     EXMLError(const std::string &msg):Exception(msg) {};
 };
 
-xmlNodePtr GetNode(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
-xmlNodePtr GetNode(char* expr, xmlNodePtr cur);
+xmlNodePtr GetNode(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
+xmlNodePtr GetNode(const char* expr, xmlNodePtr cur);
 void GetNodes(char* expr, xmlDocPtr data, std::vector<xmlNodePtr>& nodes, xmlNodePtr cur=NULL);
 void GetNodes(char* expr, std::vector<xmlNodePtr>& nodes, xmlNodePtr cur);
-xmlNodePtr NodeAsNode(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
-xmlNodePtr NodeAsNode(char* expr, xmlNodePtr cur);
+xmlNodePtr NodeAsNode(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
+xmlNodePtr NodeAsNode(const char* expr, xmlNodePtr cur);
 bool NodeIsNULL(xmlNodePtr node);
 bool NodeIsNULL(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 bool NodeIsNULL(char* expr, xmlNodePtr cur);
 char* NodeAsString(xmlNodePtr node);
-char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
-char* NodeAsString(char* expr, xmlNodePtr cur);
+char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
+char* NodeAsString(const char* expr, xmlNodePtr cur);
 int NodeAsInteger(xmlNodePtr node);
 int NodeAsInteger(char* expr, xmlDocPtr data, xmlNodePtr cur=NULL);
 int NodeAsInteger(char* expr, xmlNodePtr cur);
@@ -54,7 +54,7 @@ int NodeAsIntegerFast(char *expr, xmlNodePtr &node, int nvl);
 double NodeAsFloatFast(char *expr, xmlNodePtr &node, double nvl);
 BASIC::TDateTime NodeAsDateTimeFast(char *expr, xmlNodePtr &node, BASIC::TDateTime nvl);
 
-char* NodeAsString(char* expr, xmlNodePtr cur, char *nvl);
+char* NodeAsString(const char* expr, xmlNodePtr cur, char *nvl);
 int NodeAsInteger(char* expr, xmlNodePtr cur, int nvl);
 double NodeAsFloat(char* expr, xmlNodePtr cur, double nvl);
 BASIC::TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, BASIC::TDateTime nvl);
