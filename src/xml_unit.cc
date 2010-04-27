@@ -40,7 +40,7 @@ char* NodeContent(xmlNodePtr node)
     return res;
 };
 
-xmlNodePtr find_node(char* expr, xmlDocPtr doc, xmlNodePtr cur=NULL)
+xmlNodePtr find_node(const char* expr, xmlDocPtr doc, xmlNodePtr cur=NULL)
 {
   xmlNodePtr res=NULL;
   xmlXPathContextPtr ctx=NULL;
@@ -59,12 +59,12 @@ xmlNodePtr find_node(char* expr, xmlDocPtr doc, xmlNodePtr cur=NULL)
   return res;
 };
 
-xmlNodePtr GetNode(char* expr, xmlDocPtr data, xmlNodePtr cur)
+xmlNodePtr GetNode(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   return find_node(expr,data,cur);
 };
 
-xmlNodePtr GetNode(char* expr, xmlNodePtr cur)
+xmlNodePtr GetNode(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return find_node(expr,NULL,cur);
@@ -104,7 +104,7 @@ void GetNodes(char* expr, vector<xmlNodePtr>& nodes, xmlNodePtr cur)
     GetNodes(expr,cur->doc,nodes,cur);
 };
 
-xmlNodePtr NodeAsNode(char* expr, xmlDocPtr data, xmlNodePtr cur)
+xmlNodePtr NodeAsNode(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   xmlNodePtr node;
   node=find_node(expr,data,cur);
@@ -113,7 +113,7 @@ xmlNodePtr NodeAsNode(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return node;
 };
 
-xmlNodePtr NodeAsNode(char* expr, xmlNodePtr cur)
+xmlNodePtr NodeAsNode(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsNode(expr,NULL,cur);
@@ -150,7 +150,7 @@ char* NodeAsString(xmlNodePtr node)
   return NodeContent(node);
 };
 
-char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur)
+char* NodeAsString(const char* expr, xmlDocPtr data, xmlNodePtr cur)
 {
   xmlNodePtr node;
   node=find_node(expr,data,cur);
@@ -159,7 +159,7 @@ char* NodeAsString(char* expr, xmlDocPtr data, xmlNodePtr cur)
   return NodeContent(node);
 };
 
-char* NodeAsString(char* expr, xmlNodePtr cur, char *nvl)
+char* NodeAsString(const char* expr, xmlNodePtr cur, char *nvl)
 {
     if(xmlNodePtr node = GetNode(expr, cur))
         return NodeAsString(node);
@@ -191,7 +191,7 @@ TDateTime NodeAsDateTime(char* expr, xmlNodePtr cur, TDateTime nvl)
         return nvl;
 };
 
-char* NodeAsString(char* expr, xmlNodePtr cur)
+char* NodeAsString(const char* expr, xmlNodePtr cur)
 {
   if (cur==NULL)
     return NodeAsString(expr,NULL,cur);
