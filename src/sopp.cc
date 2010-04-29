@@ -321,96 +321,46 @@ TSOPPTrip createTrip( int move_id, TSOPPDests::iterator &id, TSOPPDests &dests )
   return trip;
 }
 
-bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,/* bool LocalAll,*/
+bool filter_time( TDateTime time, TSOPPTrip &tr, TDateTime first_date, TDateTime next_date, string &errcity )
+{
+  if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
+    try {
+      time = UTCToClient( time, tr.region );
+    }
+    catch( Exception &e ) {
+   	 if ( errcity.empty() )
+   	   errcity = tr.city;
+       ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
+       return false;
+    }
+  }
+ 	return ( time >= first_date && time < next_date );
+}
+
+bool FilterFlightDate( TSOPPTrip &tr, TDateTime first_date, TDateTime next_date,
                        string &errcity, bool pr_isg )
 {
-  if ( /*LocalAll && */first_date > NoExists ) {
+	// 2 варианта работы. 1-локальное время пульта переведено в UTC, 2 режим LocalAll - тогда
+  if ( first_date > NoExists ) {
     bool canuseTR = false;
-    /*TDateTime d;*/
-    if ( tr.act_in > NoExists ) {
-/*    	try {
-        d = UTCToClient( tr.act_in, tr.region );
-      }
-      catch( Exception &e ) {
-      	if ( errcity.empty() )
-      	  errcity = tr.city;
-        ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-        return false;
-      }
-      canuseTR = ( d >= first_date && d < next_date );*/
-      canuseTR = ( tr.act_in >= first_date && tr.act_in < next_date );
-    }
+    if ( tr.act_in > NoExists )
+    	canuseTR = filter_time( tr.act_in, tr, first_date, next_date, errcity );
     else
-      if ( tr.est_in > NoExists ) {
-/*      	try {
-          d = UTCToClient( tr.est_in, tr.region );
-        }
-        catch( Exception &e ) {
-        	if ( errcity.empty() )
-        	  errcity = tr.city;
-          ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-          return false;
-        }
-        canuseTR = ( d >= first_date && d < next_date );*/
-        canuseTR = ( tr.est_in >= first_date && tr.est_in < next_date );
-      }
+      if ( tr.est_in > NoExists )
+      	canuseTR = filter_time( tr.est_in, tr, first_date, next_date, errcity );
       else
-        if ( tr.scd_in > NoExists ) {
-/*        	try {
-            d = UTCToClient( tr.scd_in, tr.region );
-          }
-          catch( Exception &e ) {
-          	if ( errcity.empty() )
-          	  errcity = tr.city;
-            ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-            return false;
-          }
-          canuseTR = ( d >= first_date && d < next_date );*/
-          canuseTR = ( tr.scd_in >= first_date && tr.scd_in < next_date );
-        }
+        if ( tr.scd_in > NoExists )
+        	canuseTR = filter_time( tr.scd_in, tr, first_date, next_date, errcity );
     if ( !canuseTR )
-      if ( tr.act_out > NoExists ) {
-/*      	try {
-          d = UTCToClient( tr.act_out, tr.region );
-        }
-        catch( Exception &e ) {
-        	if ( errcity.empty() )
-        	  errcity = tr.city;
-          ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-          return false;
-        }
-        canuseTR = ( d >= first_date && d < next_date );*/
-        canuseTR = ( tr.act_out >= first_date && tr.act_out < next_date );
-      }
+      if ( tr.act_out > NoExists )
+      	canuseTR = filter_time( tr.act_out, tr, first_date, next_date, errcity );
       else
-        if ( tr.est_out > NoExists ) {
-/*        	try {
-            d = UTCToClient( tr.est_out, tr.region );
-          }
-          catch( Exception &e ) {
-           	if ( errcity.empty() )
-          	  errcity = tr.city;
-            ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-            return false;
-          }
-          canuseTR = ( d >= first_date && d < next_date );*/
-          canuseTR = ( tr.est_out >= first_date && tr.est_out < next_date );
-        }
+        if ( tr.est_out > NoExists )
+        	canuseTR = filter_time( tr.est_out, tr, first_date, next_date, errcity );
         else
-          if ( tr.scd_out > NoExists ) {
-/*          	try {
-              d = UTCToClient( tr.scd_out, tr.region );
-            }
-            catch( Exception &e ) {
-             	if ( errcity.empty() )
-      	        errcity = tr.city;
-              ProgError( STDLOG, "Exception: %s, point_id=%d", e.what(), tr.point_id );
-              return false;
-            }
-            canuseTR = ( d >= first_date && d < next_date );*/
-            canuseTR = ( tr.scd_out >= first_date && tr.scd_out < next_date );
-          }
-         else canuseTR = pr_isg;
+          if ( tr.scd_out > NoExists )
+          	canuseTR = filter_time( tr.scd_out, tr, first_date, next_date, errcity );
+          else canuseTR = pr_isg;
     return canuseTR;
   }
   return true;
@@ -621,14 +571,18 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
 
   if ( point_id == NoExists ) {
     if ( first_date != NoExists ) {
-   /*   if ( reqInfo->user.sets.time != ustTimeUTC ) {
-      	// бывает сдвиг 25 часов ???
-        PointsQry.CreateVariable( "first_date", otDate, first_date - 2 );
-        PointsQry.CreateVariable( "next_date", otDate, next_date + 2 );
+      if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) { // локальные времена пульта в first_date, next_date
+      	ProgTrace( TRACE5, "ustTimeLocalAirp!!!, first_date=%s, next_date=%s", DateTimeToStr( first_date-1 ).c_str(), DateTimeToStr( next_date+1 ).c_str() );
+// вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на
+                          // сутки и клиент этот рейс отфильтрует
+                          // 20.04.2010 04:00 MEX -> 19.04.2010 22:00 LocalTime
+        PointsQry.CreateVariable( "first_date", otDate, first_date-1 ); // UTC +- сутки
+        PointsQry.CreateVariable( "next_date", otDate, next_date+1 );
       }
-      else {*/
+      else {
         PointsQry.CreateVariable( "first_date", otDate, first_date );
         PointsQry.CreateVariable( "next_date", otDate, next_date );
+      }
         if ( arx )
           PointsQry.CreateVariable( "arx_trip_date_range", otInteger, arx_trip_date_range );
 /*      }*/
@@ -708,7 +662,8 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
       throw;
   }
   if ( PointsQry.Eof ) {
-  	ProgError(  STDLOG, "Invalid city errcity=%s", errcity.c_str() );
+  	if ( !errcity.empty() )
+  	  ProgError(  STDLOG, "Invalid city errcity=%s", errcity.c_str() );
   	return errcity;
   }
   PerfomTest( 667 );
@@ -780,7 +735,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		   reqInfo->CheckAirp( id->airp ) ) {
         		TSOPPTrip ntr = createTrip( move_id, id, dests );
             ntr.ref = ref;
-            if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time !=ustTimeUTC*//*==ustTimeLocalAirp,*/
+            if ( FilterFlightDate( ntr, first_date, next_date,
             	                     errcity, module == tISG ) ) {
             	vector<TSOPPTrip>::iterator v=vtrips.end();
             	if ( module == tISG && reqInfo->desk.city != "ЧЛБ" ) {
@@ -896,7 +851,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         	 reqInfo->CheckAirp( id->airp ) ) {
          TSOPPTrip ntr = createTrip( move_id, id, dests );
          ntr.ref = ref;
-         if ( FilterFlightDate( ntr, first_date, next_date, /*reqInfo->user.sets.time != ustTimeUTC*//*==ustTimeLocalAirp,*/
+         if ( FilterFlightDate( ntr, first_date, next_date,
          	                      errcity, module == tISG ) ) {
           	vector<TSOPPTrip>::iterator v=vtrips.end();
           	if ( module == tISG && reqInfo->desk.city != "ЧЛБ" ) {
@@ -1522,22 +1477,18 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	double f;
   	vdate = NodeAsDateTime( dNode );
   	modf( (double)vdate, &f );
-/*  	if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
+  	if ( TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
   		first_date = f;
-  	}
-  	else*/
-  	first_date = Approached_ClientUTC( f, TReqInfo::Instance()->desk.tz_region, false );
-  	next_date = Approached_ClientUTC( f+1, TReqInfo::Instance()->desk.tz_region, true );
-/*  	  first_date = ClientToUTC( f, TReqInfo::Instance()->desk.tz_region );
-  	  next_date = ClientToUTC( f+1, TReqInfo::Instance()->desk.tz_region );*/
-    if ( 	TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp ) {
-      first_date = f-2; // вычитаем сутки, т.к. филтрация идет по UTC, а в случае режима локальных времен может быть переход на
-                        // сутки и клиент этот рейс отфильтрует
-                        // 20.04.2010 04:00 MEX -> 19.04.2010 22:00 LocalTime
-      next_date = f+2;
+  		next_date = f + 1;
+    }
+    else { // работаем с UTC временами даты СОПП терминала
+    	first_date = Approached_ClientUTC( f, TReqInfo::Instance()->desk.tz_region, false );
+    	next_date = Approached_ClientUTC( f+1, TReqInfo::Instance()->desk.tz_region, true );
     }
 
-    ProgTrace( TRACE5, "first_date=%s, next_date=%s", DateTimeToStr( first_date ).c_str(), DateTimeToStr( next_date ).c_str() );
+    ProgTrace( TRACE5, "ustTimeLocalAirp=%d, first_date=%s, next_date=%s",
+               TReqInfo::Instance()->user.sets.time == ustTimeLocalAirp,
+               	DateTimeToStr( first_date ).c_str(), DateTimeToStr( next_date ).c_str() );
 
     if ( arx )
     	NewTextChild( dataNode, "arx_date", DateTimeToStr( vdate, ServerFormatDateTimeAsString ) );
