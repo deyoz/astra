@@ -871,8 +871,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.airp_arv.empty() ||
-       rpt_params.rpt_type==rtPTMTXT) {
+    if(rpt_params.rpt_type==rtPTMTXT) {
         if(rpt_params.pr_trfer)
             rpt_name="PMTrferTotalEL";
         else
@@ -1213,8 +1212,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.airp_arv.empty() ||
-       rpt_params.rpt_type==rtBTMTXT) {
+    if(rpt_params.rpt_type==rtBTMTXT) {
         if(rpt_params.pr_trfer)
             rpt_name="BMTrferTotal";
         else
