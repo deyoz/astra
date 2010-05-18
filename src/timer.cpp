@@ -504,7 +504,8 @@ void create_czech_police_file(int point_id, bool is_edi)
     for(;!PointsQry.Eof;PointsQry.Next())
     {
     	if (/*strcmp(Qry.FieldAsString("country"),"–‡")!=0 &&*/
-    		  strcmp(PointsQry.FieldAsString("country"),"–‡")!=0) continue;
+    		  strcmp(PointsQry.FieldAsString("country"),"–‡")!=0 &&
+    		  strcmp(PointsQry.FieldAsString("country"),"‹’")!=0) continue;
 
     	TAirpsRow &airp_arv = (TAirpsRow&)base_tables.get("airps").get_row("code",PointsQry.FieldAsString("airp"));
     	if (airp_arv.code_lat.empty()) throw Exception("airp_arv.code_lat empty (code=%s)",PointsQry.FieldAsString("airp"));
