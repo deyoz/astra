@@ -859,6 +859,7 @@ struct TWebPax {
 	int pax_grp_tid;
 	int pax_tid;
 	string checkin_status;
+	bool pr_eticket;
 	TWebPax() {
 		birth_date = NoExists;
 		crs_pax_id = NoExists;
@@ -869,6 +870,7 @@ struct TWebPax {
 		crs_pax_tid	= NoExists;
 		pax_grp_tid = NoExists;
 		pax_tid = NoExists;
+		pr_eticket = false;
 	};
 };
 
@@ -942,7 +944,8 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
     "       pax.tid AS pax_tid, "
     "       pax.pax_id, "
     "       pax_grp.client_type, "
-    "       pax.refuse "
+    "       pax.refuse, "
+    "       report.get_TKNO(crs_pax.pax_id,'/',1) AS pr_eticket "
     "FROM crs_pnr,crs_pax,pax,pax_grp,crs_inf "
     "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
     "      crs_pax.pax_id=pax.pax_id(+) AND "
@@ -1016,6 +1019,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    		pax.pax_grp_tid = Qry.FieldAsInteger( "pax_grp_tid" );
    	if ( !Qry.FieldIsNULL( "pax_tid" ) )
    		pax.pax_tid = Qry.FieldAsInteger( "pax_tid" );
+   	pax.pr_eticket = !Qry.FieldIsNULL( "pr_eticket" );
    	pnr.push_back( pax );
   	Qry.Next();
   }
@@ -1050,6 +1054,10 @@ void IntLoadPnr( int point_id, int pnr_id, xmlNodePtr resNode )
   			  NewTextChild( paxNode, "seat_no", i->crs_seat_no );
     NewTextChild( paxNode, "seats", i->seats );
    	NewTextChild( paxNode, "checkin_status", i->checkin_status );
+   	if ( i->pr_eticket )
+   	  NewTextChild( paxNode, "eticket", "true" );
+   	else
+   		NewTextChild( paxNode, "eticket", "false" );
    	xmlNodePtr tidsNode = NewTextChild( paxNode, "tids" );
    	NewTextChild( tidsNode, "crs_pnr_tid", i->crs_pnr_tid );
    	NewTextChild( tidsNode, "crs_pax_tid", i->crs_pax_tid );
