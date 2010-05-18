@@ -63,7 +63,10 @@ void GetDeviceAirlines(xmlNodePtr node)
   if (reqInfo->desk.mode!=omCUTE && reqInfo->desk.mode!=omMUSE) return;
   xmlNodePtr accessNode=NewTextChild(node,"airlines");
   TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
-  if (reqInfo->user.access.airlines_permit)
+  if (reqInfo->user.access.airlines_permit) {
+  	vector<string> airlines_params;
+    SeparateString(getJxtContHandler()->sysContext()->read("session_airlines_params"),5,airlines_params);
+
     for(vector<string>::const_iterator i=reqInfo->user.access.airlines.begin();
                                        i!=reqInfo->user.access.airlines.end();i++)
     {
@@ -78,9 +81,18 @@ void GetDeviceAirlines(xmlNodePtr node)
           NewTextChild(airlineNode,"aircode",row.aircode,"");
         else
           NewTextChild(airlineNode,"aircode",954);
+        for(vector<string>::const_iterator p=airlines_params.begin(); p!=airlines_params.end(); p++) {
+          if ( p->find(row.code) != std::string::npos ||
+               p->find(row.code_lat) != std::string::npos ) {
+            NewTextChild(airlineNode,"run_params",*p);
+            break;
+          }
+        }
+
       }
       catch(EBaseTableError) {}
     };
+  }
 };
 
 struct TDevParam {
@@ -679,11 +691,12 @@ void MainDCSInterface::GetEventCmd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   CopyNodeList(resNode,reqNode);
 };
 
-bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
+bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str, std::string &airline_params)
 {
   str.clear();
   if (node==NULL) return true;
   vector<string> airlines;
+  map<string,string> air_params;
   for(node=node->children;node!=NULL;node=node->next)
   {
     try
@@ -700,6 +713,11 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
         return false;
       }
     };
+       xmlNodePtr paramNode = GetNode( "@run_params", node );
+       if (paramNode) {
+         air_params[ airlines.back() ] = NodeAsString(paramNode);
+       }
+
   };
   if (airlines.empty()) return true;
   sort(airlines.begin(),airlines.end());
@@ -711,9 +729,12 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str)
     {
       if (!str.empty()) str.append("/");
       str.append(*i);
+      if (!airline_params.empty()) airline_params.append( string(1,5) );
+      airline_params.append(air_params[*i]);
       prior_airline=*i;
     };
   };
+  ProgTrace( TRACE5, "airline_params=%s", airline_params.c_str() );
   return true;
 };
 
@@ -726,7 +747,8 @@ void MainDCSInterface::CheckUserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
       if(reqinfo->user.login.empty()) throw 0;
 
       string airlines;
-      if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines)) throw 0;
+      string airlines_params;
+      if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params)) throw 0;
 
       // проверим session_airlines
       if (getJxtContHandler()->sysContext()->read("session_airlines")!=airlines)
@@ -1209,9 +1231,11 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TReqInfoInitData reqInfoData;
 
     string airlines;
-    if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines))
+    string airlines_params;
+    if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params))
       throw UserException("Не найден код авиакомпании %s",airlines.c_str());
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
+    getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
     reqInfoData.screen = NodeAsString("@screen", node);
     reqInfoData.pult = ctxt->pult;
@@ -1238,6 +1262,7 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.CreateVariable("user_id",otInteger,reqInfo->user.user_id);
     Qry.Execute();
     getJxtContHandler()->sysContext()->remove("session_airlines");
+    getJxtContHandler()->sysContext()->remove("session_airlines_params");
     showMessage("Сеанс работы в системе завершен");
     reqInfo->user.clear();
     reqInfo->desk.clear();
