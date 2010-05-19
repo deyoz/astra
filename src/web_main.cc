@@ -469,6 +469,11 @@ bool findPnr( const string &surname, const string &pnr_addr,
 {
 	ProgTrace( TRACE5, "surname=%s, pnr_addr=%s, ticket_no=%s, document=%s",
 	           surname.c_str(), pnr_addr.c_str(), ticket_no.c_str(), document.c_str() );
+	string lat_pnr_addr;
+	if ( !pnr_addr.empty() ) {
+	  lat_pnr_addr = convert_pnr_addr( pnr_addr, true );
+	  ProgTrace( TRACE5, "convert_pnr_addr=%s", lat_pnr_addr.c_str() );
+	}
   SearchPnrData.pnr_id = NoExists;
   if ( surname.empty() )
   	throw UserException( "MSG.PASSENGER.NOT_SET.SURNAME" );
@@ -547,7 +552,7 @@ bool findPnr( const string &surname, const string &pnr_addr,
     		addr.airline = QryPnrAddr.FieldAsString( "airline" );
     		addr.addr = QryPnrAddr.FieldAsString( "addr" );
     		pnraddrs.push_back( addr );
-    		if ( pnr_addr.empty() || pnr_addr == addr.addr )
+    		if ( pnr_addr.empty() || lat_pnr_addr == convert_pnr_addr( addr.addr, true ) )
     			pr_find = true;
     	}
     }
