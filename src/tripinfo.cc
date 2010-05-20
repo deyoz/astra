@@ -446,14 +446,29 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
 void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  xmlNodePtr dataNode=NewTextChild( resNode, "data" );
+  GetSegInfo(reqNode, resNode, dataNode);
+  //обработка многосегментного запроса
+  xmlNodePtr node=GetNode("segments",reqNode);
+  if (node!=NULL)
+  {
+    xmlNodePtr segsNode=NewTextChild(dataNode,"segments");
+    for(node=node->children;node!=NULL;node=node->next)
+      GetSegInfo(node, NULL, NewTextChild(segsNode,"segment"));
+  };
+  //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
+};
+
+void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodePtr dataNode)
+{
   TReqInfo *reqInfo = TReqInfo::Instance();
   int point_id = NodeAsInteger( "point_id", reqNode );
-  xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   NewTextChild( dataNode, "point_id", point_id );
 
   if ( GetNode( "tripheader", reqNode ) )
     if ( !readTripHeader( point_id, dataNode ) )
       showErrorMessage( "Информация о рейсе недоступна" );
+
 
   if (reqInfo->screen.name == "BRDBUS.EXE" ||
       reqInfo->screen.name == "EXAM.EXE" )
@@ -462,7 +477,7 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
           BrdInterface::readTripCounters( point_id, dataNode );
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
-      if ( GetNode( "paxdata", reqNode ) ) {
+      if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {
           BrdInterface::GetPax(reqNode,resNode);
       }
   };
@@ -472,6 +487,9 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       CheckInInterface::readTripCounters( point_id, dataNode );
     if ( GetNode( "tripdata", reqNode ) )
       CheckInInterface::readTripData( point_id, dataNode );
+    if ( GetNode( "tripsets", reqNode ) )
+      CheckInInterface::readTripSets( point_id, dataNode );
+
     xmlNodePtr node;
     node=GetNode( "tripBPpectabs", reqNode );
     if (node!=NULL)
@@ -519,7 +537,33 @@ void TripsInterface::GetTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if ( GetNode( "ckin_zones", reqNode ) )
         DocsInterface::GetZoneList(point_id, dataNode);
   };
-  ProgTrace(TRACE5, "%s", GetXMLDocText(dataNode->doc).c_str());
+};
+
+void TripsInterface::readOperFltHeader( TTripInfo &info, xmlNodePtr node )
+{
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  if ( reqInfo->screen.name == "AIR.EXE" ) //!!!vlad
+    NewTextChild( node, "flight", GetTripName(info,true,false) );
+
+  NewTextChild( node, "airline", info.airline );
+  try
+  {
+    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",info.airline);
+    NewTextChild( node, "airline_lat", row.code_lat );
+    NewTextChild( node, "aircode", row.aircode );
+  }
+  catch(EBaseTableError) {};
+
+  NewTextChild( node, "flt_no", info.flt_no );
+  NewTextChild( node, "suffix", info.suffix );
+  NewTextChild( node, "airp", info.airp );
+  if ( reqInfo->screen.name == "AIR.EXE" ||
+       reqInfo->screen.name == "KASSA.EXE" )
+  {
+    //внимание! локальная дата порта
+    NewTextChild( node, "scd_out_local", DateTimeToStr(UTCToLocal(info.scd_out,AirpTZRegion(info.airp))) );
+  };
 };
 
 bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
@@ -544,45 +588,34 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if (Qry.Eof) return false;
+  TTripInfo info(Qry);
   xmlNodePtr node = NewTextChild( dataNode, "tripheader" );
   NewTextChild( node, "point_id", Qry.FieldAsInteger( "point_id" ) );
-  string airline=Qry.FieldAsString( "airline" );
-  NewTextChild( node, "airline", airline );
-  try
-  {
-    TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline);
-    NewTextChild( node, "airline_lat", row.code_lat );
-    NewTextChild( node, "aircode", row.aircode );
-  }
-  catch(EBaseTableError) {};
 
-  NewTextChild( node, "flt_no", Qry.FieldAsInteger( "flt_no" ) );
-  NewTextChild( node, "suffix", Qry.FieldAsString( "suffix" ) );
-  NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
-  NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
-  TDateTime scd_out,scd_out_local,act_out,real_out;
-  string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp" ));
-  scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-  scd_out= UTCToClient(Qry.FieldAsDateTime("scd_out"),tz_region);
-  real_out=UTCToClient(Qry.FieldAsDateTime("real_out"),tz_region);
-  if ( reqInfo->screen.name == "AIR.EXE" ||
-       reqInfo->screen.name == "KASSA.EXE" )
-  {
-    //внимание! локальная дата порта
-    NewTextChild( node, "scd_out_local", DateTimeToStr(scd_out_local) );
-  }
-  NewTextChild( node, "scd_out", DateTimeToStr(scd_out) );
-  NewTextChild( node, "real_out", DateTimeToStr(real_out,"hh:nn") );
+  readOperFltHeader(info,node);
+
+  string &tz_region=AirpTZRegion(info.airp);
+  TDateTime scd_out_client,
+            act_out_client,
+            real_out_client;
+
+  scd_out_client= UTCToClient(info.scd_out,tz_region);
+  real_out_client=UTCToClient(info.real_out,tz_region);
+
+  NewTextChild( node, "scd_out", DateTimeToStr(scd_out_client) );
+  NewTextChild( node, "real_out", DateTimeToStr(real_out_client,"hh:nn") );
   if (!Qry.FieldIsNULL("act_out"))
   {
-    act_out= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
-    NewTextChild( node, "act_out", DateTimeToStr(scd_out) );
+    act_out_client= UTCToClient(Qry.FieldAsDateTime("act_out"),tz_region);
+    NewTextChild( node, "act_out", DateTimeToStr(act_out_client) );
   }
   else
   {
-    act_out= 0;
+    act_out_client= ASTRA::NoExists;
     NewTextChild( node, "act_out" );
   };
+
+  NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
@@ -593,8 +626,7 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
 
-  TTripInfo info(Qry);
-  NewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
+  //!!!vladNewTextChild( node, "trip", GetTripName(info,reqInfo->screen.name=="TLG.EXE",true) );
 
   TTripStages tripStages( point_id );
   TStagesRules *stagesRules = TStagesRules::Instance();
@@ -623,14 +655,14 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   };
   if ( reqInfo->screen.name == "DOCS.EXE" )
   {
-    if (act_out==0)
+    if (act_out_client==ASTRA::NoExists)
       status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ) );
     else
       status = stagesRules->status( stCheckIn, sTakeoff );
   };
   if ( reqInfo->screen.name == "TLG.EXE" )
   {
-    if (act_out==0)
+    if (act_out_client==ASTRA::NoExists)
       status = stagesRules->status( stCraft, tripStages.getStage( stCraft ) );
     else
       status = stagesRules->status( stCraft, sTakeoff );

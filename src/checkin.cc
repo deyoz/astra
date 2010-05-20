@@ -3657,10 +3657,11 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       {
         //отправить на клиент счетчики
         readTripCounters(point_dep,resNode);
-        //pr_etl_only
-        xmlNodePtr node=NewTextChild(resNode,"trip_sets");
-        NewTextChild( node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
-        NewTextChild( node, "pr_etstatus", pr_etstatus );
+        if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+        {
+          //pr_etl_only
+          readTripSets( fltInfo, pr_etstatus, NewTextChild(resNode,"trip_sets") );
+        };
       };
     }
     catch(UserException &e)
@@ -3745,6 +3746,8 @@ void CheckInInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_version)
 {
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
   xmlNodePtr node,paxNode;
   TQuery PaxQry(&OraSession);
   TQuery Qry(&OraSession);
@@ -3783,6 +3786,8 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     Qry.Execute();
     if (Qry.Eof) return; //это бывает когда разрегистрация всей группы по ошибке агента
 
+    int point_dep=Qry.FieldAsInteger("point_dep");
+
     xmlNodePtr segNode;
     if (tckin_version)
       segNode=NewTextChild(segsNode,"segment");
@@ -3790,25 +3795,16 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       segNode=resNode;
 
     TTripInfo fltInfo(Qry);
-    NewTextChild(segNode,"flight",GetTripName(fltInfo,true,false));
-    NewTextChild(segNode,"grp_id",grp_id);
-    //инфа по сегменту
-    TDateTime scd_out_local;
-    string &tz_region=AirpTZRegion(Qry.FieldAsString( "airp_dep" ));
-    scd_out_local= UTCToLocal(Qry.FieldAsDateTime("scd_out"),tz_region);
-    string airline=Qry.FieldAsString( "airline" );
-    NewTextChild(segNode,"airline",airline);
-    try
-    {
-      TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",airline);
-      NewTextChild( segNode, "airline_lat", row.code_lat );
-      NewTextChild( segNode, "aircode", row.aircode );
-    }
-    catch(EBaseTableError) {};
 
-    NewTextChild(segNode,"flt_no",Qry.FieldAsInteger("flt_no"));
-    NewTextChild(segNode,"suffix",Qry.FieldAsString("suffix"));
-    NewTextChild(segNode,"scd_out_local",DateTimeToStr(scd_out_local));
+    xmlNodePtr operFltNode;
+    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+      operFltNode=NewTextChild(segNode,"tripheader");
+    else
+      operFltNode=segNode;
+    TripsInterface::readOperFltHeader( fltInfo, operFltNode );
+    readTripData( point_dep, segNode );
+
+    NewTextChild(segNode,"grp_id",grp_id);
     NewTextChild(segNode,"point_dep",Qry.FieldAsInteger("point_dep"));
     NewTextChild(segNode,"airp_dep",Qry.FieldAsString("airp_dep"));
     //инфа по группе формлен трансфер
@@ -3821,17 +3817,21 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
       TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
       ReplaceTextChild( segNode, "city_arv", citiesRow.code );
-      ReplaceTextChild( segNode, "city_arv_name", citiesRow.name );
+      if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+        ReplaceTextChild( segNode, "city_arv_name", citiesRow.name );
     }
     catch(EBaseTableError) {};
     //класс
     NewTextChild(segNode,"class",Qry.FieldAsString("class"));
-    try
+    if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
     {
-      TClassesRow& classesRow=(TClassesRow&)base_tables.get("classes").get_row("code",Qry.FieldAsString("class"));
-      ReplaceTextChild( segNode, "class_name", classesRow.name );
-    }
-    catch(EBaseTableError) {};
+      try
+      {
+        TClassesRow& classesRow=(TClassesRow&)base_tables.get("classes").get_row("code",Qry.FieldAsString("class"));
+        ReplaceTextChild( segNode, "class_name", classesRow.name );
+      }
+      catch(EBaseTableError) {};
+    };
 
     NewTextChild(segNode,"status",Qry.FieldAsString("status"));
     NewTextChild(segNode,"hall",Qry.FieldAsInteger("hall"));
@@ -3840,7 +3840,6 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     else
       NewTextChild(segNode,"bag_refuse");
     NewTextChild(segNode,"tid",Qry.FieldAsInteger("tid"));
-    int point_dep=Qry.FieldAsInteger("point_dep");
 
     bool pr_unaccomp=Qry.FieldIsNULL("class");
     if (!pr_unaccomp)
@@ -3941,16 +3940,10 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     {
       CheckInInterface::LoadBag(grp_id,resNode);
       CheckInInterface::LoadPaidBag(grp_id,resNode);
+      readTripCounters(point_dep, segNode);
     };
 
-    Qry.Clear();
-    Qry.SQLText=
-      "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
-    Qry.CreateVariable("point_id",otInteger,point_dep);
-    Qry.Execute();
-    if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-    NewTextChild( segNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
-    NewTextChild( segNode, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
+    readTripSets( point_dep, fltInfo, operFltNode );
   };
 };
 
@@ -5675,6 +5668,45 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
   };
 }
 
+void CheckInInterface::readTripSets( int point_id,
+                                     xmlNodePtr dataNode)
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT airline,flt_no,suffix,airp,scd_out "
+    "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
+  TTripInfo fltInfo(Qry);
+  readTripSets(point_id, fltInfo, NewTextChild(dataNode,"tripsets"));
+};
+
+void CheckInInterface::readTripSets( int point_id,
+                                     TTripInfo &fltInfo,
+                                     xmlNodePtr tripSetsNode )
+{
+  TQuery Qry( &OraSession );
+  Qry.Clear();
+  Qry.SQLText=
+    "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.Execute();
+  if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
+  readTripSets(fltInfo, Qry.FieldAsInteger("pr_etstatus"), tripSetsNode);
+};
+
+void CheckInInterface::readTripSets( TTripInfo &fltInfo,
+                                     int pr_etstatus,
+                                     xmlNodePtr tripSetsNode)
+{
+  NewTextChild( tripSetsNode, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
+  NewTextChild( tripSetsNode, "pr_etstatus", pr_etstatus );
+  NewTextChild( tripSetsNode, "pr_no_ticket_check", (int)GetTripSets(tsNoTicketCheck,fltInfo) );
+};
+
+
 void CheckInInterface::GetTripCounters(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   int point_id=NodeAsInteger("point_id",reqNode);
@@ -5714,6 +5746,8 @@ struct TCkinPaxInfo
 
 void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+  TReqInfo* reqInfo = TReqInfo::Instance();
+
   int point_dep,point_arv;
   string cl,airp_dep,airp_arv;
 
@@ -5800,7 +5834,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   xmlNodePtr trferNode,node2;
   trferNode=NodeAsNode("transfer",reqNode)->children;
 
-  NewTextChild(resNode,"flight",GetTripName(fltInfo,true,false));
+  if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    NewTextChild(resNode,"flight",GetTripName(fltInfo,true,false));
   xmlNodePtr routeNode=NewTextChild(resNode,"tckin_route");
   xmlNodePtr segsNode=NewTextChild(resNode,"tckin_segments");
 
@@ -6011,7 +6046,15 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           NewTextChild(segNode,"flight",flight.str());
           if (tckin_route_confirm)
           {
-            NewTextChild( seg2Node, "flight", GetTripName(fltSPPInfo,true,false));
+            xmlNodePtr operFltNode;
+            if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+              operFltNode=NewTextChild(seg2Node,"tripheader");
+            else
+              operFltNode=seg2Node;
+            TripsInterface::readOperFltHeader( fltSPPInfo, operFltNode );
+            readTripData( point_dep, seg2Node );
+
+/*            NewTextChild( seg2Node, "flight", GetTripName(fltSPPInfo,true,false));
             NewTextChild( seg2Node, "airline", fltSPPInfo.airline);
             try
             {
@@ -6023,7 +6066,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             NewTextChild( seg2Node, "suffix", fltSPPInfo.suffix);
             string &tz_region=AirpTZRegion(fltSPPInfo.airp);
             TDateTime scd_out_local=UTCToLocal(fltSPPInfo.scd_out,tz_region);
-            NewTextChild( seg2Node, "scd_out_local", DateTimeToStr(scd_out_local));
+            NewTextChild( seg2Node, "scd_out_local", DateTimeToStr(scd_out_local));*/
 
             NewTextChild( seg2Node, "point_dep", point_dep);
             NewTextChild( seg2Node, "airp_dep", airp_dep);
@@ -6034,7 +6077,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv);
               TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
               NewTextChild( seg2Node, "city_arv_code", citiesRow.code );
-              NewTextChild( seg2Node, "city_arv_name", citiesRow.name );
+              if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+                NewTextChild( seg2Node, "city_arv_name", citiesRow.name );
             }
             catch(EBaseTableError) {};
           };
@@ -6310,7 +6354,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               {
                 TClassesRow& classesRow=(TClassesRow&)base_tables.get("classes").get_row("code",cl);
                 NewTextChild( seg2Node, "class_code", classesRow.code );
-                NewTextChild( seg2Node, "class_name", classesRow.name );
+                if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+                  NewTextChild( seg2Node, "class_name", classesRow.name );
               }
               catch(EBaseTableError) {};
             };
@@ -6410,14 +6455,12 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       if (total_permit && total_waitlist)
         NewTextChild(seg2Node,"wl_type",wl_type);
       NewTextChild(seg2Node,"pr_waitlist",(int)(total_permit && total_waitlist)); //!!! старый терминал 15.03.09
-      Qry.Clear();
-      Qry.SQLText=
-        "SELECT pr_etstatus FROM trip_sets WHERE point_id=:point_id ";
-      Qry.CreateVariable("point_id",otInteger,point_dep);
-      Qry.Execute();
-      if (Qry.Eof) throw UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
-      NewTextChild( seg2Node, "pr_etl_only", (int)GetTripSets(tsETLOnly,fltInfo) );
-      NewTextChild( seg2Node, "pr_etstatus", Qry.FieldAsInteger("pr_etstatus") );
+      xmlNodePtr operFltNode;
+      if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+        operFltNode=NodeAsNode("tripheader",seg2Node);
+      else
+        operFltNode=seg2Node;
+      readTripSets( point_dep, fltInfo, operFltNode );
     };
 
     if (total_permit)

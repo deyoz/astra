@@ -104,6 +104,9 @@ public:
 
   static void readTripCounters( int point_id, xmlNodePtr dataNode );
   static void readTripData( int point_id, xmlNodePtr dataNode );
+  static void readTripSets( int point_id, xmlNodePtr dataNode );
+  static void readTripSets( int point_id, TTripInfo &fltInfo, xmlNodePtr tripSetsNode );
+  static void readTripSets( TTripInfo &fltInfo, int pr_etstatus, xmlNodePtr tripSetsNode);
 };
 
 
