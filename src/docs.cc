@@ -2650,6 +2650,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     EXAM(rpt_params, reqNode, resNode);
     const char col_sym = ' '; //символ разделителя столбцов
     bool lat = GetRPEncoding(rpt_params)!=0;
+    bool pr_web = rpt_params.rpt_type == rtWEBTXT;
 
     xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
     xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
@@ -2674,10 +2675,16 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     s
         << left
         << setw(4)  << "№"
-        << setw(22) << (lat ? "Surname" : "Фамилия")
-        << setw(4)  << (lat ? "Pax" : "Пас")
-        << setw(3)  << (lat ? "Ex" : "Дс")
-        << setw(3)  << (lat ? "Br" : "Пс")
+        << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
+        << setw(4)  << (lat ? "Pax" : "Пас");
+    if(pr_web)
+        s
+            << setw(8)  << (lat ? "Seat No" : "№ места");
+    else
+        s
+            << setw(3)  << (lat ? "Ex" : "Дс")
+            << setw(3)  << (lat ? "Br" : "Пс");
+    s
         << setw(10) << (lat ? "Document" : "Документ")
         << setw(10) << (lat ? "Ticket" : "Билет")
         << setw(15) << (lat ? "Bag.Tag.No" : "№№ баг.бирок")
@@ -2698,7 +2705,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
         //рабиваем фамилию, документ, билет, бирки, ремарки
-        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),21,rows);
+        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 19 : 21),rows);
         fields["surname"]=rows;
 
         SeparateString(NodeAsString("document",rowNode, ""),9,rows);
@@ -2720,10 +2727,17 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
-                << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
-                << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "")
+                << left << setw(pr_web ? 19 : 21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym;
+            if(pr_web) {
+                s
+                    << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
+            } else {
+                s
+                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
+                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
+            }
+            s
                 << left << setw(9) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
                 << left << setw(14) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "") << col_sym
