@@ -617,9 +617,9 @@ TClientType DecodeClientType(const char* s)
     return ctTerm;
 };
 
-char* EncodeClientType(TClientType s)
+const char* EncodeClientType(TClientType s)
 {
-  return (char*)ClientTypeS[s];
+  return ClientTypeS[s];
 };
 
 TOperMode DecodeOperMode( const string mode )
@@ -668,9 +668,9 @@ TDocType DecodeDocType(const char* s)
     return dtUnknown;
 };
 
-char* EncodeDocType(TDocType doc)
+const char* EncodeDocType(TDocType doc)
 {
-  return (char*)TDocTypeS[doc];
+  return TDocTypeS[doc];
 };
 
 TClass DecodeClass(const char* s)
@@ -683,9 +683,9 @@ TClass DecodeClass(const char* s)
     return NoClass;
 };
 
-char* EncodeClass(TClass cl)
+const char* EncodeClass(TClass cl)
 {
-  return (char*)TClassS[cl];
+  return TClassS[cl];
 };
 
 TPerson DecodePerson(const char* s)
@@ -698,9 +698,9 @@ TPerson DecodePerson(const char* s)
     return NoPerson;
 };
 
-char* EncodePerson(TPerson p)
+const char* EncodePerson(TPerson p)
 {
-  return (char*)TPersonS[p];
+  return TPersonS[p];
 };
 
 TQueue DecodeQueue(int q)
@@ -728,9 +728,9 @@ TPaxStatus DecodePaxStatus(const char* s)
     return psCheckin;
 };
 
-char* EncodePaxStatus(TPaxStatus s)
+const char* EncodePaxStatus(TPaxStatus s)
 {
-  return (char*)TPaxStatusS[s];
+  return TPaxStatusS[s];
 };
 
 TCompLayerType DecodeCompLayerType(const char* s)
@@ -743,9 +743,9 @@ TCompLayerType DecodeCompLayerType(const char* s)
     return cltUnknown;
 };
 
-char* EncodeCompLayerType(TCompLayerType s)
+const char* EncodeCompLayerType(TCompLayerType s)
 {
-  return (char*)CompLayerTypeS[s];
+  return CompLayerTypeS[s];
 };
 
 TBagNormType DecodeBagNormType(const char* s)
@@ -758,9 +758,9 @@ TBagNormType DecodeBagNormType(const char* s)
     return bntUnknown;
 };
 
-char* EncodeBagNormType(TBagNormType s)
+const char* EncodeBagNormType(TBagNormType s)
 {
-  return (char*)BagNormTypeS[s];
+  return BagNormTypeS[s];
 };
 
 TDateTime DecodeTimeFromSignedWord( signed short int Value )

@@ -32,8 +32,8 @@ public:
     }
 
     virtual edilib::EdiSession *ediSession() { return &EdiSess; }
-    virtual hth::HthInfo *hth() { return 0; };
 
+    virtual hth::HthInfo *hth() { return 0; };
     virtual std::string sndrHthAddr() const { return ""; };
     virtual std::string rcvrHthAddr() const { return ""; };
     virtual std::string hthTpr() const { return ""; };
@@ -73,7 +73,6 @@ class AstraEdiSessRD : public edilib::EdiSessRdData
         }
 
         virtual hth::HthInfo *hth() { return 0; };
-
         virtual std::string sndrHthAddr() const { return ""; };
         virtual std::string rcvrHthAddr() const { return ""; };
         virtual std::string hthTpr() const { return ""; };
