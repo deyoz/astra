@@ -8,7 +8,6 @@
 #include "oralib.h"
 #include "tlg.h"
 #include "tlg_parser.h"
-#include "serverlib/daemon.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"

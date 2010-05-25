@@ -3,7 +3,7 @@
 #include "tclmon/tclmon.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
-#include "serverlib/helpcpp.h"
+#include "serverlib/string_cast.h"
 #include "crypt.h"
 #include "oralib.h"
 #include "basic.h"
@@ -28,7 +28,6 @@ using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
-using namespace JxtContext;
 
 
 int form_crypt_error(char *res, char *head, int hlen, int error)

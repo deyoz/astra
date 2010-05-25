@@ -18,6 +18,7 @@
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/ocilocal.h"
 #include "serverlib/ehelpsig.h"
+#include "serverlib/date_cast.h"
 
 #define NICKNAME "ROMAN"
 #define NICKTRACE ROMAN_TRACE
@@ -25,10 +26,8 @@
 
 using namespace BASIC;
 using namespace edilib;
-using namespace edilib::EdiSess;
 using namespace Ticketing;
 using namespace Ticketing::ChangeStatus;
-using namespace jxtlib;
 
 static std::string edi_addr,edi_own_addr;
 
@@ -337,8 +336,8 @@ int init_edifact()
         ProgError(STDLOG,"InitEdiCharSet() failed");
         return -3;
     }
-    edilib::EdiSess::EdiSessLib::Instance()->
-            setCallBacks(new edilib::EdiSess::EdiSessCallBack());
+    edilib::EdiSessLib::Instance()->
+            setCallBacks(new edilib::EdiSessCallBack());
 
     EdiMesFuncs::init_messages(message_funcs,
                                sizeof(message_funcs)/sizeof(message_funcs[0]));
@@ -543,13 +542,13 @@ void CreateTKCREQchange_status(edi_mes_head *pHead, edi_udata &udata,
 
     //запишем контексты
     AstraContext::SetContext("EDI_SESSION",
-                             udata.sessData()->ediSession()->ida(),
+                             udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
     if (TickD.req_ctxt_id()!=ASTRA::NoExists)
     {
         AstraContext::SetContext("EDI_HELP_INTMSGID",
-                                 udata.sessData()->ediSession()->ida(),
+                                 udata.sessData()->ediSession()->ida().get(),
                                  get_internal_msgid_hex());
 
         ServerFramework::getQueryRunner().getEdiHelpManager().
@@ -606,7 +605,7 @@ void ParseTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
 {
     string ctxt;
     AstraContext::GetContext("EDI_SESSION",
-                             udata.sessData()->ediSession()->ida(),
+                             udata.sessData()->ediSession()->ida().get(),
                              ctxt);
     ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
@@ -914,8 +913,8 @@ void ProcTKCRESchange_status(edi_mes_head *pHead, edi_udata &udata,
                              edi_common_data *data)
 {
     AstraContext::ClearContext("EDI_SESSION",
-                               (int)udata.sessData()->ediSession()->ida());
-    confirm_notify_levb(udata.sessData()->ediSession()->ida());
+                               udata.sessData()->ediSession()->ida().get());
+    confirm_notify_levb(udata.sessData()->ediSession()->ida().get());
 }
 
 void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
@@ -940,13 +939,13 @@ void CreateTKCREQdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data 
 
     //запишем контексты
     AstraContext::SetContext("EDI_SESSION",
-                             udata.sessData()->ediSession()->ida(),
+                             udata.sessData()->ediSession()->ida().get(),
                              TickD.context());
 
     if (TickD.req_ctxt_id()!=ASTRA::NoExists)
     {
       AstraContext::SetContext("EDI_HELP_INTMSGID",
-                                 udata.sessData()->ediSession()->ida(),
+                                 udata.sessData()->ediSession()->ida().get(),
                                  get_internal_msgid_hex());
 
       ServerFramework::getQueryRunner().getEdiHelpManager().
@@ -958,7 +957,7 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
 {
     string ctxt;
     AstraContext::GetContext("EDI_SESSION",
-                             udata.sessData()->ediSession()->ida(),
+                             udata.sessData()->ediSession()->ida().get(),
                              ctxt);
     ctxt=ConvertCodepage(ctxt,"CP866","UTF-8");
 
@@ -995,8 +994,8 @@ void ParseTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *
 void ProcTKCRESdisplay(edi_mes_head *pHead, edi_udata &udata, edi_common_data *data)
 {
     AstraContext::ClearContext("EDI_SESSION",
-                               (int)udata.sessData()->ediSession()->ida());
-    confirm_notify_levb(udata.sessData()->ediSession()->ida());
+                               (int)udata.sessData()->ediSession()->ida().get());
+    confirm_notify_levb(udata.sessData()->ediSession()->ida().get());
 }
 
 
@@ -1049,7 +1048,7 @@ int CreateEDIREQ (edi_mes_head *pHead, void *udata, void *data, int *err)
         // Из второй запись в БД
         const message_funcs_type &mes_funcs=
                 EdiMesFuncs::GetEdiFunc(pHead->msg_type, ed->msgId());
-        ed->sessDataWr()->SetEdiSessMesAttrOnly();
+        ed->sessDataWr()->SetEdiSessMesAttr();
         // Создает стр-ру EDIFACT
         if(::CreateMesByHead(ed->sessData()->edih()))
         {

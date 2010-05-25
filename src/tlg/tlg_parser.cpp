@@ -3814,7 +3814,8 @@ bool ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fqt)
           case 1:
             res=sscanf(tlg.lex,"%25[A-Z€-Ÿð0-9]%c",fqt.no,&c);
             if (c!=0||res!=1) throw ETlgError("Wrong format");
-            fqt.extra=trim(p);
+            fqt.extra=p;
+            TrimString(fqt.extra);
             break;
         };
       }

@@ -2034,7 +2034,8 @@ bool CheckInInterface::ParseFQTRem(TTlgParser &tlg,string &rem_text,TFQTItem &fq
                                    LParams()<<LParam("ident", string(tlg.lex))); //WEB
             for(;*p!=0;p++)
               if (IsDigitIsLetter(*p)) break;
-            fqt.extra=trim(p);
+            fqt.extra=p;
+            TrimString(fqt.extra);
             break;
         };
       }

@@ -559,7 +559,7 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           };
         };
       }
-      catch(std::exception &e)
+      catch(ServerFramework::Exception &e)
       {
         OraSession.Rollback();
         jxtlib::JXTLib::Instance()->GetCallbacks()->HandleException(&e);

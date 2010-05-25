@@ -947,7 +947,7 @@ string TPlaceList::GetYsName( int y )
 
 bool TPlaceList::GetisPlaceXY( string placeName, TPoint &p )
 {
-	placeName = trim( placeName );
+	TrimString(placeName);
 	if ( placeName.empty() )
 		return false;
   /* конвертация номеров мест в зависимости от лат. или рус. салона */

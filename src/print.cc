@@ -3210,7 +3210,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
               if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
-                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+                prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
               }
             }
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
@@ -3222,7 +3222,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
             if(DecodeDevFmtType(tag_key.fmt_type) == dftDPL) {
               if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
                 to_esc::parse_dmx(prn_form);
-                prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+                prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
               }
             }
             SetProp(NewTextChild(tagNode, "prn_form", prn_form),"hex",(int)false);
@@ -3503,7 +3503,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     TReqInfo *reqInfo = TReqInfo::Instance();
     hex=false;
     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-      Print = b64_encode(mso_form.c_str(), mso_form.size());
+      Print = StrUtils::b64_encode(mso_form.c_str(), mso_form.size());
     else
     {
     	StringToHex( mso_form, Print );
@@ -3827,7 +3827,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 ConvertParams.init(dev_model);
             to_esc::convert(prn_form, ConvertParams, prnParams);
             if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-              prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+              prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
             else
             {
             	StringToHex( string(prn_form), prn_form );
@@ -3837,7 +3837,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         if(DecodeDevFmtType(fmt_type) == dftDPL) {
             if (!reqInfo->desk.compatible(NEW_TERM_VERSION)) {
               to_esc::parse_dmx(prn_form);
-              prn_form = b64_encode(prn_form.c_str(), prn_form.size());
+              prn_form = StrUtils::b64_encode(prn_form.c_str(), prn_form.size());
             }
         }
         xmlNodePtr paxNode = NewTextChild(passengersNode, "pax");

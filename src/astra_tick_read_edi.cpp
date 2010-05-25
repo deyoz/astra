@@ -195,12 +195,12 @@ OrigOfRequest OrigOfRequestEdiR::operator ( )(ReaderData &RData) const
 
     char Type = *GetDBNum(pMes, 9972);
     const char *lng = GetDBFName(pMes, DataElement(3453), "", CompElement("C354"));
-    Lang::Language Lang;
+    Language Lang;
     if(!strcmp(lng, "RU")){
-        Lang = Lang::RUSSIAN;
+        Lang = RUSSIAN;
     } else {
         ProgTrace(TRACE3,"Lang=%s, Use EN", lng);
-        Lang = Lang::ENGLISH;
+        Lang = ENGLISH;
     }
 
     string AuthCode = GetDBNum(pMes, 9904);

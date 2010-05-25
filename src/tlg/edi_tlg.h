@@ -19,9 +19,9 @@ struct EdiMess
     static const std::string ChangeStat;
 };
 
-class AstraEdiSessWR : public edilib::EdiSess::EdiSessWrData
+class AstraEdiSessWR : public edilib::EdiSessWrData
 {
-    edilib::EdiSess::EdiSession EdiSess;
+    edilib::EdiSession EdiSess;
     edi_mes_head EdiHead;
     std::string Pult;
 public:
@@ -31,23 +31,19 @@ public:
         memset(&EdiHead, 0, sizeof(EdiHead));
     }
 
-    virtual edilib::EdiSess::EdiSession *ediSession() { return &EdiSess; }
+    virtual edilib::EdiSession *ediSession() { return &EdiSess; }
+    virtual hth::HthInfo *hth() { return 0; };
 
-    virtual edilib::EdiSess::H2host *h2h() { return 0; };
-    virtual std::string sndrH2hAddr() const { return ""; };
-    virtual std::string rcvrH2hAddr() const { return ""; };
-    virtual std::string H2hTpr() const { return ""; };
+    virtual std::string sndrHthAddr() const { return ""; };
+    virtual std::string rcvrHthAddr() const { return ""; };
+    virtual std::string hthTpr() const { return ""; };
 
     // В СИРЕНЕ это recloc/ или our_name из sirena.cfg
     // Идентификатор сессии
-    virtual std::string baseOurrefName() const
-    {
-        return "ASTRA";
-    }
-    virtual edi_mes_head *edih()
-    {
-        return &EdiHead;
-    }
+    virtual std::string baseOurrefName() const { return "ASTRA"; };
+
+    virtual edi_mes_head *edih() { return &EdiHead; };
+    virtual const edi_mes_head *edih() const { return &EdiHead; };
     // Внешняя ссылка на сессию
     // virtual int externalIda() const { return 0; }
     // Пульт
@@ -63,7 +59,7 @@ public:
     virtual std::string unbAddr() const { return get_edi_addr(); }
 };
 
-class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
+class AstraEdiSessRD : public edilib::EdiSessRdData
 {
     edi_mes_head *Head;
     //H2host H2H;
@@ -76,10 +72,11 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
         {
         }
 
-        virtual edilib::EdiSess::H2host *h2h() { return 0; };
-        virtual std::string sndrH2hAddr() const { return ""; };
-        virtual std::string rcvrH2hAddr() const { return ""; };
-        virtual std::string H2hTpr() const { return ""; };
+        virtual hth::HthInfo *hth() { return 0; };
+
+        virtual std::string sndrHthAddr() const { return ""; };
+        virtual std::string rcvrHthAddr() const { return ""; };
+        virtual std::string hthTpr() const { return ""; };
 
         virtual std::string baseOurrefName() const
         {
@@ -90,22 +87,20 @@ class AstraEdiSessRD : public edilib::EdiSess::EdiSessRdData
         {
             Head = &head;
         }
-        virtual edi_mes_head *edih()
-        {
-            return Head;
-        }
+        virtual const edi_mes_head *edih() const { return Head; };
+        virtual edi_mes_head *edih() { return Head; };
 };
 
 class edi_udata
 {
-    edilib::EdiSess::EdiSessData *SessData;
+    edilib::EdiSessData *SessData;
 //     ServerFramework::EdiHelpManager EdiHelpMng;
 public:
-    edi_udata(edilib::EdiSess::EdiSessData *sd)
+    edi_udata(edilib::EdiSessData *sd)
     :SessData(sd)/*,EdiHelpMng(ServerFramework::EdiHelpManager(15))*/
     {
     }
-    edilib::EdiSess::EdiSessData *sessData() {return SessData; }
+    edilib::EdiSessData *sessData() {return SessData; }
 //     ServerFramework::EdiHelpManager *ediHelp() { return &EdiHelpMng; }
     virtual ~edi_udata(){ delete SessData; }
 };

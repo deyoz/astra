@@ -18,7 +18,6 @@
 #include "czech_police_edi_file.h"
 #include "telegram.h"
 #include "arx_daily.h"
-#include "serverlib/daemon.h"
 #include "serverlib/cfgproc.h"
 #include "serverlib/posthooks.h"
 #include "serverlib/perfom.h"

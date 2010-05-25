@@ -8,7 +8,6 @@
 #include "jxtlib/jxtlib.h"
 #include "jxtlib/xml_stuff.h"
 #include "serverlib/sirena_queue.h"
-#include "serverlib/daemon.h"
 #include "serverlib/ocilocal.h"
 #include "tclmon/mespro_crypt.h"
 #include "crypt.h"

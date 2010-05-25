@@ -12,7 +12,6 @@
 #include "stl_utils.h"
 #include "tlg_parser.h"
 #include "edilib/edi_user_func.h"
-#include "serverlib/daemon.h"
 #include "serverlib/ourtime.h"
 
 #define NICKNAME "VLAD"

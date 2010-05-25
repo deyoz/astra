@@ -100,7 +100,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
        string res;
        TReqInfo *reqInfo = TReqInfo::Instance();
 	     if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         res = b64_encode( (const char*)data, len );
+         res = StrUtils::b64_encode( (const char*)data, len );
        else
        	 StringToHex( string((char*)data, len), res );
        NewTextChild( imageNode, "image", res.c_str() );
@@ -152,7 +152,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
        Qry->SetVariable( "pr_seat", NodeAsString( "pr_seat", node ) );
        StrDec = NodeAsString( "image", node );
        if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-         StrDec = b64_decode( StrDec.c_str(), StrDec.length() );
+         StrDec = StrUtils::b64_decode( StrDec.c_str(), StrDec.length() );
        else
        	 HexToString( string(StrDec), StrDec );
        Qry->CreateLongVariable( "image", otLongRaw, (void*)StrDec.c_str(), StrDec.length() );
