@@ -161,13 +161,24 @@ class LParser: public std::map<int, ElemData, std::greater<int> >
   	LParser( const std::string &lexema );
 };
 
-struct TLocaleMessage {
-	std::map<std::string,std::string> lang_messages;
+struct TMessageText {
+	std::string value;
 	int pr_del;
-	TLocaleMessage( std::string vlang, std::string vmessage, int vpr_del ) {
-		lang_messages[ upperc(vlang) ] = vmessage;
-		pr_del = vpr_del;
-	};
+	TMessageText() {
+		value = "";
+		pr_del=0;
+	}
+	TMessageText( const std::string &avalue, int apr_del ) {
+		value = avalue;
+		pr_del = apr_del;
+	}
+};
+
+struct TLocaleMessage {
+	std::map<std::string,TMessageText> lang_messages;
+	void Add( std::string vlang, std::string vmessage, int pr_del ) {
+		lang_messages.insert(make_pair(upperc(vlang),TMessageText(vmessage,pr_del)));
+	}
 	TLocaleMessage( ){};
 };
 

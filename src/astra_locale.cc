@@ -45,8 +45,7 @@ void TLocaleMessages::Invalidate()
 	}
 	Qry.Execute();
   while ( !Qry.Eof ) {
-  	TLocaleMessage msg( Qry.FieldAsString( "lang" ), Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
-  	messages[ string(Qry.FieldAsString( "id" )) ] = msg;
+  	messages[ string(Qry.FieldAsString( "id" )) ].Add(Qry.FieldAsString( "lang" ), Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ));
   	if ( tid < Qry.FieldAsInteger( "tid" ) )
   		tid = Qry.FieldAsInteger( "tid" );
   	Qry.Next();
@@ -68,10 +67,10 @@ std::string TLocaleMessages::getText( const std::string &lexema_id, const std::s
 	TLocaleMessage msg = messages[ vid ];
 	if ( msg.lang_messages.find( vlang ) == msg.lang_messages.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message in lang='%s', id='%s' not found", vlang.c_str(), vid.c_str() );
-	if ( !with_del && msg.pr_del )
-		throw EXCEPTIONS::Exception( "TMessages::getText: invalid lang='%s', id='%s', pr_del=%d", vlang.c_str(), vid.c_str(), msg.pr_del );
-	ProgTrace( TRACE5, "TLocaleMessages::getText return '%s'", msg.lang_messages[ vlang ].c_str() );
-	return msg.lang_messages[ vlang ];
+	if ( !with_del && msg.lang_messages[ vlang ].pr_del )
+		throw EXCEPTIONS::Exception( "TMessages::getText: msg delete invalid lang='%s', id='%s', pr_del=%d", vlang.c_str(), vid.c_str(), msg.lang_messages[ vlang ].pr_del );
+	ProgTrace( TRACE5, "TLocaleMessages::getText return '%s'", msg.lang_messages[ vlang ].value.c_str() );
+	return msg.lang_messages[ vlang ].value;
 }
 
 TLocaleMessages::TLocaleMessages()
