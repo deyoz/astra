@@ -636,9 +636,9 @@ TArxTlgsFilesEtc::TArxTlgsFilesEtc(TDateTime utc_date):TArxMoveNoFlt(utc_date)
   Qry->Clear();
   Qry->SQLText=
     "BEGIN "
-    "  arch.norms_rates_etc(:arx_date,:max_rows,:time_duration,:step); "
+    "  arch.tlgs_files_etc(:arx_date,:max_rows,:time_duration,:step); "
     "END;";
-  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MAX_DAYS()-15);
+  Qry->CreateVariable("arx_date",otDate,utcdate-ARX_MIN_DAYS());
   Qry->DeclareVariable("max_rows",otInteger);
   Qry->DeclareVariable("time_duration",otInteger);
   Qry->DeclareVariable("step",otInteger);
