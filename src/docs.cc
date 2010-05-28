@@ -1671,6 +1671,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     STAT::set_variables(resNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2149,8 +2150,8 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
+        << right << setw(3)  << "№" << " "
         << left
-        << setw(4)  << "№"
         << setw(22) << (lat ? "Surname" : "Ф.И.О.")
         << setw(4)  << (lat ? "Type" : "Тип")
         << setw(10) << (lat ? "Ticket No" : "№ билета")
@@ -2278,13 +2279,13 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
+        << right << setw(3)  << "№" << " "
         << left
-        << setw(4)  << "№"
         << setw(38) << (lat ? "Surname" : "Ф.И.О.")
         << setw(5)  << (lat ? "Type" : "Тип")
         << setw(8)  << (lat ? "Seat No" : "№ места")
         << setw(6) << (lat ? "Bag" : "Багаж")
-        << setw(19) << (lat ? "Bag.Tag.No" : "№№ баг.бирок");
+        << setw(19) << (lat ? " Bag.Tag.No" : " №№ баг.бирок");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
     xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
@@ -2312,7 +2313,7 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
                 << left << setw(37) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(4) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << " " << col_sym
                 << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
                 << left <<  setw(5) << (row == 0 ? bagamount : "") << col_sym
                 << left << setw(19) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
@@ -2396,8 +2397,8 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
+        << right << setw(3)  << "№" << " "
         << left
-        << setw(4)  << "№"
         << setw(38) << (lat ? "Surname" : "Ф.И.О.")
         << setw(5)  << (lat ? "Type" : "Тип")
         << setw(8)  << (lat ? "Seat No" : "№ места")
@@ -2549,8 +2550,8 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
+        << right << setw(3)  << "№" << " "
         << left
-        << setw(4)  << "№"
         << setw(7)  << "PNR"
         << setw(22) << (lat ? "Surname" : "Ф.И.О.")
         << setw(5)  << (lat ? "Pax" : "Пас")
@@ -2673,9 +2674,8 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << left
-        << setw(4)  << "№"
-        << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
+        << right << setw(3)  << "№" << col_sym
+        << left << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
         << setw(4)  << (lat ? "Pax" : "Пас");
     if(pr_web)
         s
