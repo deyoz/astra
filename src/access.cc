@@ -91,6 +91,38 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
 }
 
+void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int src_role = NodeAsInteger("src_role", reqNode);
+    int dst_role = NodeAsInteger("dst_role", reqNode);
+    int pr_force = NodeAsInteger("pr_force", reqNode);
+    TQuery Qry(&OraSession);
+    Qry.SQLText =
+        "begin "
+        "  delete from role_rights where role_id = :dst_role; "
+        "  if :pr_force = 0 and sql%rowcount > 0 then "
+        "    raise_application_error(-20000, 'role_rights found'); "
+        "  end if; "
+        "  delete from role_assign_rights where role_id = :dst_role; "
+        "  if :pr_force = 0 and sql%rowcount > 0 then "
+        "    raise_application_error(-20000, 'role_assign_rights found'); "
+        "  end if; "
+        "  insert into role_rights(role_id, right_id) select :dst_role, right_id from role_rights where role_id = :src_role; "
+        "  insert into role_assign_rights(role_id, right_id) select :dst_role, right_id from role_assign_rights where role_id = :src_role; "
+        "end; ";
+    Qry.CreateVariable("src_role", otInteger, src_role);
+    Qry.CreateVariable("dst_role", otInteger, dst_role);
+    Qry.CreateVariable("pr_force", otInteger, pr_force);
+    try {
+        Qry.Execute();
+    } catch(EOracleError E) {
+        if ( E.Code == 20000 )
+            NewTextChild(resNode, "alert");
+        else
+            throw;
+    }
+}
+
 void AccessInterface::RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     TReqInfo &info = *(TReqInfo::Instance());
