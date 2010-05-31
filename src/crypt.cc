@@ -289,9 +289,9 @@ void TCrypt::Init( const std::string &desk )
   bool pr_exists = GetClientCertificate( &Qry, grp_id, desk, client_cert );
   if ( client_cert.empty() ) {
   	if ( !pr_exists )
-  	  showProgError("Шифрованное соединение: сертификат клиента не найден. Обратитесь к администратору");
+  	  AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_NOT_FOUND.CALL_ADMIN");
   	else
-  		showProgError("Шифрованное соединение: сертификат клиента просрочен. Обратитесь к администратору");
+  		AstraLocale::showProgError("MSG.MESSAGEPRO.CRYPT_CONNECT_CERT_OUTDATED.CALL_ADMIN");
   	throw UserException2();
   }
 };
@@ -347,7 +347,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   while ( !Qry.Eof ) {
   	if ( Qry.FieldIsNULL( "desk" ) && pr_grp ||
   		  !Qry.FieldIsNULL( "desk" ) && !pr_grp )
-  	  throw UserException( "Запрос на сертификат был создан ранее. На данный момент не обработан" );
+  	  throw AstraLocale::UserException( "MSG.MESSAGEPRO.CERT_QRY_CREATED_EARLIER.NOT_PROCESSED_YET" );
   	Qry.Next();
   }
   Qry.Clear();
@@ -379,7 +379,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	NewTextChild( node, "server_id", SERVER_ID() );
 	NewTextChild( node, "FileKey", "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" ) );
 	if ( Qry.Eof )
-		throw UserException( "Нет данных для запроса на сертификат" );
+		throw UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
   NewTextChild( node, "Country", Qry.FieldAsString( "country" ) );
 	if ( !Qry.FieldIsNULL( "key_algo" ) )
 	  NewTextChild( node, "Algo", Qry.FieldAsString( "key_algo" ) );
@@ -457,7 +457,7 @@ void CryptInterface::GetRequestsCertificate(XMLRequestCtxt *ctxt, xmlNodePtr req
   }
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Нет запросов на сертификат" );
+  	throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERT_QRYS" );
   vector<TSearchData> reqs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;
@@ -621,7 +621,7 @@ bool pr_search = GetNode( "search", reqNode );
   }
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Нет сертификатов" );
+  	throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_CERTS" );
   vector<TSearchData> certs;
   string grp_name;
   xmlNodePtr desksNode = NULL, grpsNode = NULL, reqsNode = NULL;

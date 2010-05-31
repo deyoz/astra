@@ -22,6 +22,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 
@@ -363,7 +364,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
       "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE ";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
     TQuery SetsQry( &OraSession );
     SetsQry.Clear();
@@ -467,7 +468,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		    	ProgTrace( TRACE5, "question=%d", question );
   		    	if ( question ) {
   		    		xmlNodePtr dataNode = NewTextChild( resNode, "data" );
-  		    		NewTextChild( dataNode, "question", "Отмена режима перерегистрации транзита приведет к отмене регистрации всех транзитных пассажиров. Отменить режим перерегистрации?" );
+  		    		NewTextChild( dataNode, "question", getLocaleText("QST.TRANZIT_RECHECKIN_CAUTION.CANCEL") );
   		    		return;
   		      }
   		      tst();
@@ -548,7 +549,7 @@ void PrepRegInterface::CrsDataApplyUpdates(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   		  Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
   		  if (!Qry.Eof)
-  		    throw UserException("Для изменения сеанса регистрации необходима отмена регистрации всех пассажиров");
+  		    throw AstraLocale::UserException("MSG.NEED_TO_CANCEL_CKIN_ALL_PAX_TO_MODIFY_CKIN_SEANCE");
       };
 
       Qry.Clear();

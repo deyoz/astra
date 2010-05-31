@@ -21,6 +21,7 @@
 
 using namespace ASTRA;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace std;
 using namespace JxtContext;
 
@@ -53,7 +54,7 @@ void GetModuleList(xmlNodePtr resNode)
         NewTextChild(moduleNode, "exe", Qry.FieldAsString("exe"));
       };
     }
-    else showErrorMessage("Пользователю закрыт доступ ко всем модулям");
+    else AstraLocale::showErrorMessage("MSG.ALL_MODULES_DENIED_FOR_USER");
 };
 
 void GetDeviceAirlines(xmlNodePtr node)
@@ -1191,23 +1192,23 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     Qry.CreateVariable("passwd", otString, NodeAsString("passwd", reqNode));
     Qry.Execute();
     if ( Qry.RowCount() == 0 )
-      throw UserException("Неверно указан пользователь или пароль");
+      throw AstraLocale::UserException("MSG.WRONG_LOGIN_OR_PASSWD");
     if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-    	throw UserException( "Пользователь удален из системы" );
+    	throw AstraLocale::UserException( "MSG.USER_DELETED" );
     if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-      throw UserException( "Пользователю отказано в доступе" );
+      throw AstraLocale::UserException( "MSG.USER_DENIED" );
     reqInfo->user.user_id = Qry.FieldAsInteger("user_id");
     reqInfo->user.login = Qry.FieldAsString("login");
     reqInfo->user.descr = Qry.FieldAsString("descr");
     if(Qry.FieldIsNULL("desk"))
     {
-      showMessage( reqInfo->user.descr + ", добро пожаловать в систему");
+      AstraLocale::showMessage( "MSG.USER_WELCOME", LParams() << LParam("user", reqInfo->user.descr));
     }
     else
      if (reqInfo->desk.code != Qry.FieldAsString("desk"))
-       showMessage("Замена терминала");
+       AstraLocale::showMessage("MSG.PULT_SWAP");
     if (Qry.FieldAsString("passwd")==(string)"ПАРОЛЬ" )
-      showErrorMessage("Пользователю необходимо изменить пароль");
+      AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
     Qry.Clear();
     Qry.SQLText =
       "BEGIN "
@@ -1233,7 +1234,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     string airlines;
     string airlines_params;
     if (!GetSessionAirlines(GetNode("airlines", reqNode),airlines,airlines_params))
-      throw UserException("Не найден код авиакомпании %s",airlines.c_str());
+      throw AstraLocale::UserException("MSG.AIRLINE_CODE_NOT_FOUND", LParams() << LParam("airline", airlines));
     getJxtContHandler()->sysContext()->write("session_airlines",airlines);
     getJxtContHandler()->sysContext()->write("session_airlines_params",airlines_params);
     xmlNodePtr node=NodeAsNode("/term/query",ctxt->reqDoc);
@@ -1263,7 +1264,7 @@ void MainDCSInterface::UserLogoff(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.Execute();
     getJxtContHandler()->sysContext()->remove("session_airlines");
     getJxtContHandler()->sysContext()->remove("session_airlines_params");
-    showMessage("Сеанс работы в системе завершен");
+    AstraLocale::showMessage("MSG.WORK_SEANCE_FINISHED");
     reqInfo->user.clear();
     reqInfo->desk.clear();
     showBasicInfo();
@@ -1282,7 +1283,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       Qry.Execute();
       if (Qry.Eof) throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
       if (strcmp(Qry.FieldAsString("passwd"),NodeAsString("old_passwd", reqNode))!=0)
-        throw UserException("Неверно указан текущий пароль");
+        throw AstraLocale::UserException("MSG.PASSWORD.CURRENT_WRONG_SET");
     };
     Qry.Clear();
     Qry.SQLText =
@@ -1293,7 +1294,7 @@ void MainDCSInterface::ChangePasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.RowsProcessed() == 0)
         throw Exception("user not found (user_id=%d)",reqInfo->user.user_id);
     TReqInfo::Instance()->MsgToLog("Изменен пароль пользователя", evtAccess);
-    showMessage("Пароль изменен");
+    AstraLocale::showMessage("MSG.PASSWORD.MODIFIED");
 }
 
 void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -1565,7 +1566,7 @@ void MainDCSInterface::DetermineScanParams(XMLRequestCtxt *ctxt, xmlNodePtr reqN
   catch(EConvertError &e)
   {
     ProgTrace(TRACE0,"DetermineScanParams: %s", e.what());
-    throw UserException("Невозможно автоматически определить параметры устройства");
+    throw AstraLocale::UserException("MSG.DEVICE.UNABLE_AUTO_DETECT_PARAMS");
   };
 };
 

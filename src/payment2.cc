@@ -17,6 +17,7 @@
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace std;
 
 int MainPaxRegNo(int grp_id)
@@ -60,7 +61,7 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       Qry.CreateVariable("pax_id",otInteger,NodeAsInteger("pax_id",reqNode));
       Qry.Execute();
       if (Qry.Eof)
-        throw UserException("Пассажир не зарегистрирован");
+        throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
       reg_no=Qry.FieldAsInteger("reg_no");
 
       if (point_id!=Qry.FieldAsInteger("point_dep"))
@@ -79,10 +80,10 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
           if (!FltQry.Eof)
           {
             TTripInfo info(FltQry);
-            throw UserException("Пассажир с рейса " + GetTripName(info));
+            throw AstraLocale::UserException("MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
           }
           else
-            throw UserException("Пассажир с другого рейса");
+            throw AstraLocale::UserException("MSG.PASSENGER.FROM_OTHER_FLIGHT");
         };
       };
     }
@@ -102,7 +103,7 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.SQLText = sqlText;
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException("Пассажир не зарегистрирован");
+        throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
   }
   else
   {
@@ -113,7 +114,7 @@ void PaymentOldInterface::LoadPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     Qry.CreateVariable("no",otFloat,NodeAsFloat("receipt_no",reqNode));
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException("Квитанция не найдена");
+      throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND");
     receipt_id=Qry.FieldAsInteger("receipt_id");
 
     if (!Qry.FieldIsNULL("pax_id") && Qry.FieldIsNULL("annul_date"))
@@ -276,7 +277,7 @@ int PaymentOldInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_dep);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   int new_tid=Qry.FieldAsInteger("tid");
 
   Qry.Clear();
@@ -288,7 +289,7 @@ int PaymentOldInterface::LockAndUpdTid(int point_dep, int grp_id, int tid)
   Qry.CreateVariable("tid",otInteger,tid);
   Qry.Execute();
   if (Qry.RowsProcessed()<=0)
-    throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+    throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
   return new_tid;
 };
 
@@ -364,7 +365,7 @@ void PaymentOldInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.CreateVariable("value_cur",otString,NodeAsStringFast("value_cur",node,""));
         Qry.Execute();
         if (idNode!=NULL && Qry.RowsProcessed()<=0)
-            throw UserException("Квитанция не найдена. Обновите данные");
+            throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
 
         NewTextChild(resNode,"receipt_id",Qry.GetVariableAsInteger("receipt_id"));
     }
@@ -382,7 +383,7 @@ void PaymentOldInterface::UpdPrepay(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             Qry.Execute();
         } catch(EOracleError E) {
             if(E.Code == 1403)
-                throw UserException("Квитанция не найдена. Обновите данные");
+                throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
             else
                 throw;
         }
@@ -569,14 +570,7 @@ int PaymentOldInterface::PutReceipt(TBagReceipt &rcpt, int point_id, int grp_id)
   catch(EOracleError E)
   {
     if (E.Code==1)
-    {
-      ostringstream msg;
-      msg.setf(ios::fixed);
-      msg << "Бланк квитанции с номером "
-          << setw(10) << setfill('0') << setprecision(0) << rcpt.no
-          << " уже использован";
-      throw UserException(msg.str());
-    }
+      throw AstraLocale::UserException("MSG.RECEIPT_BLANK_NO_ALREADY_USED", LParams() << LParam("no", rcpt.no));
     else
       throw;
   };
@@ -668,7 +662,7 @@ double PaymentOldInterface::GetCurrNo(int user_id, string form_type)
   Qry.CreateVariable("user_id",otInteger,user_id);
   Qry.Execute();
   if (Qry.Eof)
-    throw UserException("Печать установленного бланка не производится");
+    throw AstraLocale::UserException("MSG.BLANK_SET_PRINTING_UNAVAILABLE");
   if (!Qry.FieldIsNULL("curr_no"))
     return Qry.FieldAsFloat("curr_no");
   else
@@ -695,7 +689,7 @@ void PaymentOldInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   Qry.CreateVariable("grp_id",otInteger,grp_id);
   Qry.Execute();
   if (Qry.Eof)
-    throw UserException("Информация по рейсу или пассажиру изменена. Обновите данные");
+    throw AstraLocale::UserException("MSG.FLT_OR_PAX_INFO_CHANGED.REFRESH_DATA");
   //int pax_id=Qry.FieldAsInteger("pax_id");
 
   rcpt.airline=Qry.FieldAsString("airline");
@@ -711,7 +705,7 @@ void PaymentOldInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   rcpt.pr_lat=country_dep!="РФ" || country_arv!="РФ";
   rcpt.form_type=NodeAsString("form_type",rcptNode);
   if (rcpt.form_type.empty())
-    throw UserException("Не установлен тип бланка");
+    throw AstraLocale::UserException("MSG.RECEIPT_BLANK_TYPE_NOT_SET");
 
   if (GetNode("no",rcptNode)==NULL)
   {
@@ -873,7 +867,7 @@ void PaymentOldInterface::PutReceiptFields(int id, xmlNodePtr node)
   Qry.CreateVariable("id",otInteger,id);
   Qry.Execute();
   if (Qry.Eof)
-    throw UserException("Квитанция не найдена. Обновите данные");
+      throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
 
   GetReceipt(Qry,rcpt);
   PrintDataParser parser(rcpt);
@@ -920,7 +914,7 @@ void PaymentOldInterface::ReplaceReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   int rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
   if (!GetReceipt(rcpt_id,rcpt))
-    throw UserException("Заменяемая квитанция не найдена. Обновите данные");
+    throw AstraLocale::UserException("MSG.RECEIPT_TO_REPLACE_NOT_FOUND.REFRESH_DATA");
   rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
   rcpt.issue_date=NowUTC();
   rcpt.issue_desk=reqInfo->desk.code;
@@ -965,7 +959,7 @@ void PaymentOldInterface::AnnulReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         Qry.Execute();
     } catch(EOracleError E) {
         if(E.Code == 1403)
-            throw UserException("Аннулируемая квитанция была изменена. Обновите данные");
+            throw AstraLocale::UserException("MSG.RECEIPT_TO_ANNUL_CHANGED.REFRESH_DATA");
         else
             throw;
     }
@@ -1014,7 +1008,7 @@ void PaymentOldInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             rcpt_id=NodeAsInteger("receipt/id",reqNode);
 
             if (!GetReceipt(rcpt_id,rcpt))
-                throw UserException("Заменяемая квитанция не найдена. Обновите данные");
+                throw AstraLocale::UserException("MSG.RECEIPT_TO_REPLACE_NOT_FOUND.REFRESH_DATA");
 
             ostringstream old_no, no;
             old_no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
@@ -1043,7 +1037,7 @@ void PaymentOldInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             Qry.Execute();
             tst();
             if (Qry.RowsProcessed()<=0)
-                throw UserException("Заменяемая квитанция была изменена. Обновите данные");
+                throw AstraLocale::UserException("MSG.RECEIPT_TO_REPLACE_CHANGED.REFRESH_DATA");
             logmsg = "Замена бланка " + rcpt.form_type + ": " + old_no.str() + " на " + no.str();
         };
 
@@ -1072,7 +1066,7 @@ void PaymentOldInterface::PrintReceipt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         //повтор печати
         rcpt_id=NodeAsInteger("receipt/id",reqNode);
         if (!GetReceipt(rcpt_id,rcpt))
-            throw UserException("Квитанция не найдена. Обновите данные");
+            throw AstraLocale::UserException("MSG.RECEIPT_NOT_FOUND.REFRESH_DATA");
         ostringstream no;
         no << fixed << setw(10) << setfill('0') << setprecision(0) << rcpt.no;
         logmsg = "Повтор печати квитанции " + rcpt.form_type + " " + no.str();

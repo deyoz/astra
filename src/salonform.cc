@@ -272,7 +272,7 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	NewTextChild( dataNode, "passengers" );
   }
   else
-  	showMessage( "Данные успешно сохранены" );
+  	ASTRA::showMessage( "Данные успешно сохранены" );
 }
 
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )

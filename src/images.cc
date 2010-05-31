@@ -166,7 +166,7 @@ void ImagesInterface::SetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     throw;
   }
   OraSession.DeleteQuery( *Qry );
-  ASTRA::showMessage( "Данные успешно сохранены" );
+  AstraLocale::showMessage( "MSG.DATA_SAVED" );
 };
 
 void ImagesInterface::GetImages(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

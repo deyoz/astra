@@ -28,6 +28,7 @@ using namespace EXCEPTIONS;
 using namespace JxtContext;
 using namespace boost::local_time;
 using namespace boost::posix_time;
+using namespace AstraLocale;
 
 string AlignString(string str, int len, string align)
 {
@@ -67,7 +68,7 @@ bool TDesk::compatible(std::string ver)
     break;
   };
   if (c!=ver.end() || i!=14)
-    throw Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
+    throw EXCEPTIONS::Exception("TDesk::compatible: wrong version param '%s'",ver.c_str());
 
   return (!version.empty() &&
           version!=UNKNOWN_VERSION &&
@@ -108,9 +109,9 @@ void TReqInfo::Initialize( const std::string &city )
   Qry.SetVariable( "city", city );
   Qry.Execute();
   if (Qry.Eof)
-    throw Exception("TReqInfo::Initialize: city %s not found",city.c_str());
+    throw EXCEPTIONS::Exception("TReqInfo::Initialize: city %s not found",city.c_str());
   if (Qry.FieldIsNULL("region"))
-    throw UserException("TReqInfo::Initialize: region nod defined (city=%s)",city.c_str());
+    throw EXCEPTIONS::UserException("TReqInfo::Initialize: region nod defined (city=%s)",city.c_str());
   desk.city = city;
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
@@ -144,7 +145,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
       XMLRequestCtxt *xmlRC = getXmlCtxt();
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-      showProgError( "Шифрованное соединение: ошибка режима шифрования. Повторите запрос" );
+      ASTRA::showProgError( "Шифрованное соединение: ошибка режима шифрования. Повторите запрос" );
       resNode = ReplaceTextChild( resNode, "clear_certificates" );
       throw UserException2();
     }
@@ -158,7 +159,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "exe", screen.name );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    throw Exception( (string)"Unknown screen " + screen.name );
+    throw EXCEPTIONS::Exception( (string)"Unknown screen " + screen.name );
   screen.id = Qry.FieldAsInteger( "id" );
   screen.version = Qry.FieldAsInteger( "version" );
   screen.pr_logon = Qry.FieldAsInteger( "pr_logon" );
@@ -173,9 +174,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "pult", InitData.pult );
   Qry.Execute();
   if ( Qry.RowCount() == 0 )
-    throw UserException( "Пульт не зарегистрирован в системе. Обратитесь к администратору." );
+    throw AstraLocale::UserException( "MSG.PULT_NOT_REGISTERED");
   if (Qry.FieldAsInteger("under_constr")!=0)
-    throw UserException( "Сервер временно недоступен. Повторите запрос через несколько минут" );
+    throw AstraLocale::UserException( "MSG.SERVER_TEMPORARILY_UNAVAILABLE" );
   desk.city = Qry.FieldAsString( "city" );
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
@@ -197,9 +198,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.SetVariable( "city", desk.city );
   Qry.Execute();
   if (Qry.Eof)
-    throw UserException("Не определен город пульта");
+    throw AstraLocale::UserException("MSG.DESK_CITY_NOT_DEFINED");
   if (Qry.FieldIsNULL("region"))
-    throw UserException("Для города %s не задан регион",desk.city.c_str());
+    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", desk.city));
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
   if ( !screen.pr_logon )
@@ -226,15 +227,15 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     if (!InitData.checkUserLogon )
      	return;
     else
-      throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
+      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
   };
   if ( !InitData.opr.empty() )
     if ( InitData.opr != Qry.FieldAsString( "login" ) )
-      throw UserException( "Пользователю необходимо войти в систему с данного пульта" );
+      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
-  	throw UserException( "Пользователь удален из системы" );
+  	throw AstraLocale::UserException( "MSG.USER.DELETED");
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
-    throw UserException( "Пользователю отказано в доступе" );
+    throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   user.user_id = Qry.FieldAsInteger( "user_id" );
   user.descr = Qry.FieldAsString( "descr" );
   user.user_type = (TUserType)Qry.FieldAsInteger( "type" );
@@ -251,7 +252,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   Qry.Execute();
   if ( !Qry.Eof && !InitData.pr_web ||
   	   Qry.Eof && InitData.pr_web ) //???
-    	throw UserException( "Пользователю отказано в доступе" );
+    	throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED" );
 
   if ( InitData.pr_web )
   	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
@@ -272,7 +273,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     Qry.CreateVariable("user_id",otInteger,user.user_id);
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException( "Пользователю отказано в доступе с пульта %s", desk.code.c_str() );
+      throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED_FROM_DESK", LParams() << LParam("desk", desk.code));
   };*/
 
   Qry.Clear();
@@ -333,7 +334,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   };
   MergeAccess(user.access.airlines,user.access.airlines_permit,airlines,pr_denial_all);
   if (airlines.empty() && pr_denial_all)
-    throw UserException( "Пульт отключен" );
+    throw AstraLocale::UserException( "MSG.DESK.TURNED_OFF" );
 
   //пользовательские настройки
   Qry.Clear();
@@ -842,6 +843,51 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
   }
 }
 
+string getLocaleText(const std::string &vlexema)
+{
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id );
+    return text;
+}
+
+string getLocaleText(const std::string &vlexema, LParams &aparams)
+{
+    LexemaData lexemaData;
+    lexemaData.lexema_id = vlexema;
+    lexemaData.lparams = aparams;
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id );
+    return text;
+}
+
+void showMessage( std::string vlexema, LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+    showMessage(lexemaData, code);
+}
+
+void showMessage(LexemaData lexemaData, int code)
+{
+  string text, master_lexema_id;
+  getLexemaText( lexemaData, text, master_lexema_id );
+  XMLRequestCtxt *xmlRC = getXmlCtxt();
+  xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
+  resNode = ReplaceTextChild( ReplaceTextChild( resNode, "command" ), "message", text );
+  SetProp(resNode, "lexema_id", master_lexema_id);
+  SetProp(resNode, "code", code);
+}
+
+void showMessage(const std::string &lexema_id, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = lexema_id;
+	showMessage( lexemaData, code );
+}
+
 void showErrorMessage(LexemaData lexemaData, int code)
 {
   string text, master_lexema_id;
@@ -1276,11 +1322,11 @@ tz_database &get_tz_database()
     }
     catch (boost::local_time::data_not_accessible)
     {
-      throw Exception("File 'date_time_zonespec.csv' not found");
+      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' not found");
     }
     catch (boost::local_time::bad_field_count)
     {
-      throw Exception("File 'date_time_zonespec.csv' wrong format");
+      throw EXCEPTIONS::Exception("File 'date_time_zonespec.csv' wrong format");
     };
   }
   return tz_db;
@@ -1288,23 +1334,23 @@ tz_database &get_tz_database()
 
 string& AirpTZRegion(string airp, bool with_exception)
 {
-  if (airp.empty()) throw Exception("Airport not specified");
+  if (airp.empty()) throw EXCEPTIONS::Exception("Airport not specified");
   TAirpsRow& row=(TAirpsRow&)base_tables.get("airps").get_row("code",airp);
   return CityTZRegion(row.city,with_exception);
 };
 
 string& CityTZRegion(string city, bool with_exception)
 {
-  if (city.empty()) throw Exception("City not specified");
+  if (city.empty()) throw EXCEPTIONS::Exception("City not specified");
   TCitiesRow& row=(TCitiesRow&)base_tables.get("cities").get_row("code",city);
   if (row.region.empty() && with_exception)
-    throw UserException("Для города %s не задан регион",city.c_str());
+    throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED",LParams() << LParam("city", city));
   return row.region;
 };
 
 string DeskCity(string desk, bool with_exception)
 {
-  if (desk.empty()) throw Exception("Desk not specified");
+  if (desk.empty()) throw EXCEPTIONS::Exception("Desk not specified");
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
@@ -1316,7 +1362,7 @@ string DeskCity(string desk, bool with_exception)
   if(Qry.Eof)
   {
     if (with_exception)
-      throw UserException("Пульт %s не найден", desk.c_str());
+      throw AstraLocale::UserException("MSG.DESK.NOT_FOUND", LParams() << LParam("desk", desk));
     else
       return "";
   }
@@ -1325,20 +1371,20 @@ string DeskCity(string desk, bool with_exception)
 
 TDateTime UTCToLocal(TDateTime d, string region)
 {
-  if (region.empty()) throw Exception("Region not specified");
+  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   local_date_time ld(DateTimeToBoost(d),tz);
   return BoostToDateTime(ld.local_time());
 }
 
 TDateTime LocalToUTC(TDateTime d, string region, int is_dst)
 {
-  if (region.empty()) throw Exception("Region not specified");
+  if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region(region);
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   ptime pt=DateTimeToBoost(d);
   try {
     local_date_time ld(pt.date(),pt.time_of_day(),tz,local_date_time::EXCEPTION_ON_ERROR);
@@ -1363,7 +1409,7 @@ TDateTime UTCToClient(TDateTime d, string region)
     case ustTimeLocalAirp:
       return UTCToLocal(d,region);
     default:
-      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
 
@@ -1379,7 +1425,7 @@ TDateTime ClientToUTC(TDateTime d, string region, int is_dst)
     case ustTimeLocalAirp:
       return LocalToUTC(d,region,is_dst);
     default:
-      throw Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
+      throw EXCEPTIONS::Exception("Unknown sets.time for user %s (user_id=%d)",reqInfo->user.login.c_str(),reqInfo->user.user_id);
   };
 };
 
@@ -1752,7 +1798,7 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
 string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
 {
     if(!(fmt == 0 || fmt == 1))
-        throw Exception("ElemIdToElem: wrong fmt %d (must be 0 or 1)", fmt);
+        throw EXCEPTIONS::Exception("ElemIdToElem: wrong fmt %d (must be 0 or 1)", fmt);
     string table_name;
     switch(type)
     {
@@ -1760,7 +1806,7 @@ string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
             table_name = "cls_grp";
             break;
         default:
-            throw Exception("ElemIdToElem: unsupported TElemType %d", type);
+            throw EXCEPTIONS::Exception("ElemIdToElem: unsupported TElemType %d", type);
     }
     TQuery Qry(&OraSession);
     string SQLText =
@@ -1772,7 +1818,7 @@ string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted)
     Qry.CreateVariable("with_deleted", otInteger, with_deleted);
     Qry.Execute();
     if(Qry.Eof)
-        throw Exception("ElemIdToElem: elem not found for id %d", id);
+        throw EXCEPTIONS::Exception("ElemIdToElem: elem not found for id %d", id);
     string code = Qry.FieldAsString("code");
     string code_lat = Qry.FieldAsString("code_lat");
     string result;
@@ -1927,11 +1973,11 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 
 bool is_dst(TDateTime d, string region)
 {
-	if (region.empty()) throw Exception("Region not specified");
+	if (region.empty()) throw EXCEPTIONS::Exception("Region not specified");
 	ptime	utcd = DateTimeToBoost( d );
   tz_database &tz_db = get_tz_database();
   time_zone_ptr tz = tz_db.time_zone_from_region( region );
-  if (tz==NULL) throw Exception("Region '%s' not found",region.c_str());
+  if (tz==NULL) throw EXCEPTIONS::Exception("Region '%s' not found",region.c_str());
   local_date_time ld( utcd, tz ); /* определяем текущее время локальное */
   return ( tz->has_dst() && ld.is_dst() );
 }

@@ -56,11 +56,11 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   info.flt_no=Qry.FieldAsInteger("flt_no");
   info.airp=Qry.FieldAsString("airp");
   if (GetTripSets(tsETLOnly,info))
-    throw EXCEPTIONS::UserException("Работа с сервером эл. билетов в интерактивном режиме запрещена");
+    throw AstraLocale::UserException("MSG.ETICK.INTERACTIVE_MODE_NOT_ALLOWED");
 
   pair<string,string> edi_addrs;
   if (!get_et_addr_set(info.airline,info.flt_no,edi_addrs))
-    throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",info.airline.c_str(),info.flt_no);
+    throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", info.airline + IntToString(info.flt_no)));
 
   set_edi_addrs(edi_addrs);
 
@@ -94,7 +94,7 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   {
     xmlNodePtr errNode=NewTextChild(resNode,"ets_connect_error");
     SetProp(errNode,"internal_msgid",get_internal_msgid_hex());
-    NewTextChild(errNode,"message","Нет связи с сервером эл. билетов");
+    NewTextChild(errNode,"message",getLocaleText("MSG.ETS_CONNECT_ERROR"));
   }
   else
   {
@@ -146,12 +146,12 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
                                               SegmElement("IFT"));
             if (*err_msg==0)
             {
-              throw EXCEPTIONS::UserException("СЭБ: ОШИБКА %s", errc);
+              throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", errc));
             }
             else
             {
               ProgTrace(TRACE1, "ETS: %s", err_msg);
-              throw EXCEPTIONS::UserException("СЭБ: %s", err_msg);
+              throw AstraLocale::UserException("MSG.ETICK.ETS_ERROR", LParams() << LParam("msg", err_msg));
             }
         }
         throw EXCEPTIONS::Exception("ETS error");
@@ -170,7 +170,7 @@ void ETSearchInterface::KickHandler(XMLRequestCtxt *ctxt,
             throw EXCEPTIONS::Exception("edilib: %s", e.what());
         }
     } else {
-        throw EXCEPTIONS::UserException("Просмотр списка эл. билетов не поддерживается"); //пока не поддерживается
+        throw AstraLocale::UserException("MSG.ETICK.ET_LIST_VIEW_UNSUPPORTED"); //пока не поддерживается
     }
 }
 
@@ -194,9 +194,9 @@ void ETStatusInterface::SetTripETStatus(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   }
   else
     if (old_pr_etstatus==new_pr_etstatus)
-      throw EXCEPTIONS::UserException("Рейс уже переведен в данный режим");
+      throw AstraLocale::UserException("MSG.ETICK.FLIGHT_IN_THIS_MODE_ALREADY");
     else
-      throw EXCEPTIONS::UserException("Рейс не может быть переведен в данный режим");
+      throw AstraLocale::UserException("MSG.ETICK.FLIGHT_CANNOT_BE_SET_IN_THIS_MODE");
 };
 
 void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -671,8 +671,7 @@ bool ETStatusInterface::ETCheckStatus(int point_id,
         {
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-            throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
-                                fltInfo.airline.c_str(),fltInfo.flt_no);
+            throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
           init_edi_addrs=true;
         };
         key.coupon_status=prior_status->codeInt();
@@ -882,8 +881,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
             {
               key.airline_oper=fltInfo.airline;
               if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-                throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
-                                    fltInfo.airline.c_str(),fltInfo.flt_no);
+                  throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
               init_edi_addrs=true;
             };
             key.coupon_status=real_status->codeInt();
@@ -992,8 +990,7 @@ bool ETStatusInterface::ETCheckStatus(int id,
           TTicketListKey key;
           key.airline_oper=fltInfo.airline;
           if (!get_et_addr_set(fltInfo.airline,fltInfo.flt_no,key.addrs))
-            throw EXCEPTIONS::UserException("Для рейса %s%d не определен адрес сервера эл. билетов",
-                                fltInfo.airline.c_str(),fltInfo.flt_no);
+              throw AstraLocale::UserException("MSG.ETICK.ETS_ADDR_NOT_DEFINED_FOR_FLIGHT", LParams() << LParam("flight", fltInfo.airline + IntToString(fltInfo.flt_no)));
           key.coupon_status=real_status->codeInt();
 
           for(;!Qry.Eof;Qry.Next())

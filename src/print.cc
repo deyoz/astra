@@ -22,6 +22,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace ASTRA;
 //using namespace StrUtils;
@@ -247,7 +248,7 @@ namespace to_esc {
             mso_form = ConvertCodepage( mso_form, "CP866", prnParams.encoding );
         } catch(EConvertError &E) {
             ProgError(STDLOG, E.what());
-            throw UserException("Ошибка конвертации в %s", prnParams.encoding.c_str());
+            throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", prnParams.encoding));
         }
 
         prnParamsOffset = 20 - prnParams.offset;
@@ -643,7 +644,7 @@ int PrintDataParser::t_field_map::GetTagAsInteger(string name)
     TData::iterator di = data.find(upperc(name));
     if(di == data.end()) throw Exception("Tag not found " + name);
     if(!di->second.err_msg.empty())
-        throw UserException(di->second.err_msg);
+        throw AstraLocale::UserException(di->second.err_msg);
     return di->second.IntegerVal;
 }
 
@@ -652,7 +653,7 @@ string PrintDataParser::t_field_map::GetTagAsString(string name)
     TData::iterator di = data.find(upperc(name));
     if(di == data.end()) throw Exception("Tag not found " + name);
     if(!di->second.err_msg.empty())
-        throw UserException(di->second.err_msg);
+        throw AstraLocale::UserException(di->second.err_msg);
     return di->second.StringVal;
 }
 
@@ -861,7 +862,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         di->second.StringVal = convert_pnr_addr(di->second.StringVal, field_lat);
 
     if(!di->second.err_msg.empty())
-        throw UserException(di->second.err_msg);
+        throw AstraLocale::UserException(di->second.err_msg);
 
 
     if(field_lat && !di_ru->second.null && di->second.null)
@@ -930,7 +931,7 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
         TrimString(buf);
         if(buf.empty() && print_mode != 3) {
             if (buf.empty() && !TagValue.nullable)
-                if(name == "GATE") throw UserException("Не указан выход на посадку");
+                if(name == "GATE") throw AstraLocale::UserException("MSG.GATE_NOT_SPECIFIED");
         }
     }
     return result;
@@ -943,7 +944,7 @@ string PrintDataParser::t_field_map::LONG_DEP(bool pr_lat)
     string airp_dep_lat = data["AIRP_DEP_LAT"].StringVal;
     if(pr_lat) {
         if(airp_dep_lat.empty())
-            throw UserException("Не задан лат. код а/п назначения");
+            throw AstraLocale::UserException("MSG.LAT_AIRP_ARV_CODE_NOT_SPECIFIED");
         if(city_dep_name_lat.empty())
             result = airp_dep_lat;
         else
@@ -975,7 +976,7 @@ string PrintDataParser::t_field_map::LONG_ARV(bool pr_lat)
     string airp_arv_lat = data["AIRP_ARV_LAT"].StringVal;
     if(pr_lat) {
         if(airp_arv_lat.empty())
-            throw UserException("Не задан лат. код а/п назначения");
+            throw AstraLocale::UserException("MSG.LAT_AIRP_ARV_CODE_NOT_SPECIFIED");
         if(city_arv_name_lat.empty())
             result = airp_arv_lat;
         else
@@ -1247,7 +1248,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         Qry.CreateVariable("point_id", otInteger, trip_id);
         Qry.Execute();
         if(Qry.Eof)
-            throw UserException("Рейс не найден. Обновите данные.");
+            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
         TTripInfo operFlt(Qry);
         sel_airline = operFlt.airline;
         sel_flt_no = operFlt.flt_no;
@@ -1458,14 +1459,14 @@ string get_mso_point(const string &aairp, bool pr_lat)
     TBaseTable &cities = base_tables.get("cities");
     string city = airps.get_row("code", aairp).AsString("city");
     string point = cities.get_row("code", city).AsString("name", pr_lat);
-    if(point.empty()) throw UserException((string)"Не определено" + (pr_lat ? "лат." : " ") + "название города '" + city + "'");
+    if(point.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_CITY_NAME_IS_NULL" : "MSG.CITY_NAME_IS_NULL"), LParams() << LParam("city", city));
     TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select count(*) from airps where city = :city";
     airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();
     if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
         string airp = airps.get_row("code", aairp).AsString("code", pr_lat);
-        if(airp.empty()) throw UserException((string)"Не определен" + (pr_lat ? "лат." : " ") + "код а/п '" + aairp + "'");
+        if(airp.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_AIRP_CODE_IS_NULL" : "MSG.AIRP_CODE_IS_NULL"), LParams() << LParam("airp", aairp));
         point += "(" + airp + ")";
     }
     return point;
@@ -2003,14 +2004,14 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   else if(!airline.name.empty())
       add_tag("airline", airline.name);
   else
-      add_err_tag("airline", "Не определено название а/к '" + rcpt.airline + "'");
+      add_err_tag("airline", getLocaleText("MSG.AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", rcpt.airline)));
 
   if(!airline.short_name_lat.empty())
       add_tag("airline_lat", airline.short_name_lat);
   else if(!airline.name_lat.empty())
       add_tag("airline_lat", airline.name_lat);
   else
-      add_err_tag("airline_lat", "Не определено лат. название а/к '" + rcpt.airline + "'");
+      add_err_tag("airline_lat", getLocaleText("MSG.LAT_AIRLINE_NAME_IS_NULL", LParams() << LParam("airline", rcpt.airline)));
 
   add_tag("aircode", rcpt.aircode);
 
@@ -2068,7 +2069,7 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
 
           ostringstream airline_code_lat;
           if(airline.code_lat.empty())
-              throw UserException("Не определен лат. код а/к '%s'", rcpt.airline.c_str());
+              throw AstraLocale::UserException("MSG.LAT_AIRLINE_CODE_IS_NULL", LParams() << LParam("airline", rcpt.airline));
           airline_code_lat << airline.code_lat;
 
           if(rcpt.flt_no != -1)
@@ -2804,7 +2805,7 @@ void previewDeviceSets(bool conditional, string msg)
     showErrorMessageAndRollback(msg);
   }
   else*/
-    throw UserException(msg);
+    throw AstraLocale::UserException(msg);
 };
 
 void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr pectabsNode, vector<string> &prn_forms)
@@ -2830,12 +2831,12 @@ void get_bt_forms(string tag_type, string dev_model, string fmt_type, xmlNodePtr
     FormsQry.CreateVariable("fmt_type", otString, fmt_type);
     FormsQry.Execute();
     if(FormsQry.Eof)
-      previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+      previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
     while(!FormsQry.Eof)
     {
         NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
-          previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+          previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
         prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
@@ -2878,13 +2879,13 @@ void get_bt_forms(string tag_type, int prn_type, xmlNodePtr pectabsNode, vector<
     FormsQry.CreateVariable("prn_type", otInteger, prn_type);
     FormsQry.Execute();
     if(FormsQry.Eof)
-      previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+      previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
     string fmt_type = get_fmt_type(prn_type);
     while(!FormsQry.Eof)
     {
         NewTextChild(pectabsNode, "pectab", AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("form")));
         if (FormsQry.FieldIsNULL("data"))
-          previewDeviceSets(true, "Печать баг. бирки на выбранный принтер не производится");
+          previewDeviceSets(true, getLocaleText("MSG.PRINT.BAG_TAG_UNAVAILABLE_FOR_THIS_DEVICE"));
         prn_forms.push_back(AdjustCR_LF::DoIt(fmt_type, FormsQry.FieldAsString("data")));
         FormsQry.Next();
     };
@@ -3040,7 +3041,7 @@ void check_CUTE_certified(int &prn_type, string &dev_model, string &fmt_type)
             dev_model = "BTP CUTE";
             fmt_type = "BTP";
         } else
-            throw UserException("Версия терминала устарела. Обновите терминал.");
+            throw AstraLocale::UserException("MSG.TERM_VERSION_OUTDATED.REFRESH_DATA");
         prn_type = NoExists;
     }
 }
@@ -3074,7 +3075,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     Qry.CreateVariable("GRP_ID", otInteger, tag_key.grp_id);
     Qry.Execute();
     if (Qry.Eof)
-      throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+      throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     get_route(tag_key, route, Qry.FieldAsString("airp_dep"));
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",Qry.FieldAsString("airp_dep"));
     TBaseTableRow &citiesRow = base_tables.get("CITIES").get_row("code",airpRow.AsString("city"));
@@ -3084,7 +3085,7 @@ void GetPrintDataBT(xmlNodePtr dataNode, TTagKey &tag_key)
     if(!pr_unaccomp)
     {
       if (Qry.FieldIsNULL("pax_id"))
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
       pax_id = Qry.FieldAsInteger("pax_id");
     };
     string SQLText =
@@ -3250,7 +3251,7 @@ void PrintInterface::ReprintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
     tag_key.color = NodeAsString("color", reqNode);
     tag_key.no = NodeAsFloat("no", reqNode);
     if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
-      previewDeviceSets(false, "Не выбрано устройство для печати");
+      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -3269,7 +3270,7 @@ void PrintInterface::GetPrintDataBTXML(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         tag_key.pr_lat = prnParams.pr_lat;
     }
     if(tag_key.prn_type == NoExists and tag_key.dev_model.empty())
-      previewDeviceSets(false, "Не выбрано устройство для печати");
+      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
     GetPrintDataBT(dataNode, tag_key);
 }
 
@@ -3296,12 +3297,12 @@ void PrintInterface::ConfirmPrintBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         PaxQry.SetVariable("tid", NodeAsInteger("@tid", curNode));
         PaxQry.Execute();
         if(PaxQry.Eof)
-            throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         Qry.SetVariable("pax_id", NodeAsInteger("@pax_id", curNode));
         Qry.SetVariable("time_print", NodeAsDateTime("@time_print", curNode));
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
-            throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.PASSENGER.NO_PARAM.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         string seat_no = PaxQry.FieldAsString("seat_no");
         string msg =
                 (string)"Напечатан пос. талон для " + PaxQry.FieldAsString("fullname") +
@@ -3334,7 +3335,7 @@ void PrintInterface::ConfirmPrintBT(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.SetVariable("color", NodeAsString("@color", curNode));
         Qry.Execute();
         if (Qry.RowsProcessed()==0)
-            throw UserException("Изменения по багажу производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.LUGGAGE.CHANGE_FROM_OTHER_DESK_REFRESH");
         curNode = curNode->next;
     }
 }
@@ -3407,7 +3408,7 @@ void PrintInterface::GetPrinterList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         "   prn_types.name ";
     Qry.SQLText = SQLText;
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Принтеры не найдены");
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.PRINTERS_NOT_FOUND");
     while(!Qry.Eof) {
         xmlNodePtr printerNode = NewTextChild(printersNode, "printer");
 
@@ -3438,7 +3439,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     string dev_model = NodeAsStringFast("dev_model", currNode, "");
     string fmt_type = NodeAsStringFast("fmt_type", currNode, "");
     if(prn_type == NoExists and dev_model.empty())
-        previewDeviceSets(false, "Не выбрано устройство для печати");
+        previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
 
     TPrnParams prnParams;
     prnParams.get_prn_params(reqNode);
@@ -3490,7 +3491,7 @@ void PrintInterface::GetPrintDataBR(string &form_type, PrintDataParser &parser,
     }
     Qry.Execute();
     if(Qry.Eof||Qry.FieldIsNULL("data"))
-        previewDeviceSets(true, "Печать квитанции на выбранный принтер не производится");
+        previewDeviceSets(true, getLocaleText("MSG.PRINT.RECEIPT_UNAVAILABLE_FOR_THIS_DEVICE"));
 
     string mso_form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     mso_form = parser.parse(mso_form);
@@ -3535,7 +3536,7 @@ string get_validator(TBagReceipt &rcpt)
     Qry.CreateVariable("code", otString, reqInfo->desk.code);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Оформление квитанции формы %s с данного пульта запрещено", rcpt.form_type.c_str());
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_DESK", LParams() << LParam("form", rcpt.form_type));
     sale_point=Qry.FieldAsString("sale_point");
 
     Qry.Clear();
@@ -3568,11 +3569,11 @@ string get_validator(TBagReceipt &rcpt)
     Qry.CreateVariable("login",otString,reqInfo->user.login);
     Qry.CreateVariable("validator", otString, validator_type);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Оформление квитанции формы %s данному пользователю запрещено", rcpt.form_type.c_str());
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.RECEIPT_PROCESSING_OF_FORM_DENIED_FROM_THIS_USER", LParams() << LParam("form", rcpt.form_type));
     private_num = Qry.FieldAsInteger("private_num");
     ProgTrace(TRACE5, "AGENCIES: %s %s", agency.c_str(), Qry.FieldAsString("agency"));
     if(agency != Qry.FieldAsString("agency")) // Агентство пульта не совпадает с агентством кассира
-        throw UserException("Агентство пульта не совпадает с агентством пользователя");
+        throw AstraLocale::UserException("MSG.DESK_AGENCY_NOT_MATCH_THE_USER_ONE");
 
 
     TBaseTableRow &city = base_tables.get("cities").get_row("code", sale_point_city);
@@ -3629,7 +3630,7 @@ bool get_bp_pr_lat(int grp_id, bool pr_lat)
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     return pr_lat or not rus_airp(Qry.FieldAsString("airp_dep")) or not rus_airp(Qry.FieldAsString("airp_arv"));
 }
 
@@ -3646,7 +3647,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     prnParams.get_prn_params(reqNode);
     xmlNodePtr clientDataNode = NodeAsNodeFast("clientData", currNode);
     if(prn_type == NoExists and dev_model.empty())
-      previewDeviceSets(false, "Не выбрано устройство для печати");
+      previewDeviceSets(false, getLocaleText("MSG.PRINTER_NOT_SPECIFIED"));
 
     //    check_CUTE_certified(prn_type, dev_model, fmt_type);
 
@@ -3657,7 +3658,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if(Qry.Eof)
-            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         grp_id = Qry.FieldAsInteger("grp_id");
     }
     Qry.Clear();
@@ -3665,9 +3666,9 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.CreateVariable("grp_id",otInteger,grp_id);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+        throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     if(Qry.FieldIsNULL("class"))
-        throw UserException("Для багажа без сопровождения посадочный талон не печатается.");
+        throw AstraLocale::UserException("MSG.BOARDINGPASS_NOT_AVAILABLE_FOR_UNACC_BAGGAGE");
     int point_id = Qry.FieldAsInteger("point_dep");
     string cl = Qry.FieldAsString("class");
     Qry.Clear();
@@ -3678,7 +3679,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.CreateVariable("class", otString, cl);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("На рейс или класс не назначен бланк посадочных талонов");
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.BP_TYPE_NOT_ASSIGNED_FOR_FLIGHT_OR_CLASS");
     string form_type = Qry.FieldAsString("bp_type");
     ProgTrace(TRACE5, "bp_type: %s", form_type.c_str());
     Qry.Clear();
@@ -3733,7 +3734,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     if(Qry.Eof||Qry.FieldIsNULL("data")||
             Qry.FieldIsNULL( "form" ) && (DecodeDevFmtType(fmt_type) == dftBTP || DecodeDevFmtType(fmt_type) == dftATB)
       )
-        previewDeviceSets(true, "Печать пос. талона на выбранный принтер не производится");
+        previewDeviceSets(true, getLocaleText("MSG.PRINT.BP_UNAVAILABLE_FOR_THIS_DEVICE"));
     string form = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("form"));
     string data = AdjustCR_LF::DoIt(fmt_type, Qry.FieldAsString("data"));
     xmlNodePtr dataNode = NewTextChild(resNode, "data");
@@ -3784,7 +3785,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             Qry.SetVariable( "grp_id", *igrp );
             Qry.Execute();
             if ( Qry.Eof && pr_all ) //!!! анализ на клиенте по сегментам, значит и мы должны анализировать по сегментам
-                throw UserException("Изменения в группе производились с другой стойки. Обновите данные"); //все посадочные отпечатаны
+                throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA"); //все посадочные отпечатаны
             while ( !Qry.Eof ) {
                 paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
                             Qry.FieldAsInteger("pax_id"),
@@ -3793,7 +3794,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
             }
         }
         if ( !pr_all && paxs.empty() ) //все посадочные отпечатаны, но при этом надо было напечатать те, которые были не напечатанны
-            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
     }
     else { // печать конкретного пассажира
         Qry.SQLText =
@@ -3801,7 +3802,7 @@ void PrintInterface::GetPrintDataBP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         Qry.CreateVariable("pax_id", otInteger, pax_id);
         Qry.Execute();
         if ( Qry.Eof )
-            throw UserException("Изменения в группе производились с другой стойки. Обновите данные");
+            throw AstraLocale::UserException("MSG.CHECKIN.GRP.CHANGED_FROM_OTHER_DESK.REFRESH_DATA");
         paxs.push_back( TPaxPrint( Qry.FieldAsInteger("grp_id"),
                     Qry.FieldAsInteger("pax_id"),
                     Qry.FieldAsInteger("reg_no") ) );

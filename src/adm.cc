@@ -14,6 +14,7 @@ using namespace std;
 using namespace EXCEPTIONS;
 using namespace BASIC;
 using namespace ASTRA;
+using namespace AstraLocale;
 
 void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -83,7 +84,7 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.SetVariable( "user_id", user_id );
   Qry.Execute();
   if ( Qry.RowsProcessed() == 0 )
-    throw Exception( "Невозможно сбросить пароль" );
+    throw Exception("Невозможно сбросить пароль");
   SetProp( resNode, "handle", "1" );
   Qry.Clear();
   Qry.SQLText =
@@ -93,8 +94,7 @@ void AdmInterface::SetDefaultPasswd(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.Execute();
   reqInfo->MsgToLog( string( "Сброшен пароль пользователя " ) +
                                   Qry.FieldAsString( "descr" ), evtAccess );
-  showMessage( string( "Пользователю " ) + Qry.FieldAsString( "descr" ) +
-                        " назначен пароль по умолчанию 'ПАРОЛЬ'" );
+  AstraLocale::showMessage("MSG.PASSWORD.ASSIGNED_DEFAULT", LParams() << LParam("user", (string)Qry.FieldAsString( "descr" )));
 }
 
 

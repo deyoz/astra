@@ -874,11 +874,11 @@ void TCacheTable::ApplyUpdates(xmlNodePtr reqNode)
           }
           else {
             switch( E.Code ) {
-              case 1: throw UserException("Нарушена уникальность данных");
+              case 1: throw AstraLocale::UserException("MSG.UNIQUE_CONSTRAINT_VIOLATED");
               case 1400:
-              case 1407: throw UserException("Не указано значение в одном из обязательных для заполнения полей");
-              case 2291: throw UserException("Значение одного из полей ссылается на несуществующие данные");
-              case 2292: throw UserException("Невозможно изменить/удалить значение, на которое ссылаются другие данные");
+              case 1407: throw AstraLocale::UserException("MSG.CANNOT_INSERT_NULL");
+              case 2291: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_PARENT_KEY_NOT_FOUND");
+              case 2292: throw AstraLocale::UserException("MSG.INTEGRITY_VIOLATED_CHILD_RECORD_FOUND");
               default: throw;
             }
           } /* end else */
@@ -1121,7 +1121,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TCacheTable cache;
   cache.Init(reqNode);
   if ( cache.changeIfaceVer() )
-    throw UserException( "Версия интерфейса изменилась. Обновите данные." );
+    throw AstraLocale::UserException( "MSG.CACHE.IFACE_VERSION_CHANGED.REFRESH" );
   cache.OnBeforeApply = BeforeApply;
   cache.ApplyUpdates( reqNode );
   cache.refresh();
@@ -1130,7 +1130,7 @@ void CacheInterface::SaveCache(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   SetProp(ifaceNode, "id", "cache");
   SetProp(ifaceNode, "ver", "1");
   cache.buildAnswer(resNode);
-  showMessage( "Изменения успешно сохранены" );
+  AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
   //ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 };
 

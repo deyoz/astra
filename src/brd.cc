@@ -19,6 +19,7 @@
 using namespace BASIC;
 using namespace EXCEPTIONS;
 using namespace std;
+using namespace AstraLocale;
 
 void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
@@ -32,7 +33,7 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   string airp_dep=Qry.FieldAsString("airp");
 
   Qry.Clear();
@@ -188,7 +189,7 @@ int get_new_tid(int point_id)
     "WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0 FOR UPDATE";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   return Qry.FieldAsInteger("tid");
 }
 
@@ -234,20 +235,20 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   Qry.CreateVariable( "mark", otInteger, (int)!boarding );
   Qry.CreateVariable( "term", otString, reqInfo->desk.code );
   Qry.Execute();
-  char *msg;
+  string msg;
   if (reqInfo->screen.name == "BRDBUS.EXE")
   {
     if (boarding)
-      msg="Все пассажиры прошли посадку";
+      msg=getLocaleText("MSG.PASSENGER.ALL_BOARDED");
     else
-      msg="Все пассажиры высажены";
+      msg=getLocaleText("MSG.PASSENGER.ALL_NOT_BOARDED");
   }
   else
   {
     if (boarding)
-      msg="Все пассажиры прошли досмотр";
+      msg=getLocaleText("MSG.PASSENGER.ALL_EXAMED");
     else
-      msg="Все пассажиры возвращены на досмотр";
+      msg=getLocaleText("MSG.PASSENGER.ALL_NOT_EXAMED");
   };
   reqInfo->MsgToLog(msg, evtPax, point_id);
 
@@ -258,7 +259,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
   GetPax(reqNode,resNode);
 
-  showMessage(msg);
+  ASTRA::showMessage(msg);
 };
 
 bool BrdInterface::PaxUpdate(int point_id, int pax_id, int &tid, bool mark, bool pr_exam_with_brd)
@@ -375,7 +376,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo *reqInfo = TReqInfo::Instance();
 
     if(strcmp((char *)reqNode->name, "PaxByScanData") == 0)
-      throw UserException("Произведено сканирование данных неизвестного формата");
+      throw AstraLocale::UserException("MSG.DEVICE.INVALID_SCAN_FORMAT");
 
 
     int point_id=NodeAsInteger("point_id",reqNode);
@@ -419,7 +420,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
       Qry.CreateVariable("pax_id",otInteger,NodeAsInteger("pax_id",reqNode));
       Qry.Execute();
       if (Qry.Eof)
-        throw UserException("Получены неверные данные");
+        throw AstraLocale::UserException("MSG.WRONG_DATA_RECEIVED");
       reg_no=Qry.FieldAsInteger("reg_no");
       if (point_id==Qry.FieldAsInteger("point_dep"))
       {
@@ -463,10 +464,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
           if (!FltQry.Eof)
           {
             TTripInfo info(FltQry);
-            throw UserException(100, "Пассажир с рейса " + GetTripName(info));
+            throw AstraLocale::UserException(100, "MSG.PASSENGER.FROM_FLIGHT", LParams() << LParam("flt", GetTripName(info)));
           }
           else
-            throw UserException(100, "Пассажир с другого рейса");
+            throw AstraLocale::UserException(100, "MSG.PASSENGER.OTHER_FLIGHT");
         };
       };
     }
@@ -535,7 +536,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.SQLText = sqlText;
     Qry.Execute();
     if (reg_no!=-1 && Qry.Eof)
-      throw UserException("Пассажир не зарегистрирован");
+      throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
 
     TQuery TCkinQry(&OraSession);
 
@@ -655,7 +656,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             {
                 tid=NodeAsInteger("tid",reqNode);
                 if (tid!=Qry.FieldAsInteger("tid"))
-                    throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+                    throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", AstraLocale::LParams() << AstraLocale::LParam("surname", Qry.FieldAsString("surname")));
             }
             else
                 tid=Qry.FieldAsInteger("tid");
@@ -665,16 +666,16 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if (reqInfo->screen.name == "BRDBUS.EXE")
                 {
                     if (mark)
-                        showErrorMessage("Пассажир уже прошел посадку",120);
+                        AstraLocale::showErrorMessage("MSG.PASSENGER.BOARDED_ALREADY",120);
                     else
-                        showErrorMessage("Пассажир не прошел посадку",120);
+                        AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BOARDING",120);
                 }
                 else
                 {
                     if (mark)
-                        showErrorMessage("Пассажир уже прошел досмотр",120);
+                        AstraLocale::showErrorMessage("MSG.PASSENGER.EXAMED_ALREADY",120);
                     else
-                        showErrorMessage("Пассажир не прошел досмотр",120);
+                        AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM",120);
                 };
             }
             else
@@ -682,9 +683,9 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 if (hall==-1)
                 {
                     if(reqInfo->screen.name == "BRDBUS.EXE")
-                        showErrorMessage("Не указан зал посадки");
+                        AstraLocale::showErrorMessage("MSG.NOT_SET_BOARDING_HALL");
                     else
-                        showErrorMessage("Не указан зал досмотра");
+                        AstraLocale::showErrorMessage("MSG.NOT_SET_EXAM_HALL");
                     continue;
                 };
 
@@ -714,7 +715,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                 SetsQry.CreateVariable("point_id",otInteger,point_id);
                 SetsQry.Execute();
                 if (SetsQry.Eof)
-                  throw UserException("Рейс изменен. Обновите данные");
+                  throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
                 pr_exam=SetsQry.FieldAsInteger("pr_exam")!=0;
                 if (reqInfo->screen.name == "BRDBUS.EXE")
@@ -725,19 +726,19 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
 
                 if (boarding && !Qry.FieldIsNULL("wl_type"))
                 {
-                    showErrorMessage("Пассажир не подтвержден с листа ожидания");
+                    AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_CONFIRM_FOROM_WAIT_LIST");
                 }
                 else if (reqInfo->screen.name == "BRDBUS.EXE" &&
                          boarding && Qry.FieldAsInteger("pr_exam")==0 &&
                          !pr_exam_with_brd && pr_exam)
                 {
-                    showErrorMessage("Пассажир не прошел досмотр");
+                    AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_EXAM");
                 }
                 else if
                     (boarding && Qry.FieldAsInteger("pr_payment")==0 &&
                      pr_check_pay)
                     {
-                        showErrorMessage("Пассажир не оплатил багаж");
+                        AstraLocale::showErrorMessage("MSG.PASSENGER.NOT_BAG_PAID");
                     }
                 else
                 {
@@ -752,13 +753,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                         NewTextChild(confirmNode,"type","seat_no");
                         ostringstream msg;
                         if (curr_seat_no.empty())
-                            msg << "Номер места пассажира в салоне не определен." << endl;
+                            msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_NOT_DEFINED") << endl;
                         else
-                            msg << "Номер места пассажира в салоне был изменен на "
-                                << curr_seat_no << "." << endl;
+                            msg << AstraLocale::getLocaleText("MSG.PASSENGER.SALON_SEAT_NO_CHANGED_TO", AstraLocale::LParams() << LParam("seat_no", curr_seat_no)) << endl;
 
-                        msg << "Номер места, указанный в посадочном талоне, недействителен!" << endl
-                            << "Продолжить операцию посадки?";
+                        msg << getLocaleText("MSG.PASSENGER.INVALID_BP_SEAT_NO") << endl
+                            << getLocaleText("QST.CONTINUE_BRD");
                         NewTextChild(confirmNode,"message",msg.str());
                     }
                     else
@@ -772,8 +772,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                             NewTextChild(confirmNode,"reset",true);
                             NewTextChild(confirmNode,"type","pr_brd");
                             ostringstream msg;
-                            msg << "Пассажир уже прошел посадку." << endl
-                                << "Возвратить на досмотр?";
+                            msg << getLocaleText("MSG.PASSENGER.BOARDED_ALREADY") << endl
+                                << getLocaleText("QST.PASSENGER.RETURN_FOR_EXAM");
                             NewTextChild(confirmNode,"message",msg.str());
                         }
                         else
@@ -802,31 +802,31 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                                   NewTextChild( node, "pr_etstatus", pr_etstatus );
                                 }
                                 else
-                                  throw UserException("Рейс не найден. Обновите данные");
+                                  throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
                                 if (reqInfo->screen.name == "BRDBUS.EXE")
                                 {
                                     if (mark)
                                     {
                                       if (DecodePaxStatus(Qry.FieldAsString("status"))==psTCheckin)
-                                        showErrorMessage("Внимание! Сквозная регистрация. Заберите полетный купон");
+                                        AstraLocale::showErrorMessage("MSG.ATTENTION_TCKIN_GET_COUPON");
                                       else
-                                        showMessage("Пассажир прошел посадку");
+                                        AstraLocale::showMessage("MSG.PASSENGER.BOARDING");
                                     }
                                     else
-                                        showMessage("Пассажир высажен");
+                                        AstraLocale::showMessage("MSG.PASSENGER.DEBARKED");
                                 }
                                 else
                                 {
                                     if (mark)
-                                        showMessage("Пассажир прошел досмотр");
+                                        AstraLocale::showMessage("MSG.PASSENGER.EXAM");
                                     else
-                                        showMessage("Пассажир возвращен на досмотр");
+                                        AstraLocale::showMessage("MSG.PASSENGER.RETURNED_EXAM");
                                 };
 
                             }
                             else
-                                throw UserException("Изменения по пассажиру производились с другой стойки. Обновите данные");
+                                throw AstraLocale::UserException("MSG.PASSENGER.CHANGED_FROM_OTHER_DESK.REFRESH_DATA", LParams() << LParam("surname", Qry.FieldAsString("surname")));
                     };
                 };
             };

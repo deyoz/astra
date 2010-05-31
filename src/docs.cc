@@ -297,7 +297,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
     Qry.Execute();
-    if(Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
     string airp = Qry.FieldAsString("airp");
     string airline = Qry.FieldAsString("airline");
@@ -2841,7 +2841,7 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
             break;
         case rtUnknown:
         case rtTypeNum:
-            throw UserException("Отчет временно не поддерживается системой");
+            throw AstraLocale::UserException("MSG.TEMPORARILY_NOT_SUPPORTED");
     }
 }
 
