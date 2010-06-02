@@ -20,6 +20,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 
 const string AIRP_PERIODS =
@@ -287,7 +288,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                 Qry.Execute();
             } catch (EOracleError E) {
                 if(E.Code == 376)
-                    throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+                    throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
                 else
                     throw;
             }
@@ -316,9 +317,9 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     {
                         trip_name = GetTripName(tripInfo,false,true);
                     }
-                    catch(UserException &E)
+                    catch(AstraLocale::UserException &E)
                     {
-                        showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
                         continue;
                     };
                     TPointsRow pointsRow;
@@ -338,12 +339,8 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
 
                     count++;
                     if(count >= MAX_STAT_ROWS) {
-                        showErrorMessage(
-                                "Выбрано слишком много рейсов. Показано " +
-                                IntToString(MAX_STAT_ROWS) +
-                                " произвольных рейсов."
-                                " Уточните период поиска."
-                                );
+                        AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                                LParams() << LParam("num", MAX_STAT_ROWS));
                         break;
                     }
                 }
@@ -353,7 +350,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     ProgTrace(TRACE5, "FltCBoxDropDown QRY: %s", Qry.SQLText.SQLText());
     ProgTrace(TRACE5, "FltCBoxDropDown EXEC QRY: %s", tm.PrintWithMessage().c_str());
     if(count == 0)
-        throw UserException("Не найдено ни одного рейса.");
+        throw AstraLocale::UserException("MSG.FLIGHTS_NOT_FOUND");
     tm.Init();
     sort(points.begin(), points.end(), lessPointsRow);
     ProgTrace(TRACE5, "FltCBoxDropDown SORT: %s", tm.PrintWithMessage().c_str());
@@ -386,7 +383,7 @@ void StatInterface::CommonCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         Qry.Execute();
     } catch (EOracleError E) {
         if(E.Code == 376)
-            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
             throw;
     }
@@ -404,7 +401,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
                 reqInfo->user.access.rights.end(), 650 ) == reqInfo->user.access.rights.end())
-        throw UserException("Нет прав для просмотра журнала операций рейса");
+        throw AstraLocale::UserException("MSG.FLT_LOG.VIEW_DENIED");
     xmlNodePtr paramNode = reqNode->children;
     int point_id = NodeAsIntegerFast("point_id", paramNode);
     TDateTime part_key;
@@ -463,7 +460,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.SQLText = "select move_id, airline from points where point_id = :point_id";
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
-            if(Qry.Eof) throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
             move_id = Qry.FieldAsInteger("move_id");
             airline = Qry.FieldAsString("airline");
         }
@@ -499,7 +496,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("part_key", otDate, part_key);
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
-            if(Qry.Eof) throw UserException("Рейс не найден");
+            if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
             move_id = Qry.FieldAsInteger("move_id");
             airline = Qry.FieldAsString("airline");
         }
@@ -555,7 +552,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.Execute();
         } catch (EOracleError E) {
             if(E.Code == 376)
-                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+                throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
                 throw;
         }
@@ -566,7 +563,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             Qry.CreateVariable("point_id", otInteger, point_id);
             Qry.Execute();
             if(Qry.Eof)
-                throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+                throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
         }
 
         typedef map<string, string> TScreenMap;
@@ -620,12 +617,8 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
                 count++;
                 if(count > MAX_STAT_ROWS) {
-                    showErrorMessage(
-                            "Выбрано слишком много строк. Показано " +
-                            IntToString(MAX_STAT_ROWS) +
-                            " произвольных строк."
-                            " Уточните критерии поиска."
-                            );
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS));
                     break;
                 }
             }
@@ -634,7 +627,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     }
     ProgTrace(TRACE5, "count: %d", count);
     if(!count)
-        throw UserException("Не найдено ни одной операции.");
+        throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
@@ -736,7 +729,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.Execute();
     } catch (EOracleError E) {
         if(E.Code == 376)
-            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
             throw;
     }
@@ -747,7 +740,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         Qry.CreateVariable("point_id", otInteger, point_id);
         Qry.Execute();
         if(Qry.Eof)
-            throw UserException("Рейс перемещен в архив или удален. Выберите заново из списка");
+            throw AstraLocale::UserException("MSG.FLIGHT.MOVED_TO_ARX_OR_DEL.SELECT_AGAIN");
     }
 
     AirlineQry.Execute();
@@ -791,19 +784,15 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
 
             count++;
             if(count > MAX_STAT_ROWS) {
-                showErrorMessage(
-                        "Выбрано слишком много строк. Показано " +
-                        IntToString(MAX_STAT_ROWS) +
-                        " произвольных строк."
-                        " Уточните критерии поиска."
-                        );
+                AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                        LParams() << LParam("num", MAX_STAT_ROWS));
                 break;
             }
         }
     }
     ProgTrace(TRACE5, "count: %d", count);
     if(!count)
-        throw UserException("Не найдено ни одной операции.");
+        throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
 }
 
 typedef struct {
@@ -815,7 +804,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
                 reqInfo->user.access.rights.end(), 655 ) == reqInfo->user.access.rights.end())
-        throw UserException("Нет прав для просмотра операций в системе");
+        throw AstraLocale::UserException("MSG.SYS_LOG.VIEW_DENIED");
     xmlNodePtr client_with_trip_col_in_SysLogNode = GetNode("client_with_trip_col_in_SysLog", reqNode);
     if(client_with_trip_col_in_SysLogNode == NULL)
         get_report_form("ArxPaxLog", resNode);
@@ -976,7 +965,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
             Qry.Execute();
         } catch (EOracleError E) {
             if(E.Code == 376)
-                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+                throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
                 throw;
         }
@@ -1088,12 +1077,8 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
                 count++;
                 if(count > MAX_STAT_ROWS) {
-                    showErrorMessage(
-                            "Выбрано слишком много строк. Показано " +
-                            IntToString(MAX_STAT_ROWS) +
-                            " произвольных строк."
-                            " Уточните критерии поиска."
-                            );
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS));
                     break;
                 }
             }
@@ -1102,7 +1087,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         ProgTrace(TRACE5, "count %d: %d", j, count);
     }
     if(!count)
-        throw UserException("Не найдено ни одной операции.");
+        throw AstraLocale::UserException("MSG.OPERATIONS_NOT_FOUND");
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
@@ -1116,10 +1101,10 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
     TReqInfo &info = *(TReqInfo::Instance());
     if(find( info.user.access.rights.begin(),
                 info.user.access.rights.end(), 630 ) == info.user.access.rights.end())
-        throw UserException("Нет прав для просмотра списка пассажиров");
+        throw AstraLocale::UserException("MSG.PAX_LIST.VIEW_DENIED");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одного пассажира");
+        throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     xmlNodePtr paramNode = reqNode->children;
 
     int point_id = NodeAsIntegerFast("point_id", paramNode);
@@ -1513,7 +1498,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             SetProp(colNode, "width", 101);
             SetProp(colNode, "align", taLeftJustify);
         } else
-            throw UserException("Не найдено ни одного пассажира");
+            throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
         tm.Init();
         STAT::set_variables(resNode);
         ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
@@ -2056,7 +2041,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     if(USE_SEANCES())
         get_report_form("STrferFullStat", resNode);
     else
@@ -2069,7 +2054,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 1) < LastDate)
-        throw UserException("Период поиска не должен превышать 1 месяца");
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
@@ -2228,9 +2213,9 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 }
                 region = AirpTZRegion(airp);
             }
-            catch(UserException &E)
+            catch(AstraLocale::UserException &E)
             {
-                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
                 Qry.Next();
                 continue;
             };
@@ -2282,7 +2267,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
     } else
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
 }
 
@@ -2291,7 +2276,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     if(USE_SEANCES())
         get_report_form("SFullStat", resNode);
     else
@@ -2304,7 +2289,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 1) < LastDate)
-        throw UserException("Период поиска не должен превышать 1 месяца");
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     TFullStat FullStat;
@@ -2463,9 +2448,9 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 }
                 region = AirpTZRegion(airp);
             }
-            catch(UserException &E)
+            catch(AstraLocale::UserException &E)
             {
-                showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
                 continue;
             };
 
@@ -2515,7 +2500,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", IntToString(total_bag_amount) + "/" + IntToString(total_bag_weight));
         NewTextChild(rowNode, "col", total_excess);
     } else
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
 }
 
@@ -2606,7 +2591,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     if(USE_SEANCES())
         get_report_form("SShortStat", resNode);
     else
@@ -2696,7 +2681,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
 }
 
@@ -2722,7 +2707,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     TReqInfo &info = *(TReqInfo::Instance());
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     if(USE_SEANCES())
         get_report_form("SDetailStat", resNode);
     else
@@ -2832,7 +2817,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
     } else
-        throw UserException("Нет данных");
+        throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
 }
 
@@ -2841,7 +2826,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
 	TReqInfo *reqInfo = TReqInfo::Instance();
     if(find( reqInfo->user.access.rights.begin(),
                 reqInfo->user.access.rights.end(), 600 ) == reqInfo->user.access.rights.end())
-        throw UserException("Недостаточно прав. Доступ к информации невозможен.");
+        throw AstraLocale::UserException("MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS");
 
     string name = NodeAsString("stat_mode", reqNode);
 
@@ -2853,7 +2838,7 @@ void StatInterface::RunStat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
         else throw Exception("Unknown stat mode " + name);
     } catch (EOracleError E) {
         if(E.Code == 376)
-            throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+            throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
         else
             throw;
     }
@@ -2864,14 +2849,14 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     TReqInfo &info = *(TReqInfo::Instance());
     if(find( info.user.access.rights.begin(),
                 info.user.access.rights.end(), 620 ) == info.user.access.rights.end())
-        throw UserException("Нет прав для поиска пассажиров");
+        throw AstraLocale::UserException("MSG.PAX_SRC.ACCESS_DENIED");
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
-        throw UserException("Не найдено ни одного пассажира");
+        throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
     TDateTime FirstDate = NodeAsDateTime("FirstDate", reqNode);
     TDateTime LastDate = NodeAsDateTime("LastDate", reqNode);
     if(IncMonth(FirstDate, 3) < LastDate)
-        throw UserException("Период поиска не должен превышать 3 месяца");
+        throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_THREE_MONTHS");
     FirstDate = ClientToUTC(FirstDate, info.desk.tz_region);
     LastDate = ClientToUTC(LastDate, info.desk.tz_region);
     TPerfTimer tm;
@@ -2894,19 +2879,19 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     string document = NodeAsStringFast("document", paramNode, "");
     if(!document.empty()) {
         if(document.size() < 6)
-            throw UserException("Номер паспорта должен содержать не менее 6-и символов");
+            throw AstraLocale::UserException("MSG.PAX_SRC.MIN_DOC_LENGTH");
         Qry.CreateVariable("document", otString, document);
     }
     string ticket_no = NodeAsStringFast("ticket_no", paramNode, "");
     if(!ticket_no.empty()) {
         if(ticket_no.size() < 6)
-            throw UserException("Номер билета должен содержать не менее 6-и символов");
+            throw AstraLocale::UserException("MSG.PAX_SRC.MIN_TKT_LENGTH");
         Qry.CreateVariable("ticket_no", otString, ticket_no);
     }
     string tag_no = NodeAsStringFast("tag_no", paramNode, "");
     if(!tag_no.empty()) {
         if(tag_no.size() < 3)
-            throw UserException("Номер бирки должен содержать не менее 3-х последних цифр");
+            throw AstraLocale::UserException("MSG.PAX_SRC.MIN_TAG_LENGTH");
         Qry.CreateVariable("tag_no", otInteger, ToInt(tag_no));
     }
     int count = 0;
@@ -3071,7 +3056,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
             ProgTrace(TRACE5, "EXEC QRY%d: %s", i, tm.PrintWithMessage().c_str());
         } catch (EOracleError E) {
             if(E.Code == 376)
-                throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+                throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
             else
                 throw;
         }
@@ -3149,12 +3134,8 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 
                 count++;
                 if(count >= MAX_STAT_ROWS) {
-                    showErrorMessage(
-                            "Выбрано слишком много строк. Показано " +
-                            IntToString(MAX_STAT_ROWS) +
-                            " произвольных строк."
-                            " Уточните параметры поиска."
-                            );
+                    AstraLocale::showErrorMessage("MSG.TOO_MANY_FLIGHTS_SELECTED.RANDOM_SHOWN_NUM.ADJUST_SEARCH",
+                            LParams() << LParam("num", MAX_STAT_ROWS));
                     break;
                 }
             }
@@ -3163,7 +3144,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         }
     }
     if(count == 0)
-        throw UserException("Не найдено ни одного пассажира.");
+        throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
 
     xmlNodePtr headerNode = NewTextChild(paxListNode, "header");
     xmlNodePtr colNode;

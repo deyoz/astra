@@ -155,7 +155,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
      Qry.Next();
     }
     if ( !compsNode ) {
-    	ASTRA::showErrorMessage( "Нет компоновок по данному типу ВС" );
+    	AstraLocale::showErrorMessage( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
     	return;
     }
   }
@@ -175,7 +175,7 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   if ( pr_comps ) {
     SEATS2::TPassengers p;
     if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-    	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+    	AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
     	NewTextChild( dataNode, "passengers" );
     }
  	}
@@ -268,11 +268,11 @@ void SalonFormInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   Salons.Build( salonsNode );
   SEATS2::TPassengers p;
   if ( SEATS2::GetPassengersForWaitList( trip_id, p, true ) ) {
-  	ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+    AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
   	NewTextChild( dataNode, "passengers" );
   }
   else
-  	ASTRA::showMessage( "Данные успешно сохранены" );
+  	AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no, string &slayer_type, int &tid )
@@ -429,7 +429,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
     ProgTrace( TRACE5, "Qry.Eof=%d, pax_id=%d,point_id=%d,layer1=%s,layer2=%s", Qry.Eof,pax_id,point_id,EncodeCompLayerType( cltProtCkin ),EncodeCompLayerType(layer_type) );
     if ( !Qry.Eof && string(Qry.FieldAsString( "seat_no1" )) == Qry.FieldAsString( "seat_no2" ) ) {
     	ProgTrace( TRACE5, "seat_no1=%s, seat_no2=%s", Qry.FieldAsString( "seat_no1" ), Qry.FieldAsString( "seat_no2" ) );
-    	NewTextChild( resNode, "question_reseat", "Пассажир имеет предварительную рассадку. Пересадить пассажира?" );
+    	NewTextChild( resNode, "question_reseat", getLocaleText("QST.PAX_HAS_PRESEAT_SEATS.RESEAT"));
     	return;
     }
   }
@@ -459,7 +459,7 @@ void IntChangeSeats( int point_id, int pax_id, int tid, string xname, string yna
     if ( pr_waitlist ) {
     	SEATS2::TPassengers p;
     	if ( !SEATS2::GetPassengersForWaitList( point_id, p ) )
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+      	AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   }
@@ -625,9 +625,9 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( pr_waitlist ) {
     	p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+            AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       else
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   }
@@ -641,9 +641,9 @@ void SalonFormInterface::AutoSeats(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     if ( pr_waitlist ) {
       p.Clear();
     	if ( SEATS2::GetPassengersForWaitList( point_id, p ) )
-    		ASTRA::showErrorMessage( "Рассадка пассажиров с местами произведена не полностью" );
+            AstraLocale::showErrorMessage( "MSG.SEATS.PAX_SEATS_NOT_FULL" );
       else
-      	ASTRA::showErrorMessage( "Рассадка пассажиров завершена" );
+          AstraLocale::showErrorMessage( "MSG.SEATS.SEATS_FINISHED" );
       p.Build( dataNode );
     }
   	showErrorMessageAndRollback( ue.getLexemaData( ) );

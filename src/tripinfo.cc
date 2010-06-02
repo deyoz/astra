@@ -28,6 +28,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 struct TTrferItem {
@@ -428,9 +429,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       listItem.real_out_local_date=info.real_out_local_date;
       list.push_back(listItem);
     }
-    catch(UserException &E)
+    catch(EXCEPTIONS::UserException &E)
     {
-      showErrorMessage((string)E.what()+". Некоторые рейсы не отображаются");
+      AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
     };
   };
 
@@ -467,7 +468,7 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
 
   if ( GetNode( "tripheader", reqNode ) )
     if ( !readTripHeader( point_id, dataNode ) )
-      showErrorMessage( "Информация о рейсе недоступна" );
+      AstraLocale::showErrorMessage( "MSG.FLT.NOT_AVAILABLE" );
 
 
   if (reqInfo->screen.name == "BRDBUS.EXE" ||
@@ -1023,7 +1024,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "WHERE point_id=:point_id AND pr_del>=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id", otInteger, point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo fltInfo(Qry);
 
   Qry.Clear();
@@ -1060,7 +1061,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
     "  WHERE point_id=:point_id) f";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
   xmlNodePtr rowNode=NewTextChild(node2,"row");
   NewTextChild(rowNode,"title","Всего");
@@ -1569,7 +1570,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       tripNode = NewTextChild( dataNode, "tlg_trip" );
       TlgTripsQry.SetVariable("point_id",point_id_tlg);
       TlgTripsQry.Execute();
-      if (TlgTripsQry.Eof) throw UserException("Рейс не найден. Повторите запрос");
+      if (TlgTripsQry.Eof) throw AstraLocale::UserException("MSG.FLT.NOT_FOUND.REPEAT_QRY");
       ostringstream trip;
       trip << TlgTripsQry.FieldAsString("airline")
            << setw(3) << setfill('0') << TlgTripsQry.FieldAsInteger("flt_no")

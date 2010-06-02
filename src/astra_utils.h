@@ -290,6 +290,7 @@ void showError(LexemaData lexemaData, int code = 0);
 void showError(const std::string &lexema_id, int code = 0);
 void showErrorMessage(LexemaData lexemaData, int code = 0);
 void showErrorMessage(const std::string &lexema_id, int code = 0);
+void showErrorMessage( std::string vlexema, LParams &aparams, int code = 0);
 void showProgError(LexemaData lexemaData, int code = 0);
 void showProgError(const std::string &lexema_id, int code = 0);
 void showErrorMessageAndRollback(const std::string &lexema_id, int code = 0 );

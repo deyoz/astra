@@ -24,6 +24,7 @@ using namespace std;
 using namespace ASTRA;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace boost::local_time;
 
 void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
@@ -39,7 +40,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   TTripInfo fltInfo(Qry);
   TTripRoute route;
@@ -162,13 +163,13 @@ void TTlgSearchParams::get(xmlNodePtr reqNode)
         TimeCreateFrom = NodeAsDateTimeFast("TimeCreateFrom", currNode);
         TimeCreateTo = NodeAsDateTimeFast("TimeCreateTo", currNode);
         if(TimeCreateFrom + 7 < TimeCreateTo)
-            throw UserException("Период поиска не должен превышать 7 дней");
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_7_DAYS");
     }
     if(pr_time_receive) {
         TimeReceiveFrom = NodeAsDateTimeFast("TimeReceiveFrom", currNode);
         TimeReceiveTo = NodeAsDateTimeFast("TimeReceiveTo", currNode);
         if(TimeReceiveFrom + 7 < TimeReceiveTo)
-            throw UserException("Период поиска не должен превышать 7 дней");
+            throw AstraLocale::UserException("MSG.SEARCH_PERIOD_MAX_7_DAYS");
     }
 }
 
@@ -354,7 +355,7 @@ void TelegramInterface::GetTlgIn2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
                 rowcount++;
             };
             if(rowcount >= 4000)
-                throw UserException("Слишком много данных. Уточните критерии поиска.");
+                throw AstraLocale::UserException("MSG.TOO_MANY_DATA.ADJUST_SEARCH_PARAMS");
             if (buf!=NULL) free(buf);
         }
     }
@@ -380,7 +381,7 @@ void TelegramInterface::GetTlgIn(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
     RegionQry.CreateVariable("point_id",otInteger,point_id);
     RegionQry.Execute();
-    if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
     tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
 
     sql+="(SELECT DISTINCT tlg_source.tlg_id AS id  \n"
@@ -537,7 +538,7 @@ void TelegramInterface::GetTlgOut(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
       RegionQry.SQLText="SELECT airp FROM points WHERE point_id=:point_id AND pr_del>=0";
       RegionQry.CreateVariable("point_id",otInteger,point_id);
       RegionQry.Execute();
-      if (RegionQry.Eof) throw UserException("Рейс не найден. Обновите данные");
+      if (RegionQry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
       tz_region = AirpTZRegion(RegionQry.FieldAsString("airp"));
     }
     else
@@ -619,7 +620,7 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       "FROM points WHERE point_id=:point_id AND pr_del>=0";
     Qry.CreateVariable("point_id",otInteger,point_id);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
     TTypeBAddrInfo info;
 
@@ -666,9 +667,9 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 void TelegramInterface::LoadTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   string text = NodeAsString("tlg_text",reqNode);
-  if (text.empty()) throw UserException("Телеграмма пуста");
+  if (text.empty()) throw AstraLocale::UserException("MSG.TLG.EMPTY");
   loadTlg(text);
-  showMessage("Телеграмма загружена");
+  AstraLocale::showMessage("MSG.TLG.LOADED");
 };
 
 void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -676,7 +677,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   int tlg_id = NodeAsInteger( "tlg_id", reqNode );
   string tlg_body = NodeAsString( "tlg_body", reqNode );
   if (tlg_body.size()>2000)
-    throw UserException("Общая длина телеграммы не может превышать 2000 символов");
+    throw AstraLocale::UserException("MSG.TLG.MAX_LENGTH");
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
@@ -684,7 +685,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
   Qry.CreateVariable( "id", otInteger, tlg_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
   string tlg_short_name=Qry.FieldAsString("short_name");
   int point_id=Qry.FieldAsInteger("point_id");
 
@@ -701,7 +702,7 @@ void TelegramInterface::SaveTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
   ostringstream msg;
   msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") изменена";
   TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-  showMessage("Телеграмма успешно сохранена");
+  AstraLocale::showMessage("MSG.TLG.SAVED");
 };
 
 void TelegramInterface::SendTlg(int tlg_id)
@@ -716,9 +717,9 @@ void TelegramInterface::SendTlg(int tlg_id)
       "WHERE tlg_out.type=typeb_types.code AND id=:id FOR UPDATE";
     TlgQry.CreateVariable( "id", otInteger, tlg_id);
     TlgQry.Execute();
-    if (TlgQry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+    if (TlgQry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     if (TlgQry.FieldAsInteger("completed")==0)
-      throw UserException("Текст телеграммы требует ручной коррекции");
+      throw AstraLocale::UserException("MSG.TLG.MANUAL_EDIT");
 
     string tlg_type=TlgQry.FieldAsString("type");
     string tlg_short_name=TlgQry.FieldAsString("short_name");
@@ -749,10 +750,10 @@ void TelegramInterface::SendTlg(int tlg_id)
             while (addrs!=NULL)
             {
               if (strlen(tlg.lex)!=7)
-                throw UserException("Неверно указан SITA-адрес %s",tlg.lex);
+                throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", tlg.lex));
               for(char *p=tlg.lex;*p!=0;p++)
                 if (!(IsUpperLetter(*p)&&*p>='A'&&*p<='Z'||IsDigit(*p)))
-                  throw UserException("Неверно указан SITA-адрес %s",tlg.lex);
+                    throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", tlg.lex));
               char addr[8];
               strcpy(addr,tlg.lex);
               Qry.SetVariable("addr",addr);
@@ -769,7 +770,7 @@ void TelegramInterface::SendTlg(int tlg_id)
                   if (*(DEF_CANON_NAME())!=0)
                     canon_name=DEF_CANON_NAME();
                   else
-                    throw UserException("Не определен канонический адрес для SITA-адреса %s",tlg.lex);
+                    throw AstraLocale::UserException("MSG.TLG.SITA.CANON_ADDR_UNDEFINED", LParams() << LParam("addr", tlg.lex));
                 };
               };
               if (recvs.find(canon_name)==recvs.end())
@@ -784,11 +785,11 @@ void TelegramInterface::SendTlg(int tlg_id)
         }
         catch(ETlgError)
         {
-          throw UserException("Неверный формат адресной строки");
+          throw AstraLocale::UserException("MSG.WRONG_ADDR_LINE");
         };
         old_addrs=TlgQry.FieldAsString("addr");
       };
-      if (recvs.empty()) throw UserException("Не указаны адреса получателей телеграммы");
+      if (recvs.empty()) throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
 
       //формируем телеграмму
       tlg_text=(string)TlgQry.FieldAsString("heading")+
@@ -831,7 +832,7 @@ void TelegramInterface::SendTlg(int tlg_id)
     if ( E.Code > 20000 )
     {
       string str = E.what();
-      throw UserException(EOracleError2UserException(str));
+      throw AstraLocale::UserException(EOracleError2UserException(str));
     }
     else
       throw;
@@ -841,7 +842,7 @@ void TelegramInterface::SendTlg(int tlg_id)
 void TelegramInterface::SendTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   SendTlg(NodeAsInteger( "tlg_id", reqNode ));
-  showMessage("Телеграмма отправлена");
+  AstraLocale::showMessage("MSG.TLG.SEND");
   GetTlgOut(ctxt,reqNode,resNode);
 }
 
@@ -855,7 +856,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         "WHERE tlg_out.type=typeb_types.code AND id=:id AND num=1 FOR UPDATE";
     Qry.CreateVariable( "id", otInteger, tlg_id);
     Qry.Execute();
-    if (Qry.Eof) throw UserException("Телеграмма не найдена. Обновите данные");
+    if (Qry.Eof) throw AstraLocale::UserException("MSG.TLG.NOT_FOUND.REFRESH_DATA");
     string tlg_short_name=Qry.FieldAsString("short_name");
     string tlg_basic_type=Qry.FieldAsString("basic_type");
     int point_id=Qry.FieldAsInteger("point_id");
@@ -870,7 +871,7 @@ void TelegramInterface::DeleteTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
         ostringstream msg;
         msg << "Телеграмма " << tlg_short_name << " (ид=" << tlg_id << ") удалена";
         TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
-        showMessage("Телеграмма удалена");
+        AstraLocale::showMessage("MSG.TLG.DELETED");
     };
     GetTlgOut(ctxt,reqNode,resNode);
 };
@@ -1137,7 +1138,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
     "FROM points WHERE point_id=:point_id AND pr_del>=0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
   TTripInfo fltInfo(Qry);
 
@@ -1278,7 +1279,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       msg << "Телеграмма " << short_name
                           << " (ид=" << tlg_id << ") сформирована: ";
                   }
-                  catch(UserException E)
+                  catch(EXCEPTIONS::UserException E)
                   {
                       msg << "Ошибка формирования телеграммы " << short_name
                           << ": " << E.what() << ", ";
@@ -1294,7 +1295,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       {
                           SendTlg(tlg_id);
                       }
-                      catch(UserException &E)
+                      catch(EXCEPTIONS::UserException &E)
                       {
                           msg.str("");
                           msg << "Ошибка отправки телеграммы " << short_name
@@ -1880,7 +1881,7 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   }
   catch(Exception &e)
   {
-    throw UserException(e.what());
+    throw EXCEPTIONS::UserException(e.what());
   };
 };
 

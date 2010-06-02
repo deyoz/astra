@@ -32,6 +32,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 using namespace boost::local_time;
 
@@ -657,7 +658,7 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
   }
   catch (EOracleError E) {
     if ( arx && E.Code == 376 )
-      throw UserException("В заданном диапазоне дат один из файлов БД отключен. Обратитесь к администратору");
+      throw AstraLocale::UserException("MSG.ONE_OF_DB_FILES_UNAVAILABLE.CALL_ADMIN");
     else
       throw;
   }
@@ -1506,7 +1507,7 @@ void SoppInterface::ReadTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   else
     buildSOPP( trips, errcity, dataNode );
   if ( !errcity.empty() )
-    showErrorMessage( string("Для города ") + errcity + " не задан регион. Некоторые рейсы не отображаются" );
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
 }
 
 void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode,
@@ -1540,7 +1541,7 @@ void SoppInterface::GetTransfer(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
       "ORDER BY p2.point_num DESC";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс не найден");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
   point_id=Qry.FieldAsInteger("point_id");
 
   TTripInfo info;
@@ -1793,7 +1794,7 @@ void DeletePassengers( int point_id, const string status, map<int,TTripInfo> &se
     "WHERE point_id=:point_id AND pr_reg<>0 AND pr_del=0 FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   TTripInfo fltInfo(Qry);
 
   TTypeBSendInfo sendInfo(fltInfo);
@@ -1998,9 +1999,9 @@ void SoppInterface::DeleteAllPassangers(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   buildSOPP( trips, errcity, dataNode );
   if ( !errcity.empty() )
-    showErrorMessage( string("Для города ") + errcity + " не задан регион. Некоторые рейсы не отображаются" );
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
   else
-    showMessage( "Все пассажиры разрегистрированы" );
+    AstraLocale::showMessage( "MSG.UNREGISTRATION_ALL_PASSENGERS" );
 }
 
 void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2144,7 +2145,7 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   	}
 		node = node->next;
 	}
-	showMessage( "Данные успешно сохранены" );
+	AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 void GetBirks( int point_id, xmlNodePtr dataNode )
@@ -2375,7 +2376,7 @@ void SoppInterface::ReadTripInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string errcity = internal_ReadData( trips, NoExists, NoExists, false, tSOPP, point_id );
 
   if ( !errcity.empty() )
-    showErrorMessage( string("Для города ") + errcity + " не задан регион. Данные по рейсу не обновляются" );
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", errcity));
 
 	TQuery Qry(&OraSession );
  	Qry.SQLText = "SELECT airp FROM points WHERE point_id=:point_id";
@@ -2611,7 +2612,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   	}
   	catch( Exception &e ) {
   		ProgError( STDLOG, "Exception %s, move_id=%d", e.what(), move_id );
-  		throw UserException( "Не найден регион в маршруте рейса, %s", d->airp.c_str() );
+  		throw AstraLocale::UserException( "MSG.REGION_NOT_FOUND_IN_ROUTE", LParams() << LParam("airp", d->airp));
   	}
   	dnode = NULL;
   	for ( vector<TSOPPDelay>::iterator delay=d->delays.begin(); delay!=d->delays.end(); delay++ ) {
@@ -2665,7 +2666,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   bool pr_other_airline = false;
   int notCancel = (int)dests.size();
   if ( notCancel < 2 )
-  	throw UserException( "Маршрут должен содержать не менее двух аэропортов" );
+  	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_LEAST_TWO_POINTS" );
   // проверки
   // если это работник аэропорта, то в маршруте должен быть этот порт,
   // если работник авиакомпании, то авиакомпания
@@ -2687,15 +2688,15 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       if ( !pr_last &&
       	   !reqInfo->CheckAirline( id->airline ) ) {
         if ( !id->airline.empty() )
-          throw UserException( string("Нет доступа к авиакомпании ") + id->airline );
+          throw AstraLocale::UserException( "MSG.AIRLINE.ACCESS_DENIED", LParams() << LParam("airline", id->airline));
         else
-        	throw UserException( "Не задана авиакомпания" );
+        	throw AstraLocale::UserException( "MSG.AIRLINE.NOT_SET" );
       }
     } // end for
     if ( !canDo )
     	if ( reqInfo->user.access.airps_permit ) {
     	  if ( reqInfo->user.access.airps.size() == 1 )
-    	    throw UserException( string( "Маршрут должен содержать аэропорт " ) + *reqInfo->user.access.airps.begin() );
+    	    throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_AIRP", LParams() << LParam("airp", *reqInfo->user.access.airps.begin()));
     	  else {
     		  string airps;
     		  for ( vector<string>::iterator s=reqInfo->user.access.airps.begin(); s!=reqInfo->user.access.airps.end(); s++ ) {
@@ -2704,9 +2705,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		    airps += *s;
     		  }
     		  if ( airps.empty() )
-    		  	throw UserException( "Нет доступа ни к одному аэропорту" );
+    		  	throw AstraLocale::UserException( "MSG.AIRP.ALL_ACCESS_DENIED" );
     		  else
-    		    throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов " ) + airps );
+    		    throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_ONE_OF_AIRPS", LParams() << LParam("list", airps));
     	  }
     	}
     	else { // список запрещенных аэропортов
@@ -2716,7 +2717,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
     		    airps += " ";
     		  airps += *s;
     		}
-    		throw UserException( string( "Маршрут должен содержать хотя бы один из аэропортов отличных от " ) + airps );
+            throw AstraLocale::UserException( "MSG.ROUTE.MUST_CONTAIN_ONE_OF_AIRPS_OTHER_THAN", LParams() << LParam("list", airps));
     	}
   }
   try {
@@ -2756,21 +2757,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  	oldtime = curtime;
   	  	curtime = id->scd_in;
   	  	if ( oldtime > NoExists && oldtime > curtime ) {
-  	  		throw UserException( string("Времена вылета/прилета в маршруте не упорядочены ") );
+  	  		throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED" );
   	  	}
       }
       if ( id->scd_out > NoExists && id->act_out == NoExists ) {
       	oldtime = curtime;
   	  	curtime = id->scd_out;
   	  	if ( oldtime > NoExists && oldtime > curtime ) {
-  	  		throw UserException( string("Времена вылета/прилета в маршруте не упорядочены") );
+  	  		throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_ORDERED" );
   	  	}
       }
       if ( id->craft.empty() ) {
         for ( TSOPPDests::iterator xd=id+1; xd!=dests.end(); xd++ ) {
         	if ( xd->pr_del )
         		continue;
-          throw UserException( string("Не задан код воздушного судна") );
+          throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         }
       }
       if ( !existsTrip &&
@@ -2781,21 +2782,21 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
       }
     } // end for
     if ( !pr_time )
-    	throw UserException( string("В маршруте на заданы времена прилета/вылета") );
+    	throw AstraLocale::UserException( "MSG.ROUTE.IN_OUT_TIMES_NOT_SPECIFIED" );
   }
-  catch( UserException &e ) {
+  catch( AstraLocale::UserException &e ) {
   	if ( canExcept ) {
   		NewTextChild( NewTextChild( resNode, "data" ), "notvalid" );
-  		showErrorMessage( string(e.what()) + ". Повторное нажатие клавиши F9 - запись." );
+  		AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", e.what()));
   		return;
     }
   }
 
   if ( pr_other_airline )
-    throw UserException( "Маршрут не может содержать две различные авиакомпании" );
+    throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_CANNOT_BELONG_TO_DIFFERENT_AIRLINES" );
 
   if ( existsTrip )
-    throw UserException( "Дублирование рейсов. Рейс уже существует" );
+    throw AstraLocale::UserException( "MSG.FLIGHT.DUPLICATE.ALREADY_EXISTS" );
   Qry.Clear();
   Qry.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
   Qry.Execute();
@@ -3036,14 +3037,14 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	  }*/
   	  #ifdef NOT_CHANGE_AIRLINE_FLT_NO_SCD
   	  if ( id->pr_del!=-1 && !id->airline.empty() && !old_dest.airline.empty() && id->airline != old_dest.airline ) {
-  	  	throw UserException( "Нельзя изменить авиакомпанию в маршруте" );
+  	  	throw AstraLocale::UserException( "MSG.ROUTE.CANNOT_CHANGE_AIRLINE" );
   	  	//reqInfo->MsgToLog( string( "Изменение авиакомпании с " ) + old_dest.airline + " на " + id->airline + " порт " + id->airp, evtDisp, move_id, id->point_id );
   	  }
   	  if ( id->pr_del!=-1 && id->flt_no > NoExists && old_dest.flt_no > NoExists && id->flt_no != old_dest.flt_no ) {
-  	  	throw UserException( "Нельзя изменить номер рейса в маршруте" );
+  	  	throw AstraLocale::UserException( "MSG.ROUTE.CANNOT_CHANGE_FLT_NO" );
   	  }
   	  if ( id->pr_del!=-1 && id->scd_out > NoExists && old_dest.scd_out > NoExists && id->scd_out != old_dest.scd_out ) {
-  	  	throw UserException( "Нельзя изменить плановое время вылета в маршруте" );
+  	  	throw AstraLocale::UserException( "MSG.ROUTE.CANNOT_CHANGE_SCD_OUT" );
   	  }
   	  #endif
 
@@ -3423,9 +3424,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   		Qry.Execute();
   		if ( Qry.FieldAsInteger( "c" ) )
   			if ( id->pr_del == -1 )
-  				throw UserException( string( "Нельзя удалить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
+  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_DEL_AIRP.PAX_EXISTS", LParams() << LParam("airp", id->airp));
   			else
-  				throw UserException( string( "Нельзя отменить аэропорт " ) + id->airp + ". " + "Есть зарегистрированные пассажиры." );
+  				throw AstraLocale::UserException( "MSG.ROUTE.UNABLE_CANCEL_AIRP.PAX_EXISTS", LParams() << LParam("airp", id->airp));
   	}
    if ( reSetCraft ) {
    	 if ( SALONS::AutoSetCraft( id->point_id, id->craft, -1 ) > 0 )
@@ -3447,10 +3448,10 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   }
 
  if ( ch_craft ) {
- 	 showErrorMessage( "Данные успешно сохранены. Был изменен тип ВС. Необходимо назначить компоновку." );
+ 	 AstraLocale::showErrorMessage( "MSG.DATA_SAVED.CRAFT_CHANGED.NEED_SET_COMPON" );
  }
  else
-   showMessage( "Данные успешно сохранены" );
+   AstraLocale::showMessage( "MSG.DATA_SAVED" );
 
   for( vector<change_act>::iterator i=vchangeAct.begin(); i!=vchangeAct.end(); i++ ){
    if ( i->pr_land )
@@ -3556,7 +3557,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	TSOPPDest d;
 	node = GetNode( "dests", node );
 	if ( !node )
-		throw UserException( "Не задан маршрут" );
+		throw AstraLocale::UserException( "MSG.ROUTE.NOT_SPECIFIED" );
 	node = node->children;
 	xmlNodePtr fnode;
 	string city, region;
@@ -3582,7 +3583,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
       d.airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsStringFast( "airp", snode ), d.airp_fmt, false );
     }
     catch( EConvertError &e ) {
-      throw UserException( "Неправильно задан код аэропорта" );
+      throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
     }
 		city = ((TAirpsRow&)baseairps.get_row( "code", d.airp, true )).city;
 		region = CityTZRegion( city );
@@ -3593,7 +3594,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         d.airline = ElemCtxtToElemId( ecDisp, etAirline, NodeAsString( fnode ), d.airline_fmt, false );
       }
       catch( EConvertError &e ) {
-    	  throw UserException( "Неправильно задан код авиакомпании" );
+    	  throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_GIVEN_CODE" );
       }
 	  }
 		else
@@ -3609,7 +3610,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         d.suffix = ElemCtxtToElemId( ecDisp, etSuffix, NodeAsString( fnode ), d.suffix_fmt, false );
       }
       catch( EConvertError &e ) {
-    	  throw UserException( "Неправильно задан суффикс рейса" );
+    	  throw AstraLocale::UserException( "MSG.SUFFIX.INVALID.NO_PARAM" );
       }
 	  }
 		else
@@ -3620,7 +3621,7 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         d.craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( fnode ), d.craft_fmt, false );
       }
       catch( EConvertError &e ) {
-    	  throw UserException( "Неправильно задан код воздушного судна" );
+    	  throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
       }
 	  }
 		else
@@ -3766,7 +3767,7 @@ void SoppInterface::DropFlightFact(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     "WHERE point_id=:point_id AND pr_del=0 AND act_out IS NOT NULL FOR UPDATE";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 	int point_num = Qry.FieldAsInteger( "point_num" );
 	int move_id = Qry.FieldAsInteger( "move_id" );
 	string trip = Qry.FieldAsString( "trip" );
@@ -3797,7 +3798,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	if ( Qry.Eof )
-		throw UserException( "Рейс не найден" );
+		throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
 	int pr_tranzit = ( !Qry.FieldIsNULL( "first_point" ) && Qry.FieldAsInteger( "pr_tranzit" ) );
 	string airp_dep = Qry.FieldAsString( "airp" );
 	string region = AirpTZRegion( airp_dep, true );
@@ -3942,7 +3943,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
   if ( Qry.Eof )
-  	throw UserException( "Рейс не найден" );
+  	throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
   string airp_dep = Qry.FieldAsString( "airp" );
 	string region = AirpTZRegion( Qry.FieldAsString( "airp" ), true );
 	TDateTime local_time;
@@ -4128,7 +4129,7 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   Qry.CreateVariable( "point_id_spp", otInteger, point_id );
   Qry.Execute();
   NewTextChild( tripNode, "from", getCrsDisplace( point_id, local_time, false, Qry ) );
-  showMessage( "Данные успешно сохранены" );
+  AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 inline void setDestTime( xmlNodePtr timeNode, TDateTime &vtime, const string &region )
@@ -4178,7 +4179,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
               l->craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( snode ), l->craft_fmt, false );
             }
             catch( EConvertError &e ) {
-    	        throw UserException( "Неправильно задан код воздушного судна" );
+    	        throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
             }
 	    		  l->modify = true;
 	    		  for( TSOPPDests::iterator b=dests.begin(); b!=dests.end()-1; b++ ) {
@@ -4254,7 +4255,7 @@ void SoppInterface::WriteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
 	    }
 	  }
 	  if ( !ex )
-	  	throw UserException( "Рейс не найден. обновите данные" );
+	  	throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND.REFRESH_DATA" );
 	  node = node->next;
 	}
 }
@@ -4269,7 +4270,7 @@ void SoppInterface::DeleteISGTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
 	Qry.CreateVariable( "move_id", otInteger, move_id );
 	Qry.Execute();
 	if ( Qry.FieldAsInteger( "c" ) )
-		throw UserException( "Нельзя удалить рейс. Есть зарегистрированные пассажиры" );
+		throw AstraLocale::UserException( "MSG.FLIGHT.UNABLE_DEL.PAX_EXISTS" );
 	Qry.Clear();
 	Qry.SQLText = "SELECT airline,flt_no,airp FROM points WHERE move_id=:move_id AND pr_del!=-1";
 	Qry.CreateVariable( "move_id", otInteger, move_id );

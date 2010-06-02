@@ -20,6 +20,7 @@
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 TTripStages::TTripStages( int vpoint_id )
@@ -143,9 +144,9 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
     	  Qry.SetVariable( "est", ClientToUTC( i->second.est, region ) );
      }
      catch( boost::local_time::ambiguous_result ) {
-       throw UserException( "Расчетное время выполнения шага '%s' в пункте %s не определено однозначно",
-                            TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
-                            airp.c_str() );
+       throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
+               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp ))
+               << LParam("airp", airp));
      }
     if ( i->second.act == NoExists )
       Qry.SetVariable( "act", FNull );
@@ -154,9 +155,9 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
         Qry.SetVariable( "act", ClientToUTC( i->second.act, region ) );
       }
       catch( boost::local_time::ambiguous_result ) {
-        throw UserException( "Фактическое время выполнения шага '%s' в пункте %s не определено однозначно",
-                             TStagesRules::Instance()->stage_name( i->first, airp ).c_str(),
-                             airp.c_str() );
+       throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
+               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp ))
+               << LParam("airp", airp));
       }
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
        Qry.SetVariable( "pr_auto", 0 );

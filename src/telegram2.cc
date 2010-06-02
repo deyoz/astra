@@ -16,6 +16,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace boost::local_time;
 using namespace ASTRA;
@@ -202,7 +203,6 @@ string TlgElemIdToElem(TElemType type, int id, bool pr_lat)
                 break;
             default:
                 throw Exception("Unsupported int elem type %d", type);
-                throw UserException("Не найден латинский код " + code_name + " '" + result + "'");
         }
     }
     return result;
@@ -217,48 +217,48 @@ string TlgElemIdToElem(TElemType type, string id, bool pr_lat)
         switch(type)
         {
             case etCountry:
-                code_name="государства";
+                code_name="COUNTRY";
                 break;
             case etCity:
-                code_name="города";
+                code_name="CITY";
                 break;
             case etAirline:
-                code_name="а/к";
+                code_name="AIRLINE";
                 break;
             case etAirp:
-                code_name="а/п";
+                code_name="AIRP";
                 break;
             case etCraft:
-                code_name="ВС";
+                code_name="CRAFT";
                 break;
             case etClass:
-                code_name="класса";
+                code_name="CLS";
                 break;
             case etSubcls:
-                code_name="подкласса";
+                code_name="SUBCLS";
                 break;
             case etPersType:
-                code_name="типа пассажира";
+                code_name="PAX_TYPE";
                 break;
             case etGenderType:
-                code_name="пола пассажира";
+                code_name="GENDER";
                 break;
             case etPaxDocType:
-                code_name="типа документа";
+                code_name="DOC";
                 break;
             case etPayType:
-                code_name="формы оплаты";
+                code_name="PAY_TYPE";
                 break;
             case etCurrency:
-                code_name="валюты";
+                code_name="CURRENCY";
                 break;
             case etSuffix:
-                code_name="суффикса";
+                code_name="SUFFIX";
                 break;
             default:
                 throw Exception("Unsupported elem type %d", type);
         };
-        throw UserException("Не найден латинский код " + code_name + " '" + id + "'");
+        throw AstraLocale::UserException((string)"MSG." + code_name + "_LAT_CODE_NOT_FOUND", LParams() << LParam("id", id));
     }
     return id1;
 }
@@ -277,13 +277,13 @@ string fetch_addr(string &addr)
     else
         addr = addr.substr(len + i);
     if(not(result.empty() or result.size() == 7))
-        throw UserException("Неверно указан SITA-адрес " + result);
+        throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
     for(i = 0; i < result.size(); i++) {
         // c BETWEEN 'A' AND 'Z' OR c BETWEEN '0' AND '9'
         u_char c = result[i];
         if((c > 0x40 and c < 0x5b) or (c > 0x2f and c < 0x3a))
             continue;
-        throw UserException("Неверно указан SITA-адрес " + result);
+        throw AstraLocale::UserException("MSG.TLG.INVALID_SITA_ADDR", LParams() << LParam("addr", result));
     }
     return result;
 }
@@ -297,7 +297,7 @@ string format_addr_line(string vaddrs)
         if(result.find(addr) == string::npos && addr_line.find(addr) == string::npos) {
             n++;
             if(n > 32)
-                throw UserException("Возможно указать не более 32 различных адресов получателей");
+                throw AstraLocale::UserException("MSG.TLG.MORE_THEN_32_ADDRS");
             if(addr_line.size() + addr.size() + 1 > 64) {
                 result += addr_line + br;
                 addr_line = addr;
@@ -5396,27 +5396,27 @@ int TelegramInterface::create_tlg(
 {
     ProgTrace(TRACE5, "createInfo.type: %s", createInfo.type.c_str());
     if(createInfo.type.empty())
-        throw UserException("Не указан тип телеграммы");
+        throw AstraLocale::UserException("MSG.TLG.UNSPECIFY_TYPE");
     TQuery Qry(&OraSession);
     Qry.SQLText = "select basic_type, editable from typeb_types where code = :vtype";
     Qry.CreateVariable("vtype", otString, createInfo.type);
     Qry.Execute();
     if(Qry.Eof)
-        throw UserException("Неверно указан тип телеграммы");
+        throw AstraLocale::UserException("MSG.TLG.TYPE_WRONG_SPECIFIED");
     string vbasic_type = Qry.FieldAsString("basic_type");
     bool veditable = Qry.FieldAsInteger("editable") != 0;
     TTlgInfo info;
     info.mark_info = createInfo.mark_info;
     info.tlg_type = createInfo.type;
     if((vbasic_type == "PTM" || vbasic_type == "BTM") && createInfo.airp_trfer.empty())
-        throw UserException("Не указан аэропорт назначения");
+        throw AstraLocale::UserException("MSG.AIRP.DST_UNSPECIFIED");
     info.point_id = createInfo.point_id;
     info.pr_lat = createInfo.pr_lat;
     string vsender = OWN_SITA_ADDR();
     if(vsender.empty())
-        throw UserException("Не указан адрес отправителя");
+        throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_NOT_SET");
     if(vsender.size() != 7 || !is_lat(vsender))
-        throw UserException("Неверно указан адрес отправителя");
+        throw AstraLocale::UserException("MSG.TLG.SRC_ADDR_WRONG_SET");
     info.sender = vsender;
     if(createInfo.point_id != -1) {
         TQuery Qry(&OraSession);
@@ -5442,7 +5442,7 @@ int TelegramInterface::create_tlg(
         Qry.CreateVariable("vpoint_id", otInteger, createInfo.point_id);
         Qry.Execute();
         if(Qry.Eof)
-            throw UserException("Рейс не найден");
+            throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
         info.airline = Qry.FieldAsString("airline");
         info.flt_no = Qry.FieldAsInteger("flt_no");
         info.suffix = Qry.FieldAsString("suffix");
@@ -5514,7 +5514,7 @@ int TelegramInterface::create_tlg(
     info.extra = extra.str();
     info.addrs = format_addr_line(createInfo.addrs);
     if(info.addrs.empty())
-        throw UserException("Не указаны адреса получателей телеграммы");
+        throw AstraLocale::UserException("MSG.TLG.DST_ADDRS_NOT_SET");
     bool vcompleted = !veditable;
     int vid = NoExists;
 
@@ -5621,8 +5621,8 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     try {
         tlg_id = create_tlg(createInfo);
-    } catch(UserException E) {
-        throw UserException( "Ошибка формирования. %s", E.what());
+    } catch(EXCEPTIONS::UserException E) {
+        throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", E.what()));
     }
 
     if (tlg_id == NoExists) throw Exception("create_tlg without result");

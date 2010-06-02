@@ -23,6 +23,7 @@ const char CurrName[] = " (ТЕК.)";
 using namespace std;
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace ASTRA;
 
 bool filterComp( const string &airline, const string &airp );
@@ -62,7 +63,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   if ( !Qry.RowCount() )
-  	throw UserException( "Рейс не найден" );
+  	throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
   string trip_airline = Qry.FieldAsString( "airline" );
   Qry.Clear();
   Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
@@ -138,7 +139,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
       Qry.Next();
     }
     if ( !compsNode )
-      throw UserException( "Нет компоновок по данному типу ВС" );
+      throw AstraLocale::UserException( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
    tst();
    TSalons Salons( trip_id, rTripSalons );
    Salons.ClName.clear();
@@ -148,8 +149,8 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
    if ( SEATS::GetPassengersForManualSeat( trip_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
  	   SEATS::Passengers.Build( Salons, dataNode );
  }
- catch( UserException ue ) {
-   showErrorMessage( ue.what() );
+ catch( AstraLocale::UserException ue ) {
+   AstraLocale::showErrorMessage( ue.what() );
  }
 }
 
@@ -247,7 +248,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
 /*  string xname, yname;
@@ -297,7 +298,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     Qry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     Qry.Execute();
     if ( Qry.Eof )
-    	throw UserException( "Пассажир не найден" );
+    	throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND" );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
@@ -309,7 +310,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     	NewTextChild( dataNode, "seat_no", Qry.FieldAsString( "seat_no" ) );
    	SALONS::BuildSalonChanges( dataNode, seats );
   }
-  catch( UserException ue ) {
+  catch( AstraLocale::UserException ue ) {
     TSalons Salons( point_id, rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -318,7 +319,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.what() );
   }
 }
 
@@ -337,7 +338,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     "SELECT pr_lat_seat FROM trip_sets WHERE point_id=:point_id";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.Execute();
-  if ( Qry.Eof ) throw UserException("Рейс не найден. Обновите данные");
+  if ( Qry.Eof ) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   bool pr_lat_seat = Qry.FieldAsInteger( "pr_lat_seat" );
 
   if ( n ) {
@@ -413,13 +414,13 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
         break;
       default:
       	ProgTrace( TRACE5, "!!! Unusible layer=%s in funct ChangeLayer",  EncodeCompLayerType( layer_type ) );
-      	throw UserException( "Устанавливаемый слой запрещен для разметки" );
+      	throw AstraLocale::UserException( "MSG.SEATS.SET_LAYER_NOT_AVAIL" );
     }
 
     Qry.CreateVariable( "pax_id", otInteger, pax_id );
     Qry.Execute();
     if ( Qry.Eof )
-    	throw UserException( "Пассажир не найден" );
+    	throw AstraLocale::UserException( "MSG.PASSENGER.NOT_FOUND" );
     /* надо передать назад новый tid */
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
     NewTextChild( dataNode, "tid", tid );
@@ -434,7 +435,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     NewTextChild( dataNode, "placename", denorm_iata_row( yname ) + denorm_iata_line( xname, pr_lat_seat ) );
     SALONS::BuildSalonChanges( dataNode, seats );
   }
-  catch( UserException ue ) {
+  catch( AstraLocale::UserException ue ) {
     TSalons Salons( point_id, rTripSalons );
     Salons.Read();
     xmlNodePtr dataNode = NewTextChild( resNode, "data" );
@@ -443,7 +444,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.what() );
   }
 
 };
@@ -461,7 +462,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   Qry.DeclareVariable( "point_id", otInteger );
   Qry.SetVariable( "point_id", trip_id );
   Qry.Execute();
-  if (Qry.Eof) throw UserException("Рейс изменен. Обновите данные");
+  if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
   int algo=SEATS::GetSeatAlgo(Qry,
                               Qry.FieldAsString("airline"),
                               Qry.FieldAsInteger("flt_no"),
@@ -477,7 +478,7 @@ void SalonsInterface::AutoReseatsPassengers(XMLRequestCtxt *ctxt, xmlNodePtr req
   	SEATS::AutoReSeatsPassengers( Salons, passengers, algo );
   }
   else
-  	throw UserException( "Пассажиры все пассажены. Автоматическая рассадка не требуется" );
+  	throw AstraLocale::UserException( "MSG.SEATS.ALL_PAX_BOARDED.AUTO_SEATS_NOT_REQUIRED" );
 
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
@@ -550,7 +551,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       Qry.CreateVariable( "airline", otString, Salons.airline );
       Qry.Execute();
       if ( !Qry.RowCount() )
-        throw UserException( "Неправильно задан код авиакомпании" );
+        throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_INPUT" );
     }
     if ( !Salons.airp.empty() ) {
       Qry.Clear();
@@ -558,14 +559,14 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
       Qry.CreateVariable( "airp", otString, Salons.airp );
       Qry.Execute();
       if ( !Qry.RowCount() )
-        throw UserException( "Неправильно задан код аэропорта" );
+        throw AstraLocale::UserException( "MSG.AIRP.INVALID_SET_CODE" );
     }
 
     if ( (int)Salons.airline.empty() + (int)Salons.airp.empty() != 1 ) {
     	if ( Salons.airline.empty() )
-    	  throw UserException( "Должен быть задан код авиакомпании или код аэропорта" );
+    	  throw AstraLocale::UserException( "MSG.AIRLINE_OR_AIRP_MUST_BE_SET" );
     	else
-    		throw UserException( "Одновременное задание авиакомпании и аэропорта запрещено" ); // ??? почему?
+    		throw AstraLocale::UserException( "MSG.NOT_SET_ONE_TIME_AIRLINE_AND_AIRP" ); // ??? почему?
     }
 
     if ( ( r->user.user_type == utAirline ||
@@ -573,18 +574,18 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     	   find( r->user.access.airlines.begin(),
     	         r->user.access.airlines.end(), Salons.airline ) == r->user.access.airlines.end() ) {
  	  	if ( Salons.airline.empty() )
- 		  	throw UserException( "Не задан код авиакомпании" );
+ 		  	throw AstraLocale::UserException( "MSG.AIRLINE.UNDEFINED" );
   	  else
-    		throw UserException( "У оператора нет прав записи компоновки для заданной авиакомпании" );
+    		throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRLINE" );
     }
     if ( ( r->user.user_type == utAirport ||
     	     r->user.user_type == utSupport && Salons.airline.empty() && !r->user.access.airps.empty() ) &&
     	   find( r->user.access.airps.begin(),
     	         r->user.access.airps.end(), Salons.airp ) == r->user.access.airps.end() ) {
  	  	if ( Salons.airp.empty() )
- 	  		throw UserException( "Не задан код аэропорта" );
+ 	  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_AIRP" );
  	  	else
- 	  	  throw UserException( "У оператора нет прав записи компоновки для заданного аэропорта" );
+ 	  	  throw AstraLocale::UserException( "MSG.SALONS.OPER_WRITE_DENIED_FOR_THIS_AIRP" );
     }
   }
   Salons.craft = NodeAsString( "craft", reqNode );
@@ -593,14 +594,14 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
   string classes = NodeAsString( "classes", reqNode );
   Salons.classes = RTrimString( classes );
   if ( Salons.craft.empty() )
-    throw UserException( "Не задан тип ВС" );
+    throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
   Qry.Clear();
   Qry.SQLText = "SELECT code FROM crafts WHERE code=:craft";
   Qry.DeclareVariable( "craft", otString );
   Qry.SetVariable( "craft", Salons.craft );
   Qry.Execute();
   if ( !Qry.RowCount() )
-    throw UserException( "Неправильно задан тип ВС" );
+    throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
   Salons.verifyValidRem( "MCLS", "Э" );
   Salons.Write();
   string msg;
@@ -644,7 +645,7 @@ void SalonsInterface::BaseComponFormWrite(XMLRequestCtxt *ctxt, xmlNodePtr reqNo
     NewTextChild( dataNode, "airline", Salons.airline );
   if ( !Salons.airp.empty() )
     NewTextChild( dataNode, "airp", Salons.airp );
-  showMessage( "Изменения успешно сохранены" );
+  AstraLocale::showMessage( "MSG.CHANGED_DATA_COMMIT" );
 }
 
 bool filterComp( const string &airline, const string &airp )
@@ -691,7 +692,7 @@ void SalonsInterface::BaseComponsRead(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   ProgTrace( TRACE5, "SalonsInterface::BaseComponsRead" );
   if ( r->user.user_type == utAirline && r->user.access.airlines.empty() ||
   	   r->user.user_type == utAirport && r->user.access.airps.empty() )
-  	throw UserException( "Нет прав доступа к базовым компоновкам" );
+  	throw AstraLocale::UserException( "MSG.SALONS.ACCESS_DENIED" );
   //TReqInfo::Instance()->user.check_access( amRead );
   TQuery Qry( &OraSession );
   if ( r->user.user_type == utAirport )

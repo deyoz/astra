@@ -862,6 +862,14 @@ string getLocaleText(const std::string &vlexema, LParams &aparams)
     return text;
 }
 
+void showErrorMessage( std::string vlexema, LParams &aparams, int code)
+{
+	LexemaData lexemaData;
+	lexemaData.lexema_id = vlexema;
+	lexemaData.lparams = aparams;
+    showErrorMessage(lexemaData, code);
+}
+
 void showMessage( std::string vlexema, LParams &aparams, int code)
 {
 	LexemaData lexemaData;

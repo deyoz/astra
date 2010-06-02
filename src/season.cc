@@ -23,6 +23,7 @@ const int SEASON_PRIOR_PERIOD = 2;
 
 using namespace BASIC;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace std;
 using namespace boost::local_time;
 using namespace boost::posix_time;
@@ -606,8 +607,8 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
 /*!!! 	  throw UserException( string("Время начала выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" ).c_str() );*/
   }
   catch( boost::local_time::time_label_invalid ) {
-    throw UserException( "Время начала выполнения рейса не существует %s",
-                         DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" ).c_str() );
+    throw AstraLocale::UserException( "MSG.FLIGHT_BEGINNING_TIME_NOT_EXISTS",
+            LParams() << LParam("time", DateTimeToStr( f1 + firstTime, "dd.mm hh:nn" )));
   }
 
   if ( f3 < f1 )
@@ -623,8 +624,8 @@ bool TFilter::isFilteredTime( TDateTime vd, TDateTime first_day, TDateTime scd_i
  	  /*!!!throw UserException( string("Время окончания выполнения рейса не определено однозначно ") + DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" ).c_str() );*/
   }
   catch( boost::local_time::time_label_invalid ) {
-    throw UserException( "Время окончания выполнения рейса не существует %s",
-                         DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" ).c_str() );
+    throw AstraLocale::UserException( "MSG.FLIGHT_ENDING_TIME_NOT_EXISTS",
+            LParams() << LParam("time", DateTimeToStr( f1 + lastTime, "dd.mm hh:nn" )));
   }
   if ( f3 < f1 )
     l = f3 - f1 - f2;
@@ -839,7 +840,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
       airp = ElemToElemId( etAirp, NodeAsString( node ), fmt ); // сконвертил в то как лежит в базе
     }
     catch( EConvertError &e ) {
-    	throw UserException( "Неправильно задан код аэропорта" );
+    	throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
     }
   }
   node = GetNode( "city", filterNode );
@@ -849,7 +850,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
       city = ElemToElemId( etCity, NodeAsString( node ), fmt ); // сконвертил в то как лежит в базе
     }
     catch( EConvertError &e ) {
-    	throw UserException( "Неправильно задан код города" );
+    	throw AstraLocale::UserException( "MSG.CITY.INVALID_GIVEN_CODE" );
     }
   }
   string sairpcity = city;
@@ -857,7 +858,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
     /* проверка на совпадение города с аэропортом */
     sairpcity = ((TAirpsRow&)baseairps.get_row( "code", airp )).city;
     if ( !city.empty() && sairpcity != city )
-      throw UserException( "Заданный код аэропорта не принадлежит заданному коду города" );
+      throw AstraLocale::UserException( "MSG.GIVEN_AIRP_NOT_BELONGS_TO_GIVEN_CITY" );
   }
   node = GetNode( "time", filterNode );
   if ( node ) {
@@ -872,7 +873,7 @@ void TFilter::Parse( xmlNodePtr filterNode )
       airline = ElemToElemId( etAirline, NodeAsString( node ), fmt ); // сконвертил в то как лежит в базе
     }
     catch( EConvertError &e ) {
-    	throw UserException( "Неправильно задан код авиакомпании" );
+    	throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_GIVEN_CODE" );
     }
   }
 
@@ -926,7 +927,7 @@ void SeasonInterface::DelRangeList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
     Qry.CreateVariable( "trip_id", otInteger, NodeAsInteger( "trip_id", reqNode ) );
     Qry.Execute();
     TReqInfo::Instance()->MsgToLog("Удаление рейса ", evtSeason, NodeAsInteger("trip_id", reqNode));
-  showMessage( "Рейс удален");
+  AstraLocale::showMessage( getLocaleText("MSG.FLIGHT_DELETED"));
 }
 
 
@@ -1145,7 +1146,7 @@ void SeasonInterface::GetSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
   TDateTime localdate;
   modf( (double)NodeAsDateTime( "date", reqNode ), &localdate );
   CreateSPP( localdate );
-  showMessage("Данные успешно сохранены");
+  AstraLocale::showMessage("MSG.DATA_SAVED");
 }
 
 bool insert_points( double da, int move_id, TFilter &filter, TDateTime first_day, int offset,
@@ -1587,7 +1588,7 @@ void SeasonInterface::ViewSPP(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
       NewTextChild( tripNode, "ref", "Отмена" );
   }
  if ( !err_airp.empty() )
-    showErrorMessage( string("Для города ") + err_airp + " не задан регион. Некоторые рейсы не отображаются" );
+    AstraLocale::showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", err_airp));
 }
 
 void VerifyRangeList( TRangeList &rangeList, map<int,TDestList> &mapds )
@@ -1597,7 +1598,7 @@ void VerifyRangeList( TRangeList &rangeList, map<int,TDestList> &mapds )
   for ( map<int,TDestList>::iterator im=mapds.begin(); im!=mapds.end(); im++ ) {
 ProgTrace( TRACE5, "(int)im->second.dests.size()=%d", (int)im->second.dests.size() );
     if ( (int)im->second.dests.size() < 2 )
-      throw UserException( "Маршрут должен содержать не менее двух пунктов посадок" );
+      throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_LEAST_TWO_POINTS" );
     im->second.dests.begin()->scd_in = NoExists;
     TDests::iterator enddest = im->second.dests.end() - 1;
     enddest->airline.clear();
@@ -1619,20 +1620,20 @@ ProgTrace( TRACE5, "(int)im->second.dests.size()=%d", (int)im->second.dests.size
     for ( TDests::iterator id=im->second.dests.begin(); id!=im->second.dests.end(); id++ ) {
 ProgTrace( TRACE5, "id->airline=%s", id->airline.c_str() );
       if ( id->airp.empty() )
-        throw UserException( "Не задан пункт посадки" );
+        throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_DEST_CODE" );
 
       if ( id < enddest ) {
         if ( id->airline.empty() )
-          throw UserException( "Не задана авиакомпания" );
+          throw AstraLocale::UserException( "MSG.AIRLINE.NOT_SET" );
         if ( fairline != id->airline )
-          throw UserException( "Маршрут не может принадлежать разным авиакомпаниям" );
+          throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_CANNOT_BELONG_TO_DIFFERENT_AIRLINES" );
         if ( id->trip == NoExists )
-          throw UserException( "Не задан номер рейса" );
+          throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.NOT_SET_FLT_NO" );
         if ( id->craft.empty() )
-          throw UserException( "Не задан тип ВС" );
+          throw AstraLocale::UserException( "MSG.CRAFT.NOT_SET" );
         string f = IntToString( id->trip ) + id->airp;
         if ( find( flg.begin(), flg.end(), f ) != flg.end() )
-          throw UserException( "В маршруте повторяющие пункты с одинаковым номером рейса" );
+          throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_HAVE_DEST_EQUAL_FLT_NO" );
         else
           flg.push_back( f );
       }
@@ -1646,7 +1647,7 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
       pid = id;
     } /* end for */
     if ( notime )
-      throw UserException( "Времена в маршруте не заданы" );
+      throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.EMPTY_TIME_IN_ROUTE" );
     /* весь рейс отменен, т.к. встретилось не более одного не отмененного пункта посадки */
     if ( notpr_del <= 1 ) {
      for ( TDests::iterator id=im->second.dests.begin(); id!=im->second.dests.end(); id++ ) {
@@ -1661,15 +1662,13 @@ ProgTrace( TRACE5, "airp=%s, scd_in=%f, scd_out=%f", id->airp.c_str(), id->scd_i
   for ( vector<TPeriod>::iterator ip=rangeList.periods.begin(); ip!=rangeList.periods.end(); ip++) {
     map<int,TDestList>::iterator im = mapds.find( ip->move_id );
     if ( im == mapds.end() || im->second.dests.empty( ) )
-      throw UserException( "Для диапазона не задан маршрут" );
+      throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.ROUTE_NOT_SPECIFIED_FOR_RANGE" );
     ip->pr_del = im->second.pr_del;
-    if ( ip->first > ip->last ) {
-    	string errstr = "Начальная дата диапазона выполнения больше конечной ";
-    	errstr +=DateTimeToStr( ip->first, "dd.mm.yy" );
-    	errstr += "-";
-    	errstr +=DateTimeToStr( ip->last, "dd.mm.yy" );
-    	throw UserException( errstr );
-    }
+    if ( ip->first > ip->last )
+    	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.FIRST_DATE_BIGGER_THAN_LAST_ONE",
+                LParams()
+                << LParam("first", DateTimeToStr( ip->first, "dd.mm.yy" ))
+                <<LParam("last", DateTimeToStr( ip->last, "dd.mm.yy" )));
   }
 }
 
@@ -1739,7 +1738,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
           dest.airp = ElemCtxtToElemId( ecDisp, etAirp, NodeAsStringFast( "cod", curNode ), dest.airp_fmt, false ); // сконвертил в то как лежит в базе
         }
         catch( EConvertError &e ) {
-    	    throw UserException( "Неправильно задан код аэропорта" );
+    	    throw AstraLocale::UserException( "MSG.AIRP.INVALID_GIVEN_CODE" );
         }
         dest.city = ((TAirpsRow&)baseairps.get_row( "code", dest.airp )).city;
         dest.region = CityTZRegion( dest.city );
@@ -1765,7 +1764,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
             dest.airline = ElemCtxtToElemId( ecDisp, etAirline, NodeAsString( node ), dest.airline_fmt, false );
           }
           catch( EConvertError &e ) {
-    	      throw UserException( "Неправильно задан код авиакомпании" );
+    	      throw AstraLocale::UserException( "MSG.AIRLINE.INVALID_GIVEN_CODE" );
           }
         }
         node = GetNodeFast( "trip", curNode );
@@ -1779,7 +1778,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
             dest.craft = ElemCtxtToElemId( ecDisp, etCraft, NodeAsString( node ), dest.craft_fmt, false );
           }
           catch( EConvertError &e ) {
-    	      throw UserException( "Неправильно задан код воздушного судна" );
+    	      throw AstraLocale::UserException( "MSG.CRAFT.WRONG_SPECIFIED" );
           }
         }
         node = GetNodeFast( "litera", curNode );
@@ -1825,7 +1824,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
             dest.suffix = ElemCtxtToElemId( ecDisp, etSuffix, NodeAsString( node ), dest.suffix_fmt, false );
           }
           catch( EConvertError &e ) {
-    	      throw UserException( "Неправильно задан суффикс рейса" );
+    	      throw AstraLocale::UserException( "MSG.SUFFIX.INVALID.NO_PARAM" );
           }
         }
         if ( reqInfo->CheckAirp( dest.airp ) ) // new
@@ -1836,7 +1835,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         destNode = destNode->next;
       } // while ( destNode )
       if ( !canUseAirline || !canUseAirp )
-        throw UserException( "Недостаточно прав. Доступ к информации невозможен" );
+        throw AstraLocale::UserException( "MSG.INSUFFICIENT_RIGHTS.NOT_ACCESS" );
 //      ProgTrace( TRACE5, "first_dest=%d", ds.first_dest );
       if ( mapds.find( period.move_id ) == mapds.end() ) //!!! ввели новый период (рейс) и сразу расширили его новой датой
         mapds.insert(std::make_pair( period.move_id, ds ) );
@@ -1846,9 +1845,9 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
     // периоды хранять время вылета из п.п. переводим в UTC
     ds = mapds[ period.move_id ];
     if ( ds.dests.empty() )
-      throw UserException( "Для периода не задан маршрут" );
+      throw AstraLocale::UserException( "MSG.ROUTE_NOT_SPECIFIED_FOR_PERIOD" );
     if ( ds.flight_time == NoExists )
-      throw UserException( "Времена в маршруте заданы со сдвигом по дате" );
+      throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.TIMES_SHIFT_BY_DATE" );
     ProgTrace( TRACE5, "first=%s, last=%s, flight_time=%s, flight_time=%f",
                DateTimeToStr( period.first, "dd.mm.yyyy hh:nn:ss" ).c_str(),
                DateTimeToStr( period.last, "dd.mm.yyyy hh:nn:ss" ).c_str(),
@@ -1876,8 +1875,8 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                             DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );!!!*/
     }
     catch( boost::local_time::time_label_invalid ) {
-      throw UserException( "Время выполнения рейса не существует %s",
-                           DateTimeToStr( period.first, "dd.mm hh:nn" ).c_str() );
+      throw AstraLocale::UserException( "MSG.FLIGHT_TIME_NOT_EXISTS",
+              LParams() << LParam("time", DateTimeToStr( period.first, "dd.mm hh:nn" )));
     }
     double utcFirst;
     f3 = modf( (double)period.first, &utcFirst );
@@ -1906,9 +1905,8 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                                  DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
-            throw UserException( "Время прилета рейса в пункте %s не существует %s",
-                                 id->airp.c_str(),
-                                 DateTimeToStr( period.first, "dd.mm" ).c_str() );
+            throw AstraLocale::UserException( "MSG.ARV_TIME_FOR_POINT_NOT_EXISTS",
+                    LParams() << LParam("airp", id->airp) << LParam("time", DateTimeToStr( period.first, "dd.mm" )));
           }
           ProgTrace( TRACE5, "trunc(scd_in)=%s, time=%s",
                      DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
@@ -1934,9 +1932,8 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                                  DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
-            throw UserException( "Время вылета рейса в пункте %s не существует %s",
-                                 id->airp.c_str(),
-                                 DateTimeToStr( period.first, "dd.mm" ).c_str() );
+            throw AstraLocale::UserException( "MSG.TIME_TIME_FOR_POINT_NOT_EXISTS",
+                    LParams() << LParam("airp", id->airp) << LParam("time", DateTimeToStr( period.first, "dd.mm" )));
           }
           ProgTrace( TRACE5, "trunc(scd_out)=%s, time=%s",
                      DateTimeToStr( f3, "dd.mm.yyyy hh:nn:ss" ).c_str(),
@@ -2182,10 +2179,12 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
      inSeason = true;
    }
    if ( !inSeason )
-     throw UserException( "Полученный период выполнения рейса %s-%s %s не принадлежит расписанию",
-                          DateTimeToStr( ip->first, "dd.mm.yy" ).c_str(),
-                          DateTimeToStr( ip->last, "dd.mm.yy" ).c_str(),
-                          ip->days.c_str() );
+     throw AstraLocale::UserException( "MSG.DERIVED_FLIGHT_PERIOD_NOT_IN_SCHED",
+             LParams()
+             << LParam("first", DateTimeToStr( ip->first, "dd.mm.yy" ))
+             << LParam("last", DateTimeToStr( ip->last, "dd.mm.yy" ))
+             << LParam("days", ip->days)
+             );
     ProgTrace( TRACE5, "trip_id=%d, new_move_id=%d,num=%d", trip_id, new_move_id,num );
     SQry.SetVariable( "trip_id", trip_id );
     SQry.SetVariable( "move_id", new_move_id );
@@ -2343,7 +2342,7 @@ void SeasonInterface::Write(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr
   // надо перечитать информацию по экрану редактирования
   string err_airp;
   GetEditData( trip_id, filter, true, dataNode, err_airp );
-  showMessage( "Данные успешно сохранены" );
+  AstraLocale::showMessage( "MSG.DATA_SAVED" );
 }
 
 string GetTrip( TDest *PriorDest, TDest *OwnDest )
@@ -3140,7 +3139,7 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
   int idx_ptz = SQry.FieldIndex("tz");
 
   if ( !SQry.RowCount() )
-    showErrorMessage( "В расписании отсутствуют рейсы" );
+    AstraLocale::showErrorMessage( "MSG.NO_FLIGHTS_IN_SCHED" );
   // может нам надо получить все сразу маршруты
   GetDests( mapds, filter );
   /* теперь перейдем к выборке и фильтрации диапазонов */
@@ -3256,9 +3255,9 @@ void internalRead( TFilter &filter, vector<TViewPeriod> &viewp, int trip_id = No
     }
   }
  if ( errtz != NoExists )
-    showErrorMessage( string("Для государства РФ с часовым поясом ") + IntToString( errtz ) + " не задан регион. Некоторые рейсы не отображаются" );
+    AstraLocale::showErrorMessage( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("country", "РФ") << LParam("zone", errtz));
  if ( !err_airp.empty() )
-    showErrorMessage( string("Для города ") + err_airp + " не задан регион. Некоторые рейсы не отображаются" );
+    showErrorMessage( "MSG.CITY.REGION_NOT_DEFINED.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("city", err_airp));
 
 }
 
@@ -3429,7 +3428,7 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 //    string pregion = SQry.FieldAsString( idx_region );
     string pregion = GetRegionFromTZ( ptz, mapreg );
     if ( pregion.empty() )
-    	throw UserException( string("Для государства РФ с часовым поясом ") + IntToString( errtz ) + " не задан регион" );
+    	throw AstraLocale::UserException( "MSG.REGION_NOT_SPECIFIED_FOR_COUNTRY_WITH_ZONE", LParams() << LParam("country", "РФ") << LParam("zone", errtz));
 /*    TDateTime hours = GetTZTimeDiff( NowUTC(), first, last, ptz, v );
     first += hours; //???
     last += hours;*/
@@ -3508,7 +3507,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
                   f2 = modf( (double)UTCToClient( f3, id->region ), &f3 );
                 }
                 catch( Exception &e ) {
-                	throw UserException( string("Для города ") + id->city + " не задан регион" );
+                	throw AstraLocale::UserException( "MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", id->city));
                 }
                 ProgTrace( TRACE5, "local date scd_in=%s, time scd_in=%s",
                            DateTimeToStr( f3, "dd.mm.yy" ).c_str(),
@@ -3538,7 +3537,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
                   f2 = modf( (double)UTCToClient( f3, id->region ), &f3 );
                 }
                 catch( Exception &e ) {
-                	throw UserException( string("Для города ") + id->city + " не задан регион" );
+                	throw AstraLocale::UserException( "MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", id->city));
                 }
                 ProgTrace( TRACE5, "local date scd_out=%s, time scd_out=%s",
                            DateTimeToStr( f3, "dd.mm.yy" ).c_str(),
@@ -3569,7 +3568,7 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
   }
 
   if ( !DestsExists && trip_id > NoExists )
-  	throw UserException( "Рейс удален. Обновите данные" );
+  	throw AstraLocale::UserException( "MSG.FLIGHT_DELETED.REFRESH_DATA" );
 
   vector<TViewPeriod> viewp;
   TViewPeriod p;
