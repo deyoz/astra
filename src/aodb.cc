@@ -511,7 +511,10 @@ bool createAODBCheckInInfoFile( int point_id, bool pr_unaccomp, const std::strin
         if ( psTCheckin == DecodePaxStatus( Qry.FieldAsString( "status" ) ) )
         	term = "99";
         else
-      	  term = TimeQry.FieldAsString( "station" );
+        	if ( DecodeClientType( Qry.FieldAsString( "client_type" ) ) == ctWeb )
+         		term = "777";
+          else
+        	  term = TimeQry.FieldAsString( "station" );
       	if ( !term.empty() && term[0] == 'R' )
       		term = term.substr( 1, term.length() - 1 );
       	t = TimeQry.FieldAsDateTime( "mtime" );
