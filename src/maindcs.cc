@@ -697,19 +697,36 @@ bool MainDCSInterface::GetSessionAirlines(xmlNodePtr node, string &str, std::str
   if (node==NULL) return true;
   vector<string> airlines;
   map<string,string> air_params;
+  xmlNodePtr run_paramNode;
+  string value_airline;
+  string run_param_airline;
   for(node=node->children;node!=NULL;node=node->next)
   {
+  	value_airline = NodeAsString(node);
+  	run_paramNode = GetNode( "@run_params", node );
+  	if ( run_paramNode )
+  		run_param_airline = NodeAsString( run_paramNode );
+  	else
+  		run_param_airline.clear();
+  	ProgTrace( TRACE5, "value_airline=%s, run_param_airline=%s", value_airline.c_str(), run_param_airline.c_str() );
+  	size_t p = run_param_airline.find( " " );
+  	if ( p != string::npos ) {
+  		run_param_airline.erase( p );
+  	  ProgTrace( TRACE5, "run_param_airline=|%s|", run_param_airline.c_str() );
+  	}
+  	if ( !run_param_airline.empty() )
+  		value_airline = run_param_airline;
     try
     {
-      airlines.push_back(base_tables.get("airlines").get_row("code/code_lat",NodeAsString(node)).AsString("code"));
+      airlines.push_back(base_tables.get("airlines").get_row("code/code_lat",value_airline).AsString("code"));
     }
     catch(EBaseTableError)
     {
     	try {
-    		airlines.push_back(base_tables.get("airlines").get_row("aircode",NodeAsString(node)).AsString("code"));
+    		airlines.push_back(base_tables.get("airlines").get_row("aircode",value_airline).AsString("code"));
     	}
     	catch(EBaseTableError) {
-        str=NodeAsString(node);
+        str=value_airline;
         return false;
       }
     };
