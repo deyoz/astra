@@ -99,6 +99,8 @@ void AstraJxtCallbacks::UserBefore(/*const char *body, int blen, const char *hea
     std::string mode;
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
+    if ( GetNode( "@lang", node ) )
+    	reqInfoData.lang = NodeAsString("@lang",node);
 
     reqInfoData.checkUserLogon =
         GetNode( "CheckUserLogon", node ) == NULL &&

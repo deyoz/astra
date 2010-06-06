@@ -13,6 +13,7 @@
 #include "xml_unit.h"
 #include "print.h"
 #include "crypt.h"
+#include "astra_locale.h"
 #include "term_version.h"
 #include "jxtlib/jxt_cont.h"
 
@@ -73,6 +74,7 @@ void GetDeviceAirlines(xmlNodePtr node)
     {
       try
       {
+        ProgTrace(TRACE5, "airline=%s", i->c_str() );
         TAirlinesRow &row=(TAirlinesRow&)(airlines.get_row("code",*i));
         xmlNodePtr airlineNode=NewTextChild(accessNode,"airline");
         NewTextChild(airlineNode,"code",row.code);
@@ -1226,6 +1228,11 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
        AstraLocale::showMessage("MSG.PULT_SWAP");
     if (Qry.FieldAsString("passwd")==(string)"ПАРОЛЬ" )
       AstraLocale::showErrorMessage("MSG.USER_NEED_TO_CHANGE_PASSWD");
+
+    string lang;
+    if ( GetNode("lang",reqNode) )
+      lang = NodeAsString("lang",reqNode);
+
     Qry.Clear();
     Qry.SQLText =
       "BEGIN "
@@ -1269,6 +1276,16 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
+    if ( !lang.empty() ) { // передаем словарь
+      string lang = NodeAsString("lang",reqNode);
+      int client_checksum = NodeAsInteger("lang/@dictionary_checksum",reqNode);
+      if ( client_checksum == 0 || AstraLocale::TLocaleMessages::Instance()->checksum( lang ) != client_checksum ) {
+        ProgTrace( TRACE5, "Send dictionary: lang=%s, client_checksum=%d, server_checksum=%d",
+                   lang.c_str(), client_checksum,
+                   AstraLocale::TLocaleMessages::Instance()->checksum( NodeAsString("lang",reqNode) ) );
+        NewTextChild(resNode, "dictionary", AstraLocale::TLocaleMessages::Instance()->getDictionary(lang));
+      }
+    }
     showBasicInfo();
 }
 

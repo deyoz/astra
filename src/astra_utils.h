@@ -191,6 +191,7 @@ struct TReqInfoInitData {
   std::string pult;
   std::string opr;
   std::string mode;
+  std::string lang;
   bool checkUserLogon;
   bool checkCrypt;
   bool pr_web;
@@ -198,6 +199,7 @@ struct TReqInfoInitData {
   	checkUserLogon = false;
   	checkCrypt = false;
   	pr_web = false;
+  	lang = "EN";
   }
 };
 

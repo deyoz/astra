@@ -167,7 +167,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   	return; //???*/
   Qry.Clear();
   Qry.SQLText =
-    "SELECT city,airp,airline,lang,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
+    "SELECT city,airp,airline,NVL(lang,'RU') lang,version,NVL(under_constr,0) AS under_constr,desks.grp_id "
     "FROM desks,desk_grp "
     "WHERE desks.code = UPPER(:pult) AND desks.grp_id = desk_grp.grp_id ";
   Qry.DeclareVariable( "pult", otString );
@@ -180,7 +180,10 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.city = Qry.FieldAsString( "city" );
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
-  desk.lang = Qry.FieldAsString( "lang" );
+  if ( InitData.lang.empty() )
+    desk.lang = Qry.FieldAsString( "lang" );
+  else
+  	desk.lang = InitData.lang; //!!! пришло с клиента
   desk.version = Qry.FieldAsString( "version" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
 

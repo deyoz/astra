@@ -177,20 +177,51 @@ struct TMessageText {
 struct TLocaleMessage {
 	std::map<std::string,TMessageText> lang_messages;
 	void Add( std::string vlang, std::string vmessage, int pr_del ) {
-		lang_messages.insert(make_pair(upperc(vlang),TMessageText(vmessage,pr_del)));
+		if ( lang_messages.find( vlang ) == lang_messages.end() )
+		  lang_messages.insert(make_pair(upperc(vlang),TMessageText(vmessage,pr_del)));
+		else
+			lang_messages[ vlang ] = TMessageText(vmessage,pr_del);
 	}
 	TLocaleMessage( ){};
+};
+
+struct TDictionary {
+	std::string value;
+	int checksum;
+};
+
+struct TMsgs {
+	std::map<std::string, int> tids; // для разных языков свой
+	std::map<std::string, TLocaleMessage> msgs;
+	void clear() {
+		tids.clear();
+		msgs.clear();
+	}
+	int get_tid( const std::string &lang ) {
+		if ( tids.find( lang ) != tids.end() )
+			return tids[ lang ];
+		else return -1;
+	}
+	void set_tid( const std::string &lang, int tid ) {
+		tids[ lang ] = tid;
+	}
+	void Add( const std::string &id, const std::string &lang, const std::string &message, int pr_del ) {
+    msgs[ id ].Add( lang, message, pr_del );
+	}
 };
 
 class TLocaleMessages
 {
 	private:
-		int tid;
-		std::map<std::string, TLocaleMessage> messages;
+		TMsgs server_msgs;
+		TMsgs client_msgs;
+		std::map<std::string,TDictionary> dicts;
 	public:
 		TLocaleMessages();
 		void Clear();
-		void Invalidate();
+		void Invalidate( std::string lang, bool pr_term );
+	  int checksum(const std::string &lang);
+	  std::string getDictionary(const std::string &lang);
 		std::string getText( const std::string &lexema_id, const std::string &lang, bool with_del );
 		static TLocaleMessages *Instance();
 };
