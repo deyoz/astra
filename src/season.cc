@@ -2410,7 +2410,7 @@ string GetTextTime( TDateTime Fact, TDateTime VDate )
               break;
       case 1: l = '+';
               break;
-      case 2: l += '*';
+      case 2: l = '*';
               break;
       default: l = '#';
     }

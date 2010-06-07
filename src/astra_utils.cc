@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <string>
+#include <string.h>
 #include "astra_utils.h"
 #include "astra_consts.h"
 #include "basic.h"
@@ -1785,7 +1786,7 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
       case etSuffix:
         if (code.size()==1)
         {
-          char *p;
+          const char *p;
           p=strchr(rus_suffix,*code.c_str());
           if (p!=NULL)
           {
@@ -1960,7 +1961,7 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
       case etSuffix:
         if (id.size()==1)
         {
-          char *p;
+          const char *p;
           p=strchr(rus_suffix,*code.c_str());
           if (p!=NULL)
           {

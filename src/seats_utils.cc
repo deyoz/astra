@@ -79,7 +79,7 @@ TSeat& LastNormSeatRow(TSeat &seat)
 
 bool NextNormSeatLine(TSeat &seat)
 {
-  char *p;
+  const char *p;
   if ((p=strchr(lat_seat,seat.line[0]))==NULL)
     throw EConvertError("NextNormSeatLine: error in procedure norm_iata_line");
   p++;
@@ -91,7 +91,7 @@ bool NextNormSeatLine(TSeat &seat)
 
 bool PriorNormSeatLine(TSeat &seat)
 {
-  char *p;
+  const char *p;
   if ((p=strchr(lat_seat,seat.line[0]))==NULL)
     throw EConvertError("PriorNormSeatLine: error in procedure norm_iata_line");
   if (p==lat_seat) return false;

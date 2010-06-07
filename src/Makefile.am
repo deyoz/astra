@@ -36,7 +36,8 @@ astra_LDADD = $(all_libraries) \
 	@JXTLIB_LIBS@ @SHARED_LIBS@ \
 	@LIBTLG_LIBS@ @SERVERLIB_LIBS@ \
 	$(XML_LIBS) @CHECK_LIBS@\
-	@TCLMON_LDFLAGS@ @BOOST_SYSTEM_LIB@ 
+	@TCLMON_LDFLAGS@ @BOOST_SYSTEM_LIB@\
+	@BOOST_REGEX_LIB@
 #	-L/home/beta/crypt/locallibs/mespro -lmesprox
 
 SUBDIRS = tlg
