@@ -49,7 +49,7 @@ void AdmInterface::LoadAdm(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
   {
     rowNode = NewTextChild( node, "CacheTable" );
     NewTextChild( rowNode, "cache", Qry.FieldAsString("cache") );
-    NewTextChild( rowNode, "title", Qry.FieldAsString("title") );
+    NewTextChild( rowNode, "title", AstraLocale::getLocaleText(Qry.FieldAsString("title")) );
     NewTextChild( rowNode, "depth", Qry.FieldAsInteger("depth") );
   };
   Qry.Close();
