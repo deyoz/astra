@@ -199,7 +199,6 @@ struct TReqInfoInitData {
   	checkUserLogon = false;
   	checkCrypt = false;
   	pr_web = false;
-  	lang = "EN";
   }
 };
 

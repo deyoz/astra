@@ -124,6 +124,10 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
 	if ( execute_time.is_not_a_date_time() )
 		setPerform();
   clear();
+  if ( InitData.lang.empty() )
+  	desk.lang = "RU"; //!!! работаем по старому - по русски
+  else
+    desk.lang = InitData.lang; //!!! пришло с клиента
   TQuery Qry(&OraSession);
   ProgTrace( TRACE5, "screen=%s, pult=|%s|, opr=|%s|, checkCrypt=%d, pr_web=%d",
             InitData.screen.c_str(), InitData.pult.c_str(), InitData.opr.c_str(), InitData.checkCrypt, InitData.pr_web );
@@ -180,10 +184,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   desk.city = Qry.FieldAsString( "city" );
   desk.airp = Qry.FieldAsString( "airp" );
   desk.airline = Qry.FieldAsString( "airline" );
-  if ( InitData.lang.empty() )
+  if ( InitData.lang.empty() ) //!!! пришло с клиента
     desk.lang = Qry.FieldAsString( "lang" );
-  else
-  	desk.lang = InitData.lang; //!!! пришло с клиента
   desk.version = Qry.FieldAsString( "version" );
   desk.grp_id = Qry.FieldAsInteger( "grp_id" );
 
