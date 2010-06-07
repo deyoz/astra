@@ -1276,6 +1276,7 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     GetModuleList(resNode);
     ConvertDevOldFormat(reqNode,resNode);
     GetDevices(reqNode,resNode);
+
     if ( !lang.empty() ) { // передаем словарь
       string lang = NodeAsString("lang",reqNode);
       int client_checksum = NodeAsInteger("lang/@dictionary_checksum",reqNode);

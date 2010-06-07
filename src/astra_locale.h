@@ -222,7 +222,7 @@ class TLocaleMessages
 		void Invalidate( std::string lang, bool pr_term );
 	  int checksum(const std::string &lang);
 	  std::string getDictionary(const std::string &lang);
-		std::string getText( const std::string &lexema_id, const std::string &lang, bool with_del );
+		std::string getText( const std::string &lexema_id, const std::string &lang );
 		static TLocaleMessages *Instance();
 };
 

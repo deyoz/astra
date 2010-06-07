@@ -5,6 +5,7 @@
 #include "stl_utils.h"
 #include "astra_utils.h"
 #include "astra_consts.h"
+#include "astra_locale.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
 
@@ -456,7 +457,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 {
     xmlNodePtr ifaceNode = NewTextChild(dataNode, "iface");
 
-    NewTextChild(ifaceNode, "title", Title);
+    NewTextChild(ifaceNode, "title", AstraLocale::getLocaleText(  Title ) );
     NewTextChild(ifaceNode, "CanRefresh", !RefreshSQL.empty());
     NewTextChild(ifaceNode, "CanInsert", !(InsertSQL.empty()||InsertRight<0) );
     NewTextChild(ifaceNode, "CanUpdate", !(UpdateSQL.empty()||UpdateRight<0) );
@@ -472,7 +473,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
 
         NewTextChild(ffieldNode, "Name", iv->Name);
 
-        NewTextChild( ffieldNode, "Title", iv->Title );
+        NewTextChild( ffieldNode, "Title", AstraLocale::getLocaleText( iv->Title ) );
         NewTextChild( ffieldNode, "Width", iv->Width );
         char *charCase;
         switch(iv->CharCase) {

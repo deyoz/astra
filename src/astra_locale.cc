@@ -39,7 +39,7 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 		tid = client_msgs.get_tid( lang );
 	else
 		tid = server_msgs.get_tid( lang );
-	ProgTrace( TRACE5, "before Invalidate: lang=%s, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d", lang.c_str(), tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
+	ProgTrace( TRACE5, "before Invalidate: lang=%s, pr_term=%d, tid=%d, server_msgs.msgs.size()=%d, client_msgs.msgs.size()=%d", lang.c_str(), pr_term, tid, server_msgs.msgs.size(), client_msgs.msgs.size() );
 	TQuery Qry(&OraSession);
 	if ( tid < 0 )
 	  Qry.SQLText =
@@ -58,11 +58,16 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	Qry.CreateVariable( "lang", otString, lang );
 	Qry.CreateVariable( "pr_term", otInteger, pr_term );
 	Qry.Execute();
+	tst();
   while ( !Qry.Eof ) {
+  	tst();
   	if ( pr_term )
   		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
-  	else
+  	else {
   	  server_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
+ 	  	ProgTrace( TRACE5, "id=%s, lang=%s, text=%s", Qry.FieldAsString( "id" ), lang.c_str(), server_msgs.msgs[Qry.FieldAsString( "id" )].lang_messages[ lang ].value.c_str() );
+  	}
+
   	if ( tid < Qry.FieldAsInteger( "tid" ) )
   		tid = Qry.FieldAsInteger( "tid" );
   	Qry.Next();
@@ -92,22 +97,21 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
   }
 }
 
-std::string TLocaleMessages::getText( const std::string &lexema_id, const std::string &lang, bool with_del )
+std::string TLocaleMessages::getText( const std::string &lexema_id, const std::string &lang )
 {
 	tst();
 	string vlang = upperc(lang);
-	string vid = upperc(lexema_id);
+	string vid = lexema_id;
 	if ( vlang.empty() ) {
-		//ProgError( STDLOG, "TLocaleMessages::etText, lang is empty, default lang RU" );
 		vlang = "EN";
 	}
-	ProgTrace( TRACE5, "id=%s, lang=%s, with_del=%d", vid.c_str(), vlang.c_str(), with_del );
+	ProgTrace( TRACE5, "id=%s, lang=%s", vid.c_str(), vlang.c_str() );
 	if ( server_msgs.msgs.find( vid ) == server_msgs.msgs.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message id=%s not found", vid.c_str() );
 	TLocaleMessage msg = server_msgs.msgs[ vid ];
 	if ( msg.lang_messages.find( vlang ) == msg.lang_messages.end() )
 		throw EXCEPTIONS::Exception( "TMessages::getText: message in lang='%s', id='%s' not found", vlang.c_str(), vid.c_str() );
-	if ( !with_del && msg.lang_messages[ vlang ].pr_del )
+	if ( msg.lang_messages[ vlang ].pr_del )
 		throw EXCEPTIONS::Exception( "TMessages::getText: msg delete invalid lang='%s', id='%s', pr_del=%d", vlang.c_str(), vid.c_str(), msg.lang_messages[ vlang ].pr_del );
 	ProgTrace( TRACE5, "TLocaleMessages::getText return '%s'", msg.lang_messages[ vlang ].value.c_str() );
 	return msg.lang_messages[ vlang ].value;
@@ -117,6 +121,7 @@ TLocaleMessages::TLocaleMessages()
 {
 	Clear();
 	Invalidate("RU",false);
+	Invalidate("EN",false);
 }
 
 int TLocaleMessages::checksum(const std::string &lang)
@@ -159,7 +164,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
 	LexemaData ld;
 	string str_val;
 	std::map<std::string, boost::any>::iterator lp;
-  string lexema = TLocaleMessages::Instance()->getText( lexemaData.lexema_id, lang, false );
+  string lexema = TLocaleMessages::Instance()->getText( lexemaData.lexema_id, lang );
   LParser parser( lexema );
 	text = lexema;
   for ( std::map<int, ElemData>::iterator i=parser.begin(); i!=parser.end(); i++ ) {
@@ -194,6 +199,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
   }
 
 }
+
 
 /*string UserException::getMsg( const std::string &lang )
 {
