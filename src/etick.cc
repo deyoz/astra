@@ -290,51 +290,6 @@ void ChangeAreaStatus(TETCheckStatusArea area, XMLRequestCtxt *ctxt, xmlNodePtr 
       else
         throw;
     }
-    catch(EXCEPTIONS::UserException &e) //!!!djek убрать после перевода под locale
-    {
-      if (!only_one)
-      {
-        TQuery Qry(&OraSession);
-        Qry.Clear();
-        switch (area)
-        {
-          case csaFlt:
-            Qry.SQLText=
-              "SELECT airline,flt_no,suffix,airp,scd_out "
-              "FROM points "
-              "WHERE point_id=:id";
-            break;
-          case csaGrp:
-            Qry.SQLText=
-              "SELECT airline,flt_no,suffix,airp,scd_out "
-              "FROM points,pax_grp "
-              "WHERE points.point_id=pax_grp.point_dep AND "
-              "      grp_id=:id";
-            break;
-          case csaPax:
-            Qry.SQLText=
-              "SELECT airline,flt_no,suffix,airp,scd_out "
-              "FROM points,pax_grp,pax "
-              "WHERE points.point_id=pax_grp.point_dep AND "
-              "      pax_grp.grp_id=pax.grp_id AND "
-              "      pax_id=:id";
-            break;
-          default: throw;
-        };
-        Qry.CreateVariable("id",otInteger,id);
-        Qry.Execute();
-        if (!Qry.Eof)
-        {
-          TTripInfo fltInfo(Qry);
-          throw EXCEPTIONS::UserException("Рейс %s: %s",GetTripName(fltInfo,true,false).c_str(),
-                                                         e.what());
-        }
-        else
-          throw;
-      }
-      else
-        throw;
-    };
     if (!tckin_version) break; //старый терминал
   };
 
@@ -519,10 +474,10 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           //отката не делаем если раздельное подтверждение или терминал несовместим
           for(i=errors.begin();i!=errors.end();i++)
             if (!i->second.first.empty())
-              throw EXCEPTIONS::UserException("%s",i->second.first.begin()->c_str());
+              throw AstraLocale::UserException(*i->second.first.begin());
           for(i=errors.begin();i!=errors.end();i++)
             if (!i->second.second.empty())
-              throw EXCEPTIONS::UserException("%s",(i->second.second.begin())->second.c_str());
+              throw AstraLocale::UserException((i->second.second.begin())->second);
         };
       };
 

@@ -16,6 +16,7 @@ const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""}
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 
 /* все названия тегов params переводятся в вверхний регистр - переменные в sql в верхнем регистре*/

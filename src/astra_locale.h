@@ -99,29 +99,35 @@ struct LexemaData {
 	LParams lparams;
 };
 
-class UserException:public EXCEPTIONS::UserException
+class UserException:public EXCEPTIONS::Exception
 {
 	private:
 		std::string lexema_id;
 		LParams lparams;
+        int FCode;
 	public:
-    UserException( int code, std::string vlexema, LParams &aparams):EXCEPTIONS::UserException(code,vlexema)
+    int Code() { return FCode; };
+    UserException( int code, std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
+        FCode = code;
     }
-    UserException( std::string vlexema, LParams &aparams):EXCEPTIONS::UserException(0,vlexema)
+    UserException( std::string vlexema, LParams &aparams):EXCEPTIONS::Exception(vlexema)
     {
     	lparams = aparams;
     	lexema_id = vlexema;
+        FCode = 0;
     }
-    UserException( int code, std::string vlexema):EXCEPTIONS::UserException(code,vlexema)
+    UserException( int code, std::string vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
+        FCode = code;
     }
-    UserException( std::string vlexema):EXCEPTIONS::UserException(0,vlexema)
+    UserException( std::string vlexema):EXCEPTIONS::Exception(vlexema)
     {
     	lexema_id = vlexema;
+        FCode = 0;
     }
     LexemaData getLexemaData( ) {
     	LexemaData data;

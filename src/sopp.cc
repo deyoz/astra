@@ -2787,7 +2787,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   catch( AstraLocale::UserException &e ) {
   	if ( canExcept ) {
   		NewTextChild( NewTextChild( resNode, "data" ), "notvalid" );
-  		AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", e.what()));
+  		AstraLocale::showErrorMessage( "MSG.ERR_MSG.REPEAT_F9_SAVE", LParams() << LParam("msg", getLocaleText(e.getLexemaData())));
   		return;
     }
   }

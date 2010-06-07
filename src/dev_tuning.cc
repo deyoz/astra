@@ -88,7 +88,7 @@ void BeforeApplyUpdates(TCacheTable &cache, const TRow &row, TQuery &applyQry, c
                 if(cache.code() == "BLANK_LIST")
                     err = getLocaleText("MSG.TUNE.VER_NO", LParams() << LParam("ver", IntToString(version)));
                 err += getLocaleText("MSG.TUNE.FORM_NOT_FILLED");
-                throw EXCEPTIONS::UserException(err);
+                throw UserException(err);
             }
             if(
                     row.status == usInserted and

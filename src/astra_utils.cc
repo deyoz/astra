@@ -112,7 +112,7 @@ void TReqInfo::Initialize( const std::string &city )
   if (Qry.Eof)
     throw EXCEPTIONS::Exception("TReqInfo::Initialize: city %s not found",city.c_str());
   if (Qry.FieldIsNULL("region"))
-    throw EXCEPTIONS::UserException("TReqInfo::Initialize: region nod defined (city=%s)",city.c_str());
+      throw AstraLocale::UserException((string)"TReqInfo::Initialize: region nod defined (city=" + city + ")");
   desk.city = city;
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
@@ -847,6 +847,13 @@ void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_i
    	text = lexemaData.lexema_id;
    	ProgError( STDLOG, "Unknown Exception on buildMsg!!!" );
   }
+}
+
+std::string getLocaleText(LexemaData lexemaData)
+{
+    string text, master_lexema_id;
+    getLexemaText( lexemaData, text, master_lexema_id );
+    return text;
 }
 
 string getLocaleText(const std::string &vlexema)

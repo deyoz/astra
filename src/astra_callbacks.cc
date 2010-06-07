@@ -124,7 +124,7 @@ void AstraJxtCallbacks::UserBefore(/*const char *body, int blen, const char *hea
     {
       reqInfo->Initialize( reqInfoData );
     }
-    catch(EXCEPTIONS::UserException)
+    catch(AstraLocale::UserException)
     {
       if (GetNode( "UserLogoff", node ) != NULL)
       {
@@ -244,13 +244,13 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
           AstraLocale::showError( lue->getLexemaData(), lue->Code() );
           throw 1;
       }
-      EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
+      /*EXCEPTIONS::UserException *ue = dynamic_cast<EXCEPTIONS::UserException*>(e);
       if (ue)
       {
           ProgTrace( TRACE5, "UserException: %s", ue->what() );
           showError(ue->what(), ue->Code());
           throw 1;
-      }
+      }*/
       std::logic_error *exp = dynamic_cast<std::logic_error*>(e);
       if (exp)
           ProgError(STDLOG,"std::logic_error: %s",exp->what());

@@ -5621,8 +5621,8 @@ void TelegramInterface::CreateTlg(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     int tlg_id = NoExists;
     try {
         tlg_id = create_tlg(createInfo);
-    } catch(EXCEPTIONS::UserException E) {
-        throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", E.what()));
+    } catch(AstraLocale::UserException E) {
+        throw AstraLocale::UserException( "MSG.TLG.CREATE_ERROR", LParams() << LParam("what", getLocaleText(E.getLexemaData())));
     }
 
     if (tlg_id == NoExists) throw Exception("create_tlg without result");

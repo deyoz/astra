@@ -26,6 +26,7 @@
 
 using namespace std;
 using namespace EXCEPTIONS;
+using namespace AstraLocale;
 using namespace BASIC;
 using namespace JxtContext;
 
@@ -498,7 +499,7 @@ void AstraServiceInterface::authorize( XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 {
 	xmlNodePtr node = GetNode( "canon_name", reqNode );
 	if ( !node )
-		throw UserException( "param canon_name not found" );
+		throw AstraLocale::UserException( "param canon_name not found" );
 	string client_canon_name = NodeAsString( node );
 	string curmode = NodeAsString( "curmode", reqNode );
 	ProgTrace( TRACE5, "client_canon_name=%s, curmode=%s", client_canon_name.c_str(), curmode.c_str() );
@@ -805,7 +806,7 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                               str_file = ConvertCodepage( str_file, "CP866", encoding );
                           } catch(EConvertError &E) {
                               ProgError(STDLOG, E.what());
-                              throw UserException("Ошибка конвертации в %s", encoding.c_str() );
+                              throw AstraLocale::UserException("MSG.CONVERT_INTO_ERR", LParams() << LParam("enc", encoding));
                           }
                       res = true;
                       int file_id = putFile( client_canon_name, OWN_POINT_ADDR(), type, i->params, str_file );
@@ -1061,7 +1062,7 @@ void AstraServiceInterface::viewFileData( XMLRequestCtxt *ctxt, xmlNodePtr reqNo
 	Qry.CreateVariable( "file_id", otInteger, file_id );
 	Qry.Execute();
 	if ( Qry.Eof )
-		throw UserException( "Файл не найден" );
+		throw AstraLocale::UserException( "MSG.FILE.NOT_FOUND" );
  	int len = Qry.GetSizeLongField( "data" );
   void *p = (char*)malloc( len );
  	if ( !p )

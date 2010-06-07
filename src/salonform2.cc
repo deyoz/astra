@@ -150,7 +150,7 @@ void SalonsInterface::SalonFormShow(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
  	   SEATS::Passengers.Build( Salons, dataNode );
  }
  catch( AstraLocale::UserException ue ) {
-   AstraLocale::showErrorMessage( ue.what() );
+   AstraLocale::showErrorMessage( ue.getLexemaData());
  }
 }
 
@@ -319,7 +319,7 @@ void SalonsInterface::DeleteReserveSeat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	AstraLocale::showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.getLexemaData() );
   }
 }
 
@@ -444,7 +444,7 @@ void SalonsInterface::Reseat(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePt
     Salons.Build( salonsNode );
     if ( SEATS::GetPassengersForManualSeat( point_id, cltCheckin, SEATS::Passengers, Salons.getLatSeat() ) )
       SEATS::Passengers.Build( Salons, dataNode );
-  	AstraLocale::showErrorMessageAndRollback( ue.what() );
+  	AstraLocale::showErrorMessageAndRollback( ue.getLexemaData() );
   }
 
 };

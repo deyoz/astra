@@ -167,8 +167,8 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   try {
     Salons.Read();
   }
-  catch( UserException ue ) {
-    ASTRA::showErrorMessage( ue.what() );
+  catch( AstraLocale::UserException ue ) {
+    AstraLocale::showErrorMessage( ue.getLexemaData() );
   }
   xmlNodePtr salonsNode = NewTextChild( dataNode, "salons" );
   Salons.Build( salonsNode );

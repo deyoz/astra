@@ -1279,10 +1279,10 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       msg << "Телеграмма " << short_name
                           << " (ид=" << tlg_id << ") сформирована: ";
                   }
-                  catch(EXCEPTIONS::UserException E)
+                  catch(AstraLocale::UserException E)
                   {
                       msg << "Ошибка формирования телеграммы " << short_name
-                          << ": " << E.what() << ", ";
+                          << ": " << getLocaleText(E.getLexemaData()) << ", ";
                   }
                   msg << GetTlgLogMsg(createInfo);
 
@@ -1295,12 +1295,12 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
                       {
                           SendTlg(tlg_id);
                       }
-                      catch(EXCEPTIONS::UserException &E)
+                      catch(AstraLocale::UserException &E)
                       {
                           msg.str("");
                           msg << "Ошибка отправки телеграммы " << short_name
                               << " (ид=" << tlg_id << ")"
-                              << ": " << E.what();
+                              << ": " << getLocaleText(E.getLexemaData());
                           TReqInfo::Instance()->MsgToLog(msg.str(),evtTlg,point_id,tlg_id);
                       };
                       time_end=time(NULL);
@@ -1881,7 +1881,7 @@ void TelegramInterface::TestSeatRanges(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   }
   catch(Exception &e)
   {
-    throw EXCEPTIONS::UserException(e.what());
+    throw UserException(e.what());
   };
 };
 

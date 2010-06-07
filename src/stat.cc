@@ -319,7 +319,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     }
                     catch(AstraLocale::UserException &E)
                     {
-                        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
+                        AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
                         continue;
                     };
                     TPointsRow pointsRow;
@@ -2215,7 +2215,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             }
             catch(AstraLocale::UserException &E)
             {
-                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
                 Qry.Next();
                 continue;
             };
@@ -2450,7 +2450,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             }
             catch(AstraLocale::UserException &E)
             {
-                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
+                AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
                 continue;
             };
 

@@ -429,9 +429,9 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
       listItem.real_out_local_date=info.real_out_local_date;
       list.push_back(listItem);
     }
-    catch(EXCEPTIONS::UserException &E)
+    catch(AstraLocale::UserException &E)
     {
-      AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", E.what()));
+      AstraLocale::showErrorMessage("MSG.ERR_MSG.NOT_ALL_FLIGHTS_ARE_SHOWN", LParams() << LParam("msg", getLocaleText(E.getLexemaData())));
     };
   };
 

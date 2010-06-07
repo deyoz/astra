@@ -379,7 +379,7 @@ void IntRequestCertificateData(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 	NewTextChild( node, "server_id", SERVER_ID() );
 	NewTextChild( node, "FileKey", "astra"+BASIC::DateTimeToStr( udate, "ddmmyyhhnn" ) );
 	if ( Qry.Eof )
-		throw UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
+		throw AstraLocale::UserException( "MSG.MESSAGEPRO.NO_DATA_FOR_CERT_QRY" );
   NewTextChild( node, "Country", Qry.FieldAsString( "country" ) );
 	if ( !Qry.FieldIsNULL( "key_algo" ) )
 	  NewTextChild( node, "Algo", Qry.FieldAsString( "key_algo" ) );
