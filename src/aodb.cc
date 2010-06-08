@@ -1339,6 +1339,17 @@ try {
 	err++;
 	bool overload_alarm = false;
 	// запись в БД
+	TQuery QrySet(&OraSession);
+	QrySet.SQLText =
+     "BEGIN "
+     " sopp.set_flight_sets(:point_id,:use_seances);"
+     " UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
+     "END;";
+	QrySet.DeclareVariable( "point_id", otInteger );
+	QrySet.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
+	QrySet.DeclareVariable( "max_commerce", otInteger );
+
+
 	Qry.Clear();
 	Qry.SQLText =
 	 "SELECT move_id,point_id,craft,bort,scd_out,est_out,act_out,litera,park_out,pr_del "
@@ -1497,26 +1508,11 @@ ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=%s, scd_out=%s, insert=%d", fl
       err++;
       reqInfo->MsgToLog( string( "Ввод нового пункта " ) + it->airp, evtDisp, move_id, POINT_IDQry.FieldAsInteger( "point_id" ) );
     }
-    // создаем времена технологического графика только для пункта вылета из ВНК???
- 		Qry.Clear();
- 		Qry.SQLText =
-     "BEGIN "
-     " sopp.set_flight_sets(:point_id,:use_seances);"
-     " UPDATE trip_sets SET max_commerce=:max_commerce WHERE point_id=:point_id;"
-     "END;";
-/*     " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
-     "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-     "    pr_reg_with_tkn,pr_reg_with_doc) "
-     "  VALUES(:point_id,0,0,0, :max_commerce, 0, 0, 0, "
-     "         NULL, 0, 1, 0, 0, 0, 0, 0); "
-     " ckin.set_trip_sets(:point_id,:use_seances); "
-     " gtimer.puttrip_stages(:point_id); "
-     "END;";*/
-		Qry.CreateVariable( "point_id", otInteger, point_id );
-		Qry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
-		Qry.CreateVariable( "max_commerce", otInteger, fl.max_load );
+    // создаем времена технологического графика только для пункта вылета из ВНК и далее по маршруту
+    QrySet.SetVariable( "point_id", point_id );
+    QrySet.SetVariable( "max_commerce", fl.max_load );
 		err++;
-		Qry.Execute();
+		QrySet.Execute();
 		err++;
 	}
 	else { // update
