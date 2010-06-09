@@ -40,6 +40,7 @@ struct TRange {
   }
 };
 
+
 struct TPeriod {
   int move_id;
 //äëÿ âv÷èñëåíèå ïåðåõîäà  int first_dest;
@@ -298,13 +299,13 @@ void TFilter::GetSeason()
       if ( summer ) {
         s_time = tz->dst_local_start_time( year ) - tz->base_utc_offset();
         e_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - seconds(1);
-        name = string( "‹¥â® " ) + IntToString( year );
+        name = getLocaleText( string( "‹¥â®" ) ) + " " + IntToString( year );
       }
       else {
         s_time = tz->dst_local_end_time( year ) - tz->base_utc_offset() - tz->dst_offset();
         year++;
         e_time = tz->dst_local_start_time( year ) - tz->base_utc_offset() - seconds(1);
-        name = string( "‡¨¬  " ) + IntToString( year - 1 ) + "-" + IntToString( year );
+        name = getLocaleText( string( "‡¨¬ " ) ) + " " + IntToString( year - 1 ) + "-" + IntToString( year );
       }
       summer = !summer;
     }
@@ -313,7 +314,7 @@ void TFilter::GetSeason()
      s_time = ptime( boost::gregorian::date(year,1,1) );
      year++;
      e_time = ptime( boost::gregorian::date(year,1,1) );
-     name = IntToString( year - 1 ) + " £®¤";
+     name = IntToString( year - 1 ) + " " + getLocaleText("£®¤");
     }
     ProgTrace( TRACE5, "s_time=%s, e_time=%s, summer=%d, i=%d",
                DateTimeToStr( UTCToLocal( BoostToDateTime(s_time), region ),"dd.mm.yy hh:nn:ss" ).c_str(),
