@@ -123,6 +123,12 @@ bool TCacheTable::refreshInterface()
   return true;
 }
 
+
+bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
+{
+	return item1.num<item2.num;
+}
+
 void TCacheTable::initFields()
 {
     string code = Params[TAG_CODE].Value;
@@ -131,18 +137,25 @@ void TCacheTable::initFields()
     Qry->SQLText =
         "SELECT name,title,width,char_case,align,data_type, "
         "       data_size,scale,nullable,pr_ident,read_only, "
-        "       refer_code,refer_name,refer_level "
+        "       refer_code,refer_name,refer_level,lang,num "
         "FROM cache_fields "
-        "WHERE code=:code "
-        "ORDER BY num ";
-    Qry->DeclareVariable("code",otString);
-    Qry->SetVariable("code",code);
+        "WHERE code=:code AND (lang IS NULL OR lang=:lang)"
+        "ORDER BY name, lang NULLS LAST ";
+    Qry->CreateVariable("code",otString,code);
+    Qry->CreateVariable("lang",otString,TReqInfo::Instance()->desk.lang);
     Qry->Execute();
 
     if(Qry->Eof)
         throw Exception((string)"Fields of table '"+code+"' not found");
-
+    string prior_name;
     while(!Qry->Eof) {
+
+    	  if ( !prior_name.empty() && prior_name == Qry->FieldAsString("name") ) { // повторение поля с более низким приоритетом
+    	  	Qry->Next();
+    	  	continue;
+    	  }
+    	  prior_name = Qry->FieldAsString("name");
+
         TCacheField2 FField;
 
         FField.Name = Qry->FieldAsString("name");
@@ -228,6 +241,7 @@ void TCacheTable::initFields()
         FField.ReadOnly = Qry->FieldAsInteger("read_only") != 0;
         FField.ReferCode = Qry->FieldAsString("refer_code");
         FField.ReferName = Qry->FieldAsString("refer_name");
+        FField.num = Qry->FieldAsInteger("num");
 
         if (FField.ReferCode.empty() ^ FField.ReferName.empty())
             throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
@@ -244,6 +258,10 @@ void TCacheTable::initFields()
                 throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
         FFields.push_back(FField);
         Qry->Next();
+    }
+    sort(FFields.begin(),FFields.end(),lf);
+    for (vector<TCacheField2>::iterator i=FFields.begin(); i!=FFields.end(); i++ ) {
+    	ProgTrace( TRACE5, "cache field: name=%s, num=%d, read_only=%d", i->Name.c_str(), i->num, i->ReadOnly );
     }
 }
 
@@ -272,6 +290,20 @@ void TCacheTable::DeclareSysVariables(std::vector<string> &vars, TQuery *Qry)
     if ( f != vars.end() ) {
       Qry->DeclareVariable("SYS_point_addr", otString);
       Qry->SetVariable( "SYS_point_addr", OWN_POINT_ADDR() );
+      vars.erase( f );
+    }
+
+    f = find( vars.begin(), vars.end(), "SYS_DESK_LANG" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_desk_lang", otString);
+      Qry->SetVariable( "SYS_desk_lang", TReqInfo::Instance()->desk.lang );
+      vars.erase( f );
+    }
+
+    f = find( vars.begin(), vars.end(), "SYS_DESK_VERSION" );
+    if ( f != vars.end() ) {
+      Qry->DeclareVariable("SYS_desk_version", otString);
+      Qry->SetVariable( "SYS_desk_version", TReqInfo::Instance()->desk.version );
       vars.erase( f );
     }
 };
