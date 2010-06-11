@@ -479,7 +479,7 @@ string get_hall_list(string airp, string zone, bool pr_lat)
 {
     TQuery Qry(&OraSession);
     string SQLText = (string)
-        "SELECT DECODE(:pr_lat,0,name,NVL(name_lat,system.transliter(name,1))) name "
+        "SELECT DECODE(:pr_lat,0,name,NVL(name_lat,system.transliter(name,1,1))) name "
         "FROM "
         "   halls2 "
         "WHERE "
@@ -2075,7 +2075,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
         "       ticket_no, "
         "       decode(:pr_lat, 0, refusal_types.name, NVL(refusal_types.name_lat,refusal_types.name)) refuse, "
@@ -2218,7 +2218,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
         "       pers_types.code pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       ckin.get_bagAmount2(pax.grp_id,pax.pax_id,pax.bag_pool_num,rownum) AS bagAmount, "
@@ -2341,7 +2341,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     Qry.SQLText =
         "SELECT point_dep AS point_id, "
         "       reg_no, "
-        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name)) family, "
+        "       decode(:pr_lat, 0, surname||' '||pax.name, system.transliter(surname||' '||pax.name,1)) family, "
         "       decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
         "       salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
         "       report.get_reminfo(pax_id,',') AS info "
@@ -2458,7 +2458,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
         "SELECT "
         "      tlg_binding.point_id_spp AS point_id, "
         "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
-        "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name)) family, "
+        "      decode(:pr_lat, 0, (crs_pax.surname||' '||crs_pax.name), system.transliter(crs_pax.surname||' '||crs_pax.name,1)) family, "
         "      decode(:pr_lat, 0, pers_types.code, pers_types.code_lat) pers_type, "
         "      decode(:pr_lat, 0, classes.code, classes.code_lat) class, "
         "      salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'seats',rownum) AS seat_no, "

@@ -5818,8 +5818,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      crs_pnr.subclass=:subclass AND "
       "      crs_pax.pers_type=:pers_type AND "
       "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
-      "      system.transliter(crs_pax.surname,1)=:surname AND "
-      "      system.transliter(crs_pax.name,1)=:name AND "
+      "      system.transliter(crs_pax.surname,1,1)=:surname AND "
+      "      system.transliter(crs_pax.name,1,1)=:name AND "
       "      crs_pax.pr_del=0 AND "
       "      pax.pax_id IS NULL "
       "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
