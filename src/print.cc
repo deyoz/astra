@@ -2957,7 +2957,7 @@ void get_route(TTagKey &tag_key, vector<TBTRouteItem> &route, string airp_dep)
     TQuery Qry(&OraSession);
     Qry.SQLText =
         "select  "
-        "   points.scd_out scd,  "
+        "   nvl(points.est_out, points.scd_out) scd,  "
         "   points.airline,  "
         "   airlines.code_lat airline_lat,  "
         "   points.flt_no,  "
