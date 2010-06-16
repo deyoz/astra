@@ -142,9 +142,10 @@ const std::string VARIABLE_FIRST_ELEM = "[";
 const std::string VARIABLE_END_ELEM = "]";
 const std::string FORMAT_FIRST_ELEM = "%";
 const std::string FORMAT_LEXEMA = "L";
+const std::string FORMAT_LINE_BREAK = "EOL";
 const std::string FORMAT_MSG = "MSG.";
 const std::string FORMAT_COVER = "WRAP.";
-enum TLocaleFormat { lfInt, lfDouble, lfDateTime, lfString, lfLexema, lfUnknown };
+enum TLocaleFormat { lfInt, lfDouble, lfDateTime, lfString, lfLexema, lfLineBreak, lfUnknown };
 
 struct ElemData {
 	std::string var_name;

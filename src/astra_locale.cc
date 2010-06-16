@@ -157,46 +157,49 @@ LexemaData LParams::LexemaDataValue( const std::string &name, const boost::any &
 
 void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &text, std::string &master_lexema )
 {
-  tst();
-  if ( master_lexema.empty() && lexemaData.lexema_id.find( FORMAT_MSG ) != string::npos )
-  	master_lexema = lexemaData.lexema_id;
-  char vval[500];
-	LexemaData ld;
-	string str_val;
-	std::map<std::string, boost::any>::iterator lp;
-  string lexema = TLocaleMessages::Instance()->getText( lexemaData.lexema_id, lang );
-  LParser parser( lexema );
-	text = lexema;
-  for ( std::map<int, ElemData>::iterator i=parser.begin(); i!=parser.end(); i++ ) {
-  	ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
-  	lp = lexemaData.lparams.find( i->second.var_name );
-  	if ( lp == lexemaData.lparams.end() )
-  		throw EXCEPTIONS::Exception( "variable '%s' not found in lexemaData.lparams", i->second.var_name.c_str() );
+    tst();
+    if ( master_lexema.empty() && lexemaData.lexema_id.find( FORMAT_MSG ) != string::npos )
+        master_lexema = lexemaData.lexema_id;
+    char vval[500];
+    LexemaData ld;
+    string str_val;
+    std::map<std::string, boost::any>::iterator lp;
+    string lexema = TLocaleMessages::Instance()->getText( lexemaData.lexema_id, lang );
+    LParser parser( lexema );
+    text = lexema;
+    for ( std::map<int, ElemData>::iterator i=parser.begin(); i!=parser.end(); i++ ) {
+        ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
+        lp = lexemaData.lparams.find( i->second.var_name );
+        if ( lp == lexemaData.lparams.end() and i->second.var_name != FORMAT_LINE_BREAK)
+            throw EXCEPTIONS::Exception( "variable '%s' not found in lexemaData.lparams", i->second.var_name.c_str() );
 
-  	switch( i->second.lformat ) {
-  		case lfString:
-  			snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.StringValue( lp->first, lp->second ).c_str() );
-  			str_val = vval;
-  			break;
-  		case lfInt:
-  			snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.IntValue( lp->first, lp->second ) );
-  			str_val = vval;
-  			break;
-  		case lfDouble:
-  		case lfDateTime:
-  			snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.DoubleValue( lp->first, lp->second ) );
-  			str_val = vval;
-  			break;
-  		case lfLexema:
-  			ld = lexemaData.lparams.LexemaDataValue( lp->first, lp->second );
-  			buildMsg( lang, ld, str_val, master_lexema );
-  			break;
-  		case lfUnknown:
-  			throw EXCEPTIONS::Exception( "Invalid format '%s', variable name=%s", i->second.format.c_str(), i->second.var_name.c_str() );
-  	};
-  	text.replace( i->second.first_elem, i->second.last_elem - i->second.first_elem + 1, str_val );
-  	ProgTrace( TRACE5, "master_lexema=%s, text=%s", master_lexema.c_str(), text.c_str() );
-  }
+        switch( i->second.lformat ) {
+            case lfLineBreak:
+                str_val = "\n"; //!!! UNIX & DOS handling problem?
+                break;
+            case lfString:
+                snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.StringValue( lp->first, lp->second ).c_str() );
+                str_val = vval;
+                break;
+            case lfInt:
+                snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.IntValue( lp->first, lp->second ) );
+                str_val = vval;
+                break;
+            case lfDouble:
+            case lfDateTime:
+                snprintf( vval, sizeof(vval), i->second.format.c_str(), lexemaData.lparams.DoubleValue( lp->first, lp->second ) );
+                str_val = vval;
+                break;
+            case lfLexema:
+                ld = lexemaData.lparams.LexemaDataValue( lp->first, lp->second );
+                buildMsg( lang, ld, str_val, master_lexema );
+                break;
+            case lfUnknown:
+                throw EXCEPTIONS::Exception( "Invalid format '%s', variable name=%s", i->second.format.c_str(), i->second.var_name.c_str() );
+        };
+        text.replace( i->second.first_elem, i->second.last_elem - i->second.first_elem + 1, str_val );
+        ProgTrace( TRACE5, "master_lexema=%s, text=%s", master_lexema.c_str(), text.c_str() );
+    }
 
 }
 
@@ -219,47 +222,54 @@ UserException::~UserException() throw()
 
 TLocaleFormat LParser::getFormat( std::string &format_val )
 {
-	string::size_type idx;
-	idx = format_val.find( "s" );
-	if ( idx != string::npos )
-		return lfString;
-	idx = format_val.find( "d" );
-	if ( idx != string::npos )
-		return lfInt;
-	idx = format_val.find( "f" );
-	if ( idx != string::npos )
-		return lfDouble;
-	idx = format_val.find( "L" );
-	if ( idx != string::npos )
-		return lfLexema;
-	return lfUnknown;
+    if(format_val == FORMAT_LINE_BREAK)
+        return lfLineBreak;
+    string::size_type idx;
+    idx = format_val.find( "s" );
+    if ( idx != string::npos )
+        return lfString;
+    idx = format_val.find( "d" );
+    if ( idx != string::npos )
+        return lfInt;
+    idx = format_val.find( "f" );
+    if ( idx != string::npos )
+        return lfDouble;
+    idx = format_val.find( "L" );
+    if ( idx != string::npos )
+        return lfLexema;
+    return lfUnknown;
 }
 
 LParser::LParser( const string &lexema )
 {
-	if ( lexema.empty() )
-		throw EXCEPTIONS::Exception( "LParser: lexema is empty" );
-  ProgTrace( TRACE5, "lexema=%s", lexema.c_str() );
-	string::size_type first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM );
-  while ( first_elem_idx != string::npos ) {
-  	string::size_type first_format_idx = lexema.find( FORMAT_FIRST_ELEM, first_elem_idx + VARIABLE_FIRST_ELEM.size() );
-  	if ( first_format_idx == string::npos )
-  		throw EXCEPTIONS::Exception( "LParser: FORMAT_FIRST_ELEM=%s not found, lexema %s", FORMAT_FIRST_ELEM.c_str(), lexema.c_str() );
-  	string::size_type end_elem_idx = lexema.find( VARIABLE_END_ELEM, first_format_idx + FORMAT_FIRST_ELEM.size() );
-  	if ( end_elem_idx == string::npos )
-  		throw EXCEPTIONS::Exception( "LParser: VARIABLE_END_ELEM=%s not found, lexema %s", VARIABLE_END_ELEM.c_str(), lexema.c_str() );
-  	ElemData ed;
-  	ed.var_name = lexema.substr( first_elem_idx + VARIABLE_FIRST_ELEM.size(), first_format_idx - first_elem_idx - VARIABLE_FIRST_ELEM.size() );
-    ed.format = lexema.substr( first_format_idx, end_elem_idx - first_format_idx );
-    ed.lformat = getFormat( ed.format );
-    ed.first_elem = first_elem_idx;
-    ed.last_elem = end_elem_idx;
-    insert( make_pair( ed.first_elem, ed ) );
-    /* table. */
-    ProgTrace( TRACE5, "var_name=%s, format=%s, first_elem=%d, last_elem=%d",
-               ed.var_name.c_str(), ed.format.c_str(), ed.first_elem, ed.last_elem );
-  	first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM, first_elem_idx + 1 );
-  }
+    if ( lexema.empty() )
+        throw EXCEPTIONS::Exception( "LParser: lexema is empty" );
+    ProgTrace( TRACE5, "lexema=%s", lexema.c_str() );
+    string::size_type first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM );
+    while ( first_elem_idx != string::npos ) {
+        string::size_type first_format_idx = lexema.find( FORMAT_FIRST_ELEM, first_elem_idx + VARIABLE_FIRST_ELEM.size() );
+        string::size_type end_elem_idx = lexema.find( VARIABLE_END_ELEM,  first_elem_idx + VARIABLE_FIRST_ELEM.size() );
+        if(first_format_idx == string::npos or end_elem_idx != string::npos and first_format_idx > end_elem_idx) // special var encountered
+            first_format_idx = end_elem_idx;
+
+        if ( first_format_idx == string::npos )
+            throw EXCEPTIONS::Exception( "LParser: FORMAT_FIRST_ELEM=%s not found, lexema %s", FORMAT_FIRST_ELEM.c_str(), lexema.c_str() );
+        if ( end_elem_idx == string::npos )
+            throw EXCEPTIONS::Exception( "LParser: VARIABLE_END_ELEM=%s not found, lexema %s", VARIABLE_END_ELEM.c_str(), lexema.c_str() );
+        ElemData ed;
+        ed.var_name = lexema.substr( first_elem_idx + VARIABLE_FIRST_ELEM.size(), first_format_idx - first_elem_idx - VARIABLE_FIRST_ELEM.size() );
+        ed.format = lexema.substr( first_format_idx, end_elem_idx - first_format_idx );
+        if(ed.format.empty())
+            ed.format = ed.var_name;
+        ed.lformat = getFormat( ed.format );
+        ed.first_elem = first_elem_idx;
+        ed.last_elem = end_elem_idx;
+        insert( make_pair( ed.first_elem, ed ) );
+        /* table. */
+        ProgTrace( TRACE5, "var_name=%s, format=%s, first_elem=%d, last_elem=%d, lformat=%d",
+                ed.var_name.c_str(), ed.format.c_str(), ed.first_elem, ed.last_elem, ed.lformat );
+        first_elem_idx = lexema.find( VARIABLE_FIRST_ELEM, first_elem_idx + 1 );
+    }
 }
 
 } //end namespace AstraLocale
