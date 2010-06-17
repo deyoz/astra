@@ -18,7 +18,7 @@
 
 #define MAX_STAT_ROWS 2000
 
- using namespace std;
+using namespace std;
 using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace BASIC;
