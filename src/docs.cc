@@ -266,6 +266,27 @@ void SeasonListVars(int trip_id, int pr_lat, xmlNodePtr variablesNode, xmlNodePt
   }
 }
 
+bool ru_desk()
+{
+    return TReqInfo::Instance()->desk.lang == "RU";
+}
+
+std::string translateDocCap(bool pr_lat, const std::string &vlexema)
+{
+    if(ru_desk())
+        return getLocaleText(vlexema, (pr_lat ? "EN" : "RU"));
+    else
+        return getLocaleText(vlexema);
+}
+
+std::string translateDocCap(bool pr_lat, const std::string &vlexema, LParams &aparams)
+{
+    if(ru_desk())
+        return getLocaleText(vlexema, aparams, (pr_lat ? "EN" : "RU"));
+    else
+        return getLocaleText(vlexema, aparams);
+}
+
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
 {
     TQuery Qry(&OraSession);
@@ -344,6 +365,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat));
     NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
     NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "page_number_fmt", translateDocCap(pr_lat, "CAP.PAGE_NUMBER_FMT"));
 }
 
 enum TRptType {
@@ -422,20 +444,23 @@ struct TRptParams {
 
 int GetRPEncoding(const TRptParams &rpt_params)
 {
-    TBaseTable &airps = base_tables.get("AIRPS");
-    TBaseTable &cities = base_tables.get("CITIES");
     int result = 0;
-    //определяем encoding по всему маршруту! независимо от фильтра по аэропорту
-    TTripRoute route;
-    if (!route.GetRouteAfter(rpt_params.point_id,trtWithCurrent,trtNotCancelled))
-        throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", rpt_params.point_id);
-    for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
-    {
-        ProgTrace(TRACE5, "%s", cities.get_row("code",
-                    airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
-        result = result or cities.get_row("code",
-                airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
-    };
+    if(ru_desk()) {
+        TBaseTable &airps = base_tables.get("AIRPS");
+        TBaseTable &cities = base_tables.get("CITIES");
+        //определяем encoding по всему маршруту! независимо от фильтра по аэропорту
+        TTripRoute route;
+        if (!route.GetRouteAfter(rpt_params.point_id,trtWithCurrent,trtNotCancelled))
+            throw Exception("TTripRoute::GetRouteAfter: flight not found for point_id %d", rpt_params.point_id);
+        for(vector<TTripRouteItem>::iterator iv = route.begin(); iv != route.end(); iv++)
+        {
+            ProgTrace(TRACE5, "%s", cities.get_row("code",
+                        airps.get_row("code",iv->airp).AsString("city")).AsString("country").c_str());
+            result = result or cities.get_row("code",
+                    airps.get_row("code",iv->airp).AsString("city")).AsString("country") != "РФ";
+        };
+    } else
+        result = 1;
     return result;
 }
 
@@ -1701,7 +1726,6 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   for(int i=0;i<page_width/6;i++) s << (lat?" TEST ":" ТЕСТ ");
   NewTextChild(variablesNode, "test_str", s.str());
 
-  NewTextChild(variablesNode, "page_number_fmt", (lat?"Page %u of %u":"Стр. %u из %u"));
 
   s.str("");
   if (rpt_params.rpt_type==rtPTMTXT)
@@ -2064,6 +2088,11 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
   ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 };
 
+string get_flight(xmlNodePtr variablesNode)
+{
+    return (string)NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode);
+}
+
 void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 {
     if(rpt_params.rpt_type == rtREFUSETXT)
@@ -2109,24 +2138,16 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
+    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
 string get_test_str(int page_width, bool lat)
 {
     string result;
-    for(int i=0;i<page_width/6;i++) result += (lat?" TEST ":" ТЕСТ ");
+    for(int i=0;i<page_width/6;i++) result += " " + translateDocCap(lat, "CAP.TEST") + " ";
     return result;
-}
-
-string get_page_number_fmt(bool lat)
-{
-    return (lat?"Page %u of %u":"Стр. %u из %u");
-}
-
-string get_issue_date(xmlNodePtr variablesNode, bool lat)
-{
-    return (string)(lat?"Issue date ":"Сформировано ") + NodeAsString("date_issue",variablesNode);
 }
 
 void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2141,25 +2162,25 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
     ostringstream s;
     s.str("");
-    s << "Причины невылета пассажиров рейса " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << translateDocCap(lat, "№") << " "
         << left
-        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(4)  << (lat ? "Type" : "Тип")
-        << setw(10) << (lat ? "Ticket No" : "№ билета")
-        << setw(24)  << (lat ? "Refuse cause" : "Причины невылета")
-        << setw(16) << (lat ? "Bag.Tag.No" : "№№ баг.бирок");
+        << setw(21) << translateDocCap(lat, "Ф.И.О.")
+        << setw(5)  << translateDocCap(lat, "Тип")
+        << setw(10) << translateDocCap(lat, "№ Билета")
+        << setw(24)  << translateDocCap(lat, "Причина невылета")
+        << setw(16) << translateDocCap(lat, "№ б/б");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
     xmlNodePtr dataSetNode = NodeAsNode("v_ref", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2169,7 +2190,7 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
     const char col_sym = ' ';
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
-        SeparateString(NodeAsString("family", rowNode), 21, rows);
+        SeparateString(NodeAsString("family", rowNode), 20, rows);
         fields["surname"]=rows;
 
         SeparateString(NodeAsString("ticket_no", rowNode), 9, rows);
@@ -2188,8 +2209,9 @@ void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
-                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << left << setw(20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+//                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, нафига вот это??? -> "ВЗ") : "") << " " << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode) : "") << " " << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
                 << left << setw(23) << (!fields["refuse"].empty() ? *(fields["refuse"].begin()) : "") << col_sym
                 << left << setw(16) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
@@ -2255,7 +2277,10 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
+    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.NOTPRES",
+                LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
 void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2270,25 +2295,25 @@ void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
     ostringstream s;
     s.str("");
-    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << translateDocCap(lat, "№") << " "
         << left
-        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Type" : "Тип")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(6) << (lat ? "Bag" : "Багаж")
-        << setw(19) << (lat ? " Bag.Tag.No" : " №№ баг.бирок");
+        << setw(38) << translateDocCap(lat, "Ф.И.О.")
+        << setw(5)  << translateDocCap(lat, "Тип")
+        << setw(8)  << translateDocCap(lat, "№ м")
+        << setw(6) << translateDocCap(lat, "Баг.")
+        << " " << setw(19) << translateDocCap(lat, "№ б/б");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
     xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2373,7 +2398,10 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
+    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REM",
+                LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
 void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2388,24 +2416,24 @@ void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
     ostringstream s;
     s.str("");
-    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     string str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << translateDocCap(lat, "№") << " "
         << left
-        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Type" : "Тип")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(25) << (lat ? "Remarks" : "Ремарки");
+        << setw(38) << translateDocCap(lat, "Ф.И.О.")
+        << setw(5)  << translateDocCap(lat, "Тип")
+        << setw(8)  << translateDocCap(lat, "№ м")
+        << setw(25) << translateDocCap(lat, "Ремарки");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
     xmlNodePtr dataSetNode = NodeAsNode("v_rem", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     vector<string> rows;
@@ -2515,14 +2543,14 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     }
 
     // Теперь переменные отчета
-    PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
-    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
+    PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     if(pr_unreg)
-        NewTextChild(variablesNode, "caption", (string)"Список забронированных не прошедших регистрацию пассажиров рейса " +
-                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRSUNREG",
+                    LParams() << LParam("flight", get_flight(variablesNode))));
     else
-        NewTextChild(variablesNode, "caption", (string)"Список забронированных пассажиров рейса " +
-                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRS",
+                    LParams() << LParam("flight", get_flight(variablesNode))));
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2537,7 +2565,6 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_width", page_width);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
     ostringstream s;
     vector<string> rows;
     string str;
@@ -2551,19 +2578,20 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << " "
+        << right << setw(3)  << translateDocCap(lat, "№") << " "
         << left
         << setw(7)  << "PNR"
-        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
-        << setw(5)  << (lat ? "Pax" : "Пас")
-        << setw(3) << (lat ? "Cl" : "Кл")
-        << setw(8)  << (lat ? "Seat No" : "№ места")
-        << setw(4)  << (lat ? "Dst" : "П/н")
-        << setw(7)  << (lat ? "to Dst" : "до П/н")
-        << setw(10) << (lat ? "Ticket" : "Билет")
-        << setw(10) << (lat ? "Document" : "Документ");
+        << setw(22) << translateDocCap(lat, "Ф.И.О.")
+        << setw(5)  << translateDocCap(lat, "Пас")
+        << setw(3) << translateDocCap(lat, "Кл")
+        << setw(8)  << translateDocCap(lat, "№ м")
+        << setw(4)  << translateDocCap(lat, "CAP.DOC.AIRP_ARV")
+        << setw(7)  << translateDocCap(lat, "CAP.DOC.TO")
+        << setw(10) << translateDocCap(lat, "Билет")
+        << setw(10) << translateDocCap(lat, "Документ");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
-    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    NewTextChild(variablesNode, "page_footer_top",
+            translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode))));
     xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
     xmlNodeSetName(dataSetNode, BAD_CAST "table");
     map< string, vector<string> > fields;
@@ -2637,14 +2665,19 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodeSetName(dataNode, (xmlChar *)"datasets");
     xmlAddChild(formDataNode, dataNode);
     // Теперь переменные отчета
-    if ( GetNode( "web", reqNode ) )
-        NewTextChild(variablesNode, "paxlist_type", "web-регистрация");
-    else
-        NewTextChild(variablesNode, "paxlist_type", "Досмотр / Посадка");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
+    if ( GetNode( "web", reqNode ) )
+        NewTextChild(variablesNode, "paxlist_type", translateDocCap(pr_lat, "CAP.PAX_LIST.WEB"));
+    else
+        NewTextChild(variablesNode, "paxlist_type", translateDocCap(pr_lat, "CAP.PAX_LIST.BRD"));
+    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST",
+                LParams()
+                << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
+                << LParam("flight", get_flight(variablesNode)))
+            );
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
-    NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
+    NodeSetContent(totalNode, translateDocCap(pr_lat, "CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode))));
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2664,37 +2697,34 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     ostringstream s;
     s.str("");
     NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
-    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
     s.str("");
-    s
-        << "Список пассажиров (" << NodeAsString("paxlist_type", variablesNode) << "). Рейс "
-        << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    s << NodeAsString("caption", variablesNode);
     str = s.str().substr(0, max_symb_count);
     s.str("");
     s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
     NewTextChild(variablesNode, "page_header_top", s.str());
     s.str("");
     s
-        << right << setw(3)  << "№" << col_sym
-        << left << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
-        << setw(4)  << (lat ? "Pax" : "Пас");
+        << right << setw(3)  << translateDocCap(lat, "№") << col_sym
+        << left << setw(pr_web ? 20 : 22) << translateDocCap(lat, "Фамилия")
+        << setw(4)  << translateDocCap(lat, "Пас");
     if(pr_web)
         s
-            << setw(8)  << (lat ? "Seat No" : "№ места");
+            << setw(9)  << translateDocCap(lat, "№ м");
     else
         s
-            << setw(3)  << (lat ? "Ex" : "Дс")
-            << setw(3)  << (lat ? "Br" : "Пс");
+            << setw(3)  << translateDocCap(lat, "Дс")
+            << setw(4)  << translateDocCap(lat, "Пс");
     s
-        << setw(10) << (lat ? "Document" : "Документ")
-        << setw(10) << (lat ? "Ticket" : "Билет")
-        << setw(15) << (lat ? "Bag.Tag.No" : "№№ баг.бирок")
-        << setw(9)  << (lat ? "Remarks" : "Ремарки");
+        << setw(10) << translateDocCap(lat, "Документ")
+        << setw(10) << translateDocCap(lat, "Билет")
+        << setw(15) << translateDocCap(lat, "№ б/б")
+        << setw(8)  << translateDocCap(lat, "Ремарки");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     s.str("");
     s
         << NodeAsString("total", variablesNode) << endl
-        << get_issue_date(variablesNode, lat);
+        << translateDocCap(lat, "CAP.ISSUE_DATE", LParams() << LParam("date", NodeAsString("date_issue",variablesNode)));
     NewTextChild(variablesNode, "page_footer_top", s.str() );
 
     xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
@@ -2718,7 +2748,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         SeparateString(NodeAsString("tags",rowNode, ""),14,rows);
         fields["tags"]=rows;
 
-        SeparateString(NodeAsString("remarks",rowNode, ""),9,rows);
+        SeparateString(NodeAsString("remarks",rowNode, ""),8,rows);
         fields["remarks"]=rows;
 
         row=0;
@@ -2732,17 +2762,17 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym;
             if(pr_web) {
                 s
-                    << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
+                    << left <<  setw(8) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
             } else {
                 s
                     << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
-                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
+                    << left <<  setw(4) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
             }
             s
                 << left << setw(9) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
                 << left << setw(14) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "") << col_sym
-                << left << setw(9) << (!fields["remarks"].empty() ? *(fields["remarks"].begin()) : "");
+                << left << setw(8) << (!fields["remarks"].empty() ? *(fields["remarks"].begin()) : "");
             for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
                 if (!f->second.empty()) f->second.erase(f->second.begin());
             row++;

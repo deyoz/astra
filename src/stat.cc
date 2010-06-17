@@ -1500,7 +1500,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         } else
             throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
         tm.Init();
-        STAT::set_variables(resNode);
+        xmlNodePtr variablesNode = STAT::set_variables(resNode);
+        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARX_PAX_LIST"));
         ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
         tm.Init();
         ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
@@ -1512,7 +1513,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void STAT::set_variables(xmlNodePtr resNode)
+xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
 {
 
     xmlNodePtr formDataNode = GetNode("form_data", resNode);
@@ -1537,8 +1538,14 @@ void STAT::set_variables(xmlNodePtr resNode)
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
-    NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
     NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
+    NewTextChild(variablesNode, "oper_info", getLocaleText("CAP.DOC.OPER_INFO", LParams()
+                << LParam("date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz)
+                << LParam("oper", reqInfo->user.login)
+                << LParam("term", reqInfo->desk.code)
+                ));
+    return variablesNode;
 }
 
 struct TFullStatRow {
@@ -2268,7 +2275,6 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_excess);
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    STAT::set_variables(resNode);
 }
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
