@@ -1071,7 +1071,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         string cls = Qry.FieldAsString("class");
         xmlNodePtr rowNode = NewTextChild(dataSetNode, "row");
         NewTextChild(rowNode, "reg_no", Qry.FieldAsString("reg_no"));
-        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), pr_lat));
+        NewTextChild(rowNode, "full_name", transliter(Qry.FieldAsString("full_name"), 1, pr_lat));
         string last_target;
         int pr_trfer = 0;
         if(rpt_params.pr_trfer) {

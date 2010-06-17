@@ -789,7 +789,7 @@ void PrintDataParser::t_field_map::additional_tags()
         for(int i = 0; i < 150; i++)
             test_server += "’…‘’ ";
     add_tag("test_server", test_server);
-    test_server = transliter(test_server, 1);
+    test_server = transliter(test_server, 1, true);
     add_tag("test_server_lat", test_server);
 }
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
@@ -2171,7 +2171,7 @@ PrintDataParser::t_field_map::t_field_map(int grp_id, int pax_id, int pr_lat, xm
             if(data.find(name) != data.end())
                 throw Exception("Duplicate tag found in client data " + name);
             data[name] = TagValue;
-            TagValue.StringVal = transliter(TagValue.StringVal,true);
+            TagValue.StringVal = transliter(TagValue.StringVal,1,true);
             data[name + "_LAT"] = TagValue;
             curNode = curNode->next;
         }

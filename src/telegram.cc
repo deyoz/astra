@@ -1724,9 +1724,9 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   if (con.pax.reg_no!=-1)
   {
     body << ".P/"
-         << transliter(con.pax.surname,pr_lat);
+         << transliter(con.pax.surname,1,pr_lat);
     if (!con.pax.name.empty())
-      body << '/' << transliter(con.pax.name,pr_lat);
+      body << '/' << transliter(con.pax.name,1,pr_lat);
     body  << ENDL;
 
     if (!con.pax.pnr_addr.empty())

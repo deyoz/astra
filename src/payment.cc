@@ -850,7 +850,7 @@ void PaymentInterface::GetReceipt(xmlNodePtr reqNode, TBagReceipt &rcpt)
   {
     //превью с незаданным номером квитанции (в т.ч. первое превью)
     rcpt.no=GetCurrNo(reqInfo->user.user_id,rcpt.form_type);
-    rcpt.pax_name=transliter(NodeAsString("pax_name",rcptNode),rcpt.pr_lat);
+    rcpt.pax_name=transliter(NodeAsString("pax_name",rcptNode),1,rcpt.pr_lat);
   }
   else
   {
