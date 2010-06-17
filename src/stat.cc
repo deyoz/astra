@@ -1500,8 +1500,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         } else
             throw AstraLocale::UserException("MSG.PASSENGERS.NOT_FOUND");
         tm.Init();
-        xmlNodePtr variablesNode = STAT::set_variables(resNode);
-        NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARX_PAX_LIST"));
+        STAT::set_variables(resNode);
         ProgTrace(TRACE5, "set_variables: %s", tm.PrintWithMessage().c_str());
         tm.Init();
         ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
@@ -1540,6 +1539,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
+    NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     NewTextChild(variablesNode, "oper_info", getLocaleText("CAP.DOC.OPER_INFO", LParams()
                 << LParam("date", DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz)
                 << LParam("oper", reqInfo->user.login)
