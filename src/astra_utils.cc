@@ -831,12 +831,12 @@ void showMessage(const std::string &message, int code )
 
 namespace AstraLocale {
 
-void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id )
+void getLexemaText( LexemaData lexemaData, string &text, string &master_lexema_id, string lang = "" )
 {
   text.clear();
   master_lexema_id.clear();
   try {
-	  buildMsg( TReqInfo::Instance()->desk.lang, lexemaData, text, master_lexema_id );
+	  buildMsg( (lang.empty() ? TReqInfo::Instance()->desk.lang : lang), lexemaData, text, master_lexema_id );
 	}
   catch( std::exception &e ) {
    	text = lexemaData.lexema_id;
@@ -856,22 +856,22 @@ std::string getLocaleText(LexemaData lexemaData)
     return text;
 }
 
-string getLocaleText(const std::string &vlexema)
+string getLocaleText(const std::string &vlexema, std::string lang)
 {
     LexemaData lexemaData;
     lexemaData.lexema_id = vlexema;
     string text, master_lexema_id;
-    getLexemaText( lexemaData, text, master_lexema_id );
+    getLexemaText( lexemaData, text, master_lexema_id, lang );
     return text;
 }
 
-string getLocaleText(const std::string &vlexema, LParams &aparams)
+string getLocaleText(const std::string &vlexema, LParams &aparams, string lang)
 {
     LexemaData lexemaData;
     lexemaData.lexema_id = vlexema;
     lexemaData.lparams = aparams;
     string text, master_lexema_id;
-    getLexemaText( lexemaData, text, master_lexema_id );
+    getLexemaText( lexemaData, text, master_lexema_id, lang );
     return text;
 }
 

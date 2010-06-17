@@ -300,8 +300,8 @@ void showMessage( const std::string &lexema_id, int code = 0 );
 void showMessage( LexemaData lexemaData, int code = 0);
 void showMessage( std::string vlexema, LParams &aparams, int code = 0);
 std::string getLocaleText(LexemaData lexemaData);
-std::string getLocaleText(const std::string &vlexema);
-std::string getLocaleText(const std::string &vlexema, LParams &aparams);
+std::string getLocaleText(const std::string &vlexema, std::string lang = "");
+std::string getLocaleText(const std::string &vlexema, LParams &aparams, std::string lang = "");
 } // end namespace astraLocale
 
 
