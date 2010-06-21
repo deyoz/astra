@@ -1882,9 +1882,9 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 
   if ( GetNode( "LoadForm", reqNode ) )
       get_report_form("ArrivalPaxList", resNode);
-  STAT::set_variables(resNode);
-  xmlNodePtr formDataNode = GetNode("form_data/variables", resNode);
-  PaxListVars(point_id, 0, formDataNode);
+  xmlNodePtr variablesNode = STAT::set_variables(resNode);
+  PaxListVars(point_id, 0, variablesNode);
+  NewTextChild(variablesNode, "caption", getLocaleText("CAP.DOC.ARRIVAL_PAX_LIST", LParams() << LParam("flight", get_flight(variablesNode))));
 };
 
 bool GetUsePS()

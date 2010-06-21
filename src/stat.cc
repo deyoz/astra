@@ -417,7 +417,7 @@ void StatInterface::FltLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
         get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-    NewTextChild(variablesNode, "report_title", "Журнал операций рейса");
+    NewTextChild(variablesNode, "report_title", getLocaleText("Журнал операций рейса"));
     TQuery Qry(&OraSession);
     int count = 0;
 
@@ -651,7 +651,7 @@ void StatInterface::LogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr 
         get_report_form("FltLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-    NewTextChild(variablesNode, "report_title", "Операции по пассажиру");
+    NewTextChild(variablesNode, "report_title", getLocaleText("Операции по пассажиру"));
     TReqInfo *reqInfo = TReqInfo::Instance();
     TQuery Qry(&OraSession);
     int count = 0;
@@ -812,7 +812,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
         get_report_form("SystemLog", resNode);
     STAT::set_variables(resNode);
     xmlNodePtr variablesNode = GetNode("form_data/variables", resNode);
-    NewTextChild(variablesNode, "report_title", "Операции в системе");
+    NewTextChild(variablesNode, "report_title", getLocaleText("Операции в системе"));
     string module = NodeAsString("module", reqNode);
     TQuery Qry(&OraSession);
     Qry.SQLText = "select exe from screen where name = :module";
@@ -1537,6 +1537,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
             DateTimeToStr(issued, "dd.mm.yyyy hh:nn:ss ") + tz);
     NewTextChild(variablesNode, "print_oper", reqInfo->user.login);
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
+    NewTextChild(variablesNode, "use_seances", USE_SEANCES());
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
     NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
@@ -2053,6 +2054,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         get_report_form("STrferFullStat", resNode);
     else
         get_report_form("TrferFullStat", resNode);
+//    get_report_form("FullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2135,66 +2137,66 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
         if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         } else {
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         }
-        colNode = NewTextChild(headerNode, "col", "Номер рейса");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Дата");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Направление");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
         SetProp(colNode, "width", 90);
         SetProp(colNode, "align", taLeftJustify);
 
         if (USE_SEANCES())
         {
-          colNode = NewTextChild(headerNode, "col", "Сеанс");
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taLeftJustify);
         };
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "ВЗ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "РБ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "РМ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Р/кладь (вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
         SetProp(colNode, "width", 80);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Багаж (мест/вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
         SetProp(colNode, "width", 100);
         SetProp(colNode, "align", taCenter);
 
-        colNode = NewTextChild(headerNode, "col", "Платн. (вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
         SetProp(colNode, "width", 70);
         SetProp(colNode, "align", taRightJustify);
 
@@ -2257,7 +2259,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->first.point_id);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", getLocaleText("Итого"));
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
@@ -2283,10 +2285,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(USE_SEANCES())
-        get_report_form("SFullStat", resNode);
-    else
-        get_report_form("FullStat", resNode);
+    get_report_form("FullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2369,66 +2368,66 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
         if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         } else {
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         }
-        colNode = NewTextChild(headerNode, "col", "Номер рейса");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Номер рейса"));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Дата");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Дата"));
         SetProp(colNode, "width", 50);
         SetProp(colNode, "align", taLeftJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Направление");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Направление"));
         SetProp(colNode, "width", 90);
         SetProp(colNode, "align", taLeftJustify);
 
         if (USE_SEANCES())
         {
-          colNode = NewTextChild(headerNode, "col", "Сеанс");
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taLeftJustify);
         };
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "ВЗ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("ВЗ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "РБ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РБ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "РМ");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("РМ"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Р/кладь (вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Р/кладь (вес)"));
         SetProp(colNode, "width", 80);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Багаж (мест/вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Багаж (мест/вес)"));
         SetProp(colNode, "width", 100);
         SetProp(colNode, "align", taCenter);
 
-        colNode = NewTextChild(headerNode, "col", "Платн. (вес)");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Платн. (вес)"));
         SetProp(colNode, "width", 70);
         SetProp(colNode, "align", taRightJustify);
 
@@ -2489,7 +2488,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->second.excess);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", getLocaleText("Итого"));
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
@@ -2598,10 +2597,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(USE_SEANCES())
-        get_report_form("SShortStat", resNode);
-    else
-        get_report_form("ShortStat", resNode);
+    get_report_form("ShortStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2640,26 +2636,26 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
         if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         } else {
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         }
         if (USE_SEANCES())
         {
-          colNode = NewTextChild(headerNode, "col", "Сеанс");
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taLeftJustify);
         }
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
@@ -2679,7 +2675,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", si->second.pax_amount);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", getLocaleText("Итого"));
         if (USE_SEANCES())
         {
           NewTextChild(rowNode, "col");
@@ -2714,10 +2710,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(USE_SEANCES())
-        get_report_form("SDetailStat", resNode);
-    else
-        get_report_form("DetailStat", resNode);
+    get_report_form("DetailStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2764,34 +2757,34 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr headerNode = NewTextChild(grdNode, "header");
         xmlNodePtr colNode;
         if(params.ap.size()) {
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         } else {
-            colNode = NewTextChild(headerNode, "col", "Код а/к");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/к"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
 
-            colNode = NewTextChild(headerNode, "col", "Код а/п");
+            colNode = NewTextChild(headerNode, "col", getLocaleText("Код а/п"));
             SetProp(colNode, "width", 50);
             SetProp(colNode, "align", taLeftJustify);
         }
         if (USE_SEANCES())
         {
-          colNode = NewTextChild(headerNode, "col", "Сеанс");
+          colNode = NewTextChild(headerNode, "col", getLocaleText("Сеанс"));
           SetProp(colNode, "width", 40);
           SetProp(colNode, "align", taLeftJustify);
         };
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во рейсов");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во рейсов"));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
-        colNode = NewTextChild(headerNode, "col", "Кол-во пасс.");
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Кол-во пасс."));
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
@@ -2814,7 +2807,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", "Итого:");
+        NewTextChild(rowNode, "col", getLocaleText("Итого"));
         NewTextChild(rowNode, "col");
         if (USE_SEANCES())
         {
