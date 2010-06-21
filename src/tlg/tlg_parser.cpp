@@ -5662,7 +5662,7 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
               Qry.SQLText=
                 "UPDATE crs_pnr SET last_target= "
                 "  (SELECT airp_arv FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num= "
-                "    (SELECT MAX(transfer_num) FROM crs_transfer WHERE pnr_id=:pnr_id)) "
+                "    (SELECT MAX(transfer_num) FROM crs_transfer WHERE pnr_id=:pnr_id AND transfer_num>0)) "
                 "WHERE pnr_id=:pnr_id";
               Qry.CreateVariable("pnr_id",otInteger,pnr_id);
               Qry.Execute();
