@@ -304,10 +304,11 @@ void TStagesRules::UpdateGraph_Stages( )
 	ClientStages.clear();
 	TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT stage_id, name, NULL airp FROM graph_stages "
+    "SELECT stage_id, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, NULL airp FROM graph_stages "
     "UNION "
-    "SELECT stage_id, name, airp FROM stage_names "
+    "SELECT stage_id, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, airp FROM stage_names "
     " ORDER BY stage_id, airp";
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
 
   while ( !Qry.Eof ) {
@@ -352,7 +353,10 @@ void TStagesRules::Update()
  }
  /* загрузка статусов */
  Qry.Clear();
- Qry.SQLText = "SELECT stage_id, stage_type, status FROM stage_statuses ORDER BY stage_type";
+ Qry.SQLText =
+   "SELECT stage_id, stage_type, DECODE(:lang,'RU',status,NVL(status_lat,status)) status "
+   " FROM stage_statuses ORDER BY stage_type";
+ Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
  Qry.Execute();
  TStage_Type stage_type;
  TStage_Status status;
