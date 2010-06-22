@@ -685,9 +685,15 @@ void PrepRegInterface::ViewCRSList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xml
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   viewCRSList( point_id, dataNode );
   get_report_form("PNLPaxList", resNode);
-  STAT::set_variables(resNode);
-  xmlNodePtr formDataNode = GetNode("form_data/variables", resNode);
+  xmlNodePtr formDataNode = STAT::set_variables(resNode);
   PaxListVars(point_id, pr_lat, formDataNode);
+  string real_out = NodeAsString("real_out", formDataNode);
+  string scd_out = NodeAsString("scd_out", formDataNode);
+  string date = real_out + (real_out == scd_out ? "" : "(" + scd_out + ")");
+  NewTextChild(formDataNode, "caption", getLocaleText("CAP.DOC.PNL_PAX_LIST",
+              LParams() << LParam("trip", NodeAsString("trip", formDataNode))
+                  << LParam("date", date)
+              ));
 }
 
 

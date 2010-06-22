@@ -2050,11 +2050,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    if(USE_SEANCES())
-        get_report_form("STrferFullStat", resNode);
-    else
-        get_report_form("TrferFullStat", resNode);
-//    get_report_form("FullStat", resNode);
+    get_report_form("FullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
@@ -2277,6 +2273,8 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_excess);
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
 }
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2506,7 +2504,8 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(rowNode, "col", total_excess);
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    STAT::set_variables(resNode);
+    xmlNodePtr variablesNode = STAT::set_variables(resNode);
+    NewTextChild(variablesNode, "caption", getLocaleText("Подробная сводка"));
 }
 
 struct TShortStatRow {
