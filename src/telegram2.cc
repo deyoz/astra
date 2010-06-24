@@ -1027,7 +1027,7 @@ namespace PRL_SPACE {
     void TPRLDest::GetPaxList(TTlgInfo &info, vector<TTlgCompLayer> &complayers)
     {
         TQuery Qry(&OraSession);
-        Qry.SQLText =
+        string SQLText =
             "select "
             "    pax_grp.airp_arv target, "
             "    cls_grp.id cls, "
@@ -1049,8 +1049,12 @@ namespace PRL_SPACE {
             "    pax_grp.airp_arv = :airp and "
             "    pax_grp.grp_id=pax.grp_id AND "
             "    pax_grp.class_grp = cls_grp.id(+) AND "
-            "    cls_grp.code = :class and "
-            "    pax.pr_brd = 1 and "
+            "    cls_grp.code = :class and ";
+        if(info.tlg_type == "PRLC")
+            SQLText += " pax.pr_brd is null and ";
+        else
+            SQLText += "    pax.pr_brd = 1 and ";
+        SQLText +=
             "    pax.seats>0 and "
             "    pax.pax_id = crs_pax.pax_id(+) and "
             "    crs_pax.pr_del(+)=0 and "
@@ -1061,6 +1065,7 @@ namespace PRL_SPACE {
             "    pax.surname, "
             "    pax.name nulls first, "
             "    pax.pax_id ";
+        Qry.SQLText = SQLText;
         Qry.CreateVariable("point_id", otInteger, info.point_id);
         Qry.CreateVariable("airp", otString, airp);
         Qry.CreateVariable("class", otString, cls);
@@ -5351,7 +5356,7 @@ int PRL(TTlgInfo &info)
     ostringstream heading;
     heading
         << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
-        << "PRL" << br
+        << info.tlg_type << br
         << airline << setw(3) << setfill('0') << flt_no << suffix << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
@@ -5366,7 +5371,7 @@ int PRL(TTlgInfo &info)
     vector<string> body;
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
-    tlg_row.ending = "ENDPRL" + br;
+    tlg_row.ending = "END" + info.tlg_type + br;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
