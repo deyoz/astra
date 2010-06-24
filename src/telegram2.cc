@@ -1051,7 +1051,7 @@ namespace PRL_SPACE {
             "    pax_grp.class_grp = cls_grp.id(+) AND "
             "    cls_grp.code = :class and ";
         if(info.tlg_type == "PRLC")
-            SQLText += " pax.pr_brd is null and ";
+            SQLText += " pax.pr_brd is not null and ";
         else
             SQLText += "    pax.pr_brd = 1 and ";
         SQLText +=
