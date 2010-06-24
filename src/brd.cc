@@ -389,6 +389,8 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     if ( GetNode( "LoadVars", reqNode ) ) {
         PaxListVars(point_id, 0, variablesNode);
+        NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
+        NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     }
     bool pr_web = GetNode( "web", reqNode ) != NULL;
 
