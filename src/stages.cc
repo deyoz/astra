@@ -753,6 +753,7 @@ void CloseCheckIn( int point_id )
   {
     vector<string> tlg_types;
     tlg_types.push_back("COM");
+    tlg_types.push_back("PRLC");
     TelegramInterface::SendTlg(point_id,tlg_types);
   }
   catch(std::exception &E)
