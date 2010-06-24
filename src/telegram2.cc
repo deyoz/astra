@@ -1015,12 +1015,12 @@ namespace PRL_SPACE {
     void TPRLDest::PaxListToTlg(TTlgInfo &info, vector<string> &body)
     {
         for(vector<TPRLPax>::iterator iv = PaxList.begin(); iv != PaxList.end(); iv++) {
-            iv->OList.ToTlg(info, body);
             iv->name.ToTlg(info, body);
             iv->pnrs.ToTlg(info, body);
             iv->M.ToTlg(info, body);
-            iv->rems.ToTlg(info, body);
             grp_map->ToTlg(info, iv->grp_id, body);
+            iv->OList.ToTlg(info, body);
+            iv->rems.ToTlg(info, body);
         }
     }
 
@@ -5356,7 +5356,7 @@ int PRL(TTlgInfo &info)
     ostringstream heading;
     heading
         << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
-        << info.tlg_type << br
+        << "PRL" << br
         << airline << setw(3) << setfill('0') << flt_no << suffix << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
@@ -5371,7 +5371,7 @@ int PRL(TTlgInfo &info)
     vector<string> body;
     dests.ToTlg(info, body);
     split_n_save(heading, part_len, tlg_draft, tlg_row, body);
-    tlg_row.ending = "END" + info.tlg_type + br;
+    tlg_row.ending = "ENDPRL" + br;
     tlg_draft.Save(tlg_row);
     tlg_draft.Commit(tlg_row);
     return tlg_row.id;
