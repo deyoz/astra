@@ -287,6 +287,33 @@ std::string translateDocCap(bool pr_lat, const std::string &vlexema, LParams &ap
         return getLocaleText(vlexema, aparams);
 }
 
+void populate_doc_cap(xmlNodePtr variablesNode, bool pr_lat)
+{
+    NewTextChild(variablesNode, "doc_cap_no", translateDocCap(pr_lat, "№"));
+    NewTextChild(variablesNode, "doc_cap_name", translateDocCap(pr_lat, "Ф.И.О."));
+    NewTextChild(variablesNode, "doc_cap_surname", translateDocCap(pr_lat, "Фамилия"));
+    NewTextChild(variablesNode, "doc_cap_doc", translateDocCap(pr_lat, "Документ"));
+    NewTextChild(variablesNode, "doc_cap_tkt", translateDocCap(pr_lat, "Билет"));
+    NewTextChild(variablesNode, "doc_cap_tkt_no", translateDocCap(pr_lat, "№ Билета"));
+    NewTextChild(variablesNode, "doc_cap_ref_type", translateDocCap(pr_lat, "Причина невылета"));
+    NewTextChild(variablesNode, "doc_cap_bag", translateDocCap(pr_lat, "Баг."));
+    NewTextChild(variablesNode, "doc_cap_baggage", translateDocCap(pr_lat, "Багаж"));
+    NewTextChild(variablesNode, "doc_cap_rk", translateDocCap(pr_lat, "Р/к"));
+    NewTextChild(variablesNode, "doc_cap_pay", translateDocCap(pr_lat, "Опл."));
+    NewTextChild(variablesNode, "doc_cap_tags", translateDocCap(pr_lat, "№№ баг. бирок"));
+    NewTextChild(variablesNode, "doc_cap_tags_short", translateDocCap(pr_lat, "№ б/б"));
+    NewTextChild(variablesNode, "doc_cap_rem", translateDocCap(pr_lat, "Рем."));
+    NewTextChild(variablesNode, "doc_cap_pas", translateDocCap(pr_lat, "Пас"));
+    NewTextChild(variablesNode, "doc_cap_type", translateDocCap(pr_lat, "Тип"));
+    NewTextChild(variablesNode, "doc_cap_seat_no", translateDocCap(pr_lat, "№ м"));
+    NewTextChild(variablesNode, "doc_cap_remarks", translateDocCap(pr_lat, "Ремарки"));
+    NewTextChild(variablesNode, "doc_cap_cl", translateDocCap(pr_lat, "Кл"));
+    NewTextChild(variablesNode, "doc_cap_dest", translateDocCap(pr_lat, "П/н"));
+    NewTextChild(variablesNode, "doc_cap_to", translateDocCap(pr_lat, "CAP.DOC.TO"));
+    NewTextChild(variablesNode, "doc_cap_ex", translateDocCap(pr_lat, "Дс"));
+    NewTextChild(variablesNode, "doc_cap_brd", translateDocCap(pr_lat, "Пс"));
+}
+
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
 {
     TQuery Qry(&OraSession);
@@ -2143,6 +2170,7 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REFUSE", LParams() << LParam("flight", get_flight(variablesNode))));
+    populate_doc_cap(variablesNode, pr_lat);
 }
 
 string get_test_str(int page_width, bool lat)
@@ -2283,6 +2311,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.NOTPRES",
                 LParams() << LParam("flight", get_flight(variablesNode))));
+    populate_doc_cap(variablesNode, pr_lat);
 }
 
 void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2404,6 +2433,7 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.REM",
                 LParams() << LParam("flight", get_flight(variablesNode))));
+    populate_doc_cap(variablesNode, pr_lat);
 }
 
 void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2553,6 +2583,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
     else
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.CRS",
                     LParams() << LParam("flight", get_flight(variablesNode))));
+    populate_doc_cap(variablesNode, pr_lat);
 }
 
 void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
@@ -2680,6 +2711,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, translateDocCap(pr_lat, "CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode))));
+    populate_doc_cap(variablesNode, pr_lat);
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
