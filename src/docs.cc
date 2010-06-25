@@ -815,7 +815,7 @@ void get_report_form(const string name, xmlNodePtr node)
     string version;
     TQuery Qry(&OraSession);
     if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION)) {
-        Qry.SQLText = "select form from fr_forms2 where name = :name and version = :version ";
+        Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
         version = get_report_version(name);
         Qry.CreateVariable("version", otString, version);
     } else
@@ -837,6 +837,8 @@ void get_report_form(const string name, xmlNodePtr node)
     xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
+    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) and Qry.FieldAsInteger("pr_locale") != 0)
+        SetProp(formNode, "pr_locale");
 }
 
 struct TPMTotalsKey {
