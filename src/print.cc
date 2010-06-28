@@ -788,7 +788,7 @@ void PrintDataParser::t_field_map::additional_tags()
         for(int i = 0; i < 150; i++)
             test_server += "’…‘’ ";
     add_tag("test_server", test_server);
-    test_server = transliter(test_server, 1);
+    test_server = transliter(test_server, 1, true);
     add_tag("test_server_lat", test_server);
 }
 string PrintDataParser::t_field_map::get_field(string name, int len, string align, string date_format, int field_lat)
@@ -1210,7 +1210,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   crafts.code craft, "
         "   crafts.code_lat craft_lat, "
         "   points.BORT, "
-        "   system.transliter(points.BORT, 1) bort_lat "
+        "   system.transliter(points.BORT, 1, 1) bort_lat "
         "from "
         "   points, "
         "   airlines, "
@@ -1336,24 +1336,24 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "select "
             "   pax.PAX_ID, "
             "   pax.SURNAME, "
-            "   system.transliter(pax.SURNAME, 1) surname_lat, "
+            "   system.transliter(pax.SURNAME, 1, 1) surname_lat, "
             "   pax.NAME, "
-            "   system.transliter(pax.NAME, 1) name_lat, "
+            "   system.transliter(pax.NAME, 1, 1) name_lat, "
             "   pax.surname||' '||pax.name fullname, "
-            "   system.transliter(pax.surname||' '||pax.name) fullname_lat, "
+            "   system.transliter(pax.surname||' '||pax.name, 1) fullname_lat, "
             "   pax.pers_type pers_type, "
             "   pers_types.code_lat pers_type_lat, "
             "   pers_types.name pers_type_name, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,0) AS list_seat_no, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'list',NULL,1) AS list_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,0) AS str_seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1)) AS str_seat_no_lat, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'voland',NULL,1),1) AS str_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,0) AS one_seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,1)) AS one_seat_no_lat, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'one',NULL,1),1) AS one_seat_no_lat, "
             "   salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,0) AS seat_no, "
-            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,1)) AS seat_no_lat, "
+            "   system.transliter(salons.get_seat_no(pax.pax_id,pax.seats,NULL,NULL,'seats',NULL,1),1) AS seat_no_lat, "
             "   pax.SEAT_TYPE, "
-            "   system.transliter(pax.SEAT_TYPE, 1) seat_type_lat, "
+            "   system.transliter(pax.SEAT_TYPE, 1, 1) seat_type_lat, "
             "   to_char(DECODE( "
             "       pax.SEAT_TYPE, "
             "       'SMSA',1, "
@@ -1377,11 +1377,11 @@ void PrintDataParser::t_field_map::fillBTBPMap()
             "   pax.TICKET_NO, "
             "   pax.COUPON_NO, "
             "   DECODE(pax.ticket_rem,'TKNE',ticket_no||'/'||coupon_no,NULL) eticket_no, "
-            "   system.transliter(pax.TICKET_NO, 1) ticket_no_lat, "
+            "   system.transliter(pax.TICKET_NO, 1, 1) ticket_no_lat, "
             "   pax.DOCUMENT, "
-            "   system.transliter(pax.DOCUMENT, 1) document_lat, "
+            "   system.transliter(pax.DOCUMENT, 1, 1) document_lat, "
             "   pax.SUBCLASS, "
-            "   system.transliter(pax.SUBCLASS, 1) subclass_lat, "
+            "   system.transliter(pax.SUBCLASS, 1, 1) subclass_lat, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 0) tags, "
             "   ckin.get_birks(pax.grp_id, pax.pax_id, 1) tags_lat, "
             "   ckin.get_pax_pnr_addr(:pax_id) pnr "
@@ -1434,7 +1434,7 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         "   cls_grp.name_lat class_name_lat, "
         "   pax_grp.EXCESS, "
         "   pax_grp.HALL, "
-        "   system.transliter(pax_grp.HALL) hall_lat, "
+        "   system.transliter(pax_grp.HALL, 1) hall_lat, "
         "   to_char(ckin.get_bagAmount(pax_grp.grp_id, null)) bag_amount, "
         "   to_char(ckin.get_bagWeight(pax_grp.grp_id, null)) bag_weight, "
         "   to_char(ckin.get_rkWeight(pax_grp.grp_id, null)) rk_weight "
@@ -2170,7 +2170,7 @@ PrintDataParser::t_field_map::t_field_map(int grp_id, int pax_id, int pr_lat, xm
             if(data.find(name) != data.end())
                 throw Exception("Duplicate tag found in client data " + name);
             data[name] = TagValue;
-            TagValue.StringVal = transliter(TagValue.StringVal,true);
+            TagValue.StringVal = transliter(TagValue.StringVal,1,true);
             data[name + "_LAT"] = TagValue;
             curNode = curNode->next;
         }

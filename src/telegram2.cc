@@ -959,9 +959,9 @@ namespace PRL_SPACE {
         for(vector<TInfantsItem>::iterator infRow = infants->items.begin(); infRow != infants->items.end(); infRow++) {
             if(infRow->grp_id == pax.grp_id and infRow->pax_id == pax.pax_id) {
                 string rem;
-                rem = "1INF " + transliter(infRow->surname, info.pr_lat);
+                rem = "1INF " + transliter(infRow->surname, 1, info.pr_lat);
                 if(!infRow->name.empty()) {
-                    rem += "/" + transliter(infRow->name, info.pr_lat);
+                    rem += "/" + transliter(infRow->name, 1, info.pr_lat);
                 }
                 items.push_back(rem);
             }
@@ -992,7 +992,7 @@ namespace PRL_SPACE {
         if(!Qry.Eof) {
             int col_rem = Qry.FieldIndex("rem");
             for(; !Qry.Eof; Qry.Next())
-                items.push_back(transliter(Qry.FieldAsString(col_rem), info.pr_lat));
+                items.push_back(transliter(Qry.FieldAsString(col_rem), 1, info.pr_lat));
         }
     }
 
@@ -2121,9 +2121,9 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.seats = Qry.FieldAsInteger(col_seats);
             if(item.seats > 1)
                 item.exst.get(Qry.FieldAsInteger(col_pax_id));
-            item.surname = transliter(Qry.FieldAsString(col_surname), info.pr_lat);
+            item.surname = transliter(Qry.FieldAsString(col_surname), 1, info.pr_lat);
             item.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
-            item.name = transliter(Qry.FieldAsString(col_name), info.pr_lat);
+            item.name = transliter(Qry.FieldAsString(col_name), 1, info.pr_lat);
             int fmt;
             item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
@@ -2415,7 +2415,7 @@ string TSSR::ToPILTlg(TTlgInfo &info) const
             result += " ";
         result += iv->code;
         if(not iv->free_text.empty())
-            result += " " + transliter(iv->free_text, info.pr_lat);
+            result += " " + transliter(iv->free_text, 1, info.pr_lat);
     }
     return result;
 }
@@ -2425,7 +2425,7 @@ void TSSR::ToTlg(TTlgInfo &info, vector<string> &body)
     for(vector<TSSRItem>::iterator iv = items.begin(); iv != items.end(); iv++) {
         string buf = " " + iv->code;
         if(not iv->free_text.empty()) {
-            buf += " " + transliter(iv->free_text, info.pr_lat);
+            buf += " " + transliter(iv->free_text, 1, info.pr_lat);
             string offset;
             while(buf.size() > LINE_SIZE) {
                 size_t idx = buf.rfind(" ", LINE_SIZE - 1);
@@ -2844,7 +2844,7 @@ void TTPM::ToTlg(TTlgInfo &info, vector<string> &body)
             if(infRow->grp_id == iv->grp_id and infRow->pax_id == iv->pax_id) {
                 inf_count++;
                 if(!infRow->name.empty())
-                    buf << "/" << transliter(infRow->name, info.pr_lat);
+                    buf << "/" << transliter(infRow->name, 1, info.pr_lat);
             }
         }
         if(inf_count > 0)
@@ -3572,17 +3572,17 @@ int SOM(TTlgInfo &info)
 
 string TName::ToPILTlg(TTlgInfo &info) const
 {
-    string result = transliter(surname, info.pr_lat);
+    string result = transliter(surname, 1, info.pr_lat);
     if(not name.empty())
-        result += "/" + transliter(name, info.pr_lat);
+        result += "/" + transliter(name, 1, info.pr_lat);
     return result;
 
 }
 
 void TName::ToTlg(TTlgInfo &info, vector<string> &body, string postfix)
 {
-    name = transliter(name, info.pr_lat);
-    surname = transliter(surname, info.pr_lat);
+    name = transliter(name, 1, info.pr_lat);
+    surname = transliter(surname, 1, info.pr_lat);
     if(postfix.size() > (LINE_SIZE - sizeof("1X/X ")))
         throw Exception("TName::ToTlg: postfix too long %s", postfix.c_str());
     size_t name_size = LINE_SIZE - postfix.size();
@@ -3713,13 +3713,13 @@ void TRemList::internal_get(TTlgInfo &info, int pax_id, string subcls)
             item +=
                 rem_code + " " +
                 ElemIdToElem(etAirline, airline, info.pr_lat) + " " +
-                transliter(no, info.pr_lat);
+                transliter(no, 1, info.pr_lat);
             if(rem_code == "FQTV") {
                 if(not subclass.empty() and subclass != subcls)
                     item += "-" + ElemIdToElem(etSubcls, subclass, info.pr_lat);
             } else {
                 if(not extra.empty())
-                    item += "-" + transliter(extra, info.pr_lat);
+                    item += "-" + transliter(extra, 1, info.pr_lat);
             }
             items.push_back(item);
         }

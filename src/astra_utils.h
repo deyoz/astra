@@ -340,7 +340,9 @@ class UserException2:public EXCEPTIONS::UserException
 
 std::string convert_pnr_addr(const std::string &value, bool pr_lat);
 std::string convert_suffix(const std::string &value, bool pr_lat);
-std::string transliter(const std::string &value, bool pr_lat);
+std::string transliter(const std::string &value, int fmt, bool pr_lat);
+bool transliter_equal(const std::string &value1, const std::string &value2, int fmt);
+bool transliter_equal(const std::string &value1, const std::string &value2);
 bool is_lat(const std::string &value);
 
 int getTCLParam(const char* name, int min, int max, int def);
