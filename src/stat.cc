@@ -2255,7 +2255,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->first.point_id);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого"));
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
@@ -2275,6 +2275,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw AstraLocale::UserException("MSG.NOT_DATA");
     xmlNodePtr variablesNode = STAT::set_variables(resNode);
     NewTextChild(variablesNode, "caption", getLocaleText("Трансферная сводка"));
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2486,7 +2487,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->second.excess);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого"));
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
         NewTextChild(rowNode, "col");
@@ -2674,7 +2675,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", si->second.pax_amount);
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого"));
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         if (USE_SEANCES())
         {
           NewTextChild(rowNode, "col");
@@ -2806,7 +2807,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             Qry.Next();
         }
         rowNode = NewTextChild(rowsNode, "row");
-        NewTextChild(rowNode, "col", getLocaleText("Итого"));
+        NewTextChild(rowNode, "col", getLocaleText("Итого:"));
         NewTextChild(rowNode, "col");
         if (USE_SEANCES())
         {
