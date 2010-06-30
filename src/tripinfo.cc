@@ -480,6 +480,26 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
           BrdInterface::readTripData( point_id, dataNode );
       if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {
           BrdInterface::GetPax(reqNode,resNode);
+          xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
+          if(variablesNode) {
+              NewTextChild(variablesNode, "exam_totals", getLocaleText("CAP.DOC.EXAMBRD.EXAM_TOTALS",
+                          LParams()
+                          << LParam("total", NodeAsString("total", variablesNode))
+                          << LParam("total_brd", NodeAsString("total_brd", variablesNode))
+                          << LParam("total_not_brd", NodeAsString("total_not_brd", variablesNode))
+                          ));
+              NewTextChild(variablesNode, "brd_totals", getLocaleText("CAP.DOC.EXAMBRD.BRD_TOTALS",
+                          LParams()
+                          << LParam("total", NodeAsString("total", variablesNode))
+                          << LParam("total_brd", NodeAsString("total_brd", variablesNode))
+                          << LParam("total_not_brd", NodeAsString("total_not_brd", variablesNode))
+                          ));
+              NewTextChild(variablesNode, "cap_checked", getLocaleText("CAP.DOC.EXAMBRD.CHECKED.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+              NewTextChild(variablesNode, "cap_exam", getLocaleText("CAP.DOC.EXAMBRD.EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+              NewTextChild(variablesNode, "cap_brd", getLocaleText("CAP.DOC.EXAMBRD.BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+              NewTextChild(variablesNode, "cap_no_exam", getLocaleText("CAP.DOC.EXAMBRD.NO_EXAM.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+              NewTextChild(variablesNode, "cap_no_brd", getLocaleText("CAP.DOC.EXAMBRD.NO_BRD.FLIGHT", LParams() << LParam("flight", get_flight(variablesNode))));
+          }
       }
   };
   if (reqInfo->screen.name == "AIR.EXE")
