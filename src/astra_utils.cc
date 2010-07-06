@@ -1989,7 +1989,7 @@ bool is_lat(const std::string &value)
     return result;
 }
 
-string transliter(const string &value, bool pr_lat)
+string transliter(const string &value, int fmt, bool pr_lat)
 {
   string result;
   if (pr_lat)
@@ -2009,7 +2009,12 @@ string transliter(const string &value, bool pr_lat)
           case 'É': c2 = "G"; break;
           case 'Ñ': c2 = "D"; break;
           case 'Ö': c2 = "E"; break;
-          case '': c2 = "IO"; break;
+          case '': switch(fmt)
+                    {
+                      case 2:  c2 = "YO";
+                      default: c2 = "IO";
+                    };
+                    break;
           case 'Ü': c2 = "ZH"; break;
           case 'á': c2 = "Z"; break;
           case 'à': c2 = "I"; break;
@@ -2029,13 +2034,28 @@ string transliter(const string &value, bool pr_lat)
           case 'ñ': c2 = "TS"; break;
           case 'ó': c2 = "CH"; break;
           case 'ò': c2 = "SH"; break;
-          case 'ô': c2 = "SHCH"; break;
+          case 'ô': switch(fmt)
+                    {
+                      case 2:  c2 = "SH";
+                      default: c2 = "SHCH";
+                    };
+                    break;
           case 'ö': c2 = ""; break;
           case 'õ': c2 = "Y"; break;
           case 'ú': c2 = ""; break;
           case 'ù': c2 = "E"; break;
-          case 'û': c2 = "IU"; break;
-          case 'ü': c2 = "IA"; break;
+          case 'û': switch(fmt)
+                    {
+                      case 2:  c2 = "YU";
+                      default: c2 = "IU";
+                    };
+                    break;
+          case 'ü': switch(fmt)
+                    {
+                      case 2:  c2 = "YA";
+                      default: c2 = "IA";
+                    };
+                    break;
           default:  c2 = "?";
         };
         if (ToUpper(c)!=c) result+=lowerc(c2); else result+=c2;
@@ -2045,7 +2065,19 @@ string transliter(const string &value, bool pr_lat)
   }
   else  result=value;
   return result;
-}
+};
+
+bool transliter_equal(const string &value1, const string &value2, int fmt)
+{
+  return transliter(value1,fmt,true)==transliter(value2,fmt,true);
+};
+
+bool transliter_equal(const string &value1, const string &value2)
+{
+  for(int fmt=1;fmt<=2;fmt++)
+    if (transliter_equal(value1,value2,fmt)) return true;
+  return false;
+};
 
 string& EOracleError2UserException(string& msg)
 {

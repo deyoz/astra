@@ -511,10 +511,10 @@ bool findPnr( const string &surname, const string &pnr_addr,
    "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
    "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
    "      tlg_binding.point_id_spp=:point_id AND "
-   "      system.transliter(crs_pax.surname,1)=:surname AND "
+   "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
    "      crs_pax.pr_del=0";
   Qry.CreateVariable( "point_id", otInteger, SearchPnrData.point_id );
-  Qry.CreateVariable( "surname", otString, transliter( surname, 1 ) );
+  Qry.CreateVariable( "surname", otString, surname );
   Qry.Execute();
   int fcount = 0;
   vector<TPnrAddr> pnraddrs;

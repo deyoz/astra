@@ -485,12 +485,12 @@ void create_czech_police_file(int point_id, bool is_edi)
     TQuery PaxQry(&OraSession);
     PaxQry.SQLText=
       "SELECT pax_doc.pax_id, "
-      "       system.transliter(pax.surname,1) AS surname, "
-      "       system.transliter(pax.name,1) AS name, "
+      "       system.transliter(pax.surname,1,1) AS surname, "
+      "       system.transliter(pax.name,1,1) AS name, "
       "       DECODE(system.is_name(pax.document),0,NULL,pax.document) AS document, "
-      "       system.transliter(pax_doc.surname,1) AS doc_surname, "
-      "       system.transliter(pax_doc.first_name,1) AS doc_first_name, "
-      "       system.transliter(pax_doc.second_name,1) AS doc_second_name, "
+      "       system.transliter(pax_doc.surname,1,1) AS doc_surname, "
+      "       system.transliter(pax_doc.first_name,1,1) AS doc_first_name, "
+      "       system.transliter(pax_doc.second_name,1,1) AS doc_second_name, "
       "       birth_date,gender,nationality,pax_doc.type,pax_doc.no, "
       "       expiry_date,issue_country "
       "FROM pax_grp,pax,pax_doc "

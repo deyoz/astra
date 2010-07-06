@@ -5832,8 +5832,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      crs_pnr.subclass=:subclass AND "
       "      crs_pax.pers_type=:pers_type AND "
       "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
-      "      system.transliter(crs_pax.surname,1)=:surname AND "
-      "      system.transliter(crs_pax.name,1)=:name AND "
+      "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+      "      system.transliter_equal(crs_pax.name,:name)<>0 AND "
       "      crs_pax.pr_del=0 AND "
       "      pax.pax_id IS NULL "
       "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
@@ -6120,8 +6120,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           for(;paxNode!=NULL;paxNode=paxNode->next)
           {
             TCkinPaxInfo paxInfo;
-            paxInfo.surname=transliter(NodeAsString("surname",paxNode),true);
-            paxInfo.name=transliter(NodeAsString("name",paxNode),true);
+            paxInfo.surname=NodeAsString("surname",paxNode);
+            paxInfo.name=NodeAsString("name",paxNode);
             paxInfo.pers_type=NodeAsString("pers_type",paxNode);
             paxInfo.seats=NodeAsInteger("seats",paxNode)==0?0:1;
             paxInfo.subclass.clear();
@@ -6153,8 +6153,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
             for(iPax=pax.begin();iPax!=pax.end();iPax++)
             {
-              if (paxInfo.surname==iPax->surname &&
-                  paxInfo.name==iPax->name &&
+              if (transliter_equal(paxInfo.surname,iPax->surname) &&
+                  transliter_equal(paxInfo.name,iPax->name) &&
                   paxInfo.pers_type==iPax->pers_type &&
                   paxInfo.seats==iPax->seats &&
                   paxInfo.subclass==iPax->subclass)
@@ -6273,8 +6273,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             for(;paxNode!=NULL;paxNode=paxNode->next)
             {
               TCkinPaxInfo paxInfo;
-              paxInfo.surname=transliter(NodeAsString("surname",paxNode),true);
-              paxInfo.name=transliter(NodeAsString("name",paxNode),true);
+              paxInfo.surname=NodeAsString("surname",paxNode);
+              paxInfo.name=NodeAsString("name",paxNode);
               paxInfo.pers_type=NodeAsString("pers_type",paxNode);
               paxInfo.seats=NodeAsInteger("seats",paxNode)==0?0:1;
               paxInfo.subclass.clear();
@@ -6305,8 +6305,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
               for(iPax=pax.begin();iPax!=pax.end();iPax++)
               {
-                if (paxInfo.surname==iPax->surname &&
-                    paxInfo.name==iPax->name &&
+                if (transliter_equal(paxInfo.surname,iPax->surname) &&
+                    transliter_equal(paxInfo.name,iPax->name) &&
                     paxInfo.pers_type==iPax->pers_type &&
                     paxInfo.seats==iPax->seats &&
                     paxInfo.subclass==iPax->subclass &&
