@@ -880,6 +880,24 @@ namespace PRL_SPACE {
         void ToTlg(TTlgInfo &info, int grp_id, vector<string> &body);
     };
 
+    struct TFirmSpaceAvail {
+        string status, priority;
+        void ToTlg(TTlgInfo &info, vector<string> &body);
+    };
+
+    void TFirmSpaceAvail::ToTlg(TTlgInfo &info, vector<string> &body)
+    {
+        if(
+                status == "DG1" or
+                status == "RG1" or
+                status == "ID1" or
+                status == "DG2" or
+                status == "RG2" or
+                status == "ID2"
+          )
+            body.push_back("." + status + "/" + priority);
+    }
+
     struct TPRLPax {
         string target;
         int cls_grp_id;
@@ -891,6 +909,7 @@ namespace PRL_SPACE {
         string subcls;
         TPNRList pnrs;
         TMItem M;
+        TFirmSpaceAvail firm_space_avail;
         TRemList rems;
         TPRLOnwardList OList;
         TPRLPax(TInfants *ainfants): rems(ainfants) {
@@ -1018,6 +1037,7 @@ namespace PRL_SPACE {
             iv->name.ToTlg(info, body);
             iv->pnrs.ToTlg(info, body);
             iv->M.ToTlg(info, body);
+            iv->firm_space_avail.ToTlg(info, body);
             grp_map->ToTlg(info, iv->grp_id, body);
             iv->OList.ToTlg(info, body);
             iv->rems.ToTlg(info, body);
@@ -1035,6 +1055,8 @@ namespace PRL_SPACE {
             "    pax.name, "
             "    crs_pnr.pnr_id, "
             "    crs_pnr.crs, "
+            "    crs_pnr.status, "
+            "    crs_pnr.priority, "
             "    pax.pax_id, "
             "    pax.grp_id, "
             "    NVL(pax.subclass,pax_grp.class) subclass "
@@ -1077,6 +1099,8 @@ namespace PRL_SPACE {
             int col_name = Qry.FieldIndex("name");
             int col_pnr_id = Qry.FieldIndex("pnr_id");
             int col_crs = Qry.FieldIndex("crs");
+            int col_status = Qry.FieldIndex("status");
+            int col_priority = Qry.FieldIndex("priority");
             int col_pax_id = Qry.FieldIndex("pax_id");
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_subcls = Qry.FieldIndex("subclass");
@@ -1090,6 +1114,8 @@ namespace PRL_SPACE {
                 if(!Qry.FieldIsNULL(col_pnr_id))
                     pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
                 pax.crs = Qry.FieldAsString(col_crs);
+                pax.firm_space_avail.status = Qry.FieldAsString(col_status);
+                pax.firm_space_avail.priority = Qry.FieldAsString(col_priority);
                 if(not info.crs.empty() and info.crs != pax.crs)
                     continue;
                 pax.pax_id = Qry.FieldAsInteger(col_pax_id);
@@ -4766,6 +4792,7 @@ struct TPNLPaxInfo {
         int col_pers_type;
         int col_subclass;
         int col_target;
+        int col_status;
         int col_crs;
     public:
         int pax_id;
@@ -4775,6 +4802,7 @@ struct TPNLPaxInfo {
         string pers_type;
         string subclass;
         string target;
+        string status;
         string crs;
         void dump();
         void Clear()
@@ -4804,6 +4832,7 @@ struct TPNLPaxInfo {
                     col_pers_type = Qry.FieldIndex("pers_type");
                     col_subclass = Qry.FieldIndex("subclass");
                     col_target = Qry.FieldIndex("target");
+                    col_status = Qry.FieldIndex("status");
                     col_crs = Qry.FieldIndex("crs");
                 }
                 pax_id = Qry.FieldAsInteger(col_pax_id);
@@ -4813,6 +4842,7 @@ struct TPNLPaxInfo {
                 pers_type = Qry.FieldAsString(col_pers_type);
                 subclass = Qry.FieldAsString(col_subclass);
                 target = Qry.FieldAsString(col_target);
+                status = Qry.FieldAsString(col_status);
                 crs = Qry.FieldAsString(col_crs);
             }
         }
@@ -4825,6 +4855,7 @@ struct TPNLPaxInfo {
             col_pers_type(NoExists),
             col_subclass(NoExists),
             col_target(NoExists),
+            col_status(NoExists),
             col_crs(NoExists),
             pax_id(NoExists),
             pnr_id(NoExists)
@@ -4838,6 +4869,7 @@ struct TPNLPaxInfo {
                 "    crs_pax.pers_type, "
                 "    crs_pnr.subclass, "
                 "    crs_pnr.target, "
+                "    crs_pnr.status, "
                 "    crs_pnr.crs "
                 "from "
                 "    crs_pnr, "
@@ -4986,6 +5018,7 @@ void TPNLPaxInfo::dump()
     ProgTrace(TRACE5, "pers_type: %s", pers_type.c_str());
     ProgTrace(TRACE5, "subclass: %s", subclass.c_str());
     ProgTrace(TRACE5, "target: %s", target.c_str());
+    ProgTrace(TRACE5, "status: %s", status.c_str());
     ProgTrace(TRACE5, "crs: %s", crs.c_str());
     ProgTrace(TRACE5, "END OF TPNLPaxInfo::dump()");
 }
@@ -5239,7 +5272,17 @@ void TPFSBody::get(TTlgInfo &info)
         ckin_pax.get(item);
         ckin_pax.dump();
         if(item.pnl_pax_id != NoExists) { // Пассажир присутствует в PNL/ADL рейса
-            if(item.pax_id == NoExists) { // Не зарегистрирован на данный рейс
+            if(ckin_pax.crs_pax.status == "WL") {
+                if(ckin_pax.pr_brd != NoExists and ckin_pax.pr_brd != 0)
+                    category = "CFMWL";
+            } else if(
+                    ckin_pax.crs_pax.status == "DG2" or
+                    ckin_pax.crs_pax.status == "RG2" or
+                    ckin_pax.crs_pax.status == "ID2"
+                    ) {
+                if(ckin_pax.pr_brd != NoExists and ckin_pax.pr_brd != 0)
+                    category = "IDPAD";
+            } else if(item.pax_id == NoExists) { // Не зарегистрирован на данный рейс
                 if(item.pnl_point_id != NoExists and item.pnl_point_id != info.point_id) // зарегистрирован на другой рейс
                     category = "CHGFL";
                 else
