@@ -1391,9 +1391,13 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   }
   TPaxSeats priorSeats( point_id );
   Qry.Clear();
-  Qry.SQLText=
+  ostringstream sql;
+
+  sql <<
      "SELECT "
      "      ckin.get_pnr_addr(crs_pnr.pnr_id) AS pnr_ref, "
+     "      crs_pnr.status AS pnr_status, "
+     "      crs_pnr.priority AS pnr_priority, "
      "      RTRIM(crs_pax.surname||' '||crs_pax.name) full_name, "
      "      crs_pax.pers_type, "
      "      crs_pnr.class,crs_pnr.subclass, "
@@ -1416,69 +1420,16 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.grp_id, "
      "      pax.wl_type "
      "FROM crs_pnr,crs_pax,pax,pax_grp,"
-     "       ( "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok AS status "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_ok AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_ok "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_goshow AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        MINUS "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_goshow "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        UNION "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
-     "        FROM crs_pnr, "
-     "         (SELECT b2.point_id_tlg, "
-     "                 airp_arv_tlg,class_tlg,status "
-     "          FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-     "          WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-     "                b1.point_id_spp=b2.point_id_spp AND "
-     "                crs_displace2.point_id_spp=:point_id AND "
-     "                b1.point_id_spp<>:point_id) crs_displace "
-     "        WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-     "              crs_pnr.target=crs_displace.airp_arv_tlg AND "
-     "              crs_pnr.class=crs_displace.class_tlg AND "
-     "              crs_displace.status=:ps_transit AND "
-     "              crs_pnr.wl_priority IS NULL "
-     "        MINUS "
-     "        SELECT DISTINCT crs_pnr.pnr_id,:ps_transit "
-     "        FROM crs_pnr,tlg_binding "
-     "        WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-     "              tlg_binding.point_id_spp= :point_id AND "
-     "              crs_pnr.wl_priority IS NULL "
+     "       ( ";
+
+
+  sql << CheckInInterface::GetSearchPaxSubquery(psCheckin, true, false, false, false, "")
+      << "UNION \n"
+      << CheckInInterface::GetSearchPaxSubquery(psGoshow,  true, false, false, false, "")
+      << "UNION \n"
+      << CheckInInterface::GetSearchPaxSubquery(psTransit, true, false, false, false, "");
+
+  sql <<
      "       ) ids "
      "WHERE crs_pnr.pnr_id=ids.pnr_id AND "
      "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
@@ -1486,6 +1437,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
      "      pax.grp_id=pax_grp.grp_id(+) AND "
      "      crs_pax.pr_del=0 "
      "ORDER BY crs_pnr.point_id";
+
+  Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
@@ -1549,6 +1502,8 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   int point_id_tlg=-1;
   xmlNodePtr tripNode,paxNode,node;
   int col_pnr_ref=Qry.FieldIndex("pnr_ref");
+  int col_pnr_status=Qry.FieldIndex("pnr_status");
+  int col_pnr_priority=Qry.FieldIndex("pnr_priority");
   int col_full_name=Qry.FieldIndex("full_name");
   int col_pers_type=Qry.FieldIndex("pers_type");
   int col_class=Qry.FieldIndex("class");
@@ -1603,12 +1558,12 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     node = NewTextChild(paxNode,"pax");
 
     NewTextChild( node, "pnr_ref", Qry.FieldAsString( col_pnr_ref ), "" );
+    NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
+    NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
     NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
     NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
-    //NewTextChild( node, "crs_seat_no", Qry.FieldAsString( col_crs_seat_no ), "" );
-    //NewTextChild( node, "preseat_no", Qry.FieldAsString( col_preseat_no ), "" );
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
     NewTextChild( node, "target", Qry.FieldAsString( col_target ) );
     if (!Qry.FieldIsNULL(col_last_target))

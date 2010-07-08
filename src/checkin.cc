@@ -578,7 +578,7 @@ void GetInquiryInfo(TInquiryGroup &grp, TInquiryFormat &fmt, TInquiryGroupSummar
     sum.nPaxWithPlace+=info.nPaxWithPlace;
     sum.fams.push_back(info);
   };
-  if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
+   if (grp.large && sum.nPaxWithPlace<=9) grp.large=false;
   if (sum.nPaxWithPlace==0)
     throw UserException(100,"MSG.CHECKIN.PASSENGERS_WITH_SEATS_MORE_ZERO");
   if (sum.nPax<sum.nPaxWithPlace)
@@ -823,6 +823,13 @@ int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
       NewTextChild(node,"airp_arv",PaxQry.FieldAsString("target"));
       NewTextChild(node,"subclass",PaxQry.FieldAsString("subclass"));
       NewTextChild(node,"class",PaxQry.FieldAsString("class"));
+      string pnr_status=PaxQry.FieldAsString("pnr_status");
+      NewTextChild(node,"pnr_status",pnr_status,"");
+      NewTextChild(node,"pnr_priority",PaxQry.FieldAsString("pnr_priority"),"");
+      NewTextChild(node,"pad",(int)(pnr_status=="DG2"||
+                                    pnr_status=="RG2"||
+                                    pnr_status=="ID2"||
+                                    pnr_status=="WL"),0);
       mktFlt.getByPnrId(pnr_id);
       if (!mktFlt.IsNULL())
       {
@@ -1084,7 +1091,8 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     PaxQry.Clear();
     PaxQry.SQLText=
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
-      "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+      "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
+      "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "
@@ -1112,6 +1120,133 @@ void CheckInInterface::SearchGrp(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild(resNode,"ckin_state","BeforeReg");
   return;
 };
+
+string CheckInInterface::GetSearchPaxSubquery(TPaxStatus pax_status,
+                                              bool return_pnr_ids,
+                                              bool exclude_checked,
+                                              bool exclude_deleted,
+                                              bool select_pad_with_ok,
+                                              string sql_filter)
+{
+  ostringstream sql;
+  string status_param;
+  switch (pax_status)
+  {
+    case psTransit: status_param=":ps_transit"; break;
+     case psGoshow: status_param=":ps_goshow";  break;
+           default: status_param=":ps_ok";      break;
+  };
+
+  //2 прохода:
+  for(int pass=1;pass<=2;pass++)
+  {
+    if (pass==2 && pax_status!=psGoshow) continue;
+    if (pass==2)
+      sql << "   UNION \n";
+
+    if (return_pnr_ids)
+      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
+    else
+      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
+
+    sql <<   "   FROM crs_pnr";
+
+    if (!return_pnr_ids || exclude_checked || exclude_deleted)
+      sql << ", crs_pax";
+
+    if (exclude_checked)
+      sql << ", pax";
+
+    sql <<   ", \n";
+
+    sql <<   "    (SELECT b2.point_id_tlg, \n"
+             "            airp_arv_tlg,class_tlg,status \n"
+             "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 \n"
+             "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND \n"
+             "           b1.point_id_spp=b2.point_id_spp AND \n"
+             "           crs_displace2.point_id_spp=:point_id AND \n"
+             "           b1.point_id_spp<>:point_id) crs_displace \n"
+             "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND \n"
+             "         crs_pnr.target=crs_displace.airp_arv_tlg AND \n"
+             "         crs_pnr.class=crs_displace.class_tlg \n";
+
+    if (!return_pnr_ids || exclude_checked || exclude_deleted)
+      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
+
+    if (pass==1)
+      sql << "         AND crs_displace.status= " << status_param << " \n";
+
+    if (pass==1 && pax_status==psCheckin && !select_pad_with_ok)
+      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
+
+    if (pass==2 && pax_status==psGoshow)
+      sql << "         AND crs_displace.status= :ps_ok \n"
+             "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
+
+    if (exclude_checked)
+      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
+
+    if (exclude_deleted)
+      sql << "         AND crs_pax.pr_del=0 \n";
+
+    if (!sql_filter.empty())
+      sql << "         AND ("+sql_filter+") \n";
+
+  };
+
+  //2 прохода:
+  for(int pass=1;pass<=2;pass++)
+  {
+    if (pass==1 && pax_status!=psCheckin && pax_status!=psGoshow ||
+        pass==2 && pax_status==psCheckin) continue;
+    if (pass==1)
+      sql << "   UNION \n";
+    else
+      sql << "   MINUS \n";
+
+    if (return_pnr_ids)
+      sql << "   SELECT DISTINCT crs_pnr.pnr_id, " << status_param << " AS status \n";
+    else
+      sql << "   SELECT DISTINCT crs_pax.pax_id, " << status_param << " AS status \n";
+
+    sql <<   "   FROM crs_pnr, tlg_binding";
+
+    if (!return_pnr_ids || exclude_checked || exclude_deleted)
+      sql << ", crs_pax";
+
+    if (exclude_checked)
+      sql << ", pax \n";
+    else
+      sql << " \n";
+
+    sql   << "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND \n"
+             "         tlg_binding.point_id_spp= :point_id \n";
+
+    if (!return_pnr_ids || exclude_checked || exclude_deleted)
+      sql << "         AND crs_pnr.pnr_id=crs_pax.pnr_id \n";
+
+    if (pass==1 && pax_status==psCheckin && !select_pad_with_ok ||
+        pass==2 && pax_status==psGoshow)
+      sql << "         AND (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) \n";
+
+    if (pass==1 && pax_status==psGoshow)
+      sql << "         AND crs_pnr.status IN ('DG2','RG2','ID2','WL') \n";
+
+    if (exclude_checked)
+      sql << "         AND crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL \n";
+
+    if (exclude_deleted)
+      sql << "         AND crs_pax.pr_del=0 \n";
+
+    if (!sql_filter.empty())
+      sql << "         AND ("+sql_filter+") \n";
+  };
+  return sql.str();
+};
+
+
+
+
 
 void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
@@ -1215,49 +1350,43 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   if (grp.large)
   {
     //большая группа
-    sql=  "SELECT crs_pnr.pnr_id, "
-          "       MIN(crs_pnr.grp_name) AS grp_name, "
-          "       MIN(DECODE(crs_pax.pers_type,'ВЗ', "
-          "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, "
-          "       COUNT(*) AS seats_all, "
-          "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats "
-          "FROM crs_pnr,crs_pax,pax, "
-          "  (SELECT DISTINCT crs_pnr.pnr_id "
-          "   FROM crs_pnr, "
-          "    (SELECT b2.point_id_tlg, "
-          "            airp_arv_tlg,class_tlg,status "
-          "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-          "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-          "           b1.point_id_spp=b2.point_id_spp AND "
-          "           crs_displace2.point_id_spp=:point_id AND "
-          "           b1.point_id_spp<>:point_id) crs_displace "
-          "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-          "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
-          "         crs_pnr.class=crs_displace.class_tlg AND "
-          "         crs_displace.status= :status AND "
-          "         crs_pnr.wl_priority IS NULL ";
+    sql=  "SELECT crs_pnr.pnr_id, \n"
+          "       MIN(crs_pnr.grp_name) AS grp_name, \n"
+          "       MIN(DECODE(crs_pax.pers_type,'ВЗ', \n"
+          "                  crs_pax.surname||' '||crs_pax.name,'')) AS pax_name, \n"
+          "       COUNT(*) AS seats_all, \n"
+          "       SUM(DECODE(pax.pax_id,NULL,1,0)) AS seats \n"
+          "FROM crs_pnr,crs_pax,pax,( \n";
 
-    if (pax_status==psCheckin)
-      sql+="  UNION ";
-    else
-      sql+="  MINUS ";
+    sql+= GetSearchPaxSubquery(pax_status,
+                               true,
+                               false,
+                               false,
+                               TReqInfo::Instance()->desk.compatible(PAD_VERSION),
+                               "");
 
-    sql+= "   SELECT DISTINCT crs_pnr.pnr_id "
-          "   FROM crs_pnr,tlg_binding "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         tlg_binding.point_id_spp= :point_id AND "
-          "         crs_pnr.wl_priority IS NULL) ids "
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "      crs_pax.pax_id=pax.pax_id(+) AND "
-          "      ids.pnr_id=crs_pnr.pnr_id AND "
-          "      crs_pax.pr_del=0 AND "
-          "      crs_pax.seats>0 "
-          "GROUP BY crs_pnr.pnr_id "
-          "HAVING COUNT(*)>= :seats ";
+    sql+= "  ) ids  \n"
+          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
+          "      crs_pax.pax_id=pax.pax_id(+) AND \n"
+          "      ids.pnr_id=crs_pnr.pnr_id AND \n"
+          "      crs_pax.pr_del=0 AND \n"
+          "      crs_pax.seats>0 \n"
+          "GROUP BY crs_pnr.pnr_id \n"
+          "HAVING COUNT(*)>= :seats \n";
+
+    ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): status=%s",EncodePaxStatus(pax_status));
+    ProgTrace(TRACE5,"CheckInInterface::SearchPax (large): sql=\n%s",sql.c_str());
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
+    switch (pax_status)
+    {
+      case psTransit: PaxQry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+                      break;
+       case psGoshow: PaxQry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
+                      //break не надо!
+             default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
+    };
     PaxQry.CreateVariable("seats",otInteger,sum.nPaxWithPlace);
     PaxQry.Execute();
     if (!PaxQry.Eof)
@@ -1323,78 +1452,53 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
 
     //обычный поиск
     sql =
-      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
-      "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
-      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
-      "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
-      "       crs_pax.seat_type,crs_pax.seats, "
-      "       crs_pnr.pnr_id, "
-      "       report.get_PSPT(crs_pax.pax_id) AS document, "
-      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, "
-      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket "
-      "FROM crs_pnr,crs_pax,pax, ";
+      "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, \n"
+      "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, \n"
+      "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, \n"
+      "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, \n"
+      "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, \n"
+      "       crs_pax.seat_type,crs_pax.seats, \n"
+      "       crs_pnr.pnr_id, \n"
+      "       report.get_PSPT(crs_pax.pax_id) AS document, \n"
+      "       report.get_TKNO(crs_pax.pax_id,'/',0) AS ticket, \n"
+      "       report.get_TKNO(crs_pax.pax_id,'/',1) AS eticket \n"
+      "FROM crs_pnr,crs_pax,pax,( \n";
+
+
+    sql+= GetSearchPaxSubquery(pax_status,
+                               sum.nPax>1 && !charter_search,
+                               true,
+                               true,
+                               TReqInfo::Instance()->desk.compatible(PAD_VERSION),
+                               surnames);
+
+    sql+= "  ) ids  \n"
+          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND \n"
+          "      crs_pax.pax_id=pax.pax_id(+) AND \n";
     if (sum.nPax>1 && !charter_search)
       sql+=
-          "  (SELECT DISTINCT crs_pnr.pnr_id ";
+          "      ids.pnr_id=crs_pnr.pnr_id AND \n";
     else
       sql+=
-          "  (SELECT DISTINCT crs_pax.pax_id ";
+          "      ids.pax_id=crs_pax.pax_id AND \n";
 
-    sql+= "   FROM crs_pnr,crs_pax,pax, "
-          "    (SELECT b2.point_id_tlg, "
-          "            airp_arv_tlg,class_tlg,status "
-          "     FROM crs_displace2,tlg_binding b1,tlg_binding b2 "
-          "     WHERE crs_displace2.point_id_tlg=b1.point_id_tlg AND "
-          "           b1.point_id_spp=b2.point_id_spp AND "
-          "           crs_displace2.point_id_spp=:point_id AND "
-          "           b1.point_id_spp<>:point_id) crs_displace "
-          "   WHERE crs_pnr.point_id=crs_displace.point_id_tlg AND "
-          "         crs_pnr.target=crs_displace.airp_arv_tlg AND "
-          "         crs_pnr.class=crs_displace.class_tlg AND "
-          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "         crs_displace.status= :status AND "
-          "         crs_pnr.wl_priority IS NULL AND "
-          "         crs_pax.pr_del=0 AND "
-          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-          "         ("+surnames+") ";
+    sql+= "      crs_pax.pr_del=0 AND \n"
+          "      pax.pax_id IS NULL \n"
+          "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id \n";
 
-    if (pax_status==psCheckin)
-      sql+="  UNION ";
-    else
-      sql+="  MINUS ";
-
-    if (sum.nPax>1 && !charter_search)
-      sql+=
-          "   SELECT DISTINCT crs_pnr.pnr_id ";
-      else
-      sql+=
-          "   SELECT DISTINCT crs_pax.pax_id ";
-
-    sql+=
-          "   FROM crs_pnr,tlg_binding,crs_pax,pax "
-          "   WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
-          "         crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "         tlg_binding.point_id_spp= :point_id AND "
-          "         crs_pnr.wl_priority IS NULL AND"
-          "         crs_pax.pr_del=0 AND "
-          "         crs_pax.pax_id=pax.pax_id(+) AND pax.pax_id IS NULL AND "
-          "         ("+surnames+")) ids  "
-          "WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
-          "      crs_pax.pax_id=pax.pax_id(+) AND ";
-    if (sum.nPax>1 && !charter_search)
-      sql+=
-          "      ids.pnr_id=crs_pnr.pnr_id AND ";
-    else
-      sql+=
-          "      ids.pax_id=crs_pax.pax_id AND ";
-
-    sql+= "      crs_pax.pr_del=0 AND "
-          "      pax.pax_id IS NULL "
-          "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+    ProgTrace(TRACE5,"CheckInInterface::SearchPax: status=%s",EncodePaxStatus(pax_status));
+    ProgTrace(TRACE5,"CheckInInterface::SearchPax: sql=\n%s",sql.c_str());
 
     PaxQry.SQLText = sql;
     PaxQry.CreateVariable("point_id",otInteger,point_dep);
-    PaxQry.CreateVariable("status",otString,EncodePaxStatus(pax_status));
+    switch (pax_status)
+    {
+      case psTransit: PaxQry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
+                      break;
+       case psGoshow: PaxQry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
+                      //break не надо!
+             default: PaxQry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
+    };
     PaxQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
     PaxQry.Execute();
     if (!PaxQry.Eof) break;
@@ -1471,22 +1575,27 @@ void CheckInInterface::SearchPax(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     if (foundPnr!=NULL&&foundTrip!=NULL)
     {
       //наидена только одна подходящая группа
-      xmlUnlinkNode(foundTrip);
-      tripNode=NodeAsNode("trips",resNode);
-      xmlUnlinkNode(tripNode);
-      xmlFreeNode(tripNode);
-      tripNode=NewTextChild(resNode,"trips");
-      xmlAddChild(tripNode,foundTrip);
+      //проверим что она не PAD при поиске брони
+      xmlNodePtr node2=foundPnr->children;
+      if (!(pax_status==psCheckin && NodeAsIntegerFast("pad",node2,0)!=0 ))
+      {
+        xmlUnlinkNode(foundTrip);
+        tripNode=NodeAsNode("trips",resNode);
+        xmlUnlinkNode(tripNode);
+        xmlFreeNode(tripNode);
+        tripNode=NewTextChild(resNode,"trips");
+        xmlAddChild(tripNode,foundTrip);
 
-      xmlUnlinkNode(foundPnr);
-      pnrNode=NodeAsNode("groups",foundTrip);
-      xmlUnlinkNode(pnrNode);
-      xmlFreeNode(pnrNode);
-      pnrNode=NewTextChild(foundTrip,"groups");
-      xmlAddChild(pnrNode,foundPnr);
+        xmlUnlinkNode(foundPnr);
+        pnrNode=NodeAsNode("groups",foundTrip);
+        xmlUnlinkNode(pnrNode);
+        xmlFreeNode(pnrNode);
+        pnrNode=NewTextChild(foundTrip,"groups");
+        xmlAddChild(pnrNode,foundPnr);
 
-      NewTextChild(resNode,"ckin_state","BeforeReg");
-      return;
+        NewTextChild(resNode,"ckin_state","BeforeReg");
+        return;
+      };
     };
   };
 
@@ -5800,7 +5909,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   CrsQry.Clear();
   CrsQry.SQLText=
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
-      "       crs_pnr.class,crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
+      "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
+      "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
       "       salons.get_crs_seat_no(crs_pax.seat_xname,crs_pax.seat_yname,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS seat_no, "
       "       salons.get_crs_seat_no(crs_pax.pax_id,:protckin_layer,crs_pax.seats,crs_pnr.point_id,'one',rownum) AS preseat_no, "
       "       crs_pax.seat_type, "

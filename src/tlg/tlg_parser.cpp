@@ -2178,21 +2178,35 @@ void ParsePaxLevelElement(TTlgParser &tlg, TFltInfo& flt, TPnrItem &pnr, bool &p
     };
     return;
   };
-  if (strcmp(lexh,"WL")==0)
+  if (strcmp(lexh,"WL")==0 ||
+      strcmp(lexh,"DG1")==0 ||
+      strcmp(lexh,"DG2")==0 ||
+      strcmp(lexh,"RG1")==0 ||
+      strcmp(lexh,"RG2")==0 ||
+      strcmp(lexh,"ID1")==0 ||
+      strcmp(lexh,"ID2")==0)
   {
-    if (strcmp(tlg.lex,".WL/")==0) strcpy(lexh,"ZZZZZZ");
-    else
+    if (strcmp(pnr.status,"")!=0)
     {
-      c=0;
-      res=sscanf(tlg.lex,".WL/%6[A-ZА-ЯЁ0-9]%c",lexh,&c);
-      if (c!=0||res!=1) throw ETlgError("Wrong WL priority identification");
-    };
-    if (strcmp(pnr.wl_priority,"")!=0)
-    {
-      if (strcmp(pnr.wl_priority,lexh)!=0)
-        throw ETlgError("Different WL priority identification in group found");
+      if (strcmp(pnr.status,lexh)!=0)
+        throw ETlgError("Different PNR status in group found (%s|%s)",pnr.status,lexh);
     }
-    else strcpy(pnr.wl_priority,lexh);
+    else strcpy(pnr.status,lexh);
+    //читаем priority
+    c=0;
+    res=sscanf(tlg.lex,".%*[A-Z0-9]%c%s",&c,tlg.lex);
+    if (c!='/'||res==0)
+      throw ETlgError("Wrong identifying code format");
+    if (res==2)
+    {
+      //есть priority designator
+      if (!pnr.priority.empty())
+      {
+        if (strcmp(pnr.priority.c_str(),tlg.lex)!=0)
+          throw ETlgError("Different PNR status priority in group found (%s|%s)",pnr.priority.c_str(),tlg.lex);
+      }
+      else pnr.priority=tlg.lex;
+    };
     return;
   };
 
@@ -5221,11 +5235,11 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
           "BEGIN "
           "  IF :pnr_id IS NULL THEN "
           "    SELECT crs_pnr__seq.nextval INTO :pnr_id FROM dual; "
-          "    INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,wl_priority,crs,tid) "
-          "    VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:wl_priority,:crs,tid__seq.currval); "
+          "    INSERT INTO crs_pnr(pnr_id,point_id,target,subclass,class,grp_name,status,priority,crs,tid) "
+          "    VALUES(:pnr_id,:point_id,:target,:subclass,:class,:grp_name,:status,:priority,:crs,tid__seq.currval); "
           "  ELSE "
           "    UPDATE crs_pnr SET grp_name=NVL(:grp_name,grp_name), "
-          "                       wl_priority=NVL(:wl_priority,wl_priority), "
+          "                       status=:status, priority=:priority, "
           "                       tid=tid__seq.currval "
           "    WHERE pnr_id= :pnr_id; "
           "  END IF; "
@@ -5235,7 +5249,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
         CrsPnrInsQry.DeclareVariable("subclass",otString);
         CrsPnrInsQry.DeclareVariable("class",otString);
         CrsPnrInsQry.DeclareVariable("grp_name",otString);
-        CrsPnrInsQry.DeclareVariable("wl_priority",otString);
+        CrsPnrInsQry.DeclareVariable("status",otString);
+        CrsPnrInsQry.DeclareVariable("priority",otString);
         CrsPnrInsQry.CreateVariable("crs",otString,crs);
         CrsPnrInsQry.DeclareVariable("pnr_id",otInteger);
 
@@ -5466,7 +5481,8 @@ bool SavePNLADLContent(int tlg_id, TDCSHeadingInfo& info, TPnlAdlContent& con, b
 
             //создать новую группу или проапдейтить старую
             CrsPnrInsQry.SetVariable("grp_name",pnr.grp_name);
-            CrsPnrInsQry.SetVariable("wl_priority",pnr.wl_priority);
+            CrsPnrInsQry.SetVariable("status",pnr.status);
+            CrsPnrInsQry.SetVariable("priority",pnr.priority);
             if (pnr_id==0)
               CrsPnrInsQry.SetVariable("pnr_id",FNull);
             else
