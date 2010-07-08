@@ -87,7 +87,13 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   xmlNodePtr node = NewTextChild( dataNode, "tripcounters" );
   while ( !Qry.Eof ) {
     xmlNodePtr itemNode = NewTextChild( node, "item" );
-    NewTextChild( itemNode, "firstcol", Qry.FieldAsString( "firstcol" ) );
+    if ( Qry.FieldAsInteger( "num" ) == -100 ) // Всего
+    	NewTextChild( itemNode, "firstcol", AstraLocale::getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
+    else
+    	if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
+        NewTextChild( itemNode, "firstcol", ElemIdToElem(etClass,Qry.FieldAsString( "firstcol" )) ); /*!!!djek Ctxt*/
+      else // аэропорты
+      	NewTextChild( itemNode, "firstcol", ElemIdToElem(etAirp,Qry.FieldAsString( "firstcol" )) ); /*!!!djek Ctxt*/
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
     NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
     NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
@@ -96,6 +102,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "prot", Qry.FieldAsInteger( "prot" ) );
     Qry.Next();
   }
+  tst();
 }
 
 void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
@@ -129,7 +136,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   xmlNodePtr node;
   node = NewTextChild( tripdataNode, "airps" );
   while ( !Qry.Eof ) {
-    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );
+    NewTextChild( node, "airp", Qry.FieldAsString( "airp" ) );//!!!ElemIdToElem(etAirp,Qry.FieldAsString( "airp" )) );
     Qry.Next();
   }
   Qry.Clear();
@@ -232,8 +239,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   while ( !Qry.Eof ) {
     itemNode = NewTextChild( node, "itemcrs" );
     NewTextChild( itemNode, "crs", Qry.FieldAsString( "crs" ) );
-    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
-    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
+    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) ); //!!!ElemIdToElem(etAirp,Qry.FieldAsString( "target" )) );
+    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) ); //!!!ElemIdToElem(etClass,Qry.FieldAsString( "class" )) );
     if ( Qry.FieldIsNULL( "resa" ) )
       NewTextChild( itemNode, "resa", -1 );
     else
@@ -291,8 +298,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
          Qry.FieldAsString( "class" ) != old_class ) {
       itemNode = NewTextChild( node, "itemcrs" );
       NewTextChild( itemNode, "crs" );
-      NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
-      NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
+      NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) ); //!!!ElemIdToElem(etAirp,Qry.FieldAsString( "target" )) );
+      NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) ); //!!!ElemIdToElem(etClass,Qry.FieldAsString( "class" )) );
       NewTextChild( itemNode, "resa", Qry.FieldAsInteger( "resa" ) );
       NewTextChild( itemNode, "tranzit", Qry.FieldAsInteger( "tranzit" ) );
       old_target = Qry.FieldAsString( "target" );

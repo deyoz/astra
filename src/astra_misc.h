@@ -7,6 +7,7 @@
 #include "astra_consts.h"
 #include "oralib.h"
 #include "astra_utils.h"
+#include "astra_locale.h"
 #include "stages.h"
 
 struct TMktFlight {
@@ -80,7 +81,8 @@ class TTripInfo
     };
 };
 
-std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false  );
+std::string GetTripName( TTripInfo &info, AstraLocale::TLocaleType locale_type, bool showAirp=false, bool prList=false );
+std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false );
 
 //настройки рейса
 enum TTripSetType { tsOutboardTrfer=10,

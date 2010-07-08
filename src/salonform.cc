@@ -575,7 +575,9 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     p.Build( dataNode );
     if ( pr_filter ) {
       TQuery Qry( &OraSession );
-      Qry.SQLText = "SELECT code, name, layer_type FROM grp_status_types";
+      Qry.SQLText =
+        "SELECT code, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, layer_type FROM grp_status_types";
+      Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
       Qry.Execute();
       dataNode = NewTextChild( dataNode, "filter" );
       while ( !Qry.Eof ) {

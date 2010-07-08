@@ -887,11 +887,15 @@ string internal_ReadData( TSOPPTrips &trips, TDateTime first_date, TDateTime nex
         		col_class = ClassesQry.FieldIndex( "class" );
         		col_cfg = ClassesQry.FieldIndex( "cfg" );
         	}
-          if ( !tr->classes.empty() && point_id == NoExists )
+        	TSoppClass soppclass;
+        	soppclass.cl = ClassesQry.FieldAsString( col_class );
+        	soppclass.cfg = ClassesQry.FieldAsInteger( col_cfg );
+        	tr->classes.push_back( soppclass );
+          /*07.07.2010 if ( !tr->classes.empty() && point_id == NoExists )
             tr->classes += " ";
           tr->classes += ClassesQry.FieldAsString( col_class );
           if ( point_id == NoExists )
-           tr->classes += string(ClassesQry.FieldAsString( col_cfg ));
+           tr->classes += string(ClassesQry.FieldAsString( col_cfg ));*/
           ClassesQry.Next();
         }
       } // module != tISG
@@ -1048,7 +1052,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", tr->triptype_in );
+      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripTypes,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1086,7 +1090,7 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", tr->triptype_out );
+      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripTypes,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -1116,8 +1120,12 @@ void buildSOPP( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
         lNode = NewTextChild( tripNode, "places_out" );
       NewTextChild( lNode, "airp", ElemIdToElemCtxt( ecDisp, etAirp, sairp->airp, sairp->airp_fmt ) );
     }
-    if ( !tr->classes.empty() )
-      NewTextChild( tripNode, "classes", tr->classes );
+    if ( !tr->classes.empty() ) {
+    	lNode = NewTextChild( tripNode, "classes" );
+    	for ( vector<TSoppClass>::iterator icl=tr->classes.begin(); icl!=tr->classes.end(); icl++ ) {
+    		SetProp( NewTextChild( lNode, "class", ElemIdToElem( etClass, icl->cl ) ), "cfg", icl->cfg );
+    	}
+    }
     if ( tr->reg )
       NewTextChild( tripNode, "reg", tr->reg );
     if ( tr->resa )
@@ -1285,7 +1293,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_in > NoExists )
       NewTextChild( tripNode, "act_in", DateTimeToStr( fact_in, ServerFormatDateTimeAsString ) );
     if ( tr->triptype_in != tr->triptype_out && !tr->triptype_in.empty() )
-      NewTextChild( tripNode, "triptype_in", tr->triptype_in );
+      NewTextChild( tripNode, "triptype_in", ElemIdToElem(etTripTypes,tr->triptype_in) );
     if ( tr->litera_in != tr->litera_out && !tr->litera_in.empty() )
       NewTextChild( tripNode, "litera_in", tr->litera_in );
     if ( !tr->park_in.empty() )
@@ -1354,7 +1362,7 @@ void buildISG( TSOPPTrips &trips, string &errcity, xmlNodePtr dataNode )
     if ( fact_out > NoExists )
       NewTextChild( tripNode, "act_out", DateTimeToStr( fact_out, ServerFormatDateTimeAsString ) );
     if ( !tr->triptype_out.empty() )
-      NewTextChild( tripNode, "triptype_out", tr->triptype_out );
+      NewTextChild( tripNode, "triptype_out", ElemIdToElem(etTripTypes,tr->triptype_out) );
     if ( !tr->litera_out.empty() )
       NewTextChild( tripNode, "litera_out", tr->litera_out );
     if ( !tr->park_out.empty() )
@@ -2101,14 +2109,15 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   		if ( trip_loadNode ) {
   			Qry.Clear();
   			Qry.SQLText =
-  			 "BEGIN "\
-  			 " UPDATE trip_load SET cargo=:cargo,mail=:mail"\
-  			 "  WHERE point_dep=:point_id AND airp_arv=:airp_arv AND point_arv=:point_arv; "\
-  			 " IF SQL%NOTFOUND THEN "\
-  			 "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "\
-  			 "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "\
-  			 "    WHERE point_id=:point_id; "\
-  			 " END IF;"\
+  			 "BEGIN "
+  			 " SELECT airp INTO :airp_arv FROM points WHERE point_id=:point_arv; "
+  			 " UPDATE trip_load SET cargo=:cargo,mail=:mail"
+  			 "  WHERE point_dep=:point_id AND point_arv=:point_arv; "
+  			 " IF SQL%NOTFOUND THEN "
+  			 "  INSERT INTO trip_load(point_dep,airp_dep,point_arv,airp_arv,cargo,mail)  "
+  			 "   SELECT point_id,airp,:point_arv,:airp_arv,:cargo,:mail FROM points "
+  			 "    WHERE point_id=:point_id; "
+  			 " END IF;"
   			 "END;";
   			Qry.CreateVariable( "point_id", otInteger, point_id );
   			Qry.DeclareVariable( "point_arv", otInteger );
@@ -2119,15 +2128,13 @@ void SoppInterface::WriteTrips(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   			while( load ) {
   				xmlNodePtr x = load->children;
   				Qry.SetVariable( "point_arv", NodeAsIntegerFast( "point_arv", x ) );
-  				string airp_arv = NodeAsStringFast( "airp_arv", x );
-  				Qry.SetVariable( "airp_arv", airp_arv );
   				int cargo = NodeAsIntegerFast( "cargo", x );
   				Qry.SetVariable( "cargo", cargo );
   				int mail = NodeAsIntegerFast( "mail", x );
   				Qry.SetVariable( "mail", mail );
   				Qry.Execute();
           TReqInfo::Instance()->MsgToLog(
-          	string( "Направление " ) + airp_arv + ": " +
+          	string( "Направление " ) + Qry.GetVariableAsString( "airp_arv" ) + ": " +
             "груз " + IntToString( cargo ) + " кг., " +
             "почта " + IntToString( mail ) + " кг.", evtFlt, point_id );
   			  load = load->next;
@@ -2280,15 +2287,15 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
     first_point = point_id;
 	Qry.Clear();
 	Qry.SQLText =
-	 "SELECT cargo,mail,a.airp airp_arv,a.point_id point_arv, a.point_num "\
-	 " FROM trip_load, "\
-	 "( SELECT point_id, point_num, airp FROM points "
-	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ) a, "\
-	 "( SELECT MIN(point_num) as point_num FROM points "\
-	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "\
-	 "  GROUP BY airp ) b "\
-	 "WHERE a.point_num=b.point_num AND trip_load.point_dep(+)=:point_id AND "\
-	 "      trip_load.point_arv(+)=a.point_id "\
+	 "SELECT cargo,mail,a.airp airp_arv,a.airp_fmt airp_arv_fmt, a.point_id point_arv, a.point_num "
+	 " FROM trip_load, "
+	 "( SELECT point_id, point_num, airp, airp_fmt FROM points "
+	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 ) a, "
+	 "( SELECT MIN(point_num) as point_num FROM points "
+	 "   WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
+	 "  GROUP BY airp ) b "
+	 "WHERE a.point_num=b.point_num AND trip_load.point_dep(+)=:point_id AND "
+	 "      trip_load.point_arv(+)=a.point_id "
 	 "ORDER BY a.point_num ";
   Qry.CreateVariable( "point_id", otInteger, point_id );
   Qry.CreateVariable( "first_point", otInteger, first_point );
@@ -2299,7 +2306,8 @@ void GetLuggage( int point_id, Luggage &lug, bool pr_brd )
   	cargo.cargo = Qry.FieldAsInteger( "cargo" );
   	cargo.mail = Qry.FieldAsInteger( "mail" );
   	cargo.point_arv = Qry.FieldAsInteger( "point_arv" );
-  	cargo.airp_arv = Qry.FieldAsString( "airp_arv" );
+  	cargo.airp_arv =  Qry.FieldAsString( "airp_arv" );
+  	cargo.airp_arv_fmt = Qry.FieldAsInteger( "airp_arv_fmt" );
   	lug.vcargo.push_back( cargo );
   	Qry.Next();
   }
@@ -2353,7 +2361,7 @@ void GetLuggage( int point_id, xmlNodePtr dataNode )
   	xmlNodePtr fn = NewTextChild( loadNode, "load" );
   	NewTextChild( fn, "cargo", c->cargo );
   	NewTextChild( fn, "mail", c->mail );
-  	NewTextChild( fn, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, c->airp_arv, TReqInfo::Instance()->user.sets.disp_airp ) );
+  	NewTextChild( fn, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, c->airp_arv, c->airp_arv_fmt ) );
   	NewTextChild( fn, "point_arv", c->point_arv );
   }
 }
@@ -2623,7 +2631,7 @@ void SoppInterface::ReadDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   		NewTextChild( fnode, "time", DateTimeToStr( UTCToClient( delay->time, d->region ), ServerFormatDateTimeAsString ) );
     }
   	if ( !d->triptype.empty() )
-  	  NewTextChild( snode, "trip_type", d->triptype );
+  	  NewTextChild( snode, "trip_type", ElemIdToElem(etTripTypes,d->triptype) );
   	if ( !d->litera.empty() )
   	  NewTextChild( snode, "litera", d->litera );
   	if ( !d->park_in.empty() )
@@ -2800,7 +2808,7 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   Qry.Clear();
   Qry.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
   Qry.Execute();
-  vector<string> triptypes;
+  vector<string> triptypes; //!!!
   while ( !Qry.Eof ) {
     triptypes.push_back( Qry.FieldAsString( "code" ) );
     Qry.Next();
@@ -3719,10 +3727,15 @@ void SoppInterface::WriteDests(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
 		  }
 		}
 		fnode = GetNodeFast( "trip_type", snode );
-		if ( fnode )
-			d.triptype = NodeAsString( fnode );
+		int fmt;
+		if ( fnode ) {
+			d.triptype = ElemToElemId(etTripTypes,NodeAsString( fnode ),fmt); //!!!
+			if ( fmt == -1 )
+				throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
+		}
 		else
 			d.triptype.clear();
+
 		fnode = GetNodeFast( "litera", snode );
 		if ( fnode )
 			d.litera = NodeAsString( fnode );

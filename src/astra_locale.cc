@@ -60,7 +60,6 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
 	Qry.Execute();
 	tst();
   while ( !Qry.Eof ) {
-  	tst();
   	if ( pr_term )
   		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
   	else {
@@ -168,7 +167,7 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
     LParser parser( lexema );
     text = lexema;
     for ( std::map<int, ElemData>::iterator i=parser.begin(); i!=parser.end(); i++ ) {
-        ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
+        ProgTrace( TRACE5, "variable pos=%d, name='%s'", i->first, i->second.var_name.c_str() );
         lp = lexemaData.lparams.find( i->second.var_name );
         if ( lp == lexemaData.lparams.end() and i->second.var_name != FORMAT_LINE_BREAK)
             throw EXCEPTIONS::Exception( "variable '%s' not found in lexemaData.lparams", i->second.var_name.c_str() );
@@ -198,9 +197,9 @@ void buildMsg( const std::string &lang, LexemaData &lexemaData, std::string &tex
                 throw EXCEPTIONS::Exception( "Invalid format '%s', variable name=%s", i->second.format.c_str(), i->second.var_name.c_str() );
         };
         text.replace( i->second.first_elem, i->second.last_elem - i->second.first_elem + 1, str_val );
-        ProgTrace( TRACE5, "master_lexema=%s, text=%s", master_lexema.c_str(), text.c_str() );
+        ProgTrace( TRACE5, "master_lexema=%s, text=%s", master_lexema.c_str(), text.c_str() );
     }
-
+tst();
 }
 
 

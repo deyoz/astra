@@ -315,7 +315,7 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     tripInfo.pr_del=Qry.FieldAsInteger(col_pr_del);
                     try
                     {
-                        trip_name = GetTripName(tripInfo,false,true);
+                        trip_name = GetTripName(tripInfo,AstraLocale::ltTermLang,false,true);
                     }
                     catch(AstraLocale::UserException &E)
                     {

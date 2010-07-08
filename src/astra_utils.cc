@@ -1514,6 +1514,9 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
     case etSuffix:
   		msg2 = "etSuffix";
   		break;
+  	case etTripTypes:
+  		msg2 = "etTripTypes";
+  		break;
   	default:;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
@@ -1533,15 +1536,15 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
   //далее проверим а вообще имели ли мы право вводить в таком формате
   if ( hard_verify ) {
     if (ctxt==ecTlgTypeB && (type!=etCountry && fmt!=0 && fmt!=1 ||
-                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) ||
+                             type==etCountry && fmt!=0 && fmt!=1 && fmt!=4) /*||
         ctxt==ecCkin && (fmt!=0) ||
-        ctxt==ecTrfer && (fmt!=0))
+        ctxt==ecTrfer && (fmt!=0)!!!vlad*/)
     {
       //проблемы
       DoElemEConvertError( ctxt, type, code );
     };
   }
-  if (ctxt==ecDisp)
+  if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||
        type==etAirp ||
@@ -1550,6 +1553,21 @@ string ElemCtxtToElemId(TElemContext ctxt,TElemType type, string code, int &fmt,
     {
       TReqInfo *reqInfo = TReqInfo::Instance();
       TUserSettingType user_fmt;
+      switch(ctxt) {
+      	case ecDisp:
+          if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
+          if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
+          if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
+          if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+          break;
+      	case ecCkin:
+          if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
+          if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
+          if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
+          if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+          break;
+        default:;
+      }
       if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
       if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
       if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
@@ -1633,7 +1651,7 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
                          int fmt, bool with_deleted)
 {
 	int fmt2=0;
-  if (ctxt==ecDisp)
+  if ( ctxt==ecDisp || ctxt==ecCkin )
   {
     if(type==etAirline ||
        type==etAirp ||
@@ -1642,10 +1660,21 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
     {
       TReqInfo *reqInfo = TReqInfo::Instance();
       TUserSettingType user_fmt;
-      if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
-      if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
-      if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
-      if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+      switch (ctxt) {
+      	case ecDisp:
+          if (type==etAirline) user_fmt=reqInfo->user.sets.disp_airline;
+          if (type==etAirp) user_fmt=reqInfo->user.sets.disp_airp;
+          if (type==etCraft) user_fmt=reqInfo->user.sets.disp_craft;
+          if (type==etSuffix) user_fmt=reqInfo->user.sets.disp_suffix;
+          break;
+        case ecCkin:
+          if (type==etAirline) user_fmt=reqInfo->user.sets.ckin_airline;
+          if (type==etAirp) user_fmt=reqInfo->user.sets.ckin_airp;
+          if (type==etCraft) user_fmt=reqInfo->user.sets.ckin_craft;
+          if (type==etSuffix) user_fmt=reqInfo->user.sets.ckin_suffix;
+          break;
+        default:;
+      }
       if (type==etAirline ||
           type==etAirp ||
           type==etCraft)
@@ -1721,6 +1750,9 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
       break;
     case etCurrency:
       table_name="currency";
+      break;
+    case etTripTypes:
+      table_name="trip_types";
       break;
     default: ;
   };
@@ -1859,12 +1891,20 @@ string ElemIdToElem(TElemType type, string id, int fmt, int only_lat, bool with_
     return ElemIdToElem(type, id, fmt, with_deleted);
 }
 
-string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
+void ElemIdToElem(TElemType type, string id, int fmt, const std::string lang, bool with_deleted, string &value)
 {
-	string code;
-  code=id;
+	value.clear();
 
-  if (id.empty()||fmt==0) return code;
+	if ( lang != "RU" ) { // заглушка перевод на анг. язык
+		if(fmt == 0) fmt = 1;
+		if(fmt == 2) fmt = 3;
+  }
+
+
+  if (id.empty()||fmt==0) {
+  	value = id;
+  	return;
+  }
 
   char* table_name=NULL;
   switch(type)
@@ -1905,6 +1945,9 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
     case etCurrency:
       table_name="currency";
       break;
+    case etTripTypes:
+      table_name="trip_types";
+      break;
     default: ;
   };
 
@@ -1920,13 +1963,13 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
         TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
         if (fmt==0)
         {
-          if (!row.code.empty()) code=row.code;
-          return code;
+          value=row.code;
+          return;
         };
         if (fmt==1)
         {
-          if (!row.code_lat.empty()) code=row.code_lat;
-          return code;
+          value=row.code_lat;
+          return;
         };
 
       }
@@ -1936,13 +1979,13 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
         TICAOBaseTableRow& row=dynamic_cast<TICAOBaseTableRow&>(BaseTableRow);
         if (fmt==2)
         {
-          if (!row.code_icao.empty()) code=row.code_icao;
-          return code;
+          value=row.code_icao;
+          return;
         };
         if (fmt==3)
         {
-          if (!row.code_icao_lat.empty()) code=row.code_icao_lat;
-          return code;
+          value=row.code_icao_lat;
+          return;
         };
 
       }
@@ -1952,8 +1995,8 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
         TCountriesRow& row=dynamic_cast<TCountriesRow&>(BaseTableRow);
         if (fmt==4)
         {
-          if (!row.code_iso.empty()) code=row.code_iso;
-          return code;
+          value=row.code_iso;
+          return;
         };
       }
       catch (bad_cast) {};
@@ -1968,19 +2011,19 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
       case etSuffix:
         if (id.size()==1)
         {
-          const char *p;
-          p=strchr(rus_suffix,*code.c_str());
+          char *p;
+          p=strchr(rus_suffix,*id.c_str());
           if (p!=NULL)
           {
             if (fmt==0)
             {
-              code=*p;
-              return code;
+              value=*p;
+              return;
             };
             if (fmt==1)
             {
-              code=lat_suffix[p-rus_suffix];
-              return code;
+              value=lat_suffix[p-rus_suffix];
+              return;
             };
           };
         };
@@ -1988,7 +2031,22 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
       default: ;
     };
   };
+  return;
+}
+
+string ElemIdToElem(TElemType type, string id)
+{
+	return ElemIdToElem(type,id,0);
+}
+
+string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
+{
+	string code;
+	ElemIdToElem(type,id,fmt,TReqInfo::Instance()->desk.lang,with_deleted,code);
+	if ( code.empty() )
+    code=id;
   return code;
+
 };
 
 

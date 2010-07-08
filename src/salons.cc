@@ -141,7 +141,8 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   modify = mNone;
 	TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT code,name,priority FROM comp_layer_types ORDER BY priority";
+    "SELECT code,DECODE(:lang,'RU',name,NVL(name_lat,name)) name,priority FROM comp_layer_types ORDER BY priority";
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
@@ -182,9 +183,9 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
     if ( FilterLayers.isFlag( cltTranzit ) ||
     	   FilterLayers.isFlag( cltSOMTrzt ) ||
     	   FilterLayers.isFlag( cltPRLTrzt ) ) {
-      layers_priority[ cltBlockTrzt ].name_view = "Транзит";
+      layers_priority[ cltBlockTrzt ].name_view = AstraLocale::getLocaleText("Транзит");
     }
-    layers_priority[ cltCheckin ].name_view = "Регистрация";
+    layers_priority[ cltCheckin ].name_view = AstraLocale::getLocaleText("Регистрация");
     if ( FilterLayers.isFlag( cltProtTrzt ) ) {
     	layers_priority[ cltProtTrzt ].name_view = layers_priority[ cltProtTrzt ].name;
       layers_priority[ cltProtTrzt ].func_key = "Shift+F3";

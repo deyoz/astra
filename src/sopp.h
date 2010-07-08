@@ -16,6 +16,7 @@ struct Cargo {
 	int mail;
 	int point_arv;
 	std::string airp_arv;
+	int airp_arv_fmt;
 	int dosbag_weight;
 	Cargo() {
 		cargo = 0;
@@ -125,6 +126,13 @@ struct TSOPPStation {
 };
 typedef std::vector<TSOPPStation> tstations;
 
+struct TSoppClass {
+	std::string cl;
+	int cfg;
+	TSoppClass() {
+		cfg=0;
+  }
+};
 
 enum TTrferType { trferIn, trferOut, trferCkin };
 typedef std::vector<TSOPPDest> TSOPPDests;
@@ -180,7 +188,7 @@ struct TSOPPTrip {
 
   int pr_del;
 
-  std::string classes;
+  std::vector<TSoppClass> classes;
   int reg;
   int resa;
   std::vector<TSoppStage> stages;

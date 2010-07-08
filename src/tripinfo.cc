@@ -292,13 +292,14 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.flt_no, "
     "       points.suffix, "
     "       points.craft, "
+    "       points.craft_fmt, "
     "       points.airp, "
     "       points.scd_out, "
     "       points.act_out, "
     "       points.bort, "
     "       points.park_out, "
-    "       SUBSTR(ckin.get_classes(points.point_id),1,50) AS classes, "
-    "       SUBSTR(ckin.get_airps(points.point_id),1,50) AS route, "
+    "       SUBSTR(ckin.get_classes(points.point_id,:vlang),1,50) AS classes, "
+    "       SUBSTR(ckin.get_airps2(points.point_id,:vlang),1,50) AS route, "
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
     "       points.trip_type, "
     "       points.litera, "
@@ -366,6 +367,7 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
 
   Qry.SQLText = sql;
   p.setVariables( Qry );
+  Qry.CreateVariable( "vlang", otString, info.desk.lang );
 
   if ((info.screen.name == "BRDBUS.EXE" || info.screen.name == "AIR.EXE") &&
        info.user.user_type==utAirport &&
@@ -425,7 +427,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     try
     {
       listItem.point_id=Qry.FieldAsInteger("point_id");
-      listItem.trip_name=GetTripName(info,reqInfo->screen.name=="TLG.EXE",true);
+      listItem.trip_name=GetTripName(info,AstraLocale::ltTermLang,reqInfo->screen.name=="TLG.EXE",true);
       listItem.real_out_local_date=info.real_out_local_date;
       list.push_back(listItem);
     }
@@ -636,13 +638,13 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "act_out" );
   };
 
-  NewTextChild( node, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( node, "craft", ElemIdToElemCtxt(ecCkin,etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" )) );
   NewTextChild( node, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( node, "park", Qry.FieldAsString( "park_out" ) );
   NewTextChild( node, "classes", Qry.FieldAsString( "classes" ) );
   NewTextChild( node, "route", Qry.FieldAsString( "route" ) );
   NewTextChild( node, "places", Qry.FieldAsString( "route" ) );
-  NewTextChild( node, "trip_type", Qry.FieldAsString( "trip_type" ) );
+  NewTextChild( node, "trip_type", ElemIdToElem(etTripTypes,Qry.FieldAsString( "trip_type" )) );
   NewTextChild( node, "litera", Qry.FieldAsString( "litera" ) );
   NewTextChild( node, "remark", Qry.FieldAsString( "remark" ) );
   NewTextChild( node, "pr_tranzit", (int)Qry.FieldAsInteger( "pr_tranzit" )!=0 );
@@ -657,12 +659,12 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   if ( reqInfo->screen.name == "BRDBUS.EXE" ||
        reqInfo->screen.name == "EXAM.EXE")
   {
-    status = stagesRules->status( stBoarding, tripStages.getStage( stBoarding ) );
+    status = stagesRules->status( stBoarding, tripStages.getStage( stBoarding ), true );
   };
   if ( reqInfo->screen.name == "AIR.EXE" ||
        reqInfo->screen.name == "PREPREG.EXE" )
   {
-    status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ) );
+    status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ), true );
   };
   if ( reqInfo->screen.name == "KASSA.EXE" ||
        reqInfo->screen.name == "CENT.EXE" )
@@ -670,23 +672,23 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
     TStage ckin_stage =  tripStages.getStage( stCheckIn );
     TStage craft_stage = tripStages.getStage( stCraft );
     if ( craft_stage == sRemovalGangWay || craft_stage == sTakeoff )
-      status = stagesRules->status( stCraft, craft_stage );
+      status = stagesRules->status( stCraft, craft_stage, true );
     else
-      status = stagesRules->status( stCheckIn, ckin_stage );
+      status = stagesRules->status( stCheckIn, ckin_stage, true );
   };
   if ( reqInfo->screen.name == "DOCS.EXE" )
   {
     if (act_out_client==ASTRA::NoExists)
-      status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ) );
+      status = stagesRules->status( stCheckIn, tripStages.getStage( stCheckIn ), true );
     else
-      status = stagesRules->status( stCheckIn, sTakeoff );
+      status = stagesRules->status( stCheckIn, sTakeoff, true );
   };
   if ( reqInfo->screen.name == "TLG.EXE" )
   {
     if (act_out_client==ASTRA::NoExists)
-      status = stagesRules->status( stCraft, tripStages.getStage( stCraft ) );
+      status = stagesRules->status( stCraft, tripStages.getStage( stCraft ), true );
     else
-      status = stagesRules->status( stCraft, sTakeoff );
+      status = stagesRules->status( stCraft, sTakeoff, true );
   };
   NewTextChild( node, "status", status );
 
@@ -1084,7 +1086,7 @@ void readPaxLoad( int point_id, xmlNodePtr reqNode, xmlNodePtr resNode )
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.CHANGED.REFRESH_DATA");
 
   xmlNodePtr rowNode=NewTextChild(node2,"row");
-  NewTextChild(rowNode,"title","Всего");
+  NewTextChild(rowNode,"title",AstraLocale::getLocaleText("Всего"));
   NewTextChild(rowNode,"seats",Qry.FieldAsInteger("seats"),0);
   NewTextChild(rowNode,"adult",Qry.FieldAsInteger("adult"),0);
   NewTextChild(rowNode,"child",Qry.FieldAsInteger("child"),0);

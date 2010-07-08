@@ -145,7 +145,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
      }
      catch( boost::local_time::ambiguous_result ) {
        throw AstraLocale::UserException( "MSG.STAGE.EST_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp ))
+               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
                << LParam("airp", airp));
      }
     if ( i->second.act == NoExists )
@@ -156,7 +156,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
       }
       catch( boost::local_time::ambiguous_result ) {
        throw AstraLocale::UserException( "MSG.STAGE.ACT_TIME_NOT_EXACTLY_DEFINED_FOR_AIRP",
-               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp ))
+               LParams() << LParam("stage", TStagesRules::Instance()->stage_name( i->first, airp, true ))
                << LParam("airp", airp));
       }
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
@@ -189,7 +189,7 @@ void TTripStages::WriteStages( int point_id, TMapTripStages &ts )
 
  	  check_brd_alarm( point_id );
 
-    string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp ) + "'";
+    string tolog = string( "Этап '" ) + sr->stage_name( i->first, airp, false ) + "'";
     if ( i->second.old_act == NoExists && i->second.act > NoExists )
       tolog += " выполнен";
     if ( i->second.old_act > NoExists && i->second.act == NoExists )
@@ -304,11 +304,10 @@ void TStagesRules::UpdateGraph_Stages( )
 	ClientStages.clear();
 	TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT stage_id, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, NULL airp FROM graph_stages "
+    "SELECT stage_id, name, name_lat, NULL airp FROM graph_stages "
     "UNION "
-    "SELECT stage_id, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, airp FROM stage_names "
+    "SELECT stage_id, name, name_lat, airp FROM stage_names "
     " ORDER BY stage_id, airp";
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
 
   while ( !Qry.Eof ) {
@@ -316,6 +315,7 @@ void TStagesRules::UpdateGraph_Stages( )
   	n.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
   	n.airp = Qry.FieldAsString( "airp" );
   	n.name = Qry.FieldAsString( "name" );
+  	n.name_lat = Qry.FieldAsString( "name_lat" );
   	Graph_Stages.push_back( n );
     Qry.Next();
   }
@@ -354,9 +354,8 @@ void TStagesRules::Update()
  /* загрузка статусов */
  Qry.Clear();
  Qry.SQLText =
-   "SELECT stage_id, stage_type, DECODE(:lang,'RU',status,NVL(status_lat,status)) status "
+   "SELECT stage_id, stage_type, status, status_lat "
    " FROM stage_statuses ORDER BY stage_type";
- Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
  Qry.Execute();
  TStage_Type stage_type;
  TStage_Status status;
@@ -364,6 +363,7 @@ void TStagesRules::Update()
    stage_type = (TStage_Type)Qry.FieldAsInteger( "stage_type" );
    status.stage = (TStage)Qry.FieldAsInteger( "stage_id" );
    status.status = Qry.FieldAsString( "status" );
+   status.status_lat = Qry.FieldAsString( "status_lat" );
    StageStatuses[ stage_type ].push_back( status );
    Qry.Next();
  }
@@ -386,6 +386,16 @@ void TStagesRules::Update()
  }
 }
 
+string getLocaleName( const string &name, const string &name_lat, bool pr_locale )
+{
+	string res;
+	if ( !pr_locale || TReqInfo::Instance()->desk.lang == "RU" || name_lat.empty() )
+		res = name;
+	else
+		res = name_lat;
+	return res;
+}
+
 void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
 {
   xmlNodePtr snode, node = NewTextChild( dataNode, "Graph_Stages" );
@@ -396,7 +406,7 @@ void TStagesRules::BuildGraph_Stages( const string airp, xmlNodePtr dataNode )
       if ( !isClientStage( i->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
         snode = NewTextChild( node, "stage" );
         NewTextChild( snode, "stage_id", (int)i->stage );
-        NewTextChild( snode, "name", i->name );
+        NewTextChild( snode, "name", getLocaleName( i->name, i->name_lat, true ) );
         NewTextChild( snode, "airp", i->airp );
       }
     }
@@ -437,7 +447,7 @@ void TStagesRules::Build( xmlNodePtr dataNode )
       if ( !isClientStage( s->stage ) || TReqInfo::Instance()->desk.compatible( WEB_CHECKIN_VERSION ) )	{
         xmlNodePtr stagestatusNode = NewTextChild( snode, "stagestatus" );
         NewTextChild( stagestatusNode, "stage", (int)s->stage );
-        NewTextChild( stagestatusNode, "status", s->status );
+        NewTextChild( stagestatusNode, "status", getLocaleName( s->status, s->status_lat, true ) );
       }
     }
   }
@@ -464,26 +474,26 @@ bool TStagesRules::CanStatus( TStage_Type stage_type, TStage stage )
   return false;
 }
 
-string TStagesRules::status( TStage_Type stage_type, TStage stage )
+string TStagesRules::status( TStage_Type stage_type, TStage stage, bool pr_locale )
 {
   TStage_Statuses &v = StageStatuses[ stage_type ];
   for( TStage_Statuses::iterator s=v.begin(); s!=v.end(); s++ ) {
     if ( s->stage == stage )
-      return s->status;
+      return getLocaleName( s->status, s->status_lat, pr_locale );
   }
   return "";
 }
 
-string TStagesRules::stage_name( TStage stage, std::string airp )
+string TStagesRules::stage_name( TStage stage, std::string airp, bool pr_locale )
 {
 	string res, res1;
 	for ( vector<TStage_name>::iterator n=Graph_Stages.begin(); n!=Graph_Stages.end(); n++ ) {
 		if ( n->stage == stage )
   		if ( n->airp.empty() )
-	  		res1 = n->name;
+	  		res1 = getLocaleName( n->name, n->name_lat, pr_locale );
 			else
 			  if ( n->airp == airp )
-			  	res = n->name;
+			  	res = getLocaleName( n->name, n->name_lat, pr_locale );
 	}
 	if ( res.empty() )
 		return res1;
@@ -658,7 +668,7 @@ void astra_timer( TDateTime utcdate )
   		  if ( pr_exec_stage ) {
     		  // запись в лог о выполнении шага
           TStagesRules *r = TStagesRules::Instance();
-          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp ) + "'";
+          string tolog = string( "Этап '" ) + r->stage_name( (TStage)stage_id, airp, false ) + "'";
           tolog += " выполнен: факт. время=";
           tolog += DateTimeToStr( act_stage, "hh:nn dd.mm.yy (UTC)" );
           TReqInfo::Instance()->MsgToLog( tolog, evtGraph, point_id, stage_id );

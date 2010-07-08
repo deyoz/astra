@@ -78,7 +78,9 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 
    /* пересылаем все данные */
    Qry->Clear();
-   Qry->SQLText = "SELECT code, name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
+   Qry->SQLText =
+     "SELECT code, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
+   Qry->CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
    Qry->Execute();
    int len = 0;
    while ( !Qry->Eof ) {

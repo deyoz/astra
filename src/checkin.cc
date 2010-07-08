@@ -1716,7 +1716,7 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   TTripInfo operFlt(Qry);
 
-  NewTextChild(resNode,"flight",GetTripName(operFlt,true,false));
+  NewTextChild(resNode,"flight",GetTripName(operFlt,AstraLocale::ltTermLang,true,false)); //djek08.07.2010
 
   ostringstream sql;
   sql <<

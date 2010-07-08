@@ -75,6 +75,7 @@ struct TRule {
 struct TStage_Status {
   TStage stage;
   std::string status;
+  std::string status_lat;
   int lvl;
 };
 
@@ -86,6 +87,7 @@ typedef std::map<TStage_Type,TStage_Statuses> TMapStatuses;
 struct TStage_name {
 	TStage stage;
 	std::string name;
+	std::string name_lat;
 	std::string airp;
 };
 
@@ -100,8 +102,8 @@ class TStagesRules {
     TMapStatuses StageStatuses;
     TStagesRules();
     bool CanStatus( TStage_Type stage_type, TStage stage );
-    std::string status( TStage_Type stage_type, TStage stage );
-    std::string stage_name( TStage stage, std::string airp );
+    std::string status( TStage_Type stage_type, TStage stage, bool pr_locale );
+    std::string stage_name( TStage stage, std::string airp, bool pr_locale );
     void Build( xmlNodePtr dataNode );
     void UpdateGraph_Stages( );
     void BuildGraph_Stages( const std::string airp, xmlNodePtr dataNode );

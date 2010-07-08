@@ -7,6 +7,7 @@
 #include "oralib.h"
 #include "tlg/tlg_parser.h"
 #include "convert.h"
+#include "astra_locale.h"
 
 #define NICKNAME "DEN"
 #define NICKTRACE SYSTEM_TRACE
@@ -17,7 +18,12 @@ using namespace EXCEPTIONS;
 using namespace std;
 using namespace ASTRA;
 
-string GetTripName( TTripInfo &info, bool showAirp, bool prList )
+std::string GetTripName( TTripInfo &info, bool showAirp, bool prList )
+{
+	return GetTripName( info, AstraLocale::ltNone, showAirp, prList );
+}
+//для сохранения совместимости вводим AstraLocale::TLocaleType
+string GetTripName( TTripInfo &info, AstraLocale::TLocaleType locale_type, bool showAirp, bool prList )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TDateTime scd_out_local_date,desk_time;
@@ -30,9 +36,14 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
     info.real_out_local_date=scd_out_local_date;
 
   ostringstream trip;
-  trip << info.airline
-       << setw(3) << setfill('0') << info.flt_no
-       << info.suffix;
+  if ( locale_type == AstraLocale::ltNone )
+    trip << info.airline
+         << setw(3) << setfill('0') << info.flt_no
+         << info.suffix;
+  else
+    trip << ElemIdToElem(etAirline,info.airline) /*!!!djek Ctxt*/
+         << setw(3) << setfill('0') << info.flt_no
+         << ElemIdToElem(etSuffix,info.suffix); /*!!!djek Ctxt*/
 
   if (prList)
   {
@@ -51,10 +62,18 @@ string GetTripName( TTripInfo &info, bool showAirp, bool prList )
     trip << "(" << DateTimeToStr(scd_out_local_date,"dd") << ")";
   if (!(reqInfo->user.user_type==utAirport &&
         reqInfo->user.access.airps_permit &&
-        reqInfo->user.access.airps.size()==1)||showAirp)
-    trip << " " << info.airp;
-  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0)
-      trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
+        reqInfo->user.access.airps.size()==1)||showAirp) {
+   if ( locale_type == AstraLocale::ltNone )
+     trip << " " << info.airp;
+   else
+   	 trip << " " << ElemIdToElem(etAirp,info.airp); /*!!!djek Ctxt*/
+  }
+  if(info.pr_del != ASTRA::NoExists and info.pr_del != 0) {
+  	if ( locale_type == AstraLocale::ltNone )
+  		trip << " " << (info.pr_del < 0 ? "(удл.)" : "(отм.)");
+  	else
+      trip << " " << (info.pr_del < 0 ? string("(")+AstraLocale::getLocaleText("удл.")+")" : string("(")+AstraLocale::getLocaleText("отм.")+")");
+  }
 
   return trip.str();
 };
@@ -672,22 +691,22 @@ string TripAlarmString( TTripAlarmsType &alarm )
 	string mes;
 	switch( alarm ) {
 		case atOverload:
-			mes = "Перегрузка";
+			mes = AstraLocale::getLocaleText("Перегрузка");
 			break;
 		case atWaitlist:
-			mes = "Лист ожидания";
+			mes = AstraLocale::getLocaleText("Лист ожидания");
 			break;
 		case atBrd:
-			mes = "Посадка";
+			mes = AstraLocale::getLocaleText("Посадка");
 			break;
 		case atSalon:
-			mes = "Не назначен салон";
+			mes = AstraLocale::getLocaleText("Не назначен салон");
 			break;
 		case atETStatus:
-			mes = "Нет связи с СЭБ";
+			mes = AstraLocale::getLocaleText("Нет связи с СЭБ");
 			break;
 		case atSeance:
-		  mes = "Не определен сеанс";
+		  mes = AstraLocale::getLocaleText("Не определен сеанс");
 			break;
 		default:;
 	}

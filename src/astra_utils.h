@@ -45,7 +45,7 @@ enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etSuffix,etClsGrp };
+                 etSuffix,etClsGrp,etTripTypes };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
 //форматы:
 //  fmt=0 вн.код (рус. кодировка)
@@ -57,6 +57,7 @@ std::string ElemToElemId(TElemType type, std::string code, int &fmt, bool with_d
 std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
+std::string ElemIdToElem(TElemType type, std::string id);
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
                               int &fmt, bool hard_verify, bool with_deleted=false);
 std::string ElemIdToElemCtxt( TElemContext ctxt,TElemType type, std::string id,
@@ -100,6 +101,7 @@ class TAccess {
 class TUserSettings {
   public:
     TUserSettingType time,disp_airline,disp_airp,disp_craft,disp_suffix;
+    TUserSettingType      ckin_airline,ckin_airp,ckin_craft,ckin_suffix;
     TUserSettings()
     {
       clear();
@@ -111,6 +113,10 @@ class TUserSettings {
       disp_airp=ustCodeMixed;
       disp_craft=ustCodeMixed;
       disp_suffix=ustEncMixed;
+      ckin_airline=ustCodeNative;
+      ckin_airp=ustCodeNative;
+      ckin_craft=ustCodeNative;
+      ckin_suffix=ustCodeNative;
     };
 };
 
