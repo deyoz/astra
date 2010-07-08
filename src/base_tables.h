@@ -614,6 +614,44 @@ class TPayTypes: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
+class TTripTypesRow: public TTIDBaseTableRow {
+  public:
+    std::string name,name_lat;
+    int pr_reg;
+    ~TTripTypesRow() {};
+    const char *get_row_name() { return "TTripTypesRow"; };
+    std::string AsString(std::string field, bool pr_lat=false)
+    {
+      if (lowerc(field)=="name") return pr_lat?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,pr_lat);
+    };
+    int AsInteger(std::string field)
+    {
+      if (lowerc(field)=="pr_reg") return pr_reg;
+      return TTIDBaseTableRow::AsInteger(field);
+    };
+};
+
+class TTripTypes: public TTIDBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_reg,pr_del,tid "
+   	    "FROM trip_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return
+    	  "SELECT id,code,code_lat,name,name_lat,pr_reg,pr_del,tid "
+    	  "FROM trip_types WHERE tid>:tid";
+    };
+  protected:
+    const char *get_table_name() { return "TTripTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+};
+
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

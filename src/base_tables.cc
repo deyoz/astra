@@ -56,6 +56,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TSubcls();
         else if(name == "CRAFTS")
             base_tables[name] = new TCrafts();
+        else if(name == "TRIP_TYPES")
+        	  base_tables[name] = new TTripTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -520,5 +522,15 @@ void TCrafts::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **repla
   ((TCraftsRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TICAOBaseTable::create_row(Qry,row,replaced_row);
 };
+
+void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TTripTypesRow;
+  ((TTripTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TTripTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  ((TTripTypesRow*)*row)->pr_reg=Qry.FieldAsInteger("pr_reg");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
+};
+
 
 TBaseTables base_tables;
