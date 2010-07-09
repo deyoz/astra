@@ -1657,7 +1657,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.flt_no, \n"
                 "  points.scd_out, \n"
                 "  stat.point_id, \n"
-                "  ckin.get_airps(stat.point_id) places, \n"
+                "  ckin.get_airps(stat.point_id,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
@@ -1849,7 +1849,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.flt_no, \n"
                 "  arx_points.scd_out, \n"
                 "  arx_stat.point_id, \n"
-                "  arch.get_airps(arx_stat.point_id, arx_stat.part_key) places, \n"
+                "  arch.get_airps(arx_stat.point_id, arx_stat.part_key,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
@@ -2301,6 +2301,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
+        Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());

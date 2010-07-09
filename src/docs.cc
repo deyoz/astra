@@ -328,7 +328,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
         "   park_out park, "
         "   NVL(act_out,NVL(est_out,scd_out)) real_out, "
         "   scd_out, "
-        "   ckin.get_airps(point_id, 1) long_route "
+        "   ckin.get_airps(point_id,:vlang,1) long_route "
         "from ";
     if(part_key == NoExists)
         SQLText +=
@@ -345,6 +345,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     }
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, point_id);
+    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
     Qry.Execute();
     if(Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 

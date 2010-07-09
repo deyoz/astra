@@ -299,7 +299,7 @@ void TSQL::setSQLTripInfo( TQuery &Qry, TReqInfo &info ) {
     "       points.bort, "
     "       points.park_out, "
     "       SUBSTR(ckin.get_classes(points.point_id,:vlang),1,50) AS classes, "
-    "       SUBSTR(ckin.get_airps2(points.point_id,:vlang),1,50) AS route, "
+    "       SUBSTR(ckin.get_airps(points.point_id,:vlang),1,50) AS route, "
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
     "       points.trip_type, "
     "       points.litera, "
