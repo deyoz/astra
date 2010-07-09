@@ -1445,7 +1445,6 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "ps_ok", otString, EncodePaxStatus(ASTRA::psCheckin) );
   Qry.CreateVariable( "ps_goshow", otString, EncodePaxStatus(ASTRA::psGoshow) );
   Qry.CreateVariable( "ps_transit", otString, EncodePaxStatus(ASTRA::psTransit) );
-  Qry.Execute();
   // места пассажира
   TQuery SQry( &OraSession );
   SQry.SQLText =
