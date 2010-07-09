@@ -150,7 +150,7 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     if ( !Qry.Eof && Qry.FieldAsInteger( "pr_crypt" ) != 0 ) {
       XMLRequestCtxt *xmlRC = getXmlCtxt();
       xmlNodePtr resNode = NodeAsNode("/term/answer", xmlRC->resDoc);
-      ASTRA::showProgError( "Шифрованное соединение: ошибка режима шифрования. Повторите запрос" );
+      AstraLocale::showProgError( "MSG.MESSAGEPRO.CRYPT_MODE_ERR.REPEAT" );
       resNode = ReplaceTextChild( resNode, "clear_certificates" );
       throw UserException2();
     }

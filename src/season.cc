@@ -1933,7 +1933,7 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
                                  DateTimeToStr( first_day, "dd.mm" ).c_str() );*/
           }
           catch( boost::local_time::time_label_invalid ) {
-            throw AstraLocale::UserException( "MSG.TIME_TIME_FOR_POINT_NOT_EXISTS",
+            throw AstraLocale::UserException( "MSG.DEP_TIME_FOR_POINT_NOT_EXISTS",
                     LParams() << LParam("airp", id->airp) << LParam("time", DateTimeToStr( period.first, "dd.mm" )));
           }
           ProgTrace( TRACE5, "trunc(scd_out)=%s, time=%s",

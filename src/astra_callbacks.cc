@@ -229,12 +229,12 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
           switch( orae->Code ) {
           	case 4061:
           	case 4068:
-          		showError("Версия системы была обновлена. Повторите действие");
+          		AstraLocale::showError("MSG.SYSTEM_VERS_UPDATED.REPEAT");
           		break;
           	default:
           	  ProgError(STDLOG,"EOracleError %d: %s",orae->Code,orae->what());
           	  ProgError(STDLOG,"SQL: %s",orae->SQLText());
-              showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+              showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
           }
           throw 1;
       };
@@ -257,7 +257,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       else
           ProgError(STDLOG,"std::exception: %s",e->what());
 
-      showProgError("Ошибка обработки запроса. Обратитесь к разработчикам");
+      AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
       throw 1;
     }
     catch( int ) {

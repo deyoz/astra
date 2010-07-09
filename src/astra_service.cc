@@ -624,7 +624,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 	map<string,string> params;
 	xmlNodePtr n = NodeAsNode( "headers", reqNode );
 	if ( !n || !n->children ) {
-		ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+		AstraLocale::showProgError( "MSG.MSG_PARAMS_NOT_DEFINED.CALL_ADMIN" );
 		return;
 	}
   n = n->children;
@@ -638,7 +638,7 @@ void AstraServiceInterface::ThreadTaskResData( XMLRequestCtxt *ctxt, xmlNodePtr 
 		string sfile_id = params[ PARAM_FILE_ID ];
 		int file_id;
 		if ( sfile_id.empty() || params[ "ANSWER" ].empty() || StrToInt( sfile_id.c_str(), file_id ) == EOF ) {
-			ASTRA::showProgError( "Не заданы параметры сообщения (file_id,ANSWER). Обратитесь к разработчикам" );
+			AstraLocale::showProgError( "MSG.MSG_PARAMS_NOT_DEFINED.CALL_ADMIN" );
 			return;
 		}
 		if ( params[ "ANSWER" ] == "COMMIT" )
