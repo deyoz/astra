@@ -137,7 +137,7 @@ void TCacheTable::initFields()
     Qry->SQLText =
         "SELECT name,title,width,char_case,align,data_type, "
         "       data_size,scale,nullable,pr_ident,read_only, "
-        "       refer_code,refer_name,refer_level,lang,num "
+        "       refer_code,refer_name,refer_level,refer_ident,lang,num "
         "FROM cache_fields "
         "WHERE code=:code AND (lang IS NULL OR lang=:lang)"
         "ORDER BY name, lang NULLS LAST ";
@@ -252,6 +252,14 @@ void TCacheTable::initFields()
             if(FField.ReferLevel<0)
                 throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
         }
+        if(Qry->FieldIsNULL("refer_ident"))
+            FField.ReferIdent = 0;
+        else {
+            FField.ReferIdent = Qry->FieldAsInteger("refer_ident");
+            if(FField.ReferIdent<0)
+                throw Exception((string)"Wrong reference of field '"+code+"."+FField.Name+"'");
+        }
+
         /* проверим, чтобы имена полей не дублировались */
         for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
             if(FField.Name == i->Name)
@@ -530,6 +538,7 @@ void TCacheTable::XMLInterface(const xmlNodePtr dataNode)
         NewTextChild(ffieldNode, "ReferCode",    iv->ReferCode);
         NewTextChild(ffieldNode, "ReferName",    iv->ReferName);
         NewTextChild(ffieldNode, "ReferLevel",   iv->ReferLevel);
+        NewTextChild(ffieldNode, "ReferIdent",   iv->ReferIdent);
     }
 }
 

@@ -55,6 +55,7 @@ struct TCacheField2 {
     std::string ReferCode;
     std::string ReferName;
     int ReferLevel;
+    int ReferIdent;
     int VarIdx[2];
     int num;
     TCacheField2()
@@ -66,6 +67,7 @@ struct TCacheField2 {
         Ident = false;
         ReadOnly = true;
         ReferLevel = 0;
+        ReferIdent = -1;
         VarIdx[0] = -1;
         VarIdx[1] = -1;
     }
