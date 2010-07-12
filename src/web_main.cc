@@ -943,6 +943,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
     "       DECODE(pax.pax_id,NULL,crs_pax.seats,pax.seats) AS seats, "
     "       DECODE(pax_grp.class,NULL,crs_pnr.class,pax_grp.class) AS class, "
     "       DECODE(pax.subclass,NULL,crs_pnr.subclass,pax.subclass) AS subclass, "
+    "       crs_pnr.status AS pnr_status, "
     "       crs_pnr.tid AS crs_pnr_tid, "
     "       crs_pax.tid AS crs_pax_tid, "
     "       pax_grp.tid AS pax_grp_tid, "
@@ -1013,9 +1014,16 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
    		CrsPaxRemQry.Execute();
    		if (!CrsPaxRemQry.Eof)*/
    		if (pax.name=="CBBG")
-   		{
    		  pax.pers_type_extended = "БГ"; //CBBG
-   		  //pax.checkin_status = "airp_checkin"; надо спросить у Сергиенко
+
+   		string pnr_status=Qry.FieldAsString("pnr_status");
+   		if (//pax.name=="CBBG" ||  надо спросить у Сергиенко
+   		    pnr_status=="DG2" ||
+   		    pnr_status=="RG2" ||
+   		    pnr_status=="ID2" ||
+   		    pnr_status=="WL")
+   		{
+   		  pax.checkin_status = "agent_checkin";
    		};
    	}
   	pax.crs_pnr_tid = Qry.FieldAsInteger( "crs_pnr_tid" );

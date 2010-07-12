@@ -347,20 +347,48 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     NewTextChild(variablesNode, "test_server", get_test_server());
 }
 
-enum TRptType {rtPTM, rtPTMTXT, rtBTM, rtBTMTXT,
-               rtWEB, rtREFUSE, rtNOTPRES, rtREM, rtCRS, rtCRSUNREG, rtEXAM, rtUnknown, rtTypeNum};
+enum TRptType {
+    rtPTM,
+    rtPTMTXT,
+    rtBTM,
+    rtBTMTXT,
+    rtWEB,
+    rtWEBTXT,
+    rtREFUSE,
+    rtREFUSETXT,
+    rtNOTPRES,
+    rtNOTPRESTXT,
+    rtREM,
+    rtREMTXT,
+    rtCRS,
+    rtCRSTXT,
+    rtCRSUNREG,
+    rtCRSUNREGTXT,
+    rtEXAM,
+    rtEXAMTXT,
+    rtUnknown,
+    rtTypeNum
+};
+
 const char *RptTypeS[rtTypeNum] = {
     "PTM",
     "PTMTXT",
     "BTM",
     "BTMTXT",
     "WEB",
+    "WEBTXT",
     "REFUSE",
+    "REFUSETXT",
     "NOTPRES",
+    "NOTPRESTXT",
     "REM",
+    "REMTXT",
     "CRS",
+    "CRSTXT",
     "CRSUNREG",
+    "CRSUNREGTX",
     "EXAM",
+    "EXAMTXT",
     "?"
 };
 
@@ -2377,19 +2405,17 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.airp_arv.empty() ||
-       rpt_params.rpt_type==rtPTMTXT) {
+    if(rpt_params.rpt_type==rtPTMTXT) {
         if(rpt_params.pr_trfer)
-            rpt_name="PMTrferTotalEL";
+            rpt_name="PMTrferTotalELTxt";
         else
-            rpt_name="PMTotalEL";
+            rpt_name="PMTotalELTxt";
     } else {
         if(rpt_params.pr_trfer)
             rpt_name="PMTrfer";
         else
             rpt_name="PM";
     };
-    if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
     get_report_form(rpt_name, resNode);
 
     {
@@ -2719,19 +2745,17 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.airp_arv.empty() ||
-       rpt_params.rpt_type==rtBTMTXT) {
+    if(rpt_params.rpt_type==rtBTMTXT) {
         if(rpt_params.pr_trfer)
-            rpt_name="BMTrferTotal";
+            rpt_name="BMTrferTotalTxt";
         else
-            rpt_name="BMTotal";
+            rpt_name="BMTotalTxt";
     } else {
         if(rpt_params.pr_trfer)
             rpt_name="BMTrfer";
         else
             rpt_name="BM";
     };
-    if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
     get_report_form(rpt_name, resNode);
 
     t_rpt_bm_bag_name bag_names;
@@ -3153,6 +3177,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
     STAT::set_variables(resNode);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
@@ -3541,11 +3566,15 @@ void PTMBTMTXT(const TRptParams &rpt_params, xmlNodePtr resNode)
     while(!rows.empty());
     NewTextChild(variablesNode,"report_summary",s.str());
   };
+  ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 };
 
 void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
 {
-    get_report_form("ref", resNode);
+    if(rpt_params.rpt_type == rtREFUSETXT)
+        get_report_form("docTxt", resNode);
+    else
+        get_report_form("ref", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3588,9 +3617,107 @@ void REFUSE(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+string get_test_str(int page_width, bool lat)
+{
+    string result;
+    for(int i=0;i<page_width/6;i++) result += (lat?" TEST ":" ТЕСТ ");
+    return result;
+}
+
+string get_page_number_fmt(bool lat)
+{
+    return (lat?"Page %u of %u":"Стр. %u из %u");
+}
+
+string get_issue_date(xmlNodePtr variablesNode, bool lat)
+{
+    return (string)(lat?"Issue date ":"Сформировано ") + NodeAsString("date_issue",variablesNode);
+}
+
+void REFUSETXT(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    REFUSE(rpt_params, resNode);
+    bool lat = GetRPEncoding(rpt_params)!=0;
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    int max_symb_count=lat?page_width:60;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    ostringstream s;
+    s.str("");
+    s << "Причины невылета пассажиров рейса " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    string str = s.str().substr(0, max_symb_count);
+    s.str("");
+    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << right << setw(3)  << "№" << " "
+        << left
+        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
+        << setw(4)  << (lat ? "Type" : "Тип")
+        << setw(10) << (lat ? "Ticket No" : "№ билета")
+        << setw(24)  << (lat ? "Refuse cause" : "Причины невылета")
+        << setw(16) << (lat ? "Bag.Tag.No" : "№№ баг.бирок");
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    xmlNodePtr dataSetNode = NodeAsNode("v_ref", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    vector<string> rows;
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    const char col_sym = ' ';
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        SeparateString(NodeAsString("family", rowNode), 21, rows);
+        fields["surname"]=rows;
+
+        SeparateString(NodeAsString("ticket_no", rowNode), 9, rows);
+        fields["tkts"]=rows;
+
+        SeparateString(NodeAsString("refuse", rowNode), 23, rows);
+        fields["refuse"]=rows;
+
+        SeparateString(NodeAsString("tags", rowNode), 16, rows);
+        fields["tags"]=rows;
+
+        row=0;
+        s.str("");
+        do
+        {
+            if (row != 0) s << endl;
+            s
+                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
+                << left << setw(21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
+                << left << setw(23) << (!fields["refuse"].empty() ? *(fields["refuse"].begin()) : "") << col_sym
+                << left << setw(16) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(
+                !fields["surname"].empty() ||
+                !fields["tkts"].empty() ||
+                !fields["refuse"].empty() ||
+                !fields["tags"].empty()
+             );
+        NewTextChild(rowNode,"str",s.str());
+    }
+}
+
 void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
 {
-    get_report_form("notpres", resNode);
+    if(rpt_params.rpt_type == rtNOTPRESTXT)
+        get_report_form("docTxt", resNode);
+    else
+        get_report_form("notpres", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3636,9 +3763,84 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+void NOTPRESTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    NOTPRES(rpt_params, resNode);
+    bool lat = GetRPEncoding(rpt_params)!=0;
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    int max_symb_count=lat?page_width:60;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    ostringstream s;
+    s.str("");
+    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    string str = s.str().substr(0, max_symb_count);
+    s.str("");
+    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << right << setw(3)  << "№" << " "
+        << left
+        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
+        << setw(5)  << (lat ? "Type" : "Тип")
+        << setw(8)  << (lat ? "Seat No" : "№ места")
+        << setw(6) << (lat ? "Bag" : "Багаж")
+        << setw(19) << (lat ? " Bag.Tag.No" : " №№ баг.бирок");
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    xmlNodePtr dataSetNode = NodeAsNode("v_notpres", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    vector<string> rows;
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    const char col_sym = ' ';
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        SeparateString(NodeAsString("family", rowNode), 37, rows);
+        fields["surname"]=rows;
+
+        SeparateString(NodeAsString("tags", rowNode), 19, rows);
+        fields["tags"]=rows;
+
+        row=0;
+        s.str("");
+        do
+        {
+            string bagamount = NodeAsString("bagamount", rowNode, "");
+            if(bagamount == "0") bagamount.erase();
+            if (row != 0) s << endl;
+            s
+                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
+                << left << setw(37) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << " " << col_sym
+                << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
+                << left <<  setw(5) << (row == 0 ? bagamount : "") << col_sym
+                << left << setw(19) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(
+                !fields["surname"].empty() ||
+                !fields["tags"].empty()
+             );
+        NewTextChild(rowNode,"str",s.str());
+    }
+}
+
 void REM(TRptParams &rpt_params, xmlNodePtr resNode)
 {
-    get_report_form("rem", resNode);
+    if(rpt_params.rpt_type == rtREMTXT)
+        get_report_form("docTxt", resNode);
+    else
+        get_report_form("rem", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
     TQuery Qry(&OraSession);
     Qry.SQLText =
@@ -3679,12 +3881,81 @@ void REM(TRptParams &rpt_params, xmlNodePtr resNode)
     PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
 }
 
+void REMTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    REM(rpt_params, resNode);
+    bool lat = GetRPEncoding(rpt_params)!=0;
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    int max_symb_count=lat?page_width:60;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    ostringstream s;
+    s.str("");
+    s << "Список пассажиров, не явившихся на посадку " << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    string str = s.str().substr(0, max_symb_count);
+    s.str("");
+    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << right << setw(3)  << "№" << " "
+        << left
+        << setw(38) << (lat ? "Surname" : "Ф.И.О.")
+        << setw(5)  << (lat ? "Type" : "Тип")
+        << setw(8)  << (lat ? "Seat No" : "№ места")
+        << setw(25) << (lat ? "Remarks" : "Ремарки");
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    xmlNodePtr dataSetNode = NodeAsNode("v_rem", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    vector<string> rows;
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    const char col_sym = ' ';
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        SeparateString(NodeAsString("family", rowNode), 37, rows);
+        fields["surname"]=rows;
+
+        SeparateString(NodeAsString("info", rowNode), 25, rows);
+        fields["rems"]=rows;
+
+        row=0;
+        s.str("");
+        do
+        {
+            if (row != 0) s << endl;
+            s
+                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
+                << left << setw(37) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(4) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
+                << left << setw(25) << (!fields["rems"].empty() ? *(fields["rems"].begin()) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(
+                !fields["surname"].empty() ||
+                !fields["rems"].empty()
+             );
+        NewTextChild(rowNode,"str",s.str());
+    }
+}
+
 void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
 {
-    if(rpt_params.rpt_type == rtCRSUNREG)
-        get_report_form("crsUnreg", resNode);
+    if(rpt_params.rpt_type == rtCRSTXT or rpt_params.rpt_type == rtCRSUNREGTXT)
+        get_report_form("docTxt", resNode);
     else
         get_report_form("crs", resNode);
+    bool pr_unreg = rpt_params.rpt_type == rtCRSUNREG or rpt_params.rpt_type == rtCRSUNREGTXT;
     int pr_lat = GetRPEncoding(rpt_params);
     xmlNodePtr formDataNode = NewTextChild(resNode, "form_data");
     TQuery Qry(&OraSession);
@@ -3702,7 +3973,7 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
         "      report.get_PSPT(crs_pax.pax_id) AS document, "
         "      report.get_crsRemarks(crs_pax.pax_id) AS remarks "
         "FROM crs_pnr,tlg_binding,crs_pax,pers_types,classes,airps ";
-    if(rpt_params.rpt_type == rtCRSUNREG)
+    if(pr_unreg)
         SQLText += " , pax ";
     SQLText +=
         "WHERE crs_pnr.point_id=tlg_binding.point_id_tlg AND "
@@ -3712,13 +3983,13 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
         "      crs_pnr.target=airps.code AND "
         "      crs_pax.pr_del=0 and "
         "      tlg_binding.point_id_spp = :point_id ";
-    if(rpt_params.rpt_type == rtCRSUNREG)
+    if(pr_unreg)
         SQLText +=
             "    and crs_pax.pax_id = pax.pax_id(+) and "
             "    pax.pax_id is null ";
     SQLText +=
-            "order by "
-            "    family ";
+        "order by "
+        "    family ";
     Qry.SQLText = SQLText;
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
     Qry.CreateVariable("pr_lat", otString, pr_lat);
@@ -3750,12 +4021,113 @@ void CRS(TRptParams &rpt_params, xmlNodePtr resNode)
 
     // Теперь переменные отчета
     PaxListVars(rpt_params.point_id, pr_lat, NewTextChild(formDataNode, "variables"));
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    if(pr_unreg)
+        NewTextChild(variablesNode, "caption", (string)"Список забронированных не прошедших регистрацию пассажиров рейса " +
+                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+    else
+        NewTextChild(variablesNode, "caption", (string)"Список забронированных пассажиров рейса " +
+                NodeAsString("trip", variablesNode) + "/" + NodeAsString("scd_out", variablesNode));
+}
+
+void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
+{
+    CRS(rpt_params, resNode);
+    bool lat = GetRPEncoding(rpt_params)!=0;
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    int max_symb_count=lat?page_width:60;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    ostringstream s;
+    vector<string> rows;
+    string str;
+    SeparateString(NodeAsString("caption", variablesNode), max_symb_count, rows);
+    s.str("");
+    for(vector<string>::iterator iv = rows.begin(); iv != rows.end(); iv++) {
+        if(iv != rows.begin())
+            s << endl;
+        s << right << setw(((page_width - iv->size()) / 2) + iv->size()) << *iv;
+    }
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << right << setw(3)  << "№" << " "
+        << left
+        << setw(7)  << "PNR"
+        << setw(22) << (lat ? "Surname" : "Ф.И.О.")
+        << setw(5)  << (lat ? "Pax" : "Пас")
+        << setw(3) << (lat ? "Cl" : "Кл")
+        << setw(8)  << (lat ? "Seat No" : "№ места")
+        << setw(4)  << (lat ? "Dst" : "П/н")
+        << setw(7)  << (lat ? "to Dst" : "до П/н")
+        << setw(10) << (lat ? "Ticket" : "Билет")
+        << setw(10) << (lat ? "Document" : "Документ");
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    NewTextChild(variablesNode, "page_footer_top", get_issue_date(variablesNode, lat));
+    xmlNodePtr dataSetNode = NodeAsNode("v_crs", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    const char col_sym = ' ';
+    int row_num = 1;
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        SeparateString(NodeAsString("pnr_ref", rowNode), 6, rows);
+        fields["pnrs"]=rows;
+
+        SeparateString(NodeAsString("family", rowNode), 21, rows);
+        fields["surname"]=rows;
+
+        SeparateString(NodeAsString("ticket_no", rowNode), 9, rows);
+        fields["tkts"]=rows;
+
+        SeparateString(NodeAsString("document", rowNode), 10, rows);
+        fields["docs"]=rows;
+
+
+        row=0;
+        s.str("");
+        do
+        {
+            if (row != 0) s << endl;
+            s
+                << right << setw(3) << (row == 0 ? IntToString(row_num++) : "") << col_sym
+                << left << setw(6) << (!fields["pnrs"].empty() ? *(fields["pnrs"].begin()) : "") << col_sym
+                << left << setw(21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(4) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym
+                << left << setw(2) << (row == 0 ? NodeAsString("class", rowNode) : "") << col_sym
+                << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym
+                << left << setw(3) << (row == 0 ? NodeAsString("target", rowNode) : "") << col_sym
+                << left << setw(6) << (row == 0 ? NodeAsString("last_target", rowNode) : "") << col_sym
+                << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
+                << left << setw(10) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(
+                !fields["pnrs"].empty() ||
+                !fields["surname"].empty() ||
+                !fields["tkts"].empty() ||
+                !fields["docs"].empty()
+             );
+        NewTextChild(rowNode,"str",s.str());
+    }
 }
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     bool pr_web = GetNode( "web", reqNode ) != NULL;
-    get_report_form(pr_web ? "web" : "exam", resNode);
+    if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT)
+        get_report_form("docTxt", resNode);
+    else
+        get_report_form(pr_web ? "web" : "exam", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
 
     BrdInterface::GetPax(reqNode, resNode);
@@ -3778,13 +4150,130 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, (string)"Итого: " + NodeAsString(totalNode));
-    ProgTrace(TRACE5, "%s", GetXMLDocText(formDataNode->doc).c_str());
+}
+
+void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    EXAM(rpt_params, reqNode, resNode);
+    const char col_sym = ' '; //символ разделителя столбцов
+    bool lat = GetRPEncoding(rpt_params)!=0;
+    bool pr_web = rpt_params.rpt_type == rtWEBTXT;
+
+    xmlNodePtr variablesNode=NodeAsNode("form_data/variables",resNode);
+    xmlNodePtr dataSetsNode=NodeAsNode("form_data/datasets",resNode);
+    int page_width=80;
+    int max_symb_count=lat?page_width:60;
+    NewTextChild(variablesNode, "page_width", page_width);
+    NewTextChild(variablesNode, "test_server", get_test_server());
+    string str;
+    ostringstream s;
+    s.str("");
+    NewTextChild(variablesNode, "test_str", get_test_str(page_width, lat));
+    NewTextChild(variablesNode, "page_number_fmt", get_page_number_fmt(lat));
+    s.str("");
+    s
+        << "Список пассажиров (" << NodeAsString("paxlist_type", variablesNode) << "). Рейс "
+        << NodeAsString("trip", variablesNode) << "/" << NodeAsString("scd_out", variablesNode);
+    str = s.str().substr(0, max_symb_count);
+    s.str("");
+    s << right << setw(((page_width - str.size()) / 2) + str.size()) << str;
+    NewTextChild(variablesNode, "page_header_top", s.str());
+    s.str("");
+    s
+        << right << setw(3)  << "№" << col_sym
+        << left << setw(pr_web ? 20 : 22) << (lat ? "Surname" : "Фамилия")
+        << setw(4)  << (lat ? "Pax" : "Пас");
+    if(pr_web)
+        s
+            << setw(8)  << (lat ? "Seat No" : "№ места");
+    else
+        s
+            << setw(3)  << (lat ? "Ex" : "Дс")
+            << setw(3)  << (lat ? "Br" : "Пс");
+    s
+        << setw(10) << (lat ? "Document" : "Документ")
+        << setw(10) << (lat ? "Ticket" : "Билет")
+        << setw(15) << (lat ? "Bag.Tag.No" : "№№ баг.бирок")
+        << setw(9)  << (lat ? "Remarks" : "Ремарки");
+    NewTextChild(variablesNode, "page_header_bottom", s.str() );
+    s.str("");
+    s
+        << NodeAsString("total", variablesNode) << endl
+        << get_issue_date(variablesNode, lat);
+    NewTextChild(variablesNode, "page_footer_top", s.str() );
+
+    xmlNodePtr dataSetNode = NodeAsNode("passengers", dataSetsNode);
+    xmlNodeSetName(dataSetNode, BAD_CAST "table");
+    vector<string> rows;
+    map< string, vector<string> > fields;
+    int row;
+    xmlNodePtr rowNode=dataSetNode->children;
+    for(; rowNode != NULL; rowNode = rowNode->next)
+    {
+        //рабиваем фамилию, документ, билет, бирки, ремарки
+        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 19 : 21),rows);
+        fields["surname"]=rows;
+
+        SeparateString(NodeAsString("document",rowNode, ""),9,rows);
+        fields["docs"]=rows;
+
+        SeparateString(NodeAsString("ticket_no",rowNode, ""),9,rows);
+        fields["tkts"]=rows;
+
+        SeparateString(NodeAsString("tags",rowNode, ""),14,rows);
+        fields["tags"]=rows;
+
+        SeparateString(NodeAsString("remarks",rowNode, ""),9,rows);
+        fields["remarks"]=rows;
+
+        row=0;
+        s.str("");
+        do
+        {
+            if (row != 0) s << endl;
+            s
+                << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
+                << left << setw(pr_web ? 19 : 21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym;
+            if(pr_web) {
+                s
+                    << left <<  setw(7) << (row == 0 ? NodeAsString("seat_no", rowNode, "") : "") << col_sym;
+            } else {
+                s
+                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_exam", rowNode, "") == "" ? "-" : "+") : "")
+                    << left <<  setw(3) << (row == 0 ? (NodeAsString("pr_brd", rowNode, "") == "" ? "-" : "+") : "");
+            }
+            s
+                << left << setw(9) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
+                << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
+                << left << setw(14) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "") << col_sym
+                << left << setw(9) << (!fields["remarks"].empty() ? *(fields["remarks"].begin()) : "");
+            for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
+                if (!f->second.empty()) f->second.erase(f->second.begin());
+            row++;
+        }
+        while(
+                !fields["surname"].empty() ||
+                !fields["docs"].empty() ||
+                !fields["tkts"].empty() ||
+                !fields["tags"].empty() ||
+                !fields["remarks"].empty()
+             );
+        NewTextChild(rowNode,"str",s.str());
+    }
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     NewTextChild(reqNode, "web");
     EXAM(rpt_params, reqNode, resNode);
+}
+
+void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    NewTextChild(reqNode, "web");
+    EXAMTXT(rpt_params, reqNode, resNode);
 }
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -3821,21 +4310,40 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         case rtWEB:
             WEB(rpt_params, reqNode, resNode);
             break;
+        case rtWEBTXT:
+            WEBTXT(rpt_params, reqNode, resNode);
+            break;
         case rtREFUSE:
             REFUSE(rpt_params, resNode);
+            break;
+        case rtREFUSETXT:
+            REFUSETXT(rpt_params, resNode);
             break;
         case rtNOTPRES:
             NOTPRES(rpt_params, resNode);
             break;
+        case rtNOTPRESTXT:
+            NOTPRESTXT(rpt_params, resNode);
+            break;
         case rtREM:
             REM(rpt_params, resNode);
+            break;
+        case rtREMTXT:
+            REMTXT(rpt_params, resNode);
             break;
         case rtCRS:
         case rtCRSUNREG:
             CRS(rpt_params, resNode);
             break;
+        case rtCRSTXT:
+        case rtCRSUNREGTXT:
+            CRSTXT(rpt_params, resNode);
+            break;
         case rtEXAM:
             EXAM(rpt_params, reqNode, resNode);
+            break;
+        case rtEXAMTXT:
+            EXAMTXT(rpt_params, reqNode, resNode);
             break;
         case rtUnknown:
         case rtTypeNum:
