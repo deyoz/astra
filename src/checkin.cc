@@ -3767,7 +3767,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
       {
         //отправить на клиент счетчики
         readTripCounters(point_dep,resNode);
-        if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+        if (!reqInfo->desk.compatible(PAD_VERSION))
         {
           //pr_etl_only
           readTripSets( fltInfo, pr_etstatus, NewTextChild(resNode,"trip_sets") );
@@ -3907,7 +3907,7 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
     TTripInfo fltInfo(Qry);
 
     xmlNodePtr operFltNode;
-    if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    if (reqInfo->desk.compatible(PAD_VERSION))
       operFltNode=NewTextChild(segNode,"tripheader");
     else
       operFltNode=segNode;
@@ -3927,13 +3927,13 @@ void CheckInInterface::LoadPax(int grp_id, xmlNodePtr resNode, bool tckin_versio
       TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",Qry.FieldAsString("airp_arv"));
       TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
       ReplaceTextChild( segNode, "city_arv", citiesRow.code );
-      if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+      if (!reqInfo->desk.compatible(PAD_VERSION))
         ReplaceTextChild( segNode, "city_arv_name", citiesRow.name );
     }
     catch(EBaseTableError) {};
     //класс
     NewTextChild(segNode,"class",Qry.FieldAsString("class"));
-    if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+    if (!reqInfo->desk.compatible(PAD_VERSION))
     {
       try
       {
@@ -5945,7 +5945,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   xmlNodePtr trferNode,node2;
   trferNode=NodeAsNode("transfer",reqNode)->children;
 
-  if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+  if (!reqInfo->desk.compatible(PAD_VERSION))
     NewTextChild(resNode,"flight",GetTripName(fltInfo,true,false));
   xmlNodePtr routeNode=NewTextChild(resNode,"tckin_route");
   xmlNodePtr segsNode=NewTextChild(resNode,"tckin_segments");
@@ -6158,7 +6158,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
           if (tckin_route_confirm)
           {
             xmlNodePtr operFltNode;
-            if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+            if (reqInfo->desk.compatible(PAD_VERSION))
               operFltNode=NewTextChild(seg2Node,"tripheader");
             else
               operFltNode=seg2Node;
@@ -6188,7 +6188,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               TAirpsRow& airpsRow=(TAirpsRow&)base_tables.get("airps").get_row("code",airp_arv);
               TCitiesRow& citiesRow=(TCitiesRow&)base_tables.get("cities").get_row("code",airpsRow.city);
               NewTextChild( seg2Node, "city_arv_code", citiesRow.code );
-              if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+              if (!reqInfo->desk.compatible(PAD_VERSION))
                 NewTextChild( seg2Node, "city_arv_name", citiesRow.name );
             }
             catch(EBaseTableError) {};
@@ -6465,7 +6465,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
               {
                 TClassesRow& classesRow=(TClassesRow&)base_tables.get("classes").get_row("code",cl);
                 NewTextChild( seg2Node, "class_code", classesRow.code );
-                if (!reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+                if (!reqInfo->desk.compatible(PAD_VERSION))
                   NewTextChild( seg2Node, "class_name", classesRow.name );
               }
               catch(EBaseTableError) {};
@@ -6567,7 +6567,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
         NewTextChild(seg2Node,"wl_type",wl_type);
       NewTextChild(seg2Node,"pr_waitlist",(int)(total_permit && total_waitlist)); //!!! старый терминал 15.03.09
       xmlNodePtr operFltNode;
-      if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION))
+      if (reqInfo->desk.compatible(PAD_VERSION))
         operFltNode=NodeAsNode("tripheader",seg2Node);
       else
         operFltNode=seg2Node;
