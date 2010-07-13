@@ -35,7 +35,6 @@ namespace edifact
 class EdifactRequest : public edilib::EdifactRequest
 {
    TlgHandling::TlgSourceEdifact *TlgOut;
-    std::string MsgFuncCode;
 public:
     /**
      * @brief EdifactRequest
@@ -61,16 +60,6 @@ public:
      * @return
      */
     const TlgHandling::TlgSourceEdifact *tlgOut() const;
-
-    virtual std::string mesFuncCode() const { return MsgFuncCode; }
-
-    virtual void setMsgCode(const std::string &val) { MsgFuncCode = val; }
-
-    /**
-     * @brief edifact session id
-     * @return
-     */
-    int ediSessId() const;
 
     virtual ~EdifactRequest();
 };

@@ -2011,8 +2011,7 @@ void ElemIdToElem(TElemType type, string id, int fmt, const std::string lang, bo
       case etSuffix:
         if (id.size()==1)
         {
-          char *p;
-          p=strchr(rus_suffix,*id.c_str());
+          const char *p = strchr(rus_suffix,*id.c_str());
           if (p!=NULL)
           {
             if (fmt==0)
