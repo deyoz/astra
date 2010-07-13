@@ -99,7 +99,12 @@ void ETSearchInterface::SearchETByTickNo(XMLRequestCtxt *ctxt, xmlNodePtr reqNod
   else
   {
     if ( strcmp((char *)reqNode->name, "SearchETByTickNo") == 0 )
-      NewTextChild(resNode,"connect_error");
+    {
+      if (!TReqInfo::Instance()->desk.compatible(WEB_CHECKIN_VERSION))
+        NewTextChild(resNode,"connect_error");
+      else
+        AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR"); //это из-за упущения в терминале!
+    }
     else
       AstraLocale::showProgError("MSG.ETS_CONNECT_ERROR");
   };
