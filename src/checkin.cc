@@ -731,6 +731,11 @@ bool CheckTCkinPermit(string airline_in, int flt_no_in,
   return (!Qry.Eof && Qry.FieldAsInteger("pr_permit")!=0);
 };
 
+struct TSearchResponseInfo //сейчас не используется, для развития!
+{
+  int resCountOk,resCountPAD;
+};
+
 int CreateSearchResponse(int point_dep, TQuery &PaxQry,  xmlNodePtr resNode)
 {
   TQuery FltQry(&OraSession);
@@ -5955,7 +5960,10 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
 
   TQuery CrsQry(&OraSession);
   CrsQry.Clear();
-  CrsQry.SQLText=
+
+  ostringstream sql;
+
+  sql <<
       "SELECT crs_pax.pax_id,crs_pnr.point_id,crs_pnr.target,crs_pnr.subclass, "
       "       crs_pnr.class, crs_pnr.status AS pnr_status, crs_pnr.priority AS pnr_priority, "
       "       crs_pax.surname,crs_pax.name,crs_pax.pers_type, "
@@ -5973,7 +5981,11 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      crs_pax.pax_id=pax.pax_id(+) AND "
       "      tlg_binding.point_id_spp=:point_id AND "
       "      crs_pnr.target=:airp_arv AND "
-      "      crs_pnr.subclass=:subclass AND "
+      "      crs_pnr.subclass=:subclass AND ";
+  //if (!reqInfo->desk.compatible(PAD_VERSION)) в дальнейшем надо лучше обрабатывать PAD на сквозных сегментах
+    sql << " (crs_pnr.status IS NULL OR crs_pnr.status NOT IN ('DG2','RG2','ID2','WL')) AND ";
+
+  sql <<
       "      crs_pax.pers_type=:pers_type AND "
       "      DECODE(crs_pax.seats,0,0,1)=:seats AND "
       "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
@@ -5981,6 +5993,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
       "      crs_pax.pr_del=0 AND "
       "      pax.pax_id IS NULL "
       "ORDER BY crs_pnr.point_id,crs_pax.pnr_id,crs_pax.surname,crs_pax.pax_id ";
+
+  CrsQry.SQLText=sql.str().c_str();
   CrsQry.CreateVariable( "protckin_layer", otString, EncodeCompLayerType(ASTRA::cltProtCkin) );
   CrsQry.DeclareVariable("point_id",otInteger);
   CrsQry.DeclareVariable("airp_arv",otString);
@@ -6213,20 +6227,6 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             TripsInterface::readOperFltHeader( fltSPPInfo, operFltNode );
             readTripData( point_dep, seg2Node );
 
-/*            NewTextChild( seg2Node, "flight", GetTripName(fltSPPInfo,true,false));
-            NewTextChild( seg2Node, "airline", fltSPPInfo.airline);
-            try
-            {
-              TAirlinesRow &row = (TAirlinesRow&)base_tables.get("airlines").get_row("code",fltSPPInfo.airline);
-              NewTextChild( seg2Node, "airline_lat", row.code_lat );
-            }
-            catch(EBaseTableError) {};
-            NewTextChild( seg2Node, "flt_no", fltSPPInfo.flt_no);
-            NewTextChild( seg2Node, "suffix", fltSPPInfo.suffix);
-            string &tz_region=AirpTZRegion(fltSPPInfo.airp);
-            TDateTime scd_out_local=UTCToLocal(fltSPPInfo.scd_out,tz_region);
-            NewTextChild( seg2Node, "scd_out_local", DateTimeToStr(scd_out_local));*/
-
             NewTextChild( seg2Node, "point_dep", point_dep);
             NewTextChild( seg2Node, "airp_dep", airp_dep);
             NewTextChild( seg2Node, "point_arv", point_arv);
@@ -6279,6 +6279,8 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             paxInfo.pers_type=NodeAsString("pers_type",paxNode);
             paxInfo.seats=NodeAsInteger("seats",paxNode)==0?0:1;
             paxInfo.subclass.clear();
+            //кол-во запрошенных пассажиров с одинаковыми фамилией, именем, типом,
+            //наличием/отсутствием мест, подклассом
             paxInfo.reqCount=1;
             paxInfo.resCount=0;
             paxInfo.node=NULL;
@@ -6319,6 +6321,13 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             };
             if (iPax==pax.end()) pax.push_back(paxInfo);
           };
+          //массив pax на данный момент содержит пассажиров с уникальными:
+          //1. фамилией,
+          //2. именем
+          //3. типом пассажира
+          //4. наличием/отсутствием мест
+          //5. подклассом
+          //pax.reqCount содержит кол-во повторяющихся пассажиров
 
 
           for(iPax=pax.begin();iPax!=pax.end();iPax++)
@@ -6409,6 +6418,7 @@ void CheckInInterface::CheckTCkinRoute(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
             //resCount содержит кол-во реально найденных пассажиров
             if (iPax->resCount<=iPax->reqCount)
             {
+              //нашли меньше или равное кол-во пассажиров, соответствующих кол-ву повторяющихся пассажиров
               paxCountInPNL+=iPax->resCount;
             }
             else
