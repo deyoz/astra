@@ -1563,6 +1563,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
 
 struct TFullStatRow {
     int pax_amount;
+    int web;
     int adult;
     int child;
     int baby;
@@ -1572,6 +1573,7 @@ struct TFullStatRow {
     int excess;
     TFullStatRow():
         pax_amount(NoExists),
+        web(NoExists),
         adult(NoExists),
         child(NoExists),
         baby(NoExists),
@@ -1705,6 +1707,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  stat.point_id, \n"
                 "  ckin.get_airps(stat.point_id,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
+                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
                 "  sum(baby) baby, \n"
@@ -1723,6 +1726,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                     "    points.airline,  \n";
             mainSQLText +=
                 "    count(distinct stat.point_id) flt_amount, \n"
+                "    decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
                 "    sum(adult + child + baby) pax_amount \n";
         };
         if (statType==statDetail)
@@ -1731,6 +1735,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.airp, \n"
                 "  points.airline, \n"
                 "  count(distinct stat.point_id) flt_amount, \n"
+                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
                 "  sum(adult + child + baby) pax_amount \n";
         };
         mainSQLText +=
@@ -1830,12 +1835,14 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.airline, \n"
                 "  points.flt_no, \n"
                 "  points.scd_out, \n"
-                "  stat.point_id \n";
+                "  stat.point_id, \n"
+                "  stat.client_type \n";
         };
         if (statType==statShort)
         {
             mainSQLText +=
-                "group by \n";
+                "group by \n"
+                "  stat.client_type, \n";
             if (USE_SEANCES())
               mainSQLText +=
                 "  trip_sets.pr_airp_seance, \n";
@@ -1854,6 +1861,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
               mainSQLText +=
                 "  trip_sets.pr_airp_seance, \n";
             mainSQLText +=
+                "  stat.client_type, \n"
                 "  points.airp, \n"
                 "  points.airline \n";
         };
@@ -1897,6 +1905,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_stat.point_id, \n"
                 "  arch.get_airps(arx_stat.point_id, arx_stat.part_key,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
+                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
                 "  sum(baby) baby, \n"
@@ -1915,7 +1924,8 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                     "    arx_points.airline,  \n";
             arxSQLText +=
                 "    count(distinct arx_stat.point_id) flt_amount, \n"
-                "    sum(adult + child + baby) pax_amount \n";
+                "    sum(adult + child + baby) pax_amount, \n"
+                "    decode(client_type, :web, sum(adult + child + baby), 0) web \n";
         };
         if (statType==statDetail)
         {
@@ -1923,7 +1933,8 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.airp, \n"
                 "  arx_points.airline, \n"
                 "  count(distinct arx_stat.point_id) flt_amount, \n"
-                "  sum(adult + child + baby) pax_amount \n";
+                "  sum(adult + child + baby) pax_amount, \n"
+                "  decode(client_type, :web, sum(adult + child + baby), 0) web \n";
         };
         arxSQLText +=
             "from \n"
@@ -2033,12 +2044,14 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.flt_no, \n"
                 "  arx_points.scd_out, \n"
                 "  arx_stat.point_id, \n"
+                "  arx_stat.client_type, \n"
                 "  arx_stat.part_key \n";
         };
         if (statType==statShort)
         {
             arxSQLText +=
-                "group by  \n";
+                "group by  \n"
+                "  arx_stat.client_type, \n";
             if (USE_SEANCES())
               arxSQLText +=
                 "  arx_trip_sets.pr_airp_seance, \n";
@@ -2057,6 +2070,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
               arxSQLText +=
                 "  arx_trip_sets.pr_airp_seance, \n";
             arxSQLText +=
+                "  arx_stat.client_type, \n"
                 "  arx_points.airp, \n"
                 "  arx_points.airline \n";
         };
@@ -2337,12 +2351,13 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         throw AstraLocale::UserException("MSG.SEARCH_PERIOD_SHOULD_NOT_EXCEED_ONE_MONTH");
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
+    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
+    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
     TFullStat FullStat;
     TPrintAirline airline;
 
     for(int i = 0; i < 2; i++) {
         Qry.SQLText = GetStatSQLText(statFull,params,i!=0).c_str();
-        Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
         if(i != 0)
             Qry.CreateVariable("arx_trip_date_range", otInteger, arx_trip_date_range);
         ProgTrace(TRACE5, "RunFullStat: SQL=\n%s", Qry.SQLText.SQLText());
@@ -2353,6 +2368,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             int col_airp = Qry.FieldIndex("airp");
             int col_airline = Qry.FieldIndex("airline");
             int col_pax_amount = Qry.FieldIndex("pax_amount");
+            int col_web = Qry.FieldIndex("web");
             int col_adult = Qry.FieldIndex("adult");
             int col_child = Qry.FieldIndex("child");
             int col_baby = Qry.FieldIndex("baby");
@@ -2383,6 +2399,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                 TFullStatRow &row = FullStat[key];
                 if(row.pax_amount == NoExists) {
                     row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
+                    row.web = Qry.FieldAsInteger(col_web);
                     row.adult = Qry.FieldAsInteger(col_adult);
                     row.child = Qry.FieldAsInteger(col_child);
                     row.baby = Qry.FieldAsInteger(col_baby);
@@ -2392,6 +2409,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
                     row.excess = Qry.FieldAsInteger(col_excess);
                 } else {
                     row.pax_amount += Qry.FieldAsInteger(col_pax_amount);
+                    row.web += Qry.FieldAsInteger(col_web);
                     row.adult += Qry.FieldAsInteger(col_adult);
                     row.child += Qry.FieldAsInteger(col_child);
                     row.baby += Qry.FieldAsInteger(col_baby);
@@ -2449,6 +2467,10 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "width", 75);
         SetProp(colNode, "align", taRightJustify);
 
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
         colNode = NewTextChild(headerNode, "col", getLocaleText("‚‡"));
         SetProp(colNode, "width", 30);
         SetProp(colNode, "align", taRightJustify);
@@ -2476,6 +2498,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
         int total_pax_amount = 0;
+        int total_web = 0;
         int total_adult = 0;
         int total_child = 0;
         int total_baby = 0;
@@ -2500,6 +2523,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", im->first.col2);
 
             total_pax_amount += im->second.pax_amount;
+            total_web += im->second.web;
             total_adult += im->second.adult;
             total_child += im->second.child;
             total_baby += im->second.baby;
@@ -2516,6 +2540,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", im->first.seance);
             NewTextChild(rowNode, "col", im->second.pax_amount);
+            NewTextChild(rowNode, "col", im->second.web);
             NewTextChild(rowNode, "col", im->second.adult);
             NewTextChild(rowNode, "col", im->second.child);
             NewTextChild(rowNode, "col", im->second.baby);
@@ -2534,6 +2559,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
           NewTextChild(rowNode, "col");
         };
         NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", total_web);
         NewTextChild(rowNode, "col", total_adult);
         NewTextChild(rowNode, "col", total_child);
         NewTextChild(rowNode, "col", total_baby);
@@ -2547,10 +2573,11 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 }
 
 struct TShortStatRow {
-    int flt_amount, pax_amount;
+    int flt_amount, pax_amount, web;
     TShortStatRow():
         flt_amount(NoExists),
-        pax_amount(NoExists)
+        pax_amount(NoExists),
+        web(NoExists)
     {}
 };
 struct TShortStatKey {
@@ -2643,6 +2670,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
 
     TShortStat ShortStat;
     for(int i = 0; i < 2; i++) {
@@ -2661,9 +2689,11 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             if(row.flt_amount == NoExists) {
                 row.flt_amount = Qry.FieldAsInteger("flt_amount");
                 row.pax_amount = Qry.FieldAsInteger("pax_amount");
+                row.web = Qry.FieldAsInteger("web");
             } else {
                 row.flt_amount += Qry.FieldAsInteger("flt_amount");
                 row.pax_amount += Qry.FieldAsInteger("pax_amount");
+                row.web += Qry.FieldAsInteger("web");
             }
         }
     }
@@ -2696,20 +2726,27 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
         int total_flt_amount = 0;
         int total_pax_amount = 0;
+        int total_web = 0;
 
         for(TShortStat::iterator si = ShortStat.begin(); si != ShortStat.end(); si++) {
             rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "col", si->first.col1);
             total_flt_amount += si->second.flt_amount;
             total_pax_amount += si->second.pax_amount;
+            total_web += si->second.web;
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", si->first.seance);
             NewTextChild(rowNode, "col", si->second.flt_amount);
             NewTextChild(rowNode, "col", si->second.pax_amount);
+            NewTextChild(rowNode, "col", si->second.web);
         }
         rowNode = NewTextChild(rowsNode, "row");
         NewTextChild(rowNode, "col", getLocaleText("ˆâ®£®:"));
@@ -2719,6 +2756,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", total_web);
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
@@ -2755,6 +2793,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
     Qry.CreateVariable("FirstDate", otDate, NodeAsDateTime("FirstDate", reqNode));
     Qry.CreateVariable("LastDate", otDate, NodeAsDateTime("LastDate", reqNode));
+    Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
 
     TDetailStat DetailStat;
     TPrintAirline airline;
@@ -2781,9 +2820,11 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             if(row.flt_amount == NoExists) {
                 row.flt_amount = Qry.FieldAsInteger("flt_amount");
                 row.pax_amount = Qry.FieldAsInteger("pax_amount");
+                row.web = Qry.FieldAsInteger("web");
             } else {
                 row.flt_amount += Qry.FieldAsInteger("flt_amount");
                 row.pax_amount += Qry.FieldAsInteger("pax_amount");
+                row.web += Qry.FieldAsInteger("web");
             }
         }
     }
@@ -2825,10 +2866,15 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "width", 85);
         SetProp(colNode, "align", taRightJustify);
 
+        colNode = NewTextChild(headerNode, "col", getLocaleText("Web"));
+        SetProp(colNode, "width", 30);
+        SetProp(colNode, "align", taRightJustify);
+
         xmlNodePtr rowsNode = NewTextChild(grdNode, "rows");
         xmlNodePtr rowNode;
         int total_flt_amount = 0;
         int total_pax_amount = 0;
+        int total_web = 0;
         for(TDetailStat::iterator si = DetailStat.begin(); si != DetailStat.end(); si++) {
             rowNode = NewTextChild(rowsNode, "row");
             NewTextChild(rowNode, "col", si->first.col1);
@@ -2836,11 +2882,13 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
 
             total_flt_amount += si->second.flt_amount;
             total_pax_amount += si->second.pax_amount;
+            total_web += si->second.web;
 
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", si->first.seance);
             NewTextChild(rowNode, "col", si->second.flt_amount);
             NewTextChild(rowNode, "col", si->second.pax_amount);
+            NewTextChild(rowNode, "col", si->second.web);
             Qry.Next();
         }
         rowNode = NewTextChild(rowsNode, "row");
@@ -2852,6 +2900,7 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         };
         NewTextChild(rowNode, "col", total_flt_amount);
         NewTextChild(rowNode, "col", total_pax_amount);
+        NewTextChild(rowNode, "col", total_web);
     } else
         throw AstraLocale::UserException("MSG.NOT_DATA");
     STAT::set_variables(resNode);
