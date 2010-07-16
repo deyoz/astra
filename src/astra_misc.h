@@ -42,6 +42,7 @@ class TTripInfo
   public:
     std::string airline,suffix,airp;
     int flt_no, pr_del;
+    int airline_fmt, suffix_fmt, airp_fmt;
     BASIC::TDateTime scd_out,real_out,real_out_local_date;
     TTripInfo()
     {
@@ -61,6 +62,9 @@ class TTripInfo
       real_out=ASTRA::NoExists;
       real_out_local_date=ASTRA::NoExists; //GetTripName устанавливает значение
       pr_del = ASTRA::NoExists;
+      airline_fmt = 0;
+      suffix_fmt = 0;
+      airp_fmt = 0;
     };
     void Init( TQuery &Qry )
     {
@@ -78,10 +82,16 @@ class TTripInfo
         pr_del = Qry.FieldAsInteger("pr_del");
       else
         pr_del = ASTRA::NoExists;
+      if (Qry.GetFieldIndex("airline_fmt")>=0)
+          airline_fmt = Qry.FieldAsInteger("airline_fmt");
+      if (Qry.GetFieldIndex("suffix_fmt")>=0)
+          suffix_fmt = Qry.FieldAsInteger("suffix_fmt");
+      if (Qry.GetFieldIndex("airp_fmt")>=0)
+          airp_fmt = Qry.FieldAsInteger("airp_fmt");
     };
 };
 
-std::string GetTripName( TTripInfo &info, AstraLocale::TLocaleType locale_type, bool showAirp=false, bool prList=false );
+std::string GetTripName( TTripInfo &info, TElemContext ctxt, bool showAirp=false, bool prList=false );
 std::string GetTripName( TTripInfo &info, bool showAirp=false, bool prList=false );
 
 //настройки рейса

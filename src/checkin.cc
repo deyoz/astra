@@ -1714,14 +1714,14 @@ void CheckInInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText =
-    "SELECT airline,flt_no,suffix,airp,scd_out "
+    "SELECT airline,flt_no,suffix,airp,scd_out,airline_fmt,suffix_fmt,airp_fmt "
     "FROM points WHERE point_id=:point_id AND pr_del=0 AND pr_reg<>0";
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
   TTripInfo operFlt(Qry);
 
-  NewTextChild(resNode,"flight",GetTripName(operFlt,AstraLocale::ltTermLang,true,false)); //djek08.07.2010
+  NewTextChild(resNode,"flight",GetTripName(operFlt,ecCkin,true,false)); //djek08.07.2010
 
   ostringstream sql;
   sql <<

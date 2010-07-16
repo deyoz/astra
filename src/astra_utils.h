@@ -45,8 +45,8 @@ enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etSuffix,etClsGrp,etTripTypes };
-enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB };
+                 etRefusalType,etSuffix,etClsGrp,etTripTypes };
+enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
 //форматы:
 //  fmt=0 вн.код (рус. кодировка)
 //  fmt=1 IATA код (лат. кодировка)

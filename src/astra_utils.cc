@@ -1473,6 +1473,9 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
 		case ecTlgTypeB:
 			msg1 = "ecTlgTypeB";
 			break;
+		case ecNone:
+			msg1 = "ecNone";
+            break;
 	}
   switch( type ) {
   	case etCountry:
@@ -1944,6 +1947,9 @@ void ElemIdToElem(TElemType type, string id, int fmt, const std::string lang, bo
       break;
     case etCurrency:
       table_name="currency";
+      break;
+    case etRefusalType:
+      table_name="refusal_types";
       break;
     case etTripTypes:
       table_name="trip_types";

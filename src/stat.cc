@@ -191,7 +191,6 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
     TQuery Qry(&OraSession);
     Qry.CreateVariable("FirstDate", otDate, ClientToUTC(NodeAsDateTime("FirstDate", reqNode), reqInfo.desk.tz_region));
     Qry.CreateVariable("LastDate", otDate, ClientToUTC(NodeAsDateTime("LastDate", reqNode), reqInfo.desk.tz_region));
-    TTripInfo tripInfo;
     string trip_name;
     typedef vector<TPointsRow> TPoints;
     TPoints points;
@@ -212,6 +211,9 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    points.airp, "
                     "    points.airline, "
                     "    points.flt_no, "
+                    "    points.airline_fmt, "
+                    "    points.airp_fmt, "
+                    "    points.suffix_fmt, "
                     "    nvl(points.suffix, ' ') suffix, "
                     "    points.scd_out, "
                     "    trunc(NVL(points.act_out,NVL(points.est_out,points.scd_out))) AS real_out, "
@@ -250,6 +252,9 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     "    arx_points.airp, "
                     "    arx_points.airline, "
                     "    arx_points.flt_no, "
+                    "    arx_points.airline_fmt, "
+                    "    arx_points.airp_fmt, "
+                    "    arx_points.suffix_fmt, "
                     "    nvl(arx_points.suffix, ' ') suffix, "
                     "    arx_points.scd_out, "
                     "    trunc(NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out))) AS real_out, "
@@ -293,29 +298,15 @@ void StatInterface::FltCBoxDropDown(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                     throw;
             }
             if(!Qry.Eof) {
-                int col_airline=Qry.FieldIndex("airline");
-                int col_flt_no=Qry.FieldIndex("flt_no");
-                int col_suffix=Qry.FieldIndex("suffix");
-                int col_airp=Qry.FieldIndex("airp");
-                int col_scd_out=Qry.FieldIndex("scd_out");
-                int col_real_out=Qry.FieldIndex("real_out");
                 int col_move_id=Qry.FieldIndex("move_id");
                 int col_point_num=Qry.FieldIndex("point_num");
                 int col_point_id=Qry.FieldIndex("point_id");
-                int col_pr_del=Qry.FieldIndex("pr_del");
                 int col_part_key=Qry.FieldIndex("part_key");
                 for( ; !Qry.Eof; Qry.Next()) {
-                    tripInfo.airline = Qry.FieldAsString(col_airline);
-                    tripInfo.flt_no = Qry.FieldAsInteger(col_flt_no);
-                    tripInfo.suffix = Qry.FieldAsString(col_suffix);
-                    tripInfo.airp = Qry.FieldAsString(col_airp);
-                    tripInfo.scd_out = Qry.FieldAsDateTime(col_scd_out);
-                    tripInfo.real_out = Qry.FieldAsDateTime(col_real_out);
-                    tripInfo.real_out_local_date=ASTRA::NoExists;
-                    tripInfo.pr_del=Qry.FieldAsInteger(col_pr_del);
+                    TTripInfo tripInfo(Qry);
                     try
                     {
-                        trip_name = GetTripName(tripInfo,AstraLocale::ltTermLang,false,true);
+                        trip_name = GetTripName(tripInfo,ecCkin,false,true);
                     }
                     catch(AstraLocale::UserException &E)
                     {
@@ -1043,6 +1034,9 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                             "   suffix, "
                             "   airp, "
                             "   scd_out, "
+                            "   airp_fmt, "
+                            "   airline_fmt, "
+                            "   suffix_fmt, "
                             "   NVL(act_out,NVL(est_out,scd_out)) AS real_out, "
                             "   pr_del "
                             "from ";
@@ -1061,8 +1055,7 @@ void StatInterface::SystemLogRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
                             TripItems[point_id]; // записываем пустую строку для данного point_id
                         else {
                             TTripInfo trip_info(tripQry);
-                            trip_info.pr_del = tripQry.FieldAsInteger("pr_del");
-                            TripItems[point_id] = GetTripName(trip_info);
+                            TripItems[point_id] = GetTripName(trip_info, ecCkin);
                         }
                     }
                     NewTextChild(rowNode, "trip", TripItems[point_id]);
@@ -1127,6 +1120,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   points.airline, "
                 "   points.flt_no, "
                 "   points.suffix, "
+                "   points.airline_fmt, "
+                "   points.airp_fmt, "
+                "   points.suffix_fmt, "
                 "   points.airp, "
                 "   points.scd_out, "
                 "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
@@ -1139,10 +1135,11 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(ckin.get_excess(pax.grp_id,pax.pax_id),0) excess, "
                 "   pax_grp.grp_id, "
                 "   ckin.get_birks2(pax.grp_id,pax.pax_id,pax.bag_pool_num,0) tags, "
-                "   DECODE(pax.refuse,NULL,DECODE(pax.pr_brd,0,'Зарег.','Посажен'),'Разрег.('||pax.refuse||')') AS status, "
+                "   pax.refuse, "
+                "   pax.pr_brd, "
                 "   cls_grp.code class, "
                 "   salons.get_seat_no(pax.pax_id, pax.seats, pax_grp.status, pax_grp.point_dep, 'seats', rownum) seat_no, "
-                "   halls2.name hall, "
+                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall, "
                 "   pax.document, "
                 "   pax.ticket_no "
                 "FROM  pax_grp,pax, points, cls_grp, halls2 "
@@ -1175,6 +1172,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   arx_points.suffix, "
                 "   arx_points.airp, "
                 "   arx_points.scd_out, "
+                "   arx_points.airline_fmt, "
+                "   arx_points.airp_fmt, "
+                "   arx_points.suffix_fmt, "
                 "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
                 "   arx_pax.reg_no, "
                 "   arx_pax_grp.airp_arv, "
@@ -1185,12 +1185,12 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   NVL(arch.get_excess(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id),0) excess, "
                 "   arx_pax_grp.grp_id, "
                 "   arch.get_birks(arx_pax.part_key,arx_pax.grp_id,arx_pax.pax_id,0) tags, "
-                "   DECODE(arx_pax.refuse,NULL,DECODE(arx_pax.pr_brd,0,'Зарег.','Посажен'), "
-                "       'Разрег.('||arx_pax.refuse||')') AS status, "
+                "   arx_pax.refuse, "
+                "   arx_pax.pr_brd, "
                 "   cls_grp.code class, "
                 "   LPAD(seat_no,3,'0')|| "
                 "       DECODE(SIGN(1-seats),-1,'+'||TO_CHAR(seats-1),'') seat_no, "
-                "   halls2.name hall, "
+                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall, "
                 "   arx_pax.document, "
                 "   arx_pax.ticket_no "
                 "FROM  arx_pax_grp,arx_pax, arx_points, cls_grp, halls2 "
@@ -1222,6 +1222,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         Qry.SQLText = SQLText;
 
         Qry.CreateVariable("point_id", otInteger, point_id);
+        Qry.CreateVariable("pr_lat", otInteger, TReqInfo::Instance()->desk.lang!="RU");
 
         TPerfTimer tm;
         tm.Init();
@@ -1250,7 +1251,8 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             int col_grp_id = Qry.FieldIndex("grp_id");
             int col_airp_arv = Qry.FieldIndex("airp_arv");
             int col_tags = Qry.FieldIndex("tags");
-            int col_status = Qry.FieldIndex("status");
+            int col_refuse = Qry.FieldIndex("refuse");
+            int col_pr_brd = Qry.FieldIndex("pr_brd");
             int col_class = Qry.FieldIndex("class");
             int col_seat_no = Qry.FieldIndex("seat_no");
             int col_document = Qry.FieldIndex("document");
@@ -1271,7 +1273,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "suffix", Qry.FieldAsString(col_suffix));
                 if(trip.empty()) {
                     TTripInfo trip_info(Qry);
-                    trip = GetTripName(trip_info);
+                    trip = GetTripName(trip_info, ecCkin);
                     scd_out =
                         DateTimeToStr(
                                 UTCToClient( Qry.FieldAsDateTime(col_scd_out), info.desk.tz_region),
@@ -1287,10 +1289,16 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger(col_rk_weight));
                 NewTextChild(paxNode, "excess", Qry.FieldAsInteger(col_excess));
                 NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger(col_grp_id));
-                NewTextChild(paxNode, "airp_arv", Qry.FieldAsString(col_airp_arv));
+                NewTextChild(paxNode, "airp_arv", ElemIdToElem(etAirp, Qry.FieldAsString(col_airp_arv)));
                 NewTextChild(paxNode, "tags", Qry.FieldAsString(col_tags));
-                NewTextChild(paxNode, "status", Qry.FieldAsString(col_status));
-                NewTextChild(paxNode, "class", Qry.FieldAsString(col_class));
+                string status;
+                if(Qry.FieldIsNULL(col_refuse))
+                    status = getLocaleText(Qry.FieldAsInteger(col_pr_brd) == 0 ? "Зарег." : "Посаж.");
+                else
+                    status = getLocaleText("MSG.CANCEL_REG.REFUSAL",
+                            LParams() << LParam("refusal", ElemIdToElem(etRefusalType, Qry.FieldAsString(col_refuse))));
+                NewTextChild(paxNode, "status", status);
+                NewTextChild(paxNode, "class", ElemIdToElem(etClass, Qry.FieldAsString(col_class)));
                 NewTextChild(paxNode, "seat_no", Qry.FieldAsString(col_seat_no));
                 NewTextChild(paxNode, "document", Qry.FieldAsString(col_document));
                 NewTextChild(paxNode, "ticket_no", Qry.FieldAsString(col_ticket_no));
@@ -1302,7 +1310,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
         }
 
         //несопровождаемый багаж
-        Qry.Clear();
         if(part_key == NoExists)  {
             Qry.SQLText=
                 "SELECT "
@@ -1311,6 +1318,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   points.airline, "
                 "   points.flt_no, "
                 "   points.suffix, "
+                "   points.airline_fmt, "
+                "   points.airp_fmt, "
+                "   points.suffix_fmt, "
                 "   points.airp, "
                 "   points.scd_out, "
                 "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
@@ -1322,7 +1332,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "   ckin.get_excess(pax_grp.grp_id,NULL) AS excess, "
                 "   ckin.get_birks2(pax_grp.grp_id,NULL,null) AS tags, "
                 "   pax_grp.grp_id, "
-                "   halls2.name AS hall_id, "
+                "   decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall_id, "
                 "   pax_grp.point_arv,pax_grp.user_id "
                 "FROM pax_grp, points, halls2 "
                 "WHERE "
@@ -1350,6 +1360,9 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arx_points.airline, "
                 "  arx_points.flt_no, "
                 "  arx_points.suffix, "
+                "  arx_points.airline_fmt, "
+                "  arx_points.airp_fmt, "
+                "  arx_points.suffix_fmt, "
                 "  arx_points.airp, "
                 "  arx_points.scd_out, "
                 "  NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
@@ -1361,7 +1374,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
                 "  arch.get_excess(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS excess, "
                 "  arch.get_birks(arx_pax_grp.part_key,arx_pax_grp.grp_id,NULL) AS tags, "
                 "  arx_pax_grp.grp_id, "
-                "  halls2.name AS hall_id, "
+                "  decode(:pr_lat,0,halls2.name,NVL(halls2.name_lat,system.transliter(halls2.name,1,1))) hall_id, "
                 "  arx_pax_grp.point_arv,arx_pax_grp.user_id "
                 "FROM arx_pax_grp, arx_points, halls2 "
                 "WHERE point_dep=:point_id AND class IS NULL and "
@@ -1384,7 +1397,6 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             Qry.CreateVariable("part_key", otDate, part_key);
         }
 
-        Qry.CreateVariable("point_id",otInteger,point_id);
         Qry.Execute();
 
         string trip, scd_out;
@@ -1404,7 +1416,7 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "suffix");
             if(trip.empty()) {
                 TTripInfo trip_info(Qry);
-                trip = GetTripName(trip_info);
+                trip = GetTripName(trip_info, ecCkin);
                 scd_out =
                     DateTimeToStr(
                             UTCToClient( Qry.FieldAsDateTime("scd_out"), info.desk.tz_region),
@@ -1414,13 +1426,13 @@ void StatInterface::PaxListRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNode
             NewTextChild(paxNode, "trip", trip);
             NewTextChild( paxNode, "scd_out", scd_out);
             NewTextChild(paxNode, "reg_no", 0);
-            NewTextChild(paxNode, "full_name", "Багаж без сопровождения");
+            NewTextChild(paxNode, "full_name", getLocaleText("Багаж без сопровождения"));
             NewTextChild(paxNode, "bag_amount", Qry.FieldAsInteger("bag_amount"));
             NewTextChild(paxNode, "bag_weight", Qry.FieldAsInteger("bag_weight"));
             NewTextChild(paxNode, "rk_weight", Qry.FieldAsInteger("rk_weight"));
             NewTextChild(paxNode, "excess", Qry.FieldAsInteger("excess"));
             NewTextChild(paxNode, "grp_id", Qry.FieldAsInteger("grp_id"));
-            NewTextChild(paxNode, "airp_arv", Qry.FieldAsString("airp_arv"));
+            NewTextChild(paxNode, "airp_arv", ElemIdToElem(etAirp, Qry.FieldAsString("airp_arv")));
             NewTextChild(paxNode, "tags", Qry.FieldAsString("tags"));
             NewTextChild(paxNode, "status");
             NewTextChild(paxNode, "class");
@@ -1569,12 +1581,46 @@ struct TFullStatRow {
         excess(NoExists)
     {}
 };
+
+struct TStatPlaces {
+    private:
+        string result;
+    public:
+        void set(string aval, bool pr_locale = true);
+        string get() const;
+};
+
+void TStatPlaces::set(string aval, bool pr_locale)
+{
+    if(not result.empty())
+        throw Exception("TStatPlaces::set(): already set");
+    if(pr_locale) {
+        vector<string> tokens;
+        while(true) {
+            size_t idx = aval.find('-');
+            if(idx == string::npos) break;
+            tokens.push_back(aval.substr(0, idx));
+            aval.erase(0, idx + 1);
+        }
+        tokens.push_back(aval);
+        for(vector<string>::iterator is = tokens.begin(); is != tokens.end(); is++)
+            result += (result.empty() ? "" : "-") + ElemIdToElem(etAirp, *is);
+    } else
+        result = aval;
+}
+
+string TStatPlaces::get() const
+{
+    return result;
+}
+
 struct TFullStatKey {
     string seance, col1, col2;
+    string airp; // в сортировке не участвует, нужен для AirpTZRegion
     int flt_no;
     TDateTime scd_out;
     int point_id;
-    string places;
+    TStatPlaces places;
     TFullStatKey():
         flt_no(NoExists),
         scd_out(NoExists),
@@ -1590,7 +1636,7 @@ struct TFullCmp {
                     if(lr.flt_no == rr.flt_no)
                         if(lr.scd_out == rr.scd_out)
                             if(lr.point_id == rr.point_id)
-                                return lr.places < rr.places;
+                                return lr.places.get() < rr.places.get();
                             else
                                 return lr.point_id < rr.point_id;
                         else
@@ -2090,19 +2136,20 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             for(; !Qry.Eof; Qry.Next()) {
                 TFullStatKey key;
                 key.seance = Qry.FieldAsString(col_seance);
+                key.airp = Qry.FieldAsString(col_airp);
                 if(!params.ap.empty()) {
-                    key.col1 = Qry.FieldAsString(col_airp);
-                    key.col2 = Qry.FieldAsString(col_airline);
+                    key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
+                    key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
                     airline.check(key.col2);
                 } else {
-                    key.col1 = Qry.FieldAsString(col_airline);
-                    key.col2 = Qry.FieldAsString(col_airp);
+                    key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
+                    key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
                     airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
                 key.point_id = Qry.FieldAsInteger(col_point_id);
-                key.places = Qry.FieldAsString(col_places);
+                key.places.set(Qry.FieldAsString(col_places));
                 TFullStatRow &row = FullStat[key];
                 if(row.pax_amount == NoExists) {
                     row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
@@ -2210,13 +2257,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             string region;
             try
             {
-                string airp;
-                if(!params.ap.empty()) {
-                    airp = im->first.col1;
-                } else {
-                    airp = im->first.col2;
-                }
-                region = AirpTZRegion(airp);
+                region = AirpTZRegion(im->first.airp);
             }
             catch(AstraLocale::UserException &E)
             {
@@ -2242,7 +2283,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", DateTimeToStr(
                         UTCToClient(im->first.scd_out, region), "dd.mm.yy")
                     );
-            NewTextChild(rowNode, "col", im->first.places);
+            NewTextChild(rowNode, "col", im->first.places.get());
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", im->first.seance);
             NewTextChild(rowNode, "col", im->second.pax_amount);
@@ -2325,19 +2366,20 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             for(; !Qry.Eof; Qry.Next()) {
                 TFullStatKey key;
                 key.seance = Qry.FieldAsString(col_seance);
+                key.airp = Qry.FieldAsString(col_airp);
                 if(!params.ap.empty()) {
-                    key.col1 = Qry.FieldAsString(col_airp);
-                    key.col2 = Qry.FieldAsString(col_airline);
+                    key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
+                    key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
                     airline.check(key.col2);
                 } else {
-                    key.col1 = Qry.FieldAsString(col_airline);
-                    key.col2 = Qry.FieldAsString(col_airp);
+                    key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString(col_airline));
+                    key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString(col_airp));
                     airline.check(key.col1);
                 }
                 key.flt_no = Qry.FieldAsInteger(col_flt_no);
                 key.scd_out = Qry.FieldAsDateTime(col_scd_out);
                 key.point_id = Qry.FieldAsInteger(col_point_id);
-                key.places = Qry.FieldAsString(col_places);
+                key.places.set(Qry.FieldAsString(col_places), false);
                 TFullStatRow &row = FullStat[key];
                 if(row.pax_amount == NoExists) {
                     row.pax_amount = Qry.FieldAsInteger(col_pax_amount);
@@ -2445,13 +2487,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             string region;
             try
             {
-                string airp;
-                if(!params.ap.empty()) {
-                    airp = im->first.col1;
-                } else {
-                    airp = im->first.col2;
-                }
-                region = AirpTZRegion(airp);
+                region = AirpTZRegion(im->first.airp);
             }
             catch(AstraLocale::UserException &E)
             {
@@ -2476,7 +2512,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             NewTextChild(rowNode, "col", DateTimeToStr(
                         UTCToClient(im->first.scd_out, region), "dd.mm.yy")
                     );
-            NewTextChild(rowNode, "col", im->first.places);
+            NewTextChild(rowNode, "col", im->first.places.get());
             if (USE_SEANCES())
               NewTextChild(rowNode, "col", im->first.seance);
             NewTextChild(rowNode, "col", im->second.pax_amount);
@@ -2618,7 +2654,7 @@ void RunShortStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         for(; !Qry.Eof; Qry.Next()) {
             TShortStatKey key;
             key.seance = Qry.FieldAsString(0);
-            key.col1 = Qry.FieldAsString(1);
+            key.col1 = ElemIdToElem((params.ap.size() ? etAirp: etAirline), Qry.FieldAsString(1));
             if(params.ap.empty())
                 airline.check(key.col1);
             TShortStatRow &row = ShortStat[key];
@@ -2733,12 +2769,12 @@ void RunDetailStat(xmlNodePtr reqNode, xmlNodePtr resNode)
             TDetailStatKey key;
             key.seance = Qry.FieldAsString("seance");
             if(!params.ap.empty()) {
-                key.col1 = Qry.FieldAsString("airp");
-                key.col2 = Qry.FieldAsString("airline");
+                key.col1 = ElemIdToElem(etAirp, Qry.FieldAsString("airp"));
+                key.col2 = ElemIdToElem(etAirline, Qry.FieldAsString("airline"));
                 airline.check(key.col2);
             } else {
-                key.col1 = Qry.FieldAsString("airline");
-                key.col2 = Qry.FieldAsString("airp");
+                key.col1 = ElemIdToElem(etAirline, Qry.FieldAsString("airline"));
+                key.col2 = ElemIdToElem(etAirp, Qry.FieldAsString("airp"));
                 airline.check(key.col1);
             }
             TShortStatRow &row = DetailStat[key];
@@ -2908,6 +2944,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   points.airline, "
                 "   points.flt_no, "
                 "   points.suffix, "
+                "   points.airline_fmt, "
+                "   points.airp_fmt, "
+                "   points.suffix_fmt, "
                 "   points.airp, "
                 "   points.scd_out, "
                 "   NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out, "
@@ -2978,6 +3017,9 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 "   arx_points.airline, "
                 "   arx_points.flt_no, "
                 "   arx_points.suffix, "
+                "   arx_points.airline_fmt, "
+                "   arx_points.airp_fmt, "
+                "   arx_points.suffix_fmt, "
                 "   arx_points.airp, "
                 "   arx_points.scd_out, "
                 "   NVL(arx_points.act_out,NVL(arx_points.est_out,arx_points.scd_out)) AS real_out, "
@@ -3106,7 +3148,7 @@ void StatInterface::PaxSrcRun(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
                 if(TripItems.find(point_id) == TripItems.end()) {
                     TTripInfo trip_info(Qry);
                     TTripItem trip_item;
-                    trip_item.trip = GetTripName(trip_info);
+                    trip_item.trip = GetTripName(trip_info, ecCkin);
                     trip_item.scd_out =
                         DateTimeToStr(
                                 UTCToClient( Qry.FieldAsDateTime(col_scd_out), info.desk.tz_region),

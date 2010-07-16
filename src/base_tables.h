@@ -583,6 +583,37 @@ class TCurrency: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
+class TRefusalTypesRow: public TTIDBaseTableRow {
+  public:
+    std::string name,name_lat;
+    ~TRefusalTypesRow() {};
+    const char *get_row_name() { return "TRefusalTypesRow"; };
+    std::string AsString(std::string field, bool pr_lat=false)
+    {
+      if (lowerc(field)=="name") return pr_lat?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,pr_lat);
+    };
+};
+
+class TRefusalTypes: public TTIDBaseTable {
+  private:
+    const char *get_select_sql_text ()
+    {
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM refusal_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return
+        "SELECT id,code,code_lat,name,name_lat,pr_del,tid "
+        "FROM refusal_types WHERE tid>:tid";
+    };
+  protected:
+    const char *get_table_name() { return "TRefusalTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+};
+
 class TPayTypesRow: public TTIDBaseTableRow {
   public:
     std::string name,name_lat;

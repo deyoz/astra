@@ -379,6 +379,7 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
 
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
 
+    NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
     NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name", false));
     NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
     NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));

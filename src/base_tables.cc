@@ -52,6 +52,8 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TPayTypes();
         else if(name == "CURRENCY")
             base_tables[name] = new TCurrency();
+        else if(name == "REFUSAL_TYPES")
+            base_tables[name] = new TRefusalTypes();
         else if(name == "SUBCLS")
             base_tables[name] = new TSubcls();
         else if(name == "CRAFTS")
@@ -497,6 +499,14 @@ void TPayTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **rep
   *row = new TPayTypesRow;
   ((TPayTypesRow*)*row)->name=Qry.FieldAsString("name");
   ((TPayTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  TTIDBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TRefusalTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TRefusalTypesRow;
+  ((TRefusalTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TRefusalTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
 };
 

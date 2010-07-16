@@ -12,8 +12,6 @@
 
 namespace AstraLocale {
 
-enum TLocaleType { ltTermLang, ltNone };
-
 struct LexemaData;
 class LParam;
 

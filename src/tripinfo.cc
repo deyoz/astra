@@ -203,6 +203,9 @@ void TSQL::setSQLTripList( TQuery &Qry, TReqInfo &info ) {
     "       points.flt_no, "
     "       points.suffix, "
     "       points.scd_out, "
+    "       points.airline_fmt, "
+    "       points.airp_fmt, "
+    "       points.suffix_fmt, "
     "       NVL(points.act_out,NVL(points.est_out,points.scd_out)) AS real_out ";
   sql+=
     "FROM " + p.sqlfrom;
@@ -427,7 +430,7 @@ void TripsInterface::GetTripList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     try
     {
       listItem.point_id=Qry.FieldAsInteger("point_id");
-      listItem.trip_name=GetTripName(info,AstraLocale::ltTermLang,reqInfo->screen.name=="TLG.EXE",true);
+      listItem.trip_name=GetTripName(info,ecCkin,reqInfo->screen.name=="TLG.EXE",true); //ecCkin? !!!vlad
       listItem.real_out_local_date=info.real_out_local_date;
       list.push_back(listItem);
     }
