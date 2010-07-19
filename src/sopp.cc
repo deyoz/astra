@@ -2805,15 +2805,6 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
 
   if ( existsTrip )
     throw AstraLocale::UserException( "MSG.FLIGHT.DUPLICATE.ALREADY_EXISTS" );
-  Qry.Clear();
-  Qry.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
-  Qry.Execute();
-  vector<string> triptypes; //!!!
-  while ( !Qry.Eof ) {
-    triptypes.push_back( Qry.FieldAsString( "code" ) );
-    Qry.Next();
-  }
-
   /*!!! не только для нового */
 //  if ( move_id == NoExists ) {
   // задание параметров pr_tranzit, pr_reg, first_point
@@ -2825,8 +2816,9 @@ void internal_WriteDests( int &move_id, TSOPPDests &dests, const string &referen
   	else
       id->pr_tranzit=( pid->airline + IntToString( pid->flt_no ) + pid->suffix /*+ p->triptype ???*/ ==
                        id->airline + IntToString( id->flt_no ) + id->suffix /*+ id->triptype*/ );
+
     id->pr_reg = ( id->scd_out > NoExists &&
-                   find( triptypes.begin(), triptypes.end(), id->triptype ) != triptypes.end() &&
+                   ((TTripTypesRow&)base_tables.get("trip_types").get_row( "code", id->triptype, true )).pr_reg!=0 &&
                    /*!id->pr_del &&*/ id != dests.end() - 1 );
 /*    if ( id->pr_reg ) {
       TSOPPDests::iterator r=id;
