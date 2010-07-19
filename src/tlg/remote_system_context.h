@@ -23,22 +23,23 @@
 
 // #include "dates.h"
 #include "etick/lang.h"
-// #include "exceptions.h"
+#include "exceptions.h"
 #include "etick/exceptions.h"
 // #include "tlg_types.h"
-// #include "TicketBaseTypes.h"
+#include "CheckinBaseTypes.h"
 // #include "etick/etick_msg.h"
 #include "etick/tick_data.h"
+#include "etick/common_codes.h"
 #include "EdifactProfile.h"
-#include "tlg_source_edifact.h"
+//#include "tlg_source_edifact.h"
 // #include "optionals.h"
 // #include "typeb/typeb_preprocessor.h"
 
-namespace OciCpp{
-class CursCtl;
-}
+//namespace OciCpp{
+//class CursCtl;
+//}
 
-namespace edifact
+namespace Ticketing
 {
 
     class UnknownSystAddrs : public EXCEPTIONS::Exception
@@ -87,7 +88,7 @@ namespace edifact
     enum SystemTypes_t
     {
         DcsSystem = 'D',
-        EtsSystem = 'E',
+        EtsSystem = 'E'
     };
     typedef BaseTypeElem<SystemTypes_t> SystemTypeElem;
 
@@ -126,25 +127,28 @@ namespace edifact
     /// @brief общая инфа об удаленной (далеко) системе
     class SystemContext
     {
-        Airline_t Airline;
-        FlightNum_t FlightNum;
+        ASTRA::Airline_t OurAirline;
+        ASTRA::Airline_t RemoteAirline;
+        ASTRA::FlightNum_t OurFlightNum;
+        ASTRA::FlightNum_t RemoteFlightNum;
 
         std::string OurAddrEdifact;
-        std::string RemoteAddrEdifact;
+        std::string OurAddrEdifactSnd;
+        std::string OurAddrEdifactExt;
 
-        RouterId_t Router;
+        std::string RemoteAddrEdifact;
+        std::string RemoteAddrEdifactSnd;
+        std::string RemoteAddrEdifactExt;
+
+        ASTRA::RouterId_t Router;
         SystemType SysType;
         std::string Description;
 
-        SystemAddrs_t Ida;
-        EdifactProfile_t EdifactProfileId;
+        ASTRA::SystemAddrs_t Ida;
+        ASTRA::EdifactProfile_t EdifactProfileId;
         mutable edifact::pEdifactProfile EdifactProfileCache;
         mutable Language Lang;
         SystemSettings CommonSettings;
-
-        SystemContext()
-        {
-        }
     private:
         /// @TODO VLAD дай мне SQL
         static std::string getSelText();
@@ -164,9 +168,21 @@ namespace edifact
 
         static boost::shared_ptr<SystemContext> SysCtxt;
     public:
-        Airline_t airline() const
+        ASTRA::Airline_t ourAirline() const
         {
-            return Airline;
+            return OurAirline;
+        }
+        ASTRA::Airline_t remoteAirline() const
+        {
+            return RemoteAirline;
+        }
+        ASTRA::FlightNum_t ourFlightNum() const
+        {
+            return OurFlightNum;
+        }
+        ASTRA::FlightNum_t remoteFlightNum() const
+        {
+            return RemoteFlightNum;
         }
 
         /**
@@ -222,7 +238,7 @@ namespace edifact
             return RemoteAddrEdifactExt;
         }
 
-        RouterId_t router() const
+        ASTRA::RouterId_t router() const
         {
             return Router;
         }
@@ -241,7 +257,7 @@ namespace edifact
          * @brief Edifact profile ID
          * @return
          */
-        const EdifactProfile_t edifactProfileId() const
+        const ASTRA::EdifactProfile_t edifactProfileId() const
         {
             return EdifactProfileId;
         }
@@ -266,7 +282,7 @@ namespace edifact
             Lang = l;
         }
 
-        SystemAddrs_t ida() const { return Ida; }
+        ASTRA::SystemAddrs_t ida() const { return Ida; }
 
         /**
          * @brief Edifact time out in seconds
@@ -318,7 +334,7 @@ namespace edifact
          * @param Id - id
          * @return
          */
-        static SystemContext readById(SystemAddrs_t Id);
+        static SystemContext readById(ASTRA::SystemAddrs_t Id);
 
         /**
          * @brief Прочесть дочернюю запись (Ets, Dcs)
@@ -357,6 +373,7 @@ namespace edifact
         static std::string joinEdifactAddrs(const std::string &src, const std::string &src_ext);
 
     public:
+        SystemContext() {};
         virtual ~SystemContext(){}
     };
 
@@ -376,7 +393,7 @@ namespace edifact
     {
     public:
         DcsSystemContext() {};
-        DcsSystemContext readFromDb(const SystemContext & baseCnt);
+        static DcsSystemContext readFromDb(const SystemContext & baseCnt);
     };
 
     class EtsSystemContext;
@@ -402,10 +419,8 @@ namespace edifact
         EtsSystemSettings Settings;
     public:
         EtsSystemContext(){}
-
-        static EtsSystemContext readById(SystemAddrs_t Id);
-        
-        EtsSystemContext readFromDb(const SystemContext & baseCnt);
+        static EtsSystemContext readById(ASTRA::SystemAddrs_t Id);
+        static EtsSystemContext readFromDb(const SystemContext & baseCnt);
 
         /**
          * @brief Ets settings

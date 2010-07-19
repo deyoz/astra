@@ -12,34 +12,35 @@
 #include "config.h"
 #endif /*HAVE_CONFIG_H*/
 
-// #include "serverlib/posthooks.h"
 // #include "tlg_context.h"
 // #include "basetables.h"
 #include "remote_system_context.h"
-#include "edifact_profile.h"
+#include "EdifactProfile.h"
+#include "etick/etick_msg.h"
+#include "serverlib/posthooks.h"
 
 #define NICKNAME "VLAD"
-#define NICKTRACE VLAD_TRACE
+#define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
 
-namespace edifact
-{
+//namespace edifact
+//{
 
 using namespace std;
+using namespace Ticketing;
+//using namespace edifact;
 using namespace TickExceptions;
-using namespace OciCpp;
+//using namespace OciCpp;
 
 template <> BaseTypeElemHolder< SystemTypeElem >::TypesMap
         BaseTypeElemHolder< SystemTypeElem >::VTypes =
         BaseTypeElemHolder< SystemTypeElem >::VTypes;
 template <> bool BaseTypeElemHolder<SystemTypeElem>::initialized = false;
 
-template <> BaseTypeElemHolder<RegistrationTypeElem>::TypesMap
-        BaseTypeElemHolder<RegistrationTypeElem>::VTypes =
-        BaseTypeElemHolder< RegistrationTypeElem >::VTypes;
-template <> bool BaseTypeElemHolder<RegistrationTypeElem>::initialized = false;
+class system_not_found {
+};
 
-
+/*
 template <> void BaseTypeElemHolder<SystemTypeElem>::init()
 {
     VTypes.insert(
@@ -57,7 +58,7 @@ template <> void BaseTypeElemHolder<SystemTypeElem>::init()
 SystemType SystemType::fromTypeStr(const char *typeStr)
 {
     return SystemType(SystemTypeElem::baseTypeFromStr(typeStr));
-}
+}!!!ROMAN */
 
 string SystemContext::getSelText()
 {
@@ -129,7 +130,7 @@ void SystemContext::defSelData(/*OciCpp::CursCtl &curs, */SystemContext &ctxt)
 //     ctxt.SysType = SystemType::fromTypeStr(type__.c_str());
 
 //     ctxt = mk.getSystemContext();
-    return curs;
+//    return curs;
 }
 
 SystemContext SystemContext::readByEdiAddrsQR(
@@ -217,16 +218,14 @@ SystemContext * SystemContext::readChildByType() const
 {
     switch( systemType()->type() )
     {
-        case CrsSystem:
-            return new CrsSystemContext(CrsSystemContext::readFromDb(*this));
         case DcsSystem:
             return new DcsSystemContext(DcsSystemContext::readFromDb(*this));
         case EtsSystem:
             return new EtsSystemContext(EtsSystemContext::readFromDb(*this));
-        default:
-            throw EXCEPTIONS::ExceptionFmt() <<
+        default: ;
+/*            throw EXCEPTIONS::ExceptionFmt() <<
                     "unknown system type " << systemType()->typeStr() <<
-                    "(" << systemType()->type() << ")";
+                    "(" << systemType()->type() << ")";!!!ROMAN*/
     }
 }
 
@@ -260,18 +259,18 @@ void SystemContext::free()
     SystemContext::SysCtxt.reset();
 }
 
-SystemContext SystemContext::readById(SystemAddrs_t Id)
+SystemContext SystemContext::readById(ASTRA::SystemAddrs_t Id)
 {
     SystemContext system;
 
     std::string sqltxt = getSelText();
     sqltxt += " and ida = :id";
-    CursCtl cur = make_curs(sqltxt.c_str());
+  //  CursCtl cur = make_curs(sqltxt.c_str());
 
-    cur.bind(":id", Id);
+  //  cur.bind(":id", Id);
 
     try{
-        SystemContext::defSelData(cur, system);
+        SystemContext::defSelData(/*cur,*/ system);
     }
 
     catch(system_not_found)
@@ -400,7 +399,7 @@ SystemSettings::SystemSettings()
 {
 }
 
-} // namespace ASTRA
+//}  namespace edifact
 
 #ifdef XP_TESTING
 #include "xp_testing.h"
