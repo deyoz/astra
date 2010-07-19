@@ -1565,7 +1565,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_ref", Qry.FieldAsString( col_pnr_ref ), "" );
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
-    NewTextChild( node, "full_name", transliter(Qry.FieldAsString( col_full_name ), 1, TReqInfo::Instance()->desk.lang!="RU") ); //!!!
+    NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
     NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
     NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
     NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
@@ -1585,7 +1585,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     };
 
     NewTextChild( node, "ticket", Qry.FieldAsString( col_ticket ), "" );
-    NewTextChild( node, "document", transliter(Qry.FieldAsString( col_document ), 1, TReqInfo::Instance()->desk.lang!="RU"), "" ); //!!!
+    NewTextChild( node, "document", Qry.FieldAsString( col_document ) );
     NewTextChild( node, "status", Qry.FieldAsString( col_status ), EncodePaxStatus(ASTRA::psCheckin) );
 
     RQry.SetVariable( "pax_id", Qry.FieldAsInteger( col_pax_id ) );
@@ -1601,7 +1601,7 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
       	stcrNode = NewTextChild( node, "step", "down" );
       };
     };
-    NewTextChild( node, "rem", transliter(rem,1,TReqInfo::Instance()->desk.lang!="RU"), "" );
+    NewTextChild( node, "rem", rem, "" );
     NewTextChild( node, "pax_id", Qry.FieldAsInteger( col_pax_id ) );
     NewTextChild( node, "pnr_id", Qry.FieldAsInteger( col_pnr_id ) );
     NewTextChild( node, "tid", Qry.FieldAsInteger( col_tid ) );
