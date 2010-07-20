@@ -93,6 +93,7 @@ class PrintDataParser {
                 std::string BCBP_M_2(bool pr_lat);
                 std::string LONG_DEP(bool pr_lat);
                 std::string LONG_ARV(bool pr_lat);
+                std::string FQT(bool pr_lat);
 
 
                 std::string class_checked;
