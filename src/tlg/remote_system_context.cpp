@@ -23,42 +23,33 @@
 #define NICKTRACE SYSTEM_TRACE
 #include <serverlib/slogger.h>
 
-//namespace edifact
-//{
-
 using namespace std;
 using namespace Ticketing;
 //using namespace edifact;
 using namespace TickExceptions;
 //using namespace OciCpp;
 
+class system_not_found {
+};
+
+
+namespace Ticketing{
 template <> BaseTypeElemHolder< SystemTypeElem >::TypesMap
         BaseTypeElemHolder< SystemTypeElem >::VTypes =
         BaseTypeElemHolder< SystemTypeElem >::VTypes;
 template <> bool BaseTypeElemHolder<SystemTypeElem>::initialized = false;
+const char *SystemTypeElem::ElemName = "Remote System Type";
 
-class system_not_found {
-};
-
-/*
-template <> void BaseTypeElemHolder<SystemTypeElem>::init()
+template <> void Ticketing::BaseTypeElemHolder<SystemTypeElem>::init()
 {
-    VTypes.insert(
-                    std::make_pair(DcsSystem,
-                                   SystemTypeElem(DcsSystem,"DCS",
-                                           "Система регистрации",
-                                           "Ground handling system")));
-    VTypes.insert(
-                    std::make_pair(EtsSystem,
-                                   SystemTypeElem(EtsSystem,"ETS",
-                                           "Сервер электронных билетов",
-                                           "Electronic ticket server")));
+    addElem(SystemTypeElem(SystemType::DcsSystem,"DCS",
+                           "Система регистрации",
+                           "Ground handling system"));
+    addElem(SystemTypeElem(SystemType::EtsSystem,"ETS",
+                           "Сервер электронных билетов",
+                           "Electronic ticket server"));
 }
-
-SystemType SystemType::fromTypeStr(const char *typeStr)
-{
-    return SystemType(SystemTypeElem::baseTypeFromStr(typeStr));
-} !!!ROMAN*/
+}
 
 string SystemContext::getSelText()
 {
@@ -218,13 +209,13 @@ SystemContext * SystemContext::readChildByType() const
 {
     switch( systemType()->type() )
     {
-        case DcsSystem:
+        case SystemType::DcsSystem:
             return new DcsSystemContext(DcsSystemContext::readFromDb(*this));
-        case EtsSystem:
+        case SystemType::EtsSystem:
             return new EtsSystemContext(EtsSystemContext::readFromDb(*this));
         default: ;
             throw EXCEPTIONS::ExceptionFmt() <<
-                    "unknown system type " << systemType()->typeStr() <<
+                    "unknown system type " << systemType()->code() <<
                     "(" << systemType()->type() << ")";
     }
 }
@@ -294,7 +285,6 @@ DcsSystemContext DcsSystemContext::readFromDb(const SystemContext & baseCnt)
 {
     DcsSystemContext cont(baseCnt);
     std::string regtype;
-    int send_pos;
 
 //     CursCtl cur = make_curs("select AIRPORT, REG_TYPE, SEND_POS from dcs_systems where ida = :id");
 //     cur.
@@ -311,14 +301,14 @@ DcsSystemContext DcsSystemContext::readFromDb(const SystemContext & baseCnt)
     return cont;
 }
 
-DcsSystemContext DcsSystemContext::readById(SystemAddrs_t Id)
+DcsSystemContext DcsSystemContext::readById(ASTRA::SystemAddrs_t Id)
 {
     return DcsSystemContext::readFromDb(SystemContext::readById(Id));
 }
 
 const DcsSystemContext & SystemContext::DcsInstance(const char *nick, const char *file, unsigned line)
 {
-    if( SystemContext::Instance(nick, file, line).systemType() != DcsSystem)
+    if( SystemContext::Instance(nick, file, line).systemType() != SystemType::DcsSystem)
     {
         throw InvalidSystemTypeCast();
     }
@@ -330,19 +320,19 @@ const DcsSystemContext & SystemContext::DcsInstance(const char *nick, const char
 // ================== E T S =====================
 EtsSystemContext EtsSystemContext::readFromDb(const SystemContext & baseCnt)
 {
-    EtsSystemContext ets (baseCnt, EtsSystemSettings());
+    EtsSystemContext ets (baseCnt, /*read ETS settings here*/EtsSystemSettings());
 
     return ets;
 }
 
-EtsSystemContext EtsSystemContext::readById(SystemAddrs_t Id)
+EtsSystemContext EtsSystemContext::readById(ASTRA::SystemAddrs_t Id)
 {
     return EtsSystemContext::readFromDb(SystemContext::readById(Id));
 }
 
 const EtsSystemContext & SystemContext::EtsInstance(const char *nick, const char *file, unsigned line)
 {
-    if( SystemContext::Instance(nick, file, line).systemType() != EtsSystem)
+    if( SystemContext::Instance(nick, file, line).systemType() != SystemType::EtsSystem)
     {
         throw InvalidSystemTypeCast();
     }
@@ -357,27 +347,6 @@ EtsSystemContext::EtsSystemContext(const SystemContext & baseCnt,
 {
 }
 
-SystemAddrs_t EtsSystemContext::airlines_interline_id() const
-{
-    CursCtl cur = make_curs("select Ida from system_addresses where airline=:airl and \
-            remote_airline=:rem_airl and type = :tp");
-    SystemAddrs_t Ida;
-    cur.
-            def(Ida).
-            bind(":airl", ourAirline()).
-            bind(":rem_airl", remoteAirline()).
-            bind(":tp", systemType()->typeStr()).
-            EXfet();
-    if(cur.err() == NO_DATA_FOUND)
-    {
-        return SystemAddrs_t();
-    }
-    else
-    {
-        return Ida;
-    }
-}
-
 UnknownSystAddrs::UnknownSystAddrs(const std::string &src, const std::string &dest)
     :Exception("Invalid addresses pair src:["+src+"], dest:["+dest+"]"),
                Src(src), Dest(dest)
@@ -386,24 +355,13 @@ UnknownSystAddrs::UnknownSystAddrs(const std::string &src, const std::string &de
 
 unsigned SystemContext::edifactResponseTimeOut() const
 {
-    return BaseTables::Router(router())->resp_timeout();
-}
-
-SystemSettings::SystemSettings(bool debug, bool noOpe, bool cri)
-        :DebugInfo(debug), SendOpenRpi(noOpe), SendCriInDisplays(cri)
-{
-}
-
-SystemSettings::SystemSettings()
-                :DebugInfo(true), SendOpenRpi(true), SendCriInDisplays(true)
-{
+    return 20; // TODO VLAD - return timeout here
 }
 
 //}  namespace edifact
 
-#ifdef XP_TESTING
+#ifdef XP_TESTING11111
 #include "xp_testing.h"
-#include "local.h"
 using namespace Ticketing;
 using namespace Ticketing::RemoteSystemContext;
 namespace {

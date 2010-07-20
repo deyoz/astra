@@ -20,10 +20,6 @@ namespace RemoteSystemContext{
     class SystemContext;
 }
 
-namespace TlgHandling{
-    class TlgSourceEdifact{};
-}
-
 namespace edifact
 {
     class AstraEdiSessWR;
@@ -34,7 +30,7 @@ namespace edifact
  */
 class EdifactRequest : public edilib::EdifactRequest
 {
-   TlgHandling::TlgSourceEdifact *TlgOut;
+   std::string *TlgOut;
 public:
     /**
      * @brief EdifactRequest

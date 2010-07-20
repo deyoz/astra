@@ -85,30 +85,45 @@ namespace Ticketing
     };
 
 
-    enum SystemTypes_t
+    class SystemTypeElem : public BaseTypeElem<int>
     {
-        DcsSystem = 'D',
-        EtsSystem = 'E'
+        typedef BaseTypeElem<int> CodeListData_t;
+        public:
+            static const char *ElemName;
+            SystemTypeElem(int codeI, const char *code,
+                        const char *ldesc,
+                        const char *rdesc) throw()
+            :CodeListData_t(codeI, code, code, rdesc, ldesc)
+            {
+            }
+            virtual ~SystemTypeElem(){}
     };
-    typedef BaseTypeElem<SystemTypes_t> SystemTypeElem;
 
     /// @class SystemType - тип системы
     class SystemType : public BaseTypeElemHolder<SystemTypeElem>
     {
     public:
+        enum SystemTypes_t
+        {
+            DcsSystem = 'D',
+            EtsSystem = 'E'
+        };
+
         typedef BaseTypeElemHolder<SystemTypeElem>::TypesMap SystemTypesMap;
 
         SystemType(SystemTypes_t t):
                 BaseTypeElemHolder<SystemTypeElem>(t)
         {
         }
+        SystemType(const std::string &t):
+                BaseTypeElemHolder<SystemTypeElem>(t)
+        {
+        }
+
         SystemType():
                 BaseTypeElemHolder<SystemTypeElem>()
         {
         }
-
-
-        static SystemType fromTypeStr(const char *);
     };
 
     class DcsSystemContext;
@@ -242,6 +257,12 @@ namespace Ticketing
         {
             return Router;
         }
+
+        const std::string canonName() const
+        {
+            return "LAZHA"; /// @TODO VLAD get Canon Name by router ID  - RouterId_t router() const
+        }
+
 
         const SystemType & systemType() const
         {
@@ -377,6 +398,42 @@ namespace Ticketing
         virtual ~SystemContext(){}
     };
 
+//     class SystemContextMaker
+//     {
+//         SystemContext cont;
+//     public:
+//         SystemContextMaker(){}
+//         SystemContextMaker(const SystemContext &s):cont(s){}
+// 
+//         void setOurAirline(ASTRA::Airline_t val);
+//         void setRemoteAirline(ASTRA::Airline_t val);
+// 
+//         // Адреса для получения запросов
+//         void setOurAddrEdifact(const std::string &val);
+//         void setRemoteAddrEdifact(const std::string &val);
+// 
+//         // Адреса для отправки запросов
+//         void setOurAddrEdifactSnd(const std::string &val);
+//         void setRemoteAddrEdifactSnd(const std::string &val);
+// 
+//         // Расширение для адресов (с указанием компании например)
+//         void setOurAddrEdifactExt(const std::string &val);
+//         void setRemoteAddrEdifactExt(const std::string &val);
+// 
+//         void setOurAddrAirimp(const std::string &val);
+//         void setRemoteAddrAirimp(const std::string &val);
+//         void setRouter(RouterId_t val);
+//         void setSysType(SystemType val);
+//         void setDescription(const std::string &val);
+//         void setIda(SystemAddrs_t val);
+//         void setEdifactProfileId(EdifactProfile_t id);
+// 
+//         void setSystemSettings(const SystemSettings &sett);
+// 
+//         SystemContext getSystemContext();
+//     };
+
+
 
     class DcsSystemSettings : public SystemSettings
     {
@@ -391,9 +448,16 @@ namespace Ticketing
     /// @brief Система регистрации
     class DcsSystemContext : public SystemContext
     {
+        DcsSystemSettings Settings;
     public:
-        DcsSystemContext() {};
+        /**
+         * @brief Dcs settings
+         * @return
+         */
+        const DcsSystemSettings &settings() const { return Settings; }
+        DcsSystemContext(const SystemContext & baseCnt):SystemContext(baseCnt) {};
         static DcsSystemContext readFromDb(const SystemContext & baseCnt);
+        DcsSystemContext readById(ASTRA::SystemAddrs_t Id);
     };
 
     class EtsSystemContext;
@@ -409,6 +473,11 @@ namespace Ticketing
         friend class EtsSystemContext;
     public:
         EtsSystemSettings(){}
+        EtsSystemSettings(const SystemSettings &sett,
+                          const EtsSystemSettings &ets_sett)
+               :SystemSettings(sett)
+        {
+        }
         virtual ~EtsSystemSettings(){}
     };
 
@@ -418,7 +487,7 @@ namespace Ticketing
     {
         EtsSystemSettings Settings;
     public:
-        EtsSystemContext(){}
+        EtsSystemContext(const SystemContext & baseCnt, const EtsSystemSettings &Settings);
         static EtsSystemContext readById(ASTRA::SystemAddrs_t Id);
         static EtsSystemContext readFromDb(const SystemContext & baseCnt);
 
