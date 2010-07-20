@@ -58,7 +58,7 @@ template <> void BaseTypeElemHolder<SystemTypeElem>::init()
 SystemType SystemType::fromTypeStr(const char *typeStr)
 {
     return SystemType(SystemTypeElem::baseTypeFromStr(typeStr));
-}!!!ROMAN */
+} !!!ROMAN*/
 
 string SystemContext::getSelText()
 {
@@ -223,9 +223,9 @@ SystemContext * SystemContext::readChildByType() const
         case EtsSystem:
             return new EtsSystemContext(EtsSystemContext::readFromDb(*this));
         default: ;
-/*            throw EXCEPTIONS::ExceptionFmt() <<
+            throw EXCEPTIONS::ExceptionFmt() <<
                     "unknown system type " << systemType()->typeStr() <<
-                    "(" << systemType()->type() << ")";!!!ROMAN*/
+                    "(" << systemType()->type() << ")";
     }
 }
 
