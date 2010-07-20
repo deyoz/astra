@@ -848,6 +848,9 @@ string PrintDataParser::t_field_map::get_field(string name, int len, string alig
     if(name == "LONG_ARV")
         add_tag(name, LONG_ARV(field_lat));
 
+    if(name == "FQT")
+        add_tag(name, FQT(field_lat));
+
     TData::iterator di, di_ru;
     di = data.find(name);
     di_ru = di;
@@ -964,6 +967,25 @@ string PrintDataParser::t_field_map::LONG_DEP(bool pr_lat)
         }
         if(not lat_part.empty())
             result += "/" + lat_part;
+    }
+    return result;
+}
+
+string PrintDataParser::t_field_map::FQT(bool pr_lat)
+{
+    string result;
+    TData::iterator di = data.find("PAX_ID");
+    if(di != data.end()) {
+        TQuery Qry(&OraSession);
+        Qry.SQLText = "select airline, no, extra from pax_fqt where pax_id = :pax_id and rownum < 2";
+        Qry.CreateVariable("pax_id", otInteger, di->second.IntegerVal);
+        Qry.Execute();
+        if(!Qry.Eof) {
+            result += ElemIdToElem(etAirline, Qry.FieldAsString("airline"), pr_lat) + " " +Qry.FieldAsString("no");
+            if(not Qry.FieldIsNULL("extra")) {
+                result += " " + transliter(Qry.FieldAsString("extra"), 1, pr_lat);
+            }
+        }
     }
     return result;
 }
