@@ -2476,7 +2476,6 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     Qry.CreateVariable("FirstDate", otDate, FirstDate);
     Qry.CreateVariable("LastDate", otDate, LastDate);
     Qry.CreateVariable("web", otString, EncodeClientType(ctWeb));
-    Qry.CreateVariable( "vlang", otString, TReqInfo::Instance()->desk.lang );
     TFullStat FullStat;
     TPrintAirline airline;
 
