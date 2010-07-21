@@ -312,6 +312,7 @@ void populate_doc_cap(xmlNodePtr variablesNode, bool pr_lat)
     NewTextChild(variablesNode, "doc_cap_to", translateDocCap(pr_lat, "CAP.DOC.TO"));
     NewTextChild(variablesNode, "doc_cap_ex", translateDocCap(pr_lat, "Ñ·"));
     NewTextChild(variablesNode, "doc_cap_brd", translateDocCap(pr_lat, "è·"));
+    NewTextChild(variablesNode, "doc_cap_test", translateDocCap(pr_lat, "CAP.TEST"));
 }
 
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
