@@ -2840,11 +2840,12 @@ void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
+    int fmt;
     xmlNodePtr node = reqNode->children;
     TRptParams rpt_params;
     rpt_params.point_id = NodeAsIntegerFast("point_id", node);
     rpt_params.rpt_type = DecodeRptType(NodeAsStringFast("rpt_type", node));
-    rpt_params.airp_arv = NodeAsStringFast("airp_arv", node, "");
+    rpt_params.airp_arv = ElemToElemId(etAirp, NodeAsStringFast("airp_arv", node, ""), fmt);
     rpt_params.ckin_zone = NodeAsStringFast("ckin_zone", node, " ");
     rpt_params.pr_et = NodeAsIntegerFast("pr_et", node, 0) != 0;
     rpt_params.pr_trfer = NodeAsIntegerFast("pr_trfer", node, 0) != 0;
@@ -2852,9 +2853,9 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
     xmlNodePtr mktFltNode = GetNodeFast("mkt_flight", node);
     if(mktFltNode != NULL) {
         xmlNodePtr node = mktFltNode->children;
-        rpt_params.mkt_flt.airline = NodeAsStringFast("airline", node);
+        rpt_params.mkt_flt.airline = ElemToElemId(etAirline, NodeAsStringFast("airline", node), fmt);
         rpt_params.mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
-        rpt_params.mkt_flt.suffix = NodeAsStringFast("suffix", node, "");
+        rpt_params.mkt_flt.suffix = ElemToElemId(etSuffix, NodeAsStringFast("suffix", node, ""), fmt);
     }
     switch(rpt_params.rpt_type) {
         case rtPTM:
