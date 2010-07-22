@@ -61,7 +61,7 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
       if (*i==r->airp) break;
     if (i!=airps.end()) continue;
 
-    NewTextChild( node, "airp", r->airp );
+    NewTextChild( node, "airp", ElemIdToElem(etAirp, r->airp) );
 
     airps.push_back(r->airp);
   };
@@ -78,9 +78,9 @@ void TelegramInterface::readTripData( int point_id, xmlNodePtr dataNode )
       NewTextChild(fltNode,"flt_no",f->flt_no);
       NewTextChild(fltNode,"suffix",f->suffix);
       ostringstream flt_str;
-      flt_str << f->airline
+      flt_str << ElemIdToElem(etAirline, f->airline)
               << setw(3) << setfill('0') << f->flt_no
-              << f->suffix;
+              << ElemIdToElem(etSuffix, f->suffix);
       NewTextChild(fltNode,"flt_str",flt_str.str());
     };
   };
