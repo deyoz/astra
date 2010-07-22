@@ -1707,7 +1707,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  stat.point_id, \n"
                 "  ckin.get_airps(stat.point_id,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
-                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
+                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
                 "  sum(baby) baby, \n"
@@ -1726,7 +1726,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                     "    points.airline,  \n";
             mainSQLText +=
                 "    count(distinct stat.point_id) flt_amount, \n"
-                "    decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
+                "    sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "    sum(adult + child + baby) pax_amount \n";
         };
         if (statType==statDetail)
@@ -1735,7 +1735,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.airp, \n"
                 "  points.airline, \n"
                 "  count(distinct stat.point_id) flt_amount, \n"
-                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
+                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(adult + child + baby) pax_amount \n";
         };
         mainSQLText +=
@@ -1835,14 +1835,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  points.airline, \n"
                 "  points.flt_no, \n"
                 "  points.scd_out, \n"
-                "  stat.point_id, \n"
-                "  stat.client_type \n";
+                "  stat.point_id \n";
         };
         if (statType==statShort)
         {
             mainSQLText +=
-                "group by \n"
-                "  stat.client_type, \n";
+                "group by \n";
             if (USE_SEANCES())
               mainSQLText +=
                 "  trip_sets.pr_airp_seance, \n";
@@ -1861,7 +1859,6 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
               mainSQLText +=
                 "  trip_sets.pr_airp_seance, \n";
             mainSQLText +=
-                "  stat.client_type, \n"
                 "  points.airp, \n"
                 "  points.airline \n";
         };
@@ -1905,7 +1902,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_stat.point_id, \n"
                 "  arch.get_airps(arx_stat.point_id, arx_stat.part_key,:vlang) places, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
-                "  decode(client_type, :web, sum(adult + child + baby), 0) web, \n"
+                "  sum(decode(client_type, :web, adult + child + baby, 0)) web, \n"
                 "  sum(adult) adult, \n"
                 "  sum(child) child, \n"
                 "  sum(baby) baby, \n"
@@ -1925,7 +1922,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
             arxSQLText +=
                 "    count(distinct arx_stat.point_id) flt_amount, \n"
                 "    sum(adult + child + baby) pax_amount, \n"
-                "    decode(client_type, :web, sum(adult + child + baby), 0) web \n";
+                "    sum(decode(client_type, :web, adult + child + baby, 0)) web \n";
         };
         if (statType==statDetail)
         {
@@ -1934,7 +1931,7 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.airline, \n"
                 "  count(distinct arx_stat.point_id) flt_amount, \n"
                 "  sum(adult + child + baby) pax_amount, \n"
-                "  decode(client_type, :web, sum(adult + child + baby), 0) web \n";
+                "  sum(decode(client_type, :web, adult + child + baby, 0)) web \n";
         };
         arxSQLText +=
             "from \n"
@@ -2044,14 +2041,12 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
                 "  arx_points.flt_no, \n"
                 "  arx_points.scd_out, \n"
                 "  arx_stat.point_id, \n"
-                "  arx_stat.client_type, \n"
                 "  arx_stat.part_key \n";
         };
         if (statType==statShort)
         {
             arxSQLText +=
-                "group by  \n"
-                "  arx_stat.client_type, \n";
+                "group by  \n";
             if (USE_SEANCES())
               arxSQLText +=
                 "  arx_trip_sets.pr_airp_seance, \n";
@@ -2070,7 +2065,6 @@ string GetStatSQLText( TStatType statType, const TStatParams &params, bool pr_ar
               arxSQLText +=
                 "  arx_trip_sets.pr_airp_seance, \n";
             arxSQLText +=
-                "  arx_stat.client_type, \n"
                 "  arx_points.airp, \n"
                 "  arx_points.airline \n";
         };
