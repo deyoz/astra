@@ -24,7 +24,6 @@ using namespace AstraLocale;
 void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
 {
   xmlNodePtr tripdataNode = NewTextChild( dataNode, "tripdata" );
-  xmlNodePtr itemNode,node;
 
   TQuery Qry( &OraSession );
   Qry.Clear();
@@ -34,20 +33,8 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable("point_id",otInteger,point_id);
   Qry.Execute();
   if (Qry.Eof) throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
-  string airp_dep=Qry.FieldAsString("airp");
 
-  Qry.Clear();
-  Qry.SQLText =
-    "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
-  Qry.CreateVariable("airp_dep",otString,airp_dep);
-  Qry.Execute();
-  node = NewTextChild( tripdataNode, "halls" );
-  for(;!Qry.Eof;Qry.Next())
-  {
-    itemNode = NewTextChild( node, "hall" );
-    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
-  };
+  TripsInterface::readHalls(Qry.FieldAsString("airp"), "è", tripdataNode);
 }
 
 void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_web )
