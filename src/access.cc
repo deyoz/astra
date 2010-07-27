@@ -92,6 +92,53 @@ void AccessInterface::SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     }
 }
 
+void AccessInterface::CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
+{
+    int role_id = NodeAsInteger("role", reqNode);
+    string login = NodeAsString("login", reqNode);
+    TQuery Qry(&OraSession);
+    Qry.SQLText = "select user_id from users2 where login = :login";
+    Qry.CreateVariable("login", otString, login);
+    Qry.Execute();
+    if(Qry.Eof)
+        throw UserException("Неверно введен логин пользователя");
+    int user_id = Qry.FieldAsInteger("user_id");
+    Qry.Clear();
+    Qry.SQLText = "select adm.check_role_aro_access(:role_id, :user_id) from dual";
+    Qry.CreateVariable("role_id", otInteger, role_id);
+    Qry.CreateVariable("user_id", otInteger, user_id);
+    Qry.Execute();
+    if(Qry.FieldAsInteger(0) == 0)
+        NewTextChild(resNode, "aro", "Пользователю запрещен доступ к а/к или а/п роли");
+    Qry.SQLText =
+        "SELECT\n"
+        "    rights_list.name\n"
+        "FROM\n"
+        "  rights_list, "
+        "  (SELECT role_rights.right_id\n"
+        "   FROM role_rights\n"
+        "   WHERE role_id=:role_id\n"
+        "   UNION\n"
+        "   SELECT role_assign_rights.right_id\n"
+        "   FROM role_assign_rights\n"
+        "   WHERE role_id=:role_id) role_rights,\n"
+        "  (SELECT role_assign_rights.right_id\n"
+        "   FROM user_roles,role_assign_rights\n"
+        "   WHERE user_roles.role_id=role_assign_rights.role_id AND\n"
+        "         user_roles.user_id=:user_id) user_rights\n"
+        "WHERE role_rights.right_id=user_rights.right_id(+) AND\n"
+        "      user_rights.right_id IS NULL and\n"
+        "      role_rights.right_id = rights_list.ida\n";
+    Qry.Execute();
+    if(not Qry.Eof) {
+        xmlNodePtr rightsNode = NewTextChild(resNode, "rights");
+        for(; not Qry.Eof; Qry.Next())
+            NewTextChild(rightsNode, "item", Qry.FieldAsString("name"));
+
+    }
+
+}
+
 void AccessInterface::Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
     int src_role = NodeAsInteger("src_role", reqNode);

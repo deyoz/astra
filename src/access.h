@@ -16,8 +16,11 @@ public:
      AddEvent("save_role_rights",evHandle);
      evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::Clone);
      AddEvent("clone",evHandle);
+     evHandle=JxtHandler<AccessInterface>::CreateHandler(&AccessInterface::CmpRole);
+     AddEvent("cmp_role",evHandle);
   };
 
+  void CmpRole(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void Clone(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void SaveRoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
   void RoleRights(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode);
