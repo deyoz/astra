@@ -5776,6 +5776,7 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     NewTextChild( itemNode, "cfg", Qry.FieldAsInteger( "cfg" ) );
   };
 
+  //выходы на посадку, назначенные на рейс
   Qry.Clear();
   Qry.SQLText =
     "SELECT name AS gate_name "
@@ -5783,8 +5784,9 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     "WHERE stations.desk=trip_stations.desk AND "
     "      stations.work_mode=trip_stations.work_mode AND "
     "      trip_stations.point_id=:point_id AND "
-    "      trip_stations.work_mode='П' ";
+    "      trip_stations.work_mode=:work_mode ";
   Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("work_mode",otString,"П");
   Qry.Execute();
   node = NewTextChild( tripdataNode, "gates" );
   for(;!Qry.Eof;Qry.Next())
@@ -5792,17 +5794,36 @@ void CheckInInterface::readTripData( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "gate_name", Qry.FieldAsString( "gate_name" ) );
   };
 
+  //залы
+  TripsInterface::readHalls(fltInfo.airp, "Р", tripdataNode);
+
+  //выходы на посадку для каждого из залов регистрации, назначенные на рейс
   Qry.Clear();
   Qry.SQLText =
-    "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
-  Qry.CreateVariable("airp_dep",otString,fltInfo.airp);
-  Qry.Execute();
-  node = NewTextChild( tripdataNode, "halls" );
-  for(;!Qry.Eof;Qry.Next())
+    "SELECT name AS gate_name "
+    "FROM stations,trip_stations,station_halls "
+    "WHERE stations.desk=trip_stations.desk AND "
+    "      stations.work_mode=trip_stations.work_mode AND "
+    "      station_halls.airp=stations.airp AND "
+    "      station_halls.station=stations.name AND "
+    "      trip_stations.point_id=:point_id AND "
+    "      trip_stations.work_mode=:work_mode AND "
+    "      station_halls.hall=:hall ";
+  Qry.CreateVariable("point_id",otInteger,point_id);
+  Qry.CreateVariable("work_mode",otString,"П");
+  Qry.DeclareVariable("hall",otInteger);
+
+  xmlNodePtr hallNode = NodeAsNode("halls",tripdataNode)->children;
+  for(;hallNode!=NULL;hallNode=hallNode->next)
   {
-    itemNode = NewTextChild( node, "hall" );
-    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+    Qry.SetVariable("hall",NodeAsInteger("id",hallNode));
+    Qry.Execute();
+    if (Qry.Eof) continue;
+    node = NewTextChild( hallNode, "gates" );
+    for(;!Qry.Eof;Qry.Next())
+    {
+      NewTextChild( node, "gate_name", Qry.FieldAsString( "gate_name" ) );
+    };
   };
 
   vector<TTripInfo> markFltInfo;

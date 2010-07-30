@@ -860,6 +860,39 @@ bool TripsInterface::readTripHeader( int point_id, xmlNodePtr dataNode )
   return true;
 }
 
+void TripsInterface::readHalls( std::string airp_dep, std::string work_mode, xmlNodePtr dataNode)
+{
+  TQuery Qry(&OraSession);
+  Qry.Clear();
+  Qry.SQLText =
+    "SELECT halls2.id,halls2.name "
+    "FROM station_halls,halls2,stations "
+    "WHERE station_halls.hall=halls2.id AND halls2.airp=:airp_dep AND "
+    "     station_halls.airp=stations.airp AND "
+    "     station_halls.station=stations.name AND "
+    "     stations.desk=:desk AND stations.work_mode=:work_mode";
+  Qry.CreateVariable("airp_dep",otString,airp_dep);
+  Qry.CreateVariable("desk",otString, TReqInfo::Instance()->desk.code);
+  Qry.CreateVariable("work_mode",otString,work_mode);
+  Qry.Execute();
+  if (Qry.Eof)
+  {
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT id,name FROM halls2 WHERE airp=:airp_dep";
+    Qry.CreateVariable("airp_dep",otString,airp_dep);
+    Qry.Execute();
+  };
+  xmlNodePtr node = NewTextChild( dataNode, "halls" );
+  for(;!Qry.Eof;Qry.Next())
+  {
+    xmlNodePtr itemNode = NewTextChild( node, "hall" );
+    NewTextChild( itemNode, "id", Qry.FieldAsInteger( "id" ) );
+    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+  };
+};
+
+
 string convertLastTrfer(string s)
 {
   string res;
