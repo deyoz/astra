@@ -957,17 +957,19 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     xmlNodePtr variablesNode = NewTextChild(formDataNode, "variables");
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.rpt_type==rtPTMTXT) {
+    if(rpt_params.airp_arv.empty() ||
+            rpt_params.rpt_type==rtPTMTXT) {
         if(rpt_params.pr_trfer)
-            rpt_name="PMTrferTotalELTxt";
+            rpt_name="PMTrferTotalEL";
         else
-            rpt_name="PMTotalELTxt";
+            rpt_name="PMTotalEL";
     } else {
         if(rpt_params.pr_trfer)
             rpt_name="PMTrfer";
         else
             rpt_name="PM";
     };
+    if (rpt_params.rpt_type==rtPTMTXT) rpt_name=rpt_name+"Txt";
     get_report_form(rpt_name, resNode);
 
     {
@@ -1297,17 +1299,19 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     TQuery Qry(&OraSession);
     int pr_lat = GetRPEncoding(rpt_params);
     string rpt_name;
-    if(rpt_params.rpt_type==rtBTMTXT) {
+    if(rpt_params.airp_arv.empty() ||
+            rpt_params.rpt_type==rtBTMTXT) {
         if(rpt_params.pr_trfer)
-            rpt_name="BMTrferTotalTxt";
+            rpt_name="BMTrferTotal";
         else
-            rpt_name="BMTotalTxt";
+            rpt_name="BMTotal";
     } else {
         if(rpt_params.pr_trfer)
             rpt_name="BMTrfer";
         else
             rpt_name="BM";
     };
+    if (rpt_params.rpt_type==rtBTMTXT) rpt_name=rpt_name+"Txt";
     get_report_form(rpt_name, resNode);
 
     t_rpt_bm_bag_name bag_names;
