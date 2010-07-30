@@ -1627,6 +1627,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         "  pax_grp.point_dep = :point_id and "
         "  pax_grp.grp_id = bag2.grp_id and "
         "  pax_grp.grp_id = transfer.grp_id and "
+        "  pax_grp.bag_refuse = 0 and "
         "  bag2.pr_cabin = 0 and "
         "  transfer.pr_final <> 0 ";
     Qry.CreateVariable("point_id", otInteger, rpt_params.point_id);
