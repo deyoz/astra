@@ -62,7 +62,7 @@ void GetDeviceAirlines(xmlNodePtr node)
 {
   if (node==NULL) return;
   TReqInfo *reqInfo = TReqInfo::Instance();
-  if (reqInfo->desk.mode!=omCUTE && reqInfo->desk.mode!=omMUSE) return;
+//  if (reqInfo->desk.mode!=omCUTE && reqInfo->desk.mode!=omMUSE) return;
   xmlNodePtr accessNode=NewTextChild(node,"airlines");
   TAirlines &airlines=(TAirlines&)(base_tables.get("airlines"));
   if (reqInfo->user.access.airlines_permit) {
