@@ -2020,8 +2020,8 @@ bool BuildAODBTimes( int point_id, const std::string &point_addr, TFileDatas &fd
     string term = StationsQry.FieldAsString( "name" );
     if ( !term.empty() && term[0] == 'R' )
     	term = term.substr( 1, term.length() - 1 );
-    if ( !term.empty() && term[0] == '0' )
-    	term = term.substr( 1, term.length() - 1 );
+/*!!!den//!!!04.08.2010    if ( !term.empty() && term[0] == '0' )
+    	term = term.substr( 1, term.length() - 1 );*/
 		record<<";"<<""<<setw(4)<<term.substr(0,4)<<setw(1)<<(int)!StationsQry.FieldIsNULL( "start_time" );
 		StationsQry.Next();
 	}
