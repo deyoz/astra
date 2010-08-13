@@ -61,6 +61,30 @@ enum TBagNormType { bntFree, bntOrdinary, bntPaid,
 
 extern const char* BagNormTypeS[bntTypeNum];
 
+enum TRptType {
+    rtPTM,
+    rtPTMTXT,
+    rtBTM,
+    rtBTMTXT,
+    rtWEB,
+    rtWEBTXT,
+    rtREFUSE,
+    rtREFUSETXT,
+    rtNOTPRES,
+    rtNOTPRESTXT,
+    rtREM,
+    rtREMTXT,
+    rtCRS,
+    rtCRSTXT,
+    rtCRSUNREG,
+    rtCRSUNREGTXT,
+    rtEXAM,
+    rtEXAMTXT,
+    rtUnknown,
+    rtTypeNum
+};
+extern const char *RptTypeS[rtTypeNum];
+
 
 const int arx_trip_date_range=5;  //изменять можно только в большую сторону из-за уже проведенной архивации
 

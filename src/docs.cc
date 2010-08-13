@@ -398,63 +398,6 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     NewTextChild(variablesNode, "page_number_fmt", translateDocCap(pr_lat, "CAP.PAGE_NUMBER_FMT"));
 }
 
-enum TRptType {
-    rtPTM,
-    rtPTMTXT,
-    rtBTM,
-    rtBTMTXT,
-    rtWEB,
-    rtWEBTXT,
-    rtREFUSE,
-    rtREFUSETXT,
-    rtNOTPRES,
-    rtNOTPRESTXT,
-    rtREM,
-    rtREMTXT,
-    rtCRS,
-    rtCRSTXT,
-    rtCRSUNREG,
-    rtCRSUNREGTXT,
-    rtEXAM,
-    rtEXAMTXT,
-    rtUnknown,
-    rtTypeNum
-};
-
-const char *RptTypeS[rtTypeNum] = {
-    "PTM",
-    "PTMTXT",
-    "BTM",
-    "BTMTXT",
-    "WEB",
-    "WEBTXT",
-    "REFUSE",
-    "REFUSETXT",
-    "NOTPRES",
-    "NOTPRESTXT",
-    "REM",
-    "REMTXT",
-    "CRS",
-    "CRSTXT",
-    "CRSUNREG",
-    "CRSUNREGTX",
-    "EXAM",
-    "EXAMTXT",
-    "?"
-};
-
-TRptType DecodeRptType( const string rpt_type )
-{
-  int i;
-  for( i=0; i<(int)rtTypeNum; i++ )
-    if ( rpt_type == RptTypeS[ i ] )
-      break;
-  if ( i == rtTypeNum )
-    return rtUnknown;
-  else
-    return (TRptType)i;
-}
-
 struct TRptParams {
     int point_id;
     TRptType rpt_type;
@@ -844,7 +787,7 @@ void get_report_form(const string name, xmlNodePtr node)
     string form;
     string version;
     TQuery Qry(&OraSession);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION)) {
+    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") {
         Qry.SQLText = "select form, pr_locale from fr_forms2 where name = :name and version = :version ";
         version = get_report_version(name);
         Qry.CreateVariable("version", otString, version);
@@ -867,7 +810,8 @@ void get_report_form(const string name, xmlNodePtr node)
     xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
-    if (TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) and Qry.FieldAsInteger("pr_locale") != 0)
+    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
+            Qry.FieldAsInteger("pr_locale") != 0)
         SetProp(formNode, "pr_locale");
 }
 

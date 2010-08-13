@@ -260,6 +260,8 @@ void MsgToLog(std::string msg,
               int id2 = 0,
               int id3 = 0);
 
+ASTRA::TRptType DecodeRptType(const std::string s);
+const std::string EncodeRptType(ASTRA::TRptType s);
 ASTRA::TClientType DecodeClientType(const char* s);
 const char* EncodeClientType(ASTRA::TClientType s);
 ASTRA::TDocType DecodeDocType(const char* s);
