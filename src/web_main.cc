@@ -598,7 +598,10 @@ bool findPnr( const string &surname, const string &pnr_addr,
   		SearchPnrData.airp_arv = Qry.FieldAsString( "airp" );
 	    SearchPnrData.city_arv = ((TAirpsRow&)baseairps.get_row( "code", SearchPnrData.airp_arv, true )).city;
       string region = ((TCitiesRow&)basecities.get_row( "code", SearchPnrData.city_arv, true )).region;
-      SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+      if ( Qry.FieldIsNULL( "scd_in" ) )
+      	SearchPnrData.scd_in = NoExists;
+      else
+        SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
 
       //определение багажной нормы (с учетом возможного кодшера)
       TTripInfo operFlt,pnrMarkFlt;
@@ -778,7 +781,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   NewTextChild( node, "scd_out", DateTimeToStr( SearchPnrData.scd_out_local, ServerFormatDateTimeAsString ) );
   NewTextChild( node, "airp_dep", SearchPnrData.airp_dep );
   NewTextChild( node, "city_dep", SearchPnrData.city_dep );
-  NewTextChild( node, "scd_in", DateTimeToStr( SearchPnrData.scd_in, ServerFormatDateTimeAsString ) );
+  if ( SearchPnrData.scd_in != NoExists )
+    NewTextChild( node, "scd_in", DateTimeToStr( SearchPnrData.scd_in, ServerFormatDateTimeAsString ) );
   NewTextChild( node, "airp_arv", SearchPnrData.airp_arv );
   NewTextChild( node, "city_arv", SearchPnrData.city_arv );
   if ( SearchPnrData.act_out > NoExists )
