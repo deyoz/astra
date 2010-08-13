@@ -607,6 +607,23 @@ void TReqInfo::MsgToLog(TLogMsg &msg)
 
 /***************************************************************************************/
 
+TRptType DecodeRptType( const string rpt_type )
+{
+  int i;
+  for( i=0; i<(int)rtTypeNum; i++ )
+    if ( rpt_type == RptTypeS[ i ] )
+      break;
+  if ( i == rtTypeNum )
+    return rtUnknown;
+  else
+    return (TRptType)i;
+}
+
+const string EncodeRptType(TRptType s)
+{
+  return RptTypeS[s];
+};
+
 TClientType DecodeClientType(const char* s)
 {
   unsigned int i;
