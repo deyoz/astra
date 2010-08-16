@@ -754,9 +754,9 @@ void get_report_form(const string name, xmlNodePtr node)
     xmlNodePtr formNode = ReplaceTextChild(node, "form", form);
     SetProp(formNode, "name", name);
     SetProp(formNode, "version", version);
-    if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
+ /*   if ((TReqInfo::Instance()->desk.compatible(NEW_TERM_VERSION) or TReqInfo::Instance()->screen.name == "DOCS.EXE") and
             Qry.FieldAsInteger("pr_locale") != 0)
-        SetProp(formNode, "pr_locale");
+        SetProp(formNode, "pr_locale");*/
 }
 
 struct TPMTotalsKey {
