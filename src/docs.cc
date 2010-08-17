@@ -407,11 +407,13 @@ struct TRptParams {
     bool pr_trfer;
     bool pr_brd;
     TCodeShareInfo mkt_flt;
+    TClientType client_type;
     TRptParams():
         point_id(NoExists),
         pr_et(false),
         pr_trfer(false),
-        pr_brd(false)
+        pr_brd(false),
+        client_type(ctTypeNum)
     {};
 };
 
@@ -2652,15 +2654,34 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlAddChild(formDataNode, dataNode);
     // Теперь переменные отчета
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
-    if ( GetNode( "web", reqNode ) )
-        NewTextChild(variablesNode, "paxlist_type", translateDocCap(pr_lat, "CAP.PAX_LIST.WEB"));
-    else
+    if ( pr_web) {
+        if(rpt_params.client_type != ctTypeNum) {
+            string ls_type;
+            switch(rpt_params.client_type) {
+                case ctWeb:
+                    ls_type = translateDocCap(pr_lat, "CAP.PAX_LIST.WEB");
+                    break;
+                case ctKiosk:
+                    ls_type = translateDocCap(pr_lat, "CAP.PAX_LIST.KIOSK");
+                    break;
+                default:
+                    throw Exception("Unexpected client_type: %s", EncodeClientType(rpt_params.client_type));
+            }
+            NewTextChild(variablesNode, "paxlist_type", ls_type);
+        }
+    } else
         NewTextChild(variablesNode, "paxlist_type", translateDocCap(pr_lat, "CAP.PAX_LIST.BRD"));
-    NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST",
-                LParams()
-                << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
-                << LParam("flight", get_flight(variablesNode)))
-            );
+    if(pr_web and rpt_params.client_type == ctTypeNum)
+        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST.SELF_CKIN",
+                    LParams()
+                    << LParam("flight", get_flight(variablesNode)))
+                );
+    else
+        NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST",
+                    LParams()
+                    << LParam("list_type", NodeAsString("paxlist_type", variablesNode))
+                    << LParam("flight", get_flight(variablesNode)))
+                );
     currNode = variablesNode->children;
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, translateDocCap(pr_lat, "CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode))));
@@ -2778,13 +2799,13 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web");
+    NewTextChild(reqNode, "web", (rpt_params.client_type == ctTypeNum ? "" : EncodeClientType(rpt_params.client_type)));
     EXAM(rpt_params, reqNode, resNode);
 }
 
 void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web");
+    NewTextChild(reqNode, "web", (rpt_params.client_type == ctTypeNum ? "" : EncodeClientType(rpt_params.client_type)));
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 
@@ -2807,6 +2828,11 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         rpt_params.mkt_flt.flt_no = NodeAsIntegerFast("flt_no", node);
         rpt_params.mkt_flt.suffix = ElemToElemId(etSuffix, NodeAsStringFast("suffix", node, ""), fmt);
     }
+    xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
+    if(clientTypeNode == NULL)
+        rpt_params.client_type = ctTypeNum;
+    else
+        rpt_params.client_type = DecodeClientType(NodeAsString(clientTypeNode));
     switch(rpt_params.rpt_type) {
         case rtPTM:
             PTM(rpt_params, resNode);

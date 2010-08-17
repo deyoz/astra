@@ -37,7 +37,7 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TripsInterface::readHalls(Qry.FieldAsString("airp"), "è", tripdataNode);
 }
 
-void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_web )
+void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, int client_type )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery ClassesQry(&OraSession);
@@ -66,9 +66,15 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_
             "    pax_grp.grp_id=pax.grp_id AND "
             "    point_dep=:point_id AND class=:class AND "
             "    pr_brd IS NOT NULL ";
-  if(pr_web) {
-      sql += " and pax_grp.client_type = :ctWeb ";
-      Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+  if(client_type != NoExists) {
+      if(client_type != ctTypeNum) {
+          sql += " and pax_grp.client_type = :client_type ";
+          Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+      } else {
+          sql += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+          Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+          Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+      }
   }
   Qry.SQLText = sql;
   Qry.CreateVariable( "point_id", otInteger, point_id );
@@ -133,9 +139,15 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool pr_
           " pax_grp.grp_id=pax.grp_id AND "
           " point_dep = :point_id and "
           " pr_brd is not null ";
-      if(pr_web) {
-          SQLText += " and pax_grp.client_type = :ctWeb ";
-          Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+      if(client_type != NoExists) {
+          if(client_type != ctTypeNum) {
+              SQLText += " and pax_grp.client_type = :client_type ";
+              Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+          } else {
+              SQLText += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+              Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+              Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+          }
       }
       Qry.SQLText = SQLText;
       Qry.CreateVariable("point_id", otInteger, point_id);
@@ -379,7 +391,13 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     }
-    bool pr_web = GetNode( "web", reqNode ) != NULL;
+    int client_type = NoExists;
+
+    xmlNodePtr webNode = GetNode( "web", reqNode );
+    if(webNode != NULL) {
+        string str_ct = NodeAsString(webNode);
+        client_type = (str_ct.empty() ? ctTypeNum : DecodeClientType(str_ct.c_str()));
+    }
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -471,9 +489,15 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     };
 
     condition+=" AND point_dep= :point_id AND pr_brd IS NOT NULL ";
-    if (pr_web) {
-        condition += " and pax_grp.client_type = :ctWeb ";
-        Qry.CreateVariable("ctWeb",otString,EncodeClientType(ctWeb));
+    if (client_type != NoExists) {
+        if(client_type != ctTypeNum) {
+            condition += " and pax_grp.client_type = :client_type ";
+            Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+        } else {
+            condition += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+            Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
+            Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
+        }
     }
     Qry.CreateVariable("point_id",otInteger,point_id);
 
@@ -821,7 +845,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
         };
     };
-    readTripCounters(point_id,dataNode, pr_web);
+    readTripCounters(point_id,dataNode, client_type);
 };
 
 
