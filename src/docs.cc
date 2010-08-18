@@ -407,13 +407,13 @@ struct TRptParams {
     bool pr_trfer;
     bool pr_brd;
     TCodeShareInfo mkt_flt;
-    TClientType client_type;
+    string client_type;
     TRptParams():
         point_id(NoExists),
         pr_et(false),
         pr_trfer(false),
         pr_brd(false),
-        client_type(ctTypeNum)
+        client_type("")
     {};
 };
 
@@ -2634,14 +2634,14 @@ void CRSTXT(TRptParams &rpt_params, xmlNodePtr resNode)
 
 void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    bool pr_web = GetNode( "web", reqNode ) != NULL;
+    bool pr_web = (rpt_params.rpt_type == rtWEB or rpt_params.rpt_type == rtWEBTXT);
     if(rpt_params.rpt_type == rtEXAMTXT or rpt_params.rpt_type == rtWEBTXT)
         get_report_form("docTxt", resNode);
     else
         get_report_form(pr_web ? "web" : "exam", resNode);
     int pr_lat = GetRPEncoding(rpt_params);
 
-    BrdInterface::GetPax(reqNode, resNode);
+    BrdInterface::GetPax(reqNode, resNode, pr_web);
     xmlNodePtr currNode = resNode->children;
     xmlNodePtr formDataNode = NodeAsNodeFast("form_data", currNode);
     xmlNodePtr dataNode = NodeAsNodeFast("data", currNode);
@@ -2655,9 +2655,9 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     // Теперь переменные отчета
     PaxListVars(rpt_params.point_id, pr_lat, variablesNode);
     if ( pr_web) {
-        if(rpt_params.client_type != ctTypeNum) {
+        if(!rpt_params.client_type.empty()) {
             string ls_type;
-            switch(rpt_params.client_type) {
+            switch(DecodeClientType(rpt_params.client_type.c_str())) {
                 case ctWeb:
                     ls_type = translateDocCap(pr_lat, "CAP.PAX_LIST.WEB");
                     break;
@@ -2665,13 +2665,13 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                     ls_type = translateDocCap(pr_lat, "CAP.PAX_LIST.KIOSK");
                     break;
                 default:
-                    throw Exception("Unexpected client_type: %s", EncodeClientType(rpt_params.client_type));
+                    throw Exception("Unexpected client_type: %s", rpt_params.client_type.c_str());
             }
             NewTextChild(variablesNode, "paxlist_type", ls_type);
         }
     } else
         NewTextChild(variablesNode, "paxlist_type", translateDocCap(pr_lat, "CAP.PAX_LIST.BRD"));
-    if(pr_web and rpt_params.client_type == ctTypeNum)
+    if(pr_web and rpt_params.client_type.empty())
         NewTextChild(variablesNode, "caption", translateDocCap(pr_lat, "CAP.DOC.PAX_LIST.SELF_CKIN",
                     LParams()
                     << LParam("flight", get_flight(variablesNode)))
@@ -2799,13 +2799,13 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 
 void WEB(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web", (rpt_params.client_type == ctTypeNum ? "" : EncodeClientType(rpt_params.client_type)));
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
     EXAM(rpt_params, reqNode, resNode);
 }
 
 void WEBTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-    NewTextChild(reqNode, "web", (rpt_params.client_type == ctTypeNum ? "" : EncodeClientType(rpt_params.client_type)));
+    NewTextChild(reqNode, "client_type", rpt_params.client_type);
     EXAMTXT(rpt_params, reqNode, resNode);
 }
 

@@ -379,7 +379,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
         throw EXCEPTIONS::Exception("ETStatusInterface::KickHandler: context TERM_REQUEST termReqNode=NULL");;
       string termReqName=(char*)(termReqNode->name);
 
-      if (reqInfo->client_type==ctWeb) {
+      if (reqInfo->client_type==ctWeb ||
+          reqInfo->client_type==ctKiosk) {
       	xmlNodePtr node = NodeAsNode("/term/query",reqNode->doc);
       	xmlUnlinkNode( reqNode );
       	xmlFreeNode( reqNode );
@@ -443,7 +444,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
                          NodeAsNode("segments/segment",termReqNode)->next!=NULL);  //определим по запросу TERM_REQUEST;
         map<string, pair< vector<string>, vector< pair<string,string> > > >::iterator i;
         if (reqInfo->desk.compatible(DEFER_ETSTATUS_VERSION) && !defer_etstatus ||
-        	  reqInfo->client_type == ctWeb)
+        	  reqInfo->client_type == ctWeb ||
+        	  reqInfo->client_type == ctKiosk)
         {
           ostringstream msg;
           for(i=errors.begin();i!=errors.end();i++)
@@ -467,7 +469,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
               msg << j->second << std::endl;
             };
           };
-          if ( reqInfo->client_type == ctWeb )
+          if ( reqInfo->client_type == ctWeb ||
+               reqInfo->client_type == ctKiosk )
             AstraLocale::showError( "MSG.ETICK.CHANGE_STATUS_ERROR" );
           NewTextChild(resNode,"ets_error",msg.str());
           //откат всех подтвержденных статусов
@@ -506,7 +509,8 @@ void ETStatusInterface::KickHandler(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xm
           };
         };
 
-        if (reqInfo->client_type==ctWeb)
+        if (reqInfo->client_type==ctWeb ||
+            reqInfo->client_type==ctKiosk)
       	{
           if (termReqName=="SavePax")
           {

@@ -29,8 +29,8 @@ public:
   virtual void Display(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode) {};
 
   static void readTripData( int point_id, xmlNodePtr dataNode );
-  static void readTripCounters( int point_id, xmlNodePtr dataNode, int client_type = ASTRA::NoExists );
-  static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode);
+  static void readTripCounters( int point_id, xmlNodePtr dataNode, bool used_for_web_rpt, std::string client_type );
+  static void GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_web_rpt);
 };
 
 #endif

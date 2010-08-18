@@ -37,7 +37,7 @@ void BrdInterface::readTripData( int point_id, xmlNodePtr dataNode )
   TripsInterface::readHalls(Qry.FieldAsString("airp"), "è", tripdataNode);
 }
 
-void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, int client_type )
+void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, bool used_for_web_rpt, string client_type )
 {
   TReqInfo *reqInfo = TReqInfo::Instance();
   TQuery ClassesQry(&OraSession);
@@ -66,12 +66,12 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, int clie
             "    pax_grp.grp_id=pax.grp_id AND "
             "    point_dep=:point_id AND class=:class AND "
             "    pr_brd IS NOT NULL ";
-  if(client_type != NoExists) {
-      if(client_type != ctTypeNum) {
-          sql += " and pax_grp.client_type = :client_type ";
-          Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+  if(used_for_web_rpt) {
+      if(!client_type.empty()) {
+          sql += " AND pax_grp.client_type = :client_type ";
+          Qry.CreateVariable("client_type",otString,client_type);
       } else {
-          sql += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+          sql += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
           Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
           Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
       }
@@ -139,12 +139,12 @@ void BrdInterface::readTripCounters( int point_id, xmlNodePtr dataNode, int clie
           " pax_grp.grp_id=pax.grp_id AND "
           " point_dep = :point_id and "
           " pr_brd is not null ";
-      if(client_type != NoExists) {
-          if(client_type != ctTypeNum) {
-              SQLText += " and pax_grp.client_type = :client_type ";
-              Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+      if(used_for_web_rpt) {
+          if(!client_type.empty()) {
+              SQLText += " AND pax_grp.client_type = :client_type ";
+              Qry.CreateVariable("client_type",otString,client_type);
           } else {
-              SQLText += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+              SQLText += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
               Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
               Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
           }
@@ -256,7 +256,7 @@ void BrdInterface::DeplaneAll(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     check_brd_alarm( point_id );
   };
 
-  GetPax(reqNode,resNode);
+  GetPax(reqNode,resNode,false);
 
   ASTRA::showMessage(msg);
 };
@@ -367,10 +367,10 @@ bool ChckSt(int pax_id, string& curr_seat_no)
 
 void BrdInterface::PaxList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
-  GetPax(reqNode,resNode);
+  GetPax(reqNode,resNode,false);
 };
 
-void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
+void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_web_rpt)
 {
     TReqInfo *reqInfo = TReqInfo::Instance();
 
@@ -391,13 +391,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
         NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
         NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     }
-    int client_type = NoExists;
+    string client_type;
 
-    xmlNodePtr webNode = GetNode( "web", reqNode );
-    if(webNode != NULL) {
-        string str_ct = NodeAsString(webNode);
-        client_type = (str_ct.empty() ? ctTypeNum : DecodeClientType(str_ct.c_str()));
-    }
+    if (used_for_web_rpt)
+      client_type = NodeAsString( "client_type", reqNode );
 
     xmlNodePtr dataNode=GetNode("data",resNode);
     if (dataNode==NULL)
@@ -461,7 +458,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
                        HallQry.FieldAsString("flt_airp"))!=0) hall=-1;
           };
 
-          readTripCounters( point_id, dataNode );
+          readTripCounters( point_id, dataNode, false, "" );
           readTripData( point_id, dataNode );
         }
         else
@@ -489,12 +486,12 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
     };
 
     condition+=" AND point_dep= :point_id AND pr_brd IS NOT NULL ";
-    if (client_type != NoExists) {
-        if(client_type != ctTypeNum) {
-            condition += " and pax_grp.client_type = :client_type ";
-            Qry.CreateVariable("client_type",otString,EncodeClientType((TClientType)client_type));
+    if (used_for_web_rpt) {
+        if(!client_type.empty()) {
+            condition += " AND pax_grp.client_type = :client_type ";
+            Qry.CreateVariable("client_type",otString,client_type);
         } else {
-            condition += " and pax_grp.client_type in (:ctWeb, :ctKiosk) ";
+            condition += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
             Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
             Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
         }
@@ -845,7 +842,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode)
             };
         };
     };
-    readTripCounters(point_id,dataNode, client_type);
+    readTripCounters(point_id, dataNode, used_for_web_rpt, client_type);
 };
 
 

@@ -190,7 +190,8 @@ void AstraJxtCallbacks::UserAfter()
 	  XMLRequestCtxt *xmlRC = getXmlCtxt();
 	  xmlNodePtr node=NodeAsNode("/term/answer",xmlRC->resDoc);
 	  SetProp(node, "execute_time", TReqInfo::Instance()->getExecuteMSec() );
-	  if ( TReqInfo::Instance()->client_type == ctWeb )
+	  if ( TReqInfo::Instance()->client_type == ctWeb ||
+	       TReqInfo::Instance()->client_type == ctKiosk )
 	  	RevertWebResDoc( (const char*)xmlRC->reqDoc->children->children->children->name, node );
 }
 

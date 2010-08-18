@@ -994,6 +994,7 @@ void getPnr( int pnr_id, vector<TWebPax> &pnr )
     	  switch(DecodeClientType(Qry.FieldAsString( "client_type" )))
     	  {
     	    case ctWeb:
+    	    case ctKiosk:
   		    	pax.checkin_status = "web_checked";
   		  		break;
   		  	default: ;

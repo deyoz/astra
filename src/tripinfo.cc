@@ -480,11 +480,11 @@ void TripsInterface::GetSegInfo(xmlNodePtr reqNode, xmlNodePtr resNode, xmlNodeP
       reqInfo->screen.name == "EXAM.EXE" )
   {
       if ( GetNode( "counters", reqNode ) )
-          BrdInterface::readTripCounters( point_id, dataNode );
+          BrdInterface::readTripCounters( point_id, dataNode, false, "" );
       if ( GetNode( "tripdata", reqNode ) )
           BrdInterface::readTripData( point_id, dataNode );
       if ( GetNode( "paxdata", reqNode ) && resNode!=NULL ) {
-          BrdInterface::GetPax(reqNode,resNode);
+          BrdInterface::GetPax(reqNode,resNode,false);
           xmlNodePtr variablesNode = GetNode("/term/answer/form_data/variables", dataNode->doc);
           if(variablesNode) {
               NewTextChild(variablesNode, "exam_totals", getLocaleText("CAP.DOC.EXAMBRD.EXAM_TOTALS",
