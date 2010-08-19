@@ -2829,10 +2829,8 @@ void  DocsInterface::RunReport2(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNod
         rpt_params.mkt_flt.suffix = ElemToElemId(etSuffix, NodeAsStringFast("suffix", node, ""), fmt);
     }
     xmlNodePtr clientTypeNode = GetNodeFast("client_type", node);
-    if(clientTypeNode == NULL)
-        rpt_params.client_type = ctTypeNum;
-    else
-        rpt_params.client_type = DecodeClientType(NodeAsString(clientTypeNode));
+    if(clientTypeNode != NULL)
+        rpt_params.client_type = NodeAsString(clientTypeNode);
     switch(rpt_params.rpt_type) {
         case rtPTM:
             PTM(rpt_params, resNode);

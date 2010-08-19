@@ -2478,7 +2478,7 @@ void RunFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
         SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("Š¨®áª¨"));
-        SetProp(colNode, "width", 35);
+        SetProp(colNode, "width", 40);
         SetProp(colNode, "align", taRightJustify);
 
         colNode = NewTextChild(headerNode, "col", getLocaleText("‚‡"));
