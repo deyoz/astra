@@ -485,65 +485,77 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
       Qry.CreateVariable("reg_no",otInteger,reg_no);
     };
 
-    condition+=" AND point_dep= :point_id AND pr_brd IS NOT NULL ";
+    ostringstream sql;
+    sql << "SELECT "
+           "    pax_id, "
+           "    pax_grp.grp_id, "
+           "    point_dep AS point_id, "
+           "    pr_brd, "
+           "    pr_exam, "
+           "    doc_check, "
+           "    reg_no, "
+           "    surname, "
+           "    pax.name, "
+           "    pers_type, "
+           "    class, "
+           "    pax_grp.status, "
+           "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
+           "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
+           "    seats, "
+           "    wl_type, "
+           "    ticket_no, "
+           "    coupon_no, "
+           "    document, "
+           "    pax.tid, "
+           "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
+           "    NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
+           "    NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
+           "    NVL(ckin.get_rkAmount(pax_grp.grp_id,NULL,rownum),0) AS rk_amount, "
+           "    NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
+           "    NVL(pax_grp.excess,0) AS excess, "
+           "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
+           "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
+           "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
+           "    client_type, client_types.short_name AS client_name, "
+           "    tckin_id, seg_no ";
+
+    if (used_for_web_rpt)
+      sql << ", users2.descr AS user_descr ";
+
+    sql << "FROM "
+           "    pax_grp, "
+           "    pax, "
+           "    client_types, "
+           "    tckin_pax_grp ";
+
+    if (used_for_web_rpt)
+      sql << ", users2 ";
+
+    sql << "WHERE "
+           "    pax_grp.grp_id=pax.grp_id AND "
+           "    pax_grp.client_type=client_types.code AND "
+           "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) AND ";
+
+    if (used_for_web_rpt)
+      sql << "  pax_grp.user_id=users2.user_id AND ";
+
+    sql << "    point_dep= :point_id AND pr_brd IS NOT NULL ";
+
     if (used_for_web_rpt) {
         if(!client_type.empty()) {
-            condition += " AND pax_grp.client_type = :client_type ";
+            sql << " AND pax_grp.client_type = :client_type ";
             Qry.CreateVariable("client_type",otString,client_type);
         } else {
-            condition += " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
+            sql << " AND pax_grp.client_type IN (:ctWeb, :ctKiosk) ";
             Qry.CreateVariable("ctWeb", otString, EncodeClientType(ctWeb));
             Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
         }
-    }
+    };
+
+    sql << " ORDER BY reg_no ";
+
     Qry.CreateVariable("point_id",otInteger,point_id);
-
-    string sqlText = (string)
-        "SELECT "
-        "    pax_id, "
-        "    pax_grp.grp_id, "
-        "    point_dep AS point_id, "
-        "    pr_brd, "
-        "    pr_exam, "
-        "    doc_check, "
-        "    reg_no, "
-        "    surname, "
-        "    pax.name, "
-        "    pers_type, "
-        "    class, "
-        "    pax_grp.status, "
-        "    NVL(report.get_last_trfer_airp(pax_grp.grp_id),pax_grp.airp_arv) AS airp_arv, "
-        "    salons.get_seat_no(pax.pax_id,pax.seats,pax_grp.status,pax_grp.point_dep,'seats',rownum) AS seat_no, "
-        "    seats, "
-        "    wl_type, "
-        "    ticket_no, "
-        "    coupon_no, "
-        "    document, "
-        "    pax.tid, "
-        "    ckin.get_remarks(pax_id,', ',0) AS remarks, "
-        "    NVL(ckin.get_bagAmount(pax_grp.grp_id,NULL,rownum),0) AS bag_amount, "
-        "    NVL(ckin.get_bagWeight(pax_grp.grp_id,NULL,rownum),0) AS bag_weight, "
-        "    NVL(ckin.get_rkAmount(pax_grp.grp_id,NULL,rownum),0) AS rk_amount, "
-        "    NVL(ckin.get_rkWeight(pax_grp.grp_id,NULL,rownum),0) AS rk_weight, "
-        "    NVL(pax_grp.excess,0) AS excess, "
-        "    kassa.get_value_bag_count(pax_grp.grp_id) AS value_bag_count, "
-        "    ckin.get_birks(pax_grp.grp_id,NULL) AS tags, "
-        "    kassa.pr_payment(pax_grp.grp_id) AS pr_payment, "
-        "    client_type, client_types.short_name AS client_name, "
-        "    tckin_id, seg_no "
-        "FROM "
-        "    pax_grp, "
-        "    pax, "
-        "    client_types, "
-        "    tckin_pax_grp "
-        "WHERE "
-        "    pax_grp.grp_id=pax.grp_id AND "
-        "    pax_grp.client_type=client_types.code AND "
-        "    pax_grp.grp_id=tckin_pax_grp.grp_id(+) "+
-        condition +
-        " ORDER BY reg_no ";
-
-    Qry.SQLText = sqlText;
+    Qry.SQLText = sql.str().c_str();
     Qry.Execute();
     if (reg_no!=-1 && Qry.Eof)
       throw AstraLocale::UserException("MSG.PASSENGER.NOT_CHECKIN");
@@ -603,6 +615,10 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
         NewTextChild(paxNode, "remarks", Qry.FieldAsString("remarks"), "");
         if (DecodeClientType(Qry.FieldAsString("client_type"))!=ctTerm)
           NewTextChild(paxNode, "client_name", Qry.FieldAsString("client_name"));
+
+        if (used_for_web_rpt)
+          NewTextChild(paxNode, "user_descr", Qry.FieldAsString("user_descr")); //login не надо использовать, так как он м.б. пустым
+
 
         if (!Qry.FieldIsNULL("tckin_id"))
         {
