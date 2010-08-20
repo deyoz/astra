@@ -313,6 +313,7 @@ void populate_doc_cap(xmlNodePtr variablesNode, bool pr_lat)
     NewTextChild(variablesNode, "doc_cap_ex", translateDocCap(pr_lat, "Дс"));
     NewTextChild(variablesNode, "doc_cap_brd", translateDocCap(pr_lat, "Пс"));
     NewTextChild(variablesNode, "doc_cap_test", translateDocCap(pr_lat, "CAP.TEST"));
+    NewTextChild(variablesNode, "doc_cap_user_descr", translateDocCap(pr_lat, "Оператор"));
 }
 
 void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime part_key)
@@ -2686,6 +2687,7 @@ void EXAM(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlNodePtr totalNode = NodeAsNodeFast("total", currNode);
     NodeSetContent(totalNode, translateDocCap(pr_lat, "CAP.TOTAL.VAL", LParams() << LParam("total", NodeAsString(totalNode))));
     populate_doc_cap(variablesNode, pr_lat);
+    ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str()); //!!!
 }
 
 void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -2714,7 +2716,8 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     s.str("");
     s
         << right << setw(3)  << translateDocCap(lat, "№") << col_sym
-        << left << setw(pr_web ? 20 : 22) << translateDocCap(lat, "Фамилия")
+        << left << setw(pr_web ? 19 : 21) << translateDocCap(lat, "Фамилия")
+        << setw(9)  << translateDocCap(lat, "Оператор")
         << setw(4)  << translateDocCap(lat, "Пас");
     if(pr_web)
         s
@@ -2726,8 +2729,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     s
         << setw(10) << translateDocCap(lat, "Документ")
         << setw(10) << translateDocCap(lat, "Билет")
-        << setw(15) << translateDocCap(lat, "№ б/б")
-        << setw(8)  << translateDocCap(lat, "Ремарки");
+        << setw(15) << translateDocCap(lat, "№ б/б");
     NewTextChild(variablesNode, "page_header_bottom", s.str() );
     s.str("");
     s
@@ -2744,7 +2746,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
     for(; rowNode != NULL; rowNode = rowNode->next)
     {
         //рабиваем фамилию, документ, билет, бирки, ремарки
-        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 19 : 21),rows);
+        SeparateString(((string)NodeAsString("surname",rowNode) + " " + NodeAsString("name", rowNode, "")).c_str(),(pr_web ? 18 : 20),rows);
         fields["surname"]=rows;
 
         SeparateString(NodeAsString("document",rowNode, ""),9,rows);
@@ -2753,11 +2755,11 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
         SeparateString(NodeAsString("ticket_no",rowNode, ""),9,rows);
         fields["tkts"]=rows;
 
-        SeparateString(NodeAsString("tags",rowNode, ""),14,rows);
+        SeparateString(NodeAsString("tags",rowNode, ""),15,rows);
         fields["tags"]=rows;
 
-        SeparateString(NodeAsString("remarks",rowNode, ""),8,rows);
-        fields["remarks"]=rows;
+        SeparateString(NodeAsString("user_descr",rowNode, ""),8,rows);
+        fields["user_descr"]=rows;
 
         row=0;
         s.str("");
@@ -2766,7 +2768,8 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             if (row != 0) s << endl;
             s
                 << right << setw(3) << (row == 0 ? NodeAsString("reg_no", rowNode) : "") << col_sym
-                << left << setw(pr_web ? 19 : 21) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << left << setw(pr_web ? 18 : 20) << (!fields["surname"].empty() ? *(fields["surname"].begin()) : "") << col_sym
+                << left << setw(8) << (!fields["user_descr"].empty() ? *(fields["user_descr"].begin()) : "") << col_sym
                 << right <<  setw(3) << (row == 0 ? NodeAsString("pers_type", rowNode, "ВЗ") : "") << col_sym;
             if(pr_web) {
                 s
@@ -2779,8 +2782,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
             s
                 << left << setw(9) << (!fields["docs"].empty() ? *(fields["docs"].begin()) : "") << col_sym
                 << left << setw(9) << (!fields["tkts"].empty() ? *(fields["tkts"].begin()) : "") << col_sym
-                << left << setw(14) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "") << col_sym
-                << left << setw(8) << (!fields["remarks"].empty() ? *(fields["remarks"].begin()) : "");
+                << left << setw(15) << (!fields["tags"].empty() ? *(fields["tags"].begin()) : "");
             for(map< string, vector<string> >::iterator f = fields.begin(); f != fields.end(); f++)
                 if (!f->second.empty()) f->second.erase(f->second.begin());
             row++;
@@ -2790,7 +2792,7 @@ void EXAMTXT(TRptParams &rpt_params, xmlNodePtr reqNode, xmlNodePtr resNode)
                 !fields["docs"].empty() ||
                 !fields["tkts"].empty() ||
                 !fields["tags"].empty() ||
-                !fields["remarks"].empty()
+                !fields["user_descr"].empty()
              );
         NewTextChild(rowNode,"str",s.str());
     }
