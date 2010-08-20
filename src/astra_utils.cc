@@ -209,7 +209,8 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
     throw AstraLocale::UserException("MSG.CITY.REGION_NOT_DEFINED", LParams() << LParam("city", desk.city));
   desk.tz_region = Qry.FieldAsString( "region" );
   desk.time = UTCToLocal( NowUTC(), desk.tz_region );
-  if ( !screen.pr_logon )
+  if ( !screen.pr_logon ||
+       !InitData.pr_web && !InitData.checkUserLogon )
   	return;
   Qry.Clear();
   if ( InitData.pr_web ) {
@@ -218,6 +219,9 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       "FROM users2 "
       "WHERE login = :login ";
     Qry.CreateVariable( "login", otString, InitData.opr );
+    Qry.Execute();
+    if (Qry.Eof)
+      throw AstraLocale::UserException( "MSG.USER.ACCESS_DENIED");
   }
   else {
     Qry.SQLText =
@@ -225,19 +229,14 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
       "FROM users2 "
       "WHERE desk = UPPER(:pult) ";
     Qry.CreateVariable( "pult", otString, InitData.pult );
-  }
-
-  Qry.Execute();
-  if ( Qry.RowCount() == 0 )
-  {
-    if (!InitData.checkUserLogon )
-     	return;
-    else
+    Qry.Execute();
+    if (Qry.Eof)
       throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+    if ( !InitData.opr.empty() )
+      if ( InitData.opr != Qry.FieldAsString( "login" ) )
+        throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
   };
-  if ( !InitData.opr.empty() )
-    if ( InitData.opr != Qry.FieldAsString( "login" ) )
-      throw AstraLocale::UserException( "MSG.USER.NEED_TO_LOGIN" );
+
   if ( Qry.FieldAsInteger( "pr_denial" ) == -1 )
   	throw AstraLocale::UserException( "MSG.USER.DELETED");
   if ( Qry.FieldAsInteger( "pr_denial" ) != 0 )
@@ -248,7 +247,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   user.login = Qry.FieldAsString( "login" );
 
 
-//  if (!InitData.pr_web) {
   Qry.Clear();
   Qry.SQLText =
     "SELECT client_type FROM web_clients "
@@ -264,7 +262,6 @@ void TReqInfo::Initialize( TReqInfoInitData &InitData )
   	client_type = DecodeClientType( Qry.FieldAsString( "client_type" ) );
   else
     client_type = ctTerm;
-//  }
 
   //если служащий порта - проверим пульт с которого он заходит
   /*if (user.user_type==utAirport)
