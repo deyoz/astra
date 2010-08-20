@@ -211,7 +211,10 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 		SearchPnrData.act_out = Qry.FieldAsDateTime( "act_out" );
 	tst();
 	TTripStages tripStages( point_id );
-	SearchPnrData.web_stage = tripStages.getStage( stWEB );
+	if ( reqInfo->client_type == ctWeb )
+	  SearchPnrData.web_stage = tripStages.getStage( stWEB );
+	else
+		SearchPnrData.web_stage = tripStages.getStage( stKIOSK );
 	SearchPnrData.checkin_stage = tripStages.getStage( stCheckIn );
 	SearchPnrData.brd_stage = tripStages.getStage( stBoarding );
 
@@ -242,14 +245,26 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	TStagesRules *sr = TStagesRules::Instance();
 	TCkinClients ckin_clients;
 	TTripStages::ReadCkinClients( point_id, ckin_clients );
-  if ( sr->isClientStage( (int)sOpenWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sOpenWEBCheckIn ) )
-  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, NoExists) );
-  else
-  	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
-  if ( sr->isClientStage( (int)sCloseWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sCloseWEBCheckIn ) )
-  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, NoExists) );
-  else
-  	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
+	if ( reqInfo->client_type == ctWeb ) {
+    if ( sr->isClientStage( (int)sOpenWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sOpenWEBCheckIn ) )
+    	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, NoExists) );
+    else
+    	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenWEBCheckIn), region ) ) );
+    if ( sr->isClientStage( (int)sCloseWEBCheckIn ) && !sr->canClientStage( ckin_clients, (int)sCloseWEBCheckIn ) )
+    	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, NoExists) );
+    else
+    	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseWEBCheckIn), region ) ) );
+  };
+  if  ( reqInfo->client_type == ctKiosk ) {
+    if ( sr->isClientStage( (int)sOpenKIOSKCheckIn ) && !sr->canClientStage( ckin_clients, (int)sOpenKIOSKCheckIn ) )
+    	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, NoExists) );
+    else
+    	SearchPnrData.stages.insert( make_pair(sOpenWEBCheckIn, UTCToLocal( tripStages.time(sOpenKIOSKCheckIn), region ) ) );
+    if ( sr->isClientStage( (int)sCloseKIOSKCheckIn ) && !sr->canClientStage( ckin_clients, (int)sCloseKIOSKCheckIn ) )
+    	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, NoExists) );
+    else
+    	SearchPnrData.stages.insert( make_pair(sCloseWEBCheckIn, UTCToLocal( tripStages.time(sCloseKIOSKCheckIn), region ) ) );
+  }
   SearchPnrData.stages.insert( make_pair(sOpenCheckIn, UTCToLocal( tripStages.time(sOpenCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sCloseCheckIn, UTCToLocal( tripStages.time(sCloseCheckIn), region ) ) );
 	SearchPnrData.stages.insert( make_pair(sOpenBoarding, UTCToLocal( tripStages.time(sOpenBoarding), region ) ) );
@@ -793,9 +808,11 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     		NewTextChild( node, "status", "sNoActive" );
     		break;
     	case sOpenWEBCheckIn:
+    	case sOpenKIOSKCheckIn:
     		NewTextChild( node, "status", "sOpenWEBCheckIn" );
     		break;
     	case sCloseWEBCheckIn:
+      case sCloseKIOSKCheckIn:
     		NewTextChild( node, "status", "sCloseWEBCheckIn" );
     		break;
     	case sTakeoff:
@@ -825,7 +842,8 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   SetProp( NewTextChild( stagesNode, "stage", DateTimeToStr( SearchPnrData.stages[ sCloseBoarding ], ServerFormatDateTimeAsString ) ),
            "type", "sCloseBoarding" );
   xmlNodePtr semNode = NewTextChild( node, "semaphors" );
-  NewTextChild( semNode, "web_checkin", SearchPnrData.act_out == NoExists && SearchPnrData.web_stage == sOpenWEBCheckIn );
+  NewTextChild( semNode, "web_checkin", SearchPnrData.act_out == NoExists && (SearchPnrData.web_stage == sOpenWEBCheckIn ||
+                                                                              SearchPnrData.web_stage == sOpenKIOSKCheckIn ) );
   NewTextChild( semNode, "term_checkin", SearchPnrData.act_out == NoExists && SearchPnrData.checkin_stage == sOpenCheckIn );
   NewTextChild( semNode, "term_brd", SearchPnrData.act_out == NoExists && SearchPnrData.brd_stage == sOpenBoarding );
   NewTextChild( node, "pnr_id", SearchPnrData.pnr_id );
@@ -1330,7 +1348,7 @@ void VerifyPax(xmlNodePtr reqNode, xmlDocPtr emulReqDoc, int &pnr_id)
 
 	if ( PnrData.act_out != NoExists )
 		throw UserException( "MSG.FLIGHT.TAKEOFF" );
-	if ( PnrData.web_stage != sOpenWEBCheckIn )
+	if ( PnrData.web_stage != sOpenWEBCheckIn && PnrData.web_stage != sOpenKIOSKCheckIn )
 	  throw UserException( "MSG.CHECKIN.NOT_OPEN" );
 
 	NewTextChild(emulReqNode,"transfer"); //пустой тег - трансфера нет

@@ -591,12 +591,18 @@ void exec_stage( int point_id, int stage_id )
   	case sOpenWEBCheckIn:
            /*открытие WEB-регистрации*/
   	     break;
+  	case sOpenKIOSKCheckIn:
+           /*открытие KIOSK-регистрации*/
+  	     break;
     case sCloseCheckIn:
            /*Закрытие регистрации*/
            CloseCheckIn( point_id );
            break;
   	case sCloseWEBCheckIn:
            /*закрытие WEB-регистрации*/
+  	     break;
+  	case sCloseKIOSKCheckIn:
+           /*закрытие KIOSK-регистрации*/
   	     break;
     case sOpenBoarding:
            /*Начало посадки*/
