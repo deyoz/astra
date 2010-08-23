@@ -1260,8 +1260,8 @@ void MainDCSInterface::UserLogon(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     xmlNodePtr modeNode = GetNode("@mode", node);
     if (modeNode!=NULL)
       reqInfoData.mode = NodeAsString(modeNode);
-    reqInfoData.checkUserLogon = false;
-    reqInfoData.checkCrypt = false;
+    reqInfoData.checkUserLogon = true; // имеет смысл т.к. надо начитать инфу по пользователю
+    reqInfoData.checkCrypt = false; // не имеет смысла делать повторную проверку
     reqInfo->Initialize( reqInfoData );
 
     //здесь reqInfo нормально инициализирован
