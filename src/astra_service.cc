@@ -103,6 +103,12 @@ int putFile( const string &receiver,
           Qry.Execute();
         };
     }
+    catch( Exception &e)
+    {
+    	try {deleteFile( file_id );} catch(...){};
+        ProgError(STDLOG, e.what());
+        throw;
+    }
     catch( std::exception &e)
     {
     	try {deleteFile( file_id );} catch(...){};
@@ -827,6 +833,10 @@ bool CreateCommonFileData( int id, const std::string type, const std::string &ai
                 }
             }
             /* ну не получилось сформировать файл, остальные файлы имеют тоже право попробовать сформироваться */
+            catch( Exception &e) {
+                ///try OraSession.RollBack(); catch(...){};//!!!
+                ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());
+            }
             catch( std::exception &e) {
                 ///try OraSession.RollBack(); catch(...){};//!!!
                 ProgError(STDLOG, "file_type=%s, id=%d, what=%s", type.c_str(), id, e.what());

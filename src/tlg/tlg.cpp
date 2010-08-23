@@ -124,6 +124,11 @@ void sendTlg(const char* receiver,
         Qry.Execute();
         Qry.Close();
     }
+    catch( Exception &e)
+    {
+        ProgError(STDLOG, e.what());
+        throw;
+    }
     catch( std::exception &e)
     {
         ProgError(STDLOG, e.what());
@@ -164,6 +169,11 @@ void loadTlg(const std::string &text)
         Qry.Execute();
         Qry.Close();
     }
+    catch( Exception &e)
+    {
+        ProgError(STDLOG, e.what());
+        throw;
+    }
     catch( std::exception &e)
     {
         ProgError(STDLOG, e.what());
@@ -196,6 +206,10 @@ void sendErrorTlg(const char *format, ...)
 
     sendTlg(receiver,sender,false,0,Message);
   }
+  catch( Exception &e)
+  {
+      ProgError(STDLOG, e.what());
+  }
   catch( std::exception &e)
   {
       ProgError(STDLOG, e.what());
@@ -217,6 +231,11 @@ bool deleteTlg(int tlg_id)
     TlgQry.CreateVariable("id",otInteger,tlg_id);
     TlgQry.Execute();
     return TlgQry.RowsProcessed()>0;
+  }
+  catch( Exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
   }
   catch( std::exception &e)
   {
@@ -259,6 +278,11 @@ bool errorTlg(int tlg_id, string type, string msg)
       return TlgQry.RowsProcessed()>0;
     }
     else return false;
+  }
+  catch( Exception &e)
+  {
+      ProgError(STDLOG, e.what());
+      throw;
   }
   catch( std::exception &e)
   {

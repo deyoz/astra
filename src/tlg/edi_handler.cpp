@@ -61,9 +61,13 @@ int main_edi_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
       };
     }; // end of loop
   }
-  catch(EOracleError E)
+  catch(EOracleError &E)
   {
     ProgError(STDLOG,"EOracleError %d: %s",E.Code,E.what());
+  }
+  catch(Exception &E)
+  {
+    ProgError(STDLOG,"Exception: %s",E.what());
   }
   catch(std::exception &E)
   {
@@ -137,6 +141,17 @@ void handle_tlg(void)
               try
               {
                 ProgTrace(TRACE0,"EdiExcept: %s:%s", e.errCode().c_str(), e.what());
+                errorTlg(tlg_id,"PARS",e.what());
+                OraSession.Commit();
+              }
+              catch(...) {};
+          }
+          catch(Exception &e)
+          {
+              OraSession.Rollback();
+              try
+              {
+                ProgError(STDLOG, "Exception: %s", e.what());
                 errorTlg(tlg_id,"PARS",e.what());
                 OraSession.Commit();
               }

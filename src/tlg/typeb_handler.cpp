@@ -73,6 +73,10 @@ int main_typeb_handler_tcl(Tcl_Interp *interp,int in,int out, Tcl_Obj *argslist)
   {
     ProgError(STDLOG,"Exception: %s",E.what());
   }
+  catch(std::exception &E)
+  {
+    ProgError(STDLOG,"std::exception: %s",E.what());
+  }
   catch(...)
   {
     ProgError(STDLOG, "Unknown exception");

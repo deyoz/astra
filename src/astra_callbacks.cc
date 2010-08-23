@@ -256,7 +256,7 @@ void AstraJxtCallbacks::HandleException(ServerFramework::Exception *e)
       if (exp)
           ProgError(STDLOG,"std::logic_error: %s",exp->what());
       else
-          ProgError(STDLOG,"std::exception: %s",e->what());
+          ProgError(STDLOG,"ServerFramework::Exception: %s",e->what());
 
       AstraLocale::showProgError("MSG.QRY_HANDLER_ERR.CALL_ADMIN");
       throw 1;

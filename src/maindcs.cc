@@ -1169,6 +1169,11 @@ void ConvertDevOldFormat(xmlNodePtr reqNode, xmlNodePtr resNode)
     xmlFreeNode(oldParamsNode);
     ProgTrace(TRACE5,"ConvertDevOldFormat: %s",XMLTreeToText(reqNode->doc).c_str());
   }
+  catch(Exception &E)
+  {
+    ProgError(STDLOG,"ConvertDevOldFormat: %s",E.what());
+    NewTextChild(resNode,"convert_profile_error");
+  }
   catch(std::exception &E)
   {
     ProgError(STDLOG,"ConvertDevOldFormat: %s",E.what());

@@ -3642,8 +3642,11 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     	  try {
   	      Write( ctxt, reqn, resNode );
         }
-        catch( std::exception &E ) {
+        catch( Exception &E ) {
           ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
+        }
+        catch( std::exception &E ) {
+          ProgError( STDLOG, "std::exception: %s, trip_id=%d", E.what(), trip_id );
         }
         catch( ... ) {
           ProgError( STDLOG, "Unknown error, trip_id=%d", trip_id );
@@ -3706,8 +3709,11 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
  	try {
   	Write( ctxt, reqn, resNode );
   }
-  catch( std::exception &E ) {
+  catch( Exception &E ) {
     ProgError( STDLOG, "Exception: %s, trip_id=%d", E.what(), trip_id );
+  }
+  catch( std::exception &E ) {
+    ProgError( STDLOG, "std::exception: %s, trip_id=%d", E.what(), trip_id );
   }
   catch( ... ) {
     ProgError( STDLOG, "Unknown error, trip_id=%d", trip_id );
