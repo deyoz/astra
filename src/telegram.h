@@ -55,27 +55,28 @@ struct TTlgInfo {
     std::string addrs;
     //адрес отправителя
     std::string sender;
-    //наш аэропорт
-    std::string own_airp;
     //рейс
     int point_id;
-    std::string airline;
+    std::string airline2;
     int flt_no;
-    std::string suffix;
-    std::string airp_dep;
-    std::string airp_arv;
-    BASIC::TDateTime scd;
+    std::string suffix2;
+    std::string airp_dep2;
+    std::string airp_arv2;
+    BASIC::TDateTime scd_utc;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
-    int local_day;
+    int scd_local_day;
     bool pr_summer;
-    std::string craft;
     std::string bort;
     //вспомогательные чтобы вытаскивать маршрут
-    int first_point;
-    int point_num;
-    //направление
-    std::string airp;
+    int first_point2;
+    int point_num2;
+    bool pr_tranzit;
+    //для вывода в телеграммы
+    std::string airline_view;
+    std::string suffix_view;
+    std::string airp_dep_view;
+    std::string airp_arv_view;
     //центр бронирования
     std::string crs;
     //дополнительная инфа
@@ -89,13 +90,13 @@ struct TTlgInfo {
     TTlgInfo(){
         point_id = -1;
         flt_no = -1;
-        scd = 0;
+        scd_utc = 0;
         scd_local = 0;
         act_local = 0;
-        local_day = 0;
+        scd_local_day = 0;
         pr_summer = false;
-        first_point = -1;
-        point_num = -1;
+        first_point2 = -1;
+        point_num2 = -1;
         pr_lat = false;
     }
 };
