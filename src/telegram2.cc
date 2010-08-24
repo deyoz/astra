@@ -1429,7 +1429,7 @@ namespace PRL_SPACE {
             int col_y_add_pax = Qry.FieldIndex("y_add_pax");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMStatsItem item;
-                item.target = ElemIdToElem(etAirp, Qry.FieldAsString(col_target), info.pr_lat); //!!!vlad
+                item.target = ElemIdToElem(etAirp, Qry.FieldAsString(col_target), info.pr_lat);
                 item.f = Qry.FieldAsInteger(col_f);
                 item.c = Qry.FieldAsInteger(col_c);
                 item.y = Qry.FieldAsInteger(col_y);
@@ -1526,7 +1526,7 @@ namespace PRL_SPACE {
             int col_av = Qry.FieldIndex("av");
             for(; !Qry.Eof; Qry.Next()) {
                 TCOMClassesItem item;
-                item.cls = ElemIdToElem(etSubcls, Qry.FieldAsString(col_class), info.pr_lat); //!!!vlad
+                item.cls = ElemIdToElem(etSubcls, Qry.FieldAsString(col_class), info.pr_lat);
                 item.cfg = Qry.FieldAsInteger(col_cfg);
                 item.av = Qry.FieldAsInteger(col_av);
                 items.push_back(item);
@@ -2148,8 +2148,7 @@ void TPList::get(TTlgInfo &info, string trfer_cls)
             item.surname = transliter(Qry.FieldAsString(col_surname), 1, info.pr_lat);
             item.pers_type = DecodePerson(Qry.FieldAsString(col_pers_type));
             item.name = transliter(Qry.FieldAsString(col_name), 1, info.pr_lat);
-            int fmt;
-            item.trfer_cls = ElemToElemId(etClass, Qry.FieldAsString(col_cls), fmt); //!!!vlad
+            item.trfer_cls = Qry.FieldAsString(col_cls);
             if(not trfer_cls.empty() and item.trfer_cls != trfer_cls)
                 continue;
             item.OList.get(item.pax_id);
@@ -2209,7 +2208,7 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
     Qry.CreateVariable("point_id", otInteger, info.point_id);
     int fmt;
     Qry.CreateVariable("airp_arv", otString, info.airp_arv2);
-    Qry.CreateVariable("trfer_airp", otString, ElemToElemId(etAirp, FItem.airp_arv, fmt)); //!!!vlad
+    Qry.CreateVariable("trfer_airp", otString, FItem.airp_arv);
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
     Qry.Execute();
     if(!Qry.Eof) {
