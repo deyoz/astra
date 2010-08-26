@@ -412,8 +412,9 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   TQuery ModelQry(&OraSession);
   ModelQry.Clear();
-  ModelQry.SQLText="SELECT name FROM dev_models WHERE code=:dev_model";
+  ModelQry.SQLText="SELECT DECODE(:lang,'RU',name,NVL(name_lat,name)) name FROM dev_models WHERE code=:dev_model";
   ModelQry.DeclareVariable("dev_model",otString);
+  ModelQry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
 
 	TQuery SessParamsQry( &OraSession );
   SessParamsQry.SQLText=
@@ -492,8 +493,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "                dev_model_sess_fmt.dev_model,"
       "                dev_model_sess_fmt.sess_type,"
       "                dev_model_sess_fmt.fmt_type,"
-      "                dev_sess_types.name sess_name,"
-      "                dev_fmt_types.name fmt_name,"
+      "                DECODE(:lang,'RU',dev_sess_types.name,NVL(dev_sess_types.name_lat,dev_sess_types.name)) sess_name,"
+      "                DECODE(:lang,'RU',dev_fmt_types.name,NVL(dev_fmt_types.name_lat,dev_fmt_types.name)) fmt_name,"
       "                DECODE(dev_model_defaults.op_type,NULL,0,1) pr_default "
       " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_sess_types, dev_fmt_types, dev_model_defaults "
       "WHERE dev_sess_modes.term_mode=:term_mode AND "
@@ -509,6 +510,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "      dev_model_sess_fmt.sess_type=dev_model_defaults.sess_type(+) AND "
       "      dev_model_sess_fmt.fmt_type=dev_model_defaults.fmt_type(+) ";
     DefQry.CreateVariable( "dev_model", otString, variant_model );
+    DefQry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
@@ -518,7 +520,8 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   TQuery Qry(&OraSession);
   Qry.SQLText =
     "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type, "
-    "       dev_sess_types.name sess_name, dev_fmt_types.name fmt_name "
+    "       DECODE(:lang,'RU',dev_sess_types.name,NVL(dev_sess_types.name_lat,dev_sess_types.name)) sess_name,"
+    "       DECODE(:lang,'RU',dev_fmt_types.name,NVL(dev_fmt_types.name_lat,dev_fmt_types.name)) fmt_name"
     " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers,dev_sess_types,dev_fmt_types "
     "WHERE dev_model_sess_fmt.dev_model=:dev_model AND "
     "      dev_model_sess_fmt.sess_type=:sess_type AND "
@@ -535,6 +538,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   Qry.DeclareVariable( "fmt_type", otString );
   Qry.DeclareVariable( "op_type", otString );
   Qry.CreateVariable( "term_mode", otString, EncodeOperMode(reqInfo->desk.mode) );
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   string operation;
   xmlNodePtr operNode;
 
@@ -1349,11 +1353,14 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
   ostringstream sql;
 
   sql <<
-    "SELECT dev_oper_types.code AS op_type, dev_oper_types.name AS op_name, "
-    "       dev_model_code,dev_model_name "
+    "SELECT dev_oper_types.code AS op_type, "
+    "       DECODE(:lang,'RU',dev_oper_types.name,NVL(dev_oper_types.name_lat,dev_oper_types.name)) AS op_name, "
+    "       dev_model_code,"
+    "       dev_model_name "
     "FROM dev_oper_types, "
     "  (SELECT DISTINCT "
-    "          dev_models.code AS dev_model_code, dev_models.name AS dev_model_name, "
+    "          dev_models.code AS dev_model_code, "
+    "          DECODE(:lang,'RU',dev_models.name,NVL(dev_models.name_lat,dev_models.name)) AS dev_model_name, "
     "          dev_fmt_opers.op_type "
     "   FROM dev_models, "
     "        dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
@@ -1381,6 +1388,7 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   op_type.clear();
   xmlNodePtr opersNode=NewTextChild(resNode,"operations");
