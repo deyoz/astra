@@ -25,7 +25,6 @@ using namespace EXCEPTIONS;
 using namespace AstraLocale;
 using namespace ASTRA;
 
-
 void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
 {
   ProgTrace(TRACE5, "PrepRegInterface::readTripCounters" );
@@ -88,7 +87,7 @@ void PrepRegInterface::readTripCounters( int point_id, xmlNodePtr dataNode )
   while ( !Qry.Eof ) {
     xmlNodePtr itemNode = NewTextChild( node, "item" );
     if ( Qry.FieldAsInteger( "num" ) == -100 ) // Всего
-    	NewTextChild( itemNode, "firstcol", AstraLocale::getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
+    	NewTextChild( itemNode, "firstcol", getLocaleText( Qry.FieldAsString( "firstcol" ) ) );
     else
     	if ( Qry.FieldAsInteger( "num" ) < 0 ) // классы
         NewTextChild( itemNode, "firstcol", ElemIdToElem(etClass,Qry.FieldAsString( "firstcol" )) ); /*!!!djek Ctxt*/
@@ -170,7 +169,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
              airline.c_str(), flt_no, airp.c_str(), empty_priority, priority );
   Qry.Clear();
   Qry.SQLText =
-    "SELECT crs2.code,crs2.name,1 AS sort, "\
+    "SELECT crs2.code,"
+    "       DECODE(:lang,'RU',crs2.name,NVL(crs2.name_lat,crs2.name)) name,1 AS sort, "\
     "       DECODE(crs_data.crs,NULL,0,1) AS pr_charge, "\
     "       DECODE(crs_pnr.crs,NULL,0,1) AS pr_list, "\
     "       DECODE(NVL(:priority,0),0,0, "\
@@ -202,12 +202,16 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
   Qry.CreateVariable( "airp", otString, airp );
   Qry.CreateVariable( "point_id", otInteger, point_id );
+  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crs" );
   while ( !Qry.Eof ) {
     itemNode = NewTextChild( node, "itemcrs" );
     NewTextChild( itemNode, "code", Qry.FieldAsString( "code" ) );
-    NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+    if ( Qry.FieldAsInteger( "sort" ) == 0 )
+    	NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
+    else
+      NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
     NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
     NewTextChild( itemNode, "pr_list", Qry.FieldAsInteger( "pr_list" ) );
     NewTextChild( itemNode, "pr_crs_main", Qry.FieldAsInteger( "pr_crs_main" ) );

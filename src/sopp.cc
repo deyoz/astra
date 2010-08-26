@@ -3802,13 +3802,14 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	NewTextChild( crsdNode, "point_id", point_id );
 
 	TQuery Qry( &OraSession );
-	Qry.SQLText = "SELECT airp,first_point,pr_tranzit FROM points WHERE point_id=:point_id AND pr_del!=-1";
+	Qry.SQLText = "SELECT airp,first_point,pr_tranzit,airp_fmt FROM points WHERE point_id=:point_id AND pr_del!=-1";
 	Qry.CreateVariable( "point_id", otInteger, point_id );
 	Qry.Execute();
 	if ( Qry.Eof )
 		throw AstraLocale::UserException( "MSG.FLIGHT.NOT_FOUND" );
 	int pr_tranzit = ( !Qry.FieldIsNULL( "first_point" ) && Qry.FieldAsInteger( "pr_tranzit" ) );
 	string airp_dep = Qry.FieldAsString( "airp" );
+	int airp_fmt = Qry.FieldAsInteger( "airp_fmt" );//!!!locale1919.07.2010
 	string region = AirpTZRegion( airp_dep, true );
 	TDateTime local_time;
 	modf(UTCToLocal( NowUTC(), region ),&local_time);
@@ -3816,7 +3817,7 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 
 	Qry.Clear();
 	Qry.SQLText =
-   "SELECT p2.airp FROM points p1, points p2 "
+   "SELECT p2.airp, p2.airp_fmt FROM points p1, points p2 "
    "WHERE p1.point_id=:point_id AND p1.pr_del!=-1 AND "
    "      p2.first_point IN (p1.first_point,p1.point_id) AND "
    "      p2.point_num>p1.point_num AND p2.pr_del!=-1 "
@@ -3826,10 +3827,10 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 	while ( !Qry.Eof ) {
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "airps_arv" );
-		NewTextChild( displnode, "airp_arv", Qry.FieldAsString( "airp" ) );
+		NewTextChild( displnode, "airp_arv", ElemIdToElemCtxt( ecDisp, etAirp, Qry.FieldAsString( "airp" ), Qry.FieldAsInteger( "airp_fmt" ) ) ); //!!!19.07.2010
 		Qry.Next();
 	}
-	NewTextChild( crsdNode, "airp_dep", airp_dep );
+	NewTextChild( crsdNode, "airp_dep", ElemIdToElemCtxt( ecDisp, etAirp, airp_dep, airp_fmt ) ); //!!!locale19.07.2010
 	if ( pr_tranzit )
 	  NewTextChild( crsdNode, "pr_tranzit", pr_tranzit );
 	Qry.Clear();
@@ -3846,16 +3847,15 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
   	if ( !displnode )
   		displnode = NewTextChild( crsdNode, "displaces" );
   	xmlNodePtr snode = NewTextChild( displnode, "displace" );
-		NewTextChild( snode, "airp_arv_spp", Qry.FieldAsString( "airp_arv_spp" ) );
-		NewTextChild( snode, "class_spp", Qry.FieldAsString( "class_spp" ) );
-		NewTextChild( snode, "airline", Qry.FieldAsString( "airline" ) );
+		NewTextChild( snode, "airp_arv_spp", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_arv_spp" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "class_spp", ElemIdToElem( etClass, Qry.FieldAsString( "class_spp" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airline", ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) ) );//!!!locale19.07.2010
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );
-		string region = AirpTZRegion( Qry.FieldAsString( "airp_dep" ), true );
+		NewTextChild( snode, "suffix", ElemIdToElem( etSuffix, Qry.FieldAsString( "suffix" ) ) );//!!!locale19.07.2010
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );
-		NewTextChild( snode, "airp_dep", Qry.FieldAsString( "airp_dep" ) );
-		NewTextChild( snode, "airp_arv_tlg", Qry.FieldAsString( "airp_arv_tlg" ) );
-		NewTextChild( snode, "class_tlg", Qry.FieldAsString( "class_tlg" ) );
+		NewTextChild( snode, "airp_dep", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_dep" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "airp_arv_tlg", ElemIdToElem( etAirp, Qry.FieldAsString( "airp_arv_tlg" ) ) );//!!!locale19.07.2010
+		NewTextChild( snode, "class_tlg", ElemIdToElem( etClass, Qry.FieldAsString( "class_tlg" ) ) );//!!!locale19.07.2010
     NewTextChild( snode, "pr_goshow", (int)(DecodePaxStatus( Qry.FieldAsString( "status" ) ) != ASTRA::psCheckin) ); //!!!убрат
 	  NewTextChild( snode, "status", Qry.FieldAsString( "status" ) );
   	Qry.Next();
@@ -3875,9 +3875,9 @@ void SoppInterface::ReadCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, 
 		if ( !displnode )
 			displnode = NewTextChild( crsdNode, "targets" );
 		xmlNodePtr snode = NewTextChild( displnode, "target" );
-		NewTextChild( snode, "airline", Qry.FieldAsString( "airline" ) );
+		NewTextChild( snode, "airline", ElemIdToElem(etAirline, Qry.FieldAsString( "airline" ) ) );
 		NewTextChild( snode, "flt_no", Qry.FieldAsString( "flt_no" ) );
-		NewTextChild( snode, "suffix", Qry.FieldAsString( "suffix" ) );
+		NewTextChild( snode, "suffix", ElemIdToElem(etSuffix, Qry.FieldAsString( "suffix" ) ) );
 		NewTextChild( snode, "scd", DateTimeToStr( Qry.FieldAsDateTime( "scd" ) ) );	  	//???
 	  Qry.Next();
 	}
@@ -3903,11 +3903,9 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
   			ch_dest = true;
   	}
   	else {
-  		trip = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ),
-  		                         TReqInfo::Instance()->user.sets.disp_airline ) +
+  		trip = ElemIdToElem( etAirline, Qry.FieldAsString( "airline" ) ) +
   		       Qry.FieldAsString( "flt_no" ) +
-  		       ElemIdToElemCtxt( ecDisp, etSuffix, Qry.FieldAsString( "suffix" ),
-  		                         TReqInfo::Instance()->user.sets.disp_suffix );
+  		       ElemIdToElem( etSuffix, Qry.FieldAsString( "suffix" ) );
   		TDateTime  f1, f2;
   		modf( local_time, &f1 );
   		modf( scd, &f2 );
@@ -3926,9 +3924,9 @@ string getCrsDisplace( int point_id, TDateTime local_time, bool to_local, TQuery
   	Qry.Next();
   }
   if ( ch_class )
-    str_to = "Изм. класса " + str_to;
+    str_to = AstraLocale::getLocaleText("Изм. класса") + " " + str_to;
   if ( ch_dest )
-    str_to = "Изм. пункта " + str_to;
+    str_to = AstraLocale::getLocaleText("Изм. пункта") + " " + str_to;
  	return str_to;
 }
 
@@ -4019,21 +4017,41 @@ void SoppInterface::WriteCRS_Displaces(XMLRequestCtxt *ctxt, xmlNodePtr reqNode,
   xmlNodePtr dataNode = NewTextChild( resNode, "data" );
   xmlNodePtr airp_depNode;
   string to_airp_dep;
+  int fmt;
   while ( node ) {
   	snode = node->children;
-  	airp_arv_spp = NodeAsStringFast( "airp_arv_spp", snode );
-  	class_spp = NodeAsStringFast( "class_spp", snode );
-  	airline = NodeAsStringFast( "airline", snode );
+  	airp_arv_spp = ElemToElemId( etAirp, NodeAsStringFast( "airp_arv_spp", snode ), fmt );
+  	if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.INVALID_ARRIVAL_AIRP" );
+  	class_spp = ElemToElemId( etClass, NodeAsStringFast( "class_spp", snode ), fmt );
+    if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.INVALID_CLASS" );
+  	airline = ElemToElemId( etAirline, NodeAsStringFast( "airline", snode ), fmt );
+    if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.INVALID_AIRLINE" );
   	flt_no = NodeAsIntegerFast( "flt_no", snode );
+  	if ( flt_no <= 0 || flt_no > 99999 )
+  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_FLT_NO" );
   	suffix = NodeAsStringFast( "suffix", snode );
+  	if ( !suffix.empty() )
+  		suffix = ElemToElemId( etSuffix, suffix, fmt );
+    if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_SUFFIX" );
   	scd = NodeAsDateTimeFast( "scd", snode );
   	airp_depNode = GetNodeFast( "airp_dep", snode );
-  	if ( airp_depNode )
-  		to_airp_dep = NodeAsString( airp_depNode );
+  	if ( airp_depNode ) {
+  		to_airp_dep = ElemToElemId( etAirp, NodeAsString( airp_depNode ), fmt );
+  	  if ( fmt == -1 )
+  		  throw AstraLocale::UserException( "MSG.AIRP.INVALID_DEPARTURE" );
+  	}
   	else
   		to_airp_dep = airp_dep;
-  	airp_arv_tlg = NodeAsStringFast( "airp_arv_tlg", snode );
-  	class_tlg = NodeAsStringFast( "class_tlg", snode );
+  	airp_arv_tlg = ElemToElemId( etAirp, NodeAsStringFast( "airp_arv_tlg", snode ), fmt );
+  	if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.INVALID_ARRIVAL_AIRP" );
+  	class_tlg = ElemToElemId( etClass, NodeAsStringFast( "class_tlg", snode ), fmt );
+    if ( fmt == -1 )
+  		throw AstraLocale::UserException( "MSG.INVALID_CLASS" );
   	if ( GetNodeFast( "pr_goshow", snode ) )
   		status = EncodePaxStatus( (TPaxStatus)NodeAsIntegerFast( "pr_goshow", snode ) );
   	else

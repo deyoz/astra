@@ -310,7 +310,7 @@ void TSalons::Build( xmlNodePtr salonsNode )
  	SetProp( n, "name", "LAYER_CLEAR_ALL" );
  	SetProp( n, "priority", 10000 );
  	SetProp( n, "edit", 1 );
-  SetProp( n, "name_view_help", "Очистить все статусы мест" );
+  SetProp( n, "name_view_help", AstraLocale::getLocaleText("Очистить все статусы мест") );
   SetProp( n, "func_key", "Shift+F8" );
 }
 
@@ -1266,24 +1266,18 @@ void GetTripParams( int trip_id, xmlNodePtr dataNode )
 
   TQuery Qry( &OraSession );
   Qry.SQLText =
-    "SELECT airp,airline,flt_no,suffix,craft,bort,scd_out, "
-    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out "
+    "SELECT airp,airp_fmt,airline,airline_fmt,flt_no,suffix,suffix_fmt,craft,craft_fmt,bort,scd_out, "
+    "       NVL(act_out,NVL(est_out,scd_out)) AS real_out, pr_del "
     "FROM points "
     "WHERE point_id=:point_id ";
   Qry.CreateVariable( "point_id", otInteger, trip_id );
   Qry.Execute();
   if (Qry.Eof) throw UserException("MSG.FLIGHT.NOT_FOUND.REFRESH_DATA");
 
-  TTripInfo info;
-  info.airline=Qry.FieldAsString("airline");
-  info.flt_no=Qry.FieldAsInteger("flt_no");
-  info.suffix=Qry.FieldAsString("suffix");
-  info.airp=Qry.FieldAsString("airp");
-  info.scd_out=Qry.FieldAsDateTime("scd_out");
-  info.real_out=Qry.FieldAsDateTime("real_out");
+  TTripInfo info( Qry );
 
-  NewTextChild( dataNode, "trip", GetTripName(info) );
-  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( dataNode, "trip", GetTripName( info, ecCkin ) );
+  NewTextChild( dataNode, "craft", ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
 
   Qry.Clear();
