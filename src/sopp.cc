@@ -4478,11 +4478,11 @@ void SoppInterface::WriteCrew(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
 	xmlNodePtr dataNode = NodeAsNode( "data/crew", reqNode );
 	Qry.CreateVariable( "point_id", otInteger, NodeAsInteger( "point_id", dataNode ) );
 	Qry.CreateVariable( "commander", otString, NodeAsString( "commander", dataNode ) );
-	if (!NodeIsNULL( "cockpit", dataNode ))
+	if (GetNode( "cockpit", dataNode )!=NULL && !NodeIsNULL( "cockpit", dataNode ))
 	  Qry.CreateVariable( "cockpit", otInteger, NodeAsInteger( "cockpit", dataNode ) );
 	else
 	  Qry.CreateVariable( "cockpit", otInteger, FNull );
-	if (!NodeIsNULL( "cabin", dataNode ))
+	if (GetNode( "cabin", dataNode )!=NULL && !NodeIsNULL( "cabin", dataNode ))
 	  Qry.CreateVariable( "cabin", otInteger, NodeAsInteger( "cabin", dataNode ) );
 	else
 	  Qry.CreateVariable( "cabin", otInteger, FNull );

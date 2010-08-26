@@ -57,11 +57,11 @@ struct TTlgInfo {
     std::string sender;
     //рейс
     int point_id;
-    std::string airline2;
+    std::string airline;
     int flt_no;
-    std::string suffix2;
-    std::string airp_dep2;
-    std::string airp_arv2;
+    std::string suffix;
+    std::string airp_dep;
+    std::string airp_arv;
     BASIC::TDateTime scd_utc;
     BASIC::TDateTime scd_local;
     BASIC::TDateTime act_local;
@@ -69,8 +69,8 @@ struct TTlgInfo {
     bool pr_summer;
     std::string bort;
     //вспомогательные чтобы вытаскивать маршрут
-    int first_point2;
-    int point_num2;
+    int first_point;
+    int point_num;
     bool pr_tranzit;
     //для вывода в телеграммы
     std::string airline_view;
@@ -95,8 +95,8 @@ struct TTlgInfo {
         act_local = 0;
         scd_local_day = 0;
         pr_summer = false;
-        first_point2 = -1;
-        point_num2 = -1;
+        first_point = -1;
+        point_num = -1;
         pr_lat = false;
     }
 };

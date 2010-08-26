@@ -30,10 +30,10 @@ int TST_TLG_ID; // for test purposes
 bool TTlgInfo::operator == (const TMktFlight &s) const
 {
     return
-        airline2 == s.airline and
+        airline == s.airline and
         flt_no == s.flt_no and
-        suffix2 == s.suffix and
-        airp_dep2 == s.airp_dep and
+        suffix == s.suffix and
+        airp_dep == s.airp_dep and
         scd_local_day == s.scd_day_local;
 }
 
@@ -89,8 +89,8 @@ void ReadSalons( TTlgInfo &info, vector<TTlgCompLayer> &complayers, bool pr_bloc
                                 TTripRoute route;
                                 TTripRouteItem next_airp;
                                 route.GetNextAirp(info.point_id,
-                                        info.point_num2,
-                                        info.first_point2,
+                                        info.point_num,
+                                        info.first_point,
                                         info.pr_tranzit,
                                         trtNotCancelled,
                                         next_airp);
@@ -347,7 +347,7 @@ void TMItem::ToTlg(TTlgInfo &info, vector<string> &body)
             return;
     } else if(info.mark_info.pr_mark_header) {
         if(
-                info.airp_dep2 == m_flight.airp_dep and
+                info.airp_dep == m_flight.airp_dep and
                 info.scd_local_day == m_flight.scd_day_local
           )
             return;
@@ -400,7 +400,7 @@ namespace PRL_SPACE {
     void TPNRListAddressee::ToTlg(TTlgInfo &info, vector<string> &body)
     {
         for(vector<TPNRItem>::iterator iv = items.begin(); iv != items.end(); iv++)
-            if(info.airline2 == iv->airline) {
+            if(info.airline == iv->airline) {
                 iv->ToTlg(info, body);
                 break;
             }
@@ -1398,8 +1398,8 @@ namespace PRL_SPACE {
             "ORDER BY "
             "   point_num ";
         Qry.CreateVariable("point_id", otInteger, info.point_id);
-        Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
-        Qry.CreateVariable("point_num", otInteger, info.point_num2);
+        Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
+        Qry.CreateVariable("point_num", otInteger, info.point_num);
         Qry.Execute();
         if(!Qry.Eof) {
             int col_target = Qry.FieldIndex("target");
@@ -2206,8 +2206,7 @@ void TBTMGrpList::get(TTlgInfo &info, TFItem &FItem)
         "order by \n"
         "   grp_id \n";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
-    int fmt;
-    Qry.CreateVariable("airp_arv", otString, info.airp_arv2);
+    Qry.CreateVariable("airp_arv", otString, info.airp_arv);
     Qry.CreateVariable("trfer_airp", otString, FItem.airp_arv);
     Qry.CreateVariable("point_id_trfer", otInteger, FItem.point_id_trfer);
     Qry.Execute();
@@ -2358,7 +2357,7 @@ void TFList<T>::get(TTlgInfo &info)
         "    trfer_trips.scd, \n"
         "    transfer.airp_arv \n";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("airp", otString, info.airp_arv2);
+    Qry.CreateVariable("airp", otString, info.airp_arv);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_point_id_trfer = Qry.FieldIndex("point_id_trfer");
@@ -3515,8 +3514,8 @@ void TTlgSeatList::get(TTlgInfo &info)
         "  WHERE first_point = :vfirst_point AND point_num > :vpoint_num AND pr_del=0 "
         "ORDER by "
         "  point_num ";
-    Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
-    Qry.CreateVariable("vpoint_num", otInteger, info.point_num2);
+    Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
+    Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         string item;
@@ -4160,7 +4159,7 @@ void TLDMCrew::get(TTlgInfo &info)
     if (!Qry.Eof)
     {
       if (!Qry.FieldIsNULL("cockpit")) cockpit=Qry.FieldAsInteger("cockpit");
-      if (!Qry.FieldIsNULL("cabin")) cockpit=Qry.FieldAsInteger("cabin");
+      if (!Qry.FieldIsNULL("cabin")) cabin=Qry.FieldAsInteger("cabin");
     };
 };
 
@@ -4250,13 +4249,13 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
     //проверим LDM автоматически отправляется или нет?
     TTypeBSendInfo sendInfo;
     sendInfo.tlg_type=info.tlg_type;
-    sendInfo.airline=info.airline2;
+    sendInfo.airline=info.airline;
     sendInfo.flt_no=info.flt_no;
-    sendInfo.airp_dep=info.airp_dep2;
-    sendInfo.airp_arv=info.airp_arv2;
+    sendInfo.airp_dep=info.airp_dep;
+    sendInfo.airp_arv=info.airp_arv;
     sendInfo.point_id=info.point_id;
-    sendInfo.first_point=info.first_point2;
-    sendInfo.point_num=info.point_num2;
+    sendInfo.first_point=info.first_point;
+    sendInfo.point_num=info.point_num;
     sendInfo.pr_tranzit=info.pr_tranzit;
     bool pr_send=TelegramInterface::IsTypeBSend(sendInfo);
 
@@ -4285,7 +4284,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
         row
             << "/0"
             << "/0";
-        if(info.airp_dep2 == "ЧЛБ")
+        if(info.airp_dep == "ЧЛБ")
             row
                 << ".B/" << iv->bag.baggage
                 << ".C/" << iv->bag.cargo
@@ -4299,7 +4298,7 @@ void TLDMDests::ToTlg(TTlgInfo &info, bool &vcompleted, vector<string> &body)
     row << "SI: EXB" << excess.excess << "KG";
     body.push_back(row.str());
     row.str("");
-    if(info.airp_dep2 != "ЧЛБ") {
+    if(info.airp_dep != "ЧЛБ") {
         row << "SI: B";
         if(baggage_sum > 0)
             row << baggage_sum;
@@ -4349,8 +4348,8 @@ void TLDMDests::get(TTlgInfo &info)
         "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY points.point_num ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("point_num", otInteger, info.point_num2);
-    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
+    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_point_arv = Qry.FieldIndex("point_arv");
@@ -4411,8 +4410,8 @@ void TMVTBBody::get(TTlgInfo &info)
         "FROM points "
         "WHERE first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY point_num ";
-    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
-    Qry.CreateVariable("point_num", otInteger, info.point_num2);
+    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
     Qry.Execute();
     if(!Qry.Eof) {
         if(!Qry.FieldIsNULL("act_in"))
@@ -4511,8 +4510,8 @@ void TMVTABody::get(TTlgInfo &info)
         "      first_point=:first_point AND point_num>:point_num AND pr_del=0 "
         "ORDER BY point_num ";
     Qry.CreateVariable("point_id", otInteger, info.point_id);
-    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
-    Qry.CreateVariable("point_num", otInteger, info.point_num2);
+    Qry.CreateVariable("first_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
+    Qry.CreateVariable("point_num", otInteger, info.point_num);
     Qry.Execute();
     if(!Qry.Eof) {
         int col_target = Qry.FieldIndex("target");
@@ -4781,8 +4780,8 @@ void TDestList<T>::get(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "ORDER by "
         "  point_num, airp, class ";
     Qry.CreateVariable("vpoint_id", otInteger, info.point_id);
-    Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point2 : info.point_id);
-    Qry.CreateVariable("vpoint_num", otInteger, info.point_num2);
+    Qry.CreateVariable("vfirst_point", otInteger, info.pr_tranzit ? info.first_point : info.point_id);
+    Qry.CreateVariable("vpoint_num", otInteger, info.point_num);
     Qry.Execute();
     for(; !Qry.Eof; Qry.Next()) {
         T dest(&grp_map, &infants);
@@ -5547,23 +5546,23 @@ int TelegramInterface::create_tlg(
         Qry.Execute();
         if(Qry.Eof)
             throw AstraLocale::UserException("MSG.FLIGHT.NOT_FOUND");
-        info.airline2 = Qry.FieldAsString("airline");
+        info.airline = Qry.FieldAsString("airline");
         info.flt_no = Qry.FieldAsInteger("flt_no");
-        info.suffix2 = Qry.FieldAsString("suffix");
+        info.suffix = Qry.FieldAsString("suffix");
         info.scd_utc = Qry.FieldAsDateTime("scd");
         info.bort = Qry.FieldAsString("bort");
-        info.airp_dep2 = Qry.FieldAsString("airp");
-        info.point_num2 = Qry.FieldAsInteger("point_num");
-        info.first_point2 = Qry.FieldAsInteger("first_point");
+        info.airp_dep = Qry.FieldAsString("airp");
+        info.point_num = Qry.FieldAsInteger("point_num");
+        info.first_point = Qry.FieldAsInteger("first_point");
         info.pr_tranzit = Qry.FieldAsInteger("pr_tranzit")!=0;
 
-        info.airline_view = TlgElemIdToElem(etAirline, info.airline2, info.pr_lat);
-        info.suffix_view = TlgElemIdToElem(etSuffix, info.suffix2, info.pr_lat);
-        info.airp_dep_view = TlgElemIdToElem(etAirp, info.airp_dep2, info.pr_lat);
+        info.airline_view = TlgElemIdToElem(etAirline, info.airline, info.pr_lat);
+        info.suffix_view = TlgElemIdToElem(etSuffix, info.suffix, info.pr_lat);
+        info.airp_dep_view = TlgElemIdToElem(etAirp, info.airp_dep, info.pr_lat);
 
         info.pr_lat_seat = Qry.FieldAsInteger("pr_lat_seat") != 0;
 
-        string tz_region=AirpTZRegion(info.airp_dep2);
+        string tz_region=AirpTZRegion(info.airp_dep);
         info.scd_local = UTCToLocal( info.scd_utc, tz_region );
         if(!Qry.FieldIsNULL("act_out"))
             info.act_local = UTCToLocal( Qry.FieldAsDateTime("act_out"), tz_region );
@@ -5584,19 +5583,19 @@ int TelegramInterface::create_tlg(
     if (vbasic_type == "PTM" ||
         vbasic_type == "BTM")
     {
-        info.airp_arv2 = createInfo.airp_trfer;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv2, info.pr_lat);
-        if (!info.airp_arv2.empty())
-          extra << info.airp_arv2 << " ";
+        info.airp_arv = createInfo.airp_trfer;
+        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.pr_lat);
+        if (!info.airp_arv.empty())
+          extra << info.airp_arv << " ";
     }
-    if (vbasic_type == "CPM") //!!!vlad
+    if (vbasic_type == "CPM")
     {
       TTripRoute route;
       TTripRouteItem next_airp;
       if (route.GetNextAirp(info.point_id, trtNotCancelled, next_airp))
       {
-        info.airp_arv2 = next_airp.airp;
-        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv2, info.pr_lat);
+        info.airp_arv = next_airp.airp;
+        info.airp_arv_view = TlgElemIdToElem(etAirp, info.airp_arv, info.pr_lat);
       };
     };
     if (vbasic_type == "PFS" or

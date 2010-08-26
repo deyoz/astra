@@ -1461,8 +1461,8 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   TTlgInfo info;
 
   info.point_id=Qry.FieldAsInteger("point_id");
-  info.point_num2=Qry.FieldAsInteger("point_num");
-  info.first_point2=Qry.FieldAsInteger("first_point");
+  info.point_num=Qry.FieldAsInteger("point_num");
+  info.first_point=Qry.FieldAsInteger("first_point");
   info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
