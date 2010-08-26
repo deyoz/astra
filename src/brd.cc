@@ -551,7 +551,7 @@ void BrdInterface::GetPax(xmlNodePtr reqNode, xmlNodePtr resNode, bool used_for_
             Qry.CreateVariable("ctKiosk", otString, EncodeClientType(ctKiosk));
         }
     };
-
+    sql << condition;
     sql << " ORDER BY reg_no ";
 
     Qry.CreateVariable("point_id",otInteger,point_id);
