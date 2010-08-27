@@ -1238,6 +1238,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     }
     NewTextChild(variablesNode, "pr_brd_pax_lat", pr_brd_pax_str_lat);
     NewTextChild(variablesNode, "pr_brd_pax", pr_brd_pax_str);
+    populate_doc_cap(variablesNode, pr_lat);
     STAT::set_variables(resNode);
 }
 
@@ -1681,6 +1682,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params.ckin_zone, pr_lat));
     } else
         NewTextChild(variablesNode, "zone"); // пустой тег - нет детализации по залу
+    populate_doc_cap(variablesNode, pr_lat);
     STAT::set_variables(resNode);
     ProgTrace(TRACE5, "%s", GetXMLDocText(resNode->doc).c_str());
 }

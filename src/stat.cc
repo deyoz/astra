@@ -1551,6 +1551,7 @@ xmlNodePtr STAT::set_variables(xmlNodePtr resNode)
     NewTextChild(variablesNode, "print_term", reqInfo->desk.code);
     NewTextChild(variablesNode, "use_seances", USE_SEANCES());
     NewTextChild(variablesNode, "test_server", get_test_server());
+    NewTextChild(variablesNode, "cap_test", getLocaleText("CAP.TEST"));
     NewTextChild(variablesNode, "page_number_fmt", getLocaleText("CAP.PAGE_NUMBER_FMT"));
     NewTextChild(variablesNode, "short_page_number_fmt", getLocaleText("CAP.SHORT_PAGE_NUMBER_FMT"));
     NewTextChild(variablesNode, "oper_info", getLocaleText("CAP.DOC.OPER_INFO", LParams()
@@ -2112,7 +2113,7 @@ void RunTrferFullStat(xmlNodePtr reqNode, xmlNodePtr resNode)
     if (info.user.access.airlines.empty() && info.user.access.airlines_permit ||
             info.user.access.airps.empty() && info.user.access.airps_permit)
         throw AstraLocale::UserException("MSG.NOT_DATA");
-    get_report_form("FullStat", resNode);
+    get_report_form("TrferFullStat", resNode);
 
     TQuery Qry(&OraSession);
     TStatParams params;
