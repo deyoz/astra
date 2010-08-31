@@ -149,15 +149,15 @@ struct TSearchPnrData {
 
 	int airline_fmt,suffix_fmt,airp_dep_fmt,craft_fmt;
 
+  int pnr_id;
   int point_arv;
 	TDateTime scd_in;
 	string airp_arv;
 	string city_arv;
-	int pnr_id;
 	string cls;
 	string subcls;
+	vector<TPnrAddr> pnr_addrs;
 	int bag_norm;
-	vector<TPnrAddr> pnraddrs;
 };
 
 bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
@@ -209,7 +209,7 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 		SearchPnrData.act_out = NoExists;
 	else
 		SearchPnrData.act_out = Qry.FieldAsDateTime( "act_out" );
-	tst();
+
 	TTripStages tripStages( point_id );
 	SearchPnrData.web_stage = tripStages.getStage( stWEB );
 	SearchPnrData.checkin_stage = tripStages.getStage( stCheckIn );
@@ -218,7 +218,6 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	ProgTrace( TRACE5, "web_stage=%d, checkin_stage=%d, brd_stage=%d",
 	           (int)SearchPnrData.web_stage, (int)SearchPnrData.checkin_stage, (int)SearchPnrData.brd_stage );
 	TBaseTable &baseairps = base_tables.get( "airps" );
-	TBaseTable &basecities = base_tables.get( "cities" );
 
 	//SearchPnrData.airline = ElemIdToElemCtxt( ecDisp, etAirline, Qry.FieldAsString( "airline" ), Qry.FieldAsInteger( "airline_fmt" ) ); //??? нужно ли переводить в формат терминала
 	SearchPnrData.airline = Qry.FieldAsString( "airline" );
@@ -231,7 +230,7 @@ bool getTripData( int point_id, TSearchPnrData &SearchPnrData, bool pr_throw )
 	SearchPnrData.airp_dep = Qry.FieldAsString( "airp" );
 	SearchPnrData.airp_dep_fmt = Qry.FieldAsInteger( "airp_fmt" );
 	SearchPnrData.city_dep = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" ), true )).city;
-	string region = ((TCitiesRow&)basecities.get_row( "code", SearchPnrData.city_dep, true )).region;
+	string region=AirpTZRegion(SearchPnrData.airp_dep);
 	SearchPnrData.scd_out = Qry.FieldAsDateTime( "scd_out" );
 	SearchPnrData.scd_out_local = UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region );
 	//SearchPnrData.craft = ElemIdToElemCtxt( ecDisp, etCraft, Qry.FieldAsString( "craft" ), Qry.FieldAsInteger( "craft_fmt" ) );
@@ -463,22 +462,108 @@ void GetPaxBagNorm(TQuery &Qry, const bool use_mixed_norms, const TPaxInfo &pax,
   norm=max_norm;
 };
 
-bool findPnr( const string &surname, const string &pnr_addr,
-              const string &ticket_no, const string &document,
-              TSearchPnrData &SearchPnrData )
+struct TPnrInfo {
+  int pnr_id;
+  string airp_arv, cl, subcl;
+  vector<int> pax_id;
+  vector<TPnrAddr> pnr_addrs;
+  vector< pair<int,int> > point_dep;
+  TPnrInfo():
+    pnr_id(NoExists) {};
+};
+
+#define TRACE_SIGNATURE int Level, const char *nickname, const char *filename, int line
+#define TRACE_PARAMS Level, nickname, filename, line
+
+void tracePax( TRACE_SIGNATURE,
+               const string &descr,
+               const int pass,
+               const vector<TPnrInfo> &pnr )
 {
-	ProgTrace( TRACE5, "surname=%s, pnr_addr=%s, ticket_no=%s, document=%s",
-	           surname.c_str(), pnr_addr.c_str(), ticket_no.c_str(), document.c_str() );
-	string lat_pnr_addr;
+  ProgTrace(TRACE_PARAMS, "============ %s, pass=%d ============", descr.c_str(), pass);
+  for(vector<TPnrInfo>::const_iterator iPnr=pnr.begin();iPnr!=pnr.end();iPnr++)
+  {
+    ostringstream str;
+
+    str << "PNR: pnr_id=" << iPnr->pnr_id << ", airp_arv=" << iPnr->airp_arv;
+
+    str << ", pnr_addrs=";
+    for(vector<TPnrAddr>::const_iterator i=iPnr->pnr_addrs.begin(); i!=iPnr->pnr_addrs.end(); i++)
+      str << i->addr << "/" << i->airline << " | ";
+    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
+
+    str.str("");
+
+    str << "     pax_id=";
+    for(vector<int>::const_iterator i=iPnr->pax_id.begin(); i!=iPnr->pax_id.end(); i++)
+      str << *i << " | ";
+    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
+
+    str.str("");
+
+    str << "     point_dep:point_arv=";
+    for(vector< pair<int,int> >::const_iterator i=iPnr->point_dep.begin(); i!=iPnr->point_dep.end(); i++)
+      str << i->first << ":" << (i->second != NoExists ? IntToString(i->second) : "NoExists") << " | ";
+    ProgTrace(TRACE_PARAMS, "%s", str.str().c_str());
+  };
+
+  ProgTrace(TRACE_PARAMS, "^^^^^^^^^^^^ %s, pass=%d ^^^^^^^^^^^^", descr.c_str(), pass);
+};
+
+void filterPax( int point_id,
+                vector<TPnrInfo> &pnr )
+{
+  if (pnr.empty()) return;
+
+  TTripRoute route;
+  route.GetRouteAfter( point_id,
+                       trtNotCurrent,
+                       trtNotCancelled );
+
+  for(vector<TPnrInfo>::iterator iPnr=pnr.begin();iPnr!=pnr.end();)
+  {
+    vector< pair<int,int> >::iterator i=iPnr->point_dep.begin();
+    for(;i!=iPnr->point_dep.end();i++)
+      if (i->first==point_id) break;
+
+    if (i!=iPnr->point_dep.end())
+    {
+      TTripRoute::iterator r=route.begin();
+      for ( ; r!=route.end(); r++ )
+        if ( r->airp == iPnr->airp_arv )
+        {
+          //нашли пункт назначения
+          i->second=r->point_id;
+          break;
+        };
+      if (r==route.end())
+      {
+        //не нашли пункт назначения
+
+        iPnr->point_dep.erase(i);
+        if (iPnr->point_dep.empty())
+        {
+          iPnr==pnr.erase(iPnr);
+          continue;
+        };
+      };
+    };
+    iPnr++;
+  };
+};
+
+void filterPax( const string &pnr_addr,
+                const string &ticket_no,
+                const string &document,
+                vector<TPnrInfo> &pnr)
+{
+  if (pnr.empty()) return;
+
+  string pnr_addr_lat;
 	if ( !pnr_addr.empty() ) {
-	  lat_pnr_addr = convert_pnr_addr( pnr_addr, true );
-	  ProgTrace( TRACE5, "convert_pnr_addr=%s", lat_pnr_addr.c_str() );
+	  pnr_addr_lat = convert_pnr_addr( pnr_addr, true );
+	  //ProgTrace( TRACE5, "convert_pnr_addr=%s", pnr_addr_lat.c_str() );
 	}
-  SearchPnrData.pnr_id = NoExists;
-  if ( surname.empty() )
-  	throw UserException( "MSG.PASSENGER.NOT_SET.SURNAME" );
-  if ( pnr_addr.empty() && ticket_no.empty() && document.empty() )
-  	throw UserException( "MSG.NOTSET.SEARCH_PARAMS" );
 
 	TQuery QryPnrAddr(&OraSession);
 	QryPnrAddr.SQLText =
@@ -500,171 +585,379 @@ bool findPnr( const string &surname, const string &pnr_addr,
     "WHERE pax_id=:pax_id AND no=:document";
   QryDoc.DeclareVariable( "pax_id", otInteger );
   QryDoc.CreateVariable( "document", otString, document );
- 	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	 "SELECT crs_pax.pnr_id, "
-   "       crs_pax.pax_id, "
-   "       crs_pnr.target, "
-   "       crs_pnr.class, "
-   "       crs_pnr.subclass "
-   " FROM tlg_binding,crs_pnr,crs_pax "
-   "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
-   "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
-   "      tlg_binding.point_id_spp=:point_id AND "
-   "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
-   "      crs_pax.pr_del=0";
-  Qry.CreateVariable( "point_id", otInteger, SearchPnrData.point_id );
-  Qry.CreateVariable( "surname", otString, surname );
-  Qry.Execute();
-  int fcount = 0;
-  vector<TPnrAddr> pnraddrs;
-  int point_arv = NoExists;
 
-  for ( ; !Qry.Eof; Qry.Next() ) { // пробег по всем найденным пассажирам
-  	// не проверяем остальных пассажиров в группе, в которой был найден пассажир удовлетворяющий критериям поиска
-  	if ( SearchPnrData.pnr_id > NoExists && SearchPnrData.pnr_id == Qry.FieldAsInteger( "pnr_id" ) )
-  		continue;
-
-  	bool pr_find = true;
-  	if ( !ticket_no.empty() ) { // если задан поиск по билету, то делаем проверку
-      QryTicket.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
-      QryTicket.Execute();
-      if ( QryTicket.Eof && ticket_no.size() == 14 ) {
-      	QryTicket.SetVariable( "ticket_no", ticket_no.substr(0,13) );
-      	QryTicket.Execute();
-      }
-      pr_find = ( !QryTicket.Eof );
-    };
-    ProgTrace( TRACE5, "after search ticket, pr_find=%d", pr_find );
-    if ( pr_find && !document.empty() ) { // если пред. проверка удовл. и если задан документ, то делаем проверку
-    	QryDoc.SetVariable( "pax_id", Qry.FieldAsInteger( "pax_id" ) );
-    	QryDoc.Execute();
-    	pr_find = ( !QryDoc.Eof );
-    }
-    ProgTrace( TRACE5, "after search document, pr_find=%d", pr_find );
-    if ( pr_find ) { // если пред. проверки удовл.
-    	pr_find = false;
-    	pnraddrs.clear();
-  	  QryPnrAddr.SetVariable( "pnr_id", Qry.FieldAsInteger( "pnr_id" ) );
-    	QryPnrAddr.Execute();
-    	for ( ; !QryPnrAddr.Eof; QryPnrAddr.Next() ) { // пробег по всем адресам и поиск по условию + заполнение вектора с адресами
-    		TPnrAddr addr;
-    		addr.airline = QryPnrAddr.FieldAsString( "airline" );
-    		addr.addr = QryPnrAddr.FieldAsString( "addr" );
-    		pnraddrs.push_back( addr );
-    		if ( pnr_addr.empty() || lat_pnr_addr == convert_pnr_addr( addr.addr, true ) )
-    			pr_find = true;
-    	}
-    }
-
-    ProgTrace( TRACE5, "after search pnr_addr, pr_find=%d", pr_find );
-
-    if ( pr_find ) { // проверка на совпадение аэропорта прилета из pnr и СПП
-      pr_find = false;
-      TTripRoute routes;
-      routes.GetRouteAfter( SearchPnrData.point_id,
-                            SearchPnrData.point_num,
-                            SearchPnrData.first_point,
-                            SearchPnrData.pr_tranzit,
-                            trtNotCurrent,
-                            trtNotCancelled );
-      for ( vector<TTripRouteItem>::iterator i=routes.begin(); i!=routes.end(); i++ ) {
-        if ( i->airp == Qry.FieldAsString( "target" ) ) {
- 	  point_arv = i->point_id;
-      	  pr_find = true;
-      	  break;
+ 	for(vector<TPnrInfo>::iterator iPnr=pnr.begin();iPnr!=pnr.end();)
+ 	{
+    for(vector<int>::iterator iPax=iPnr->pax_id.begin();iPax!=iPnr->pax_id.end();)
+    {
+      //билет
+    	if ( !ticket_no.empty() ) { // если задан поиск по билету, то делаем проверку
+        QryTicket.SetVariable( "pax_id", *iPax );
+        QryTicket.Execute();
+        if ( QryTicket.Eof && ticket_no.size() == 14 ) {
+        	QryTicket.SetVariable( "ticket_no", ticket_no.substr(0,13) );
+        	QryTicket.Execute();
         }
+        if (QryTicket.Eof)
+        {
+          iPax=iPnr->pax_id.erase(iPax); //не подходит pax_id - удаляем
+          continue;
+        };
+      };
+      //ProgTrace( TRACE5, "after search ticket, pr_find=%d", pr_find );
+
+      //документ
+      if ( !document.empty() ) { // если пред. проверка удовл. и если задан документ, то делаем проверку
+      	QryDoc.SetVariable( "pax_id", *iPax );
+      	QryDoc.Execute();
+      	if (QryDoc.Eof)
+      	{
+          iPax=iPnr->pax_id.erase(iPax); //не подходит pax_id - удаляем
+          continue;
+        };
       }
-    }
+      //ProgTrace( TRACE5, "after search document, pr_find=%d", pr_find );
 
-    ProgTrace( TRACE5, "after search TTripRoute, pr_find=%d", pr_find );
+      iPax++;
+    };
 
-  	if ( pr_find ) { // нашли
-  		tst();
-  		if ( fcount )
-  			throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
-  		SearchPnrData.pnraddrs = pnraddrs;
-  		SearchPnrData.cls = Qry.FieldAsString( "class" );
-  		SearchPnrData.subcls = Qry.FieldAsString( "subclass" );
-  		SearchPnrData.pnr_id = Qry.FieldAsInteger( "pnr_id" );
-      TBaseTable &baseairps = base_tables.get( "airps" );
-	    TBaseTable &basecities = base_tables.get( "cities" );
-  		Qry.Clear();
-  		Qry.SQLText =
-  		  "SELECT airp, scd_in FROM points WHERE point_id=:point_id";
-  		Qry.CreateVariable( "point_id", otInteger, point_arv );
-  		Qry.Execute();
-  		SearchPnrData.point_arv = point_arv;
-  		SearchPnrData.airp_arv = Qry.FieldAsString( "airp" );
-	    SearchPnrData.city_arv = ((TAirpsRow&)baseairps.get_row( "code", SearchPnrData.airp_arv, true )).city;
-      string region = ((TCitiesRow&)basecities.get_row( "code", SearchPnrData.city_arv, true )).region;
-      if ( Qry.FieldIsNULL( "scd_in" ) )
-      	SearchPnrData.scd_in = NoExists;
-      else
-        SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+    if (iPnr->pax_id.empty()) //ни одного пассажира не прошло проверку в PNR
+    {
+      iPnr=pnr.erase(iPnr);
+      continue;
+    };
 
-      //определение багажной нормы (с учетом возможного кодшера)
-      TTripInfo operFlt,pnrMarkFlt;
-      TCodeShareSets codeshareSets;
-      GetPNRCodeshare(SearchPnrData, operFlt, pnrMarkFlt, codeshareSets);
+    //номер PNR (не только проверить но и начитать в структуру TPnrInfo)
+    bool pr_find=pnr_addr.empty();
+    QryPnrAddr.SetVariable( "pnr_id", iPnr->pnr_id );
+  	QryPnrAddr.Execute();
+    for ( ; !QryPnrAddr.Eof; QryPnrAddr.Next() )
+  	{
+  	  // пробег по всем адресам и поиск по условию + заполнение вектора с адресами
+  		TPnrAddr addr;
+  		addr.airline = QryPnrAddr.FieldAsString( "airline" );
+  		addr.addr = QryPnrAddr.FieldAsString( "addr" );
+  		iPnr->pnr_addrs.push_back( addr );
 
-      TQuery BagNormsQry(&OraSession);
-      BagNormsQry.Clear();
-      BagNormsQry.SQLText=
-       "SELECT point_id, :use_mark_flt AS use_mark_flt, "
-       "       :airline_mark AS airline_mark, :flt_no_mark AS flt_no_mark, "
-       "       id,bag_norms.airline,pr_trfer,city_dep,city_arv,pax_cat, "
-       "       subclass,class,bag_norms.flt_no,bag_norms.craft,bag_norms.trip_type, "
-       "       first_date,last_date-1/86400 AS last_date,"
-       "       bag_type,amount,weight,per_unit,norm_type,extra,bag_norms.tid "
-       "FROM bag_norms, "
-       "     (SELECT point_id,airps.city, "
-       "             DECODE(:use_mark_flt,0,airline,:airline_mark) AS airline, "
-       "             DECODE(:use_mark_flt,0,flt_no,:flt_no_mark) AS flt_no, "
-       "             craft,NVL(est_out,scd_out) AS scd, "
-       "             trip_type, point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
-       "      FROM points,airps WHERE points.airp=airps.code AND point_id=:point_id) p "
-       "WHERE (bag_norms.airline IS NULL OR bag_norms.airline=p.airline) AND "
-       "      (bag_norms.city_dep IS NULL OR bag_norms.city_dep=p.city) AND "
-       "      (bag_norms.city_arv IS NULL OR "
-       "       bag_norms.pr_trfer IS NULL OR bag_norms.pr_trfer<>0 OR "
-       "       bag_norms.city_arv IN "
-       "        (SELECT city FROM points p2,airps "
-       "         WHERE p2.first_point=p.first_point AND p2.point_num>p.point_num AND p2.pr_del=0 AND "
-       "               p2.airp=airps.code)) AND "
-       "      (bag_norms.flt_no IS NULL OR bag_norms.flt_no=p.flt_no) AND "
-       "      (bag_norms.craft IS NULL OR bag_norms.craft=p.craft) AND "
-       "      (bag_norms.trip_type IS NULL OR bag_norms.trip_type=p.trip_type) AND "
-       "      first_date<=scd AND (last_date IS NULL OR last_date>scd) AND "
-       "      bag_norms.pr_del=0 AND "
-       "      bag_norms.norm_type=:norm_type "
-       "ORDER BY airline,DECODE(pr_trfer,0,0,NULL,0,1),id";
-      BagNormsQry.CreateVariable("use_mark_flt",otInteger,codeshareSets.pr_mark_norms);
-      BagNormsQry.CreateVariable("airline_mark",otString,pnrMarkFlt.airline);
-      BagNormsQry.CreateVariable("flt_no_mark",otInteger,pnrMarkFlt.flt_no);
-      BagNormsQry.CreateVariable("point_id",otInteger,SearchPnrData.point_id);
-      BagNormsQry.CreateVariable("norm_type",otString,EncodeBagNormType(bntFreeExcess));
-      BagNormsQry.Execute();
+  		if ( !pnr_addr.empty() && pnr_addr_lat == convert_pnr_addr( addr.addr, true ) )
+  			pr_find = true;
+  	};
 
-      bool use_mixed_norms=GetTripSets(tsMixedNorms,operFlt);
-      TPaxInfo pax;
-      pax.pax_cat="";
-      pax.target=SearchPnrData.city_arv;
-      pax.final_target=""; //трансфер пока не анализируем
-      pax.subcl=SearchPnrData.subcls;
-      pax.cl=SearchPnrData.cls;
-      TBagNormInfo norm;
+  	if (!pr_find)
+  	{
+  	  iPnr=pnr.erase(iPnr);
+      continue;
+    };
+    //ProgTrace( TRACE5, "after search pnr_addr, pr_find=%d", pr_find );
 
-      GetPaxBagNorm(BagNormsQry, use_mixed_norms, pax, norm, false);
+ 	  iPnr++;
+ 	};
+};
 
-      SearchPnrData.bag_norm = norm.weight;
+void addPax( TQuery &Qry,
+             int point_dep,
+             vector<TPnrInfo> &pnr )
+{
+  int pnr_id=Qry.FieldAsInteger("pnr_id");
+  int pax_id=Qry.FieldAsInteger("pax_id");
+  vector<TPnrInfo>::iterator iPnr=pnr.begin();
+  for(;iPnr!=pnr.end();iPnr++)
+  {
+    if (iPnr->pnr_id==pnr_id) break;
+  };
+  if (iPnr!=pnr.end())
+  {
+    if (find(iPnr->pax_id.begin(),
+             iPnr->pax_id.end(),pax_id)==iPnr->pax_id.end())
+      iPnr->pax_id.push_back(pax_id);
 
-
-  		fcount++;
-  	}
+    vector< pair<int,int> >::iterator i=iPnr->point_dep.begin();
+    for(;i!=iPnr->point_dep.end();i++)
+      if (i->first==point_dep) break;
+    if (i==iPnr->point_dep.end())
+      iPnr->point_dep.push_back( make_pair(point_dep,NoExists) );
   }
-  return fcount;
-}
+  else
+  {
+    TPnrInfo pnrInfo;
+    pnrInfo.pnr_id=pnr_id;
+    pnrInfo.airp_arv=Qry.FieldAsString("target");
+    pnrInfo.cl=Qry.FieldAsString("class");
+    pnrInfo.subcl=Qry.FieldAsString("subclass");
+    pnrInfo.pax_id.push_back(Qry.FieldAsInteger("pax_id"));
+    pnrInfo.point_dep.push_back( make_pair(point_dep,NoExists) );
+    pnr.push_back(pnrInfo);
+  };
+};
+
+void findPnr( const TTripInfo &flt,
+              const string &surname,
+              const string &pnr_addr,
+              const string &ticket_no,
+              const string &document,
+              vector<TPnrInfo> &pnr,
+              int pass )
+{
+  ProgTrace( TRACE5, "surname=%s, pnr_addr=%s, ticket_no=%s, document=%s, pass=%d",
+	           surname.c_str(), pnr_addr.c_str(), ticket_no.c_str(), document.c_str(), pass );
+	if ( surname.empty() )
+  	throw UserException( "MSG.PASSENGER.NOT_SET.SURNAME" );
+  if ( pnr_addr.empty() && ticket_no.empty() && document.empty() )
+  	throw UserException( "MSG.NOTSET.SEARCH_PARAMS" );
+
+  TReqInfo *reqInfo = TReqInfo::Instance();
+
+  TDateTime scd;
+  modf( flt.scd_out, &scd );
+
+	TQuery Qry(&OraSession);
+	if (pass==1)
+	{
+	  //ищем фактический рейс
+	  Qry.Clear();
+	  Qry.SQLText=
+  	  "SELECT point_id,airline,airp,scd_out "
+  	  "FROM points "
+  	  "WHERE airline=:airline AND "
+  	  "      flt_no=:flt_no AND "
+  	  "      ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
+  	  "      scd_out >= :first_date AND scd_out <= :last_date AND "
+  	  "      pr_del=0 AND pr_reg<>0";
+
+  	Qry.CreateVariable( "airline", otString, flt.airline );
+  	Qry.CreateVariable( "flt_no", otInteger, flt.flt_no );
+  	Qry.CreateVariable( "suffix", otString, flt.suffix );
+  	Qry.CreateVariable( "first_date", otDate, scd-1 );
+  	Qry.CreateVariable( "last_date", otDate, scd+2 );
+  	Qry.Execute();
+
+  	vector<int> point_ids;
+  	for(;!Qry.Eof;Qry.Next())
+  	{
+  	  if ( !reqInfo->CheckAirline(Qry.FieldAsString("airline")) ||
+           !reqInfo->CheckAirp(Qry.FieldAsString("airp")) ) continue;
+  	  TDateTime scd_local=UTCToLocal(Qry.FieldAsDateTime("scd_out"),AirpTZRegion(Qry.FieldAsString("airp")));
+  	  modf(scd_local,&scd_local);
+  	  if (scd_local!=scd) continue;
+  	  point_ids.push_back(Qry.FieldAsInteger("point_id"));
+  	};
+
+  	if (point_ids.empty()) return; //не нашли рейса
+
+  	Qry.Clear();
+  	Qry.SQLText=
+  	  "SELECT crs_pnr.pnr_id, "
+	    "       crs_pnr.target, "
+	    "       crs_pnr.class, "
+	    "       crs_pnr.subclass, "
+	    "       crs_pax.pax_id "
+      "FROM tlg_binding,crs_pnr,crs_pax "
+      "WHERE tlg_binding.point_id_tlg=crs_pnr.point_id AND "
+      "      crs_pax.pnr_id=crs_pnr.pnr_id AND "
+      "      tlg_binding.point_id_spp=:point_id AND "
+      "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+      "      crs_pax.pr_del=0";
+    Qry.DeclareVariable("point_id", otInteger);
+    Qry.CreateVariable("surname", otString, surname);
+    for(vector<int>::iterator i=point_ids.begin();i!=point_ids.end();i++)
+    {
+      Qry.SetVariable("point_id",*i);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        addPax(Qry,*i,pnr);
+      };
+
+      ostringstream descr;
+      descr << "point_id_spp=" << *i;
+      tracePax(TRACE5, descr.str(), pass, pnr);
+      filterPax(pnr_addr, ticket_no, document, pnr);
+      tracePax(TRACE5, descr.str(), pass, pnr);
+      filterPax(*i, pnr);
+      tracePax(TRACE5, descr.str(), pass, pnr);
+    };
+	};
+	if (pass==2)
+	{
+	  //ищем среди телеграммных рейсов
+	  Qry.Clear();
+	  Qry.SQLText=
+	    "SELECT point_id "
+	    "FROM tlg_trips "
+	    "WHERE scd=:scd AND pr_utc=0 AND "
+      "      airline=:airline AND flt_no=:flt_no AND "
+     	"      (suffix IS NULL AND :suffix IS NULL OR suffix=:suffix) ";
+
+    Qry.CreateVariable("scd", otDate, scd);
+    Qry.CreateVariable("airline", otString, flt.airline);
+    Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
+    Qry.CreateVariable("suffix", otString, flt.suffix);
+    Qry.Execute();
+
+    vector<int> point_ids_tlg;
+  	for(;!Qry.Eof;Qry.Next())
+  	  point_ids_tlg.push_back(Qry.FieldAsInteger("point_id"));
+
+  	if (point_ids_tlg.empty()) return; //не нашли рейса
+
+  	Qry.Clear();
+	  Qry.SQLText=
+	    "SELECT crs_pnr.pnr_id, "
+	    "       crs_pnr.target, "
+	    "       crs_pnr.class, "
+	    "       crs_pnr.subclass, "
+	    "       crs_pax.pax_id "
+     	"FROM crs_pnr,crs_pax,pnr_market_flt "
+     	"WHERE crs_pnr.pnr_id=crs_pax.pnr_id AND "
+     	"      crs_pnr.pnr_id=pnr_market_flt.pnr_id(+) AND "
+     	"      crs_pnr.point_id=:point_id AND "
+     	"      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+      "      crs_pax.pr_del=0 AND "
+     	"      pnr_market_flt.pnr_id IS NULL";
+    Qry.CreateVariable("surname", otString, surname);
+    Qry.DeclareVariable("point_id", otInteger);
+
+  	TQuery PointsQry(&OraSession);
+  	PointsQry.Clear();
+  	PointsQry.SQLText=
+  	  "SELECT points.point_id,airline,airp "
+  	  "FROM points,tlg_binding "
+  	  "WHERE points.point_id=tlg_binding.point_id_spp AND "
+  	  "      point_id_tlg=:point_id AND "
+  	  "      pr_del=0 AND pr_reg<>0 ";
+  	PointsQry.DeclareVariable("point_id", otInteger);
+  	for(vector<int>::iterator i=point_ids_tlg.begin();i!=point_ids_tlg.end();i++)
+    {
+      vector<int> point_ids_spp;
+      PointsQry.SetVariable("point_id",*i);
+      PointsQry.Execute();
+      for(;!PointsQry.Eof;PointsQry.Next())
+      {
+        //цикл по реальным рейсам
+        if ( !reqInfo->CheckAirline(PointsQry.FieldAsString("airline")) ||
+             !reqInfo->CheckAirp(PointsQry.FieldAsString("airp")) ) continue;
+        point_ids_spp.push_back(PointsQry.FieldAsInteger("point_id"));
+      };
+
+      if (point_ids_spp.empty()) continue;
+
+      Qry.SetVariable("point_id",*i);
+      Qry.Execute();
+      for(;!Qry.Eof;Qry.Next())
+      {
+        for(vector<int>::iterator j=point_ids_spp.begin();j!=point_ids_spp.end();j++)
+          addPax(Qry,*j,pnr);
+      };
+
+      ostringstream descr;
+      descr << "point_id_tlg=" << *i;
+      tracePax(TRACE5, descr.str(), pass, pnr);
+      filterPax(pnr_addr, ticket_no, document, pnr);
+      tracePax(TRACE5, descr.str(), pass, pnr);
+      for(vector<int>::iterator j=point_ids_spp.begin();j!=point_ids_spp.end();j++)
+        filterPax(*j, pnr);
+      tracePax(TRACE5, descr.str(), pass, pnr);
+    };
+
+	};
+	if (pass==3)
+	{
+	  TQuery PointsQry(&OraSession);
+  	PointsQry.Clear();
+  	PointsQry.SQLText=
+  	  "SELECT points.point_id,airline,airp "
+  	  "FROM points,tlg_binding "
+  	  "WHERE points.point_id=tlg_binding.point_id_spp AND "
+  	  "      point_id_tlg=:point_id AND "
+  	  "      pr_del=0 AND pr_reg<>0 ";
+  	PointsQry.DeclareVariable("point_id", otInteger);
+
+	  //ищем среди эл-тов .M из PNL
+	  Qry.Clear();
+	  Qry.SQLText=
+	    "SELECT tlg_trips.point_id, "
+	    "       tlg_trips.scd, "
+	    "       crs_pnr.pnr_id, "
+	    "       crs_pnr.target, "
+	    "       crs_pnr.class, "
+	    "       crs_pnr.subclass, "
+	    "       crs_pax.pax_id "
+ 	    "FROM tlg_trips,crs_pnr,crs_pax,pnr_market_flt "
+ 	    "WHERE tlg_trips.point_id=crs_pnr.point_id AND "
+ 	    "      crs_pnr.pnr_id=crs_pax.pnr_id AND "
+ 	    "      crs_pnr.pnr_id=pnr_market_flt.pnr_id AND "
+ 	    "      pnr_market_flt.local_date=:scd_day AND "
+ 	    "      pnr_market_flt.airline=:airline AND pnr_market_flt.flt_no=:flt_no AND "
+ 	    "      (pnr_market_flt.suffix IS NULL AND :suffix IS NULL OR pnr_market_flt.suffix=:suffix) AND "
+ 	    "      system.transliter_equal(crs_pax.surname,:surname)<>0 AND "
+      "      crs_pax.pr_del=0 "
+      "ORDER BY tlg_trips.point_id";
+    int year,month,day;
+    DecodeDate(flt.scd_out,year,month,day);
+
+    Qry.CreateVariable("scd_day", otInteger, day);
+    Qry.CreateVariable("airline", otString, flt.airline);
+    Qry.CreateVariable("flt_no", otInteger, flt.flt_no);
+    Qry.CreateVariable("suffix", otString, flt.suffix);
+    Qry.CreateVariable("surname", otString, surname);
+    Qry.Execute();
+    int point_id_tlg=NoExists;
+    TDateTime scd_local;
+    vector<int> point_ids_spp;
+
+    if (Qry.Eof) return;
+    for(;!Qry.Eof;Qry.Next())
+    {
+      if (point_id_tlg!=Qry.FieldAsInteger("point_id"))
+      {
+        if (point_id_tlg!=NoExists)
+        {
+          ostringstream descr;
+          descr << "point_id_tlg=" << point_id_tlg;
+          tracePax(TRACE5, descr.str(), pass, pnr);
+
+          for(vector<int>::iterator j=point_ids_spp.begin();j!=point_ids_spp.end();j++)
+           filterPax(*j, pnr);
+
+          tracePax(TRACE5, descr.str(), pass, pnr);
+        };
+        point_id_tlg=Qry.FieldAsInteger("point_id");
+        point_ids_spp.clear();
+
+        scd_local = DayToDate(day, Qry.FieldAsDateTime("scd"), true);
+        if (scd_local!=scd) continue;
+
+        PointsQry.SetVariable("point_id",point_id_tlg);
+        PointsQry.Execute();
+        for(;!PointsQry.Eof;PointsQry.Next())
+        {
+          //цикл по реальным рейсам
+          if ( !reqInfo->CheckAirline(PointsQry.FieldAsString("airline")) ||
+               !reqInfo->CheckAirp(PointsQry.FieldAsString("airp")) ) continue;
+          point_ids_spp.push_back(PointsQry.FieldAsInteger("point_id"));
+        };
+      };
+      if (point_ids_spp.empty()) continue;
+
+      for(vector<int>::iterator j=point_ids_spp.begin();j!=point_ids_spp.end();j++)
+        addPax(Qry,*j,pnr);
+    };
+    if (point_id_tlg!=NoExists)
+    {
+      ostringstream descr;
+      descr << "point_id_tlg=" << point_id_tlg;
+      tracePax(TRACE5, descr.str(), pass, pnr);
+
+      for(vector<int>::iterator j=point_ids_spp.begin();j!=point_ids_spp.end();j++)
+        filterPax(*j, pnr);
+
+      tracePax(TRACE5, descr.str(), pass, pnr);
+    };
+    filterPax(pnr_addr, ticket_no, document, pnr);
+    tracePax(TRACE5, "", pass, pnr);
+  };
+};
+
 
 /* Пункт посадки в PNL может не совпадать с пунктом посадки в СПП */
 void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
@@ -679,7 +972,7 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   <pnr_addr>  номер PNR
   <ticket_no> номер билета
   <document>  номер документа
-</SearchPnr>
+</SearchFlt>
 */
 
   ProgTrace(TRACE1,"WebRequestsIface::SearchFlt");
@@ -688,88 +981,153 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
   string ticket_no = NodeAsString( "ticket_no", reqNode, "" );
   string document = NodeAsString( "document", reqNode, "" );
 
-  TSearchPnrData SearchPnrData;
+  TTripInfo flt;
   int fmt;
-  SearchPnrData.airline = NodeAsString( "airline", reqNode, "" );
-	SearchPnrData.airline = TrimString( SearchPnrData.airline );
-  if ( SearchPnrData.airline.empty() )
+  flt.airline = NodeAsString( "airline", reqNode, "" );
+	flt.airline = TrimString( flt.airline );
+  if ( flt.airline.empty() )
    	throw UserException( "MSG.AIRLINE.NOT_SET" );
   try {
-    SearchPnrData.airline = ElemCtxtToElemId( ecDisp, etAirline, SearchPnrData.airline, fmt, false );
+    flt.airline = ElemCtxtToElemId( ecDisp, etAirline, flt.airline, fmt, false );
   }
   catch( EXCEPTIONS::EConvertError &e ) {
   	throw UserException( "MSG.AIRLINE.INVALID",
-  		                   LParams()<<LParam("airline", SearchPnrData.airline ) );
+  		                   LParams()<<LParam("airline", flt.airline ) );
   }
   string str_flt_no = NodeAsString( "flt_no", reqNode, "" );
-	if ( StrToInt( str_flt_no.c_str(), SearchPnrData.flt_no ) == EOF ||
-		   SearchPnrData.flt_no > 99999 || SearchPnrData.flt_no <= 0 )
+	if ( StrToInt( str_flt_no.c_str(), flt.flt_no ) == EOF ||
+		   flt.flt_no > 99999 || flt.flt_no <= 0 )
 		throw UserException( "MSG.FLT_NO.INVALID",
 			                   LParams()<<LParam("flt_no", str_flt_no) );
-	SearchPnrData.suffix = NodeAsString( "suffix", reqNode, "" );
-	SearchPnrData.suffix = TrimString( SearchPnrData.suffix );
-	if ( SearchPnrData.suffix.size() > 1 )
+	flt.suffix = NodeAsString( "suffix", reqNode, "" );
+	flt.suffix = TrimString( flt.suffix );
+	if ( flt.suffix.size() > 1 )
 		throw UserException( "MSG.SUFFIX.INVALID",
-			                   LParams()<<LParam("suffix", SearchPnrData.suffix) );
+			                   LParams()<<LParam("suffix", flt.suffix) );
   try {
-   SearchPnrData.suffix = ElemCtxtToElemId( ecDisp, etSuffix, SearchPnrData.suffix, fmt, false );
+   flt.suffix = ElemCtxtToElemId( ecDisp, etSuffix, flt.suffix, fmt, false );
   }
   catch( EXCEPTIONS::EConvertError &e ) {
 		throw UserException( "MSG.SUFFIX.INVALID",
-			                   LParams()<<LParam("suffix", SearchPnrData.suffix) );
+			                   LParams()<<LParam("suffix", flt.suffix) );
   }
   string str_scd_out = NodeAsString( "scd_out", reqNode, "" );
 	str_scd_out = TrimString( str_scd_out );
   if ( str_scd_out.empty() )
 		throw UserException( "MSG.FLIGHT_DATE.NOT_SET" );
 	else
-		if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn:ss", SearchPnrData.scd_out_local ) == EOF )
+		if ( StrToDateTime( str_scd_out.c_str(), "dd.mm.yyyy hh:nn:ss", flt.scd_out ) == EOF )
 			throw UserException( "MSG.FLIGHT_DATE.INVALID",
 				                   LParams()<<LParam("suffix", str_scd_out) );
-	TQuery Qry(&OraSession);
-	Qry.SQLText =
-	  "SELECT point_id,airp,scd_out FROM points"
-	  " WHERE airline=:airline AND "
-	  "       flt_no=:flt_no AND "
-	  "      ( suffix IS NULL AND :suffix IS NULL OR suffix=:suffix ) AND "
-	  "      scd_out >= :first_date AND scd_out <= :last_date ";
-	Qry.CreateVariable( "airline", otString, SearchPnrData.airline );
-	Qry.CreateVariable( "flt_no", otInteger, SearchPnrData.flt_no );
-	if ( SearchPnrData.suffix.empty() )
-	  Qry.CreateVariable( "suffix", otString, FNull );
-	else
-		Qry.CreateVariable( "suffix", otString, SearchPnrData.suffix );
-  double sd, sd1;
-  modf( SearchPnrData.scd_out_local, &sd );
-	Qry.CreateVariable( "first_date", otDate, sd-1 );
-	Qry.CreateVariable( "last_date", otDate, sd+1 );
-	Qry.Execute();
-	ProgTrace( TRACE5, "airline=%s, flt_no=%d, suffix=|%s|, sd=%s",
-	           SearchPnrData.airline.c_str(), SearchPnrData.flt_no, SearchPnrData.suffix.c_str(),
-	           DateTimeToStr( sd ).c_str() );
-	if ( Qry.Eof )
-		throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+
+	vector<TPnrInfo> pnr;
+	findPnr(flt, surname, pnr_addr, ticket_no, document, pnr, 1);
+  if (pnr.empty())
+  {
+    findPnr(flt, surname, pnr_addr, ticket_no, document, pnr, 2);
+    findPnr(flt, surname, pnr_addr, ticket_no, document, pnr, 3);
+  };
+  if (pnr.empty())
+    throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
+  if (pnr.size()>1)
+    throw UserException( "MSG.PASSENGERS.FOUND_MORE" );
+  if (pnr.begin()->pax_id.empty())
+    throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
+  if (pnr.begin()->point_dep.empty())
+    throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+  if (pnr.begin()->point_dep.size()>1)
+    throw UserException( "MSG.FLIGHT.FOUND_MORE" ); //добавить в locale_messages !!!vlad
+
+	TSearchPnrData SearchPnrData;
+	getTripData(pnr.begin()->point_dep.begin()->first, SearchPnrData, true);
+
+	//дозаполним поля SearchPnrData
+	SearchPnrData.pnr_id = pnr.begin()->pnr_id;
+	SearchPnrData.airp_arv = pnr.begin()->airp_arv;
 	TBaseTable &baseairps = base_tables.get( "airps" );
-	TBaseTable &basecities = base_tables.get( "cities" );
-	SearchPnrData.point_id = NoExists;
-	SearchPnrData.pnr_id = NoExists;
-	while ( !Qry.Eof ) {
-		string city = ((TAirpsRow&)baseairps.get_row( "code", Qry.FieldAsString( "airp" ), true )).city;
-		string region = ((TCitiesRow&)basecities.get_row( "code", city, true )).region;
-		modf( UTCToLocal( Qry.FieldAsDateTime( "scd_out" ), region ), &sd1 );
-		if ( sd == sd1 ) {
-			if ( getTripData( Qry.FieldAsInteger( "point_id" ), SearchPnrData, false ) &&
-				   findPnr( surname, pnr_addr, ticket_no, document, SearchPnrData ) ) {
-				tst();
-      	break;
-      }
-		}
-		Qry.Next();
-	}
-	if ( SearchPnrData.point_id == NoExists )
-		throw UserException( "MSG.FLIGHT.NOT_FOUND" );
-  if ( SearchPnrData.pnr_id == NoExists )
-  	throw UserException( "MSG.PASSENGERS.NOT_FOUND" );
+	SearchPnrData.city_arv = ((TAirpsRow&)baseairps.get_row( "code", SearchPnrData.airp_arv, true )).city;
+	SearchPnrData.cls = pnr.begin()->cl;
+	SearchPnrData.subcls = pnr.begin()->subcl;
+	SearchPnrData.pnr_addrs = pnr.begin()->pnr_addrs;
+	SearchPnrData.point_arv = pnr.begin()->point_dep.begin()->second;
+	if (SearchPnrData.point_arv==NoExists)
+	  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+  TQuery Qry(&OraSession);
+	Qry.Clear();
+	Qry.SQLText =
+	  "SELECT scd_in FROM points WHERE point_id=:point_id AND airp=:airp AND pr_del=0";
+	Qry.CreateVariable( "point_id", otInteger, SearchPnrData.point_arv );
+	Qry.CreateVariable( "airp", otString, SearchPnrData.airp_arv );
+	Qry.Execute();
+	if (Qry.Eof)
+	  throw UserException( "MSG.FLIGHT.NOT_FOUND" );
+
+  string region = AirpTZRegion(SearchPnrData.airp_arv);
+  if ( Qry.FieldIsNULL( "scd_in" ) )
+  	SearchPnrData.scd_in = NoExists;
+  else
+    SearchPnrData.scd_in = UTCToLocal( Qry.FieldAsDateTime( "scd_in" ), region );
+
+  //определение багажной нормы (с учетом возможного кодшера)
+  TTripInfo operFlt,pnrMarkFlt;
+  TCodeShareSets codeshareSets;
+  GetPNRCodeshare(SearchPnrData, operFlt, pnrMarkFlt, codeshareSets);
+
+  TQuery BagNormsQry(&OraSession);
+  BagNormsQry.Clear();
+  BagNormsQry.SQLText=
+   "SELECT point_id, :use_mark_flt AS use_mark_flt, "
+   "       :airline_mark AS airline_mark, :flt_no_mark AS flt_no_mark, "
+   "       id,bag_norms.airline,pr_trfer,city_dep,city_arv,pax_cat, "
+   "       subclass,class,bag_norms.flt_no,bag_norms.craft,bag_norms.trip_type, "
+   "       first_date,last_date-1/86400 AS last_date,"
+   "       bag_type,amount,weight,per_unit,norm_type,extra,bag_norms.tid "
+   "FROM bag_norms, "
+   "     (SELECT point_id,airps.city, "
+   "             DECODE(:use_mark_flt,0,airline,:airline_mark) AS airline, "
+   "             DECODE(:use_mark_flt,0,flt_no,:flt_no_mark) AS flt_no, "
+   "             craft,NVL(est_out,scd_out) AS scd, "
+   "             trip_type, point_num, DECODE(pr_tranzit,0,point_id,first_point) AS first_point "
+   "      FROM points,airps WHERE points.airp=airps.code AND point_id=:point_id) p "
+   "WHERE (bag_norms.airline IS NULL OR bag_norms.airline=p.airline) AND "
+   "      (bag_norms.city_dep IS NULL OR bag_norms.city_dep=p.city) AND "
+   "      (bag_norms.city_arv IS NULL OR "
+   "       bag_norms.pr_trfer IS NULL OR bag_norms.pr_trfer<>0 OR "
+   "       bag_norms.city_arv IN "
+   "        (SELECT city FROM points p2,airps "
+   "         WHERE p2.first_point=p.first_point AND p2.point_num>p.point_num AND p2.pr_del=0 AND "
+   "               p2.airp=airps.code)) AND "
+   "      (bag_norms.flt_no IS NULL OR bag_norms.flt_no=p.flt_no) AND "
+   "      (bag_norms.craft IS NULL OR bag_norms.craft=p.craft) AND "
+   "      (bag_norms.trip_type IS NULL OR bag_norms.trip_type=p.trip_type) AND "
+   "      first_date<=scd AND (last_date IS NULL OR last_date>scd) AND "
+   "      bag_norms.pr_del=0 AND "
+   "      bag_norms.norm_type=:norm_type "
+   "ORDER BY airline,DECODE(pr_trfer,0,0,NULL,0,1),id";
+  BagNormsQry.CreateVariable("use_mark_flt",otInteger,codeshareSets.pr_mark_norms);
+  BagNormsQry.CreateVariable("airline_mark",otString,pnrMarkFlt.airline);
+  BagNormsQry.CreateVariable("flt_no_mark",otInteger,pnrMarkFlt.flt_no);
+  BagNormsQry.CreateVariable("point_id",otInteger,SearchPnrData.point_id);
+  BagNormsQry.CreateVariable("norm_type",otString,EncodeBagNormType(bntFreeExcess));
+  BagNormsQry.Execute();
+
+  bool use_mixed_norms=GetTripSets(tsMixedNorms,operFlt);
+  TPaxInfo pax;
+  pax.pax_cat="";
+  pax.target=SearchPnrData.city_arv;
+  pax.final_target=""; //трансфер пока не анализируем
+  pax.subcl=SearchPnrData.subcls;
+  pax.cl=SearchPnrData.cls;
+  TBagNormInfo norm;
+
+  GetPaxBagNorm(BagNormsQry, use_mixed_norms, pax, norm, false);
+
+  SearchPnrData.bag_norm = norm.weight;
+
+  //в этом месте у нас полностью заполненный SearchPnrData
+
 
   xmlNodePtr node = NewTextChild( resNode, "SearchFlt" );
   NewTextChild( node, "point_id", SearchPnrData.point_id );
@@ -834,9 +1192,9 @@ void WebRequestsIface::SearchFlt(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     NewTextChild( node, "bag_norm", SearchPnrData.bag_norm );
   else
   	NewTextChild( node, "bag_norm" );
-  if ( !SearchPnrData.pnraddrs.empty() ) {
+  if ( !SearchPnrData.pnr_addrs.empty() ) {
   	node = NewTextChild( node, "pnr_addrs" );
-  	for ( vector<TPnrAddr>::iterator i=SearchPnrData.pnraddrs.begin(); i!=SearchPnrData.pnraddrs.end(); i++ ) {
+  	for ( vector<TPnrAddr>::iterator i=SearchPnrData.pnr_addrs.begin(); i!=SearchPnrData.pnr_addrs.end(); i++ ) {
       xmlNodePtr addrNode = NewTextChild( node, "pnr_addr" );
       NewTextChild( addrNode, "airline", i->airline );
       NewTextChild( addrNode, "addr", i->addr );

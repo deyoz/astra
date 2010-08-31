@@ -1437,7 +1437,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   TQuery Qry(&OraSession);
   Qry.Clear();
   Qry.SQLText=
-    "SELECT points.point_id,points.point_num,points.first_point,"
+    "SELECT points.point_id,points.point_num,points.first_point,points.pr_tranzit, "
     "       airline,flt_no,suffix,airp,scd_out, "
     "       airp_arv,class,NVL(trip_sets.pr_lat_seat,1) AS pr_lat_seat "
     "FROM points,pax_grp,trip_sets "
@@ -1462,6 +1462,7 @@ void TelegramInterface::LoadBSMContent(int grp_id, TBSMContent& con)
   info.point_id=Qry.FieldAsInteger("point_id");
   info.point_num=Qry.FieldAsInteger("point_num");
   info.first_point=Qry.FieldAsInteger("first_point");
+  info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
   bool pr_unaccomp=Qry.FieldIsNULL("class");
 
