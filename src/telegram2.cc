@@ -3643,6 +3643,7 @@ struct TETLPax {
     int coupon_no;
     int grp_id;
     TPNRListAddressee pnrs;
+    TMItem M;
     TRemList rems;
     TETLPax(TInfants *ainfants): rems(ainfants) {
         cls_grp_id = NoExists;
@@ -3946,6 +3947,9 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
             pax.pax_id = Qry.FieldAsInteger(col_pax_id);
+            pax.M.get(info, pax.pax_id);
+            if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
+                continue;
             pax.ticket_no = Qry.FieldAsString(col_ticket_no);
             pax.coupon_no = Qry.FieldAsInteger(col_coupon_no);
             pax.grp_id = Qry.FieldAsInteger(col_grp_id);
@@ -4730,11 +4734,20 @@ int ETL(TTlgInfo &info)
     tlg_row.extra = info.extra;
     tlg_row.addr = info.addrs;
     tlg_row.time_create = NowUTC();
+    string airline_view = info.airline_view;
+    int flt_no_view = info.flt_no;
+    string suffix_view = info.suffix_view;
+
+    if(not info.mark_info.IsNULL() and info.mark_info.pr_mark_header) {
+        airline_view = TlgElemIdToElem(etAirline, info.mark_info.airline, info.pr_lat);
+        flt_no_view = info.mark_info.flt_no;
+        suffix_view = TlgElemIdToElem(etSuffix, info.mark_info.suffix, info.pr_lat);
+    }
     ostringstream heading;
     heading
         << "." << info.sender << " " << DateTimeToStr(tlg_row.time_create, "ddhhnn") << br
         << "ETL" << br
-        << info.airline_view << setw(3) << setfill('0') << info.flt_no << info.suffix_view << "/"
+        << airline_view << setw(3) << setfill('0') << flt_no_view << suffix_view << "/"
         << DateTimeToStr(info.scd_local, "ddmmm", 1) << " " << info.airp_dep_view << " ";
     tlg_row.heading = heading.str() + "PART" + IntToString(tlg_row.num) + br;
     tlg_row.ending = "ENDPART" + IntToString(tlg_row.num) + br;
