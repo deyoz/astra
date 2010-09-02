@@ -257,9 +257,9 @@ Passenger::SharedPtr PassengerEdiR::operator () (ReaderData &RData) const
                                Passenger::MaxPassSurname);
         throw Exception("Surname too long!");
     }
-    if(Surname.size() < Passenger::MinPassSurname){
+    if(Surname.size() < 1/*Passenger::MinPassSurname*/){
         ProgError(STDLOG, "Surname too short! %d is a minimum",
-                               Passenger::MinPassSurname);
+                               1/*Passenger::MinPassSurname*/);
         throw Exception("Surname too short!");
     }
     if(Name.size() > Passenger::MaxPassName){
