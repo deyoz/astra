@@ -1298,11 +1298,11 @@ void PrintDataParser::t_field_map::fillBTBPMap()
         airline = sel_airline;
         suffix = sel_suffix;
         TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-        airline_lat = airlineRow.AsString("code", 1);
-        airline_name = airlineRow.AsString("name", 0);
-        airline_name_lat = airlineRow.AsString("name", 1);
-        airline_short = airlineRow.AsString("short_name", 0);
-        airline_short_lat = airlineRow.AsString("short_name", 1);
+        airline_lat = airlineRow.AsString("code", AstraLocale::LANG_EN);
+        airline_name = airlineRow.AsString("name", AstraLocale::LANG_RU);
+        airline_name_lat = airlineRow.AsString("name", AstraLocale::LANG_EN);
+        airline_short = airlineRow.AsString("short_name", LANG_RU);
+        airline_short_lat = airlineRow.AsString("short_name", LANG_EN);
         suffix_lat = convert_suffix(suffix, 1);
         ostringstream buf;
         buf << setw(3) << setfill('0') << sel_flt_no;
@@ -1480,14 +1480,14 @@ string get_mso_point(const string &aairp, bool pr_lat)
     TBaseTable &airps = base_tables.get("airps");
     TBaseTable &cities = base_tables.get("cities");
     string city = airps.get_row("code", aairp).AsString("city");
-    string point = cities.get_row("code", city).AsString("name", pr_lat);
+    string point = cities.get_row("code", city).AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     if(point.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_CITY_NAME_IS_NULL" : "MSG.CITY_NAME_IS_NULL"), LParams() << LParam("city", city));
     TQuery airpsQry(&OraSession);
     airpsQry.SQLText =  "select count(*) from airps where city = :city";
     airpsQry.CreateVariable("city", otString, city);
     airpsQry.Execute();
     if(!airpsQry.Eof && airpsQry.FieldAsInteger(0) != 1) {
-        string airp = airps.get_row("code", aairp).AsString("code", pr_lat);
+        string airp = airps.get_row("code", aairp).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
         if(airp.empty()) throw AstraLocale::UserException((pr_lat ? "MSG.LAT_AIRP_CODE_IS_NULL" : "MSG.AIRP_CODE_IS_NULL"), LParams() << LParam("airp", aairp));
         point += "(" + airp + ")";
     }
@@ -1578,12 +1578,12 @@ string ExchToString(int rate1, string rate_cur1, double rate2, string rate_cur2,
     ostringstream buf;
     buf
         << rate1
-        << base_tables.get("currency").get_row("code", rate_cur1).AsString("code", pr_lat)
+        << base_tables.get("currency").get_row("code", rate_cur1).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
         << "="
         << fixed
         << setprecision(get_exch_precision(rate2))
         << rate2
-        << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat);
+        << base_tables.get("currency").get_row("code", rate_cur2).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     return buf.str();
 };
 
@@ -1596,7 +1596,7 @@ string RateToString(double rate, string rate_cur, bool pr_lat, int fmt_type)
     if (fmt_type!=2 && !pr_lat)
       buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     if (fmt_type!=1)
-      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat);
+      buf << base_tables.get("currency").get_row("code", rate_cur).AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     if (fmt_type!=2 && pr_lat)
       buf << setprecision(get_rate_precision(rate, rate_cur)) << fixed << rate;
     return buf.str();
@@ -1874,9 +1874,9 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
               buf_lat += str_fract;
           }
           ValueBTLetter = upperc(buf_ru) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 0);
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", LANG_RU);
           ValueBTLetter_lat = upperc(buf_lat) +
-              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", 1);
+              base_tables.get("currency").get_row("code", rcpt.rate_cur).AsString("code", LANG_EN);
       }
       add_tag("ValueBT", "x");
       add_tag("ValueBTLetter", ValueBTLetter);
@@ -1979,8 +1979,8 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
   {
     //одна форма оплаты
     i=rcpt.pay_types.begin();
-    pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false);
-    pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true);
+    pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_RU);
+    pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_EN);
     if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
     {
       pay_types     << ' ' << i->extra;
@@ -2003,10 +2003,10 @@ void PrintDataParser::t_field_map::fillMSOMap(TBagReceipt &rcpt)
           pay_types     << '+';
           pay_types_lat << '+';
         };
-        pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", false)
+        pay_types     << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_RU)
                       << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, false, 0);
 
-        pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", true)
+        pay_types_lat << payTypeCodes.get_row("code", i->pay_type).AsString("code", AstraLocale::LANG_EN)
                       << RateToString(i->pay_rate_sum, rcpt.pay_rate_cur, true, 0);
         if (i->pay_type!=CASH_PAY_TYPE && !i->extra.empty())
         {

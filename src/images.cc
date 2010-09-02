@@ -4,6 +4,7 @@
 #include "xml_unit.h"
 #include "oralib.h"
 #include "astra_utils.h"
+#include "base_tables.h"
 #include "stl_utils.h"
 #include "term_version.h"
 #include "serverlib/str_utils.h"
@@ -31,6 +32,7 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
 {
   //TReqInfo::Instance()->user.check_access( amRead );
   ProgTrace( TRACE5, "ImagesInterface::GetImages" );
+
   xmlNodePtr dataNode = GetNode( "data", resNode );
   if ( dataNode == NULL )
     dataNode = NewTextChild( resNode, "data" );
@@ -79,14 +81,13 @@ void ImagesInterface::GetImages( xmlNodePtr reqNode, xmlNodePtr resNode )
    /* пересылаем все данные */
    Qry->Clear();
    Qry->SQLText =
-     "SELECT code, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
-   Qry->CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
+     "SELECT code, pr_seat, image FROM comp_elem_types WHERE pr_del IS NULL OR pr_del = 0";
    Qry->Execute();
    int len = 0;
    while ( !Qry->Eof ) {
      xmlNodePtr imageNode = NewTextChild( imagesNode, "image" );
      NewTextChild( imageNode, "code", Qry->FieldAsString( "code" ) );
-     NewTextChild( imageNode, "name", Qry->FieldAsString( "name" ) );
+     NewTextChild( imageNode, "name", ElemIdToElemName(etCompElemTypes,Qry->FieldAsString( "code" )) );
      NewTextChild( imageNode, "pr_seat", Qry->FieldAsInteger( "pr_seat" ) );
      if ( sendImages ) {
        if ( len != Qry->GetSizeLongField( "image" ) ) {

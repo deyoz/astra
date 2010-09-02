@@ -410,12 +410,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
   bool pr_editable = ( find( reqInfo->user.access.rights.begin(),
                              reqInfo->user.access.rights.end(), 840 ) != reqInfo->user.access.rights.end() );
 
-  TQuery ModelQry(&OraSession);
-  ModelQry.Clear();
-  ModelQry.SQLText="SELECT DECODE(:lang,'RU',name,NVL(name_lat,name)) name FROM dev_models WHERE code=:dev_model";
-  ModelQry.DeclareVariable("dev_model",otString);
-  ModelQry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
-
 	TQuery SessParamsQry( &OraSession );
   SessParamsQry.SQLText=
     "SELECT dev_model_params.sess_type AS param_type, "
@@ -477,8 +471,7 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "SELECT dev_oper_types.code AS op_type, "
       "       dev_model_defaults.dev_model, "
       "       dev_model_defaults.sess_type, "
-      "       dev_model_defaults.fmt_type, "
-      "       '' sess_name, '' fmt_name "
+      "       dev_model_defaults.fmt_type "
       "FROM dev_oper_types,dev_model_defaults "
       "WHERE dev_oper_types.code=dev_model_defaults.op_type(+) AND "
       "      dev_model_defaults.term_mode(+)=:term_mode ";
@@ -493,16 +486,12 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "                dev_model_sess_fmt.dev_model,"
       "                dev_model_sess_fmt.sess_type,"
       "                dev_model_sess_fmt.fmt_type,"
-      "                DECODE(:lang,'RU',dev_sess_types.name,NVL(dev_sess_types.name_lat,dev_sess_types.name)) sess_name,"
-      "                DECODE(:lang,'RU',dev_fmt_types.name,NVL(dev_fmt_types.name_lat,dev_fmt_types.name)) fmt_name,"
       "                DECODE(dev_model_defaults.op_type,NULL,0,1) pr_default "
-      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_sess_types, dev_fmt_types, dev_model_defaults "
+      " FROM dev_model_sess_fmt, dev_sess_modes, dev_fmt_opers, dev_model_defaults "
       "WHERE dev_sess_modes.term_mode=:term_mode AND "
       "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
-      "      dev_sess_types.code=dev_model_sess_fmt.sess_type AND "
       "      dev_fmt_opers.op_type=:op_type AND "
       "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
-      "      dev_fmt_types.code=dev_model_sess_fmt.fmt_type AND "
       "      dev_model_sess_fmt.dev_model=:dev_model AND "
       "      dev_model_defaults.op_type(+)=:op_type AND "
       "      dev_model_defaults.term_mode(+)=:term_mode AND "
@@ -510,7 +499,6 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       "      dev_model_sess_fmt.sess_type=dev_model_defaults.sess_type(+) AND "
       "      dev_model_sess_fmt.fmt_type=dev_model_defaults.fmt_type(+) ";
     DefQry.CreateVariable( "dev_model", otString, variant_model );
-    DefQry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   }
   DefQry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
   if ( !variant_model.empty() || pr_default_sets )
@@ -519,26 +507,21 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
 
   TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type, "
-    "       DECODE(:lang,'RU',dev_sess_types.name,NVL(dev_sess_types.name_lat,dev_sess_types.name)) sess_name,"
-    "       DECODE(:lang,'RU',dev_fmt_types.name,NVL(dev_fmt_types.name_lat,dev_fmt_types.name)) fmt_name"
-    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers,dev_sess_types,dev_fmt_types "
+    "SELECT dev_model_sess_fmt.dev_model,dev_model_sess_fmt.sess_type,dev_model_sess_fmt.fmt_type "
+    " FROM dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
     "WHERE dev_model_sess_fmt.dev_model=:dev_model AND "
     "      dev_model_sess_fmt.sess_type=:sess_type AND "
     "      dev_model_sess_fmt.fmt_type=:fmt_type AND "
     "      dev_sess_modes.term_mode=:term_mode AND "
     "      dev_sess_modes.sess_type=dev_model_sess_fmt.sess_type AND "
     "      dev_fmt_opers.op_type=:op_type AND "
-    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type AND "
-    "      dev_sess_types.code=:sess_type AND "
-    "      dev_fmt_types.code=:fmt_type";
+    "      dev_fmt_opers.fmt_type=dev_model_sess_fmt.fmt_type";
 
   Qry.DeclareVariable( "dev_model", otString );
   Qry.DeclareVariable( "sess_type", otString );
   Qry.DeclareVariable( "fmt_type", otString );
   Qry.DeclareVariable( "op_type", otString );
   Qry.CreateVariable( "term_mode", otString, EncodeOperMode(reqInfo->desk.mode) );
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   string operation;
   xmlNodePtr operNode;
 
@@ -587,23 +570,39 @@ void GetDevices( xmlNodePtr reqNode, xmlNodePtr resNode )
       ProgTrace( TRACE5, "dev_model=%s, sess_type=%s, fmt_type=%s", dev_model.c_str(), sess_type.c_str(), fmt_type.c_str() );
       if ( Qry.Eof ) continue; // данный ключ dev_model+sess_type+fmt_type не разрешен
 
-      ModelQry.SetVariable( "dev_model", dev_model );
-      ModelQry.Execute();
-      if ( ModelQry.Eof ) continue; //       	модель не найдена
+      try {
+      	base_tables.get("DEV_MODELS").get_row( "code", dev_model );
+      }
+      catch(EBaseTableError){
+      	tst();
+      	continue;
+      };
+      tst();
 
       xmlNodePtr newoperNode=NewTextChild( resNode, "operation" );
       xmlNodePtr pNode;
       SetProp( newoperNode, "type", operation );
-      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
-        SetProp( newoperNode, "variant_name", string( string(DefQry.FieldAsString( "sess_name" )) + "/" + DefQry.FieldAsString( "fmt_name" ) ).c_str() );
+      string sess_name, fmt_name;
+      if ( !variant_model.empty() ) {
+      	sess_name = ElemIdToElemName( etDevSessTypes, DefQry.FieldAsString("sess_type") );
+      	fmt_name = ElemIdToElemName( etDevFmtTypes, DefQry.FieldAsString("fmt_type") );
+      }
+      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
+//      if ( !DefQry.FieldIsNULL( "sess_name" ) && !DefQry.FieldIsNULL( "fmt_name" ) ) {
+        SetProp( newoperNode, "variant_name", sess_name + "/" + fmt_name );
       }
       pNode = NewTextChild( newoperNode, "dev_model_code", dev_model );
-      SetProp( pNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
-      if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
-      	SetProp( pNode, "sess_fmt_name", string(Qry.FieldAsString( "sess_name" )) + "/" + Qry.FieldAsString( "fmt_name" ) );
+      SetProp( pNode, "dev_model_name", ElemIdToElemName(etDevModels,dev_model) );
+     	sess_name = ElemIdToElemName( etDevSessTypes, Qry.FieldAsString("sess_type") );
+     	ProgTrace( TRACE5, "sess_type=%s, sess_name=%s", Qry.FieldAsString("sess_type"), sess_name.c_str() );
+     	fmt_name = ElemIdToElemName( etDevFmtTypes, Qry.FieldAsString("fmt_type") );
+
+      if ( !sess_name.empty() && !fmt_name.empty() ) { //???
+      //if (  !Qry.FieldIsNULL( "sess_name" ) && !Qry.FieldIsNULL( "fmt_name" ) ) {
+      	SetProp( pNode, "sess_fmt_name", sess_name + "/" + "fmt_name" );
       }
       if (!reqInfo->desk.compatible(NEW_TERM_VERSION))
-        NewTextChild( newoperNode, "dev_model_name", ModelQry.FieldAsString( "name" ) );
+        NewTextChild( newoperNode, "dev_model_name", IntElemIdToElemName(etDevModels,dev_model,AstraLocale::LANG_RU));
 
       SessParamsQry.SetVariable("dev_model",dev_model);
       SessParamsQry.SetVariable("sess_type",sess_type);
@@ -1354,13 +1353,10 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   sql <<
     "SELECT dev_oper_types.code AS op_type, "
-    "       DECODE(:lang,'RU',dev_oper_types.name,NVL(dev_oper_types.name_lat,dev_oper_types.name)) AS op_name, "
-    "       dev_model_code,"
-    "       dev_model_name "
-    "FROM dev_oper_types, "
+    "       dev_model_code "
+    " FROM dev_oper_types, "
     "  (SELECT DISTINCT "
     "          dev_models.code AS dev_model_code, "
-    "          DECODE(:lang,'RU',dev_models.name,NVL(dev_models.name_lat,dev_models.name)) AS dev_model_name, "
     "          dev_fmt_opers.op_type "
     "   FROM dev_models, "
     "        dev_model_sess_fmt,dev_sess_modes,dev_fmt_opers "
@@ -1380,7 +1376,7 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
     sql << " AND dev_oper_types.code=:op_type ";
 
   sql <<
-    "ORDER BY op_type,dev_model_name";
+    "ORDER BY op_type,dev_model_code";
 
   if (!op_type.empty())
     Qry.CreateVariable("op_type",otString,op_type);
@@ -1388,7 +1384,6 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
 
   Qry.SQLText=sql.str().c_str();
   Qry.CreateVariable("term_mode",otString,EncodeOperMode(reqInfo->desk.mode));
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   op_type.clear();
   xmlNodePtr opersNode=NewTextChild(resNode,"operations");
@@ -1401,21 +1396,20 @@ void MainDCSInterface::GetDeviceList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, x
       op_type=Qry.FieldAsString("op_type");
       operNode=NewTextChild(opersNode,"operation");
       NewTextChild(operNode,"type",op_type);
-      NewTextChild(operNode,"name",Qry.FieldAsString("op_name"));
+      NewTextChild(operNode,"name",ElemIdToElemName(etDevOperTypes,Qry.FieldAsString("op_type")));
       devsNode=NewTextChild(operNode,"devices");
     };
     if (!Qry.FieldIsNULL("dev_model_code"))
     {
       devNode=NewTextChild(devsNode,"device");
       NewTextChild(devNode,"code",Qry.FieldAsString("dev_model_code"));
-      NewTextChild(devNode,"name",Qry.FieldAsString("dev_model_name"));
+      NewTextChild(devNode,"name",ElemIdToElemName(etDevModels,Qry.FieldAsString("dev_model_code")));
     };
   };
   opersNode=NewTextChild(resNode,"encodings");
   NewTextChild(opersNode,"encoding","CP855");
   NewTextChild(opersNode,"encoding","CP866");
   NewTextChild(opersNode,"encoding","CP1251");
-
 };
 
 void MainDCSInterface::GetDeviceInfo(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)

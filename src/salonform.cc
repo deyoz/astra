@@ -20,8 +20,6 @@
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
-const char CurrName[] = " (ТЕК.)";
-
 using namespace std;
 using namespace BASIC;
 using namespace AstraLocale;
@@ -65,6 +63,17 @@ bool filterCompons( const string &airline, const string &airp )
   		 );
 }
 
+struct TShowComps {
+	int comp_id;
+	string craft;
+	string bort;
+	string classes;
+	string descr;
+	int pr_comp;
+	string airline;
+	string airp;
+};
+
 void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodePtr resNode)
 {
   ProgTrace(TRACE5, "SalonFormInterface::Show" );
@@ -83,76 +92,114 @@ void SalonFormInterface::Show(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
     if ( !Qry.RowCount() )
     	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
     string trip_airline = Qry.FieldAsString( "airline" );
+  	vector<TShowComps> comps;
     Qry.Clear();
-    Qry.SQLText = "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,0 as pr_comp, comps.airline, comps.airp "\
-                  " FROM comps, points "\
-                  "WHERE points.craft = comps.craft AND points.point_id = :point_id "\
-                  "UNION "\
-                  "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "\
-                  "       comps.descr,1 as pr_comp, null, null "\
-                  " FROM comps, points, trip_sets "\
-                  "WHERE points.point_id=trip_sets.point_id AND "\
-                  "      points.craft = comps.craft AND points.point_id = :point_id AND "\
-                  "      trip_sets.comp_id = comps.comp_id "\
-                  "UNION "\
-                  "SELECT -1, craft, bort, "\
-                  "        LTRIM(RTRIM( DECODE( a.f, 0, '', ' П'||a.f)||"\
-                  "        DECODE( a.c, 0, '', ' Б'||a.c)|| "\
-                  "        DECODE( a.y, 0, '', ' Э'||a.y) )) classes, "\
-                  "        null,1, null, null "\
-                  "FROM "\
-                  "(SELECT -1, craft, bort, "\
-                  "        NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "\
-                  "        NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "\
-                  "        NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "\
-                  "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "\
-                  " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
-                  "       comp_elem_types.pr_seat <> 0 AND "\
-                  "       trip_comp_elems.point_id = points.point_id AND "\
-                  "       points.point_id = :point_id AND "\
-                  "       trip_sets.point_id(+) = points.point_id AND "\
-                  "       trip_sets.comp_id IS NULL "\
-                  "GROUP BY craft, bort) a "\
-                  "ORDER BY comp_id, craft, bort, classes, descr";
-    Qry.DeclareVariable( "point_id", otInteger );
-    Qry.SetVariable( "point_id", trip_id );
+    Qry.SQLText =
+      "SELECT craft, bort, "
+      "       NVL( SUM( DECODE( class, 'П', 1, 0 ) ), 0 ) as f, "
+      "       NVL( SUM( DECODE( class, 'Б', 1, 0 ) ), 0 ) as c, "
+      "       NVL( SUM( DECODE( class, 'Э', 1, 0 ) ), 0 ) as y "
+      "  FROM trip_comp_elems, comp_elem_types, points, trip_sets "
+      " WHERE trip_comp_elems.elem_type = comp_elem_types.code AND "
+      "       comp_elem_types.pr_seat <> 0 AND "
+      "       trip_comp_elems.point_id = points.point_id AND "
+      "       points.point_id = :point_id AND "
+      "       trip_sets.point_id(+) = points.point_id AND "
+      "       trip_sets.comp_id IS NULL "
+      " GROUP BY craft, bort ";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
     Qry.Execute();
+    while ( !Qry.Eof ) {
+    	TShowComps comp;
+    	comp.comp_id = -1;
+    	comp.craft = Qry.FieldAsString("craft");
+    	comp.bort = Qry.FieldAsString("bort");
+    	if (Qry.FieldAsInteger("f")) {
+    	  comp.classes += ElemIdToElem(etClass,"П");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("f"));
+    	};
+    	if (Qry.FieldAsInteger("c")) {
+    		if ( !comp.classes.empty() )
+    			comp.classes += " ";
+    	  comp.classes += ElemIdToElem(etClass,"Б");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("c"));
+      }
+    	if (Qry.FieldAsInteger("y")) {
+    		if ( !comp.classes.empty() )
+    			comp.classes += " ";
+    	  comp.classes += ElemIdToElem(etClass,"Э");
+    	  comp.classes += IntToString(Qry.FieldAsInteger("y"));
+      }
+	    comp.pr_comp = 1;
+	    comps.push_back( comp );
+    	Qry.Next();
+    }
+    Qry.Clear();
+    Qry.SQLText =
+      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+      "       comps.descr,0 as pr_comp, comps.airline, comps.airp "
+      " FROM comps, points "
+      "WHERE points.craft = comps.craft AND points.point_id = :point_id "
+      " UNION "
+      "SELECT comps.comp_id,comps.craft,comps.bort,comps.classes, "
+      "       comps.descr,1 as pr_comp, null, null "
+      " FROM comps, points, trip_sets "
+      "WHERE points.point_id=trip_sets.point_id AND "
+      "      points.craft = comps.craft AND points.point_id = :point_id AND "
+      "      trip_sets.comp_id = comps.comp_id "
+      "ORDER BY craft, bort, classes, descr";
+    Qry.CreateVariable( "point_id", otInteger, trip_id );
+    Qry.Execute();
+    while ( !Qry.Eof ) {
+    	TShowComps comp;
+      comp.comp_id = Qry.FieldAsInteger( "comp_id" );
+	    comp.craft = Qry.FieldAsString( "craft" );
+	    comp.bort = Qry.FieldAsString( "bort" );
+	    comp.classes = Qry.FieldAsString( "classes" );
+	    comp.descr = Qry.FieldAsString( "descr" );
+	    comp.pr_comp = Qry.FieldAsInteger( "pr_comp" );
+	    comp.airline = Qry.FieldAsString( "airline" );
+	    comp.airp = Qry.FieldAsString( "airp" );
+	    comps.push_back( comp );
+    	Qry.Next();
+    }
     xmlNodePtr compsNode = NULL;
     string StrVal;
-    while ( !Qry.Eof ) {
-    	if ( Qry.FieldAsInteger( "pr_comp" ) || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
-    		   ( Qry.FieldIsNULL( "airline" ) || trip_airline == Qry.FieldAsString( "airline" ) ) &&
-    		   filterCompons( Qry.FieldAsString( "airline" ), Qry.FieldAsString( "airp" ) ) ) {
+    for (vector<TShowComps>::iterator i=comps.begin(); i!=comps.end(); i++ ) {
+    	if ( i->pr_comp || /* поиск компоновки только по компоновкам нужной А/К или портовым компоновкам */
+    		   ( i->airline.empty() || trip_airline == i->airline ) &&
+    		   filterCompons( i->airline, i->airp ) ) {
       	if ( !compsNode )
       		compsNode = NewTextChild( dataNode, "comps"  );
          xmlNodePtr compNode = NewTextChild( compsNode, "comp" );
-        if ( !Qry.FieldIsNULL( "airline" ) )
-         	StrVal = Qry.FieldAsString( "airline" );
+        if ( !i->airline.empty() )
+         	StrVal = ElemIdToElem(etAirline,i->airline);
          else
-        	StrVal = Qry.FieldAsString( "airp" );
+        	StrVal = ElemIdToElem(etAirp,i->airp);
         if ( StrVal.length() == 2 )
           StrVal += "  ";
         else
       	  StrVal += " ";
-        if ( !Qry.FieldIsNULL( "bort" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-          StrVal += Qry.FieldAsString( "bort" );
+        if ( !i->bort.empty() && i->pr_comp != 1 )
+          StrVal += i->bort;
         else
           StrVal += "  ";
-        StrVal += string( "  " ) + Qry.FieldAsString( "classes" );
-        if ( !Qry.FieldIsNULL( "descr" ) && Qry.FieldAsInteger( "pr_comp" ) != 1 )
-          StrVal += string( "  " ) + Qry.FieldAsString( "descr" );
-        if ( Qry.FieldAsInteger( "pr_comp" ) == 1 )
-          StrVal += CurrName;
+        StrVal += string( "  " ) + i->classes;
+        if ( !i->descr.empty() && i->pr_comp != 1 )
+          StrVal += string( "  " ) + i->descr;
+        if ( i->pr_comp == 1 ) {
+          StrVal += " (";
+          StrVal += AstraLocale::getLocaleText( "ТЕК." );
+          StrVal += ")";
+        }
         NewTextChild( compNode, "name", StrVal );
-        NewTextChild( compNode, "comp_id", Qry.FieldAsInteger( "comp_id" ) );
-        NewTextChild( compNode, "pr_comp", Qry.FieldAsInteger( "pr_comp" ) );
-        NewTextChild( compNode, "craft", Qry.FieldAsString( "craft" ) );
-        NewTextChild( compNode, "bort", Qry.FieldAsString( "bort" ) );
-        NewTextChild( compNode, "classes", Qry.FieldAsString( "classes" ) );
-        NewTextChild( compNode, "descr", Qry.FieldAsString( "descr" ) );
+        NewTextChild( compNode, "comp_id", i->comp_id );
+        NewTextChild( compNode, "pr_comp", i->pr_comp );
+        NewTextChild( compNode, "craft", i->craft );
+        NewTextChild( compNode, "bort", i->bort );
+        NewTextChild( compNode, "classes", i->classes );
+        NewTextChild( compNode, "descr", i->descr );
       }
-     Qry.Next();
     }
     if ( !compsNode ) {
     	AstraLocale::showErrorMessage( "MSG.SALONS.NOT_FOUND_FOR_THIS_CRAFT" );
@@ -362,12 +409,11 @@ void getSeat_no( int pax_id, bool pr_pnl, const string &format, string &seat_no,
 	seat_no = SQry.GetVariableAsString( "seat_no" );
 	if ( !seat_no.empty() ) {
 		if ( pr_grp_id ) {
-			SQry.Clear();
-			SQry.SQLText = "SELECT layer_type FROM grp_status_types WHERE code=:code";
-			SQry.CreateVariable( "code", otString, grp_status );
-			SQry.Execute();
-			if ( !SQry.Eof )
-			  slayer_type = SQry.FieldAsString( "layer_type" );
+			TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
+			try {
+			  slayer_type = ((TGrpStatusTypesRow&)grp_status_types.get_row("code",grp_status)).layer_type;
+			}
+			catch(EBaseTableError){};
 		}
 		else
 			slayer_type = SQry.GetVariableAsString( "layer_type" );
@@ -576,14 +622,13 @@ void SalonFormInterface::WaitList(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlN
     if ( pr_filter ) {
       TQuery Qry( &OraSession );
       Qry.SQLText =
-        "SELECT code, DECODE(:lang,'RU',name,NVL(name_lat,name)) name, layer_type FROM grp_status_types";
-      Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
+        "SELECT code, layer_type FROM grp_status_types";
       Qry.Execute();
       dataNode = NewTextChild( dataNode, "filter" );
       while ( !Qry.Eof ) {
       	xmlNodePtr lNode = NewTextChild( dataNode, "status" );
       	SetProp( lNode, "code", Qry.FieldAsString( "code" ) );
-      	SetProp( lNode, "name", Qry.FieldAsString( "name" ) );
+      	SetProp( lNode, "name", ElemIdToElemName(etGrpStatusTypes,Qry.FieldAsString( "code" )) );
       	SetProp( lNode, "layer_type", Qry.FieldAsString( "layer_type" ) );
       	Qry.Next();
       }

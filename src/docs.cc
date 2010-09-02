@@ -359,8 +359,8 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     string airline_name;
     if(airline.size()) {
       TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-      airline = airlineRow.AsString("code",pr_lat);
-      airline_name = airlineRow.AsString("name", pr_lat);
+      airline = airlineRow.AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
+      airline_name = airlineRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     }
 
     string trip =
@@ -382,18 +382,18 @@ void PaxListVars(int point_id, int pr_lat, xmlNodePtr variablesNode, TDateTime p
     TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
 
     NewTextChild(variablesNode, "lang", TReqInfo::Instance()->desk.lang );
-    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airp_dep_city", airpRow.AsString("city", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name", AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", AstraLocale::LANG_EN) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "airp_dep_city", airpRow.AsString("city", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
     NewTextChild(variablesNode, "airline_name", airline_name);
     NewTextChild(variablesNode, "flt", trip);
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
     NewTextChild(variablesNode, "craft", craft);
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
-    NewTextChild(variablesNode, "airp_arv_name", airpRow.AsString("name",pr_lat));
-    NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat));
+    NewTextChild(variablesNode, "airp_arv_name", airpRow.AsString("name",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "airp_arv_city", airpRow.AsString("city",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
     NewTextChild(variablesNode, "long_route", Qry.FieldAsString("long_route"));
     NewTextChild(variablesNode, "test_server", get_test_server());
     NewTextChild(variablesNode, "page_number_fmt", translateDocCap(pr_lat, "CAP.PAGE_NUMBER_FMT"));
@@ -448,9 +448,9 @@ string get_last_target(TQuery &Qry, const int pr_lat)
         string airp = Qry.FieldAsString("trfer_airp_arv");
         try {
             TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp);
-            string tmp_airp = airpRow.AsString("name", pr_lat);
+            string tmp_airp = airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
             if(tmp_airp.empty())
-                tmp_airp = airpRow.AsString("name", 0);
+                tmp_airp = airpRow.AsString("name", AstraLocale::LANG_RU);
             if(!tmp_airp.empty())
                 airp = tmp_airp.substr(0, 50);
         } catch(...) {
@@ -458,7 +458,7 @@ string get_last_target(TQuery &Qry, const int pr_lat)
         string airline = Qry.FieldAsString("trfer_airline");
         try {
             TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
-            string tmp_airline = airlineRow.AsString("code", pr_lat);
+            string tmp_airline = airlineRow.AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
             if(!tmp_airline.empty())
                 airline = tmp_airline;
         } catch(...) {
@@ -1093,7 +1093,7 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
         NewTextChild(rowNode, "airp_arv", airp_arv);
         NewTextChild(rowNode, "fr_target_ref", fr_target_ref[airp_arv]);
-        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
 
         NewTextChild(rowNode, "grp_id", Qry.FieldAsInteger("grp_id"));
         NewTextChild(rowNode, "class_name", Qry.FieldAsString("class_name"));
@@ -1202,10 +1202,10 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(variablesNode, "zone", get_hall_list(airp, rpt_params.ckin_zone, pr_lat));
     } else
         NewTextChild(variablesNode, "zone"); // ―γαβ®© β¥£ - ­¥β ¤¥β «¨§ ζ¨¨ ―® § «γ
-    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name",AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", AstraLocale::LANG_EN) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
 
     NewTextChild(variablesNode, "flt",
             ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
@@ -1213,14 +1213,14 @@ void PTM(const TRptParams &rpt_params, xmlNodePtr resNode)
             ElemIdToElem(etSuffix, suffix, suffix_fmt, pr_lat)
             );
     NewTextChild(variablesNode, "bort", Qry.FieldAsString("bort"));
-    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat));
+    NewTextChild(variablesNode, "craft", ElemIdToElem(etCraft, craft, craft_fmt, pr_lat)); //???
     NewTextChild(variablesNode, "park", Qry.FieldAsString("park"));
     TDateTime scd_out = UTCToLocal(Qry.FieldAsDateTime("scd_out"), tz_region);
     NewTextChild(variablesNode, "scd_date", DateTimeToStr(scd_out, "dd.mm", pr_lat));
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
     string airp_arv_name;
     if(not rpt_params.airp_arv.empty())
-        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat);
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     TDateTime issued = UTCToLocal(NowUTC(),TReqInfo::Instance()->desk.tz_region);
@@ -1477,7 +1477,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
             if(iv->color.empty())
                 bm_table.back().color = "-";
             else
-                bm_table.back().color = base_tables.get("tag_colors").get_row("code", iv->color).AsString("name", pr_lat);
+                bm_table.back().color = base_tables.get("tag_colors").get_row("code", iv->color).AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
             bm_table.back().amount = 0;
             bm_table.back().weight = 0;
             if(
@@ -1537,7 +1537,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
         string airp_arv = iv->airp_arv;
         TBaseTableRow &airpRow = base_tables.get("AIRPS").get_row("code",airp_arv);
         NewTextChild(rowNode, "airp_arv", airp_arv);
-        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat));
+        NewTextChild(rowNode, "airp_arv_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
         NewTextChild(rowNode, "pr_trfer", iv->pr_trfer);
         NewTextChild(rowNode, "last_target", iv->last_target);
         NewTextChild(rowNode, "bag_name", iv->bag_name);
@@ -1548,8 +1548,8 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
 
         if(!iv->class_code.empty()) {
             TBaseTableRow &classesRow = base_tables.get("CLASSES").get_row("code",iv->class_code);
-            iv->class_code = classesRow.AsString("code", pr_lat);
-            iv->class_name = classesRow.AsString("name", pr_lat);
+            iv->class_code = classesRow.AsString("code", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
+            iv->class_name = classesRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
         }
 
         NewTextChild(rowNode, "class", iv->class_code);
@@ -1638,10 +1638,10 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     TBaseTableRow &airlineRow = base_tables.get("AIRLINES").get_row("code",airline);
     //    TCrafts crafts;
 
-    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name", false));
-    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", true) + " AIRPORT");
-    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat));
-    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat));
+    NewTextChild(variablesNode, "own_airp_name", "€’ " + airpRow.AsString("name",AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "own_airp_name_lat", airpRow.AsString("name", AstraLocale::LANG_EN) + " AIRPORT");
+    NewTextChild(variablesNode, "airp_dep_name", airpRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
+    NewTextChild(variablesNode, "airline_name", airlineRow.AsString("name", pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
     NewTextChild(variablesNode, "flt",
             ElemIdToElem(etAirline, airline, airline_fmt, pr_lat) +
             IntToString(flt_no) +
@@ -1655,7 +1655,7 @@ void BTM(const TRptParams &rpt_params, xmlNodePtr resNode)
     NewTextChild(variablesNode, "scd_time", DateTimeToStr(scd_out, "hh:nn", pr_lat));
     string airp_arv_name;
     if(rpt_params.airp_arv.size())
-        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat);
+        airp_arv_name = base_tables.get("AIRPS").get_row("code",rpt_params.airp_arv).AsString("name",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     NewTextChild(variablesNode, "airp_arv_name", airp_arv_name);
 
     {
@@ -2255,7 +2255,7 @@ void NOTPRES(TRptParams &rpt_params, xmlNodePtr resNode)
         NewTextChild(rowNode, "reg_no", Qry.FieldAsInteger("reg_no"));
         NewTextChild(rowNode, "family", Qry.FieldAsString("family"));
         NewTextChild(rowNode, "pers_type",
-          pers_types.get_row("code",Qry.FieldAsString("pers_type")).AsString("code",pr_lat));
+          pers_types.get_row("code",Qry.FieldAsString("pers_type")).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU));
         NewTextChild(rowNode, "seat_no", Qry.FieldAsString("seat_no"));
         NewTextChild(rowNode, "bagamount", Qry.FieldAsInteger("bagamount"));
         NewTextChild(rowNode, "bagweight", Qry.FieldAsInteger("bagweight"));

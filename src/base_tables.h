@@ -7,6 +7,7 @@
 #include "exceptions.h"
 #include "oralib.h"
 #include "stl_utils.h"
+#include "astra_locale.h"
 
 class EBaseTableError:public EXCEPTIONS::Exception
 {
@@ -29,7 +30,7 @@ class TBaseTableRow {
     virtual ~TBaseTableRow() {};
     virtual const char *get_row_name() = 0;
     virtual bool deleted() = 0;
-    virtual std::string AsString(std::string field, bool pr_lat=false)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
       throw EBaseTableError("%s::AsString: wrong field '%s'",
                              get_row_name(),field.c_str());
@@ -77,10 +78,10 @@ class TCodeBaseTableRow : public TBaseTableRow {
     std::string code,code_lat;
     virtual ~TCodeBaseTableRow() {};
     virtual bool deleted() { return false; };
-    virtual std::string AsString(std::string field, bool pr_lat=false)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="code") return pr_lat?code_lat:code;
-      return TBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="code") return lang!=AstraLocale::LANG_RU?code_lat:code;
+      return TBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -138,10 +139,10 @@ class TICAOBaseTableRow : public TTIDBaseTableRow {
   public:
     std::string code_icao,code_icao_lat;
     virtual ~TICAOBaseTableRow() {};
-    virtual std::string AsString(std::string field, bool pr_lat=false)
+    virtual std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="code_icao") return pr_lat?code_icao_lat:code_icao;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="code_icao") return lang!=AstraLocale::LANG_RU?code_icao_lat:code_icao;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -165,11 +166,11 @@ class TCountriesRow: public TTIDBaseTableRow {
     std::string code_iso,name,name_lat;
     ~TCountriesRow() {};
     const char *get_row_name() { return "TCountriesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
       if (lowerc(field)=="code_iso") return code_iso;
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -202,11 +203,11 @@ class TAirpsRow: public TICAOBaseTableRow {
     std::string name,name_lat,city;
     ~TAirpsRow() {};
     const char *get_row_name() { return "TAirpsRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
       if (lowerc(field)=="city") return city;
-      return TICAOBaseTableRow::AsString(field,pr_lat);
+      return TICAOBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -231,14 +232,14 @@ class TAirps: public TICAOBaseTable {
 
 class TPersTypesRow: public TCodeBaseTableRow {
   public:
-    std::string name;
+    std::string name,name_lat;
     int priority,weight_win,weight_sum;
     ~TPersTypesRow() {};
     const char *get_row_name() { return "TPersTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
     };
     int AsInteger(std::string field)
     {
@@ -254,7 +255,7 @@ class TPersTypes: public TCodeBaseTable {
     const char *get_select_sql_text()
     {
       return
-        "SELECT code,code_lat,name,priority,weight_win,weight_sum FROM pers_types";
+        "SELECT code,code_lat,name,name_lat,priority,weight_win,weight_sum FROM pers_types";
     };
     const char *get_refresh_sql_text()
     {
@@ -268,14 +269,14 @@ class TPersTypes: public TCodeBaseTable {
 
 class TGenderTypesRow: public TCodeBaseTableRow {
   public:
-    std::string name;
+    std::string name,name_lat;
     bool pr_inf;
     ~TGenderTypesRow() {};
     const char *get_row_name() { return "TGenderTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
     };
     bool AsBoolean(std::string field)
     {
@@ -289,7 +290,7 @@ class TGenderTypes: public TCodeBaseTable {
     const char *get_select_sql_text()
     {
       return
-        "SELECT code,code AS code_lat,name,pr_inf FROM gender_types";
+        "SELECT code,code AS code_lat,name,name_lat,pr_inf FROM gender_types";
     };
     const char *get_refresh_sql_text()
     {
@@ -307,22 +308,10 @@ class TTagColorsRow: public TCodeBaseTableRow {
     std::string name, name_lat;
     ~TTagColorsRow() {};
     const char *get_row_name() { return "TTagColorsRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat ? name_lat : name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
-    };
-};
-
-class TPaxDocTypesRow: public TCodeBaseTableRow {
-  public:
-    std::string name;
-    ~TPaxDocTypesRow() {};
-    const char *get_row_name() { return "TPaxDocTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
-    {
-      if (lowerc(field)=="name") return name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -343,12 +332,24 @@ class TTagColors: public TCodeBaseTable {
     void Invalidate() {}; //всегда актуальна
 };
 
+class TPaxDocTypesRow: public TCodeBaseTableRow {
+  public:
+    std::string name,name_lat;
+    ~TPaxDocTypesRow() {};
+    const char *get_row_name() { return "TPaxDocTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+};
+
 class TPaxDocTypes: public TCodeBaseTable {
   private:
     const char *get_select_sql_text()
     {
       return
-        "SELECT code,code AS code_lat,name FROM pax_doc_types";
+        "SELECT code,code AS code_lat,name,name_lat FROM pax_doc_types";
     };
     const char *get_refresh_sql_text()
     {
@@ -366,12 +367,12 @@ class TCitiesRow: public TTIDBaseTableRow {
     int tz;
     ~TCitiesRow() {};
     const char *get_row_name() { return "TCitiesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
       if (lowerc(field)=="country") return country;
       if (lowerc(field)=="region") return region;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      return TTIDBaseTableRow::AsString(field,lang);
     };
     int AsInteger(std::string field)
     {
@@ -424,12 +425,12 @@ class TAirlinesRow: public TICAOBaseTableRow {
     std::string aircode,name,name_lat,short_name,short_name_lat;
     ~TAirlinesRow() {};
     const char *get_row_name() { return "TAirlinesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      if (lowerc(field)=="short_name") return pr_lat?short_name_lat:short_name;
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
       if (lowerc(field)=="aircode") return aircode;
-      return TICAOBaseTableRow::AsString(field,pr_lat);
+      return TICAOBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -463,10 +464,10 @@ class TClassesRow: public TCodeBaseTableRow {
     int priority;
     ~TClassesRow() {};
     const char *get_row_name() { return "TClassesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
     };
     int AsInteger(std::string field)
     {
@@ -497,10 +498,10 @@ class TSubclsRow: public TCodeBaseTableRow {
     std::string cl;
     ~TSubclsRow() {};
     const char *get_row_name() { return "TSubclsRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
       if (lowerc(field)=="cl") return cl;
-      return TCodeBaseTableRow::AsString(field,pr_lat);
+      return TCodeBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -526,10 +527,10 @@ class TCraftsRow: public TICAOBaseTableRow {
     std::string name,name_lat;
     ~TCraftsRow() {};
     const char *get_row_name() { return "TCraftsRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TICAOBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TICAOBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -557,10 +558,10 @@ class TCurrencyRow: public TTIDBaseTableRow {
     std::string name,name_lat;
     ~TCurrencyRow() {};
     const char *get_row_name() { return "TCurrencyRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -588,10 +589,10 @@ class TRefusalTypesRow: public TTIDBaseTableRow {
     std::string name,name_lat;
     ~TRefusalTypesRow() {};
     const char *get_row_name() { return "TRefusalTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -619,10 +620,10 @@ class TPayTypesRow: public TTIDBaseTableRow {
     std::string name,name_lat;
     ~TPayTypesRow() {};
     const char *get_row_name() { return "TPayTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
 };
 
@@ -651,10 +652,10 @@ class TTripTypesRow: public TTIDBaseTableRow {
     int pr_reg;
     ~TTripTypesRow() {};
     const char *get_row_name() { return "TTripTypesRow"; };
-    std::string AsString(std::string field, bool pr_lat=false)
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
     {
-      if (lowerc(field)=="name") return pr_lat?name_lat:name;
-      return TTIDBaseTableRow::AsString(field,pr_lat);
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TTIDBaseTableRow::AsString(field,lang);
     };
     int AsInteger(std::string field)
     {
@@ -682,6 +683,240 @@ class TTripTypes: public TTIDBaseTable {
     void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
 };
 
+/////////////////////////////////////////////////////
+class TCodeNameBaseTableRow: public TCodeBaseTableRow {
+  public:
+    std::string name,name_lat;
+    ~TCodeNameBaseTableRow() {};
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+};
+
+class TCodeNameBaseTable: public TCodeBaseTable {
+  private:
+  	std::string sql;
+    const char *get_select_sql_text()
+    {
+    	if ( sql.empty() )
+    	  sql = std::string("SELECT code,code code_lat,name,name_lat FROM ")+get_sql_table_name();
+      return sql.c_str();
+    };
+    const char *get_refresh_sql_text()
+    {
+      return get_select_sql_text();
+    };
+  protected:
+  	virtual const char *get_sql_table_name() = 0;
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+};
+///////////////////////////////////////////////////////////
+class TCompElemTypesRow: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TCompElemTypesRow"; };
+};
+class TCompElemTypes: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "comp_elem_types";
+		};
+		const char *get_table_name() { return "TCompElemTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TCompElemTypesRow;
+     TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TCrs2Row: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TCrs2Row"; };
+};
+class TCrs2: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "crs2";
+		};
+		const char *get_table_name() { return "TCrs2"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TCrs2Row;
+      TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TDevModelsRow: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TDevModelsRow"; };
+};
+class TDevModels: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "dev_models";
+		};
+		const char *get_table_name() { return "TDevModels"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TDevModelsRow;
+      TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TDevSessTypesRow: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TDevSessTypesRow"; };
+};
+class TDevSessTypes: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "dev_sess_types";
+		};
+		const char *get_table_name() { return "TDevSessTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TDevSessTypesRow;
+      TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TDevFmtTypesRow: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TDevFmtTypesRow"; };
+};
+class TDevFmtTypes: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "dev_fmt_types";
+		};
+		const char *get_table_name() { return "TDevFmtTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TDevFmtTypesRow;
+      TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TDevOperTypesRow: public TCodeNameBaseTableRow {
+	public:
+	  const char *get_row_name() { return "TDevOperTypesRow"; };
+};
+class TDevOperTypes: public TCodeNameBaseTable {
+  protected:
+  	const char *get_sql_table_name() {
+			return "dev_oper_types";
+		};
+		const char *get_table_name() { return "TDevOperTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row) {
+	    *row = new TDevOperTypesRow;
+      TCodeNameBaseTable::create_row(Qry, row, replaced_row);
+    };
+};
+
+class TGrpStatusTypesRow: public TCodeBaseTableRow {
+  public:
+    std::string name,name_lat;
+    std::string layer_type;
+    int priority;
+    ~TGrpStatusTypesRow() {};
+    const char *get_row_name() { return "TGrpStatusTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      if (lowerc(field)=="layer_type") return layer_type;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+    int AsInteger(std::string field)
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TCodeBaseTableRow::AsInteger(field);
+    }
+};
+
+class TGrpStatusTypes: public TCodeBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT code,code code_lat,layer_type,name,name_lat,priority FROM grp_status_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return get_select_sql_text();
+    };
+  protected:
+    const char *get_table_name() { return "TGrpStatusTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+};
+
+class TClientTypesRow: public TCodeBaseTableRow {
+  public:
+    std::string name,name_lat,short_name,short_name_lat;
+    int priority;
+    ~TClientTypesRow() {};
+    const char *get_row_name() { return "TClientTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      if (lowerc(field)=="short_name") return lang!=AstraLocale::LANG_RU?short_name_lat:short_name;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+    int AsInteger(std::string field)
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TCodeBaseTableRow::AsInteger(field);
+    }
+};
+
+class TClientTypes: public TCodeBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT code,code code_lat,short_name,short_name_lat,name,name_lat,priority FROM client_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return get_select_sql_text();
+    };
+  protected:
+    const char *get_table_name() { return "TClientTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+};
+
+class TCompLayerTypesRow: public TCodeBaseTableRow {
+  public:
+    std::string name,name_lat;
+    int priority;
+    ~TCompLayerTypesRow() {};
+    const char *get_row_name() { return "TCompLayerTypesRow"; };
+    std::string AsString(std::string field, const std::string lang=AstraLocale::LANG_RU)
+    {
+      if (lowerc(field)=="name") return lang!=AstraLocale::LANG_RU?name_lat:name;
+      return TCodeBaseTableRow::AsString(field,lang);
+    };
+    int AsInteger(std::string field)
+    {
+      if (lowerc(field)=="priority") return priority;
+      return TCodeBaseTableRow::AsInteger(field);
+    }
+};
+
+class TCompLayerTypes: public TCodeBaseTable {
+  private:
+    const char *get_select_sql_text()
+    {
+      return
+        "SELECT code,code code_lat,name,name_lat,priority FROM comp_layer_types";
+    };
+    const char *get_refresh_sql_text()
+    {
+      return get_select_sql_text();
+    };
+  protected:
+    const char *get_table_name() { return "TCompLayerTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+};
 
 class TBaseTables {
     private:

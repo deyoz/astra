@@ -1545,6 +1545,33 @@ inline void DoElemEConvertError( TElemContext ctxt,TElemType type, string code )
   	case etTripTypes:
   		msg2 = "etTripTypes";
   		break;
+  	case etCompElemTypes:
+  		msg2 = "etCompElemTypes";
+  		break;
+  	case etGrpStatusTypes:
+  		msg2 = "etGrpStatusTypes";
+  		break;
+  	case etClientTypes:
+  		msg2 = "etClientTypes";
+  		break;
+  	case etCompLayerTypes:
+  		msg2 = "etCompLayerTypes";
+  		break;
+  	case etCrs2:
+  		msg2 = "etCrs2";
+  		break;
+  	case etDevModels:
+  		msg2 = "etDevModels";
+  		break;
+    case etDevSessTypes:
+  		msg2 = "etDevSessTypes";
+  		break;
+    case etDevFmtTypes:
+  		msg2 = "etDevFmtTypes";
+  		break;
+  	case etDevOperTypes:
+  		msg2 = "etDevOperTypes";
+  		break;
   	default:;
   }
   msg1 = string("Can't convert elem to id ") + msg1 + "," + msg2 + " ,values=" + code;
@@ -1733,14 +1760,9 @@ string ElemIdToElemCtxt(TElemContext ctxt,TElemType type, string id,
   return ElemIdToElem(type,id,fmt2,with_deleted);
 };
 
-string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
+string getTableName(TElemType type)
 {
-  string id;
-  fmt=-1;
-
-  if (code.empty()) return id;
-
-  char* table_name=NULL;
+	string table_name;
   switch(type)
   {
     case etCountry:
@@ -1782,10 +1804,48 @@ string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
     case etTripTypes:
       table_name="trip_types";
       break;
+    case etCompElemTypes:
+      table_name="comp_elem_types";
+      break;
+    case etGrpStatusTypes:
+    	table_name="grp_status_types";
+    	break;
+    case etClientTypes:
+    	table_name="client_types";
+    	break;
+    case etCompLayerTypes:
+    	table_name="comp_layer_types";
+    	break;
+    case etCrs2:
+    	table_name="crs2";
+    	break;
+    case etDevModels:
+    	table_name="dev_models";
+    	break;
+    case etDevSessTypes:
+  		table_name="dev_sess_types";
+  		break;
+    case etDevFmtTypes:
+  		table_name="dev_fmt_types";
+  		break;
+  	case etDevOperTypes:
+  		table_name="dev_oper_types";
+  		break;
     default: ;
   };
+  return table_name;
+}
 
-  if (table_name!=NULL)
+string ElemToElemId(TElemType type, string code, int &fmt, bool with_deleted)
+{
+  string id;
+  fmt=-1;
+
+  if (code.empty()) return id;
+
+  string table_name=getTableName(type);
+
+  if (!table_name.empty())
   {
     //это коды
     TBaseTable& BaseTable=base_tables.get(table_name);
@@ -1934,55 +1994,9 @@ void ElemIdToElem(TElemType type, string id, int fmt, const std::string lang, bo
   	return;
   }
 
-  char* table_name=NULL;
-  switch(type)
-  {
-    case etCountry:
-      table_name="countries";
-      break;
-    case etCity:
-      table_name="cities";
-      break;
-    case etAirline:
-      table_name="airlines";
-      break;
-    case etAirp:
-      table_name="airps";
-      break;
-    case etCraft:
-      table_name="crafts";
-      break;
-    case etClass:
-      table_name="classes";
-      break;
-    case etSubcls:
-      table_name="subcls";
-      break;
-    case etPersType:
-      table_name="pers_types";
-      break;
-    case etGenderType:
-      table_name="gender_types";
-      break;
-    case etPaxDocType:
-      table_name="pax_doc_types";
-      break;
-    case etPayType:
-      table_name="pay_types";
-      break;
-    case etCurrency:
-      table_name="currency";
-      break;
-    case etRefusalType:
-      table_name="refusal_types";
-      break;
-    case etTripTypes:
-      table_name="trip_types";
-      break;
-    default: ;
-  };
+  string table_name=getTableName(type);
 
-  if (table_name!=NULL)
+  if (!table_name.empty())
   {
     //это коды
     try
@@ -2079,6 +2093,58 @@ string ElemIdToElem(TElemType type, string id, int fmt, bool with_deleted)
 
 };
 
+std::string IntElemIdToElemName(TElemType type, std::string id, const std::string &lang, bool pr_short_name )
+{
+	string name;
+	if ( id.empty() )
+		return id;
+	string table_name=getTableName(type);
+  if (!table_name.empty()) {
+    //это коды
+    try
+    {
+      TBaseTableRow& BaseTableRow=base_tables.get(table_name).get_row("code",id,true);
+      try
+      {
+        TCodeBaseTableRow& row=dynamic_cast<TCodeBaseTableRow&>(BaseTableRow);
+        if (lang!="RU")
+        {
+        	try {
+        	  if ( pr_short_name )
+        	    name = row.AsString("short_name",lang);
+        	  else
+          		name = row.AsString("name",lang);
+          }
+          catch(EBaseTableError){};
+        };
+        if ( name.empty() ) {
+          try {
+      	    if ( pr_short_name )
+       	      name = row.AsString("short_name",AstraLocale::LANG_RU);
+       	    else
+         	  	name = row.AsString("name",AstraLocale::LANG_RU);
+         	}
+         	catch(EBaseTableError){};
+        }
+      }
+      catch (bad_cast) {};
+    }
+    catch (EBaseTableError) {};
+  }
+  if ( name.empty() )
+  	name = id;
+  return name;
+}
+
+std::string ElemIdToElemName(TElemType type, std::string id)
+{
+	return IntElemIdToElemName( type, id, TReqInfo::Instance()->desk.lang, false );
+}
+
+std::string ElemIdToElemShortName(TElemType type, std::string id)
+{
+	return IntElemIdToElemName( type, id, TReqInfo::Instance()->desk.lang, true );
+}
 
 bool is_dst(TDateTime d, string region)
 {

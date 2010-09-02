@@ -12,6 +12,9 @@
 
 namespace AstraLocale {
 
+const std::string LANG_RU = "RU";
+const std::string LANG_EN = "EN";
+
 struct LexemaData;
 class LParam;
 

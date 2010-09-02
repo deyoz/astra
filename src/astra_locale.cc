@@ -64,7 +64,7 @@ void TLocaleMessages::Invalidate( std::string lang, bool pr_term )
   		client_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
   	else {
   	  server_msgs.Add( Qry.FieldAsString( "id" ), lang, Qry.FieldAsString( "text" ), Qry.FieldAsInteger( "pr_del" ) );
- 	  	ProgTrace( TRACE5, "id=%s, lang=%s, text=%s", Qry.FieldAsString( "id" ), lang.c_str(), server_msgs.msgs[Qry.FieldAsString( "id" )].lang_messages[ lang ].value.c_str() );
+// 	  	ProgTrace( TRACE5, "id=%s, lang=%s, text=%s", Qry.FieldAsString( "id" ), lang.c_str(), server_msgs.msgs[Qry.FieldAsString( "id" )].lang_messages[ lang ].value.c_str() );
   	}
 
   	if ( tid < Qry.FieldAsInteger( "tid" ) )

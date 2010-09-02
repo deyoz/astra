@@ -170,7 +170,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.Clear();
   Qry.SQLText =
     "SELECT crs2.code,"
-    "       DECODE(:lang,'RU',crs2.name,NVL(crs2.name_lat,crs2.name)) name,1 AS sort, "\
+    "       name,1 AS sort, "\
     "       DECODE(crs_data.crs,NULL,0,1) AS pr_charge, "\
     "       DECODE(crs_pnr.crs,NULL,0,1) AS pr_list, "\
     "       DECODE(NVL(:priority,0),0,0, "\
@@ -202,7 +202,6 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   Qry.CreateVariable( "flt_no", otInteger, flt_no );
   Qry.CreateVariable( "airp", otString, airp );
   Qry.CreateVariable( "point_id", otInteger, point_id );
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
   Qry.Execute();
   node = NewTextChild( tripdataNode, "crs" );
   while ( !Qry.Eof ) {
@@ -211,7 +210,7 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
     if ( Qry.FieldAsInteger( "sort" ) == 0 )
     	NewTextChild( itemNode, "name", getLocaleText( Qry.FieldAsString( "name" ) ) );
     else
-      NewTextChild( itemNode, "name", Qry.FieldAsString( "name" ) );
+      NewTextChild( itemNode, "name", ElemIdToElemName(etCrs2,Qry.FieldAsString("code")) );
     NewTextChild( itemNode, "pr_charge", Qry.FieldAsInteger( "pr_charge" ) );
     NewTextChild( itemNode, "pr_list", Qry.FieldAsInteger( "pr_list" ) );
     NewTextChild( itemNode, "pr_crs_main", Qry.FieldAsInteger( "pr_crs_main" ) );
@@ -243,8 +242,8 @@ void PrepRegInterface::readTripData( int point_id, xmlNodePtr dataNode )
   while ( !Qry.Eof ) {
     itemNode = NewTextChild( node, "itemcrs" );
     NewTextChild( itemNode, "crs", Qry.FieldAsString( "crs" ) );
-    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) ); //!!!ElemIdToElem(etAirp,Qry.FieldAsString( "target" )) );
-    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) ); //!!!ElemIdToElem(etClass,Qry.FieldAsString( "class" )) );
+    NewTextChild( itemNode, "target", Qry.FieldAsString( "target" ) );
+    NewTextChild( itemNode, "class", Qry.FieldAsString( "class" ) );
     if ( Qry.FieldIsNULL( "resa" ) )
       NewTextChild( itemNode, "resa", -1 );
     else

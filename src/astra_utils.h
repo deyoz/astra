@@ -45,7 +45,9 @@ enum TUserSettingType { ustTimeUTC=0, ustTimeLocalDesk=1, ustTimeLocalAirp=2,
 
 enum TElemType { etCountry,etCity,etAirline,etAirp,etCraft,etClass,etSubcls,
                  etPersType,etGenderType,etPaxDocType,etPayType,etCurrency,
-                 etRefusalType,etSuffix,etClsGrp,etTripTypes };
+                 etRefusalType,etSuffix,etClsGrp,etTripTypes, etCompElemTypes,
+                 etGrpStatusTypes,etClientTypes,etCompLayerTypes,etCrs2,
+                 etDevModels,etDevSessTypes,etDevFmtTypes,etDevOperTypes };
 enum TElemContext { ecDisp, ecCkin, ecTrfer, ecTlgTypeB, ecNone };
 //форматы:
 //  fmt=0 вн.код (рус. кодировка)
@@ -58,6 +60,9 @@ std::string ElemIdToElem(TElemType type, int id, int fmt, bool with_deleted=true
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, int only_lat, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id, int fmt, bool with_deleted=true);
 std::string ElemIdToElem(TElemType type, std::string id);
+std::string IntElemIdToElemName(TElemType type, std::string id, const std::string &lang, bool pr_short_name=false );
+std::string ElemIdToElemName(TElemType type, std::string id);
+std::string ElemIdToElemShortName(TElemType type, std::string id);
 std::string ElemCtxtToElemId(TElemContext ctxt,TElemType type, std::string code,
                               int &fmt, bool hard_verify, bool with_deleted=false);
 std::string ElemIdToElemCtxt( TElemContext ctxt,TElemType type, std::string id,

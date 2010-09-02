@@ -197,6 +197,20 @@ void GetEditData( int trip_id, TFilter &filter, bool buildRanges, xmlNodePtr dat
 
 void createSPP( TDateTime localdate, TSpp &spp, bool createViewer, string &err_airp );
 
+string DefaultTripType( bool pr_lang = true )
+{
+	string res = "п";
+	if (pr_lang)
+		res = ElemIdToElem(etTripTypes,res);
+	return res;
+}
+
+bool isDefaultTripType( const string &triptype )
+{
+	int fmt;
+  return ElemToElemId(etTripTypes,triptype,fmt) == DefaultTripType(false);
+}
+
 string GetPrintName( TDest *PDest, TDest *NDest )
 {
 	string res;
@@ -879,8 +893,13 @@ void TFilter::Parse( xmlNodePtr filterNode )
   }
 
   node = GetNode( "triptype", filterNode );
-  if ( node )
-    triptype = NodeAsString( node );
+  if ( node ) {
+  	int fmt;
+    triptype = ElemToElemId( etTripTypes, NodeAsString( node ), fmt );
+		if ( fmt == -1 )
+    	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
+  }
+
   ProgTrace( TRACE5, "filter parse: season_idx=%d,range.first=%s,range.last=%s,days=%s,airp=%s,city=%s,time.first=%s,time.last=%s, airline=%s, triptype=%s",
              season_idx, DateTimeToStr( range.first, "dd.mm.yy hh:nn" ).c_str(), DateTimeToStr( range.last, "dd.mm.yy hh:nn" ).c_str(),
              range.days.c_str(),airp.c_str(),city.c_str(),DateTimeToStr( firstTime, "dd.mm.yy hh:nn" ).c_str(),
@@ -942,14 +961,7 @@ void CreateSPP( BASIC::TDateTime localdate )
    "END;";
   MIDQry.DeclareVariable( "move_id", otInteger );
   /* необходимо сделать проверку на не существование рейса */
-  TQuery PRREG(&OraSession);
-  PRREG.SQLText = "SELECT code FROM trip_types WHERE pr_reg=1";
-  PRREG.Execute();
-  vector<string> triptypes;
-  while ( !PRREG.Eof ) {
-    triptypes.push_back( PRREG.FieldAsString( "code" ) );
-    PRREG.Next();
-  }
+  TBaseTable &TripTypes = base_tables.get("TRIP_TYPES");
 
   TQuery PQry(&OraSession);
   PQry.SQLText =
@@ -986,14 +998,6 @@ void CreateSPP( BASIC::TDateTime localdate )
    "BEGIN "
    " sopp.set_flight_sets(:point_id,:use_seances,:f,:c,:y);"
    "END;";
-/*   " INSERT INTO trip_sets(point_id,f,c,y,max_commerce,overload_alarm,pr_etstatus,pr_stat, "
-   "    pr_tranz_reg,pr_check_load,pr_overload_reg,pr_exam,pr_check_pay,pr_exam_check_pay, "
-   "    pr_reg_with_tkn,pr_reg_with_doc) "
-   "  VALUES(:point_id,:f,:c,:y, NULL, 0, 0, 0, "
-   "    NULL, 0, 1, 0, 0, 0, 0, 0); "
-   " ckin.set_trip_sets(:point_id,:use_seances); "
-   " gtimer.puttrip_stages(:point_id); "
-   "END;";*/
   TQry.CreateVariable( "use_seances", otInteger, (int)USE_SEANCES() );
   TQry.DeclareVariable( "point_id", otInteger );
   TQry.DeclareVariable( "f", otInteger );
@@ -1109,7 +1113,7 @@ void CreateSPP( BASIC::TDateTime localdate )
         PQry.SetVariable( "pr_del", d->pr_del );
 
         int pr_reg = ( d->scd_out > NoExists &&
-                       find( triptypes.begin(), triptypes.end(), d->triptype ) != triptypes.end() &&
+                       ((TTripTypesRow&)TripTypes.get_row("code", d->triptype )).pr_reg != 0 &&
                        d->pr_del == 0 && d != im->second.dests.end() - 1 );
         if ( pr_reg ) {
           TDests::iterator r=d;
@@ -1276,8 +1280,9 @@ void createTrips( TDateTime utc_spp_date, TDateTime localdate, TFilter &filter, 
       // создаем рейсы относительно разрешенных портов reqInfo->user.access.airps
 
       createAirportTrip( *s, NoExists, filter, offset, ds, utc_spp_date, false, true, err_airp );
+      int fmt;
       for ( int i=vcount; i<(int)ds.trips.size(); i++ ) {
-      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ds.trips[ i ].triptype, ds.trips[ i ].scd_out );
+      	ds.trips[ i ].trap = stagetimes.GetTime( *s, ds.trips[ i ].owncraft, ElemToElemId(etTripTypes,ds.trips[ i ].triptype,fmt), ds.trips[ i ].scd_out );
       }
     }
   }
@@ -1786,10 +1791,17 @@ bool ParseRangeList( xmlNodePtr rangelistNode, TRangeList &rangeList, map<int,TD
         if ( node )
           dest.litera = NodeAsString( node );
         node = GetNodeFast( "triptype", curNode );
-        if ( node )
+        if ( node ) {
+        	int fmt;
           dest.triptype = NodeAsString( node );
+          if ( !dest.triptype.empty() ) {
+            dest.triptype = ElemToElemId( etTripTypes, dest.triptype, fmt );
+        		if ( fmt == -1 )
+            	throw AstraLocale::UserException( "MSG.CHECK_FLIGHT.INVALID_TYPE" );
+          }
+        }
         else
-          dest.triptype = "п";
+          dest.triptype = DefaultTripType(false);
         node = GetNodeFast( "takeoff", curNode );
         if ( node ) {
         	dest.scd_out = NodeAsDateTime( node );
@@ -2542,11 +2554,11 @@ bool createAirportTrip( string airp, int trip_id, TFilter filter, int offset, TD
 
         if ( OwnDest == NDest ) {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, PriorDest->craft, PriorDest->craft_fmt ); // local format
-          tr.triptype = PriorDest->triptype;
+          tr.triptype = ElemIdToElem(etTripTypes,PriorDest->triptype);
         }
         else {
           tr.owncraft = ElemIdToElemCtxt( ecDisp, etCraft, OwnDest->craft, OwnDest->craft_fmt );
-          tr.triptype = OwnDest->triptype;
+          tr.triptype = ElemIdToElem(etTripTypes,OwnDest->triptype);
         }
         tr.pr_del = OwnDest->pr_del; //!!! неправильно так, надо расчитывать
         /* переводим времена вылета прилета в локальные */ //!!! error tz
@@ -2608,6 +2620,7 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
   string::size_type p = 0, bold_begin = 0, bold_end = 0;
   string str_dests;
   string craft_format;
+  string str_trip_type;
 
   do {
     NDest = &ds.dests[ i ];
@@ -2620,10 +2633,12 @@ bool createAirlineTrip( int trip_id, TFilter &filter, int offset, TDestList &ds,
         tr.crafts += "/";
       tr.crafts += craft_format;
     }
-    if ( tr.triptype.find( NDest->triptype ) == string::npos ) {
+
+    str_trip_type = ElemIdToElem(etTripTypes,NDest->triptype);
+    if ( tr.triptype.find( str_trip_type ) == string::npos ) {
       if ( !tr.triptype.empty() )
         tr.triptype += "/";
-      tr.triptype += NDest->triptype;
+      tr.triptype += str_trip_type;
     }
     //!!!if ( tr.ports.find( NDest->airp ) == string::npos ) {
       if ( !tr.portsForAirline.empty() ) {
@@ -3528,8 +3543,8 @@ ProgTrace( TRACE5, "edit canrange move_id=%d", move_id );
       	        NewTextChild( destNode, "bc", ElemIdToElemCtxt( ecDisp, etCraft, id->craft, id->craft_fmt ) );
       	      if ( !id->litera.empty() )
                 NewTextChild( destNode, "litera", id->litera );
-      	      if ( id->triptype != "п" )
-      	        NewTextChild( destNode, "triptype", id->triptype );
+      	      if ( !isDefaultTripType(id->triptype) )
+      	        NewTextChild( destNode, "triptype", ElemIdToElem(etTripTypes,id->triptype) );
       	      if ( id->scd_out > NoExists ) {
                 f2 = modf( (double)id->scd_out, &f3 );
                 f3 += utcf + fabs( f2 );
@@ -3686,7 +3701,7 @@ void SeasonInterface::convert(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNodeP
   			 if ( !DQry.FieldIsNULL( "litera" ) )
   			 	NewTextChild( d, "litera", DQry.FieldAsString( "litera" ) );
   			 if ( !DQry.FieldIsNULL( "trip_type" ) )
-  			 	NewTextChild( d, "triptype", DQry.FieldAsString( "trip_type" ) );
+  			 	NewTextChild( d, "triptype", ElemIdToElem(etTripTypes,DQry.FieldAsString( "trip_type" )) );
   			 if ( !DQry.FieldIsNULL( "scd_out" ) )
   			 	NewTextChild( d, "takeoff", DateTimeToStr( DQry.FieldAsDateTime( "scd_out" ) ) );
   			 if ( DQry.FieldAsInteger( "f" ) )

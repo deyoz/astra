@@ -2313,17 +2313,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
   if ( Qry.Eof )
   	throw UserException( "MSG.FLIGHT.NOT_FOUND" );
   string airline = Qry.FieldAsString( "airline" );
-  map<string,TCompLayerType> statuses;
-  if ( !pr_exists ) {
-    Qry.Clear();
-    Qry.SQLText =
-      "SELECT code,layer_type FROM grp_status_types";
-    Qry.Execute();
-    while ( !Qry.Eof ) {
-    	statuses[ Qry.FieldAsString( "code" ) ] = DecodeCompLayerType( Qry.FieldAsString( "layer_type" ) );
-    	Qry.Next();
-    }
-  }
+  TGrpStatusTypes &grp_status_types = (TGrpStatusTypes &)base_tables.get("GRP_STATUS_TYPES");
   QryTCkinTrip.SQLText =
     "SELECT airline,flt_no,suffix,scd_out,airline_fmt,suffix_fmt "
     " FROM points, pax_grp, "
@@ -2388,7 +2378,7 @@ bool GetPassengersForWaitList( int point_id, TPassengers &p, bool pr_exists )
     pass.bag_weight = Qry.FieldAsInteger( "bag_weight" );
     pass.bag_amount = Qry.FieldAsInteger( "bag_amount" );
     pass.excess = Qry.FieldAsInteger( "excess" );
-    pass.grp_status = statuses[ Qry.FieldAsString( "status" ) ];
+    pass.grp_status = DecodeCompLayerType(((TGrpStatusTypesRow&)grp_status_types.get_row("code",Qry.FieldAsString( "status" ))).layer_type.c_str());
     pass.pers_type = Qry.FieldAsString( "pers_type" );
     pass.wl_type = Qry.FieldAsString( "wl_type" );
     pass.InUse = ( !pass.placeName.empty() );

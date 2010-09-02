@@ -633,8 +633,9 @@ void TelegramInterface::GetAddrs(XMLRequestCtxt *ctxt, xmlNodePtr reqNode, xmlNo
     info.pr_tranzit=Qry.FieldAsInteger("pr_tranzit")!=0;
 
     //с клиента
+    int fmt;
     info.tlg_type=NodeAsStringFast( "tlg_type", node);
-    info.airp_trfer=NodeAsStringFast( "airp_arv", node, "");
+    info.airp_trfer=ElemToElemId(etAirp,NodeAsStringFast( "airp_arv", node, ""),fmt); //!!!locale30.08.2010
     info.crs=NodeAsStringFast( "crs", node, "");
     info.pr_lat=NodeAsIntegerFast( "pr_lat", node)!=0;
     info.mark_info.init(reqNode);
@@ -1626,31 +1627,31 @@ string TelegramInterface::CreateBSMBody(TBSMContent& con, bool pr_lat)
   bool pr_unaccomp=*(con.OutFlt.subcl)==0;
 
   body << ".V/1L"
-       << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat) << ENDL;
+       << airps.get_row("code",con.OutFlt.airp_dep).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU) << ENDL;
 
 
   body << ".F/"
-       << airlines.get_row("code",con.OutFlt.airline).AsString("code",pr_lat)
+       << airlines.get_row("code",con.OutFlt.airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
        << setw(3) << setfill('0') << con.OutFlt.flt_no
        << convert_suffix(con.OutFlt.suffix,pr_lat) << '/'
        << DateTimeToStr( con.OutFlt.scd, "ddmmm", pr_lat) << '/'
-       << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat);
+       << airps.get_row("code",con.OutFlt.airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
   if (*(con.OutFlt.subcl)!=0)
     body  << '/'
-          << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat);
+          << subcls.get_row("code",con.OutFlt.subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
   body << ENDL;
 
   for(vector<TTransferItem>::iterator i=con.OnwardFlt.begin();i!=con.OnwardFlt.end();i++)
   {
     body << ".O/"
-         << airlines.get_row("code",i->airline).AsString("code",pr_lat)
+         << airlines.get_row("code",i->airline).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU)
          << setw(3) << setfill('0') << i->flt_no
          << convert_suffix(i->suffix,pr_lat) << '/'
          << DateTimeToStr( i->scd, "ddmmm", pr_lat) << '/'
-         << airps.get_row("code",i->airp_arv).AsString("code",pr_lat);
+         << airps.get_row("code",i->airp_arv).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     if (*(i->subcl)!=0)
       body  << '/'
-            << subcls.get_row("code",i->subcl).AsString("code",pr_lat);
+            << subcls.get_row("code",i->subcl).AsString("code",pr_lat?AstraLocale::LANG_EN:AstraLocale::LANG_RU);
     body << ENDL;
   };
 

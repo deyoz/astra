@@ -141,13 +141,12 @@ TSalons::TSalons( int id, TReadStyle vreadStyle )
   modify = mNone;
 	TQuery Qry(&OraSession);
   Qry.SQLText =
-    "SELECT code,DECODE(:lang,'RU',name,NVL(name_lat,name)) name,priority FROM comp_layer_types ORDER BY priority";
-  Qry.CreateVariable( "lang", otString, TReqInfo::Instance()->desk.lang );
+    "SELECT code,priority FROM comp_layer_types ORDER BY priority";
   Qry.Execute();
   while ( !Qry.Eof ) {
   	TCompLayerType l = DecodeCompLayerType( Qry.FieldAsString( "code" ) );
   	if ( l != cltUnknown ) {
-  		layers_priority[ l ].name = Qry.FieldAsString( "name" );
+  		layers_priority[ l ].name = ElemIdToElemName(etCompLayerTypes,Qry.FieldAsString( "code" ));
   	  layers_priority[ l ].priority = Qry.FieldAsInteger( "priority" );
   	}
   	Qry.Next();
@@ -1308,7 +1307,7 @@ void GetCompParams( int comp_id, xmlNodePtr dataNode )
   Qry.SetVariable( "comp_id", comp_id );
   Qry.Execute();
   NewTextChild( dataNode, "trip" );
-  NewTextChild( dataNode, "craft", Qry.FieldAsString( "craft" ) );
+  NewTextChild( dataNode, "craft", ElemIdToElem( etCraft, Qry.FieldAsString( "craft" ) ) );
   NewTextChild( dataNode, "bort", Qry.FieldAsString( "bort" ) );
   NewTextChild( dataNode, "comp_id", comp_id );
   NewTextChild( dataNode, "descr", Qry.FieldAsString( "descr" ) );

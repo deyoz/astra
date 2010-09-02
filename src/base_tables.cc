@@ -60,6 +60,24 @@ TBaseTable &TBaseTables::get(string name)
             base_tables[name] = new TCrafts();
         else if(name == "TRIP_TYPES")
         	  base_tables[name] = new TTripTypes();
+        else if(name == "COMP_ELEM_TYPES")
+        	  base_tables[name] = new TCompElemTypes();
+        else if(name == "GRP_STATUS_TYPES")
+        	  base_tables[name] = new TGrpStatusTypes();
+        else if(name == "CLIENT_TYPES")
+        	  base_tables[name] = new TClientTypes();
+        else if(name == "COMP_LAYER_TYPES")
+        	  base_tables[name] = new TCompLayerTypes();
+        else if(name == "CRS2")
+        	  base_tables[name] = new TCrs2();
+        else if(name == "DEV_MODELS")
+        	  base_tables[name] = new TDevModels();
+        else if(name == "DEV_SESS_TYPES")
+        	  base_tables[name] = new TDevSessTypes();
+        else if(name == "DEV_FMT_TYPES")
+        	  base_tables[name] = new TDevFmtTypes();
+        else if(name == "DEV_OPER_TYPES")
+        	  base_tables[name] = new TDevOperTypes();
         else
             throw Exception("TBaseTables::get_base_table: " + name + " not found");
     }
@@ -73,7 +91,7 @@ void TBaseTable::load_table()
     TQuery Qry(&OraSession);
     if (!pr_init)
     {
-      //ProgTrace(TRACE5,"Qry.SQLText = get_select_sql_text");
+      ProgTrace(TRACE5,"Qry.SQLText = get_select_sql_text=%s",get_select_sql_text() );
       Qry.SQLText = get_select_sql_text();
       create_variables(Qry,false);
     }
@@ -400,6 +418,7 @@ void TPersTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
 {
   *row = new TPersTypesRow;
   ((TPersTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TPersTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   ((TPersTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
   ((TPersTypesRow*)*row)->weight_win=Qry.FieldAsInteger("weight_win");
   ((TPersTypesRow*)*row)->weight_sum=Qry.FieldAsInteger("weight_sum");
@@ -410,6 +429,7 @@ void TGenderTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 {
   *row = new TGenderTypesRow;
   ((TGenderTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TGenderTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   ((TGenderTypesRow*)*row)->pr_inf=Qry.FieldAsInteger("pr_inf")!=0;
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
@@ -426,6 +446,7 @@ void TPaxDocTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
 {
   *row = new TPaxDocTypesRow;
   ((TPaxDocTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TPaxDocTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
@@ -540,6 +561,43 @@ void TTripTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **re
   ((TTripTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
   ((TTripTypesRow*)*row)->pr_reg=Qry.FieldAsInteger("pr_reg");
   TTIDBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TGrpStatusTypesRow;
+  ((TGrpStatusTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TGrpStatusTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  ((TGrpStatusTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TClientTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TClientTypesRow;
+  ((TClientTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TClientTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  ((TClientTypesRow*)*row)->short_name=Qry.FieldAsString("short_name");
+  ((TClientTypesRow*)*row)->short_name_lat=Qry.FieldAsString("short_name_lat");
+  ((TClientTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TCompLayerTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  *row = new TCompLayerTypesRow;
+  ((TCompLayerTypesRow*)*row)->name=Qry.FieldAsString("name");
+  ((TCompLayerTypesRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  ((TCompLayerTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
+void TCodeNameBaseTable::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+  //*row = new TCodeNameBaseTableRow;
+  ((TCodeNameBaseTableRow*)*row)->name=Qry.FieldAsString("name");
+  ((TCodeNameBaseTableRow*)*row)->name_lat=Qry.FieldAsString("name_lat");
+  TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
 
