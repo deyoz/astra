@@ -2187,7 +2187,7 @@ bool CheckInInterface::SavePax(xmlNodePtr termReqNode, xmlNodePtr reqNode, xmlNo
   TReqInfo *reqInfo = TReqInfo::Instance();
 
   map<int,TSegInfo> segs;
-  map<TTicketListKey,TTicketListCtxt> ETInfo;
+  TChangeStatusList ETInfo;
   bool et_processed=false;
 
   bool tckin_version=GetNode("segments",reqNode)!=NULL;
