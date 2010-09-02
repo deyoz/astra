@@ -3638,6 +3638,7 @@ struct TETLPax {
     int cls_grp_id;
     TName name;
     int pnr_id;
+    string crs;
     int pax_id;
     string ticket_no;
     int coupon_no;
@@ -3895,6 +3896,7 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         "    pax.surname, "
         "    pax.name, "
         "    crs_pnr.pnr_id, "
+        "    crs_pnr.crs, "
         "    pax.pax_id, "
         "    pax.ticket_no, "
         "    pax.coupon_no, "
@@ -3933,6 +3935,7 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
         int col_surname = Qry.FieldIndex("surname");
         int col_name = Qry.FieldIndex("name");
         int col_pnr_id = Qry.FieldIndex("pnr_id");
+        int col_crs = Qry.FieldIndex("crs");
         int col_pax_id = Qry.FieldIndex("pax_id");
         int col_ticket_no = Qry.FieldIndex("ticket_no");
         int col_coupon_no = Qry.FieldIndex("coupon_no");
@@ -3946,6 +3949,9 @@ void TETLDest::GetPaxList(TTlgInfo &info,vector<TTlgCompLayer> &complayers)
             pax.name.name = Qry.FieldAsString(col_name);
             if(!Qry.FieldIsNULL(col_pnr_id))
                 pax.pnr_id = Qry.FieldAsInteger(col_pnr_id);
+            pax.crs = Qry.FieldAsString(col_crs);
+            if(not info.crs.empty() and info.crs != pax.crs)
+                continue;
             pax.pax_id = Qry.FieldAsInteger(col_pax_id);
             pax.M.get(info, pax.pax_id);
             if(not info.mark_info.IsNULL() and not(info.mark_info == pax.M.m_flight))
@@ -5613,6 +5619,7 @@ int TelegramInterface::create_tlg(
     };
     if (vbasic_type == "PFS" or
         vbasic_type == "FTL" or
+        vbasic_type == "ETL" or
         vbasic_type == "PRL")
     {
         info.crs = createInfo.crs;
