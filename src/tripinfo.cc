@@ -1592,21 +1592,21 @@ void viewCRSList( int point_id, xmlNodePtr dataNode )
     NewTextChild( node, "pnr_status", Qry.FieldAsString( col_pnr_status ), "" );
     NewTextChild( node, "pnr_priority", Qry.FieldAsString( col_pnr_priority ), "" );
     NewTextChild( node, "full_name", Qry.FieldAsString( col_full_name ) );
-    NewTextChild( node, "pers_type", Qry.FieldAsString( col_pers_type ), EncodePerson(ASTRA::adult) );
-    NewTextChild( node, "class", Qry.FieldAsString( col_class ), EncodeClass(ASTRA::Y) );
-    NewTextChild( node, "subclass", Qry.FieldAsString( col_subclass ) );
+    NewTextChild( node, "pers_type", ElemIdToElem(etPersType,Qry.FieldAsString( col_pers_type )), EncodePerson(ASTRA::adult) );//!!!locale
+    NewTextChild( node, "class", ElemIdToElem(etClass,Qry.FieldAsString( col_class )), EncodeClass(ASTRA::Y) );//!!!locale
+    NewTextChild( node, "subclass", ElemIdToElem(etSubcls,Qry.FieldAsString( col_subclass ) ));//!!!locale
     NewTextChild( node, "seats", Qry.FieldAsInteger( col_seats ), 1 );
-    NewTextChild( node, "target", Qry.FieldAsString( col_target ) );
+    NewTextChild( node, "target", ElemIdToElem(etAirp,Qry.FieldAsString( col_target ) )); //!!!locale
     if (!Qry.FieldIsNULL(col_last_target))
     {
       try
       {
         TAirpsRow &row=(TAirpsRow&)(base_tables.get("airps").get_row("code/code_lat",Qry.FieldAsString( col_last_target )));
-        NewTextChild( node, "last_target", row.code);
+        NewTextChild( node, "last_target", ElemIdToElem(etAirp,row.code)); //!!!locale
       }
       catch(EBaseTableError)
       {
-        NewTextChild( node, "last_target", Qry.FieldAsString( col_last_target ) );
+        NewTextChild( node, "last_target", ElemIdToElem(etAirp,Qry.FieldAsString( col_last_target ) ));//!!!locale
       };
     };
 
