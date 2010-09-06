@@ -38,7 +38,7 @@ enum TCacheFieldType {ftSignedNumber, ftUnsignedNumber, ftDate, ftTime, ftString
 enum TCacheConvertType {ctInteger,ctDouble,ctDateTime,ctString};
 enum TCacheUpdateStatus {usUnmodified, usModified, usInserted, usDeleted};
 enum TCacheQueryType {cqtSelect,cqtRefresh,cqtInsert,cqtUpdate,cqtDelete};
-
+enum TCacheElemCategory {cecNone, cecCode, cecName};
 
 struct TCacheField2 {
     std::string Name;
@@ -58,6 +58,8 @@ struct TCacheField2 {
     int ReferIdent;
     int VarIdx[2];
     int num;
+    TCacheElemCategory ElemCategory;
+    TElemType ElemType;
     TCacheField2()
     {
         Width = 0;
@@ -70,6 +72,7 @@ struct TCacheField2 {
         ReferIdent = -1;
         VarIdx[0] = -1;
         VarIdx[1] = -1;
+        ElemCategory = cecNone;
     }
 };
 

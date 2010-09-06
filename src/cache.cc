@@ -8,11 +8,27 @@
 #include "astra_locale.h"
 #include "tlg/tlg.h"
 #include "astra_service.h"
+#include "term_version.h"
 
 #define NICKNAME "DJEK"
 #include "serverlib/test.h"
 
 const char * CacheFieldTypeS[NumFieldType] = {"NS","NU","D","T","S","B","SL",""};
+
+struct TReferCacheTable
+{
+  const char* CacheCode;
+  TElemType ElemType;
+};
+
+const TReferCacheTable ReferCacheTable[8] = { {"COUNTRIES",  etCountry},
+                                              {"CITIES",     etCity},
+                                              {"AIRLINES",   etAirline},
+                                              {"AIRPS",      etAirp},
+                                              {"CRAFTS",     etCraft},
+                                              {"CLASSES",    etClass},
+                                              {"SUBCLS",     etSubcls},
+                                              {"TRIP_TYPES", etTripTypes} };
 
 using namespace std;
 using namespace EXCEPTIONS;
@@ -129,6 +145,7 @@ bool lf( const TCacheField2 &item1, const TCacheField2 &item2 )
 	return item1.num<item2.num;
 }
 
+
 void TCacheTable::initFields()
 {
     string code = Params[TAG_CODE].Value;
@@ -240,7 +257,9 @@ void TCacheTable::initFields()
 
         FField.ReadOnly = Qry->FieldAsInteger("read_only") != 0;
         FField.ReferCode = Qry->FieldAsString("refer_code");
+        FField.ReferCode = upperc( FField.ReferCode );
         FField.ReferName = Qry->FieldAsString("refer_name");
+        FField.ReferName = upperc( FField.ReferName );
         FField.num = Qry->FieldAsInteger("num");
 
         if (FField.ReferCode.empty() ^ FField.ReferName.empty())
@@ -264,6 +283,43 @@ void TCacheTable::initFields()
         for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
             if(FField.Name == i->Name)
                 throw Exception((string)"Duplicate field name '"+code+"."+FField.Name+"'");
+
+        /* проверим, надо ли переводить содержимое поля в соответствии с LANG */
+        if (FField.ReferName == "CODE/CODE_LAT" ||
+            FField.ReferName == "CODE_LAT/CODE" )
+        {
+          FField.ElemCategory=cecCode;
+          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+            FField.ReferName="CODE";
+        };
+
+        if (FField.ReferName == "NAME/NAME_LAT" ||
+            FField.ReferName == "NAME_LAT/NAME" )
+        {
+          FField.ElemCategory=cecName;
+          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+            FField.ReferName="NAME";
+        };
+
+        if (FField.ReferName == "DESCR/DESCR_LAT" ||
+            FField.ReferName == "DESCR_LAT/DESCR" )
+        {
+          FField.ElemCategory=cecNone;
+          if (!TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+            FField.ReferName="DESCR";
+        };
+
+        if (FField.ElemCategory!=cecNone)
+        {
+          int i=sizeof(ReferCacheTable)/sizeof(ReferCacheTable[0])-1;
+          for(;i>=0;i--)
+            if (ReferCacheTable[i].CacheCode==FField.ReferCode) break;
+          if (i>=0)
+            FField.ElemType=ReferCacheTable[i].ElemType;
+          else
+            FField.ElemCategory=cecNone;
+        };
+
         FFields.push_back(FField);
         Qry->Next();
     }
@@ -397,10 +453,21 @@ bool TCacheTable::refreshData()
 
     // ищем, чтобы все поля, которые описаны в кэше были в запросе
     vector<int> vecFieldIdx;
-    for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++) {
+    for(vector<TCacheField2>::iterator i = FFields.begin(); i != FFields.end(); i++)
+    {
         int FieldIdx = Qry->GetFieldIndex(i->Name);
         if( FieldIdx < 0)
+        {
+          if (i->ElemCategory!=cecNone)
+          {
+            //проверим - поле может быть _VIEW
+            if (i->Name.size()>5 && i->Name.substr(i->Name.size()-5)=="_VIEW")
+              FieldIdx = Qry->GetFieldIndex(i->Name.substr(0,i->Name.size()-5));
+          };
+
+          if( FieldIdx < 0)
             throw Exception("Field '" + code + "." + i->Name + "' not found in select_sql");
+        };
         vecFieldIdx.push_back( FieldIdx );
     }
 
@@ -430,7 +497,17 @@ bool TCacheTable::refreshData()
                   row.cols.push_back( IntToString( (int)(Qry->FieldAsInteger( vecFieldIdx[ j ] ) !=0 ) ) );
                 break;
               default:
-                  row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
+                  if (TReqInfo::Instance()->desk.compatible(CACHE_LATIN_VERSION))
+                  {
+                    switch (i->ElemCategory)
+                    {
+                      case cecCode: row.cols.push_back( ElemIdToElem( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                      case cecName: row.cols.push_back( ElemIdToElemName( i->ElemType, Qry->FieldAsString(vecFieldIdx[ j ]) ) ); break;
+                           default: row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) ); break;
+                    };
+                  }
+                  else
+                    row.cols.push_back( Qry->FieldAsString(vecFieldIdx[ j ]) );
                   break;
             }
         }
