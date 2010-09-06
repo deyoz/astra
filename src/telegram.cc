@@ -1076,6 +1076,7 @@ string TelegramInterface::GetTypeBAddrs( TTypeBAddrInfo &info )
   };
   if (basic_type=="PFS" ||
       basic_type=="PRL" ||
+      basic_type=="ETL" ||
       basic_type=="FTL")
   {
     sql << " AND (crs=:crs OR crs IS NULL AND :crs IS NULL)";
@@ -1210,6 +1211,7 @@ void TelegramInterface::SendTlg( int point_id, vector<string> &tlg_types )
     crsh.push_back("");
     if (basic_type=="PFS" ||
         basic_type=="PRL" ||
+        basic_type=="ETL" ||
         basic_type=="FTL" )
       crsh.insert(crsh.end(),crs.begin(),crs.end());
 
