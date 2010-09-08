@@ -635,6 +635,7 @@ void TGrpStatusTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow
 {
   *row = new TGrpStatusTypesRow;
   ((TGrpStatusTypesRow*)*row)->priority=Qry.FieldAsInteger("priority");
+  ((TGrpStatusTypesRow*)*row)->layer_type=Qry.FieldAsString("layer_type");
   TCodeBaseTable::create_row(Qry,row,replaced_row);
 };
 
