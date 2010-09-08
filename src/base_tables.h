@@ -84,7 +84,7 @@ class TBaseTable {
     };
     virtual TBaseTableRow& get_row(std::string field, std::string value, bool with_deleted=false);
     virtual TBaseTableRow& get_row(std::string field, int value, bool with_deleted=false);
-    virtual void Invalidate();// { pr_actual=false; };
+    virtual void Invalidate() { pr_actual=false; };
 };
 
 class TNameBaseTableRow: public TBaseTableRow { //name, name_lat

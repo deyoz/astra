@@ -86,11 +86,6 @@ TBaseTable &TBaseTables::get(string name)
     return *(base_tables[name]);
 };
 
-void TBaseTable::Invalidate() {
-	ProgTrace( TRACE5, "table_name=%s", get_table_name() );
-	pr_actual=false;
-}
-
 void TBaseTable::load_table()
 {
   if(!pr_init || !pr_actual)
