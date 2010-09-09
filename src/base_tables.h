@@ -745,6 +745,23 @@ class TGraphStages: public TIdBaseTable {
   	};
 };
 
+class TBagNormTypesRow: public TCodeBaseTableRow {
+	public:
+    const char *get_row_name() { return "TBagNormTypesRow"; };
+};
+
+class TBagNormTypes: public TCodeBaseTable {
+  protected:
+    const char *get_table_name() { return "TBagNormTypes"; };
+    void create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row);
+    void Invalidate() {}; //всегда актуальна
+  public:
+  	TBagNormTypes() {
+  		Init( "bag_norm_types" );
+  	};
+};
+
+
 class TBaseTables {
     private:
         typedef std::map<std::string, TBaseTable *> TTables;

@@ -658,5 +658,11 @@ void TGraphStages::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **
   TIdBaseTable::create_row(Qry,row,replaced_row);
 };
 
+void TBagNormTypes::create_row(TQuery &Qry, TBaseTableRow** row, TBaseTableRow **replaced_row)
+{
+	*row = new TBagNormTypesRow;
+	TCodeBaseTable::create_row(Qry,row,replaced_row);
+};
+
 
 TBaseTables base_tables;
