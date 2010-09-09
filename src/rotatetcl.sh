@@ -1,6 +1,6 @@
 #!/bin/ksh -x
 
-LOGFILEBASENAMES="astra  daemon  logairimp  monitor  system  tclmon txtastra"
+LOGFILEBASENAMES="astra  daemon  logairimp  monitor  system  tclmon txtastra internet"
 LOG2MOVE=""
 LASTLOG=3
 ARCHDIR=$HOME/archive/oldlog
